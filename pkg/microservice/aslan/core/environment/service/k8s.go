@@ -185,11 +185,21 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		EnvName:  exitedProd.EnvName,
 		Revision: exitedProd.Render.Revision,
 	})
+	foundServiceVariable := false
 	for _, svc := range curRenderset.ServiceVariables {
 		if svc.ServiceName != args.ServiceName {
 			continue
 		}
+		foundServiceVariable = true
 		svc.OverrideYaml = &template.CustomYaml{YamlContent: args.ServiceRev.VariableYaml}
+	}
+	if !foundServiceVariable {
+		curRenderset.ServiceVariables = append(curRenderset.ServiceVariables, &template.ServiceRender{
+			ServiceName: args.ServiceName,
+			OverrideYaml: &template.CustomYaml{
+				YamlContent: args.ServiceRev.VariableYaml,
+			},
+		})
 	}
 	err = render.CreateK8sHelmRenderSet(curRenderset, k.log)
 	if err != nil {
