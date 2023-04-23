@@ -19,8 +19,9 @@ package jobcontroller
 import (
 	"sync"
 
-	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/pkg/errors"
+
+	"github.com/koderover/zadig/pkg/util/converter"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -190,6 +191,12 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			svcGroups = append(svcGroups, newGroup)
 		}
 		productInfo.Services = svcGroups
+
+		for svcName := range productInfo.ServiceDeployStrategy {
+			if svcName == deployInfo.ServiceName {
+				delete(productInfo.ServiceDeployStrategy, svcName)
+			}
+		}
 
 		err = commonrepo.NewRenderSetColl().Update(curRenderset)
 		if err != nil {
