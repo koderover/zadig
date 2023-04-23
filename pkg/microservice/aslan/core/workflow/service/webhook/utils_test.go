@@ -17,7 +17,7 @@ limitations under the License.
 package webhook
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
