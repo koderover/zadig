@@ -111,9 +111,9 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
 	defer func(jobInfo *JobCtl) {
 		if err := recover(); err != nil {
-			logger.Errorf("job: %s panic: %v", job.Name, err)
-			debug.PrintStack()
 			errMsg := fmt.Sprintf("job: %s panic: %v", job.Name, err)
+			logger.Errorf(errMsg)
+			debug.PrintStack()
 			job.Status = config.StatusFailed
 			job.Error = errMsg
 		}
