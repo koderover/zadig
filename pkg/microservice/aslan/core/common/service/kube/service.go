@@ -186,12 +186,19 @@ func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *z
 }
 
 func (s *Service) DeleteCluster(user string, id string, logger *zap.SugaredLogger) error {
-	_, err := s.coll.Get(id)
+	clusterInfo, err := s.coll.Get(id)
 	if err != nil {
 		return e.ErrDeleteCluster.AddErr(e.ErrClusterNotFound.AddDesc(id))
 	}
 
-	err = RemoveClusterResources(config.HubServerAddress(), id)
+	// Now we only clear the cluster resources when the cluster is using a kubeconfig
+	// This logic is required if the cluster need to be re-applied to Zadig.
+	if clusterInfo.Type == setting.KubeConfigClusterType {
+		err = RemoveClusterResources(config.HubServerAddress(), id)
+		if err != nil {
+			return e.ErrDeleteCluster.AddDesc(err.Error())
+		}
+	}
 
 	err = s.coll.Delete(id)
 	if err != nil {
