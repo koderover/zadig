@@ -115,6 +115,10 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 	cluster.Status = setting.Pending
 	if cluster.Type == setting.KubeConfigClusterType {
 		// since we will always be able to connect with direct connection
+		err := InitializeExternalCluster(config.HubServerAddress(), cluster.ID.Hex())
+		if err != nil {
+			return nil, err
+		}
 		cluster.Status = setting.Normal
 	}
 	if id == setting.LocalClusterID {
@@ -148,15 +152,6 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 		return nil, err
 	}
 	cluster.Token = token
-
-	if cluster.Type == setting.KubeConfigClusterType {
-		err := InitializeExternalCluster(config.HubServerAddress(), cluster.ID.Hex())
-		if err != nil {
-			s.coll.Delete(cluster.ID.Hex())
-			return nil, err
-		}
-		cluster.Status = setting.Normal
-	}
 
 	return cluster, nil
 }
