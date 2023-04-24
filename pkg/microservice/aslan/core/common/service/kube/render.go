@@ -547,6 +547,10 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		latestSvcTemplate = prodSvcTemplate
 	}
 
+	if latestSvcTemplate == nil {
+		return "", 0, nil, fmt.Errorf("failed to find service template for service %s, isProduction %v", option.ServiceName, productInfo.Production)
+	}
+
 	if productInfo.Production {
 		latestSvcTemplate.ServiceVars = setting.ServiceVarWildCard
 	}
