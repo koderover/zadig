@@ -115,6 +115,10 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 	cluster.Status = setting.Pending
 	if cluster.Type == setting.KubeConfigClusterType {
 		// since we will always be able to connect with direct connection
+		err := InitializeExternalCluster(config.HubServerAddress(), cluster.ID.Hex())
+		if err != nil {
+			return nil, err
+		}
 		cluster.Status = setting.Normal
 	}
 	if id == setting.LocalClusterID {
@@ -149,15 +153,6 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 	}
 	cluster.Token = token
 
-	if cluster.Type == setting.KubeConfigClusterType {
-		err := InitializeExternalCluster(config.HubServerAddress(), cluster.ID.Hex())
-		if err != nil {
-			s.coll.Delete(cluster.ID.Hex())
-			return nil, err
-		}
-		cluster.Status = setting.Normal
-	}
-
 	return cluster, nil
 }
 
@@ -191,12 +186,19 @@ func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *z
 }
 
 func (s *Service) DeleteCluster(user string, id string, logger *zap.SugaredLogger) error {
-	_, err := s.coll.Get(id)
+	clusterInfo, err := s.coll.Get(id)
 	if err != nil {
 		return e.ErrDeleteCluster.AddErr(e.ErrClusterNotFound.AddDesc(id))
 	}
 
-	err = RemoveClusterResources(config.HubServerAddress(), id)
+	// Now we only clear the cluster resources when the cluster is using a kubeconfig
+	// This logic is required if the cluster need to be re-applied to Zadig.
+	if clusterInfo.Type == setting.KubeConfigClusterType {
+		err = RemoveClusterResources(config.HubServerAddress(), id)
+		if err != nil {
+			return e.ErrDeleteCluster.AddDesc(err.Error())
+		}
+	}
 
 	err = s.coll.Delete(id)
 	if err != nil {
