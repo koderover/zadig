@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/utils/exec"
 
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 // ExecOptions passed to ExecWithOptions
@@ -48,6 +50,26 @@ type ExecOptions struct {
 // additional parameters to be passed.
 func ExecWithOptions(options ExecOptions) (string, string, bool, error) {
 	return KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), options)
+}
+
+func KubeExecWithRetry(kclient kubernetes.Interface, restConfig *rest.Config, options ExecOptions, retryCount int, retryInterval time.Duration) (string, string, bool, error) {
+	var (
+		stdout, stderr string
+		err            error
+		success        bool
+	)
+
+	for i := 0; i < retryCount; i++ {
+		stdout, stderr, success, err = KubeExec(kclient, restConfig, options)
+		if err != nil {
+			log.Warnf("KubeExecWithRetry: Failed to exec command in pod %s/%s, error: %v", options.Namespace, options.PodName, err)
+			time.Sleep(retryInterval)
+			continue
+		}
+		break
+	}
+
+	return stdout, stderr, success, err
 }
 
 func KubeExec(kclient kubernetes.Interface, restConfig *rest.Config, options ExecOptions) (string, string, bool, error) {
@@ -84,9 +106,9 @@ func KubeExec(kclient kubernetes.Interface, restConfig *rest.Config, options Exe
 
 	if err != nil {
 		if _, ok := err.(exec.ExitError); ok {
-			return "", "", false, nil
+			return "", strings.TrimSpace(stderr.String()), false, nil
 		}
-		return "", "", false, err
+		return "", strings.TrimSpace(stderr.String()), false, err
 	}
 
 	if options.PreserveWhitespace {

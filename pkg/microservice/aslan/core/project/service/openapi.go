@@ -24,10 +24,15 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	envService "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	svcService "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	policyservice "github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func CreateProjectOpenAPI(userID, username string, args *OpenAPICreateProductReq, logger *zap.SugaredLogger) error {
@@ -105,4 +110,190 @@ func CreateProjectOpenAPI(userID, username string, args *OpenAPICreateProductReq
 
 	return CreateProductTemplate(createArgs, logger)
 
+}
+
+func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInitializeProjectReq, logger *zap.SugaredLogger) error {
+
+	// =========================== FIRST STEP: project creation ===============================
+	var rbs []*policyservice.RoleBinding
+	rbs = append(rbs, &policyservice.RoleBinding{
+		Name:   configbase.RoleBindingNameFromUIDAndRole(userID, setting.ProjectAdmin, ""),
+		UID:    userID,
+		Role:   string(setting.ProjectAdmin),
+		Preset: true,
+	})
+
+	if args.IsPublic {
+		rbs = append(rbs, &policyservice.RoleBinding{
+			Name:   configbase.RoleBindingNameFromUIDAndRole("*", setting.ReadOnly, ""),
+			UID:    "*",
+			Role:   string(setting.ReadOnly),
+			Preset: true,
+		})
+	}
+
+	for _, rb := range rbs {
+		err := policyservice.UpdateOrCreateRoleBinding(args.ProjectName, rb, logger)
+		if err != nil {
+			logger.Errorf("failed to create rolebinding %s, err: %s", rb.Name, err)
+			return err
+		}
+	}
+
+	// generate required information to create the project
+	// 1. find all current clusters
+	clusterList := make([]string, 0)
+	clusters, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{})
+	if err != nil {
+		logger.Errorf("failed to find resource list to fill in to the creating project, returning")
+		return err
+	}
+
+	for _, cluster := range clusters {
+		clusterList = append(clusterList, cluster.ID.Hex())
+	}
+
+	feature := new(template.ProductFeature)
+
+	//creating YAML type project
+	feature.BasicFacility = "kubernetes"
+	feature.CreateEnvType = "system"
+	feature.DeployType = "k8s"
+
+	createArgs := &template.Product{
+		ProjectName:    args.ProjectName,
+		ProductName:    args.ProjectKey,
+		CreateTime:     time.Now().Unix(),
+		UpdateBy:       username,
+		Enabled:        true,
+		Description:    args.Description,
+		ClusterIDs:     clusterList,
+		ProductFeature: feature,
+		Public:         args.IsPublic,
+	}
+
+	err = CreateProductTemplate(createArgs, logger)
+	if err != nil {
+		logger.Errorf("failed to create project for initialization, error: %s", err)
+		return err
+	}
+
+	// ============================= SECOND STEP: service creation ===============================
+	for _, service := range args.ServiceList {
+		// create service
+		if service.Source == config.SourceFromYaml {
+			creationArgs := &commonmodels.Service{
+				ProductName: args.ProjectKey,
+				ServiceName: service.ServiceName,
+				Yaml:        service.Yaml,
+				Source:      setting.SourceFromZadig,
+				Type:        setting.K8SDeployType,
+				CreateBy:    username,
+			}
+
+			_, err := svcService.CreateServiceTemplate(username, creationArgs, false, logger)
+			if err != nil {
+				logger.Errorf("failed to create service: %s for project initialization, error: %s", service.ServiceName, err)
+				return err
+			}
+		} else if service.Source == config.SourceFromTemplate {
+			template, err := commonrepo.NewYamlTemplateColl().GetByName(service.TemplateName)
+			if err != nil {
+				logger.Errorf("Failed to find template of name: %s, the error is: %s", service.TemplateName, err)
+				return err
+			}
+			variableYaml, err := service.VariableYaml.FormYamlString()
+			if err != nil {
+				logger.Errorf("Failed to form yaml string for service: %s, the error is: %s", service.ServiceName, err)
+				return err
+			}
+			loadArgs := &svcService.LoadServiceFromYamlTemplateReq{
+				ProjectName:  args.ProjectKey,
+				ServiceName:  service.ServiceName,
+				TemplateID:   template.ID.Hex(),
+				AutoSync:     service.AutoSync,
+				VariableYaml: variableYaml,
+			}
+
+			err = svcService.LoadServiceFromYamlTemplate(username, loadArgs, false, logger)
+			if err != nil {
+				logger.Errorf("failed to create service: %s for project initialization, error: %s", service.ServiceName, err)
+				return err
+			}
+		}
+	}
+
+	// ============================= THIRD STEP: environment creation ===============================
+	serviceMap := make(map[string]*commonmodels.Service)
+
+	allService, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(args.ProjectKey)
+	if err != nil {
+		logger.Errorf("failed to find service list for initialization, error: %s", err)
+		return err
+	}
+
+	for _, service := range allService {
+		serviceMap[service.ServiceName] = service
+	}
+
+	serviceList := make([][]*envService.ProductK8sServiceCreationInfo, 0)
+
+	// first we need to find all the services created before
+	projectInfo, err := templaterepo.NewProductColl().Find(args.ProjectKey)
+	if err != nil {
+		logger.Errorf("failed to find project info for initialization, error: %s", err)
+		return err
+	}
+
+	for _, serviceNameList := range projectInfo.Services {
+		serviceGroup := make([]*envService.ProductK8sServiceCreationInfo, 0)
+
+		for _, serviceName := range serviceNameList {
+			singleService := &envService.ProductK8sServiceCreationInfo{
+				ProductService: &commonmodels.ProductService{
+					ServiceName: serviceMap[serviceName].ServiceName,
+					ProductName: serviceMap[serviceName].ProductName,
+					Type:        serviceMap[serviceName].Type,
+					Revision:    serviceMap[serviceName].Revision,
+				},
+				DeployStrategy: "deploy",
+			}
+
+			singleService.Containers = make([]*commonmodels.Container, 0)
+			for _, c := range serviceMap[serviceName].Containers {
+				container := &commonmodels.Container{
+					Name:      c.Name,
+					Image:     c.Image,
+					ImagePath: c.ImagePath,
+					ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
+				}
+				singleService.Containers = append(singleService.Containers, container)
+				singleService.VariableYaml = serviceMap[serviceName].VariableYaml
+			}
+			serviceGroup = append(serviceGroup, singleService)
+		}
+		serviceList = append(serviceList, serviceGroup)
+	}
+
+	creationArgs := make([]*envService.CreateSingleProductArg, 0)
+	for _, envDef := range args.EnvList {
+		clusterInfo, err := commonrepo.NewK8SClusterColl().FindByName(envDef.ClusterName)
+		if err != nil {
+			logger.Errorf("failed to find a cluster with name: %s, error: %s", envDef.ClusterName, err)
+			return errors.New("failed to find a cluster with name: " + envDef.ClusterName + " to create env: " + envDef.EnvName)
+		}
+		// create env creation args
+		singleCreateArgs := &envService.CreateSingleProductArg{
+			ProductName: args.ProjectKey,
+			Namespace:   envDef.Namespace,
+			ClusterID:   clusterInfo.ID.Hex(),
+			EnvName:     envDef.EnvName,
+			Production:  false,
+			Services:    serviceList,
+		}
+
+		creationArgs = append(creationArgs, singleCreateArgs)
+	}
+
+	return envService.CreateYamlProduct(args.ProjectKey, username, requestID, creationArgs, logger)
 }

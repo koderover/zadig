@@ -25,9 +25,12 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -36,38 +39,59 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type K8sService struct {
 	log *zap.SugaredLogger
 }
 
+type ZadigServiceStatusResp struct {
+	ServiceName string
+	PodStatus   string
+	Ready       string
+	Ingress     []*resource.Ingress
+	Images      []string
+	Workloads   []*commonservice.Workload
+}
+
 // queryServiceStatus query service status
 // If service has pods, service status = pod status (if pod is not running or succeed or failed, service status = unstable)
-// If service doesnt have pods, service status = success (all objects created) or failed (fail to create some objects).
+// If service doesn't have pods, service status = success (all objects created) or failed (fail to create some objects).
 // 正常：StatusRunning or StatusSucceed
 // 错误：StatusError or StatusFailed
-func (k *K8sService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, informer informers.SharedInformerFactory) (string, string, []string) {
+func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory) *ZadigServiceStatusResp {
 	if len(serviceTmpl.Containers) > 0 {
 		// 有容器时，根据pods status判断服务状态
-		return queryPodsStatus(namespace, envName, productName, serviceTmpl.ServiceName, informer, k.log)
+		return queryPodsStatus(productInfo, serviceTmpl.ServiceName, kubeClient, clientset, informer, k.log)
 	}
-
-	return setting.PodSucceeded, setting.PodReady, []string{}
+	return &ZadigServiceStatusResp{
+		ServiceName: serviceTmpl.ServiceName,
+		PodStatus:   setting.PodSucceeded,
+		Ready:       setting.PodReady,
+		Ingress:     nil,
+		Images:      []string{},
+	}
 }
 
 func (k *K8sService) updateService(args *SvcOptArgs) error {
 	svc := &commonmodels.ProductService{
 		ServiceName: args.ServiceName,
 		Type:        args.ServiceType,
-		//Revision:    args.ServiceRev.NextRevision,
-		Revision:   0,
-		Containers: args.ServiceRev.Containers,
+		Revision:    0,
+		Containers:  args.ServiceRev.Containers,
 	}
 
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
@@ -161,23 +185,27 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		EnvName:  exitedProd.EnvName,
 		Revision: exitedProd.Render.Revision,
 	})
+	foundServiceVariable := false
 	for _, svc := range curRenderset.ServiceVariables {
 		if svc.ServiceName != args.ServiceName {
 			continue
 		}
+		foundServiceVariable = true
 		svc.OverrideYaml = &template.CustomYaml{YamlContent: args.ServiceRev.VariableYaml}
 	}
-	err = commonservice.CreateK8sHelmRenderSet(curRenderset, k.log)
+	if !foundServiceVariable {
+		curRenderset.ServiceVariables = append(curRenderset.ServiceVariables, &template.ServiceRender{
+			ServiceName: args.ServiceName,
+			OverrideYaml: &template.CustomYaml{
+				YamlContent: args.ServiceRev.VariableYaml,
+			},
+		})
+	}
+	err = render.CreateK8sHelmRenderSet(curRenderset, k.log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to craete renderset, err: %s", err))
 	}
 
-	//// generate new renderset
-	//newRender, err := commonservice.ValidateRenderSet(args.ProductName, exitedProd.Render.Name, exitedProd.EnvName, serviceInfo, k.log)
-	//if err != nil {
-	//	k.log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
-	//	return e.ErrUpdateProduct.AddDesc(err.Error())
-	//}
 	preRevision := exitedProd.Render
 	exitedProd.Render = &commonmodels.RenderInfo{Name: curRenderset.Name, Revision: curRenderset.Revision, ProductTmpl: curRenderset.ProductTmpl}
 
@@ -185,7 +213,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		exitedProd,
 		svc,
 		currentProductSvc,
-		curRenderset, preRevision, inf, kubeClient, istioClient, k.log)
+		curRenderset, preRevision, true, inf, kubeClient, istioClient, k.log)
 
 	// 如果创建依赖服务组有返回错误, 停止等待
 	if err != nil {
@@ -221,6 +249,56 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	var resp []*commonservice.ServiceResp
 	var mutex sync.RWMutex
 
+	svcNameSet := sets.NewString()
+	for _, svc := range allServices {
+		svcNameSet.Insert(svc.ServiceName)
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("failed to kubeClient, err: %s", err)
+		return nil
+	}
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("failed to init client set, err: %s", err)
+		return nil
+	}
+
+	hostInfos := make([]resource.HostInfo, 0)
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", productInfo.ClusterID, err)
+		return nil
+	}
+	if kubeclient.VersionLessThan122(version) {
+		ingresses, err := getter.ListExtensionsV1Beta1Ingresses(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+			}
+		} else {
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
+		}
+	} else {
+		ingresses, err := getter.ListNetworkingV1Ingress(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.GetIngressHostInfo(ingress)...)
+			}
+		} else {
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
+		}
+	}
+
+	// get all services
+	k8sServices, err := getter.ListServicesWithCache(nil, informer)
+	if err != nil {
+		log.Errorf("[%s][%s] list service error: %s", envName, productInfo.Namespace, err)
+		return nil
+	}
+
 	for _, service := range allServices {
 		wg.Add(1)
 		go func(service *commonmodels.ProductService) {
@@ -230,9 +308,12 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				Type:        service.Type,
 				EnvName:     envName,
 			}
-			serviceTmpl, err := commonservice.GetServiceTemplate(
-				service.ServiceName, setting.K8SDeployType, service.ProductName, "", service.Revision, k.log,
-			)
+			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: service.ServiceName,
+				Revision:    service.Revision,
+				ProductName: service.ProductName,
+			}, productInfo.Production)
+
 			if err != nil {
 				gp.Status = setting.PodFailed
 				mutex.Lock()
@@ -244,17 +325,25 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 			gp.ProductName = serviceTmpl.ProductName
 			// 查询group下所有pods信息
 			if informer != nil {
-				gp.Status, gp.Ready, gp.Images = k.queryServiceStatus(productInfo.Namespace, envName, productName, serviceTmpl, informer)
+				statusResp := k.queryServiceStatus(serviceTmpl, productInfo, kubeClient, cls, informer)
+				gp.Status, gp.Ready, gp.Images = statusResp.PodStatus, statusResp.Ready, statusResp.Images
 				// 如果产品正在创建中，且service status为ERROR（POD还没创建出来），则判断为Pending，尚未开始创建
 				if productInfo.Status == setting.ProductStatusCreating && gp.Status == setting.PodError {
 					gp.Status = setting.PodPending
 				}
+
+				hostInfo := make([]resource.HostInfo, 0)
+				for _, workload := range statusResp.Workloads {
+					hostInfo = append(hostInfo, commonservice.FindServiceFromIngress(hostInfos, workload, k8sServices)...)
+				}
+				gp.Ingress = &commonservice.IngressInfo{
+					HostInfo: hostInfo,
+				}
+
 			} else {
 				gp.Status = setting.ClusterUnknown
 			}
 
-			//处理ingress信息
-			gp.Ingress = GetIngressInfo(productInfo, serviceTmpl, k.log)
 			mutex.Lock()
 			resp = append(resp, gp)
 			mutex.Unlock()
@@ -269,6 +358,54 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	return resp
 }
 
+func fetchWorkloadImages(productService *commonmodels.ProductService, product *commonmodels.Product, renderSet *commonmodels.RenderSet, kubeClient client.Client) ([]*commonmodels.Container, error) {
+	rederedYaml, err := kube.RenderEnvService(product, renderSet, productService)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render env service yaml for service: %s, err: %s", productService.ServiceName, err)
+	}
+	manifests := releaseutil.SplitManifests(rederedYaml)
+	namespace := product.Namespace
+
+	containers := make([]*resource.ContainerImage, 0)
+	retMap := make(map[string]*commonmodels.Container)
+
+	for _, manifest := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(manifest))
+		if err != nil {
+			log.Errorf("failed to convert yaml to Unstructured when check resources, manifest is\n%s\n, error: %v", manifest, err)
+			continue
+		}
+		if u.GetKind() == setting.Deployment {
+			deployment, exist, err := getter.GetDeployment(namespace, u.GetName(), kubeClient)
+			if err != nil || !exist {
+				log.Errorf("failed to find deployment with name: %s", u.GetName())
+				continue
+			}
+			containers = append(containers, wrapper.Deployment(deployment).GetContainers()...)
+		} else if u.GetKind() == setting.StatefulSet {
+			sts, exist, err := getter.GetStatefulSet(namespace, u.GetName(), kubeClient)
+			if err != nil || !exist {
+				log.Errorf("failed to find sts with name: %s", u.GetName())
+				continue
+			}
+			containers = append(containers, wrapper.StatefulSet(sts).GetContainers()...)
+		}
+	}
+
+	for _, container := range containers {
+		retMap[container.Name] = &commonmodels.Container{
+			Name:      container.Name,
+			Image:     container.Image,
+			ImageName: container.ImageName,
+		}
+	}
+	ret := make([]*commonmodels.Container, 0)
+	for _, container := range retMap {
+		ret = append(ret, container)
+	}
+	return ret, nil
+}
+
 func (k *K8sService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {
 	envName, productName := product.EnvName, product.ProductName
 	k.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
@@ -281,7 +418,6 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 			for i, err := range es {
 				points[i] = fmt.Sprintf("%v", err)
 			}
-
 			return strings.Join(points, "\n")
 		},
 	}
@@ -307,16 +443,20 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 	var resources []*unstructured.Unstructured
 
 	for i := range group {
-		// 只有在service有Pod的时候，才需要等待pod running或者等待pod succeed
-		// 比如在group中，如果service下仅有configmap/service/ingress这些yaml的时候，不需要waitServicesRunning
 		if !commonutil.ServiceDeployed(group[i].ServiceName, product.ServiceDeployStrategy) {
+			// services are only imported, we do not deploy them again, but we need to fetch the images
+			containers, err := fetchWorkloadImages(group[i], product, renderSet, kubeClient)
+			if err != nil {
+				return fmt.Errorf("failed to fetch related containers: %s", err)
+			}
+			group[i].Containers = containers
 			continue
 		}
 		wg.Add(1)
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			items, err := upsertService(prod, svc, nil, renderSet, nil, informer, kubeClient, istioClient, k.log)
+			items, err := upsertService(prod, svc, nil, renderSet, nil, true, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {

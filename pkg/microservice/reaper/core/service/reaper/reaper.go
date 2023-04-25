@@ -29,9 +29,10 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/tool/sonar"
-	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
@@ -248,6 +249,11 @@ func (r *Reaper) BeforeExec() error {
 	}
 
 	if r.Ctx.GinkgoTest != nil && len(r.Ctx.GinkgoTest.ResultPath) > 0 {
+		r.Ctx.GinkgoTest.ResultPath = r.replaceEnvWithValue(r.Ctx.GinkgoTest.ResultPath)
+		r.Ctx.GinkgoTest.TestReportPath = r.replaceEnvWithValue(r.Ctx.GinkgoTest.TestReportPath)
+		for i, artifactPath := range r.Ctx.GinkgoTest.ArtifactPaths {
+			r.Ctx.GinkgoTest.ArtifactPaths[i] = r.replaceEnvWithValue(artifactPath)
+		}
 		r.Ctx.GinkgoTest.ResultPath = filepath.Join(r.ActiveWorkspace, r.Ctx.GinkgoTest.ResultPath)
 		if err := os.RemoveAll(r.Ctx.GinkgoTest.ResultPath); err != nil {
 			log.Warning(err.Error())
@@ -312,6 +318,10 @@ func (r *Reaper) runDockerBuild() error {
 	if r.Ctx.DockerBuildCtx == nil {
 		return nil
 	}
+
+	r.Ctx.DockerBuildCtx.DockerFile = r.replaceEnvWithValue(r.Ctx.DockerBuildCtx.DockerFile)
+	r.Ctx.DockerBuildCtx.BuildArgs = r.replaceEnvWithValue(r.Ctx.DockerBuildCtx.BuildArgs)
+	r.Ctx.DockerBuildCtx.WorkDir = r.replaceEnvWithValue(r.Ctx.DockerBuildCtx.WorkDir)
 
 	log.Info("Preparing Dockerfile.")
 	startTimePrepareDockerfile := time.Now()
@@ -502,6 +512,8 @@ func (r *Reaper) AfterExec() error {
 	}
 
 	if r.Ctx.UploadEnabled {
+		start := time.Now()
+
 		forcedPathStyle := true
 		if r.Ctx.UploadStorageInfo.Provider == setting.ProviderSourceAli {
 			forcedPathStyle = false
@@ -511,6 +523,10 @@ func (r *Reaper) AfterExec() error {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 		}
 		for _, upload := range r.Ctx.UploadInfo {
+			upload.AbsFilePath = r.replaceEnvWithValue(upload.AbsFilePath)
+			upload.DestinationPath = r.replaceEnvWithValue(upload.DestinationPath)
+
+			log.Infof("Start archive %s.", upload.FilePath)
 			info, err := os.Stat(upload.AbsFilePath)
 			if err != nil {
 				return fmt.Errorf("failed to upload file path [%s] to destination [%s], the error is: %s", upload.AbsFilePath, upload.DestinationPath, err)
@@ -531,6 +547,7 @@ func (r *Reaper) AfterExec() error {
 				}
 			}
 		}
+		log.Infof("Archive ended. Duration: %.2f seconds", time.Since(start).Seconds())
 	}
 
 	if r.Ctx.ArtifactPath != "" {
@@ -622,4 +639,18 @@ func (r *Reaper) renderUserEnv(raw string) string {
 	}
 
 	return os.Expand(raw, mapper)
+}
+
+func (r *Reaper) replaceEnvWithValue(str string) string {
+	ret := str
+	// Exec twice to render nested variables
+	for i := 0; i < 2; i++ {
+		for key, value := range r.UserEnvs {
+			strKey := fmt.Sprintf("$%s", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
+			strKey = fmt.Sprintf("${%s}", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
+		}
+	}
+	return ret
 }

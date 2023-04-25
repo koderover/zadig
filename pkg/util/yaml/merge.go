@@ -47,6 +47,17 @@ func Merge(yamls [][]byte) ([]byte, error) {
 	return yaml.Marshal(m)
 }
 
+func CleanMerge(yamls [][]byte) ([]byte, error) {
+	m, err := MergeAndUnmarshal(yamls)
+	if err != nil {
+		return nil, err
+	}
+	if len(m) == 0 {
+		return []byte(""), err
+	}
+	return yaml.Marshal(m)
+}
+
 func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	out := make(map[string]interface{}, len(a))
 	for k, v := range a {

@@ -28,6 +28,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
@@ -68,8 +69,9 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 		envs = append(envs, item.OldName)
 	}
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name:   projectName,
-		InEnvs: envs,
+		Name:       projectName,
+		InEnvs:     envs,
+		Production: util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return err
@@ -120,8 +122,9 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 		envs = append(envs, item.OldName)
 	}
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name:   projectName,
-		InEnvs: envs,
+		Name:       projectName,
+		InEnvs:     envs,
+		Production: util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return err
@@ -171,7 +174,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 				}
 			}
 
-			err = commonservice.ForceCreateReaderSet(&newRenderset, log)
+			err = render.ForceCreateReaderSet(&newRenderset, log)
 			if err != nil {
 				return err
 			}
@@ -328,7 +331,7 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 
 	// insert renderset info into db
 	if len(productInfo.ServiceRenders) > 0 {
-		err := commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+		err := render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 			Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 			EnvName:       arg.EnvName,
 			ProductTmpl:   arg.ProductName,

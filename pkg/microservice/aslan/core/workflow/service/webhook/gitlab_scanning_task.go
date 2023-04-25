@@ -17,6 +17,8 @@ limitations under the License.
 package webhook
 
 import (
+	"regexp"
+
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 
@@ -73,7 +75,20 @@ func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, 
 					}
 
 					triggerRepoInfo := make([]*scanningservice.ScanningRepoInfo, 0)
-					// for now only one repo is supported
+					for _, scanningRepo := range scanning.Repos {
+						// if this is the triggering repo, we simply skip it and add it later with correct info
+						if scanningRepo.CodehostID == item.CodehostID && scanningRepo.RepoOwner == item.RepoOwner && scanningRepo.RepoName == item.RepoName {
+							continue
+						}
+						triggerRepoInfo = append(triggerRepoInfo, &scanningservice.ScanningRepoInfo{
+							CodehostID: scanningRepo.CodehostID,
+							Source:     scanningRepo.Source,
+							RepoOwner:  scanningRepo.RepoOwner,
+							RepoName:   scanningRepo.RepoName,
+							Branch:     scanningRepo.Branch,
+						})
+					}
+
 					repoInfo := &scanningservice.ScanningRepoInfo{
 						CodehostID: item.CodehostID,
 						Source:     item.Source,
@@ -186,6 +201,18 @@ func (gmem *gitlabMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHo
 		matchRepo := ConvertScanningHookToMainHookRepo(hookRepo)
 		if !EventConfigured(matchRepo, config.HookEventPr) {
 			return false, nil
+		}
+
+		isRegExp := matchRepo.IsRegular
+
+		if !isRegExp {
+			if ev.ObjectAttributes.TargetBranch != hookRepo.Branch {
+				return false, nil
+			}
+		} else {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
+				return false, nil
+			}
 		}
 
 		hookRepo.Branch = ev.ObjectAttributes.TargetBranch

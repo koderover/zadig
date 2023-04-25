@@ -35,9 +35,10 @@ import (
 )
 
 type ProductFindOptions struct {
-	Name      string
-	EnvName   string
-	Namespace string
+	Name       string
+	EnvName    string
+	Namespace  string
+	Production *bool
 }
 
 // ClusterId is a primitive.ObjectID{}.Hex()
@@ -60,6 +61,8 @@ type ProductListOptions struct {
 	ShareEnvEnable  *bool
 	ShareEnvIsBase  *bool
 	ShareEnvBaseEnv *string
+
+	Production *bool
 }
 
 type projectEnvs struct {
@@ -142,6 +145,13 @@ func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 	}
 	if opt.Namespace != "" {
 		query["namespace"] = opt.Namespace
+	}
+	if opt.Production != nil {
+		if *opt.Production {
+			query["production"] = true
+		} else {
+			query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
+		}
 	}
 
 	err := c.FindOne(context.TODO(), query).Decode(res)
@@ -251,6 +261,13 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	}
 	if opt.ShareEnvBaseEnv != nil {
 		query["share_env.base_env"] = *opt.ShareEnvBaseEnv
+	}
+	if opt.Production != nil {
+		if *opt.Production {
+			query["production"] = true
+		} else {
+			query["$or"] = []bson.M{{"production": bson.M{"$eq": false}}, {"production": bson.M{"$exists": false}}}
+		}
 	}
 
 	ctx := context.Background()
@@ -443,6 +460,17 @@ func (c *ProductColl) UpdateProductRecycleDay(envName, productName string, recyc
 	return err
 }
 
+func (c *ProductColl) UpdateProductAlias(envName, productName, alias string) error {
+	query := bson.M{"env_name": envName, "product_name": productName}
+
+	change := bson.M{"$set": bson.M{
+		"alias": alias,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+
+	return err
+}
+
 func (c *ProductColl) UpdateIsPublic(envName, productName string, isPublic bool) error {
 	query := bson.M{"env_name": envName, "product_name": productName}
 	change := bson.M{"$set": bson.M{
@@ -487,13 +515,39 @@ type nsObject struct {
 	Namespace string             `bson:"namespace"`
 }
 
-func (c *ProductColl) ListExistedNamespace() ([]string, error) {
+func (c *ProductColl) ListExistedNamespace(clusterID string) ([]string, error) {
 	nsList := make([]*nsObject, 0)
 	resp := sets.NewString()
 	selector := bson.D{
 		{"namespace", 1},
 	}
 	query := bson.M{"is_existed": true}
+	if clusterID != "" {
+		query["cluster_id"] = clusterID
+	}
+	opt := options.Find()
+	opt.SetProjection(selector)
+	cursor, err := c.Collection.Find(context.TODO(), query, opt)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &nsList)
+	if err != nil {
+		return nil, err
+	}
+	for _, obj := range nsList {
+		resp.Insert(obj.Namespace)
+	}
+	return resp.List(), nil
+}
+
+func (c *ProductColl) ListProductionNamespace(clusterID string) ([]string, error) {
+	nsList := make([]*nsObject, 0)
+	resp := sets.NewString()
+	selector := bson.D{
+		{"namespace", 1},
+	}
+	query := bson.M{"production": true, "cluster_id": clusterID}
 	opt := options.Find()
 	opt.SetProjection(selector)
 	cursor, err := c.Collection.Find(context.TODO(), query, opt)

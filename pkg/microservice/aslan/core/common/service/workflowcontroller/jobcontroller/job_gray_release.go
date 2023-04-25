@@ -17,12 +17,14 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -168,7 +170,7 @@ func (c *GrayReleaseJobCtl) Run(ctx context.Context) {
 		c.jobTaskSpec.Events.Info(fmt.Sprintf("deployment: %s image set to %s", c.jobTaskSpec.WorkloadName, c.jobTaskSpec.Image))
 		c.ack()
 
-		if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, c.jobTaskSpec.GrayWorkloadName, c.kubeClient); err != nil {
+		if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, c.jobTaskSpec.GrayWorkloadName, time.Duration(c.timeout())*time.Second, c.kubeClient); err != nil {
 			msg := fmt.Sprintf("delete gray deployment %s error: %v", c.jobTaskSpec.GrayWorkloadName, err)
 			logError(c.job, msg, c.logger)
 			c.jobTaskSpec.Events.Error(msg)
@@ -219,4 +221,18 @@ func (c *GrayReleaseJobCtl) timeout() int64 {
 		c.jobTaskSpec.DeployTimeout = c.jobTaskSpec.DeployTimeout * 60
 	}
 	return c.jobTaskSpec.DeployTimeout
+}
+
+func (c *GrayReleaseJobCtl) SaveInfo(ctx context.Context) error {
+	return mongodb.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
+		Type:                c.job.JobType,
+		WorkflowName:        c.workflowCtx.WorkflowName,
+		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
+		TaskID:              c.workflowCtx.TaskID,
+		ProductName:         c.workflowCtx.ProjectName,
+		StartTime:           c.job.StartTime,
+		EndTime:             c.job.EndTime,
+		Duration:            c.job.EndTime - c.job.StartTime,
+		Status:              string(c.job.Status),
+	})
 }

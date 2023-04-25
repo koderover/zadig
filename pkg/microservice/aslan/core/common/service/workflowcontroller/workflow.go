@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -108,6 +108,11 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 	return fmt.Errorf("cancel func type mismatched, id: %d, workflow name: %s", taskID, workflowName)
 }
 
+func (c *workflowCtl) setWorkflowStatus(status config.Status) {
+	c.workflowTask.Status = status
+	c.ack()
+}
+
 func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	if c.workflowTask.GlobalContext == nil {
 		c.workflowTask.GlobalContext = make(map[string]string)
@@ -115,6 +120,10 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	if c.workflowTask.ClusterIDMap == nil {
 		c.workflowTask.ClusterIDMap = make(map[string]bool)
 	}
+
+	addWorkflowTaskInMap(c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask, c.ack)
+	defer removeWorkflowTaskInMap(c.workflowTask.WorkflowName, c.workflowTask.TaskID)
+
 	c.workflowTask.Status = config.StatusRunning
 	c.workflowTask.StartTime = time.Now().Unix()
 	c.ack()
@@ -133,21 +142,23 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	defer cancelChannelMap.Delete(cancelKey)
 
 	workflowCtx := &commonmodels.WorkflowTaskCtx{
-		WorkflowName:              c.workflowTask.WorkflowName,
-		WorkflowDisplayName:       c.workflowTask.WorkflowDisplayName,
-		ProjectName:               c.workflowTask.ProjectName,
-		TaskID:                    c.workflowTask.TaskID,
-		WorkflowTaskCreatorMobile: c.workflowTask.TaskCreatorPhone,
-		WorkflowTaskCreatorEmail:  c.workflowTask.TaskCreatorEmail,
-		Workspace:                 "/workspace",
-		DistDir:                   fmt.Sprintf("%s/%s/dist/%d", config.S3StoragePath(), c.workflowTask.WorkflowName, c.workflowTask.TaskID),
-		DockerMountDir:            fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewV4(), time.Now().Unix()),
-		ConfigMapMountDir:         fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewV4(), time.Now().Unix()),
-		WorkflowKeyVals:           c.workflowTask.KeyVals,
-		GlobalContextGet:          c.getGlobalContext,
-		GlobalContextSet:          c.setGlobalContext,
-		GlobalContextEach:         c.globalContextEach,
-		ClusterIDAdd:              c.addCluterID,
+		WorkflowName:                c.workflowTask.WorkflowName,
+		WorkflowDisplayName:         c.workflowTask.WorkflowDisplayName,
+		ProjectName:                 c.workflowTask.ProjectName,
+		TaskID:                      c.workflowTask.TaskID,
+		WorkflowTaskCreatorUsername: c.workflowTask.TaskCreator,
+		WorkflowTaskCreatorMobile:   c.workflowTask.TaskCreatorPhone,
+		WorkflowTaskCreatorEmail:    c.workflowTask.TaskCreatorEmail,
+		Workspace:                   "/workspace",
+		DistDir:                     fmt.Sprintf("%s/%s/dist/%d", config.S3StoragePath(), c.workflowTask.WorkflowName, c.workflowTask.TaskID),
+		DockerMountDir:              fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewString(), time.Now().Unix()),
+		ConfigMapMountDir:           fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewString(), time.Now().Unix()),
+		WorkflowKeyVals:             c.workflowTask.KeyVals,
+		GlobalContextGet:            c.getGlobalContext,
+		GlobalContextSet:            c.setGlobalContext,
+		GlobalContextEach:           c.globalContextEach,
+		ClusterIDAdd:                c.addCluterID,
+		SetStatus:                   c.setWorkflowStatus,
 	}
 	defer jobcontroller.CleanWorkflowJobs(ctx, c.workflowTask, workflowCtx, c.logger, c.ack)
 	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(c.workflowTask, c.logger); err != nil {
@@ -268,6 +279,11 @@ func (c *workflowCtl) CleanShareStorage() {
 			c.logger.Errorf("can't init k8s client: %v", err)
 			continue
 		}
+		kubeApiServer, err := kubeclient.GetKubeAPIReader(config.HubServerAddress(), clusterID)
+		if err != nil {
+			c.logger.Errorf("can't init k8s api reader: %v", err)
+			continue
+		}
 		job, err := jobcontroller.BuildCleanJob(cleanJobName, clusterID, c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 		if err != nil {
 			c.logger.Errorf("build clean job error: %v", err)
@@ -283,7 +299,7 @@ func (c *workflowCtl) CleanShareStorage() {
 				c.logger.Errorf("delete job error: %v", err)
 			}
 		}(kubeClient, cleanJobName, namespace)
-		status := jobcontroller.WaitPlainJobEnd(context.Background(), 10, namespace, cleanJobName, kubeClient, c.logger)
+		status := jobcontroller.WaitPlainJobEnd(context.Background(), 10, namespace, cleanJobName, kubeClient, kubeApiServer, c.logger)
 		c.logger.Infof("clean job %s finished, status: %s", cleanJobName, status)
 	}
 }

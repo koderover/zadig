@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	goerrors "github.com/pkg/errors"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -52,6 +54,7 @@ type BuildResp struct {
 type ServiceModuleAndBuildResp struct {
 	ServiceName   string       `json:"service_name"`
 	ServiceModule string       `json:"service_module"`
+	ImageName     string       `json:"image_name"`
 	ModuleBuilds  []*BuildResp `json:"module_builds"`
 }
 
@@ -120,10 +123,38 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 	return resp, nil
 }
 
-func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJenkins bool, log *zap.SugaredLogger) ([]*ServiceModuleAndBuildResp, error) {
+// ListBuildModulesByServiceModule returns the service modules and build modules for services
+// services maybe the services with the latest revision or non-production services currently used in particular environment
+func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, excludeJenkins, updateServiceRevision bool, log *zap.SugaredLogger) ([]*ServiceModuleAndBuildResp, error) {
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
 		return nil, e.ErrListBuildModule.AddErr(err)
+	}
+	svcMap := make(map[string]*commonmodels.Service)
+	for _, svc := range services {
+		svcMap[svc.ServiceName] = svc
+	}
+
+	// if environment name is appointed, should use the services used in environment
+	if len(envName) > 0 {
+		productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+		if err != nil {
+			return nil, goerrors.Wrapf(err, "failed to find product: %s/%s", productName, envName)
+		}
+		prodUsedSvs, err := commonservice.GetProductUsedTemplateSvcs(productInfo)
+		if err != nil {
+			return nil, goerrors.Wrapf(err, "failed to get product used template services: %s/%s", productName, envName)
+		}
+		for _, svc := range prodUsedSvs {
+			_, exist := svcMap[svc.ServiceName]
+			if !updateServiceRevision || !exist {
+				svcMap[svc.ServiceName] = svc
+			}
+		}
+		services = make([]*commonmodels.Service, 0, len(svcMap))
+		for _, svc := range svcMap {
+			services = append(services, svc)
+		}
 	}
 
 	serviceModuleAndBuildResp := make([]*ServiceModuleAndBuildResp, 0)
@@ -202,6 +233,7 @@ func ListBuildModulesByServiceModule(encryptedKey, productName string, excludeJe
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
 				ServiceName:   serviceTmpl.ServiceName,
 				ServiceModule: container.Name,
+				ImageName:     container.ImageName,
 				ModuleBuilds:  resp,
 			})
 		}
@@ -289,20 +321,32 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	return nil
 }
 
+// TODO how about this situation? multiple builds bound with same service
 func updateCvmService(currentBuild, oldBuild *commonmodels.Build) error {
-	deleteServices := sets.NewString()
+	modifiedSvcBuildMap := make(map[string]string)
+
 	currentServiceModuleKey := sets.NewString()
+	oldServiceModuleKey := sets.NewString()
 	for _, currentServiceModule := range currentBuild.Targets {
 		currentServiceModuleKey.Insert(fmt.Sprintf("%s-%s-%s", currentServiceModule.ProductName, currentServiceModule.ServiceName, currentServiceModule.ServiceModule))
+	}
+	for _, oldServiceModule := range oldBuild.Targets {
+		oldServiceModuleKey.Insert(fmt.Sprintf("%s-%s-%s", oldServiceModule.ProductName, oldServiceModule.ServiceName, oldServiceModule.ServiceModule))
 	}
 
 	for _, oldServiceModule := range oldBuild.Targets {
 		if !currentServiceModuleKey.Has(fmt.Sprintf("%s-%s-%s", oldServiceModule.ProductName, oldServiceModule.ServiceName, oldServiceModule.ServiceModule)) {
-			deleteServices.Insert(oldServiceModule.ServiceName)
+			modifiedSvcBuildMap[oldServiceModule.ServiceName] = ""
 		}
 	}
 
-	for _, serviceName := range deleteServices.List() {
+	for _, newSvcModule := range currentBuild.Targets {
+		if !oldServiceModuleKey.Has(fmt.Sprintf("%s-%s-%s", newSvcModule.ProductName, newSvcModule.ServiceName, newSvcModule.ServiceModule)) {
+			modifiedSvcBuildMap[newSvcModule.ServiceName] = currentBuild.Name
+		}
+	}
+
+	for serviceName, buildName := range modifiedSvcBuildMap {
 		opt := &commonrepo.ServiceFindOption{
 			ServiceName:   serviceName,
 			Type:          setting.PMDeployType,
@@ -326,7 +370,7 @@ func updateCvmService(currentBuild, oldBuild *commonmodels.Build) error {
 			log.Errorf("failed to delete service %s, error: %s", resp.ServiceName, err)
 			return err
 		}
-		resp.BuildName = ""
+		resp.BuildName = buildName
 		if err := commonrepo.NewServiceColl().Create(resp); err != nil {
 			log.Errorf("failed to delete service %s, error: %s", resp.ServiceName, err)
 			return err

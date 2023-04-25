@@ -17,12 +17,14 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sort"
 	"time"
 
 	"github.com/jinzhu/now"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -36,14 +38,15 @@ import (
 )
 
 func GetAllPipelineTask(log *zap.SugaredLogger) error {
-	option := &commonmongodb.ListAllTaskOption{Type: config.WorkflowType}
 	count, err := mongodb.NewBuildStatColl().FindCount()
 	if err != nil {
 		log.Errorf("BuildStat FindCount err:%v", err)
 		return fmt.Errorf("BuildStat FindCount err:%v", err)
 	}
+	var createTime int64
+
 	if count > 0 {
-		option.CreateTime = time.Now().AddDate(0, 0, -1).Unix()
+		createTime = time.Now().AddDate(0, 0, -1).Unix()
 	}
 	//获取所有的项目名称
 	allProducts, err := templaterepo.NewProductColl().List()
@@ -52,51 +55,51 @@ func GetAllPipelineTask(log *zap.SugaredLogger) error {
 		return fmt.Errorf("BuildStat ProductTmpl List err:%v", err)
 	}
 	for _, product := range allProducts {
-		option.ProductNames = []string{product.ProductName}
-		allTasks, err := commonmongodb.NewTaskColl().ListAllTasks(option)
+		buildStats, err := GetBuildStatByProdutName(product.ProductName, createTime, log)
 		if err != nil {
-			log.Errorf("pipeline list err:%v", err)
-			return fmt.Errorf("pipeline list err:%v", err)
+			log.Errorf("list workflow build stat err: %v", err)
+			return fmt.Errorf("list workflow build stat err: %v", err)
 		}
-		taskDateMap := make(map[string][]*taskmodels.Task)
-		if len(allTasks) > 0 {
-			//将task的时间戳转成日期，以日期为单位分组
-			for _, task := range allTasks {
-				time := time.Unix(task.CreateTime, 0)
-				date := time.Format(config.Date)
-				if _, isExist := taskDateMap[date]; isExist {
-					taskDateMap[date] = append(taskDateMap[date], task)
-				} else {
-					tasks := make([]*taskmodels.Task, 0)
-					tasks = append(tasks, task)
-					taskDateMap[date] = tasks
+		for _, buildStat := range buildStats {
+			err := mongodb.NewBuildStatColl().Create(buildStat)
+			if err != nil { //插入失败就更新
+				err = mongodb.NewBuildStatColl().Update(buildStat)
+				if err != nil {
+					log.Errorf("BuildStat Update err:%v", err)
+					continue
 				}
 			}
-		} else {
-			localTime := time.Now().AddDate(0, 0, -1).In(time.Local)
-			date := localTime.Format(config.Date)
-			taskDateMap[date] = []*taskmodels.Task{
-				{Stages: []*commonmodels.Stage{}},
-			}
 		}
+	}
+	return nil
+}
 
-		taskDateKeys := make([]string, 0, len(taskDateMap))
-		for taskDateMapKey := range taskDateMap {
-			taskDateKeys = append(taskDateKeys, taskDateMapKey)
-		}
-		sort.Strings(taskDateKeys)
+func GetBuildStatByProdutName(productName string, startTimestamp int64, log *zap.SugaredLogger) ([]*models.BuildStat, error) {
+	buildStats := []*models.BuildStat{}
+	taskDateMap, err := getTaskDateMap(productName, startTimestamp)
+	if err != nil {
+		return buildStats, err
+	}
 
-		for _, taskDate := range taskDateKeys {
-			var (
-				totalSuccess         = 0
-				totalFailure         = 0
-				totalTimeout         = 0
-				totalDuration        int64
-				maxDurationPipelines = make([]*models.PipelineInfo, 0)
-			)
-			//循环task任务获取需要的数据
-			for _, taskPreview := range taskDateMap[taskDate] {
-				stages := taskPreview.Stages
+	taskDateKeys := make([]string, 0, len(taskDateMap))
+	for taskDateMapKey := range taskDateMap {
+		taskDateKeys = append(taskDateKeys, taskDateMapKey)
+	}
+	sort.Strings(taskDateKeys)
+
+	for _, taskDate := range taskDateKeys {
+		var (
+			totalSuccess         = 0
+			totalFailure         = 0
+			totalTimeout         = 0
+			totalDuration        int64
+			maxDurationPipelines = make([]*models.PipelineInfo, 0)
+		)
+		//循环task任务获取需要的数据
+		for _, taskPreview := range taskDateMap[taskDate] {
+			switch taskP := taskPreview.(type) {
+			case *taskmodels.Task:
+				stages := taskP.Stages
 				for _, subStage := range stages {
 					taskType := subStage.TaskType
 					switch taskType {
@@ -120,49 +123,121 @@ func GetAllPipelineTask(log *zap.SugaredLogger) error {
 
 							totalDuration += buildInfo.EndTime - buildInfo.StartTime
 							maxDurationPipeline := new(models.PipelineInfo)
-							maxDurationPipeline.PipelineName = taskPreview.PipelineName
-							maxDurationPipeline.TaskID = taskPreview.TaskID
-							maxDurationPipeline.Type = string(taskPreview.Type)
+							maxDurationPipeline.PipelineName = taskP.PipelineName
+							maxDurationPipeline.DisplayName = taskP.PipelineDisplayName
+							maxDurationPipeline.TaskID = taskP.TaskID
+							maxDurationPipeline.Type = string(taskP.Type)
 							maxDurationPipeline.MaxDuration = buildInfo.EndTime - buildInfo.StartTime
-
 							maxDurationPipelines = append(maxDurationPipelines, maxDurationPipeline)
 						}
 					}
 				}
-			}
-			//比较maxDurationPipeline的MaxDuration的最大值
-			sort.SliceStable(maxDurationPipelines, func(i, j int) bool { return maxDurationPipelines[i].MaxDuration > maxDurationPipelines[j].MaxDuration })
-			buildStat := new(models.BuildStat)
-			buildStat.ProductName = product.ProductName
-			buildStat.TotalSuccess = totalSuccess
-			buildStat.TotalFailure = totalFailure
-			buildStat.TotalTimeout = totalTimeout
-			buildStat.TotalDuration = totalDuration
-			if len(maxDurationPipelines) > 0 {
-				buildStat.TotalBuildCount = len(maxDurationPipelines)
-				buildStat.MaxDuration = maxDurationPipelines[0].MaxDuration
-				buildStat.MaxDurationPipeline = maxDurationPipelines[0]
-			} else {
-				buildStat.TotalBuildCount = 0
-				buildStat.MaxDuration = 0
-				buildStat.MaxDurationPipeline = &models.PipelineInfo{}
-			}
-			buildStat.Date = taskDate
-			tt, _ := time.ParseInLocation(config.Date, taskDate, time.Local)
-			buildStat.CreateTime = tt.Unix()
-			buildStat.UpdateTime = time.Now().Unix()
+			case *commonmodels.WorkflowTask:
+				stages := taskP.Stages
+				for _, stage := range stages {
+					for _, job := range stage.Jobs {
+						if job.JobType != string(config.JobZadigBuild) {
+							continue
+						}
+						if job.Status == config.StatusPassed {
+							totalSuccess++
+						} else if job.Status == config.StatusFailed {
+							totalFailure++
+						} else if job.Status == config.StatusTimeout {
+							totalTimeout++
+						} else {
+							continue
+						}
+						totalDuration += job.EndTime - job.StartTime
+						maxDurationPipeline := new(models.PipelineInfo)
+						maxDurationPipeline.PipelineName = taskP.WorkflowName
+						maxDurationPipeline.DisplayName = taskP.WorkflowDisplayName
+						maxDurationPipeline.TaskID = taskP.TaskID
+						maxDurationPipeline.Type = string(config.WorkflowTypeV4)
+						maxDurationPipeline.MaxDuration = job.EndTime - job.StartTime
+						maxDurationPipelines = append(maxDurationPipelines, maxDurationPipeline)
 
-			err := mongodb.NewBuildStatColl().Create(buildStat)
-			if err != nil { //插入失败就更新
-				err = mongodb.NewBuildStatColl().Update(buildStat)
-				if err != nil {
-					log.Errorf("BuildStat Update err:%v", err)
-					continue
+					}
 				}
 			}
 		}
+		//比较maxDurationPipeline的MaxDuration的最大值
+		sort.SliceStable(maxDurationPipelines, func(i, j int) bool { return maxDurationPipelines[i].MaxDuration > maxDurationPipelines[j].MaxDuration })
+		buildStat := &models.BuildStat{}
+		buildStat.ProductName = productName
+		buildStat.TotalSuccess = totalSuccess
+		buildStat.TotalFailure = totalFailure
+		buildStat.TotalTimeout = totalTimeout
+		buildStat.TotalDuration = totalDuration
+		if len(maxDurationPipelines) > 0 {
+			buildStat.TotalBuildCount = len(maxDurationPipelines)
+			buildStat.MaxDuration = maxDurationPipelines[0].MaxDuration
+			buildStat.MaxDurationPipeline = maxDurationPipelines[0]
+		} else {
+			buildStat.TotalBuildCount = 0
+			buildStat.MaxDuration = 0
+			buildStat.MaxDurationPipeline = &models.PipelineInfo{}
+		}
+		buildStat.Date = taskDate
+		tt, _ := time.ParseInLocation(config.Date, taskDate, time.Local)
+		buildStat.CreateTime = tt.Unix()
+		buildStat.UpdateTime = time.Now().Unix()
+		buildStats = append(buildStats, buildStat)
 	}
-	return nil
+	return buildStats, nil
+}
+
+func getTaskDateMap(productName string, startTimestamp int64) (map[string][]interface{}, error) {
+	taskDateMap := make(map[string][]interface{})
+	option := &commonmongodb.ListAllTaskOption{Type: config.WorkflowType, ProductName: productName, CreateTime: startTimestamp}
+	cursor, err := commonmongodb.NewTaskColl().ListByCursor(option)
+	if err != nil {
+		return taskDateMap, fmt.Errorf("pipeline list err:%v", err)
+	}
+	for cursor.Next(context.Background()) {
+		var workflowTask taskmodels.Task
+		if err := cursor.Decode(&workflowTask); err != nil {
+			return taskDateMap, fmt.Errorf("decode workflow task err:%v", err)
+		}
+		time := time.Unix(workflowTask.CreateTime, 0)
+		date := time.Format(config.Date)
+		if _, isExist := taskDateMap[date]; isExist {
+			taskDateMap[date] = append(taskDateMap[date], &workflowTask)
+		} else {
+			tasks := make([]interface{}, 0)
+			tasks = append(tasks, &workflowTask)
+			taskDateMap[date] = tasks
+		}
+	}
+	v4Option := &commonmongodb.ListWorkflowTaskV4Option{ProjectName: productName, CreateTime: startTimestamp}
+	v4Cursor, err := commonmongodb.NewworkflowTaskv4Coll().ListByCursor(v4Option)
+	if err != nil {
+		return taskDateMap, fmt.Errorf("workflow v4 list err:%v", err)
+	}
+	for v4Cursor.Next(context.Background()) {
+		var workflowTask commonmodels.WorkflowTask
+		if err := v4Cursor.Decode(&workflowTask); err != nil {
+			return taskDateMap, fmt.Errorf("decode workflow v4 task err:%v", err)
+		}
+		time := time.Unix(workflowTask.CreateTime, 0)
+		date := time.Format(config.Date)
+		if _, isExist := taskDateMap[date]; isExist {
+			taskDateMap[date] = append(taskDateMap[date], &workflowTask)
+		} else {
+			tasks := make([]interface{}, 0)
+			tasks = append(tasks, &workflowTask)
+			taskDateMap[date] = tasks
+		}
+	}
+	if len(taskDateMap) == 0 {
+		localTime := time.Now().AddDate(0, 0, -1).In(time.Local)
+		date := localTime.Format(config.Date)
+		taskDateMap[date] = make([]interface{}, 0)
+		taskDateMap[date] = append(taskDateMap[date], []*taskmodels.Task{
+			{Stages: []*commonmodels.Stage{}},
+		})
+	}
+	return taskDateMap, nil
 }
 
 type dailyBuildStat struct {
@@ -296,18 +371,58 @@ type buildStatLatestTen struct {
 }
 
 func GetLatestTenBuildMeasure(productNames []string, log *zap.SugaredLogger) ([]*buildStatLatestTen, error) {
+	cursor, err := commonmongodb.NewworkflowTaskv4Coll().ListByCursor(&commonmongodb.ListWorkflowTaskV4Option{ProjectNames: productNames, IsSort: true})
+	if err != nil {
+		log.Errorf("list workflow v4 err: %v", err)
+		return nil, fmt.Errorf("list workflow v4 err: %v", err)
+	}
+	latestPipelines := make([]*buildStatLatestTen, 0)
+	for cursor.Next(context.Background()) {
+		var workflowTask commonmodels.WorkflowTask
+		if err := cursor.Decode(&workflowTask); err != nil {
+			return nil, fmt.Errorf("decode workflow v4 task err:%v", err)
+		}
+		containBuild := false
+		for _, stage := range workflowTask.Stages {
+			for _, job := range stage.Jobs {
+				if job.JobType != string(config.JobZadigBuild) {
+					continue
+				}
+				containBuild = true
+			}
+		}
+		if !containBuild {
+			continue
+		}
+		latestPipelines = append(latestPipelines, &buildStatLatestTen{
+			PipelineInfo: &models.PipelineInfo{
+				TaskID:       workflowTask.TaskID,
+				Type:         string(config.WorkflowTypeV4),
+				PipelineName: workflowTask.WorkflowName,
+				DisplayName:  getDisplayName(workflowTask.WorkflowName, workflowTask.WorkflowDisplayName),
+			},
+			ProductName: workflowTask.ProjectName,
+			Duration:    workflowTask.EndTime - workflowTask.StartTime,
+			Status:      string(workflowTask.Status),
+			TaskCreator: workflowTask.TaskCreator,
+			CreateTime:  workflowTask.CreateTime,
+		})
+		if len(latestPipelines) >= config.LatestDay {
+			break
+		}
+	}
 	latestTenTasks, err := commonmongodb.NewTaskColl().ListAllTasks(&commonmongodb.ListAllTaskOption{Type: config.WorkflowType, Limit: config.LatestDay, Skip: 0, ProductNames: productNames})
 	if err != nil {
 		log.Errorf("pipeline ListAllTasks err:%v", err)
 		return nil, fmt.Errorf("pipeline ListAllTasks err:%v", err)
 	}
-	latestTenPipelines := make([]*buildStatLatestTen, 0)
 	for _, latestTask := range latestTenTasks {
 		buildStatLatestTen := &buildStatLatestTen{
 			PipelineInfo: &models.PipelineInfo{
 				TaskID:       latestTask.TaskID,
 				Type:         string(latestTask.Type),
 				PipelineName: latestTask.PipelineName,
+				DisplayName:  getDisplayName(latestTask.PipelineName, latestTask.PipelineDisplayName),
 			},
 			ProductName: latestTask.ProductName,
 			Duration:    latestTask.EndTime - latestTask.StartTime,
@@ -315,10 +430,17 @@ func GetLatestTenBuildMeasure(productNames []string, log *zap.SugaredLogger) ([]
 			TaskCreator: latestTask.TaskCreator,
 			CreateTime:  latestTask.CreateTime,
 		}
-		latestTenPipelines = append(latestTenPipelines, buildStatLatestTen)
+		latestPipelines = append(latestPipelines, buildStatLatestTen)
+	}
+	sort.SliceStable(latestPipelines, func(i, j int) bool {
+		return latestPipelines[i].CreateTime > latestPipelines[j].CreateTime
+	})
+
+	if len(latestPipelines) >= 10 {
+		latestPipelines = latestPipelines[:10]
 	}
 
-	return latestTenPipelines, nil
+	return latestPipelines, nil
 }
 
 func GetTenDurationMeasure(startDate int64, endDate int64, productNames []string, log *zap.SugaredLogger) ([]*buildStatLatestTen, error) {
@@ -329,7 +451,7 @@ func GetTenDurationMeasure(startDate int64, endDate int64, productNames []string
 	}
 	latestTenPipelines := make([]*buildStatLatestTen, 0)
 	for _, buidStat := range maxTenDurationBuildStats {
-		task, err := commonmongodb.NewTaskColl().Find(buidStat.MaxDurationPipeline.TaskID, buidStat.MaxDurationPipeline.PipelineName, config.PipelineType(buidStat.MaxDurationPipeline.Type))
+		task, err := getTaskDetail(buidStat.MaxDurationPipeline.Type, buidStat.MaxDurationPipeline.PipelineName, buidStat.MaxDurationPipeline.TaskID)
 		if err != nil {
 			log.Errorf("PipelineTask Find err:%v", err)
 			continue
@@ -337,15 +459,58 @@ func GetTenDurationMeasure(startDate int64, endDate int64, productNames []string
 
 		buildStatLatestTen := &buildStatLatestTen{
 			PipelineInfo: buidStat.MaxDurationPipeline,
-			ProductName:  task.ProductName,
-			Duration:     task.EndTime - task.StartTime,
+			ProductName:  task.Project,
+			Duration:     task.Duration,
 			Status:       string(task.Status),
 			TaskCreator:  task.TaskCreator,
 			CreateTime:   task.CreateTime,
 		}
+		buildStatLatestTen.DisplayName = getDisplayName(buildStatLatestTen.PipelineName, buildStatLatestTen.DisplayName)
 		latestTenPipelines = append(latestTenPipelines, buildStatLatestTen)
 	}
 	return latestTenPipelines, nil
+}
+
+func getDisplayName(name, displayName string) string {
+	if displayName != "" {
+		return displayName
+	}
+	return name
+}
+
+type TaskPreview struct {
+	Project     string
+	Duration    int64
+	Status      string
+	TaskCreator string
+	CreateTime  int64
+}
+
+func getTaskDetail(taskType, workflowName string, taskID int64) (*TaskPreview, error) {
+	if config.PipelineType(taskType) == config.WorkflowTypeV4 {
+		task, err := commonmongodb.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+		if err != nil {
+			return nil, errors.Errorf("find workflow v4 task err:%v", err)
+		}
+		return &TaskPreview{
+			Project:     task.ProjectName,
+			Duration:    task.EndTime - task.StartTime,
+			Status:      string(task.Status),
+			TaskCreator: task.TaskCreator,
+			CreateTime:  task.CreateTime,
+		}, nil
+	}
+	task, err := commonmongodb.NewTaskColl().Find(taskID, workflowName, config.PipelineType(taskType))
+	if err != nil {
+		return nil, errors.Errorf("find workflow task err:%v", err)
+	}
+	return &TaskPreview{
+		Project:     task.ProductName,
+		Duration:    task.EndTime - task.StartTime,
+		Status:      string(task.Status),
+		TaskCreator: task.TaskCreator,
+		CreateTime:  task.CreateTime,
+	}, nil
 }
 
 type buildTrend struct {

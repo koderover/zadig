@@ -52,7 +52,7 @@ func uploadFileToS3(access, secret, bucket, remote, local string) error {
 	return nil
 }
 
-//  选择最合适的dockerhost
+// 选择最合适的dockerhost
 func GetBestDockerHost(hostList []string, pipelineType, namespace string, log *zap.SugaredLogger) (string, error) {
 	bestHosts := []string{}
 	containerCount := 0
@@ -234,23 +234,27 @@ func ToExtensionTask(sb map[string]interface{}) (*task.Extension, error) {
 	return extension, nil
 }
 
-func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
+func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, crClient.Reader, error) {
 	controllerRuntimeClient, err := kubeclient.GetKubeClient(hubServerAddr, clusterID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
 	}
 
 	clientset, err := kubeclient.GetKubeClientSet(hubServerAddr, clusterID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
 	}
 
 	restConfig, err := kubeclient.GetRESTConfig(hubServerAddr, clusterID)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
+	}
+	kubeClientReader, err := kubeclient.GetKubeAPIReader(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to get api reader: %s", err)
 	}
 
-	return controllerRuntimeClient, clientset, restConfig, nil
+	return controllerRuntimeClient, clientset, restConfig, kubeClientReader, nil
 }
 
 // InstantiateBuildSysVariables instantiate system variables for build module
@@ -262,10 +266,11 @@ func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
 		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
 
 		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
+		repoName = strings.Replace(repoName, ".", "_", -1)
 
 		repoIndex := fmt.Sprintf("REPO_%d", index)
 		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
-
+		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_ORG", repoName), Value: repo.RepoOwner, IsCredential: false})
 		if len(repo.Branch) > 0 {
 			ret = append(ret, &task.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false})
 		}

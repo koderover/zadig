@@ -34,6 +34,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -299,28 +300,6 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 
 	if !EventConfigured(hookRepo, config.HookEventTag) {
 		return false, nil
-	}
-	if gtem.isYaml {
-		refFlag := false
-		for _, ref := range gtem.trigger.Rules.Branchs {
-			if matched, _ := regexp.MatchString(ref, ev.Project.DefaultBranch); matched {
-				refFlag = true
-				break
-			}
-		}
-		if !refFlag {
-			return false, nil
-		}
-	} else {
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
-			return false, nil
-		}
-		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
-				return false, nil
-			}
-		}
 	}
 
 	hookRepo.Committer = ev.UserName
@@ -605,32 +584,43 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			}
 
 			isMergeRequest := false
-			var mergeRequestID, commitID string
-			if ev, isPr := event.(*gitlab.MergeEvent); isPr {
+			var mergeRequestID, commitID, ref, eventType string
+			autoCancelOpt := &AutoCancelOpt{
+				TaskType:     config.WorkflowType,
+				MainRepo:     item.MainRepo,
+				WorkflowArgs: workFlowArgs,
+				IsYaml:       item.IsYaml,
+				AutoCancel:   item.AutoCancel,
+				YamlHookPath: item.YamlPath,
+			}
+			switch ev := event.(type) {
+			case *gitlab.MergeEvent:
 				isMergeRequest = true
-
-				// 如果是merge request，且该webhook触发器配置了自动取消，
-				// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
+				eventType = EventTypePR
 				mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
 				commitID = ev.ObjectAttributes.LastCommit.ID
-				autoCancelOpt := &AutoCancelOpt{
-					MergeRequestID: mergeRequestID,
-					CommitID:       commitID,
-					TaskType:       config.WorkflowType,
-					MainRepo:       item.MainRepo,
-					WorkflowArgs:   workFlowArgs,
-					IsYaml:         item.IsYaml,
-					AutoCancel:     item.AutoCancel,
-					YamlHookPath:   item.YamlPath,
-				}
+				autoCancelOpt.MergeRequestID = mergeRequestID
+				autoCancelOpt.CommitID = commitID
+				autoCancelOpt.Type = eventType
+			case *gitlab.PushEvent:
+				eventType = EventTypePush
+				ref = ev.Ref
+				commitID = ev.After
+				autoCancelOpt.Ref = ref
+				autoCancelOpt.CommitID = commitID
+				autoCancelOpt.Type = eventType
+			case *gitlab.TagEvent:
+				eventType = EventTypeTag
+			}
+			if autoCancelOpt.Type != "" {
 				err := AutoCancelTask(autoCancelOpt, log)
 				if err != nil {
 					log.Errorf("failed to auto cancel workflow task when receive event %v due to %v ", event, err)
 					mErr = multierror.Append(mErr, err)
 				}
-				if notification == nil {
+				if autoCancelOpt.Type == EventTypePR && notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, false, false, log,
+						item.MainRepo, prID, baseURI, false, false, false, false, log,
 					)
 				}
 			}
@@ -641,6 +631,8 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 
 			args := matcher.UpdateTaskArgs(prod, workFlowArgs, item.MainRepo, requestID)
 			args.MergeRequestID = mergeRequestID
+			args.Ref = ref
+			args.EventType = eventType
 			args.CommitID = commitID
 			args.Source = setting.SourceFromGitlab
 			args.CodehostID = item.MainRepo.CodehostID
@@ -730,7 +722,7 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	baseRenderset.Revision = 0
 	baseRenderset.EnvName = envName
 	baseRenderset.Name = baseProduct.Namespace
-	err = commonservice.ForceCreateReaderSet(baseRenderset, log)
+	err = render.ForceCreateReaderSet(baseRenderset, log)
 	if err != nil {
 		return fmt.Errorf("CreateEnvAndTaskByPR renderset create err:%v", err)
 	}

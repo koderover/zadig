@@ -120,11 +120,39 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/custom_workload/cluster/:clusterID/namespace/:namespace", ListCustomWorkload)
 		kube.GET("/canary_service/cluster/:clusterID/namespace/:namespace", ListCanaryDeploymentServiceInfo)
 		kube.GET("/resources/cluster/:clusterID/namespace/:namespace", ListAllK8sResourcesInNamespace)
+
+		kube.GET("/workloads/:workloadType", ListK8sResOverview)
+		kube.GET("/workloads/:workloadType/:workloadName", GetK8sWorkflowDetail)
+		kube.GET("/resources/:resourceType", ListK8sResOverview)
+		kube.GET("/yaml", GetK8sResourceYaml)
 	}
 
 	operations := router.Group("operations")
 	{
 		operations.GET("", GetOperationLogs)
+	}
+
+	// production environments
+	production := router.Group("production")
+	{
+		production.POST("environments", CreateProductionProduct)
+
+		production.GET("/environments", ListProductionEnvs)
+		production.PUT("/environments/:name/registry", UpdateProductRegistry)
+		production.GET("/environments/:name/groups", ListProductionGroups)
+
+		// used for production deploy workflows
+		production.GET("/environmentsForUpdate", ListProductionEnvs)
+		production.GET("/environments/:name/servicesForUpdate", ListSvcsInProductionEnv)
+
+		// services related
+		production.GET("/environments/:name/services/:serviceName", GetServiceInProductionEnv)
+		production.GET("/environments/:name/services/:serviceName/variables", GetProductionVariables)
+		production.GET("/environments/:name/services/:serviceName/yaml", ExportProductionServiceYaml)
+
+		production.DELETE("/environments/:name", DeleteProductionProduct)
+		kube.GET("kube/pods/:podName/file", DownloadFileFromPod)
+
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -140,6 +168,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.GET("/:name", GetProduct)
 		environments.PUT("/:name/envRecycle", UpdateProductRecycleDay)
+		environments.PUT("/:name/alias", UpdateProductAlias)
 		environments.POST("/:name/affectedservices", AffectedServices)
 		environments.POST("/:name/estimated-values", EstimatedValues)
 		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
@@ -158,9 +187,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/helm/charts", GetChartInfos)
 		environments.GET("/:name/helm/images", GetImageInfos)
 
+		environments.GET("/:name/services", ListSvcsInEnv)
 		environments.PUT("/:name/services", DeleteProductServices)
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", UpdateService)
+		environments.POST("/:name/services/:serviceName/preview", PreviewService)
 		environments.POST("/:name/services/:serviceName/restart", RestartService)
 		environments.POST("/:name/services/:serviceName/restartNew", RestartWorkload)
 		environments.POST("/:name/services/:serviceName/scaleNew", ScaleNewService)
@@ -177,6 +208,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
 		environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)
+
 	}
 
 	// ---------------------------------------------------------------------------------------

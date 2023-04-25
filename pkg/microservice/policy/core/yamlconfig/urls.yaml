@@ -1,6 +1,10 @@
 description: "public urls: url not need to authentication ; system_admin urls: urls that only system admin has permission ; project_admin: urls that project admin has permission"
 exemption_urls:
   public:
+    - endpoint: /api/plutus/license
+      methods:
+        - GET
+        - POST
     - endpoint: api/plutus/health
       methods:
         - GET
@@ -46,12 +50,19 @@ exemption_urls:
     - endpoint: plutus/deliveryBoard
       methods:
         - GET
+    - endpoint: api/aslan/metrics
+      methods:
+        - GET
     - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/patch
       methods:
         - POST
     - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/recover
       methods:
         - POST
+    - endpoint: api/aslan/system/favorite/?*/?*
+      methods:
+        - POST
+        - DELETE
     - endpoint: api/v1/permission/project/?*
       methods:
         - GET
@@ -68,6 +79,15 @@ exemption_urls:
       methods:
         - GET
     - endpoint: api/aslan/system/lark/?*/webhook
+      methods:
+        - POST
+    - endpoint: api/aslan/system/project_management/jira/webhook/?*/?*
+      methods:
+        - POST
+    - endpoint: api/aslan/system/project_management/meego/webhook/?*/?*
+      methods:
+        - POST
+    - endpoint: api/aslan/workflow/v4/generalhook/?*/?*/webhook
       methods:
         - POST
     - endpoint: api/aslan/testing/report
@@ -186,9 +206,6 @@ exemption_urls:
         - POST
         - PUT
         - DELETE
-    - endpoint: api/v1/picket/projects
-      methods:
-        - POST
     - endpoint: api/aslan/cluster/clusters
       methods:
         - POST

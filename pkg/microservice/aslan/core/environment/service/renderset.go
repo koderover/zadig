@@ -22,6 +22,7 @@ import (
 	"path"
 	"sync"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -173,6 +174,7 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 		fileContentMap sync.Map
 		wg             sync.WaitGroup
 		err            error
+		errLock        sync.Mutex
 	)
 	detail, err := systemconfig.New().GetCodeHost(arg.CodehostID)
 	if err != nil {
@@ -186,6 +188,8 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 			return "", e.ErrListRepoDir.AddDesc(err.Error())
 		}
 	}
+
+	errorList := &multierror.Error{}
 
 	for i, filePath := range paths {
 		wg.Add(1)
@@ -203,16 +207,20 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 						RepoLink:   arg.RepoLink,
 					})
 				if errDownload != nil {
-					err = errors.Wrapf(errDownload, fmt.Sprintf("failed to download file from git, path %s", filePath))
+					errLock.Lock()
+					errorList = multierror.Append(errorList, errors.Wrapf(errDownload, fmt.Sprintf("failed to download file from git, path %s", filePath)))
+					errLock.Unlock()
 					return
 				}
 				fileContentMap.Store(index, fileContent)
 			} else {
 				base := path.Join(config.S3StoragePath(), arg.Repo)
 				relativePath := path.Join(base, filePath)
-				fileContent, err := os.ReadFile(relativePath)
-				if err != nil {
-					err = errors.Wrapf(err, fmt.Sprintf("failed to read file from git repo, relative path %s", relativePath))
+				fileContent, errReadFile := os.ReadFile(relativePath)
+				if errReadFile != nil {
+					errLock.Lock()
+					errorList = multierror.Append(errorList, errors.Wrapf(errReadFile, fmt.Sprintf("failed to read file from git repo, relative path %s", relativePath)))
+					errLock.Unlock()
 					return
 				}
 				fileContentMap.Store(index, fileContent)
@@ -221,6 +229,7 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 	}
 	wg.Wait()
 
+	err = errorList.ErrorOrNil()
 	if err != nil {
 		return "", err
 	}
@@ -228,7 +237,9 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 	contentArr := make([][]byte, 0, len(paths))
 	for i := 0; i < len(paths); i++ {
 		contentObj, _ := fileContentMap.Load(i)
-		contentArr = append(contentArr, contentObj.([]byte))
+		if contentObj != nil {
+			contentArr = append(contentArr, contentObj.([]byte))
+		}
 	}
 	ret, err := yamlutil.Merge(contentArr)
 	if err != nil {

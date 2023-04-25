@@ -24,7 +24,7 @@ type VariableSet struct {
 	ID           primitive.ObjectID `bson:"_id,omitempty"          json:"id,omitempty"`
 	Name         string             `bson:"name"                   json:"name"`
 	Description  string             `bson:"description"            json:"description"`
-	ProjectName  string             `bson:"project_name,omitempty" json:"project_name"`
+	ProjectName  string             `bson:"project_name"           json:"project_name"`
 	VariableYaml string             `bson:"variable_yaml"          json:"variable_yaml"`
 	CreatedAt    int64              `bson:"created_at"             json:"created_at"`
 	CreatedBy    string             `bson:"created_by"             json:"created_by"`

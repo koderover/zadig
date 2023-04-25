@@ -27,6 +27,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
@@ -115,7 +116,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	productObj.Services = serviceGroup
 
 	// insert renderset info into db
-	err = commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+	err = render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:       arg.EnvName,
 		ProductTmpl:   arg.ProductName,
@@ -151,6 +152,27 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	return nil
 }
 
+func createSingleHostProduct(templateProduct *templatemodels.Product, requestID, userName, registryID string, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
+	productObj := &commonmodels.Product{
+		ProductName:     templateProduct.ProductName,
+		Enabled:         false,
+		EnvName:         arg.EnvName,
+		UpdateBy:        userName,
+		IsPublic:        true,
+		ClusterID:       arg.ClusterID,
+		Namespace:       arg.Namespace,
+		Source:          setting.SourceFromExternal,
+		IsOpenSource:    templateProduct.IsOpensource,
+		IsForkedProduct: false,
+		RegistryID:      registryID,
+		IsExisted:       arg.IsExisted,
+		Production:      arg.Production,
+		Alias:           arg.Alias,
+	}
+
+	return CreateProduct(userName, requestID, productObj, log)
+}
+
 func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID, userName, registryID string, arg *CreateSingleProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
 	productObj := &commonmodels.Product{
 		ProductName:     templateProduct.ProductName,
@@ -168,6 +190,8 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		IsExisted:       arg.IsExisted,
 		EnvConfigs:      arg.EnvConfigs,
 		ShareEnv:        arg.ShareEnv,
+		Production:      arg.Production,
+		Alias:           arg.Alias,
 	}
 
 	// fill services and chart infos of product
@@ -176,6 +200,27 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		return err
 	}
 	return CreateProduct(userName, requestID, productObj, log)
+}
+
+// CreateHostProductionProduct creates environment for host project, this function only creates production environment
+func CreateHostProductionProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
+	templateProduct, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil || templateProduct == nil {
+		if err != nil {
+			log.Errorf("failed to query product %s, err %s ", productName, err.Error())
+		}
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query product %s ", productName))
+	}
+
+	errList := new(multierror.Error)
+	for _, arg := range args {
+		arg.Production = true
+		err = createSingleHostProduct(templateProduct, requestID, userName, arg.RegistryID, arg, log)
+		if err != nil {
+			errList = multierror.Append(errList, err)
+		}
+	}
+	return errList.ErrorOrNil()
 }
 
 func CreateHelmProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
@@ -252,7 +297,7 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 	productObj.ServiceDeployStrategy = serviceDeployStrategy
 
 	// insert renderset info into db
-	err := commonservice.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+	err := render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 		Name:             commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:          arg.EnvName,
 		ProductTmpl:      arg.ProductName,
@@ -285,7 +330,8 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 		IsExisted:       arg.IsExisted,
 		EnvConfigs:      arg.EnvConfigs,
 		ShareEnv:        arg.ShareEnv,
-		//Vars:            arg.Vars,
+		Production:      arg.Production,
+		Alias:           arg.Alias,
 	}
 	if len(arg.BaseEnvName) > 0 {
 		productObj.BaseEnvName = arg.BaseEnvName

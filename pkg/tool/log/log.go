@@ -113,10 +113,14 @@ func getEncoder(cfg *Config, jsonFormat bool) zapcore.Encoder {
 }
 
 func getLogWriter(filename string, maxSize, maxBackup, maxAge int) zapcore.WriteSyncer {
+	// keep 10 backups (1GB) if not set to avoid run out of disk space
+	if maxBackup == 0 {
+		maxBackup = 10
+	}
 	lumberJackLogger := &lumberjack.Logger{
-		Filename: filename,
+		Filename:   filename,
+		MaxBackups: maxBackup,
 		// MaxSize:    maxSize,
-		// MaxBackups: maxBackup,
 		// MaxAge:     maxAge,
 	}
 

@@ -25,11 +25,12 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
-	"gopkg.in/yaml.v2"
 )
 
 type ArchiveStep struct {
@@ -71,22 +72,8 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 		}
 
-		envmaps := make(map[string]string)
-		for _, env := range s.envs {
-			kv := strings.Split(env, "=")
-			if len(kv) != 2 {
-				continue
-			}
-			envmaps[kv[0]] = kv[1]
-		}
-		for _, secretEnv := range s.secretEnvs {
-			kv := strings.Split(secretEnv, "=")
-			if len(kv) != 2 {
-				continue
-			}
-			envmaps[kv[0]] = kv[1]
-		}
-
+		envmaps := makeEnvMap(s.envs, s.secretEnvs)
+		
 		upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
 		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
 		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
@@ -118,9 +105,14 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 
 func replaceEnvWithValue(str string, envs map[string]string) string {
 	ret := str
-	for key, value := range envs {
-		strKey := fmt.Sprintf("$%s", key)
-		ret = strings.ReplaceAll(ret, strKey, value)
+	// Exec twice to render nested variables
+	for i := 0; i < 2; i++ {
+		for key, value := range envs {
+			strKey := fmt.Sprintf("$%s", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
+			strKey = fmt.Sprintf("${%s}", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
+		}
 	}
 	return ret
 }

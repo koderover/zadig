@@ -16,13 +16,19 @@ limitations under the License.
 
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/util"
+)
 
 type ExternalSystem struct {
-	ID       primitive.ObjectID `bson:"_id,omitempty"`
-	Name     string             `bson:"name"`
-	Server   string             `bson:"server"`
-	APIToken string             `bson:"api_token"`
+	ID      primitive.ObjectID `bson:"_id,omitempty"`
+	Name    string             `bson:"name"`
+	Server  string             `bson:"server"`
+	Headers []*util.KeyValue   `bson:"headers"`
+	//@2023-04-14 APIToken is deprecated after 1.4.0-ee
+	APIToken string `bson:"api_token"`
 }
 
 func (ExternalSystem) TableName() string {

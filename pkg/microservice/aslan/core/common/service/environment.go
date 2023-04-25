@@ -22,10 +22,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/util/yaml"
-
-	"github.com/koderover/zadig/pkg/tool/log"
-
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +38,9 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -48,13 +48,15 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 	jsonutil "github.com/koderover/zadig/pkg/util/json"
+	"github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // FillProductTemplateValuesYamls 返回renderSet中的renderChart信息
 func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.SugaredLogger) error {
-	renderSet, err := GetRenderSet(tmpl.ProductName, 0, true, "", log)
+	renderSet, err := render.GetRenderSet(tmpl.ProductName, 0, true, "", log)
 	if err != nil {
 		log.Errorf("Failed to find render set for product template %s", tmpl.ProductName)
 		return err
@@ -130,31 +132,72 @@ func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
 	return nil
 }
 
-func clipVariableYaml(variableYaml string, validKeys []string) string {
-	if len(variableYaml) == 0 {
-		return variableYaml
-	}
-	if len(validKeys) == 0 {
-		return ""
-	}
-	clippedYaml, err := kube.ClipVariableYaml(variableYaml, validKeys)
-	if err != nil {
-		log.Errorf("failed to clip variable yaml, err: %s", err)
-		return variableYaml
-	}
-	return clippedYaml
-}
-
 func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) string {
 	if serviceTemplate == nil {
 		return variableYaml
 	}
-	mergedYaml, err := yaml.Merge([][]byte{[]byte(serviceTemplate.VariableYaml), []byte(variableYaml)})
+	mergedYaml, err := yaml.CleanMerge([][]byte{[]byte(serviceTemplate.VariableYaml), []byte(variableYaml)})
 	if err != nil {
 		log.Errorf("failed to merge variable yaml, err: %s", err)
 		return variableYaml
 	}
-	return clipVariableYaml(string(mergedYaml), serviceTemplate.ServiceVars)
+	return commonutil.ClipVariableYamlNoErr(string(mergedYaml), serviceTemplate.ServiceVars)
+}
+
+func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, error) {
+	var productInfo *models.Product
+	var err error
+	productInfo, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: util.GetBoolPointer(true),
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to find envrionment : %s/%s, error: %s ", productName, envName))
+	}
+
+	prodSvc := productInfo.GetServiceMap()[serviceName]
+	if prodSvc == nil {
+		return nil, fmt.Errorf("failed to find service : %s/%s/%s", productName, envName, serviceName)
+	}
+
+	prodTemplateSvc, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: productName,
+		ServiceName: serviceName,
+		Revision:    prodSvc.Revision,
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, fmt.Errorf("failed to find production service : %s/%s/%s", productName, envName, serviceName).Error())
+	}
+
+	// svc render in renderchart
+	opt := &commonrepo.RenderSetFindOption{
+		ProductTmpl: productName,
+		EnvName:     envName,
+		Name:        productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision,
+	}
+	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil {
+		return nil, errors.Wrapf(err, fmt.Errorf("failed to find render set : %s/%s", productName, envName).Error())
+	}
+	if !existed {
+		return nil, fmt.Errorf("render set not found : %s/%s", productName, envName)
+	}
+
+	svcRender := rendersetObj.GetServiceRenderMap()[serviceName]
+
+	ret := make([]*K8sSvcRenderArg, 0)
+	rArg := &K8sSvcRenderArg{
+		ServiceName:  serviceName,
+		VariableYaml: prodTemplateSvc.VariableYaml,
+	}
+	if svcRender != nil && svcRender.OverrideYaml != nil {
+		prodTemplateSvc.ServiceVars = setting.ServiceVarWildCard
+		rArg.VariableYaml = latestVariableYaml(svcRender.OverrideYaml.YamlContent, prodTemplateSvc)
+	}
+	ret = append(ret, rArg)
+	return ret, nil
 }
 
 func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, *models.RenderSet, error) {
@@ -247,7 +290,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 			ServiceName: svcRender.ServiceName,
 		}
 		if svcRender.OverrideYaml != nil {
-			rArg.VariableYaml = clipVariableYaml(svcRender.OverrideYaml.YamlContent, serviceVarsMap[svcRender.ServiceName])
+			rArg.VariableYaml = commonutil.ClipVariableYamlNoErr(svcRender.OverrideYaml.YamlContent, serviceVarsMap[svcRender.ServiceName])
 			rArg.LatestVariableYaml = latestVariableYaml(rArg.VariableYaml, templateSvcMap[svcRender.ServiceName])
 		}
 		ret = append(ret, rArg)
@@ -261,8 +304,9 @@ func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.Sugared
 	renderRevision := int64(0)
 	ret := make([]*HelmSvcRenderArg, 0)
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:       productName,
+		EnvName:    envName,
+		Production: util.GetBoolPointer(false),
 	})
 
 	if err != nil && err != mongo.ErrNoDocuments {
@@ -644,7 +688,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
 
 		productRespInfo.Ingress = &IngressInfo{
-			HostInfo: findServiceFromIngress(hostInfos, workload, allServices),
+			HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
 		}
 
 		resp = append(resp, productRespInfo)
@@ -653,7 +697,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	return count, resp, nil
 }
 
-func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, allServices []*corev1.Service) []resource.HostInfo {
+func FindServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, allServices []*corev1.Service) []resource.HostInfo {
 	if len(allServices) == 0 || len(hostInfos) == 0 {
 		return []resource.HostInfo{}
 	}
@@ -696,6 +740,7 @@ func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error)
 	}
 	resp := make([]*models.Service, 0)
 	for _, productSvc := range serviceMap {
+		// TODO this code should be deleted since shared-serves are not supported
 		if productSvc.ProductName != "" && productSvc.ProductName != prod.ProductName {
 			tmplSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 				ProductName: productSvc.ProductName,
@@ -713,7 +758,7 @@ func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error)
 			Revision:    productSvc.Revision,
 		})
 	}
-	templateServices, err := commonrepo.NewServiceColl().ListServicesWithSRevision(listOpt)
+	templateServices, err := repository.ListServicesWithSRevision(listOpt, prod.Production)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s, err: %s", productName, envName, err)
 	}

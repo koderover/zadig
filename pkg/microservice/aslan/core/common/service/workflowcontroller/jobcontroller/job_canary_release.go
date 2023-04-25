@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/pkg/errors"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
@@ -70,7 +70,7 @@ func (c *CanaryReleaseJobCtl) Clean(ctx context.Context) {
 	}
 
 	canarydeploymentName := c.jobTaskSpec.WorkloadName + CanaryDeploymentSuffix
-	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, canarydeploymentName, kubeClient); err != nil {
+	if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, canarydeploymentName, time.Duration(c.timeout())*time.Second, kubeClient); err != nil {
 		c.logger.Errorf("delete canary deployment %s error: %v", canarydeploymentName, err)
 	}
 }
@@ -95,7 +95,7 @@ func (c *CanaryReleaseJobCtl) run(ctx context.Context) error {
 	}
 
 	canarydeploymentName := c.jobTaskSpec.WorkloadName + CanaryDeploymentSuffix
-	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, canarydeploymentName, c.kubeClient); err != nil {
+	if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, canarydeploymentName, time.Duration(c.timeout())*time.Second, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("delete canary deployment %s error: %v", canarydeploymentName, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)
@@ -159,4 +159,18 @@ func (c *CanaryReleaseJobCtl) timeout() int64 {
 		c.jobTaskSpec.ReleaseTimeout = c.jobTaskSpec.ReleaseTimeout * 60
 	}
 	return c.jobTaskSpec.ReleaseTimeout
+}
+
+func (c *CanaryReleaseJobCtl) SaveInfo(ctx context.Context) error {
+	return mongodb.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
+		Type:                c.job.JobType,
+		WorkflowName:        c.workflowCtx.WorkflowName,
+		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
+		TaskID:              c.workflowCtx.TaskID,
+		ProductName:         c.workflowCtx.ProjectName,
+		StartTime:           c.job.StartTime,
+		EndTime:             c.job.EndTime,
+		Duration:            c.job.EndTime - c.job.StartTime,
+		Status:              string(c.job.Status),
+	})
 }

@@ -3,10 +3,11 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+
+	"github.com/pkg/errors"
 
 	"github.com/imroc/req/v3"
 	"github.com/tidwall/gjson"
@@ -15,11 +16,12 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/apollo"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListConfigurationManagement(log *zap.SugaredLogger) ([]*commonmodels.ConfigurationManagement, error) {
-	resp, err := mongodb.NewConfigurationManagementColl().List(context.Background())
+func ListConfigurationManagement(_type string, log *zap.SugaredLogger) ([]*commonmodels.ConfigurationManagement, error) {
+	resp, err := mongodb.NewConfigurationManagementColl().List(context.Background(), _type)
 	if err != nil {
 		log.Errorf("list configuration management error: %v", err)
 		return nil, e.ErrListConfigurationManagement
@@ -117,7 +119,10 @@ func validateNacosAuthConfig(config *commonmodels.NacosConfig) error {
 	if err != nil {
 		return e.ErrInvalidParam.AddErr(err)
 	}
-	u = u.JoinPath("/nacos/v1/auth/login")
+	if u.Path == "" {
+		u.Path = "/nacos"
+	}
+	u = u.JoinPath("v1/auth/login")
 
 	resp, err := req.R().AddQueryParam("username", config.UserName).
 		AddQueryParam("password", config.Password).
@@ -178,4 +183,51 @@ func validateConfigurationManagementType(management *commonmodels.ConfigurationM
 		return errors.New("invalid type")
 	}
 	return nil
+}
+
+func ListApolloApps(id string, log *zap.SugaredLogger) ([]string, error) {
+	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), id)
+	if err != nil {
+		return nil, errors.Errorf("failed to get apollo info from mongo: %v", err)
+	}
+	cli := apollo.NewClient(info.ServerAddress, info.Token)
+	apps, err := cli.ListApp()
+	if err != nil {
+		return nil, e.ErrGetApolloInfo.AddErr(err)
+	}
+	var idList []string
+	for _, app := range apps {
+		idList = append(idList, app.AppID)
+	}
+	return idList, nil
+}
+
+func ListApolloEnvAndClusters(id string, appID string, log *zap.SugaredLogger) ([]*apollo.EnvAndCluster, error) {
+	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), id)
+	if err != nil {
+		return nil, errors.Errorf("failed to get apollo info from mongo: %v", err)
+	}
+	cli := apollo.NewClient(info.ServerAddress, info.Token)
+	envs, err := cli.ListAppEnvsAndClusters(appID)
+	if err != nil {
+		return nil, e.ErrGetApolloInfo.AddErr(err)
+	}
+	return envs, nil
+}
+
+func ListApolloNamespaces(id string, appID string, env string, cluster string, log *zap.SugaredLogger) ([]string, error) {
+	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), id)
+	if err != nil {
+		return nil, errors.Errorf("failed to get apollo info from mongo: %v", err)
+	}
+	cli := apollo.NewClient(info.ServerAddress, info.Token)
+	namespaces, err := cli.ListAppNamespace(appID, env, cluster)
+	if err != nil {
+		return nil, e.ErrGetApolloInfo.AddErr(err)
+	}
+	var namespaceNameList []string
+	for _, v := range namespaces {
+		namespaceNameList = append(namespaceNameList, v.NamespaceName)
+	}
+	return namespaceNameList, nil
 }

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -193,22 +194,52 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 						repos = stepSpec.Repos
 					}
 				}
-				branchTag, branchTagType, commitID, gitCommitURL := "", BranchTagTypeBranch, "", ""
+				branchTag, commitID, gitCommitURL := "", "", ""
 				commitMsgs := []string{}
+				var prInfoList []string
+				var prInfo string
 				for idx, buildRepo := range repos {
 					if idx == 0 || buildRepo.IsPrimary {
 						branchTag = buildRepo.Branch
 						if buildRepo.Tag != "" {
-							branchTagType = BranchTagTypeTag
 							branchTag = buildRepo.Tag
 						}
 						if len(buildRepo.CommitID) > 8 {
 							commitID = buildRepo.CommitID[0:8]
 						}
+						var prLinkBuilder func(baseURL, owner, repoName string, prID int) string
+						switch buildRepo.Source {
+						case types.ProviderGithub:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/pull/%d", baseURL, owner, repoName, prID)
+							}
+						case types.ProviderGitee:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/pulls/%d", baseURL, owner, repoName, prID)
+							}
+						case types.ProviderGitlab:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/merge_requests/%d", baseURL, owner, repoName, prID)
+							}
+						case types.ProviderGerrit:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%d", baseURL, prID)
+							}
+						}
+						prInfoList = []string{}
+						sort.Ints(buildRepo.PRs)
+						for _, id := range buildRepo.PRs {
+							link := prLinkBuilder(buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, id)
+							prInfoList = append(prInfoList, fmt.Sprintf("[#%d](%s)", id, link))
+						}
 						commitMsg := strings.Trim(buildRepo.CommitMessage, "\n")
 						commitMsgs = strings.Split(commitMsg, "\n")
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 					}
+				}
+				if len(prInfoList) != 0 {
+					// need an extra space at the end
+					prInfo = strings.Join(prInfoList, " ") + " "
 				}
 				image := ""
 				for _, env := range jobSpec.Properties.Envs {
@@ -217,7 +248,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 					}
 				}
 				if len(commitID) > 0 {
-					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[%s-%s %s](%s) \n", branchTagType, branchTag, commitID, gitCommitURL)
+					jobTplcontent += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s %s[%s](%s) \n", branchTag, prInfo, commitID, gitCommitURL)
 					jobTplcontent += "{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**："
 					if len(commitMsgs) == 1 {
 						jobTplcontent += fmt.Sprintf("%s \n", commitMsgs[0])
@@ -371,22 +402,54 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 			return "执行失败"
 		},
 		"jobType": func(jobType string) string {
-			if jobType == string(config.JobZadigBuild) {
+			switch jobType {
+			case string(config.JobZadigBuild):
 				return "构建"
-			} else if jobType == string(config.JobZadigDeploy) {
+			case string(config.JobZadigDeploy):
 				return "部署"
-			} else if jobType == string(config.JobZadigHelmDeploy) {
+			case string(config.JobZadigHelmDeploy):
 				return "helm部署"
-			} else if jobType == string(config.JobCustomDeploy) {
+			case string(config.JobCustomDeploy):
 				return "自定义部署"
-			} else if jobType == string(config.JobFreestyle) {
+			case string(config.JobFreestyle):
 				return "通用任务"
-			} else if jobType == string(config.JobPlugin) {
+			case string(config.JobPlugin):
 				return "自定义任务"
-			} else if jobType == string(config.JobZadigTesting) {
+			case string(config.JobZadigTesting):
 				return "测试"
+			case string(config.JobZadigScanning):
+				return "代码扫描"
+			case string(config.JobZadigDistributeImage):
+				return "镜像分发"
+			case string(config.JobK8sBlueGreenDeploy):
+				return "蓝绿部署"
+			case string(config.JobK8sBlueGreenRelease):
+				return "蓝绿发布"
+			case string(config.JobK8sCanaryDeploy):
+				return "金丝雀部署"
+			case string(config.JobK8sCanaryRelease):
+				return "金丝雀发布"
+			case string(config.JobK8sGrayRelease):
+				return "灰度发布"
+			case string(config.JobK8sGrayRollback):
+				return "灰度回滚"
+			case string(config.JobK8sPatch):
+				return "更新 k8s YAML"
+			case string(config.JobIstioRelease):
+				return "istio 发布"
+			case string(config.JobIstioRollback):
+				return "istio 回滚"
+			case string(config.JobJira):
+				return "jira 问题状态变更"
+			case string(config.JobNacos):
+				return "Nacos 配置变更"
+			case string(config.JobApollo):
+				return "Apollo 配置变更"
+			case string(config.JobMeegoTransition):
+				return "飞书工作项状态变更"
+			default:
+				return string(jobType)
 			}
-			return string(jobType)
 		},
 	}).Parse(tplcontent))
 

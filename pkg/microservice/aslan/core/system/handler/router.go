@@ -257,6 +257,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		configuration.GET("/:id", GetConfigurationManagement)
 		configuration.DELETE("/:id", DeleteConfigurationManagement)
 		configuration.POST("/validate", ValidateConfigurationManagement)
+		configuration.GET("/apollo/:id/app", ListApolloApps)
+		configuration.GET("/apollo/:id/:app_id/env", ListApolloEnvAndClusters)
+		configuration.GET("/apollo/:id/:app_id/:env/:cluster/namespace", ListApolloNamespaces)
 	}
 
 	imapp := router.Group("im_app")
@@ -275,6 +278,19 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		lark.POST("/:id/webhook", LarkEventHandler)
 	}
 
+	pm := router.Group("project_management")
+	{
+		pm.GET("", ListProjectManagement)
+		pm.POST("", CreateProjectManagement)
+		pm.POST("/validate", Validate)
+		pm.PATCH("/:id", UpdateProjectManagement)
+		pm.DELETE("/:id", DeleteProjectManagement)
+		pm.GET("/jira/project", ListJiraProjects)
+		pm.GET("/jira/issue", SearchJiraIssues)
+		pm.GET("/jira/type", GetJiraTypes)
+		pm.POST("/jira/webhook/:workflowName/:hookName", HandleJiraEvent)
+		pm.POST("/meego/webhook/:workflowName/:hookName", HandleMeegoEvent)
+	}
 	// personal dashboard configuration
 	dashboard := router.Group("dashboard")
 	{
@@ -286,6 +302,29 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dashboard.GET("/workflow/running", GetRunningWorkflow)
 		dashboard.GET("/workflow/mine", GetMyWorkflow)
 		dashboard.GET("/environment/:name", GetMyEnvironment)
+	}
+
+	// get nacos info
+	nacos := router.Group("nacos")
+	{
+		nacos.GET("/:nacosID", ListNacosNamespace)
+		nacos.GET("/:nacosID/namespace/:nacosNamespaceID", ListNacosConfig)
+	}
+
+	// feishu project management module
+	meego := router.Group("meego")
+	{
+		meego.GET("/projects", GetMeegoProjects)
+		meego.GET("/projects/:projectID/work_item/types", GetWorkItemTypeList)
+		meego.GET("/projects/:projectID/work_item", ListMeegoWorkItems)
+		meego.GET("/projects/:projectID/work_item/:workItemID/transitions", ListAvailableWorkItemTransitions)
+	}
+
+	// personal favorite API
+	favorite := router.Group("favorite")
+	{
+		favorite.POST("/:type/:name", CreateFavorite)
+		favorite.DELETE("/:type/:name", DeleteFavorite)
 	}
 }
 

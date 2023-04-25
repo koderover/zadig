@@ -28,6 +28,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
@@ -242,4 +243,18 @@ func (c *BlueGreenDeployJobCtl) timeout() int64 {
 		c.jobTaskSpec.DeployTimeout = c.jobTaskSpec.DeployTimeout * 60
 	}
 	return c.jobTaskSpec.DeployTimeout
+}
+
+func (c *BlueGreenDeployJobCtl) SaveInfo(ctx context.Context) error {
+	return mongodb.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
+		Type:                c.job.JobType,
+		WorkflowName:        c.workflowCtx.WorkflowName,
+		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
+		TaskID:              c.workflowCtx.TaskID,
+		ProductName:         c.workflowCtx.ProjectName,
+		StartTime:           c.job.StartTime,
+		EndTime:             c.job.EndTime,
+		Duration:            c.job.EndTime - c.job.StartTime,
+		Status:              string(c.job.Status),
+	})
 }

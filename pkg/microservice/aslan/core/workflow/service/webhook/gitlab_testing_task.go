@@ -169,28 +169,42 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					mErr = multierror.Append(mErr, err)
 				} else if matches {
 					log.Infof("event match hook %v of %s", item.MainRepo, testing.Name)
-					var mergeRequestID, commitID string
-					if ev, isPr := event.(*gitlab.MergeEvent); isPr {
-						// 如果是merge request，且该webhook触发器配置了自动取消，
-						// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
+					var mergeRequestID, commitID, ref, eventType string
+					var prID int
+					autoCancelOpt := &AutoCancelOpt{
+						TaskType: config.TestType,
+						MainRepo: item.MainRepo,
+						TestArgs: item.TestArgs,
+					}
+					switch ev := event.(type) {
+					case *gitlab.MergeEvent:
+						eventType = EventTypePR
 						mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
 						commitID = ev.ObjectAttributes.LastCommit.ID
-						autoCancelOpt := &AutoCancelOpt{
-							MergeRequestID: mergeRequestID,
-							CommitID:       commitID,
-							TaskType:       config.TestType,
-							MainRepo:       item.MainRepo,
-							TestArgs:       item.TestArgs,
-						}
+						prID = ev.ObjectAttributes.IID
+						autoCancelOpt.MergeRequestID = mergeRequestID
+						autoCancelOpt.CommitID = commitID
+						autoCancelOpt.Type = eventType
+					case *gitlab.PushEvent:
+						eventType = EventTypePush
+						ref = ev.Ref
+						commitID = ev.After
+						autoCancelOpt.Ref = ref
+						autoCancelOpt.CommitID = commitID
+						autoCancelOpt.Type = eventType
+					case *gitlab.TagEvent:
+						eventType = EventTypeTag
+					}
+					if autoCancelOpt.Type != "" {
 						err := AutoCancelTask(autoCancelOpt, log)
 						if err != nil {
 							log.Errorf("failed to auto cancel testing task when receive event %v due to %v ", event, err)
 							mErr = multierror.Append(mErr, err)
 						}
 						// 发送本次commit的通知
-						if notification == nil {
+						if autoCancelOpt.Type == EventTypePR && notification == nil {
 							notification, _ = scmnotify.NewService().SendInitWebhookComment(
-								item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, true, false, false, log,
+								item.MainRepo, prID, baseURI, false, true, false, false, log,
 							)
 						}
 					}
@@ -201,6 +215,8 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 
 					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
 					args.MergeRequestID = mergeRequestID
+					args.Ref = ref
+					args.EventType = eventType
 					args.CommitID = commitID
 					args.Source = setting.SourceFromGitlab
 					args.CodehostID = item.MainRepo.CodehostID

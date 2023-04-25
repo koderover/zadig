@@ -33,11 +33,14 @@ import (
 
 type ListWorkflowTaskV4Option struct {
 	WorkflowName    string
+	ProjectName     string
+	ProjectNames    []string
 	WorkflowNames   []string
 	CreateTime      int64
 	BeforeCreatTime bool
 	Limit           int
 	Skip            int
+	IsSort          bool
 }
 
 type WorkflowTaskv4Coll struct {
@@ -110,6 +113,9 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.Work
 	if opt.WorkflowNames != nil {
 		query["workflow_name"] = bson.M{"$in": opt.WorkflowNames}
 	}
+	if opt.ProjectName != "" {
+		query["project_name"] = opt.ProjectName
+	}
 	query["is_archived"] = false
 	query["is_deleted"] = false
 	if opt.CreateTime > 0 {
@@ -178,7 +184,7 @@ func (c *WorkflowTaskv4Coll) FindTodoTasksByWorkflowName(workflowName string) ([
 
 func (c *WorkflowTaskv4Coll) InCompletedTasks() ([]*models.WorkflowTask, error) {
 	ret := make([]*models.WorkflowTask, 0)
-	query := bson.M{"status": bson.M{"$in": []string{"created", "running"}}}
+	query := bson.M{"status": bson.M{"$in": config.InCompletedStatus()}}
 	query["is_deleted"] = false
 
 	opt := options.Find()
@@ -200,6 +206,20 @@ func (c *WorkflowTaskv4Coll) Find(workflowName string, taskID int64) (*models.Wo
 	query := bson.M{"workflow_name": workflowName, "task_id": taskID}
 
 	err := c.FindOne(context.TODO(), query).Decode(&resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (c *WorkflowTaskv4Coll) FindPreviousTask(workflowName, username string) (*models.WorkflowTask, error) {
+	resp := new(models.WorkflowTask)
+	query := bson.M{"workflow_name": workflowName, "task_creator": username}
+
+	opt := options.FindOne()
+	opt.SetSort(bson.D{{"create_time", -1}})
+
+	err := c.FindOne(context.TODO(), query, opt).Decode(&resp)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +271,7 @@ func (c *WorkflowTaskv4Coll) ArchiveHistoryWorkflowTask(workflowName string, rem
 	if remain == 0 && remainDays == 0 {
 		return nil
 	}
-	query := bson.M{"workflow_name": workflowName, "is_deleted": false}
+	query := bson.M{"workflow_name": workflowName, "is_deleted": false, "is_archived": false}
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
 		return err
@@ -278,6 +298,12 @@ func (c *WorkflowTaskv4Coll) ListByCursor(opt *ListWorkflowTaskV4Option) (*mongo
 	if opt.WorkflowNames != nil {
 		query["workflow_name"] = bson.M{"$in": opt.WorkflowNames}
 	}
+	if opt.ProjectName != "" {
+		query["project_name"] = opt.ProjectName
+	}
+	if len(opt.ProjectNames) > 0 {
+		query["product_name"] = bson.M{"$in": opt.ProjectNames}
+	}
 	query["is_archived"] = false
 	query["is_deleted"] = false
 	if opt.CreateTime > 0 {
@@ -288,5 +314,10 @@ func (c *WorkflowTaskv4Coll) ListByCursor(opt *ListWorkflowTaskV4Option) (*mongo
 		query["create_time"] = bson.M{comparison: opt.CreateTime}
 	}
 
-	return c.Collection.Find(context.TODO(), query)
+	opts := options.Find()
+	if opt.IsSort {
+		opts.SetSort(bson.D{{"create_time", -1}})
+	}
+
+	return c.Collection.Find(context.TODO(), query, opts)
 }

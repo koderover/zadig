@@ -78,3 +78,9 @@ func ForceContentType(contentType string) RequestFunc {
 		r.ForceContentType(contentType)
 	}
 }
+
+func SetFormData(data map[string]string) RequestFunc {
+	return func(r *resty.Request) {
+		r.SetFormData(data)
+	}
+}

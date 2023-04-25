@@ -59,3 +59,28 @@ func OpenAPICreateProductTemplate(c *gin.Context) {
 	// finally, we create the project
 	ctx.Err = service.CreateProjectOpenAPI(ctx.UserID, ctx.UserName, args, ctx.Logger)
 }
+
+func OpenAPIInitializeYamlProject(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPIInitializeProjectReq)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("Initialize project c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("Initialize project json.Unmarshal err : %v", err)
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "初始化", "项目管理-项目", args.ProjectName, string(data), ctx.Logger)
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// input validation for OpenAPI
+	err = args.Validate()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.InitializeYAMLProject(ctx.UserID, ctx.UserName, ctx.RequestID, args, ctx.Logger)
+}

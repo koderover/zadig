@@ -17,6 +17,7 @@ limitations under the License.
 package webhook
 
 import (
+	"regexp"
 	"strconv"
 
 	"github.com/google/go-github/v35/github"
@@ -64,7 +65,20 @@ func TriggerScanningByGithubEvent(event interface{}, requestID string, log *zap.
 						mergeRequestID = strconv.Itoa(*ev.PullRequest.Number)
 					}
 					triggerRepoInfo := make([]*scanningservice.ScanningRepoInfo, 0)
-					// for now only one repo is supported
+					for _, scanningRepo := range scanning.Repos {
+						// if this is the triggering repo, we simply skip it and add it later with correct info
+						if scanningRepo.CodehostID == item.CodehostID && scanningRepo.RepoOwner == item.RepoOwner && scanningRepo.RepoName == item.RepoName {
+							continue
+						}
+						triggerRepoInfo = append(triggerRepoInfo, &scanningservice.ScanningRepoInfo{
+							CodehostID: scanningRepo.CodehostID,
+							Source:     scanningRepo.Source,
+							RepoOwner:  scanningRepo.RepoOwner,
+							RepoName:   scanningRepo.RepoName,
+							Branch:     scanningRepo.Branch,
+						})
+					}
+
 					repoInfo := &scanningservice.ScanningRepoInfo{
 						CodehostID: item.CodehostID,
 						Source:     item.Source,
@@ -155,6 +169,18 @@ func (gmem githubMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHoo
 		}
 
 		hookRepo.Branch = *ev.PullRequest.Base.Ref
+
+		isRegExp := matchRepo.IsRegular
+
+		if !isRegExp {
+			if *ev.PullRequest.Base.Ref != hookRepo.Branch {
+				return false, nil
+			}
+		} else {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.PullRequest.Base.Ref); !matched {
+				return false, nil
+			}
+		}
 
 		if *ev.PullRequest.State == "open" {
 			var changedFiles []string

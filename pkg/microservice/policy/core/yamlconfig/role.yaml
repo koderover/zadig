@@ -51,6 +51,7 @@ preset_roles:
           - Workflow
       - verbs:
           - get_environment
+          - get_production_environment
         resources:
           - Environment
       - verbs:
@@ -80,6 +81,14 @@ preset_roles:
             value: placeholder
       - verbs:
           - get_environment
+          - get_production_environment
+        resources:
+          - Environment
+        match_attributes:
+          - key: placeholder
+            value: placeholder
+      - verbs:
+          - get_production_environment
         resources:
           - Environment
         match_attributes:

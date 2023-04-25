@@ -44,6 +44,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		helm.PUT("/services/releaseNaming", HelmReleaseNaming)
 	}
 
+	productionservices := router.Group("production/services")
+	{
+		productionservices.GET("", ListProductionServices)
+		productionservices.GET("/:name/k8s", GetProductionK8sService)
+		productionservices.GET("/:name", GetProductionK8sServiceOption)
+		productionservices.POST("k8s", CreateK8sProductionService)
+		productionservices.PUT("/:name/k8s/variable", UpdateK8sProductionServiceVariables)
+		productionservices.DELETE("/:name", DeleteProductionService)
+	}
+
 	k8s := router.Group("services")
 	{
 		k8s.GET("", ListServiceTemplate)
@@ -93,5 +103,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		template.POST("/load", LoadServiceFromYamlTemplate)
 		template.POST("/reload", ReloadServiceFromYamlTemplate)
 		template.POST("/preview", PreviewServiceYamlFromYamlTemplate)
+	}
+}
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	template := router.Group("template")
+	{
+		template.POST("/load/yaml", LoadServiceFromYamlTemplateOpenAPI)
 	}
 }

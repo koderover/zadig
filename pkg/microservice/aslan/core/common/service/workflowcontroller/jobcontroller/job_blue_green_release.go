@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
@@ -79,7 +80,7 @@ func (c *BlueGreenReleaseJobCtl) Clean(ctx context.Context) {
 		return
 	}
 	// clear intermediate state resources
-	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, c.jobTaskSpec.BlueWorkloadName, kubeClient); err != nil {
+	if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, c.jobTaskSpec.BlueWorkloadName, config.DefaultDeleteDeploymentTimeout, kubeClient); err != nil {
 		c.logger.Errorf("delete old deployment error: %v", err)
 	}
 	// if it was the first time blue-green deployment, clean the origin labels.
@@ -142,11 +143,25 @@ func (c *BlueGreenReleaseJobCtl) Run(ctx context.Context) {
 		c.jobTaskSpec.Events.Error(msg)
 		c.ack()
 	}
-	if err := updater.DeleteDeploymentAndWait(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient); err != nil {
+	if err := updater.DeleteDeploymentAndWaitWithTimeout(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, config.DefaultDeleteDeploymentTimeout, c.kubeClient); err != nil {
 		msg := fmt.Sprintf("delete old deployment: %s failed: %v", c.jobTaskSpec.WorkloadName, err)
 		logError(c.job, msg, c.logger)
 		return
 	}
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("blue green deployment succeed, now service point to deployemt: %s", c.jobTaskSpec.BlueWorkloadName))
 	c.job.Status = config.StatusPassed
+}
+
+func (c *BlueGreenReleaseJobCtl) SaveInfo(ctx context.Context) error {
+	return mongodb.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
+		Type:                c.job.JobType,
+		WorkflowName:        c.workflowCtx.WorkflowName,
+		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
+		TaskID:              c.workflowCtx.TaskID,
+		ProductName:         c.workflowCtx.ProjectName,
+		StartTime:           c.job.StartTime,
+		EndTime:             c.job.EndTime,
+		Duration:            c.job.EndTime - c.job.StartTime,
+		Status:              string(c.job.Status),
+	})
 }

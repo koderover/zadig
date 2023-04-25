@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -36,6 +37,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 const (
@@ -336,12 +338,13 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				if err != nil {
 					return "", "", nil, err
 				}
-				branchTag, branchTagType, commitID, commitMsg, gitCommitURL := "", BranchTagTypeBranch, "", "", ""
+				var prInfo string
+				var prInfoList []string
+				branchTag, commitID, commitMsg, gitCommitURL := "", "", "", ""
 				for idx, buildRepo := range buildSt.JobCtx.Builds {
 					if idx == 0 || buildRepo.IsPrimary {
 						branchTag = buildRepo.Branch
 						if buildRepo.Tag != "" {
-							branchTagType = BranchTagTypeTag
 							branchTag = buildRepo.Tag
 						}
 						if len(buildRepo.CommitID) > 8 {
@@ -354,9 +357,39 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 						if len(commitMsg) > CommitMsgInterceptLength {
 							commitMsg = commitMsg[0:CommitMsgInterceptLength]
 						}
+						var prLinkBuilder func(baseURL, owner, repoName string, prID int) string
+						switch buildRepo.Source {
+						case types.ProviderGithub:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/pull/%d", baseURL, owner, repoName, prID)
+							}
+						case types.ProviderGitee:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/pulls/%d", baseURL, owner, repoName, prID)
+							}
+						case types.ProviderGitlab:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%s/%s/merge_requests/%d", baseURL, owner, repoName, prID)
+							}
+						case types.ProviderGerrit:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return fmt.Sprintf("%s/%d", baseURL, prID)
+							}
+						}
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
+						prInfoList = []string{}
+						sort.Ints(buildRepo.PRs)
+						for _, id := range buildRepo.PRs {
+							link := prLinkBuilder(buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, id)
+							prInfoList = append(prInfoList, fmt.Sprintf("[#%d](%s)", id, link))
+						}
 					}
 				}
+				if len(prInfoList) != 0 {
+					// need an extra space at the end
+					prInfo = strings.Join(prInfoList, " ") + " "
+				}
+
 				if buildSt.BuildStatus.Status == "" {
 					buildSt.BuildStatus.Status = config.StatusNotRun
 				}
@@ -365,7 +398,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 					(buildSt.JobCtx.FileArchiveCtx != nil || buildSt.JobCtx.DockerBuildCtx != nil)) {
 					buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", buildSt.JobCtx.Image)
 				}
-				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[%s-%s %s](%s) \n", branchTagType, branchTag, commitID, gitCommitURL)
+				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：%s %s[%s](%s) \n", branchTag, prInfo, commitID, gitCommitURL)
 				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**：%s \n", commitMsg)
 				build = append(build, buildElemTemp)
 			}

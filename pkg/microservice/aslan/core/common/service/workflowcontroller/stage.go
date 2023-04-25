@@ -59,12 +59,10 @@ type StageCtl interface {
 
 func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
 	stage.Status = config.StatusRunning
-	stage.StartTime = time.Now().Unix()
 	ack()
 	logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
 	if err := waitForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
 		stage.Error = err.Error()
-		stage.EndTime = time.Now().Unix()
 		logger.Errorf("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
 		return
@@ -75,7 +73,8 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 		logger.Infof("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
 	}()
-
+	stage.StartTime = time.Now().Unix()
+	ack()
 	stageCtl := NewCustomStageCtl(stage, workflowCtx, logger, ack)
 
 	stageCtl.Run(ctx, concurrency)
@@ -83,6 +82,10 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 
 func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
 	for _, stage := range stages {
+		// should skip passed stage when workflow task be restarted
+		if stage.Status == config.StatusPassed {
+			continue
+		}
 		runStage(ctx, stage, workflowCtx, concurrency, logger, ack)
 		if statusFailed(stage.Status) {
 			return
@@ -99,21 +102,43 @@ func ApproveStage(workflowName, stageName, userName, userID, comment string, tas
 	return approveWithL.doApproval(userName, userID, comment, approve)
 }
 
-func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) (err error) {
 	if stage.Approval == nil {
 		return nil
 	}
 	if !stage.Approval.Enabled {
 		return nil
 	}
+	// should skip passed approval when workflow task be restarted
+	if stage.Approval.Status == config.StatusPassed {
+		return nil
+	}
+	stage.Approval.StartTime = time.Now().Unix()
+	defer func() {
+		stage.Approval.EndTime = time.Now().Unix()
+
+		if err == nil {
+			stage.Status = config.StatusRunning
+			stage.Approval.Status = config.StatusPassed
+		} else {
+			stage.Approval.Status = stage.Status
+		}
+	}()
+	// workflowCtx.SetStatus contain ack() function, so we don't need to call ack() here
+	stage.Status = config.StatusWaitingApprove
+	workflowCtx.SetStatus(config.StatusWaitingApprove)
+	// if approval result is not passed, workflow status will be set correctly in outer function
+	defer workflowCtx.SetStatus(config.StatusRunning)
+
 	switch stage.Approval.Type {
 	case config.NativeApproval:
-		return waitForNativeApprove(ctx, stage, workflowCtx, logger, ack)
+		err = waitForNativeApprove(ctx, stage, workflowCtx, logger, ack)
 	case config.LarkApproval:
-		return waitForLarkApprove(ctx, stage, workflowCtx, logger, ack)
+		err = waitForLarkApprove(ctx, stage, workflowCtx, logger, ack)
 	default:
-		return errors.New("invalid approval type")
+		err = errors.New("invalid approval type")
 	}
+	return err
 }
 
 func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
@@ -121,6 +146,7 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 	if approval == nil {
 		return errors.New("waitForApprove: native approval data not found")
 	}
+
 	if approval.Timeout == 0 {
 		approval.Timeout = 60
 	}
@@ -145,7 +171,7 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 			return fmt.Errorf("workflow was canceled")
 
 		case <-timeout:
-			stage.Status = config.StatusCancelled
+			stage.Status = config.StatusTimeout
 			return fmt.Errorf("workflow timeout")
 		default:
 			approved, approveCount, err := approveWithL.isApproval()

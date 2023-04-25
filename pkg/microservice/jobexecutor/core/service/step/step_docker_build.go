@@ -26,11 +26,12 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util/fs"
-	"gopkg.in/yaml.v2"
 )
 
 const dockerExe = "docker"
@@ -60,6 +61,11 @@ func (s *DockerBuildStep) Run(ctx context.Context) error {
 	defer func() {
 		log.Infof("Docker build ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
+
+	envMap := makeEnvMap(s.envs, s.secretEnvs)
+	s.spec.WorkDir = replaceEnvWithValue(s.spec.WorkDir, envMap)
+	s.spec.DockerFile = replaceEnvWithValue(s.spec.DockerFile, envMap)
+	s.spec.BuildArgs = replaceEnvWithValue(s.spec.BuildArgs, envMap)
 
 	if err := s.dockerLogin(); err != nil {
 		return err

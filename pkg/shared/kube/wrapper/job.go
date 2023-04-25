@@ -17,9 +17,13 @@ limitations under the License.
 package wrapper
 
 import (
+	"time"
+
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/duration"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -65,4 +69,44 @@ func (w *job) Resource() *resource.Job {
 		Failed:     w.Status.Failed,
 		Containers: append(w.Spec.Template.Spec.Containers, w.Spec.Template.Spec.InitContainers...),
 	}
+}
+
+func (job *job) ImageInfos() (images []string) {
+	for _, v := range job.Spec.Template.Spec.Containers {
+		images = append(images, v.Image)
+	}
+	return
+}
+
+func (job *job) GetDuration() string {
+	if job.Status.StartTime != nil && job.Status.CompletionTime != nil {
+		if job.Status.CompletionTime != nil {
+			return duration.HumanDuration(job.Status.CompletionTime.Sub(job.Status.StartTime.Time))
+		} else {
+			return duration.HumanDuration(time.Now().Sub(job.Status.StartTime.Time))
+		}
+	}
+	return ""
+}
+
+func (job *job) GetAge() string {
+	return duration.HumanDuration(time.Now().Sub(job.CreationTimestamp.Time))
+}
+
+func (job *job) WorkloadResource(pods []*corev1.Pod) *resource.Workload {
+	wl := &resource.Workload{
+		Name:     job.Name,
+		Type:     setting.Job,
+		Replicas: job.Status.Active,
+		Pods:     make([]*resource.Pod, 0, len(pods)),
+	}
+
+	for _, c := range job.Spec.Template.Spec.Containers {
+		wl.Images = append(wl.Images, resource.ContainerImage{Name: c.Name, Image: c.Image})
+	}
+
+	for _, p := range pods {
+		wl.Pods = append(wl.Pods, Pod(p).Resource())
+	}
+	return wl
 }

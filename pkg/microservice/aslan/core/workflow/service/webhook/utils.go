@@ -30,14 +30,13 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/releaseutil"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -45,7 +44,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
 	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
-	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -154,11 +152,11 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)
 			// 分隔符为\n---\n
-			args.KubeYamls = SplitYaml(args.Yaml)
+			args.KubeYamls = util.SplitYaml(args.Yaml)
 		}
 
 		// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
-		if err := setCurrentContainerImages(args); err != nil {
+		if err := commonutil.SetCurrentContainerImages(args); err != nil {
 			return err
 		}
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
@@ -407,12 +405,8 @@ func syncContentFromGitlab(userName string, args *commonmodels.Service) error {
 	// 根据gitlab sync的内容来设置args.KubeYamls
 	args.KubeYamls = files
 	// 拼装并设置args.Yaml
-	args.Yaml = joinYamls(files)
+	args.Yaml = util.JoinYamls(files)
 	return nil
-}
-
-func joinYamls(files []string) string {
-	return strings.Join(files, setting.YamlFileSeperator)
 }
 
 func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) error {
@@ -432,7 +426,7 @@ func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) e
 	}
 	if fileContent != nil {
 		svcContent, _ := fileContent.GetContent()
-		splitYaml := SplitYaml(svcContent)
+		splitYaml := util.SplitYaml(svcContent)
 		args.KubeYamls = splitYaml
 		args.Yaml = svcContent
 	} else {
@@ -456,14 +450,10 @@ func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) e
 		}
 
 		args.KubeYamls = files
-		args.Yaml = joinYamls(files)
+		args.Yaml = util.JoinYamls(files)
 	}
 
 	return nil
-}
-
-func SplitYaml(yaml string) []string {
-	return strings.Split(yaml, setting.YamlFileSeperator)
 }
 
 func syncSingleFileFromGithub(owner, repo, branch, path, token string) (string, error) {
@@ -474,68 +464,6 @@ func syncSingleFileFromGithub(owner, repo, branch, path, token string) (string, 
 	}
 
 	return "", err
-}
-
-// 从 kube yaml 中获取所有当前 containers 镜像和名称
-// 支持 Deployment StatefulSet Job
-func setCurrentContainerImages(args *commonmodels.Service) error {
-	srvContainers := make([]*commonmodels.Container, 0)
-	for _, data := range args.KubeYamls {
-		manifests := releaseutil.SplitManifests(data)
-		for _, item := range manifests {
-			//在Unmarshal之前填充渲染变量{{.}}
-			item = config.RenderTemplateAlias.ReplaceAllLiteralString(item, "ssssssss")
-			// replace $Service$ with service name
-			item = config.ServiceNameAlias.ReplaceAllLiteralString(item, args.ServiceName)
-
-			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
-			if err != nil {
-				return fmt.Errorf("unmarshal ResourceKind error: %v", err)
-			}
-
-			switch u.GetKind() {
-			case setting.Deployment, setting.StatefulSet, setting.Job:
-				cs, err := getContainers(u)
-				if err != nil {
-					return fmt.Errorf("GetContainers error: %v", err)
-				}
-				srvContainers = append(srvContainers, cs...)
-			}
-		}
-	}
-
-	args.Containers = srvContainers
-
-	return nil
-}
-
-// 从kube yaml中查找所有containers 镜像和名称
-func getContainers(u *unstructured.Unstructured) ([]*commonmodels.Container, error) {
-	var containers []*commonmodels.Container
-	cs, _, _ := unstructured.NestedSlice(u.Object, "spec", "template", "spec", "containers")
-	for _, c := range cs {
-		val, ok := c.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		nameStr, ok := val["name"].(string)
-		if !ok {
-			return containers, errors.New("error name value")
-		}
-
-		imageStr, ok := val["image"].(string)
-		if !ok {
-			return containers, errors.New("error image value")
-		}
-
-		containers = append(containers, &commonmodels.Container{
-			Name:  nameStr,
-			Image: imageStr,
-		})
-	}
-
-	return containers, nil
 }
 
 type MatchFolders []string
@@ -599,6 +527,7 @@ func ConvertScanningHookToMainHookRepo(hook *types.ScanningHook) *commonmodels.M
 		MatchFolders: hook.MatchFolders,
 		CodehostID:   hook.CodehostID,
 		Events:       hook.Events,
+		IsRegular:    hook.IsRegular,
 	}
 }
 

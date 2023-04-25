@@ -155,17 +155,6 @@ func (gtem giteeTagEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.MainH
 			return false, nil
 		}
 
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.Repository.DefaultBranch {
-			return false, nil
-		}
-		if isRegular {
-			// Do not use regexp.MustCompile to avoid panic
-			matched, err := regexp.MatchString(hookRepo.Branch, ev.Repository.DefaultBranch)
-			if err != nil || !matched {
-				return false, nil
-			}
-		}
 		hookRepo.Tag = getTagFromRef(ev.Ref)
 		hookRepo.Committer = ev.Sender.Name
 
@@ -255,42 +244,69 @@ func TriggerWorkflowV4ByGiteeEvent(event interface{}, baseURI, requestID string,
 
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
-			var mergeRequestID, commitID string
-			if ev, isPr := event.(*gitee.PullRequestEvent); isPr {
+
+			autoCancelOpt := &AutoCancelOpt{
+				TaskType:     config.WorkflowType,
+				MainRepo:     item.MainRepo,
+				AutoCancel:   item.AutoCancel,
+				WorkflowName: workflow.Name,
+			}
+			var mergeRequestID, commitID, ref, eventType string
+			var prID int
+			switch ev := event.(type) {
+			case *gitee.PullRequestEvent:
+				eventType = EventTypePR
 				mergeRequestID = strconv.Itoa(ev.PullRequest.Number)
 				commitID = ev.PullRequest.Head.Sha
-				autoCancelOpt := &AutoCancelOpt{
+				prID = ev.PullRequest.Number
+				autoCancelOpt.Type = eventType
+				autoCancelOpt.CommitID = commitID
+				autoCancelOpt.MergeRequestID = mergeRequestID
+				hookPayload = &commonmodels.HookPayload{
+					Owner:          eventRepo.RepoOwner,
+					Repo:           eventRepo.RepoName,
+					CodehostID:     item.MainRepo.CodehostID,
+					Branch:         eventRepo.Branch,
+					IsPr:           true,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
-					TaskType:       config.WorkflowType,
-					MainRepo:       item.MainRepo,
-					AutoCancel:     item.AutoCancel,
-					WorkflowName:   workflow.Name,
+					EventType:      eventType,
 				}
+			case *gitee.PushEvent:
+				eventType = EventTypePush
+				ref = ev.Ref
+				commitID = ev.After
+				autoCancelOpt.Type = eventType
+				autoCancelOpt.CommitID = commitID
+				autoCancelOpt.Ref = ref
+				hookPayload = &commonmodels.HookPayload{
+					Owner:      eventRepo.RepoOwner,
+					Repo:       eventRepo.RepoName,
+					CodehostID: item.MainRepo.CodehostID,
+					Branch:     eventRepo.Branch,
+					Ref:        ref,
+					IsPr:       false,
+					CommitID:   commitID,
+					EventType:  eventType,
+				}
+			case *gitee.TagPushEvent:
+				eventType = EventTypeTag
+			}
+			if autoCancelOpt.Type != "" {
 				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
 				if err != nil {
 					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)
 					mErr = multierror.Append(mErr, err)
 				}
 
-				if notification == nil {
+				if autoCancelOpt.Type == EventTypePR && notification == nil {
 					notification, err = scmnotify.NewService().SendInitWebhookComment(
-						item.MainRepo, ev.PullRequest.Number, baseURI, false, false, false, true, log,
+						item.MainRepo, prID, baseURI, false, false, false, true, log,
 					)
 					if err != nil {
 						log.Errorf("failed to init webhook comment due to %s", err)
 						mErr = multierror.Append(mErr, err)
 					}
-				}
-
-				hookPayload = &commonmodels.HookPayload{
-					Owner:          eventRepo.RepoOwner,
-					Repo:           eventRepo.RepoName,
-					Branch:         eventRepo.Branch,
-					IsPr:           true,
-					CodehostID:     item.MainRepo.CodehostID,
-					MergeRequestID: mergeRequestID,
-					CommitID:       commitID,
 				}
 			}
 			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {

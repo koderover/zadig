@@ -340,7 +340,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 		pathSegments := strings.Split(args.LoadPath, "/")
 		fileName := pathSegments[len(pathSegments)-1]
 		svcName := getFileName(fileName)
-		splittedYaml := SplitYaml(string(contentBytes))
+		splittedYaml := util.SplitYaml(string(contentBytes))
 		// FIXME：gerrit原先有字段保存codehost信息，保存两份，兼容性
 		createSvcArgs := &models.Service{
 			CodehostID:       ch.ID,
@@ -411,9 +411,9 @@ func loadServiceFromGerrit(tree []os.FileInfo, id int, username, branchName, loa
 		return err
 	}
 	for _, yamlEntry := range yamlList {
-		splittedYaml = append(splittedYaml, SplitYaml(yamlEntry)...)
+		splittedYaml = append(splittedYaml, util.SplitYaml(yamlEntry)...)
 	}
-	yml := joinYamls(yamlList)
+	yml := util.JoinYamls(yamlList)
 	createSvcArgs := &models.Service{
 		CodehostID:       id,
 		BranchName:       branchName,
@@ -534,9 +534,9 @@ func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeN
 	}
 
 	for _, yamlEntry := range yamlList {
-		splittedYaml = append(splittedYaml, SplitYaml(yamlEntry)...)
+		splittedYaml = append(splittedYaml, util.SplitYaml(yamlEntry)...)
 	}
-	yml := joinYamls(yamlList)
+	yml := util.JoinYamls(yamlList)
 
 	commit, err := client.GetLatestRepositoryCommit(repoOwner, repoName, branchName)
 	if err != nil {
@@ -610,7 +610,7 @@ func loadGiteeService(username string, ch *systemconfig.CodeHost, repoOwner, rep
 		pathSegments := strings.Split(args.LoadPath, "/")
 		fileName := pathSegments[len(pathSegments)-1]
 		svcName := getFileName(fileName)
-		splittedYaml := SplitYaml(string(contentBytes))
+		splittedYaml := util.SplitYaml(string(contentBytes))
 		srcPath := fmt.Sprintf("%s/%s/%s/blob/%s/%s", ch.Address, repoOwner, repoName, branchName, args.LoadPath)
 		createSvcArgs := &models.Service{
 			CodehostID:  ch.ID,
@@ -677,9 +677,9 @@ func loadServiceFromGitee(tree []os.FileInfo, ch *systemconfig.CodeHost, usernam
 		return err
 	}
 	for _, yamlEntry := range yamlList {
-		splittedYaml = append(splittedYaml, SplitYaml(yamlEntry)...)
+		splittedYaml = append(splittedYaml, util.SplitYaml(yamlEntry)...)
 	}
-	yml := joinYamls(yamlList)
+	yml := util.JoinYamls(yamlList)
 	srcPath := fmt.Sprintf("%s/%s/tree/%s/%s", ch.Address, repoInfo, branchName, loadPath)
 	createSvcArgs := &models.Service{
 		CodehostID:  ch.ID,

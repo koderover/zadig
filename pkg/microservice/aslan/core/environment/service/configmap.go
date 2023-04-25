@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -42,6 +41,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type ListConfigMapArgs struct {
@@ -183,9 +183,8 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*ListCon
 }
 
 func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string, log *zap.SugaredLogger) error {
-	js, err := yaml.YAMLToJSON([]byte(args.YamlData))
 	cm := &corev1.ConfigMap{}
-	err = json.Unmarshal(js, cm)
+	err := yaml.Unmarshal([]byte(args.YamlData), cm)
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
@@ -201,11 +200,7 @@ func UpdateConfigMap(args *models.CreateUpdateCommonEnvCfgArgs, userName string,
 	}
 
 	namespace := product.Namespace
-	//renderSet, err := commonservice.GetRenderSet(namespace, 0, false, product.EnvName, log)
-	//if err != nil {
-	//	log.Errorf("Failed to find render set for product template %s, err: %v", product.ProductName, err)
-	//	return err
-	//}
+
 	for key, value := range cm.Data {
 		// TODO  need fill variable yaml?
 		//for _, kv := range renderSet.KVs {
@@ -403,10 +398,12 @@ func MigrateHistoryConfigMaps(envName, productName string, log *zap.SugaredLogge
 			Name:          productName,
 			EnvName:       envName,
 			ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusCreating},
+			Production:    util.GetBoolPointer(false),
 		})
 	} else {
 		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusCreating},
+			Production:    util.GetBoolPointer(false),
 		})
 	}
 	if err != nil && err != mongo.ErrNoDocuments {

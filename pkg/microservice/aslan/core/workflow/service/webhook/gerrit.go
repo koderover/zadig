@@ -40,6 +40,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	gerritservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -148,13 +149,13 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 		var oldYamlContent string
 		if filePath.IsDir() {
 			if newFileContents, err := readAllFileContentUnderDir(path.Join(newBase, service.LoadPath)); err == nil {
-				newYamlContent = strings.Join(newFileContents, setting.YamlFileSeperator)
+				newYamlContent = util.JoinYamls(newFileContents)
 			} else {
 				errs = multierror.Append(errs, err)
 			}
 
 			if oldFileContents, err := readAllFileContentUnderDir(path.Join(oldBase, service.LoadPath)); err == nil {
-				oldYamlContent = strings.Join(oldFileContents, setting.YamlFileSeperator)
+				oldYamlContent = util.JoinYamls(oldFileContents)
 			} else {
 				errs = multierror.Append(errs, err)
 			}
@@ -296,11 +297,11 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)
 			// 分隔符为\n---\n
-			args.KubeYamls = SplitYaml(args.Yaml)
+			args.KubeYamls = util.SplitYaml(args.Yaml)
 		}
 
 		// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
-		if err := setCurrentContainerImages(args); err != nil {
+		if err := commonutil.SetCurrentContainerImages(args); err != nil {
 			return err
 		}
 

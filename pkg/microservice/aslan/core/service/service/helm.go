@@ -29,8 +29,9 @@ import (
 	"text/template"
 	"time"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
 	"github.com/27149chen/afero"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -46,7 +47,9 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -254,14 +257,14 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 	base := config.LocalServicePath(productName, serviceName)
 	if revision > 0 {
 		base = config.LocalServicePathWithRevision(productName, serviceName, revision)
-		if err = commonservice.PreloadServiceManifestsByRevision(base, svc); err != nil {
+		if err = commonutil.PreloadServiceManifestsByRevision(base, svc); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
 		}
 	}
 	if err != nil || revision == 0 {
 		base = config.LocalServicePath(productName, serviceName)
-		err = commonservice.PreLoadServiceManifests(base, svc)
+		err = commonutil.PreLoadServiceManifests(base, svc)
 		if err != nil {
 			return "", e.ErrFileContent.AddDesc(err.Error())
 		}
@@ -303,7 +306,7 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 
 	// preload current chart
 	base := config.LocalServicePath(productName, serviceName)
-	err = commonservice.PreLoadServiceManifests(base, svc)
+	err = commonutil.PreLoadServiceManifests(base, svc)
 	if err != nil {
 		return e.ErrEditHelmCharts.AddErr(err)
 	}
@@ -1577,20 +1580,20 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 	base := config.LocalServicePath(productName, serviceName)
 	if revision > 0 {
 		base = config.LocalServicePathWithRevision(productName, serviceName, revision)
-		if err = commonservice.PreloadServiceManifestsByRevision(base, svc); err != nil {
+		if err = commonutil.PreloadServiceManifestsByRevision(base, svc); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
 		}
 	}
 	if err != nil || revision == 0 {
 		base = config.LocalServicePath(productName, serviceName)
-		err = commonservice.PreLoadServiceManifests(base, svc)
+		err = commonutil.PreLoadServiceManifests(base, svc)
 		if err != nil {
 			return nil, e.ErrFilePath.AddDesc(err.Error())
 		}
 	}
 
-	err = commonservice.PreLoadServiceManifests(base, svc)
+	err = commonutil.PreLoadServiceManifests(base, svc)
 	if err != nil {
 		return nil, e.ErrFilePath.AddDesc(err.Error())
 	}
@@ -1652,7 +1655,7 @@ func compareHelmVariable(chartInfos []*templatemodels.ServiceRender, productName
 	}
 
 	//添加renderset
-	if err := commonservice.CreateK8sHelmRenderSet(
+	if err := render.CreateK8sHelmRenderSet(
 		&models.RenderSet{
 			Name:        productName,
 			Revision:    0,
@@ -1672,7 +1675,7 @@ func compareHelmVariable(chartInfos []*templatemodels.ServiceRender, productName
 		IsDefault:   true,
 	}
 
-	if err := commonservice.CreateDefaultHelmRenderset(newRenderset, log); err != nil {
+	if err := render.CreateDefaultHelmRenderset(newRenderset, log); err != nil {
 		log.Error(fmt.Errorf("failed to create renderset, name: %s, err: %s", newRenderset.Name, err))
 		return
 	}

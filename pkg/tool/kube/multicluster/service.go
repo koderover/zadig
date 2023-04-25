@@ -19,9 +19,11 @@ package multicluster
 import (
 	"fmt"
 	"io/ioutil"
-	"istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
 	"net/http"
 	"os"
+
+	"istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
+	"k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -74,6 +76,19 @@ func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, e
 	return clusterService.GetClientGoKubeClient(clusterID)
 }
 
+func GetKubeMetricsClient(hubServerAddr, clusterID string) (*v1beta1.MetricsV1beta1Client, error) {
+	if clusterID == "" {
+		return krkubeclient.NewMetricsClient()
+	}
+
+	clusterService, err := NewAgent(hubServerAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get clusterService: %v", err)
+	}
+
+	return clusterService.GetKubeMetricsClient(clusterID)
+}
+
 func GetKubeClientSetFromKubeConfig(clusterID, kubeConfig string) (*kubernetes.Clientset, error) {
 	cfg, err := GetRestConfigFromKubeConfig(clusterID, kubeConfig)
 	if err != nil {
@@ -82,6 +97,16 @@ func GetKubeClientSetFromKubeConfig(clusterID, kubeConfig string) (*kubernetes.C
 	}
 
 	return kubernetes.NewForConfig(cfg)
+}
+
+func GetKubeMetricsClientFromKubeConfig(clusterID, kubeConfig string) (*v1beta1.MetricsV1beta1Client, error) {
+	cfg, err := GetRestConfigFromKubeConfig(clusterID, kubeConfig)
+	if err != nil {
+		log.Errorf("failed to get kubeconfig from file, error: %s", err)
+		return nil, err
+	}
+
+	return v1beta1.NewForConfig(cfg)
 }
 
 func GetDynamicKubeclient(hubServerAddr, clusterID string) (dynamic.Interface, error) {
@@ -272,6 +297,11 @@ func (s *Agent) GetKubeClient(clusterID string) (client.Client, error) {
 func (s *Agent) GetClientGoKubeClient(clusterID string) (*kubernetes.Clientset, error) {
 	config := generateRestConfig(clusterID, s.hubServerAddr)
 	return kubernetes.NewForConfig(config)
+}
+
+func (s *Agent) GetKubeMetricsClient(clusterID string) (*v1beta1.MetricsV1beta1Client, error) {
+	config := generateRestConfig(clusterID, s.hubServerAddr)
+	return v1beta1.NewForConfig(config)
 }
 
 func (s *Agent) GetDynamicKubeClient(clusterID string) (dynamic.Interface, error) {

@@ -48,6 +48,7 @@ type DockerBuildPlugin struct {
 	restConfig    *rest.Config
 	Task          *task.DockerBuild
 	Log           *zap.SugaredLogger
+	Timeout       <-chan time.Time
 }
 
 func (p *DockerBuildPlugin) SetAckFunc(func()) {
@@ -221,12 +222,16 @@ func (p *DockerBuildPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 		p.Task.Error = msg
 		return
 	}
+	p.Timeout = time.After(time.Duration(p.TaskTimeout()) * time.Second)
 }
 
 // Wait ...
 func (p *DockerBuildPlugin) Wait(ctx context.Context) {
-	status := waitJobEnd(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, p.kubeClient, p.clientset, p.restConfig, p.Log)
+	status, err := waitJobEnd(ctx, p.TaskTimeout(), p.Timeout, p.KubeNamespace, p.JobName, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetStatus(status)
+	if err != nil {
+		p.Task.Error = err.Error()
+	}
 }
 
 // Complete ...

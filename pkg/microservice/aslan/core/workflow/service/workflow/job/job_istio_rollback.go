@@ -126,6 +126,10 @@ func (j *IstioRollBackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 		jobTask := &commonmodels.JobTask{
 			Name:    jobNameFormat(j.job.Name + "-" + target.WorkloadName),
 			JobType: string(config.JobIstioRollback),
+			JobInfo: map[string]string{
+				JobNameKey:      j.job.Name,
+				"workload_name": target.WorkloadName,
+			},
 			Spec: &commonmodels.JobIstioRollbackSpec{
 				Namespace:   j.spec.Namespace,
 				ClusterID:   j.spec.ClusterID,

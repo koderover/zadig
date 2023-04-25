@@ -29,6 +29,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -42,6 +43,7 @@ type ListWorkflowV4Option struct {
 	ProjectName string
 	DisplayName string
 	Names       []string
+	Category    setting.WorkflowCategory
 }
 
 func NewWorkflowV4Coll() *WorkflowV4Coll {
@@ -149,6 +151,7 @@ func (c *WorkflowV4Coll) BulkCreate(args []*models.WorkflowV4) error {
 	for _, arg := range args {
 		arg.CreateTime = time.Now().Unix()
 		arg.UpdateTime = time.Now().Unix()
+		arg.UpdateHash()
 		ois = append(ois, arg)
 	}
 
@@ -161,6 +164,8 @@ func (c *WorkflowV4Coll) Create(obj *models.WorkflowV4) (string, error) {
 		return "", fmt.Errorf("nil object")
 	}
 
+	obj.UpdateHash()
+
 	res, err := c.InsertOne(context.TODO(), obj)
 	if err != nil {
 		return "", err
@@ -170,6 +175,18 @@ func (c *WorkflowV4Coll) Create(obj *models.WorkflowV4) (string, error) {
 		return "", errors.New("failed to get object id from create")
 	}
 	return ID.Hex(), err
+}
+
+func (c *WorkflowV4Coll) Count() (int64, error) {
+	query := bson.M{}
+
+	ctx := context.Background()
+	count, err := c.Collection.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64) ([]*models.WorkflowV4, int64, error) {
@@ -183,6 +200,9 @@ func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64
 	}
 	if len(opt.Names) > 0 {
 		query["name"] = bson.M{"$in": opt.Names}
+	}
+	if opt.Category != "" {
+		query["category"] = opt.Category
 	}
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
@@ -242,6 +262,7 @@ func (c *WorkflowV4Coll) Update(idString string, obj *models.WorkflowV4) error {
 	if err != nil {
 		return fmt.Errorf("invalid id")
 	}
+	obj.UpdateHash()
 	filter := bson.M{"_id": id}
 	update := bson.M{"$set": obj}
 

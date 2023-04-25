@@ -140,15 +140,15 @@ type KeyVal struct {
 }
 
 type StepDeploySpec struct {
-	Env                string                  `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName        string                  `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	ServiceType        string                  `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
-	ServiceModule      string                  `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
-	SkipCheckRunStatus bool                    `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
-	Image              string                  `bson:"image"                            json:"image"                               yaml:"image"`
-	ClusterID          string                  `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
-	Timeout            int                     `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
-	ReplaceResources   []commonmodels.Resource `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+	Env                string     `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName        string     `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	ServiceType        string     `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	ServiceModule      string     `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
+	SkipCheckRunStatus bool       `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	Image              string     `bson:"image"                            json:"image"                               yaml:"image"`
+	ClusterID          string     `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	Timeout            int        `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources   []Resource `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 }
 
 type StepHelmDeploySpec struct {
@@ -173,4 +173,24 @@ type StepCustomDeploySpec struct {
 	Image              string                  `bson:"image"                  json:"image"                 yaml:"image"`
 	SkipCheckRunStatus bool                    `bson:"skip_check_run_status"  json:"skip_check_run_status" yaml:"skip_check_run_status"`
 	ReplaceResources   []commonmodels.Resource `bson:"replace_resources"      json:"replace_resources"     yaml:"replace_resources"`
+}
+
+type JobTaskDeploySpec struct {
+	Env                string              `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName        string              `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	ServiceType        string              `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	ServiceModule      string              `bson:"service_module"                   json:"service_module"                      yaml:"service_module"`
+	SkipCheckRunStatus bool                `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	Image              string              `bson:"image"                            json:"image"                               yaml:"image"`
+	ClusterID          string              `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	Timeout            int                 `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources   []Resource          `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+	RelatedPodLabels   []map[string]string `bson:"-"                                json:"-"                                   yaml:"-"`
+}
+
+type Resource struct {
+	Name      string `bson:"name"                              json:"name"                                 yaml:"name"`
+	Kind      string `bson:"kind"                              json:"kind"                                 yaml:"kind"`
+	Container string `bson:"container"                         json:"container"                            yaml:"container"`
+	Origin    string `bson:"origin"                            json:"origin"                               yaml:"origin"`
 }

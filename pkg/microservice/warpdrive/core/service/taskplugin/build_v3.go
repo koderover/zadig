@@ -63,6 +63,7 @@ type BuildTaskV3Plugin struct {
 	restConfig    *rest.Config
 	Task          *task.Build
 	Log           *zap.SugaredLogger
+	Timeout       <-chan time.Time
 
 	ack func()
 }
@@ -212,14 +213,17 @@ func (p *BuildTaskV3Plugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 		p.SetBuildStatusCompleted(config.StatusFailed)
 		return
 	}
+	p.Timeout = time.After(time.Duration(p.TaskTimeout()) * time.Second)
 	p.Log.Infof("succeed to create build job %s", p.JobName)
 }
 
 // Wait ...
 func (p *BuildTaskV3Plugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
+	status, err := waitJobEndWithFile(ctx, p.TaskTimeout(), p.Timeout, p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetBuildStatusCompleted(status)
-
+	if err != nil {
+		p.Task.Error = err.Error()
+	}
 	if status == config.StatusPassed {
 		if p.Task.DockerBuildStatus == nil {
 			p.Task.DockerBuildStatus = &task.DockerBuildStatus{}

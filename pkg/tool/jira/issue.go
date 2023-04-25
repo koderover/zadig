@@ -17,8 +17,40 @@ limitations under the License.
 package jira
 
 import (
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"fmt"
+	"net/http"
+	"strconv"
+
+	"github.com/pkg/errors"
 )
+
+const commentTmpl = `{"body": {
+  "version": 1,
+  "type": "doc",
+  "content": [
+    {
+      "type": "paragraph",
+      "content": [
+        {
+          "type": "text",
+          "text": "%s"
+        },
+        {
+          "type": "text",
+          "text": "%s",
+          "marks": [
+            {
+              "type": "link",
+              "attrs": {
+                "href": "%s"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}}`
 
 // IssueService ...
 type IssueService struct {
@@ -34,12 +66,208 @@ func (s *IssueService) GetByKeyOrID(keyOrID, fields string) (*Issue, error) {
 	url := s.client.Host + "/rest/api/2/issue/" + keyOrID
 
 	issue := &Issue{}
-	_, err := s.client.Conn.Get(url, httpclient.SetResult(issue), httpclient.SetQueryParam("fields", fields))
+	resp, err := s.client.R().AddQueryParam("fields", fields).Get(url)
 	if err != nil {
 		return nil, err
 	}
+	if err = resp.UnmarshalJson(issue); err != nil {
+		return nil, errors.Wrap(err, "unmarshal")
+	}
 
 	return issue, nil
+}
+
+type IssueTypeDefinition struct {
+	Self     string `json:"self"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Subtask  bool   `json:"subtask"`
+	Statuses []struct {
+		Self             string `json:"self"`
+		Description      string `json:"description"`
+		IconURL          string `json:"iconUrl"`
+		Name             string `json:"name"`
+		UntranslatedName string `json:"untranslatedName"`
+		ID               string `json:"id"`
+		StatusCategory   struct {
+			Self      string `json:"self"`
+			ID        int    `json:"id"`
+			Key       string `json:"key"`
+			ColorName string `json:"colorName"`
+			Name      string `json:"name"`
+		} `json:"statusCategory"`
+	} `json:"statuses"`
+}
+
+type IssueTypeWithStatus struct {
+	Type   string   `json:"type"`
+	Status []string `json:"status"`
+}
+
+func (s *IssueService) GetTypes(project string) ([]*IssueTypeWithStatus, error) {
+	url := s.client.Host + "/rest/api/2/project/" + project + "/statuses"
+	resp, err := s.client.R().Get(url)
+	if err != nil {
+		return nil, err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return nil, errors.Errorf("unexpected status code %d", resp.GetStatusCode())
+	}
+	var list []*IssueTypeDefinition
+	if err = resp.UnmarshalJson(&list); err != nil {
+		return nil, err
+	}
+	var result []*IssueTypeWithStatus
+	for _, v := range list {
+		result = append(result, &IssueTypeWithStatus{
+			Type: v.Name,
+			Status: func() []string {
+				var re []string
+				for _, s := range v.Statuses {
+					re = append(re, s.Name)
+				}
+				return re
+			}(),
+		})
+	}
+	return result, nil
+}
+
+func (s *IssueService) SearchByJQL(jql string, findAll bool) ([]*Issue, error) {
+	var re []*Issue
+	start := 0
+	for {
+		list, next, err := s.searchByJQL(jql, start)
+		if err != nil {
+			return nil, err
+		}
+		re = append(re, list...)
+		if next == 0 || !findAll {
+			return re, nil
+		}
+		start = next
+	}
+	return re, nil
+}
+
+func (s *IssueService) searchByJQL(jql string, start int) ([]*Issue, int, error) {
+	url := s.client.Host + "/rest/api/2/search"
+	resp, err := s.client.R().SetQueryParams(map[string]string{
+		"jql":     jql,
+		"startAt": strconv.Itoa(start),
+	}).Get(url)
+	if err != nil {
+		return nil, 0, err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return nil, 0, errors.Errorf("unexpected status code %d", resp.GetStatusCode())
+	}
+	type tmp struct {
+		StartAt    int      `json:"startAt"`
+		MaxResults int      `json:"maxResults"`
+		Total      int      `json:"total"`
+		Issues     []*Issue `json:"issues"`
+	}
+	var re tmp
+	if err = resp.UnmarshalJson(&re); err != nil {
+		return nil, 0, errors.Wrap(err, "unmarshal")
+	}
+	next := 0
+	if re.StartAt+re.MaxResults < re.Total {
+		next = re.StartAt + re.MaxResults
+	}
+	return re.Issues, next, nil
+}
+
+type updateBody struct {
+	Transition struct {
+		ID string `json:"id"`
+	} `json:"transition"`
+}
+
+func (s *IssueService) UpdateStatus(key, statusID string) error {
+	url := s.client.Host + "/rest/api/2/issue/" + key + "/transitions"
+	body := updateBody{Transition: struct {
+		ID string `json:"id"`
+	}{ID: statusID}}
+	resp, err := s.client.R().SetBodyJsonMarshal(body).Post(url)
+	if err != nil {
+		return err
+	}
+	if resp.GetStatusCode() != http.StatusOK && resp.GetStatusCode() != http.StatusNoContent {
+		return errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	}
+	return nil
+}
+
+type Transition struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	To          To     `json:"to"`
+	IsAvailable *bool  `json:"isAvailable"`
+}
+
+type To struct {
+	Self           string         `json:"self"`
+	Description    string         `json:"description"`
+	IconURL        string         `json:"iconUrl"`
+	Name           string         `json:"name"`
+	ID             string         `json:"id"`
+	StatusCategory StatusCategory `json:"statusCategory"`
+}
+
+func (s *IssueService) GetTransitions(key string) ([]*Transition, error) {
+	url := s.client.Host + "/rest/api/2/issue/" + key + "/transitions?expand=transitions.fields"
+	resp, err := s.client.R().Get(url)
+	if err != nil {
+		return nil, err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return nil, errors.Errorf("unexpected status code %d", resp.GetStatusCode())
+	}
+	type tmp struct {
+		Transitions []*Transition `json:"transitions"`
+	}
+	t := &tmp{}
+	if err := resp.UnmarshalJson(t); err != nil {
+		return nil, errors.Wrap(err, "unmarshal")
+	}
+	var list []*Transition
+	for _, transition := range t.Transitions {
+		if transition.IsAvailable != nil && !*transition.IsAvailable {
+			continue
+		}
+		list = append(list, transition)
+	}
+	return list, nil
+}
+
+func (s *IssueService) AddCommentV3(key, comment, link, linkTitle string) error {
+	url := s.client.Host + "/rest/api/3/issue/" + key + "/comment"
+
+	resp, err := s.client.R().SetContentType("application/json").SetBody(fmt.Sprintf(commentTmpl, comment, linkTitle, link)).Post(url)
+	if err != nil {
+		return err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return errors.Errorf("get unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	}
+	return nil
+}
+
+func (s *IssueService) AddCommentV2(key, comment string) error {
+	url := s.client.Host + "/rest/api/2/issue/" + key + "/comment"
+
+	resp, err := s.client.R().SetBodyJsonMarshal(map[string]string{
+		"body": comment,
+	}).Post(url)
+	if err != nil {
+		return err
+	}
+	if resp.GetStatusCode()/100 != 2 {
+		return errors.Errorf("get unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	}
+	return nil
 }
 
 //// GetIssuesCountByJQL ...

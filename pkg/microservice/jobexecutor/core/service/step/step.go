@@ -85,6 +85,16 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 		if err != nil {
 			return err
 		}
+	case "debug_before":
+		stepInstance, err = NewDebugStep("before", workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
+	case "debug_after":
+		stepInstance, err = NewDebugStep("after", workspace, envs, secretEnvs)
+		if err != nil {
+			return err
+		}
 	default:
 		err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
 		log.Error(err)
@@ -188,4 +198,18 @@ func setCmdsWorkDir(dir string, cmds []*cmd.Command) {
 	for _, c := range cmds {
 		c.Cmd.Dir = dir
 	}
+}
+
+func makeEnvMap(envs ...[]string) map[string]string {
+	envMap := map[string]string{}
+	for _, env := range envs {
+		for _, env := range env {
+			sl := strings.Split(env, "=")
+			if len(sl) != 2 {
+				continue
+			}
+			envMap[sl[0]] = sl[1]
+		}
+	}
+	return envMap
 }

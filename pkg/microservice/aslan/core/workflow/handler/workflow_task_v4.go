@@ -26,6 +26,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -55,24 +56,35 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(commonmodels.WorkflowV4)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("CreateWorkflowTaskv4 c.GetRawData() err : %s", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
+	data := getBody(c)
+	if err := json.Unmarshal([]byte(data), args); err != nil {
 		log.Errorf("CreateWorkflowTaskv4 json.Unmarshal err : %s", err)
-	}
-
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "自定义工作流任务", args.Name, data, ctx.Logger)
 	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
 		Name:   ctx.UserName,
 		UserID: ctx.UserID,
 	}, args, ctx.Logger)
+}
+
+func CreateWorkflowTaskV4ByBuildInTrigger(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonmodels.WorkflowV4)
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	triggerName := c.Query("triggerName")
+	if triggerName == "" {
+		triggerName = setting.DefaultTaskRevoker
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "自定义工作流任务", args.Name, getBody(c), ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4ByBuildInTrigger(triggerName, args, ctx.Logger)
 }
 
 func ListWorkflowTaskV4(c *gin.Context) {
@@ -114,7 +126,13 @@ func CancelWorkflowTaskV4(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
-	ctx.Err = workflow.CancelWorkflowTaskV4(ctx.UserName, c.Param("workflowName"), taskID, ctx.Logger)
+
+	username := ctx.UserName
+	if c.Query("username") != "" {
+		username = c.Query("username")
+	}
+	internalhandler.InsertOperationLog(c, username, c.Query("projectName"), "取消", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
+	ctx.Err = workflow.CancelWorkflowTaskV4(username, c.Param("workflowName"), taskID, ctx.Logger)
 }
 
 func CloneWorkflowTaskV4(c *gin.Context) {
@@ -126,7 +144,71 @@ func CloneWorkflowTaskV4(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "克隆", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
 	ctx.Resp, ctx.Err = workflow.CloneWorkflowTaskV4(c.Param("workflowName"), taskID, ctx.Logger)
+}
+
+func RetryWorkflowTaskV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "重试", "自定义工作流任务", c.Param("workflowName"), "", ctx.Logger)
+	ctx.Err = workflow.RetryWorkflowTaskV4(c.Param("workflowName"), taskID, ctx.Logger)
+}
+
+func SetWorkflowTaskV4Breakpoint(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+	var set bool
+	switch c.Query("operation") {
+	case "set", "unset":
+		set = c.Query("operation") == "set"
+	default:
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid operation")
+		return
+	}
+	switch c.Param("position") {
+	case "before", "after":
+	default:
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid position")
+		return
+	}
+	ctx.Err = workflow.SetWorkflowTaskV4Breakpoint(c.Param("workflowName"), c.Param("jobName"), taskID, set, c.Param("position"), ctx.Logger)
+}
+
+func EnableDebugWorkflowTaskV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+	ctx.Err = workflow.EnableDebugWorkflowTaskV4(c.Param("workflowName"), taskID, ctx.Logger)
+}
+
+func StopDebugWorkflowTaskJobV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+	ctx.Err = workflow.StopDebugWorkflowTaskJobV4(c.Param("workflowName"), c.Param("jobName"), taskID, c.Param("position"), ctx.Logger)
 }
 
 func ApproveStage(c *gin.Context) {

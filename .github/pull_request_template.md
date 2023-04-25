@@ -8,6 +8,6 @@
 
 - [ ] API change
 - [ ] database schema change
-- [ ] behavioral change
+- [ ] upgrade assistant change  
 - [ ] change in non-functional attributes such as efficiency or availability
 - [ ] fix of a previous issue

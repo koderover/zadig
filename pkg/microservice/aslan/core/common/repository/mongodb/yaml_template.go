@@ -137,6 +137,17 @@ func (c *YamlTemplateColl) GetById(idstring string) (*models.YamlTemplate, error
 	return resp, nil
 }
 
+func (c *YamlTemplateColl) GetByName(name string) (*models.YamlTemplate, error) {
+	resp := new(models.YamlTemplate)
+	query := bson.M{"name": name}
+
+	err := c.FindOne(context.TODO(), query).Decode(&resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *YamlTemplateColl) DeleteByID(idstring string) error {
 	id, err := primitive.ObjectIDFromHex(idstring)
 	if err != nil {

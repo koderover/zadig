@@ -166,16 +166,6 @@ func (gtem githubTagEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Main
 		return false, nil
 	}
 
-	isRegular := hookRepo.IsRegular
-	if !isRegular && hookRepo.Branch != *ev.Repo.DefaultBranch {
-		return false, nil
-	}
-	if isRegular {
-		// Do not use regexp.MustCompile to avoid panic
-		if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.Repo.DefaultBranch); !matched {
-			return false, nil
-		}
-	}
 	hookRepo.Tag = getTagFromRef(*ev.Ref)
 	if ev.Sender.Name != nil {
 		hookRepo.Committer = *ev.Sender.Name
@@ -261,24 +251,21 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 				continue
 			}
 
-			var mergeRequestID, commitID string
-			if ev, isPr := event.(*github.PullRequestEvent); isPr {
+			autoCancelOpt := &AutoCancelOpt{
+				TaskType:     config.WorkflowType,
+				MainRepo:     item.MainRepo,
+				AutoCancel:   item.AutoCancel,
+				WorkflowName: workflow.Name,
+			}
+			var mergeRequestID, commitID, ref, eventType string
+			switch ev := event.(type) {
+			case *github.PullRequestEvent:
+				eventType = EventTypePR
 				mergeRequestID = strconv.Itoa(*ev.PullRequest.Number)
 				commitID = *ev.PullRequest.Head.SHA
-				autoCancelOpt := &AutoCancelOpt{
-					MergeRequestID: mergeRequestID,
-					CommitID:       commitID,
-					TaskType:       config.WorkflowType,
-					MainRepo:       item.MainRepo,
-					AutoCancel:     item.AutoCancel,
-					WorkflowName:   workflow.Name,
-				}
-				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
-				if err != nil {
-					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)
-					mErr = multierror.Append(mErr, err)
-				}
-
+				autoCancelOpt.Type = eventType
+				autoCancelOpt.MergeRequestID = mergeRequestID
+				autoCancelOpt.CommitID = commitID
 				hookPayload = &commonmodels.HookPayload{
 					Owner:          *ev.Repo.Owner.Login,
 					Repo:           *ev.Repo.Name,
@@ -289,8 +276,41 @@ func TriggerWorkflowV4ByGithubEvent(event interface{}, baseURI, deliveryID, requ
 					DeliveryID:     deliveryID,
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
+					EventType:      eventType,
+				}
+			case *github.PushEvent:
+				if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
+					eventType = EventTypePush
+					ref = ev.GetRef()
+					commitID = ev.GetHeadCommit().GetID()
+					autoCancelOpt.Type = eventType
+					autoCancelOpt.Ref = ref
+					autoCancelOpt.CommitID = commitID
+					hookPayload = &commonmodels.HookPayload{
+						Owner:      *ev.Repo.Owner.Login,
+						Repo:       *ev.Repo.Name,
+						Ref:        ref,
+						IsPr:       false,
+						CodehostID: item.MainRepo.CodehostID,
+						DeliveryID: deliveryID,
+						CommitID:   commitID,
+						EventType:  eventType,
+					}
+				}
+			case *github.CreateEvent:
+				eventType = EventTypeTag
+				hookPayload = &commonmodels.HookPayload{
+					EventType: eventType,
 				}
 			}
+			if autoCancelOpt.Type != "" {
+				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
+				if err != nil {
+					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)
+					mErr = multierror.Append(mErr, err)
+				}
+			}
+
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
 			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {

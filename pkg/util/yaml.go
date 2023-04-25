@@ -19,6 +19,8 @@ package util
 import (
 	"strings"
 
+	"github.com/koderover/zadig/pkg/setting"
+
 	"helm.sh/helm/v3/pkg/releaseutil"
 )
 
@@ -52,4 +54,12 @@ func ReturnValidLabelValue(value string) string {
 	}
 
 	return value
+}
+
+func JoinYamls(files []string) string {
+	return strings.Join(files, setting.YamlFileSeperator)
+}
+
+func SplitYaml(yaml string) []string {
+	return strings.Split(yaml, setting.YamlFileSeperator)
 }

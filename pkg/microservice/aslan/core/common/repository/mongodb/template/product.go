@@ -100,6 +100,35 @@ func (c *ProductColl) ListNames(inNames []string) ([]string, error) {
 	return names, nil
 }
 
+func (c *ProductColl) ListNonPMProject() ([]*ProjectInfo, error) {
+	filter := bson.M{}
+	filter["product_feature.basic_facility"] = bson.M{"$ne": "cloud_host"}
+
+	pipeline := []bson.M{
+		{
+			"$match": filter,
+		},
+		{
+			"$project": bson.M{
+				"product_name": "$product_name",
+				"project_name": "$project_name",
+			},
+		},
+	}
+
+	cursor, err := c.Collection.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*ProjectInfo
+	err = cursor.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error) {
 	return c.listProjects(inNames, bson.M{
 		"product_name":      "$product_name",
@@ -243,7 +272,6 @@ func (c *ProductColl) Create(args *template.Product) error {
 }
 
 func (c *ProductColl) UpdateServiceOrchestration(productName string, services [][]string, updateBy string) error {
-
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
 		"services":    services,
@@ -255,11 +283,24 @@ func (c *ProductColl) UpdateServiceOrchestration(productName string, services []
 	return err
 }
 
-func (c *ProductColl) UpdateProductFeature(productName string, productFeature *template.ProductFeature, updateBy string) error {
+func (c *ProductColl) UpdateProductionServiceOrchestration(productName string, services [][]string, updateBy string) error {
+	query := bson.M{"product_name": productName}
+	change := bson.M{"$set": bson.M{
+		"production_services": services,
+		"update_time":         time.Now().Unix(),
+		"update_by":           updateBy,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *ProductColl) UpdateProductFeatureAndServices(productName string, productFeature *template.ProductFeature, services [][]string, updateBy string) error {
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
 		"update_time":                     time.Now().Unix(),
 		"update_by":                       updateBy,
+		"services":                        services,
 		"product_feature.deploy_type":     productFeature.DeployType,
 		"product_feature.create_env_type": productFeature.CreateEnvType,
 		"product_feature.basic_facility":  productFeature.BasicFacility,
@@ -282,6 +323,7 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"project_name":          strings.TrimSpace(args.ProjectName),
 		"revision":              args.Revision,
 		"services":              args.Services,
+		"production_services":   args.ProductionServices,
 		"update_time":           time.Now().Unix(),
 		"update_by":             args.UpdateBy,
 		"enabled":               args.Enabled,

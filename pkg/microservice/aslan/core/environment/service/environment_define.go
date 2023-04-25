@@ -50,12 +50,15 @@ type EnvResp struct {
 	IsPublic    bool     `json:"isPublic"`
 	ClusterName string   `json:"clusterName"`
 	ClusterID   string   `json:"cluster_id"`
+	Namespace   string   `json:"namespace"`
+	Alias       string   `json:"alias"`
 	Production  bool     `json:"production"`
 	Source      string   `json:"source"`
 	RegistryID  string   `json:"registry_id"`
 	BaseRefs    []string `json:"base_refs"`
 	BaseName    string   `json:"base_name"`
 	IsExisted   bool     `json:"is_existed"`
+	IsFavorite  bool     `json:"is_favorite"`
 
 	// New Since v1.11.0
 	ShareEnvEnable  bool   `json:"share_env_enable"`
@@ -136,6 +139,8 @@ type CreateSingleProductArg struct {
 	Namespace   string `json:"namespace"`
 	ClusterID   string `json:"cluster_id"`
 	RegistryID  string `json:"registry_id"`
+	Production  bool   `json:"production"`
+	Alias       string `json:"alias"`
 	BaseEnvName string `json:"base_env_name"`
 	BaseName    string `json:"base_name,omitempty"` // for collaboration mode
 
@@ -170,16 +175,6 @@ type RawYamlResp struct {
 	YamlContent string `json:"yamlContent"`
 }
 
-type ReleaseInstallParam struct {
-	ProductName  string
-	Namespace    string
-	ReleaseName  string
-	MergedValues string
-	RenderChart  *templatemodels.ServiceRender
-	serviceObj   *commonmodels.Service
-	DryRun       bool
-}
-
 type CreateEnvRequest struct {
 	Scene       string `form:"scene"`
 	Type        string `form:"type"`
@@ -202,7 +197,6 @@ type K8sDeployStatusCheckRequest struct {
 	ClusterID     string                           `json:"cluster_id"`
 	Namespace     string                           `json:"namespace"`
 	DefaultValues string                           `json:"default_values"`
-	//Vars      []*templatemodels.RenderKV `json:"vars"`
 }
 
 type HelmDeployStatusCheckRequest struct {
@@ -210,7 +204,6 @@ type HelmDeployStatusCheckRequest struct {
 	Services  []string `json:"services"`
 	ClusterID string   `json:"cluster_id"`
 	Namespace string   `json:"namespace"`
-	//Vars      []*templatemodels.RenderKV `json:"vars"`
 }
 
 type DeployStatus string

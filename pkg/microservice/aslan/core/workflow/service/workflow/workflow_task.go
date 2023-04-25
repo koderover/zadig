@@ -44,6 +44,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/jira"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
@@ -63,8 +64,14 @@ type CronjobWorkflowArgs struct {
 	Target []*commonmodels.TargetArgs `bson:"targets"                      json:"targets"`
 }
 
+type ServiceBuildInfo struct {
+	ServiceName   string `json:"service_name"`
+	ServiceModule string `json:"service_module"`
+	BuildName     string `json:"build_name"`
+}
+
 // GetWorkflowArgs 返回工作流详细信息
-func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*CronjobWorkflowArgs, error) {
+func GetWorkflowArgs(productName, namespace string, serviceBuildInfos []*ServiceBuildInfo, log *zap.SugaredLogger) (*CronjobWorkflowArgs, error) {
 	resp := &CronjobWorkflowArgs{}
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: namespace}
 	product, err := commonrepo.NewProductColl().Find(opt)
@@ -80,24 +87,20 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 	}
 
 	targetMap, _ := commonservice.GetProductTargetMap(product)
-	projectTargets := getProjectTargets(product.ProductName)
 	targets := make([]*commonmodels.TargetArgs, 0)
-	for _, container := range projectTargets {
+
+	for _, serviceBuildInfo := range serviceBuildInfos {
+		container := strings.Join([]string{productName, serviceBuildInfo.ServiceName, serviceBuildInfo.ServiceModule}, SplitSymbol)
 		if _, ok := targetMap[container]; !ok {
 			continue
 		}
-		containerArr := strings.Split(container, SplitSymbol)
-		if len(containerArr) != 3 {
-			continue
-		}
-		target := &commonmodels.TargetArgs{Name: containerArr[2], ServiceName: containerArr[1], Deploy: targetMap[container], Build: &commonmodels.BuildArgs{}, HasBuild: true}
-
-		moBuild, _ := findModuleByTargetAndVersion(allModules, container)
+		target := &commonmodels.TargetArgs{Name: serviceBuildInfo.ServiceModule, ServiceName: serviceBuildInfo.ServiceName, Deploy: targetMap[container], Build: &commonmodels.BuildArgs{}, HasBuild: true}
+		moBuild, _ := findModuleByServiceBuildInfo(allModules, serviceBuildInfo)
 		if moBuild == nil {
 			moBuild = &commonmodels.Build{}
 			target.HasBuild = false
 		}
-		err = fillBuildDetail(moBuild, containerArr[1], containerArr[2])
+		err = fillBuildDetail(moBuild, serviceBuildInfo.ServiceName, serviceBuildInfo.ServiceModule)
 		if err != nil {
 			return resp, e.ErrListBuildModule.AddErr(err)
 		}
@@ -125,7 +128,6 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 				JenkinsBuildParams: jenkinsBuildParams,
 			}
 		}
-
 		targets = append(targets, target)
 	}
 	resp.Target = targets
@@ -274,6 +276,20 @@ func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModul
 		for _, target := range mo.Targets {
 			targetStr := fmt.Sprintf("%s%s%s%s%s", target.ProductName, SplitSymbol, target.ServiceName, SplitSymbol, target.ServiceModule)
 			if targetStr == strings.Join(containerArr, SplitSymbol) {
+				return mo, target
+			}
+		}
+	}
+	return nil, nil
+}
+
+func findModuleByServiceBuildInfo(allModules []*commonmodels.Build, serviceBuildInfo *ServiceBuildInfo) (*commonmodels.Build, *commonmodels.ServiceModuleTarget) {
+	for _, mo := range allModules {
+		if mo.Name != serviceBuildInfo.BuildName {
+			continue
+		}
+		for _, target := range mo.Targets {
+			if target.ServiceName == serviceBuildInfo.ServiceName && target.ServiceModule == serviceBuildInfo.ServiceModule {
 				return mo, target
 			}
 		}
@@ -643,7 +659,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				if deployEnv.Type == setting.PMDeployType {
 					continue
 				}
-				deployTask, err := deployEnvToSubTasks(deployEnv, env, project.Timeout)
+				deployTask, err := deployEnvToSubTasks(deployEnv, env, project.Timeout*60)
 				if err != nil {
 					log.Errorf("deploy env to subtask error: %v", err)
 					return nil, e.ErrCreateTask.AddErr(err)
@@ -698,9 +714,9 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			subTasks = append(subTasks, distributeTasks...)
 		}
 
-		jiraInfo, _ := systemconfig.New().GetJiraInfo()
-		if jiraInfo != nil {
-			jiraTask, err := AddJiraSubTask("", target.Name, target.ServiceName, args.ProductTmplName, getBuildName(workflow, target.Name, target.ServiceName), log)
+		_, err = jira.GetJiraInfo()
+		if err == nil {
+			jiraTask, err := AddJiraSubTask(target.Name, target.Name, target.ServiceName, args.ProductTmplName, getBuildName(workflow, target.Name, target.ServiceName), log)
 			if err != nil {
 				log.Errorf("add jira task error: %v", err)
 				return nil, e.ErrCreateTask.AddErr(fmt.Errorf("add jira task error: %v", err))
@@ -805,6 +821,8 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		Source:         args.Source,
 		MergeRequestID: args.MergeRequestID,
 		CommitID:       args.CommitID,
+		Ref:            args.Ref,
+		EventType:      args.EventType,
 	}
 	task := &taskmodels.Task{
 		TaskID:              nextTaskID,
@@ -1513,7 +1531,16 @@ func AddJiraSubTask(moduleName, target, serviceName, productName, buildName stri
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
-	repos = append(repos, module.Repos...)
+	if module.TemplateID == "" {
+		repos = append(repos, module.Repos...)
+	} else {
+		for _, repo := range module.Targets {
+			if repo.ServiceName == serviceName && repo.ServiceModule == moduleName {
+				repos = append(repos, repo.Repos...)
+				break
+			}
+		}
+	}
 
 	jira.Builds = repos
 	return jira.ToSubTask()
@@ -1611,7 +1638,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 			TaskType: config.TaskTestingV2,
 			Enabled:  true,
 			TestName: "test",
-			Timeout:  testModule.Timeout,
+			Timeout:  testModule.Timeout * 60,
 		}
 		testTask.TestModuleName = testModule.Name
 		testTask.JobCtx.TestType = testModule.TestType
@@ -1683,6 +1710,29 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 			testTask.ResReq = testModule.PreTest.ResReq
 			testTask.ResReqSpec = testModule.PreTest.ResReqSpec
 		}
+
+		if testModule.PostTest != nil {
+			if testModule.PostTest.ObjectStorageUpload != nil {
+				testTask.JobCtx.UploadEnabled = testModule.PostTest.ObjectStorageUpload.Enabled
+				if testModule.PostTest.ObjectStorageUpload.Enabled {
+					storageInfo, err := commonrepo.NewS3StorageColl().Find(testModule.PostTest.ObjectStorageUpload.ObjectStorageID)
+					if err != nil {
+						log.Errorf("Failed to get basic storage info for uploading, the error is %s", err)
+						return nil, err
+					}
+					testTask.JobCtx.UploadStorageInfo = &types.ObjectStorageInfo{
+						Endpoint: storageInfo.Endpoint,
+						AK:       storageInfo.Ak,
+						SK:       storageInfo.Sk,
+						Bucket:   storageInfo.Bucket,
+						Insecure: storageInfo.Insecure,
+						Provider: storageInfo.Provider,
+					}
+					testTask.JobCtx.UploadInfo = testModule.PostTest.ObjectStorageUpload.UploadDetail
+				}
+			}
+		}
+
 		// 设置 build 安装脚本
 		testTask.InstallCtx, err = BuildInstallCtx(testTask.InstallItems)
 		if err != nil {
@@ -2071,7 +2121,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		ImageFrom:           module.PreBuild.ImageFrom,
 		ResReq:              module.PreBuild.ResReq,
 		ResReqSpec:          module.PreBuild.ResReqSpec,
-		Timeout:             module.Timeout,
+		Timeout:             module.Timeout * 60,
 		Registries:          registries,
 		ProductName:         args.ProductName,
 		Namespace:           module.PreBuild.Namespace,

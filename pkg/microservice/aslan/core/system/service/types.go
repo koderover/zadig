@@ -18,16 +18,20 @@ package service
 
 import (
 	"errors"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"net/url"
+
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/util"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 )
 
 type ExternalSystemDetail struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Server   string `json:"server"`
+	ID      string           `json:"id"`
+	Name    string           `json:"name"`
+	Server  string           `json:"server"`
+	Headers []*util.KeyValue `json:"headers,omitempty"`
+	// @2023-04-14 APIToken is deprecated after 1.4.0-ee
 	APIToken string `json:"api_token,omitempty"`
 }
 
@@ -145,4 +149,44 @@ type EnvService struct {
 type VMEnvService struct {
 	ServiceName string                    `json:"service_name"`
 	EnvStatus   []*commonmodels.EnvStatus `json:"env_status"`
+}
+
+type MeegoProjectResp struct {
+	Projects []*MeegoProject `json:"projects"`
+}
+
+type MeegoProject struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
+type MeegoWorkItemTypeResp struct {
+	WorkItemTypes []*MeegoWorkItemType `json:"work_item_types"`
+}
+
+type MeegoWorkItemType struct {
+	TypeKey string `json:"type_key"`
+	Name    string `json:"name"`
+}
+
+type MeegoWorkItemResp struct {
+	WorkItems []*MeegoWorkItem `json:"work_items"`
+}
+
+type MeegoWorkItem struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	CurrentState string `json:"current_state"`
+}
+
+type MeegoTransitionResp struct {
+	TargetStatus []*MeegoWorkItemStatusTransition `json:"target_status"`
+}
+
+type MeegoWorkItemStatusTransition struct {
+	SourceStateKey  string `json:"source_state_key"`
+	SourceStateName string `json:"source_state_name"`
+	TargetStateKey  string `json:"target_state_key"`
+	TargetStateName string `json:"target_state_name"`
+	TransitionID    int64  `json:"transition_id"`
 }

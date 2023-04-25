@@ -20,12 +20,15 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -107,10 +110,6 @@ func (p *DeployTaskPlugin) SetStatus(status config.Status) {
 func (p *DeployTaskPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
 		p.Task.Timeout = setting.DeployTimeout
-	} else {
-		if !p.Task.IsRestart {
-			p.Task.Timeout = p.Task.Timeout * 60
-		}
 	}
 
 	return p.Task.Timeout
@@ -419,6 +418,14 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 
 	timeout := time.After(time.Duration(p.TaskTimeout()) * time.Second)
 
+	resources, err := p.getResourcesPodOwnerUID()
+	if err != nil {
+		msg := fmt.Sprintf("get resource owner info error: %v", err)
+		p.Task.Error = msg
+		return
+	}
+	p.Task.ReplaceResources = resources
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -462,6 +469,11 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range p.Task.ReplaceResources {
+				if err := workLoadDeployStat(p.kubeClient, p.Task.Namespace, p.Task.RelatedPodLabels, resource.PodOwnerUID); err != nil {
+					p.Task.TaskStatus = config.StatusFailed
+					p.Task.Error = err.Error()
+					return
+				}
 				switch resource.Kind {
 				case setting.Deployment:
 					d, found, e := getter.GetDeployment(p.Task.Namespace, resource.Name, p.kubeClient)
@@ -511,12 +523,85 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 			if ready {
 				p.Task.TaskStatus = config.StatusPassed
 			}
-
 			if p.IsTaskDone() {
 				return
 			}
 		}
 	}
+}
+
+func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []map[string]string, ownerUID string) error {
+	for _, label := range labelMaps {
+		selector := labels.Set(label).AsSelector()
+		pods, err := getter.ListPods(namespace, selector, kubeClient)
+		if err != nil {
+			return err
+		}
+		for _, pod := range pods {
+			if !wrapper.Pod(pod).IsOwnerMatched(ownerUID) {
+				continue
+			}
+			allContainerStatuses := make([]corev1.ContainerStatus, 0)
+			allContainerStatuses = append(allContainerStatuses, pod.Status.InitContainerStatuses...)
+			allContainerStatuses = append(allContainerStatuses, pod.Status.ContainerStatuses...)
+			for _, cs := range allContainerStatuses {
+				if cs.State.Waiting != nil {
+					switch cs.State.Waiting.Reason {
+					case "ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff", "ErrImageNeverPull":
+						return fmt.Errorf("pod: %s, %s: %s", pod.Name, cs.State.Waiting.Reason, cs.State.Waiting.Message)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (p *DeployTaskPlugin) getResourcesPodOwnerUID() ([]task.Resource, error) {
+	newResources := []task.Resource{}
+	for _, resource := range p.Task.ReplaceResources {
+		switch resource.Kind {
+		case setting.StatefulSet:
+			sts, _, err := getter.GetStatefulSet(p.Task.Namespace, resource.Name, p.kubeClient)
+			if err != nil {
+				return newResources, err
+			}
+			resource.PodOwnerUID = string(sts.ObjectMeta.UID)
+		case setting.Deployment:
+			deployment, _, err := getter.GetDeployment(p.Task.Namespace, resource.Name, p.kubeClient)
+			if err != nil {
+				return newResources, err
+			}
+			selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+			if err != nil {
+				return nil, err
+			}
+
+			// esure latest replicaset to be created
+			time.Sleep(3 * time.Second)
+
+			replicaSets, err := getter.ListReplicaSets(p.Task.Namespace, selector, p.kubeClient)
+			if err != nil {
+				return newResources, err
+			}
+			// Only include those whose ControllerRef matches the Deployment.
+			owned := make([]*appsv1.ReplicaSet, 0, len(replicaSets))
+			for _, rs := range replicaSets {
+				if metav1.IsControlledBy(rs, deployment) {
+					owned = append(owned, rs)
+				}
+			}
+			if len(owned) <= 0 {
+				return newResources, fmt.Errorf("no replicaset found for deployment: %s", deployment.Name)
+			}
+			sort.Slice(owned, func(i, j int) bool {
+				return owned[i].CreationTimestamp.After(owned[j].CreationTimestamp.Time)
+			})
+			resource.PodOwnerUID = string(owned[0].ObjectMeta.UID)
+		}
+		newResources = append(newResources, resource)
+	}
+	return newResources, nil
 }
 
 func (p *DeployTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {

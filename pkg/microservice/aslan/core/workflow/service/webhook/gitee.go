@@ -45,6 +45,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gitee"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
@@ -79,6 +80,7 @@ func ProcessGiteeHook(payload []byte, req *http.Request, requestID string, log *
 			commonrepo.NewWebHookUserColl().Upsert(webhookUser)
 		}
 
+		// FIXME: this func maybe panic if any errors occurred, just like gitee token expired
 		if err := updateServiceTemplateByGiteeEvent(req.RequestURI, log); err != nil {
 			errorList = multierror.Append(errorList, err)
 		}
@@ -192,6 +194,24 @@ func updateServiceTemplateByGiteeEvent(uri string, log *zap.SugaredLogger) error
 			errs = multierror.Append(errs, err)
 		}
 		newRepoName := fmt.Sprintf("%s-new", service.RepoName)
+		if (time.Now().Unix() - detail.UpdatedAt) >= 86000 {
+			token, err := gitee.RefreshAccessToken(detail.Address, detail.RefreshToken)
+			if err == nil {
+				detail.AccessToken = token.AccessToken
+				detail.RefreshToken = token.RefreshToken
+				detail.UpdatedAt = int64(token.CreatedAt)
+
+				if err = systemconfig.New().UpdateCodeHost(detail.ID, detail); err != nil {
+					log.Errorf("failed to updateCodeHost err:%s", err)
+					errs = multierror.Append(errs, err)
+					return errs.ErrorOrNil()
+				}
+			} else {
+				log.Errorf("failed to refresh accessToken, err:%s", err)
+				errs = multierror.Append(errs, err)
+				return errs.ErrorOrNil()
+			}
+		}
 		err = command.RunGitCmds(detail, service.RepoOwner, service.GetRepoNamespace(), newRepoName, service.BranchName, "origin")
 		if err != nil {
 			log.Errorf("failed to run git cmds err:%s", err)
@@ -221,13 +241,13 @@ func updateServiceTemplateByGiteeEvent(uri string, log *zap.SugaredLogger) error
 		var oldYamlContent string
 		if filePath.IsDir() {
 			if newFileContents, err := readAllFileContentUnderDir(path.Join(newBase, service.LoadPath)); err == nil {
-				newYamlContent = strings.Join(newFileContents, setting.YamlFileSeperator)
+				newYamlContent = util.JoinYamls(newFileContents)
 			} else {
 				errs = multierror.Append(errs, err)
 			}
 
 			if oldFileContents, err := readAllFileContentUnderDir(path.Join(oldBase, service.LoadPath)); err == nil {
-				oldYamlContent = strings.Join(oldFileContents, setting.YamlFileSeperator)
+				oldYamlContent = util.JoinYamls(oldFileContents)
 			} else {
 				errs = multierror.Append(errs, err)
 			}

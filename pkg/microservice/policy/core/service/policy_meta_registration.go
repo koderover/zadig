@@ -17,9 +17,13 @@ limitations under the License.
 package service
 
 import (
+	"sort"
+	"strings"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
@@ -28,6 +32,7 @@ import (
 
 type PolicyDefinition struct {
 	Resource    string                  `json:"resource"`
+	ResourceKey string                  `json:"resource_key"`
 	Alias       string                  `json:"alias"`
 	Description string                  `json:"description"`
 	Rules       []*PolicyRuleDefinition `json:"rules"`
@@ -72,13 +77,34 @@ func CreateOrUpdatePolicyRegistration(p *types.PolicyMeta, _ *zap.SugaredLogger)
 	return mongodb.NewPolicyMetaColl().UpdateOrCreate(obj)
 }
 
+var definitionMap = map[string]int{
+	"Project":        1,
+	"Template":       2,
+	"TestCenter":     3,
+	"ReleaseCenter":  4,
+	"DeliveryCenter": 5,
+	"DataCenter":     6,
+}
+
+var projectDefinitionMap = map[string]int{
+	"Workflow":              1,
+	"Environment":           2,
+	"ProductionEnvironment": 3,
+	"Service":               4,
+	"ProductionService":     5,
+	"Build":                 6,
+	"Test":                  7,
+	"Scan":                  8,
+	"Delivery":              9,
+}
+
 func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
 	policieMetas, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
 		return nil, err
 	}
-	systemScopeSet := sets.NewString("TestCenter", "DataCenter", "Template", "DeliveryCenter")
-	projectScopeSet := sets.NewString("Workflow", "Environment", "Test", "Delivery", "Build", "Service", "Scan")
+	systemScopeSet := sets.NewString("Project", "Template", "TestCenter", "ReleaseCenter", "DeliveryCenter", "DataCenter")
+	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build", "Service", "ProductionService", "Scan")
 	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
 	for _, v := range policieMetas {
 		if systemScopeSet.Has(v.Resource) {
@@ -139,6 +165,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 	for _, meta := range filteredPolicyMetas {
 		pd := &PolicyDefinition{
 			Resource:    meta.Resource,
+			ResourceKey: meta.Resource,
 			Alias:       meta.Alias,
 			Description: meta.Description,
 		}
@@ -151,5 +178,41 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		}
 		res = append(res, pd)
 	}
+
+	for _, v := range res {
+		if v.Resource == string(config.ResourceTypeEnvironment) {
+			productionEnvDef := &PolicyDefinition{
+				Resource:    string(config.ResourceTypeEnvironment),
+				ResourceKey: "ProductionEnvironment",
+				Alias:       "生产环境",
+			}
+			productionRules := make([]*PolicyRuleDefinition, 0)
+			normalRules := make([]*PolicyRuleDefinition, 0)
+			// TODO ugly code
+			for _, rule := range v.Rules {
+				if strings.Contains(rule.Action, "production") {
+					productionRules = append(productionRules, rule)
+				} else {
+					normalRules = append(normalRules, rule)
+				}
+			}
+			v.Rules = normalRules
+			productionEnvDef.Rules = productionRules
+			res = append(res, productionEnvDef)
+			break
+		}
+	}
+
+	switch scope {
+	case string(types.SystemScope):
+		sort.Slice(res, func(i, j int) bool {
+			return definitionMap[res[i].Resource] < definitionMap[res[j].Resource]
+		})
+	case string(types.ProjectScope):
+		sort.Slice(res, func(i, j int) bool {
+			return projectDefinitionMap[res[i].Resource] < projectDefinitionMap[res[j].Resource]
+		})
+	}
+
 	return res, nil
 }

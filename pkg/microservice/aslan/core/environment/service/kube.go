@@ -58,6 +58,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	kubeutil "github.com/koderover/zadig/pkg/tool/kube/util"
@@ -77,6 +78,33 @@ type ServiceMatchedDeploymentContainers struct {
 		DeploymentName string   `json:"deployments_name"`
 		ContainerNames []string `json:"container_names"`
 	} `json:"deployment"`
+}
+
+type FetchResourceArgs struct {
+	EnvName       string `form:"envName"`
+	Page          int    `form:"page"`
+	PageSize      int    `form:"pageSize"`
+	ProjectName   string `form:"projectName"`
+	ResourceTypes string `form:"-"`
+	Type          string `form:"type"`
+	Name          string `form:"name"`
+}
+
+type WorkloadCommonData struct {
+	Name           string
+	WorkloadDetail *resource.Workload
+	Services       []*resource.Service
+	Ingresses      []*resource.Ingress
+}
+
+type WorkloadDetailResp struct {
+	Name     string                    `json:"name"`
+	Type     string                    `json:"type"`
+	Replicas int32                     `json:"replicas"`
+	Images   []resource.ContainerImage `json:"images"`
+	Pods     []*resource.Pod           `json:"pods"`
+	Ingress  []*resource.Ingress       `json:"ingress"`
+	Services []*resource.Service       `json:"service_endpoints"`
 }
 
 func ListKubeEvents(env string, productName string, name string, rtype string, log *zap.SugaredLogger) ([]*resource.Event, error) {
@@ -158,15 +186,23 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 		}
 		return resp, err
 	}
+
 	filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
 	if listType == setting.ListNamespaceTypeCreate {
-		nsList, err := commonrepo.NewProductColl().ListExistedNamespace()
+		nsList, err := commonrepo.NewProductColl().ListExistedNamespace(clusterID)
 		if err != nil {
 			log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
 			return nil, err
 		}
 		filterK8sNamespaces.Insert(nsList...)
 	}
+
+	productionEnvs, err := commonrepo.NewProductColl().ListProductionNamespace(clusterID)
+	if err != nil {
+		log.Errorf("Failed to list production namespace from the env List, error: %s", err)
+		return nil, err
+	}
+	filterK8sNamespaces.Insert(productionEnvs...)
 
 	filter := func(namespace *corev1.Namespace) bool {
 		if listType == setting.ListNamespaceTypeALL {
@@ -713,6 +749,169 @@ func ListAllK8sResourcesInNamespace(clusterID, namespace string, log *zap.Sugare
 	return resp, nil
 }
 
+func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sResourceResp, error) {
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    args.ProjectName,
+		EnvName: args.EnvName,
+	})
+
+	if err != nil {
+		return nil, e.ErrListK8sResources.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return nil, e.ErrListK8sResources.AddErr(err)
+	}
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return nil, e.ErrListK8sResources.AddDesc(err.Error())
+	}
+
+	inf, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+	if err != nil {
+		return nil, e.ErrListGroups.AddDesc(err.Error())
+	}
+
+	page, pageSize := args.Page, args.PageSize
+	clusterID, namespace := productInfo.ClusterID, productInfo.Namespace
+
+	switch args.ResourceTypes {
+	case "deployments":
+		return ListDeployments(page, pageSize, namespace, kubeClient, inf)
+	case "statefulsets":
+		return ListStatefulSets(page, pageSize, namespace, kubeClient, inf)
+	case "daemonsets":
+		return ListDaemonSets(page, pageSize, namespace, kubeClient)
+	case "jobs":
+		return ListJobs(page, pageSize, namespace, kubeClient)
+	case "cronjobs":
+		return ListCronJobs(page, pageSize, productInfo.ClusterID, namespace, kubeClient)
+	case "services":
+		return ListServices(page, pageSize, namespace, kubeClient, inf)
+	case "ingresses":
+		return ListIngressOverview(page, pageSize, clusterID, namespace, kubeClient, log)
+	case "pvcs":
+		return ListPVCs(page, pageSize, namespace, kubeClient)
+	case "configmaps":
+		return ListConfigMapOverview(page, pageSize, namespace, kubeClient)
+	case "secrets":
+		return ListK8sSecretOverview(page, pageSize, namespace, kubeClient)
+	}
+	return nil, e.ErrListK8sResources.AddDesc(fmt.Sprintf("unrecognized workload type: %s", args.ResourceTypes))
+}
+
+func GetK8sResourceYaml(args *FetchResourceArgs, log *zap.SugaredLogger) (string, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    args.ProjectName,
+		EnvName: args.EnvName,
+	})
+
+	if err != nil {
+		return "", e.ErrGetK8sResource.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return "", e.ErrGetK8sResource.AddErr(fmt.Errorf("failed to init kube client with id: %s, err: %s", productInfo.ClusterID, err))
+	}
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return "", e.ErrGetK8sResource.AddErr(fmt.Errorf("failed to init clientset with id: %s, err: %s", productInfo.ClusterID, err))
+	}
+	ns := productInfo.Namespace
+	resName := args.Name
+
+	switch strings.ToLower(args.Type) {
+	case "deployment":
+		return getK8sDeploymentYaml(ns, resName, kubeClient)
+	case "statefulset":
+		return getK8sStsYaml(ns, resName, kubeClient)
+	case "daemonset":
+		return getK8sDaemonSetYaml(ns, resName, kubeClient)
+	case "job":
+		return getK8sJobYaml(ns, resName, kubeClient)
+	case "cronjob":
+		return getK8sCronJobYaml(ns, resName, kubeClient, cls)
+	case "pod":
+		return getK8sPodYaml(ns, resName, kubeClient)
+	case "configmap":
+		return getK8sConfigMapYaml(ns, resName, kubeClient)
+	case "secret":
+		return getK8sSecretYaml(ns, resName, kubeClient)
+	case "persistentvolumeclaim":
+		return getK8sPVCYaml(ns, resName, kubeClient)
+	case "service":
+		return getK8sServiceYaml(ns, resName, kubeClient)
+	case "ingress":
+		return getK8sIngressYaml(ns, resName, kubeClient, cls)
+	}
+	return "", fmt.Errorf("unrecognized resource type: %s", args.Type)
+}
+
+func GetWorkloadDetail(args *FetchResourceArgs, workloadType, workloadName string, log *zap.SugaredLogger) (*WorkloadDetailResp, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    args.ProjectName,
+		EnvName: args.EnvName,
+	})
+
+	if err != nil {
+		return nil, e.ErrGetK8sResource.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return nil, e.ErrGetK8sResource.AddErr(fmt.Errorf("failed to init kube client with id: %s, err: %s", productInfo.ClusterID, err))
+	}
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	workload, err := getWorkloadDetail(
+		productInfo.Namespace,
+		strings.ToLower(workloadType),
+		workloadName,
+		kubeClient, cls, log)
+	if err != nil {
+		err = e.ErrGetK8sResource.AddErr(fmt.Errorf("failed to get workload detail: %s/%s, err: %s", workloadType, workloadName, err))
+		return nil, err
+	}
+
+	resp := &WorkloadDetailResp{
+		Name:     workloadName,
+		Type:     workload.WorkloadDetail.Type,
+		Replicas: workload.WorkloadDetail.Replicas,
+		Images:   workload.WorkloadDetail.Images,
+		Pods:     workload.WorkloadDetail.Pods,
+		Ingress:  workload.Ingresses,
+		Services: workload.Services,
+	}
+	return resp, nil
+}
+
+func getWorkloadDetail(ns, resType, name string, kc client.Client, cs *kubernetes.Clientset, log *zap.SugaredLogger) (*WorkloadCommonData, error) {
+	resp := &WorkloadCommonData{}
+	var err error
+	switch strings.ToLower(resType) {
+	case "deployment":
+		resp, err = GetDeployWorkloadData(ns, name, kc, cs, log)
+	case "statefulset":
+		resp, err = GetStsWorkloadData(ns, name, kc, cs, log)
+	case "daemonset":
+		resp, err = GetDsWorkloadData(ns, name, kc, cs, log)
+	case "job":
+		resp, err = GetJobData(ns, name, kc, cs, log)
+	default:
+		err = fmt.Errorf("unrecognized workload type: %s", resType)
+	}
+	return resp, err
+}
+
 func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace := request.ClusterID, request.Namespace
 	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
@@ -868,7 +1067,7 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 	return nil
 }
 
-func GetReleaseDeployStatus(productName string, request *HelmDeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
+func GetReleaseDeployStatus(productName string, request *HelmDeployStatusCheckRequest) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace, envName := request.ClusterID, request.Namespace, request.EnvName
 	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {

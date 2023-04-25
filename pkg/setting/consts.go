@@ -434,6 +434,8 @@ const (
 	TemplatesDir = "templates"
 	// ServiceTemplateCounterName 服务模板counter name
 	ServiceTemplateCounterName = "service:%s&project:%s"
+	// ServiceTemplateCounterName 服务模板counter name
+	ProductionServiceTemplateCounterName = "productionservice:%s&project:%s"
 	// GerritDefaultOwner
 	GerritDefaultOwner = "dafault"
 	// YamlFileSeperator ...
@@ -451,8 +453,16 @@ const (
 )
 
 const (
+	// WorkflowTriggerTaskCreator ...
+	WorkflowTriggerTaskCreator = "workflow_trigger"
 	// WebhookTaskCreator ...
 	WebhookTaskCreator = "webhook"
+	// JiraHookTaskCreator ...
+	JiraHookTaskCreator = "jira_hook"
+	// MeegoHookTaskCreator ...
+	MeegoHookTaskCreator = "meego_hook"
+	// GeneralHookTaskCreator ...
+	GeneralHookTaskCreator = "general_hook"
 	// CronTaskCreator ...
 	CronTaskCreator = "timer"
 	// DefaultTaskRevoker ...
@@ -749,3 +759,18 @@ const (
 	LarkUserOpenID       = "open_id"
 	LarkDepartmentOpenID = "open_department_id"
 )
+
+// Project Management types
+const (
+	PMJira  = "jira"
+	PMLark  = "lark"
+	PMMeego = "meego"
+)
+
+// Workflow variable source type
+const (
+	VariableSourceRuntime = "runtime"
+	VariableSourceOther   = "other"
+)
+
+var ServiceVarWildCard = []string{"*"}

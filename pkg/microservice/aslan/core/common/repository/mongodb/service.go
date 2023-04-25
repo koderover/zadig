@@ -175,6 +175,28 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 	return c.listMaxRevisions(pre, post)
 }
 
+// ListServiceAllRevisionsAndStatus will list all revision include deleting status
+func (c *ServiceColl) ListServiceAllRevisionsAndStatus(serviceName, productName string) ([]*models.Service, error) {
+	resp := make([]*models.Service, 0)
+	query := bson.M{}
+	query["product_name"] = productName
+	query["service_name"] = serviceName
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp) == 0 {
+		return nil, mongo.ErrNoDocuments
+	}
+	return resp, err
+}
+
 func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.Service, error) {
 	m := bson.M{
 		"product_name": productName,
@@ -366,22 +388,23 @@ func (c *ServiceColl) UpdateServiceContainers(args *models.Service) error {
 	return err
 }
 
-func (c *ServiceColl) TransferServiceSource(productName, source, newSource, username string) error {
-	query := bson.M{"product_name": productName, "source": source}
+func (c *ServiceColl) TransferServiceSource(productName, serviceName, source, newSource, username, yaml string) error {
+	query := bson.M{"product_name": productName, "source": source, "service_name": serviceName}
 
 	changeMap := bson.M{
 		"create_by":     username,
 		"visibility":    setting.PrivateVisibility,
 		"source":        newSource,
+		"yaml":          yaml,
 		"env_name":      "",
 		"workload_type": "",
 	}
 	change := bson.M{"$set": changeMap}
-	_, err := c.UpdateMany(context.TODO(), query, change)
+	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
 
-// ListExternalServicesBy list service only for external services  ,other service type not use  before refactor
+// ListExternalWorkloadsBy list service only for external services , other service type not use  before refactor
 func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string, serviceNames ...string) ([]*models.Service, error) {
 	services := make([]*models.Service, 0)
 	query := bson.M{

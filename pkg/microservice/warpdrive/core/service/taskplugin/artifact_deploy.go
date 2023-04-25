@@ -66,6 +66,7 @@ type ArtifactDeployTaskPlugin struct {
 	restConfig    *rest.Config
 	Task          *task.Build
 	Log           *zap.SugaredLogger
+	Timeout       <-chan time.Time
 
 	ack func()
 }
@@ -119,7 +120,7 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 	default:
 		p.KubeNamespace = setting.AttachedClusterNamespace
 
-		crClient, clientset, restConfig, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		crClient, clientset, restConfig, _, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
 		if err != nil {
 			p.Log.Error(err)
 			p.Task.TaskStatus = config.StatusFailed
@@ -271,14 +272,17 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 		p.SetBuildStatusCompleted(config.StatusFailed)
 		return
 	}
+	p.Timeout = time.After(time.Duration(p.TaskTimeout()) * time.Second)
 	p.Log.Infof("succeed to create build job %s", p.JobName)
 }
 
 // Wait ...
 func (p *ArtifactDeployTaskPlugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
+	status, err := waitJobEndWithFile(ctx, p.TaskTimeout(), p.Timeout, p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetBuildStatusCompleted(status)
-
+	if err != nil {
+		p.Task.Error = err.Error()
+	}
 	if status == config.StatusPassed {
 		if p.Task.DockerBuildStatus == nil {
 			p.Task.DockerBuildStatus = &task.DockerBuildStatus{}

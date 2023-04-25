@@ -56,6 +56,7 @@ type Queue struct {
 	ServiceName             string                       `bson:"service_name,omitempty"                     json:"service_name,omitempty"`
 	TaskArgs                *TaskArgs                    `bson:"task_args,omitempty"                        json:"task_args,omitempty"`     // TaskArgs job parameters for single-service workflow
 	WorkflowArgs            *WorkflowTaskArgs            `bson:"workflow_args"                              json:"workflow_args,omitempty"` // WorkflowArgs job parameters for multi-service workflow
+	ScanningArgs            *ScanningArgs                `bson:"scanning_args,omitempty"                    json:"scanning_args,omitempty"` // ScanningArgs argument for scanning tasks
 	TestArgs                *TestTaskArgs                `bson:"test_args,omitempty"                        json:"test_args,omitempty"`     // TestArgs parameters for testing
 	ServiceTaskArgs         *ServiceTaskArgs             `bson:"service_args,omitempty"                     json:"service_args,omitempty"`  // ServiceTaskArgs parameters for script-deployed workflows
 	ArtifactPackageTaskArgs *ArtifactPackageTaskArgs     `bson:"artifact_package_args,omitempty"            json:"artifact_package_args,omitempty"`
@@ -85,6 +86,9 @@ type TriggerBy struct {
 	MergeRequestID string `json:"merge_request_id,omitempty" bson:"merge_request_id,omitempty"`
 	// 触发此次任务的commit id
 	CommitID string `bson:"commit_id,omitempty" json:"commit_id,omitempty"`
+	// the git branch which triggered this task
+	Ref       string `bson:"ref" json:"ref"`
+	EventType string `bson:"event_type" json:"event_type"`
 }
 
 type ServiceTaskArgs struct {

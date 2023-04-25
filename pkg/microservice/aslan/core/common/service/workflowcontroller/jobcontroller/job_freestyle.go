@@ -32,6 +32,7 @@ import (
 	zadigconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/stepcontroller"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/dockerhost"
@@ -51,6 +52,7 @@ type FreestyleJobCtl struct {
 	kubeclient  crClient.Client
 	clientset   kubernetes.Interface
 	restConfig  *rest.Config
+	apiServer   crClient.Reader
 	paths       *string
 	jobTaskSpec *commonmodels.JobTaskFreestyleSpec
 	ack         func()
@@ -117,10 +119,11 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		c.kubeclient = krkubeclient.Client()
 		c.clientset = krkubeclient.Clientset()
 		c.restConfig = krkubeclient.RESTConfig()
+		c.apiServer = krkubeclient.APIReader()
 	default:
 		c.jobTaskSpec.Properties.Namespace = setting.AttachedClusterNamespace
 
-		crClient, clientset, restConfig, err := GetK8sClients(hubServerAddr, c.jobTaskSpec.Properties.ClusterID)
+		crClient, clientset, restConfig, apiServer, err := GetK8sClients(hubServerAddr, c.jobTaskSpec.Properties.ClusterID)
 		if err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return err
@@ -128,6 +131,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		c.kubeclient = crClient
 		c.clientset = clientset
 		c.restConfig = restConfig
+		c.apiServer = apiServer
 	}
 
 	// decide which docker host to use.
@@ -218,14 +222,18 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 }
 
 func (c *FreestyleJobCtl) wait(ctx context.Context) {
+	var err error
 	taskTimeout := time.After(time.Duration(c.jobTaskSpec.Properties.Timeout) * time.Minute)
-	c.job.Status = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.logger)
+	c.job.Status, err = waitJobStart(ctx, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, c.kubeclient, c.apiServer, taskTimeout, c.logger)
+	if err != nil {
+		c.job.Error = err.Error()
+	}
 	if c.job.Status == config.StatusRunning {
 		c.ack()
 	} else {
 		return
 	}
-	c.job.Status = waitJobEndWithFile(ctx, taskTimeout, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.logger)
+	c.job.Status, c.job.Error = waitJobEndWithFile(ctx, taskTimeout, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.job, c.ack, c.logger)
 }
 
 func (c *FreestyleJobCtl) complete(ctx context.Context) {
@@ -253,7 +261,9 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 
 	if err := saveContainerLog(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ClusterID, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, jobLabel, c.kubeclient); err != nil {
 		c.logger.Error(err)
-		c.job.Error = err.Error()
+		if c.job.Error == "" {
+			c.job.Error = err.Error()
+		}
 		return
 	}
 	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Name, c.jobTaskSpec.Steps, c.logger); err != nil {
@@ -289,4 +299,18 @@ func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job 
 		Steps:        jobTaskSpec.Steps,
 		Paths:        jobTaskSpec.Properties.Paths,
 	}
+}
+
+func (c *FreestyleJobCtl) SaveInfo(ctx context.Context) error {
+	return mongodb.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
+		Type:                c.job.JobType,
+		WorkflowName:        c.workflowCtx.WorkflowName,
+		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
+		TaskID:              c.workflowCtx.TaskID,
+		ProductName:         c.workflowCtx.ProjectName,
+		StartTime:           c.job.StartTime,
+		EndTime:             c.job.EndTime,
+		Duration:            c.job.EndTime - c.job.StartTime,
+		Status:              string(c.job.Status),
+	})
 }

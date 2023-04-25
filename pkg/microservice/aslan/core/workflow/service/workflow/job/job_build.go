@@ -22,17 +22,19 @@ import (
 	"path"
 	"strings"
 
+	"go.uber.org/zap"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
-	"go.uber.org/zap"
 )
 
 const (
@@ -55,6 +57,9 @@ func (j *BuildJob) Instantiate() error {
 	return nil
 }
 
+// SetPreset will now update all the possible build service option into serviceOption instead of ServiceAndBuilds
+// Updated @2023-03-30 before v1.17.0
+// Updated @2023-04-07 after v1.17.0 revert to old version
 func (j *BuildJob) SetPreset() error {
 	j.spec = &commonmodels.ZadigBuildJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -62,7 +67,12 @@ func (j *BuildJob) SetPreset() error {
 	}
 	j.job.Spec = j.spec
 
-	newBuilds := []*commonmodels.ServiceAndBuild{}
+	servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
+	if err != nil {
+		return fmt.Errorf("get services map error: %v", err)
+	}
+
+	newBuilds := make([]*commonmodels.ServiceAndBuild, 0)
 	for _, build := range j.spec.ServiceAndBuilds {
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
 		if err != nil {
@@ -80,9 +90,25 @@ func (j *BuildJob) SetPreset() error {
 				break
 			}
 		}
+
+		build.ImageName = build.ServiceModule
+		service, ok := servicesMap[build.ServiceName]
+		if !ok {
+			log.Errorf("service %s not found", build.ServiceName)
+			continue
+		}
+
+		for _, container := range service.Containers {
+			if container.Name == build.ServiceModule {
+				build.ImageName = container.ImageName
+				break
+			}
+		}
+
 		newBuilds = append(newBuilds, build)
 	}
 	j.spec.ServiceAndBuilds = newBuilds
+	j.spec.ServiceOptions = newBuilds
 	j.job.Spec = j.spec
 	return nil
 }
@@ -171,11 +197,11 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 	defaultS3, err := commonrepo.NewS3StorageColl().FindDefault()
 	if err != nil {
-		return resp, err
+		return resp, fmt.Errorf("find default s3 storage error: %v", err)
 	}
 
 	for _, build := range j.spec.ServiceAndBuilds {
-		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "image")
+		imageTag := commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "image")
 
 		image := fmt.Sprintf("%s/%s", registry.RegAddr, imageTag)
 		if len(registry.Namespace) > 0 {
@@ -185,7 +211,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		image = strings.TrimPrefix(image, "http://")
 		image = strings.TrimPrefix(image, "https://")
 
-		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ServiceModule, "tar"))
+		build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "tar"))
 
 		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
 		if err != nil {
@@ -205,7 +231,12 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		outputs := ensureBuildInOutputs(buildInfo.Outputs)
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
-			Name:    jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
+			Name: jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
+			JobInfo: map[string]string{
+				"service_name":   build.ServiceName,
+				"service_module": build.ServiceModule,
+				JobNameKey:       j.job.Name,
+			},
 			Key:     strings.Join([]string{j.job.Name, build.ServiceName, build.ServiceModule}, "."),
 			JobType: string(config.JobZadigBuild),
 			Spec:    jobTaskSpec,
@@ -225,7 +256,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(buildInfo.PreBuild.ClusterID)
 		if err != nil {
-			return resp, err
+			return resp, fmt.Errorf("find cluster: %s error: %v", buildInfo.PreBuild.ClusterID, err)
 		}
 
 		if clusterInfo.Cache.MediumType == "" {
@@ -270,7 +301,13 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Spec:     step.StepGitSpec{Repos: renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
-
+		// init debug before step
+		debugBeforeStep := &commonmodels.StepTask{
+			Name:     build.ServiceName + "-debug_before",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugBefore,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 		// init shell step
 		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
 		scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
@@ -284,9 +321,15 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
-
+		// init debug after step
+		debugAfterStep := &commonmodels.StepTask{
+			Name:     build.ServiceName + "-debug_after",
+			JobName:  jobTask.Name,
+			StepType: config.StepDebugAfter,
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugAfterStep)
 		// init docker build step
-		if buildInfo.PostBuild.DockerBuild != nil {
+		if buildInfo.PostBuild != nil && buildInfo.PostBuild.DockerBuild != nil {
 			dockefileContent := ""
 			if buildInfo.PostBuild.DockerBuild.TemplateID != "" {
 				if dockerfileDetail, err := templ.GetDockerfileTemplateDetail(buildInfo.PostBuild.DockerBuild.TemplateID, logger); err == nil {
@@ -319,7 +362,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 
 		// init archive step
-		if buildInfo.PostBuild.FileArchive != nil && buildInfo.PostBuild.FileArchive.FileLocation != "" {
+		if buildInfo.PostBuild != nil && buildInfo.PostBuild.FileArchive != nil && buildInfo.PostBuild.FileArchive.FileLocation != "" {
 			uploads := []*step.Upload{
 				{
 					FilePath:        path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
@@ -339,14 +382,20 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 
 		// init object storage step
-		if buildInfo.PostBuild.ObjectStorageUpload != nil && buildInfo.PostBuild.ObjectStorageUpload.Enabled {
+		if buildInfo.PostBuild != nil && buildInfo.PostBuild.ObjectStorageUpload != nil && buildInfo.PostBuild.ObjectStorageUpload.Enabled {
 			modelS3, err := commonrepo.NewS3StorageColl().Find(buildInfo.PostBuild.ObjectStorageUpload.ObjectStorageID)
 			if err != nil {
-				return resp, err
+				return resp, fmt.Errorf("find object storage: %s failed, err: %v", buildInfo.PostBuild.ObjectStorageUpload.ObjectStorageID, err)
 			}
 			s3 := modelS3toS3(modelS3)
 			s3.Subfolder = ""
 			uploads := []*step.Upload{}
+			for _, detail := range buildInfo.PostBuild.ObjectStorageUpload.UploadDetail {
+				uploads = append(uploads, &step.Upload{
+					FilePath:        detail.FilePath,
+					DestinationPath: detail.DestinationPath,
+				})
+			}
 			archiveStep := &commonmodels.StepTask{
 				Name:     build.ServiceName + "-object-storage",
 				JobName:  jobTask.Name,
@@ -357,17 +406,11 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					S3:              s3,
 				},
 			}
-			for _, detail := range buildInfo.PostBuild.ObjectStorageUpload.UploadDetail {
-				uploads = append(uploads, &step.Upload{
-					FilePath:        detail.FilePath,
-					DestinationPath: detail.DestinationPath,
-				})
-			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)
 		}
 
-		// init psot build shell step
-		if buildInfo.PostBuild.Scripts != "" {
+		// init post build shell step
+		if buildInfo.PostBuild != nil && buildInfo.PostBuild.Scripts != "" {
 			scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.PostBuild.Scripts), "\n")...)
 			shellStep := &commonmodels.StepTask{
 				Name:     build.ServiceName + "-post-shell",
@@ -404,6 +447,9 @@ func renderRepos(input, origin []*types.Repository, kvs []*commonmodels.KeyVal) 
 		for _, inputRepo := range input {
 			if originRepo.RepoName == inputRepo.RepoName && originRepo.RepoOwner == inputRepo.RepoOwner {
 				inputRepo.CheckoutPath = renderEnv(inputRepo.CheckoutPath, kvs)
+				if inputRepo.RemoteName == "" {
+					inputRepo.RemoteName = "origin"
+				}
 				origin[i] = inputRepo
 			}
 		}
@@ -438,6 +484,9 @@ func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, pro
 	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", configbase.SystemAddress(), project, workflowName, taskID)
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: build.Package, IsCredential: false})
+	for _, repo := range build.Repos {
+		ret = append(ret, &commonmodels.KeyVal{Key: strings.ReplaceAll(repo.RepoName, "-", "_") + "_ORG", Value: strings.ReplaceAll(repo.RepoOwner, "-", "_"), IsCredential: false})
+	}
 	return ret
 }
 

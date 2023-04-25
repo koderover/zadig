@@ -680,7 +680,7 @@ func (c *TaskColl) ArchiveHistoryPipelineTask(pipelineName string, taskType conf
 	if remain == 0 && remainDays == 0 {
 		return nil
 	}
-	query := bson.M{"pipeline_name": pipelineName, "type": taskType, "is_deleted": false}
+	query := bson.M{"pipeline_name": pipelineName, "type": taskType, "is_deleted": false, "is_archived": false}
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
 		return err
@@ -714,6 +714,9 @@ func (c *TaskColl) ListByCursor(option *ListAllTaskOption) (*mongo.Cursor, error
 		return nil, errors.New("nil list pipeline option")
 	}
 	query := bson.M{"is_deleted": false}
+	if option.ProductName != "" {
+		query["product_name"] = option.ProductName
+	}
 	if len(option.ProductNames) > 0 {
 		query["product_name"] = bson.M{"$in": option.ProductNames}
 	}

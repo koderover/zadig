@@ -561,8 +561,16 @@ func ProcessGithubWebHookForWorkflowV4(payload []byte, req *http.Request, reques
 	return nil
 }
 
+const (
+	EventTypePR   = "pr"
+	EventTypePush = "push"
+	EventTypeTag  = "tag"
+)
+
 type AutoCancelOpt struct {
+	Type           string
 	MergeRequestID string
+	Ref            string
 	CommitID       string
 	TaskType       config.PipelineType
 	MainRepo       *commonmodels.MainHookRepo

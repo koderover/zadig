@@ -18,6 +18,7 @@ package config
 
 import (
 	"regexp"
+	"time"
 
 	"github.com/koderover/zadig/pkg/setting"
 )
@@ -115,7 +116,13 @@ const (
 	StatusPrepare        Status = "prepare"
 	StatusReject         Status = "reject"
 	StatusWaitingApprove Status = "waitforapprove"
+	StatusDebugBefore    Status = "debug_before"
+	StatusDebugAfter     Status = "debug_after"
 )
+
+func InCompletedStatus() []Status {
+	return []Status{StatusCreated, StatusRunning, StatusWaiting, StatusQueued, StatusBlocked, QueueItemPending, StatusPrepare, StatusWaitingApprove}
+}
 
 type TaskStatus string
 
@@ -171,6 +178,8 @@ const (
 	StepTarArchive        StepType = "tar_archive"
 	StepSonarCheck        StepType = "sonar_check"
 	StepDistributeImage   StepType = "distribute_image"
+	StepDebugBefore       StepType = "debug_before"
+	StepDebugAfter        StepType = "debug_after"
 )
 
 type JobType string
@@ -196,6 +205,12 @@ const (
 	JobK8sPatch             JobType = "k8s-resource-patch"
 	JobIstioRelease         JobType = "istio-release"
 	JobIstioRollback        JobType = "istio-rollback"
+	JobJira                 JobType = "jira"
+	JobNacos                JobType = "nacos"
+	JobApollo               JobType = "apollo"
+	JobMeegoTransition      JobType = "meego-transition"
+	JobWorkflowTrigger      JobType = "workflow-trigger"
+	JobOfflineService       JobType = "offline-service"
 )
 
 const (
@@ -223,6 +238,35 @@ type DeploySourceType string
 const (
 	SourceRuntime DeploySourceType = "runtime"
 	SourceFromJob DeploySourceType = "fromjob"
+)
+
+type TriggerWorkflowSourceType string
+
+const (
+	TriggerWorkflowSourceRuntime TriggerWorkflowSourceType = "runtime"
+	TriggerWorkflowSourceFromJob TriggerWorkflowSourceType = "fromjob"
+)
+
+type EnvType string
+
+const (
+	EnvTypeTest       = "test"
+	EvnTypeProduction = "production"
+)
+
+type TestModuleType string
+
+const (
+	ProductTestType TestModuleType = ""
+	ServiceTestType TestModuleType = "service_test"
+)
+
+type DeployContent string
+
+const (
+	DeployImage  DeployContent = "image"
+	DeployVars   DeployContent = "vars"
+	DeployConfig DeployContent = "config"
 )
 
 type StageType string
@@ -335,6 +379,13 @@ const (
 	GrayDeploymentSuffix       = "-zadig-gray"
 )
 
+type WorkflowTriggerType string
+
+const (
+	WorkflowTriggerTypeCommon WorkflowTriggerType = "common"
+	WorkflowTriggerTypeFixed  WorkflowTriggerType = "fixed"
+)
+
 type ProjectType string
 
 const (
@@ -342,6 +393,14 @@ const (
 	ProjectTypeYaml   = "yaml"
 	ProjectTypeVM     = "vm"
 	ProjectTypeLoaded = "loaded"
+)
+
+type ParamSourceType string
+
+const (
+	ParamSourceRuntime = "runtime"
+	ParamSourceFixed   = "fixed"
+	ParamSourceGlobal  = "global"
 )
 
 type RegistryProvider string
@@ -360,4 +419,58 @@ const (
 	TestJobJunitReportStepName   = "junit-report-step"
 	TestJobHTMLReportStepName    = "html-report-step"
 	TestJobArchiveResultStepName = "archive-result-step"
+	TestJobObjectStorageStepName = "object-storage-step"
+)
+
+type JobRunPolicy string
+
+const (
+	DefaultRun    JobRunPolicy = ""                // default run this job
+	DefaultNotRun JobRunPolicy = "default_not_run" // default not run this job
+	ForceRun      JobRunPolicy = "force_run"       // force run this job
+)
+
+const DefaultDeleteDeploymentTimeout = 10 * time.Minute
+
+// Service creation source for openAPI
+const (
+	SourceFromTemplate = "template"
+	SourceFromYaml     = "yaml"
+)
+
+type JiraAuthType string
+
+const (
+	JiraBasicAuth           JiraAuthType = "password_or_token"
+	JiraPersonalAccessToken JiraAuthType = "personal_access_token"
+)
+
+// statistics dashboard id enum
+const (
+	DashboardDataTypeTestPassRate           = "test_pass_rate"
+	DashboardDataTypeTestAverageDuration    = "test_average_duration"
+	DashboardDataTypeBuildSuccessRate       = "build_success_rate"
+	DashboardDataTypeBuildAverageDuration   = "build_average_duration"
+	DashboardDataTypeBuildFrequency         = "build_frequency"
+	DashboardDataTypeDeploySuccessRate      = "deploy_success_rate"
+	DashboardDataTypeDeployAverageDuration  = "deploy_average_duration"
+	DashboardDataTypeDeployFrequency        = "deploy_frequency"
+	DashboardDataTypeReleaseSuccessRate     = "release_success_rate"
+	DashboardDataTypeReleaseAverageDuration = "release_average_duration"
+	DashboardDataTypeReleaseFrequency       = "release_frequency"
+
+	DashboardDataSourceZadig = "zadig"
+	DashboardDataSourceApi   = "api"
+
+	DashboardDataCategoryQuality    = "quality"
+	DashboardDataCategoryEfficiency = "efficiency"
+	DashboardDataCategorySchedule   = "schedule"
+
+	DashboardFunctionBuildAverageDuration = "5400/(x+540)"
+	DashboardFunctionBuildSuccessRate     = "-2400/(x-120)-20"
+	DashboardFunctionDeploySuccessRate    = "-2400/(x-120)-20"
+	DashboardFunctionDeployFrequency      = "100-40000/(3*x+400)"
+	DashboardFunctionTestPassRate         = "(x**2)/80-x/4+1.25"
+	DashboardFunctionTestAverageDuration  = "90000/(x+900)"
+	DashboardFunctionReleaseFrequency     = "100-200/(x+2)"
 )

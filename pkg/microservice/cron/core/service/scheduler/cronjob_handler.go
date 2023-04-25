@@ -279,7 +279,7 @@ func (h *CronjobHandler) registerWorkFlowV4Job(name, schedule string, job *servi
 		return nil
 	}
 	scheduleJob, err := cronlib.NewJobModel(schedule, func() {
-		if err := h.aslanCli.ScheduleCall("workflow/v4/workflowtask", job.WorkflowV4Args, log.SugaredLogger()); err != nil {
+		if err := h.aslanCli.ScheduleCall(fmt.Sprintf("workflow/v4/workflowtask/trigger?triggerName=%s", setting.CronTaskCreator), job.WorkflowV4Args, log.SugaredLogger()); err != nil {
 			log.Errorf("[%s]RunScheduledTask err: %v", name, err)
 		}
 	})
@@ -408,7 +408,7 @@ func registerCronjob(job *service.Cronjob, client *client.Client, scheduler *cro
 			cron, _ = convertCronString(job.JobType, job.Time, job.Frequency, job.Number)
 		}
 		scheduleJob, err := cronlib.NewJobModel(cron, func() {
-			if err := client.ScheduleCall("workflow/v4/workflowtask", job.WorkflowV4Args, log.SugaredLogger()); err != nil {
+			if err := client.ScheduleCall(fmt.Sprintf("workflow/v4/workflowtask/trigger?triggerName=%s", setting.CronTaskCreator), job.WorkflowV4Args, log.SugaredLogger()); err != nil {
 				log.Errorf("[%s]RunScheduledTask err: %v", job.Name, err)
 			}
 		})

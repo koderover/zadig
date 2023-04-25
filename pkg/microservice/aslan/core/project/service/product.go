@@ -26,8 +26,10 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -40,12 +42,15 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -110,7 +115,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	// do not save vars
 	args.Vars = nil
 
-	err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log)
+	err = render.ValidateKVs(kvs, args.AllServiceInfos(), log)
 	if err != nil {
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}
@@ -141,7 +146,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	}
 
 	// 创建一个默认的渲染集
-	err = commonservice.CreateRenderSet(&commonmodels.RenderSet{
+	err = render.CreateRenderSet(&commonmodels.RenderSet{
 		Name:        args.ProductName,
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
@@ -158,6 +163,26 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	return
 }
 
+func validateSvc(services [][]string, validServices sets.String) error {
+	usedServiceSet := sets.NewString()
+	for _, serviceSeq := range services {
+		for _, singleSvc := range serviceSeq {
+			if usedServiceSet.Has(singleSvc) {
+				return fmt.Errorf("duplicated service:%s", singleSvc)
+			}
+			if !validServices.Has(singleSvc) {
+				return fmt.Errorf("invalid service:%s", singleSvc)
+			}
+			usedServiceSet.Insert(singleSvc)
+			validServices.Delete(singleSvc)
+		}
+	}
+	if validServices.Len() > 0 {
+		return fmt.Errorf("service: [%s] not found in params", strings.Join(validServices.List(), ","))
+	}
+	return nil
+}
+
 func UpdateServiceOrchestration(name string, services [][]string, updateBy string, log *zap.SugaredLogger) (err error) {
 	templateProductInfo, err := templaterepo.NewProductColl().Find(name)
 	if err != nil {
@@ -167,29 +192,41 @@ func UpdateServiceOrchestration(name string, services [][]string, updateBy strin
 
 	//validate services
 	validServices := sets.NewString()
-	usedServiceSet := sets.NewString()
 	for _, serviceList := range templateProductInfo.Services {
 		validServices.Insert(serviceList...)
 	}
 
-	for _, serviceSeq := range services {
-		for _, service := range serviceSeq {
-			if usedServiceSet.Has(service) {
-				return fmt.Errorf("duplicated service:%s", service)
-			}
-			if !validServices.Has(service) {
-				return fmt.Errorf("service:%s not in valid service list", service)
-			}
-			usedServiceSet.Insert(service)
-			validServices.Delete(service)
-		}
-	}
-
-	if validServices.Len() > 0 {
-		return fmt.Errorf("service: [%s] not found in params", strings.Join(validServices.List(), ","))
+	err = validateSvc(services, validServices)
+	if err != nil {
+		return e.ErrUpdateProduct.AddErr(err)
 	}
 
 	if err = templaterepo.NewProductColl().UpdateServiceOrchestration(name, services, updateBy); err != nil {
+		log.Errorf("UpdateChoreographyService error: %v", err)
+		return e.ErrUpdateProduct.AddErr(err)
+	}
+	return nil
+}
+
+func UpdateProductionServiceOrchestration(name string, services [][]string, updateBy string, log *zap.SugaredLogger) (err error) {
+	templateProductInfo, err := templaterepo.NewProductColl().Find(name)
+	if err != nil {
+		log.Errorf("failed to query productInfo, projectName: %s, err: %s", name, err)
+		return fmt.Errorf("failed to query productInfo, projectName: %s", name)
+	}
+
+	//validate services
+	validServices := sets.NewString()
+	for _, serviceList := range templateProductInfo.ProductionServices {
+		validServices.Insert(serviceList...)
+	}
+
+	err = validateSvc(services, validServices)
+	if err != nil {
+		return e.ErrUpdateProduct.AddErr(err)
+	}
+
+	if err = templaterepo.NewProductColl().UpdateProductionServiceOrchestration(name, services, updateBy); err != nil {
 		log.Errorf("UpdateChoreographyService error: %v", err)
 		return e.ErrUpdateProduct.AddErr(err)
 	}
@@ -201,7 +238,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 	kvs := args.Vars
 	args.Vars = nil
 
-	if err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log); err != nil {
+	if err = render.ValidateKVs(kvs, args.AllServiceInfos(), log); err != nil {
 		log.Warnf("ProductTmpl.Update ValidateKVs error: %v", err)
 	}
 
@@ -218,7 +255,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 		return
 	}
 	// 更新默认的渲染集
-	if err = commonservice.CreateRenderSet(&commonmodels.RenderSet{
+	if err = render.CreateRenderSet(&commonmodels.RenderSet{
 		Name:        args.ProductName,
 		ProductTmpl: args.ProductName,
 		UpdateBy:    args.UpdateBy,
@@ -230,7 +267,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 
 	for _, envVars := range args.EnvVars {
 		//创建环境变量
-		if err = commonservice.CreateRenderSet(&commonmodels.RenderSet{
+		if err = render.CreateRenderSet(&commonmodels.RenderSet{
 			EnvName:     envVars.EnvName,
 			Name:        args.ProductName,
 			ProductTmpl: args.ProductName,
@@ -295,7 +332,7 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 	if err = saveProducts(products); err != nil {
 		return err
 	}
-	if err = saveProject(projectInfo); err != nil {
+	if err = saveProject(projectInfo, services); err != nil {
 		return err
 	}
 	return nil
@@ -303,18 +340,138 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 
 // transferServices transfer service from external to zadig-host(spock)
 func transferServices(user string, projectInfo *template.Product, logger *zap.SugaredLogger) ([]*commonmodels.Service, error) {
-	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(projectInfo.ProjectName)
+	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(projectInfo.ProductName)
+	if err != nil {
+		return nil, err
+	}
+
+	err = optimizeServiceYaml(projectInfo.ProductName, templateServices)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, svc := range templateServices {
+		log.Infof("transfer service %s/%s ", projectInfo.ProductName, svc.ServiceName)
 		svc.Source = setting.SourceFromZadig
 		svc.CreateBy = user
 		svc.EnvName = ""
 		svc.WorkloadType = ""
 	}
 	return templateServices, nil
+}
+
+// optimizeServiceYaml optimize the yaml content of service, it removes unnecessary runtime information from workload yamls
+// TODO this function should be deleted after we refactor the code about host-project
+func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service) error {
+	svcMap := make(map[string]*commonmodels.Service)
+	svcSets := sets.NewString()
+	for _, svc := range serviceInfo {
+		svcMap[svc.ServiceName] = svc
+		svcSets.Insert(svc.ServiceName)
+	}
+
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name: projectName,
+		Production: util.GetBoolPointer(false),
+	})
+	if err != nil {
+		return err
+	}
+
+	k8sClientMap := make(map[string]client.Client)
+	k8sNsMap := make(map[string]string)
+	for _, product := range products {
+		k8sNsMap[product.EnvName] = product.Namespace
+		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+		if err != nil {
+			log.Errorf("failed to init kube client for product %s, err: %s", product.EnvName, err)
+			continue
+		}
+		k8sClientMap[product.EnvName] = kubeClient
+	}
+
+	for _, svc := range serviceInfo {
+		kClient, ok := k8sClientMap[svc.EnvName]
+		if !ok {
+			continue
+		}
+
+		switch svc.WorkloadType {
+		case setting.Deployment:
+			bs, exists, err := getter.GetDeploymentYamlFormat(k8sNsMap[svc.EnvName], svc.ServiceName, kClient)
+			if err != nil {
+				log.Errorf("failed to get deploy %s, err: %s", svc.ServiceName, err)
+				continue
+			}
+			if !exists {
+				log.Infof("deployment %s not exists", svc.ServiceName)
+				continue
+			}
+			log.Infof("optimize yaml of deployment %s defined in services", svc.ServiceName)
+			svcSets.Delete(svc.ServiceName)
+			svc.Yaml = string(bs)
+		case setting.StatefulSet:
+			bs, exists, err := getter.GetStatefulSetYaml(k8sNsMap[svc.EnvName], svc.ServiceName, kClient)
+			if err != nil {
+				log.Errorf("failed to get sts %s, err: %s", svc.ServiceName, err)
+				continue
+			}
+			if !exists {
+				continue
+			}
+			log.Infof("optimize yaml of sts %s defined in services", svc.ServiceName)
+			svcSets.Delete(svc.ServiceName)
+			svc.Yaml = string(bs)
+		}
+	}
+
+	if svcSets.Len() == 0 {
+		return nil
+	}
+
+	// service info may be stored in service_in_external_env
+	servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+		ProductName: projectName,
+	})
+	for _, svcInExternal := range servicesInExternalEnv {
+		if !svcSets.Has(svcInExternal.ServiceName) {
+			continue
+		}
+
+		kClient, ok := k8sClientMap[svcInExternal.EnvName]
+		if !ok {
+			continue
+		}
+
+		svc := svcMap[svcInExternal.ServiceName]
+		switch svc.WorkloadType {
+		case setting.Deployment:
+			bs, exists, err := getter.GetDeploymentYamlFormat(k8sNsMap[svcInExternal.EnvName], svcInExternal.ServiceName, kClient)
+			if err != nil {
+				log.Errorf("failed to get deploy %s, err: %s", svcInExternal.ServiceName, err)
+				continue
+			}
+			if !exists {
+				continue
+			}
+			log.Infof("optimize yaml of deployment %s defined in service_in_external_env", svcInExternal.ServiceName)
+			svcSets.Delete(svcInExternal.ServiceName)
+			svc.Yaml = string(bs)
+		case setting.StatefulSet:
+			bs, exists, err := getter.GetStatefulSetYaml(k8sNsMap[svcInExternal.EnvName], svcInExternal.ServiceName, kClient)
+			if err != nil {
+				log.Errorf("failed to get sts %s, err: %s", svcInExternal.ServiceName, err)
+				continue
+			}
+			if !exists {
+				continue
+			}
+			log.Infof("optimize yaml of sts %s defined in service_in_external_env", svcInExternal.ServiceName)
+			svcSets.Delete(svcInExternal.ServiceName)
+			svc.Yaml = string(bs)
+		}
+	}
+	return nil
 }
 
 func saveServices(projectName, username string, services []*commonmodels.Service) error {
@@ -324,14 +481,7 @@ func saveServices(projectName, username string, services []*commonmodels.Service
 		if err != nil {
 			log.Errorf("failed to set service counter: %s, err: %s", serviceTemplateCounter, err)
 		}
-	}
-
-	return commonrepo.NewServiceColl().TransferServiceSource(projectName, setting.SourceFromExternal, setting.SourceFromZadig, username)
-}
-
-func saveProducts(products []*commonmodels.Product) error {
-	for _, product := range products {
-		err := commonrepo.NewProductColl().Update(product)
+		err = commonrepo.NewServiceColl().TransferServiceSource(projectName, svc.ServiceName, setting.SourceFromExternal, setting.SourceFromZadig, username, svc.Yaml)
 		if err != nil {
 			return err
 		}
@@ -339,8 +489,33 @@ func saveProducts(products []*commonmodels.Product) error {
 	return nil
 }
 
-func saveProject(projectInfo *template.Product) error {
-	return templaterepo.NewProductColl().UpdateProductFeature(projectInfo.ProjectName, projectInfo.ProductFeature, projectInfo.UpdateBy)
+func saveProducts(products []*commonmodels.Product) error {
+	for _, product := range products {
+
+		err := commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+			ProductName: product.ProductName,
+			EnvName:     product.EnvName,
+		})
+		if err != nil && err != mongo.ErrNoDocuments {
+			return err
+		}
+
+		err = commonrepo.NewProductColl().Update(product)
+		if err != nil {
+			return err
+		}
+		saveWorkloadStats(product.ClusterID, product.Namespace, product.ProductName, product.EnvName)
+	}
+	return nil
+}
+
+func saveProject(projectInfo *template.Product, services []*commonmodels.Service) error {
+	validServices := sets.NewString()
+	for _, svc := range services {
+		validServices.Insert(svc.ServiceName)
+	}
+	projectInfo.Services = [][]string{validServices.List()}
+	return templaterepo.NewProductColl().UpdateProductFeatureAndServices(projectInfo.ProductName, projectInfo.ProductFeature, projectInfo.Services, projectInfo.UpdateBy)
 }
 
 // build service and env data
@@ -351,7 +526,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 	}
 
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name: projectInfo.ProjectName,
+		Name: projectInfo.ProductName,
 	})
 	if err != nil {
 		return nil, err
@@ -366,7 +541,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			UpdateBy:    user,
 			IsDefault:   false,
 		}
-		err = commonservice.ForceCreateReaderSet(rendersetInfo, logger)
+		err = render.ForceCreateReaderSet(rendersetInfo, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -378,7 +553,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			Description: rendersetInfo.Description,
 		}
 
-		currentWorkloads, err := commonservice.ListWorkloadTemplate(projectInfo.ProjectName, product.EnvName, logger)
+		currentWorkloads, err := commonservice.ListWorkloadTemplate(projectInfo.ProductName, product.EnvName, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -400,6 +575,18 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 		}
 		product.Services = [][]*commonmodels.ProductService{productServices}
 
+		// update workload stat
+		workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(product.ClusterID, product.Namespace)
+		if err != nil {
+			log.Errorf("workflowStat not found error:%s", err)
+		}
+		if workloadStat != nil {
+			workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, product.ProductName, product.EnvName)
+			if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
+				log.Errorf("update workloads fail error:%s", err)
+			}
+		}
+
 		// mark service as only import
 		if product.ServiceDeployStrategy == nil {
 			product.ServiceDeployStrategy = make(map[string]string)
@@ -411,9 +598,23 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 		product.Source = setting.SourceFromZadig
 		product.UpdateBy = user
 		product.Revision = 1
+		log.Infof("transfer project %s/%s ", projectInfo.ProductName, product.EnvName)
 	}
 
 	return products, nil
+}
+
+func saveWorkloadStats(clusterID, namespace, productName, envName string) {
+	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	if err != nil {
+		log.Errorf("failed to get workload stat data, err: %s", err)
+		return
+	}
+
+	workloadStat.Workloads = commonservice.FilterWorkloadsByEnv(workloadStat.Workloads, productName, envName)
+	if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
+		log.Errorf("update workloads fail error:%s", err)
+	}
 }
 
 // UpdateProject 更新项目
@@ -530,7 +731,7 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		}
 	}
 
-	if err = commonservice.DeleteRenderSet(productName, log); err != nil {
+	if err = render.DeleteRenderSet(productName, log); err != nil {
 		log.Errorf("DeleteProductTemplate DeleteRenderSet err: %s", err)
 		return err
 	}
@@ -612,24 +813,25 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		}
 	}()
 
-	// 删除workload
-	if isDelete {
-		go func() {
-			workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
-			for _, v := range workloads {
-				// update workloads
-				tmp := []commonmodels.Workload{}
-				for _, vv := range v.Workloads {
-					if vv.ProductName != productName {
-						tmp = append(tmp, vv)
-					}
+	// delete data in workload_stat
+	// TODO this function should be removed after workload_stat is deprecated
+	go func() {
+		workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
+		for _, v := range workloads {
+			// update workloads
+			tmp := []commonmodels.Workload{}
+			for _, vv := range v.Workloads {
+				if vv.ProductName != productName {
+					tmp = append(tmp, vv)
 				}
-				v.Workloads = tmp
-				commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
 			}
-		}()
-	}
+			v.Workloads = tmp
+			commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
+		}
+	}()
+
 	// delete servicesInExternalEnv data
+	// TODO this function should be removed after services_in_external_env is deprecated
 	go func() {
 		_ = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
 			ProductName: productName,

@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -66,8 +65,7 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 			}
 			svc, _ := c.AslanCli.GetService(serviceRevision.ServiceName, env.ProductName, setting.PMDeployType, serviceRevision.CurrentRevision, log)
 			if svc == nil || len(svc.HealthChecks) == 0 || len(svc.EnvConfigs) == 0 || !envServiceNames.Has(serviceRevision.ServiceName) {
-				key := "service-" + serviceRevision.ServiceName + "-" + setting.PMDeployType + "-" +
-					env.EnvName
+				key := "service-" + serviceRevision.ServiceName + "-" + setting.PMDeployType + "-" + env.EnvName
 				for scheduleKey := range c.Schedulers {
 					if strings.Contains(scheduleKey, key) {
 						c.Schedulers[scheduleKey].Clear()
@@ -91,10 +89,13 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 					key := "service-" + serviceRevision.ServiceName + "-" + env.ProductName + "-" + setting.PMDeployType + "-" +
 						env.EnvName + "-" + envStatus.HostID + "-" + healthCheck.Protocol + "-" + strconv.Itoa(healthCheck.Port) + "-" + healthCheck.Path
 					taskMap[key] = true
-					if _, ok := c.lastServiceSchedulers[key]; ok && reflect.DeepEqual(serviceRevision, c.lastServiceSchedulers[key]) {
-						continue
-					}
+
 					c.lastServiceSchedulers[key] = serviceRevision
+
+					if scheduler, ok := c.Schedulers[key]; ok {
+						scheduler.Clear()
+						delete(c.Schedulers, key)
+					}
 
 					newScheduler := gocron.NewScheduler()
 					BuildScheduledEnvJob(newScheduler, healthCheck).Do(c.RunScheduledService, svc, healthCheck, envStatus.Address, env.EnvName, envStatus.HostID, log)
@@ -185,7 +186,7 @@ func (c *CronClient) RunScheduledService(svc *service.Service, healthCheck *serv
 	}, log); err != nil {
 		log.Errorf("UpdateService err:%v", err)
 	} else {
-		log.Infof("ready to UpdateService serviceName:%s，revision:%d，envName:%s，address:%s，status:%s", svc.ServiceName, svc.Revision, envStatus.EnvName, envStatus.Address, envStatus.Status)
+		log.Infof("ready to UpdateService serviceName:%s，revision:%d，envName:%s，address:%s，status:%s, envStatus count: %v", svc.ServiceName, svc.Revision, envStatus.EnvName, envStatus.Address, envStatus.Status, len(svc.EnvStatuses))
 	}
 }
 

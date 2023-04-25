@@ -261,16 +261,6 @@ func (gtem githubTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 		return false, nil
 	}
 
-	isRegular := hookRepo.IsRegular
-	if !isRegular && hookRepo.Branch != *ev.Repo.DefaultBranch {
-		return false, nil
-	}
-	if isRegular {
-		// Do not use regexp.MustCompile to avoid panic
-		if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.Repo.DefaultBranch); !matched {
-			return false, nil
-		}
-	}
 	hookRepo.Tag = getTagFromRef(*ev.Ref)
 	if ev.Sender.Name != nil {
 		hookRepo.Committer = *ev.Sender.Name
@@ -362,28 +352,24 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 						continue
 					}
 
-					var mergeRequestID, commitID string
+					var mergeRequestID, commitID, ref, eventType string
 					var hookPayload *commonmodels.HookPayload
-					if ev, isPr := event.(*github.PullRequestEvent); isPr {
+					autoCancelOpt := &AutoCancelOpt{
+						TaskType:     config.WorkflowType,
+						MainRepo:     item.MainRepo,
+						WorkflowArgs: item.WorkflowArgs,
+					}
+					switch ev := event.(type) {
+					case *github.PullRequestEvent:
+						eventType = EventTypePR
 						// 如果是merge request，且该webhook触发器配置了自动取消，
 						// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
 						if ev.PullRequest != nil && ev.PullRequest.Number != nil && ev.PullRequest.Head != nil && ev.PullRequest.Head.SHA != nil {
 							mergeRequestID = strconv.Itoa(*ev.PullRequest.Number)
 							commitID = *ev.PullRequest.Head.SHA
-							autoCancelOpt := &AutoCancelOpt{
-								MergeRequestID: mergeRequestID,
-								CommitID:       commitID,
-								TaskType:       config.WorkflowType,
-								MainRepo:       item.MainRepo,
-								WorkflowArgs:   item.WorkflowArgs,
-							}
-							err := AutoCancelTask(autoCancelOpt, log)
-							if err != nil {
-								log.Errorf("failed to auto cancel workflow task when receive event due to %v ", err)
-								mErr = multierror.Append(mErr, err)
-							}
+							autoCancelOpt.MergeRequestID = mergeRequestID
+							autoCancelOpt.Type = eventType
 						}
-
 						hookPayload = &commonmodels.HookPayload{
 							Owner:      *ev.Repo.Owner.Login,
 							Repo:       *ev.Repo.Name,
@@ -391,11 +377,44 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 							Ref:        *ev.PullRequest.Head.SHA,
 							IsPr:       true,
 							DeliveryID: deliveryID,
+							EventType:  eventType,
+						}
+					case *github.PushEvent:
+						// if event type is push，and this webhook trigger enabled auto cancel
+						// should cancel tasks triggered by the same git branch push event.
+						if ev.GetRef() != "" && ev.GetHeadCommit().GetID() != "" {
+							eventType = EventTypePush
+							ref = ev.GetRef()
+							commitID = ev.GetHeadCommit().GetID()
+							autoCancelOpt.Ref = ref
+							autoCancelOpt.CommitID = commitID
+							autoCancelOpt.Type = eventType
+							hookPayload = &commonmodels.HookPayload{
+								Owner:      *ev.Repo.Owner.Login,
+								Repo:       *ev.Repo.Name,
+								Branch:     ref,
+								Ref:        commitID,
+								IsPr:       false,
+								DeliveryID: deliveryID,
+								EventType:  eventType,
+							}
+						}
+					case *github.CreateEvent:
+						eventType = EventTypeTag
+					}
+					// if event type is not PR or push, skip
+					if autoCancelOpt.Type != "" {
+						err := AutoCancelTask(autoCancelOpt, log)
+						if err != nil {
+							log.Errorf("failed to auto cancel workflow task when receive event due to %v ", err)
+							mErr = multierror.Append(mErr, err)
 						}
 					}
 
 					args := matcher.UpdateTaskArgs(prod, item.WorkflowArgs, item.MainRepo, requestID)
 					args.MergeRequestID = mergeRequestID
+					args.Ref = ref
+					args.EventType = eventType
 					args.CommitID = commitID
 					args.Source = setting.SourceFromGithub
 					args.CodehostID = item.MainRepo.CodehostID

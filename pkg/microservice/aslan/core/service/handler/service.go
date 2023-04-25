@@ -102,6 +102,7 @@ func CreateServiceTemplate(c *gin.Context) {
 	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, args, force, ctx.Logger)
 }
 
+// UpdateServiceTemplate TODO figure out in which scene this function will be used
 func UpdateServiceTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

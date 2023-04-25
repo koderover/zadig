@@ -22,13 +22,14 @@ import (
 	"math"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 type CanaryDeployJob struct {
@@ -84,7 +85,7 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), j.spec.ClusterID)
 	if err != nil {
 		logger.Errorf("Failed to get kube client, err: %v", err)
-		return resp, err
+		return resp, fmt.Errorf("failed to get kube client: %s, err: %v", j.spec.ClusterID, err)
 	}
 
 	for _, target := range j.spec.Targets {
@@ -121,8 +122,12 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		target.WorkloadType = setting.Deployment
 		canaryReplica := math.Ceil(float64(*deployment.Spec.Replicas) * (float64(target.CanaryPercentage) / 100))
 		task := &commonmodels.JobTask{
-			Name:    jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
-			Key:     strings.Join([]string{j.job.Name, target.K8sServiceName}, "."),
+			Name: jobNameFormat(j.job.Name + "-" + target.K8sServiceName),
+			Key:  strings.Join([]string{j.job.Name, target.K8sServiceName}, "."),
+			JobInfo: map[string]string{
+				JobNameKey:         j.job.Name,
+				"k8s_service_name": target.K8sServiceName,
+			},
 			JobType: string(config.JobK8sCanaryDeploy),
 			Spec: &commonmodels.JobTaskCanaryDeploySpec{
 				Namespace:        j.spec.Namespace,

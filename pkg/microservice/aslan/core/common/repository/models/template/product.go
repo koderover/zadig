@@ -17,9 +17,11 @@ limitations under the License.
 package template
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type Product struct {
@@ -34,6 +36,7 @@ type Product struct {
 	AutoDeploy          *AutoDeployPolicy     `bson:"auto_deploy"               json:"auto_deploy"`
 	Timeout             int                   `bson:"timeout,omitempty"         json:"timeout,omitempty"`
 	Services            [][]string            `bson:"services"                  json:"services"`
+	ProductionServices  [][]string            `bson:"production_services"       json:"production_services"`
 	SharedServices      []*ServiceInfo        `bson:"shared_services,omitempty" json:"shared_services,omitempty"`
 	Vars                []*RenderKV           `bson:"-"                         json:"vars"`
 	EnvVars             []*EnvRenderKV        `bson:"-"                         json:"env_vars,omitempty"`
@@ -273,6 +276,42 @@ func (rc *ServiceRender) GetOverrideYaml() string {
 		return ""
 	}
 	return rc.OverrideYaml.YamlContent
+}
+
+type KV struct {
+	Key   string      `json:"key"`
+	Value interface{} `json:"value"`
+}
+
+func (rc *ServiceRender) AbsorbKVS(kvs map[string]interface{}) error {
+	kvList := make([]*KV, 0)
+	kvMap := make(map[string]interface{})
+	if rc.OverrideValues != "" {
+		err := json.Unmarshal([]byte(rc.OverrideValues), &kvList)
+		if err != nil {
+			return err
+		}
+		for _, kv := range kvList {
+			kvMap[kv.Key] = kv.Value
+		}
+	}
+	for k, v := range kvs {
+		kvMap[k] = v
+	}
+	newKvList := make([]*KV, 0)
+	for k, v := range kvMap {
+		newKvList = append(newKvList, &KV{
+			Key:   k,
+			Value: v,
+		})
+	}
+	bs, err := json.Marshal(newKvList)
+	if err != nil {
+		log.Errorf("override values json marshal error")
+		return err
+	}
+	rc.OverrideValues = string(bs)
+	return nil
 }
 
 func (rule *ImageSearchingRule) GetSearchingPattern() map[string]string {

@@ -18,7 +18,6 @@ package service
 
 import (
 	"fmt"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -293,7 +292,7 @@ func LoadKubeWorkloadsYaml(username string, params *LoadKubeWorkloadsYamlReq, fo
 				return fmt.Errorf("do not support workload kind:%s", workloadType)
 			}
 		}
-		yaml := strings.Join(yamls, setting.YamlFileSeperator)
+		yaml := util.JoinYamls(yamls)
 		serviceParam := &commonmodels.Service{
 			ProductName: params.ProductName,
 			ServiceName: service.Name,
@@ -336,26 +335,6 @@ func getServiceVariables(templateProduct *template.Product, product *commonmodel
 		})
 	}
 
-	//product.EnsureRenderInfo()
-	//renderSet, err := commonservice.GetRenderSet(product.Render.Name, product.Render.Revision, false, product.EnvName, log.SugaredLogger())
-	//if err != nil {
-	//	log.Errorf("failed to get renderset, err: %s", err)
-	//	return ret
-	//}
-	//
-	//svMap := make(map[string]*template.ServiceRender)
-	//for _, sv := range renderSet.ServiceVariables {
-	//	svMap[sv.ServiceName] = sv
-	//}
-	//
-	//for _, svc := range ret {
-	//	if sv, ok := svMap[svc.ServiceName]; ok {
-	//		if sv.OverrideYaml != nil {
-	//			svc.VariableYaml = sv.OverrideYaml.YamlContent
-	//		}
-	//	}
-	//}
-
 	return ret
 }
 
@@ -363,17 +342,11 @@ func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, err
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:           templateProduct.ProductName,
 		ShareEnvEnable: util.GetBoolPointer(false),
+		Production:     util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return nil, err
 	}
-
-	//if templateProduct.IsK8sYamlProduct() {
-	//	err = service.FillProductVars(envs, log.SugaredLogger())
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
 
 	ret := make([]*DeployableEnv, len(envs))
 
@@ -385,7 +358,6 @@ func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, err
 			Namespace: env.Namespace,
 			ClusterID: env.ClusterID,
 			Services:  getServiceVariables(templateProduct, env),
-			//Vars:      env.Vars,
 		}
 	}
 
@@ -398,17 +370,11 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product) (
 		Name:           projectName,
 		ShareEnvEnable: util.GetBoolPointer(true),
 		ShareEnvIsBase: util.GetBoolPointer(true),
+		Production:     util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return nil, err
 	}
-
-	//if templateProduct.IsK8sYamlProduct() {
-	//	err = service.FillProductVars(baseEnvs, log.SugaredLogger())
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
 
 	ret := make([]*DeployableEnv, 0)
 	for _, baseEnv := range baseEnvs {
@@ -417,7 +383,6 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product) (
 			Namespace: baseEnv.Namespace,
 			ClusterID: baseEnv.ClusterID,
 			Services:  getServiceVariables(templateProduct, baseEnv),
-			//Vars:      baseEnv.Vars,
 		})
 
 		if !hasSvcInEnv(svcName, baseEnv) {
@@ -442,6 +407,7 @@ func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*Deplo
 		ShareEnvEnable:  util.GetBoolPointer(true),
 		ShareEnvIsBase:  util.GetBoolPointer(false),
 		ShareEnvBaseEnv: util.GetStrPointer(baseEnvName),
+		Production:      util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return nil, err

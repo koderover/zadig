@@ -241,28 +241,6 @@ func (gtem gitlabTagEventMatcherForWorkflowV4) Match(hookRepo *commonmodels.Main
 	if !EventConfigured(hookRepo, config.HookEventTag) {
 		return false, nil
 	}
-	if gtem.isYaml {
-		refFlag := false
-		for _, ref := range gtem.trigger.Rules.Branchs {
-			if matched, _ := regexp.MatchString(ref, ev.Project.DefaultBranch); matched {
-				refFlag = true
-				break
-			}
-		}
-		if !refFlag {
-			return false, nil
-		}
-	} else {
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
-			return false, nil
-		}
-		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
-				return false, nil
-			}
-		}
-	}
 
 	hookRepo.Committer = ev.UserName
 	hookRepo.Tag = getTagFromRef(ev.Ref)
@@ -346,25 +324,24 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 			}
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			eventRepo := matcher.GetHookRepo(item.MainRepo)
-			var mergeRequestID, commitID string
-			if ev, isPr := event.(*gitlab.MergeEvent); isPr {
 
+			autoCancelOpt := &AutoCancelOpt{
+				TaskType:     config.WorkflowType,
+				MainRepo:     item.MainRepo,
+				AutoCancel:   item.AutoCancel,
+				WorkflowName: workflow.Name,
+			}
+			var mergeRequestID, commitID, ref, eventType string
+			var prID int
+			switch ev := event.(type) {
+			case *gitlab.MergeEvent:
+				eventType = EventTypePR
 				mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
 				commitID = ev.ObjectAttributes.LastCommit.ID
-				autoCancelOpt := &AutoCancelOpt{
-					MergeRequestID: mergeRequestID,
-					CommitID:       commitID,
-					TaskType:       config.WorkflowType,
-					MainRepo:       item.MainRepo,
-					AutoCancel:     item.AutoCancel,
-					WorkflowName:   workflow.Name,
-				}
-				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
-				if err != nil {
-					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)
-					mErr = multierror.Append(mErr, err)
-				}
-
+				prID = ev.ObjectAttributes.IID
+				autoCancelOpt.Type = eventType
+				autoCancelOpt.MergeRequestID = mergeRequestID
+				autoCancelOpt.CommitID = commitID
 				hookPayload = &commonmodels.HookPayload{
 					Owner:          eventRepo.RepoOwner,
 					Repo:           eventRepo.RepoName,
@@ -373,14 +350,44 @@ func TriggerWorkflowV4ByGitlabEvent(event interface{}, baseURI, requestID string
 					MergeRequestID: mergeRequestID,
 					CommitID:       commitID,
 					CodehostID:     eventRepo.CodehostID,
+					EventType:      eventType,
 				}
-
-				if notification == nil {
+			case *gitlab.PushEvent:
+				eventType = EventTypePush
+				ref = ev.Ref
+				commitID = ev.After
+				autoCancelOpt.Type = EventTypePush
+				autoCancelOpt.Ref = ref
+				autoCancelOpt.CommitID = commitID
+				hookPayload = &commonmodels.HookPayload{
+					Owner:      eventRepo.RepoOwner,
+					Repo:       eventRepo.RepoName,
+					Branch:     eventRepo.Branch,
+					Ref:        ref,
+					IsPr:       false,
+					CommitID:   commitID,
+					CodehostID: eventRepo.CodehostID,
+					EventType:  eventType,
+				}
+			case *gitlab.TagEvent:
+				eventType = EventTypeTag
+				hookPayload = &commonmodels.HookPayload{
+					EventType: eventType,
+				}
+			}
+			if autoCancelOpt.Type != "" {
+				err := AutoCancelWorkflowV4Task(autoCancelOpt, log)
+				if err != nil {
+					log.Errorf("failed to auto cancel workflowV4 task when receive event %v due to %v ", event, err)
+					mErr = multierror.Append(mErr, err)
+				}
+				if autoCancelOpt.Type == EventTypePR && notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, false, true, log,
+						item.MainRepo, prID, baseURI, false, false, false, true, log,
 					)
 				}
 			}
+
 			if err := job.MergeArgs(workflow, item.WorkflowArg); err != nil {
 				errMsg := fmt.Sprintf("merge workflow args error: %v", err)
 				log.Error(errMsg)

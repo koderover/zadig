@@ -27,10 +27,11 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util"
-	"gopkg.in/yaml.v2"
 )
 
 type ShellStep struct {
@@ -60,6 +61,18 @@ func (s *ShellStep) Run(ctx context.Context) error {
 		log.Infof("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
 
+	// This is to record that the shell step beginning and finished, for debug
+	err := os.WriteFile("/zadig/debug/shell_step", nil, 0700)
+	if err != nil {
+		log.Warnf("Failed to record shell_step file, error: %v", err)
+	}
+	defer func() {
+		err := os.WriteFile("/zadig/debug/shell_step_done", nil, 0700)
+		if err != nil {
+			log.Warnf("Failed to record shell_step_done file, error: %v", err)
+		}
+	}()
+	
 	if len(s.spec.Scripts) == 0 {
 		return nil
 	}

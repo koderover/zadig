@@ -70,6 +70,15 @@ type SvcOptArgs struct {
 	UpdateServiceTmpl bool
 }
 
+type PreviewServiceArgs struct {
+	ProductName           string                     `json:"product_name"`
+	EnvName               string                     `json:"env_name"`
+	ServiceName           string                     `json:"service_name"`
+	UpdateServiceRevision bool                       `json:"update_service_revision"`
+	ServiceModules        []*commonmodels.Container  `json:"service_modules"`
+	VariableKVS           []*commonmodels.VariableKV `json:"variable_kvs"`
+}
+
 type RestartScaleArgs struct {
 	Type        string `json:"type"`
 	ProductName string `json:"product_name"`
@@ -96,6 +105,7 @@ type SvcResp struct {
 	EnvName     string                       `json:"env_name"`
 	ProductName string                       `json:"product_name"`
 	GroupName   string                       `json:"group_name"`
+	Workloads   []*commonservice.Workload    `json:"-"`
 }
 
 func (pr *ProductRevision) GroupsUpdated() bool {

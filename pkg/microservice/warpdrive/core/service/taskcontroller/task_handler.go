@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/nsqio/go-nsq"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -166,8 +166,8 @@ func (h *ExecHandler) runPipelineTask(ctx context.Context, cancel context.Cancel
 		DockerHost:        dockerHost,
 		Workspace:         fmt.Sprintf("%s/%s", pipelineTask.ConfigPayload.S3Storage.Path, pipelineTask.PipelineName),
 		DistDir:           fmt.Sprintf("%s/%s/dist/%d", pipelineTask.ConfigPayload.S3Storage.Path, pipelineTask.PipelineName, pipelineTask.TaskID),
-		DockerMountDir:    fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewV4(), time.Now().Unix()),
-		ConfigMapMountDir: fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewV4(), time.Now().Unix()),
+		DockerMountDir:    fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewString(), time.Now().Unix()),
+		ConfigMapMountDir: fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewString(), time.Now().Unix()),
 		MultiRun:          pipelineTask.MultiRun,
 	}
 	pipelineTask.DockerHost = dockerHost
@@ -279,7 +279,7 @@ func (h *ExecHandler) SendNotification() {
 		xl.Errorf("marshal Notify error: %v", err)
 		return
 	}
-	
+
 	if err := h.Sender.Publish(setting.TopicNotification, nb); err != nil {
 		xl.Errorf("publish [%s] error: %v", setting.TopicNotification, err)
 		return
@@ -331,7 +331,6 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 			if deployTask.ServiceType != setting.HelmDeployType {
 				continue
 			}
-			workerConcurrency = 1
 			pluginInstance := plugins.InitializeHelmDeployTaskPlugin(config.TaskDeploy)
 			pluginInstance.Task = deployTask
 			if _, ok := pluginsByService[deployTask.ServiceName]; !ok {

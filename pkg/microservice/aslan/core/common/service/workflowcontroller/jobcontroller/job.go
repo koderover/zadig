@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +40,8 @@ type JobCtl interface {
 	Run(ctx context.Context)
 	// do some clean stuff when workflow finished, like collect reports or clean up resources.
 	Clean(ctx context.Context)
+	// SaveInfo is used to update the basic information of the job task to the mongoDB
+	SaveInfo(ctx context.Context) error
 }
 
 func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) JobCtl {
@@ -70,6 +73,18 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewIstioReleaseJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobIstioRollback):
 		jobCtl = NewIstioRollbackJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobJira):
+		jobCtl = NewJiraJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobNacos):
+		jobCtl = NewNacosJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobApollo):
+		jobCtl = NewApolloJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobMeegoTransition):
+		jobCtl = NewMeegoTransitionJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobWorkflowTrigger):
+		jobCtl = NewWorkflowTriggerJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobOfflineService):
+		jobCtl = NewOfflineServiceJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}
@@ -77,6 +92,10 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 }
 
 func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) {
+	// should skip passed job when workflow task be restarted
+	if job.Status == config.StatusPassed {
+		return
+	}
 	// render global variables for every job.
 	workflowCtx.GlobalContextEach(func(k, v string) bool {
 		b, _ := json.Marshal(job)
@@ -93,18 +112,24 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	ack()
 
 	logger.Infof("start job: %s,status: %s", job.Name, job.Status)
-	defer func() {
+	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
+	defer func(jobInfo *JobCtl) {
 		if err := recover(); err != nil {
 			errMsg := fmt.Sprintf("job: %s panic: %v", job.Name, err)
-			logger.Error(errMsg)
+			logger.Errorf(errMsg)
+			debug.PrintStack()
 			job.Status = config.StatusFailed
 			job.Error = errMsg
 		}
 		job.EndTime = time.Now().Unix()
 		logger.Infof("finish job: %s,status: %s", job.Name, job.Status)
 		ack()
-	}()
-	jobCtl := initJobCtl(job, workflowCtx, logger, ack)
+		logger.Infof("updating job info into db...")
+		err := jobCtl.SaveInfo(ctx)
+		if err != nil {
+			logger.Errorf("update job info: %s into db error: %v", err)
+		}
+	}(&jobCtl)
 
 	jobCtl.Run(ctx)
 }

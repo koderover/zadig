@@ -21,7 +21,6 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/setting"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -231,19 +230,38 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					mErr = multierror.Append(mErr, err)
 				} else if matches {
 					log.Infof("event match hook %v of %s", item.MainRepo, testing.Name)
-					var mergeRequestID, commitID string
-					if ev, isPr := event.(*gitee.PullRequestEvent); isPr {
+					var mergeRequestID, commitID, ref, eventType string
+					prID := 0
+					autoCancelOpt := &AutoCancelOpt{
+						TaskType: config.TestType,
+						MainRepo: item.MainRepo,
+						TestArgs: item.TestArgs,
+					}
+					switch ev := event.(type) {
+					case *gitee.PullRequestEvent:
+						eventType = EventTypePR
+						if ev.PullRequest != nil && ev.PullRequest.Number != 0 && ev.PullRequest.Head != nil && ev.PullRequest.Head.Sha != "" {
+							mergeRequestID = strconv.Itoa(ev.PullRequest.Number)
+							commitID = ev.PullRequest.Head.Sha
+							autoCancelOpt.MergeRequestID = mergeRequestID
+							autoCancelOpt.CommitID = commitID
+							autoCancelOpt.Type = EventTypePR
+							prID = ev.PullRequest.Number
+						}
+					case *gitee.PushEvent:
+						eventType = EventTypePush
+						ref = ev.Ref
+						commitID = ev.After
+						autoCancelOpt.Ref = ref
+						autoCancelOpt.CommitID = commitID
+						autoCancelOpt.Type = EventTypePush
+					case *gitee.TagPushEvent:
+						eventType = EventTypeTag
+					}
+
+					if autoCancelOpt.Type != "" {
 						// If it is a merge request, and the webhook trigger is configured with automatic cancellation,
 						// It is necessary to confirm whether the task triggered by the commit of the merge request before this commit has been processed, and it will be cancelled if it is not processed.
-						mergeRequestID = strconv.Itoa(ev.PullRequest.Number)
-						commitID = ev.PullRequest.Head.Sha
-						autoCancelOpt := &AutoCancelOpt{
-							MergeRequestID: mergeRequestID,
-							CommitID:       commitID,
-							TaskType:       config.TestType,
-							MainRepo:       item.MainRepo,
-							TestArgs:       item.TestArgs,
-						}
 						err := AutoCancelTask(autoCancelOpt, log)
 						if err != nil {
 							log.Errorf("failed to auto cancel testing task when receive event %v due to %s ", event, err)
@@ -252,7 +270,7 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 
 						if notification == nil {
 							notification, err = scmnotify.NewService().SendInitWebhookComment(
-								item.MainRepo, ev.PullRequest.Number, baseURI, false, true, false, false, log,
+								item.MainRepo, prID, baseURI, false, true, false, false, log,
 							)
 							if err != nil {
 								log.Errorf("failed to init webhook comment due to %s", err)
@@ -266,9 +284,11 @@ func TriggerTestByGiteeEvent(event interface{}, baseURI, requestID string, log *
 					}
 
 					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
+					args.Ref = ref
+					args.EventType = eventType
 					args.MergeRequestID = mergeRequestID
 					args.CommitID = commitID
-					args.Source = setting.SourceFromGitee
+					args.Source = item.MainRepo.Source
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
 					args.RepoName = item.MainRepo.RepoName

@@ -30,7 +30,7 @@ func GetTestDashboard(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetTestDashboard(0, 0, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetTestDashboard(0, 0, "", ctx.Logger)
 }
 
 type DailyTestStat struct {
@@ -48,23 +48,33 @@ type OpenAPITestStatResp struct {
 	DailyTestData  []*DailyTestStat `json:"data"`
 }
 
+type OpenAPIGetTestStatArgs struct {
+	StartDate int64  `json:"startDate,omitempty" form:"startDate,default:0"`
+	EndDate   int64  `json:"endDate,omitempty"   form:"endDate,default:0"`
+	Project   string `json:"project"        form:"project"`
+}
+
 func GetTestStatOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(getStatReq)
+	args := new(OpenAPIGetTestStatArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	testStatistics, err := service.GetTestDashboard(args.StartDate, args.EndDate, ctx.Logger)
+	testStatistics, err := service.GetTestDashboard(args.StartDate, args.EndDate, args.Project, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
 	}
 
-	testDailyInfo, err := service.GetTestTrendMeasure(args.StartDate, args.EndDate, []string{}, ctx.Logger)
+	projects := make([]string, 0)
+	if args.Project != "" {
+		projects = append(projects, args.Project)
+	}
+	testDailyInfo, err := service.GetTestTrendMeasure(args.StartDate, args.EndDate, projects, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return

@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -87,7 +88,7 @@ func CreatePipelineTask(c *gin.Context) {
 
 	// 发送通知
 	if ctx.Err != nil {
-		commonservice.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.PipelineName, ctx.RequestID, config.SingleType, ctx.Err, ctx.Logger)
+		notify.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.PipelineName, ctx.RequestID, config.SingleType, ctx.Err, ctx.Logger)
 	}
 
 }
