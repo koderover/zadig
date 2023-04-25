@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/cli/upgradeassistant/cmd/migrate"
+
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
@@ -81,9 +83,15 @@ func run() error {
 	outPutMessages = viper.GetBool("Message")
 	appointedTemplates = viper.GetString("Templates")
 	appointedProjects = viper.GetString("Projects")
-	//write = false
 
-	err := handlerServices()
+	// 1.15.0 - 1.16.0
+	err := migrate.V1150ToV1160()
+	if err != nil {
+		return err
+	}
+
+	// 1.16.0 数据变更
+	err = handlerServices()
 	if err != nil {
 		return err
 	}
