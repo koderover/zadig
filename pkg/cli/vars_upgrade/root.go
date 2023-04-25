@@ -85,12 +85,14 @@ func run() error {
 	appointedProjects = viper.GetString("Projects")
 
 	// 1.15.0 - 1.16.0
+	log.Infof("************ executing from 1.15.0 to 1.16.0 ************")
 	err := migrate.V1150ToV1160()
 	if err != nil {
 		return err
 	}
 
 	// 1.16.0 数据变更
+	log.Infof("************ executing 1.16.0 variables ************")
 	err = handlerServices()
 	if err != nil {
 		return err
@@ -100,6 +102,21 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
+	// 1.16.0 - 1.17.0
+	log.Infof("************ executing from 1.16.0 to 1.17.0 ************")
+	err = migrate.V1160ToV1170()
+	if err != nil {
+		return err
+	}
+
+	// 1.17.0 - 1.18.0
+	log.Infof("************ executing from 1.17.0 to 1.18.0 ************")
+	err = migrate.V1170ToV1180()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
@@ -171,6 +173,43 @@ func handleSingleTemplate(yamlTemplate *models.YamlTemplate) {
 	return
 }
 
+func extractVars(yamlStr string) []string {
+	aliases := config.RenderTemplateAlias.FindAllString(yamlStr, -1)
+	ret := make([]string, 0)
+	for _, alias := range aliases {
+		a := strings.TrimPrefix(alias, "{{.")
+		a = strings.TrimSuffix(a, "}}")
+		ret = append(ret, a)
+	}
+	return ret
+}
+
+func extractServiceVars(yamlStr string, serviceInfo *models.Service) []string {
+	ret := make([]string, 0)
+	if len(yamlStr) == 0 {
+		return ret
+	}
+	flattenKVS, err := service.FlattenKvs(yamlStr)
+	if err != nil {
+		log.Errorf("!!!!!!!!!!!! failed to extract flatten kvs for service %s/%s:%d from variable yaml %s error: %s", serviceInfo.ProductName, serviceInfo.ServiceName, serviceInfo.Revision, yamlStr, err)
+		return ret
+	}
+	for _, kv := range flattenKVS {
+		matchedGlobal := false
+		for gk := range GlobalKeys {
+			if strings.Contains(kv.Key, gk) {
+				matchedGlobal = true
+				break
+			}
+		}
+		if matchedGlobal {
+			continue
+		}
+		ret = append(ret, kv.Key)
+	}
+	return ret
+}
+
 func handleUsedService(projectName, serviceName string, revision int64) error {
 	log.Infof("\n+++++++++++ handling used service %s/%s:%d +++++++++++", projectName, serviceName, revision)
 	templateService, err := mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
@@ -208,11 +247,20 @@ func handleUsedService(projectName, serviceName string, revision int64) error {
 		}
 	}
 
-	bs, err := yaml.Marshal(valuesMap)
+	// extract go template vars from service yaml
+	goTemplateVars := extractVars(templateService.Yaml)
+	if len(goTemplateVars) == 0 {
+		return nil
+	}
+	variableMap := make(map[string]interface{})
+	for _, goTemplateVar := range goTemplateVars {
+		variableMap[goTemplateVar] = valuesMap[goTemplateVar]
+	}
+
+	bs, err := yaml.Marshal(variableMap)
 	if err != nil {
 		return fmt.Errorf("!!!!!!!!!!!! failed to marshal valuesMap for service: %s/%s:%d error: %s", templateService.ProductName, templateService.ServiceName, templateService.Revision, err)
 	}
-
 	templateService.VariableYaml = string(bs)
 
 	log.Infof("unused service %s/%s:%d generatedKvMap yaml:\n%s", templateService.ProductName, templateService.ServiceName, templateService.Revision, string(bs))
@@ -296,12 +344,13 @@ func handleSingleService(yamlTemplate *models.YamlTemplate, serviceReference *te
 		if err != nil {
 			log.Errorf("failed to unmarshal variable yaml: %s, err: %s", newVariableYaml, err)
 		} else {
-			log.Infof("service %s/%s:d variable yaml:\n%s", templateService.ProductName, templateService.ServiceName, templateService.Revision, string(newVariableYaml))
+			log.Infof("service %s/%s:%d variable yaml:\n%s", templateService.ProductName, templateService.ServiceName, templateService.Revision, string(newVariableYaml))
 
 			// 设置service的变量以及creation参数，以及变量可见性
 			//creation.VariableYaml = newVariableYaml
 			templateService.VariableYaml = newVariableYaml
-			templateService.ServiceVars = yamlTemplate.ServiceVars
+			//templateService.ServiceVars = yamlTemplate.ServiceVars
+			templateService.ServiceVars = extractServiceVars(newVariableYaml, templateService)
 
 			if !write {
 				return nil
@@ -404,9 +453,9 @@ func handleSingleService(yamlTemplate *models.YamlTemplate, serviceReference *te
 		log.Infof("service %s/%s:%d generatedKvMap yaml:\n%s", templateService.ProductName, templateService.ServiceName, templateService.Revision, string(bs))
 
 		// 更新服务可见性
-		templateService.ServiceVars = yamlTemplate.ServiceVars
 		templateService.VariableYaml = string(bs)
-
+		//templateService.ServiceVars = yamlTemplate.ServiceVars
+		templateService.ServiceVars = extractServiceVars(templateService.VariableYaml, templateService)
 		if !write {
 			return nil
 		}
@@ -421,6 +470,7 @@ func handleSingleService(yamlTemplate *models.YamlTemplate, serviceReference *te
 	return nil
 }
 
+// 处理使用过的老的服务版本
 func handleUsedOldVersionServices() error {
 	for key, revisions := range allServiceRevision {
 		if revisions.Len() == 0 {
