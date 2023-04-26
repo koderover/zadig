@@ -51,6 +51,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/util/validator"
 )
 
 type DeployJobCtl struct {
@@ -172,6 +173,10 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		containers := []*commonmodels.Container{}
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
 			for _, serviceImage := range c.jobTaskSpec.ServiceAndImages {
+				if !validator.IsImageName(serviceImage.Image) {
+					msg := fmt.Sprintf("service_module %s image %s is not valid", serviceImage.ServiceModule, serviceImage.Image)
+					logError(c.job, msg, c.logger)
+				}
 				containers = append(containers, &commonmodels.Container{
 					Name:      serviceImage.ServiceModule,
 					Image:     serviceImage.Image,

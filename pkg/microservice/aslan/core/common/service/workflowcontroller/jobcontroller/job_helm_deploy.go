@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util/validator"
 )
 
 type HelmDeployJobCtl struct {
@@ -88,6 +89,10 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	images := make([]string, 0)
 	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
 		for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
+			if !validator.IsImageName(svcAndContainer.Image) {
+				msg := fmt.Sprintf("service_module %s image %s is not valid", svcAndContainer.ServiceModule, svcAndContainer.Image)
+				logError(c.job, msg, c.logger)
+			}
 			images = append(images, svcAndContainer.Image)
 		}
 	}
