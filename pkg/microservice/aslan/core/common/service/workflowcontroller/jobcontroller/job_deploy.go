@@ -173,7 +173,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		containers := []*commonmodels.Container{}
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
 			for _, serviceImage := range c.jobTaskSpec.ServiceAndImages {
-				if !validator.IsImageName(serviceImage.Image) {
+				if !validator.IsValidImageName(serviceImage.Image) {
 					msg := fmt.Sprintf("service_module %s image %s is not valid", serviceImage.ServiceModule, serviceImage.Image)
 					logError(c.job, msg, c.logger)
 				}

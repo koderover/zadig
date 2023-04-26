@@ -26,9 +26,9 @@ var (
 	imageNameRegexp *regexp.Regexp
 )
 
-func IsImageName(imageName string) bool {
+func IsValidImageName(imageName string) bool {
 	imageNameOnce.Do(func() {
-		imageNameRegexp = regexp.MustCompile(`^([a-z0-9]+([._-][a-z0-9]+)*/)?[a-z0-9]+([._-][a-z0-9]+)*(:[a-zA-Z0-9]+([._-][a-zA-Z0-9]+)*)?$`)
+		imageNameRegexp = regexp.MustCompile(`^(?:(?:[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9])\/)*([a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9])(?::([A-Za-z0-9_.-]{1,128}))?$`)
 	})
 	return imageNameRegexp.MatchString(imageName)
 }

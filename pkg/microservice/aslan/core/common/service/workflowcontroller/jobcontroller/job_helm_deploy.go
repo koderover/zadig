@@ -89,7 +89,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	images := make([]string, 0)
 	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
 		for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
-			if !validator.IsImageName(svcAndContainer.Image) {
+			if !validator.IsValidImageName(svcAndContainer.Image) {
 				msg := fmt.Sprintf("service_module %s image %s is not valid", svcAndContainer.ServiceModule, svcAndContainer.Image)
 				logError(c.job, msg, c.logger)
 			}
