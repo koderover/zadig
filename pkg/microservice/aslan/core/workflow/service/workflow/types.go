@@ -214,6 +214,7 @@ func (p *ZadigBuildJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels
 	// set the id to the spec
 	newSpec.DockerRegistryID = regID
 
+	buildSvcList := make([]*commonmodels.ServiceAndBuild, 0)
 	for _, svcBuild := range newSpec.ServiceAndBuilds {
 		for _, inputSvc := range p.ServiceList {
 			// if the service & service module match, we do the update logic
@@ -247,10 +248,13 @@ func (p *ZadigBuildJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels
 						buildParam.Value = val
 					}
 				}
+
+				buildSvcList = append(buildSvcList, svcBuild)
 			}
 		}
 	}
 
+	newSpec.ServiceAndBuilds = buildSvcList
 	job.Spec = newSpec
 
 	return job, nil
