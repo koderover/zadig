@@ -142,8 +142,8 @@ exemption_urls:
         - PUT
         - PATCH
         - DELETE
-# endpoint = '' is p0 level
-    - endpoint: ''
+    # endpoint = '' is p0 level
+    - endpoint: ""
       methods:
         - GET
     - endpoint: signin
@@ -189,6 +189,9 @@ exemption_urls:
       methods:
         - GET
     - endpoint: api/aslan/service/services/?*/environments/deployable
+      methods:
+        - GET
+    - endpoint: api/aslan/apidocs/?*
       methods:
         - GET
   system_admin:

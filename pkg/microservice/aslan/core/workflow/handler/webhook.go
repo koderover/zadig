@@ -31,11 +31,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/gitee"
 )
 
-// @Router /workflow/webhook [POST]
-// @Summary Process webhook
-// @Accept  json
-// @Produce json
-// @Success 200 {object} map[string]string "map[string]string - {message: 'success information'}"
 func ProcessWebHook(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

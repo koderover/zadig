@@ -43,6 +43,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -1454,4 +1455,36 @@ func prefixOverride(base, override string, kvsRange []*commonmodels.ServiceKeyVa
 	}
 
 	return merged, nil
+}
+
+type ConvertVaraibleKVAndYamlActionType string
+
+const (
+	ConvertVaraibleKVAndYamlActionTypeToKV   ConvertVaraibleKVAndYamlActionType = "toKV"
+	ConvertVaraibleKVAndYamlActionTypeToYaml ConvertVaraibleKVAndYamlActionType = "toYaml"
+)
+
+type ConvertVaraibleKVAndYamlArgs struct {
+	KVs    []*commontypes.ServiceVariableKV   `json:"kvs"`
+	Yaml   string                             `json:"yaml"`
+	Action ConvertVaraibleKVAndYamlActionType `json:"action"`
+}
+
+func ConvertVaraibleKVAndYaml(args *ConvertVaraibleKVAndYamlArgs) (*ConvertVaraibleKVAndYamlArgs, error) {
+	var err error
+	if args.Action == ConvertVaraibleKVAndYamlActionTypeToYaml {
+		args.Yaml, err = commontypes.ServiceVariableKVToYaml(args.KVs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert service variable kv to yaml, err %w", err)
+		}
+	} else if args.Action == ConvertVaraibleKVAndYamlActionTypeToKV {
+		args.KVs, err = commontypes.YamlToServiceVariableKV(args.Yaml, args.KVs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert yaml to service variable kv, err %w", err)
+		}
+	} else {
+		return nil, fmt.Errorf("invalid action %s", args.Action)
+	}
+
+	return args, nil
 }

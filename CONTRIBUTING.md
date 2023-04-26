@@ -142,7 +142,7 @@ So if you have added or modified any API on `aslan` service, please:
   ```bash
   cd [your root path of Zadig-X]
 
-  swag init -d ./lib/microservice/aslan/ -g server/rest/router.go -o ./lib/microservice/aslan/server/rest/doc
+  make swag
   ```
 
 Check out [Swag CLI](https://github.com/swaggo/swag#swag-cli) for more details.
