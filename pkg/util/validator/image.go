@@ -18,17 +18,10 @@ package validator
 
 import (
 	"regexp"
-	"sync"
 )
 
-var (
-	imageNameOnce   sync.Once
-	imageNameRegexp *regexp.Regexp
-)
+var imageNameRegexp = regexp.MustCompile(`^(?:(?:[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9])\/)*([a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9])(?::([A-Za-z0-9_.-]{1,128}))?$`)
 
 func IsValidImageName(imageName string) bool {
-	imageNameOnce.Do(func() {
-		imageNameRegexp = regexp.MustCompile(`^(?:(?:[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9])\/)*([a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9])(?::([A-Za-z0-9_.-]{1,128}))?$`)
-	})
 	return imageNameRegexp.MatchString(imageName)
 }
