@@ -92,6 +92,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			if !validator.IsValidImageName(svcAndContainer.Image) {
 				msg := fmt.Sprintf("service_module %s image %s is not valid", svcAndContainer.ServiceModule, svcAndContainer.Image)
 				logError(c.job, msg, c.logger)
+				return
 			}
 			images = append(images, svcAndContainer.Image)
 		}

@@ -176,6 +176,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 				if !validator.IsValidImageName(serviceImage.Image) {
 					msg := fmt.Sprintf("service_module %s image %s is not valid", serviceImage.ServiceModule, serviceImage.Image)
 					logError(c.job, msg, c.logger)
+					return errors.New(msg)
 				}
 				containers = append(containers, &commonmodels.Container{
 					Name:      serviceImage.ServiceModule,
