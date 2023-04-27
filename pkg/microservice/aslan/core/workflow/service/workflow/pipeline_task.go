@@ -784,7 +784,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 		log.Errorf("[%s]get TestingModule error: %v", args.TestName, err)
 		return resp, err
 	}
-	testTask.Timeout = testModule.Timeout
+	testTask.Timeout = testModule.Timeout * 60
 
 	testTask.TestModuleName = testModule.Name
 	testTask.JobCtx.TestType = testModule.TestType
