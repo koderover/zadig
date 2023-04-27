@@ -87,7 +87,8 @@ func (j *ImageDistributeJob) SetPreset() error {
 
 			for _, container := range service.Containers {
 				if container.Name == target.ServiceModule {
-					target.ImageName = container.ImageName
+					// FIXME
+					// target.ImageName = container.ImageName
 					break
 				}
 			}

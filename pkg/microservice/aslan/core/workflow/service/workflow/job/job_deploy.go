@@ -161,7 +161,8 @@ func (j *DeployJob) SetPreset() error {
 
 			for _, container := range templateSvc.Containers {
 				if container.Name == svc.ServiceModule {
-					svc.ImageName = container.ImageName
+					// FIXME
+					// svc.ImageName = container.ImageName
 					break
 				}
 			}

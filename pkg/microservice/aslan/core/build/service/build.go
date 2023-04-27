@@ -233,8 +233,10 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
 				ServiceName:   serviceTmpl.ServiceName,
 				ServiceModule: container.Name,
-				ImageName:     container.ImageName,
-				ModuleBuilds:  resp,
+				ImageName:     container.Name,
+				// FIXME
+				// ImageName:     container.ImageName,
+				ModuleBuilds: resp,
 			})
 		}
 	}
