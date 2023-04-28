@@ -649,13 +649,13 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 	resp := ""
 	if notify.WebHookType == dingDingType {
 		if len(notify.AtMobiles) > 0 {
-			notify.AtMobiles = lo.Filter(notify.AtMobiles, func(s string, _ int) bool { return s != "所有人" })
+			notify.AtMobiles = lo.Filter(notify.AtMobiles, func(s string, _ int) bool { return s != "All" })
 			resp = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(notify.AtMobiles, "@"))
 		}
 	}
 	if notify.WebHookType == weChatWorkType && len(notify.WechatUserIDs) > 0 {
 		atUserList := []string{}
-		notify.WechatUserIDs = lo.Filter(notify.WechatUserIDs, func(s string, _ int) bool { return s != "所有人" })
+		notify.WechatUserIDs = lo.Filter(notify.WechatUserIDs, func(s string, _ int) bool { return s != "All" })
 		for _, userID := range notify.WechatUserIDs {
 			atUserList = append(atUserList, fmt.Sprintf("<@%s>", userID))
 		}
@@ -663,7 +663,7 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 	}
 	if notify.WebHookType == feiShuType {
 		atUserList := []string{}
-		notify.LarkUserIDs = lo.Filter(notify.LarkUserIDs, func(s string, _ int) bool { return s != "所有人" })
+		notify.LarkUserIDs = lo.Filter(notify.LarkUserIDs, func(s string, _ int) bool { return s != "All" })
 		for _, userID := range notify.LarkUserIDs {
 			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
 		}
