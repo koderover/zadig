@@ -63,11 +63,6 @@ func GetProductNameByPipeline(c *gin.Context) {
 	c.Next()
 }
 
-// ListPipelines
-// @Router /workflow/v2/pipelines [GET]
-// @Summary Return all workflows (also called pipelines)
-// @Produce json
-// @Success 200 {object} interface{} "response type follows list of microservice/aslan/core/common/repository/models#Pipeline"
 func ListPipelines(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -75,12 +70,6 @@ func ListPipelines(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.ListPipelines(ctx.Logger)
 }
 
-// GetPipeline
-// @Router /workflow/v2/pipelines/{name} [GET]
-// @Summary Get the relevant workflow (also called pipeline) information with the specified workflow name
-// @Param name path string true "Name of the workflow"
-// @Produce json
-// @Success 200 {object} interface{} "response type follows microservice/aslan/core/common/repository/models#Pipeline"
 func GetPipeline(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

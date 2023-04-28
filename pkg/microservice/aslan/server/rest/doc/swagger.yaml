@@ -1,4 +1,50 @@
 basePath: /api/aslan
+definitions:
+  service.ConvertVaraibleKVAndYamlActionType:
+    enum:
+    - toKV
+    - toYaml
+    type: string
+    x-enum-varnames:
+    - ConvertVaraibleKVAndYamlActionTypeToKV
+    - ConvertVaraibleKVAndYamlActionTypeToYaml
+  service.ConvertVaraibleKVAndYamlArgs:
+    properties:
+      action:
+        $ref: '#/definitions/service.ConvertVaraibleKVAndYamlActionType'
+      kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      yaml:
+        type: string
+    type: object
+  types.ServiceVariableKV:
+    properties:
+      desc:
+        type: string
+      key:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      type:
+        $ref: '#/definitions/types.ServiceVariableKVType'
+      value: {}
+    type: object
+  types.ServiceVariableKVType:
+    enum:
+    - bool
+    - string
+    - enum
+    - yaml
+    type: string
+    x-enum-varnames:
+    - ServiceVariableKVTypeBoolean
+    - ServiceVariableKVTypeString
+    - ServiceVariableKVTypeEnum
+    - ServiceVariableKVTypeYaml
 info:
   contact:
     email: contact@koderover.com
@@ -12,73 +58,26 @@ info:
   title: Zadig aslan service REST APIs
   version: "1.0"
 paths:
-  /workflow/v2/pipelines:
-    get:
-      produces:
+  /service/services/variable/convert:
+    post:
+      consumes:
       - application/json
-      responses:
-        "200":
-          description: response type follows list of microservice/aslan/core/common/dao/models#Pipeline
-          schema:
-            type: object
-      summary: Return all workflows (also called pipelines)
-  /workflow/v2/pipelines/{name}:
-    get:
+      description: convert varaible kv and yaml
       parameters:
-      - description: Name of the workflow
-        in: path
-        name: name
+      - description: body
+        in: body
+        name: body
         required: true
-        type: string
+        schema:
+          $ref: '#/definitions/service.ConvertVaraibleKVAndYamlArgs'
       produces:
       - application/json
       responses:
         "200":
-          description: response type follows microservice/aslan/core/common/dao/models#Pipeline
+          description: OK
           schema:
-            type: object
-      summary: Get the relevant workflow (also called pipeline) information with the
-        specified workflow name
-  /workflow/webhook/gerritHook:
-    post:
-      consumes:
-      - application/json
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 'map[string]string - {message: success}'
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Process webhook for gerrit
-  /workflow/webhook/githubWebHook:
-    post:
-      consumes:
-      - application/json
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 'map[string]string - {message: ''success information''}'
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Process webhook for github
-  /workflow/webhook/gitlabhook:
-    post:
-      consumes:
-      - application/json
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 'map[string]string - {message: success}'
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Process webhook for giblab
+            $ref: '#/definitions/service.ConvertVaraibleKVAndYamlArgs'
+      summary: convert varaible kv and yaml
+      tags:
+      - service
 swagger: "2.0"

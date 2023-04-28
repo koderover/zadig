@@ -561,10 +561,6 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		return manifest, int(curProductSvc.Revision), workloads, err
 	}
 
-	if latestSvcTemplate == nil {
-		return "", 0, nil, fmt.Errorf("failed to find service template %s used in product %s", option.ServiceName, option.EnvName)
-	}
-
 	curContainers := latestSvcTemplate.Containers
 	if curProductSvc != nil {
 		curContainers = curProductSvc.Containers

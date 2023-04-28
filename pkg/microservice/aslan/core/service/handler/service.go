@@ -427,3 +427,30 @@ func UpdatePmServiceTemplate(c *gin.Context) {
 	}
 	ctx.Err = commonservice.UpdatePmServiceTemplate(ctx.UserName, args, ctx.Logger)
 }
+
+// @Summary convert varaible kv and yaml
+// @Description convert varaible kv and yaml
+// @Tags service
+// @Accept json
+// @Produce json
+// @Param body body commonservice.ConvertVaraibleKVAndYamlArgs true "body"
+// @Success 200 {object} commonservice.ConvertVaraibleKVAndYamlArgs
+// @Router /service/services/variable/convert [post]
+func ConvertVaraibleKVAndYaml(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonservice.ConvertVaraibleKVAndYamlArgs)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ConvertVaraibleKVAndYamlArgs")
+		return
+	}
+
+	resp, err := commonservice.ConvertVaraibleKVAndYaml(args)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp = resp
+}

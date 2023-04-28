@@ -2,7 +2,7 @@
 # WARNING:
 # This makefile used docker buildx to build multi-arch image
 # Please make sure you have the right version of docker.
-.PHONY: microservice.push
+.PHONY: microservice.push swag
 
 IMAGE_REPOSITORY = koderover.tencentcloudcr.com/koderover-public
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
@@ -37,3 +37,5 @@ debugtools: prereq $(DEBUG_TOOLS_TARGETS:=.push)
 %.buildbase:
 	@docker buildx build -t ${MAKE_IMAGE_TAG} --platform linux/amd64,linux/arm64 -f docker/$*-base.Dockerfile --push .
 
+swag:
+	swag init -d cmd/aslan,pkg/microservice/aslan -g ../../pkg/microservice/aslan/server/rest/router.go -o pkg/microservice/aslan/server/rest/doc
