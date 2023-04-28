@@ -36,7 +36,7 @@ type DingDingAt struct {
 	IsAtAll   bool     `json:"isAtAll"`
 }
 
-func (w *Service) sendDingDingMessage(uri, title, content string, atMobiles []string) error {
+func (w *Service) sendDingDingMessage(uri, title, content string, atMobiles []string, isAtAll bool) error {
 	message := &DingDingMessage{
 		MsgType: msgType,
 		MarkDown: &DingDingMarkDown{
@@ -44,15 +44,9 @@ func (w *Service) sendDingDingMessage(uri, title, content string, atMobiles []st
 			Text:  content,
 		},
 	}
-	if len(atMobiles) > 0 {
-		message.At = &DingDingAt{
-			AtMobiles: atMobiles,
-			IsAtAll:   false,
-		}
-	} else {
-		message.At = &DingDingAt{
-			IsAtAll: true,
-		}
+	message.At = &DingDingAt{
+		AtMobiles: atMobiles,
+		IsAtAll:   isAtAll,
 	}
 
 	_, err := w.SendMessageRequest(uri, message)

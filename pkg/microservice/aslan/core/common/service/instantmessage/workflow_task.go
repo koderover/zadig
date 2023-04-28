@@ -465,7 +465,7 @@ func getJobTaskTplExec(tplcontent string, args *jobTaskNotification) (string, er
 func (w *Service) sendNotification(title, content string, notify *models.NotifyCtl, card *LarkCard) error {
 	switch notify.WebHookType {
 	case dingDingType:
-		if err := w.sendDingDingMessage(notify.DingDingWebHook, title, content, notify.AtMobiles); err != nil {
+		if err := w.sendDingDingMessage(notify.DingDingWebHook, title, content, notify.AtMobiles, notify.IsAtAll); err != nil {
 			return err
 		}
 	case feiShuType:

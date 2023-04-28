@@ -26,6 +26,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -248,7 +249,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 			if task.Type == config.SingleType {
 				title = "工作流状态"
 			}
-			err := w.sendDingDingMessage(uri, title, content, atMobiles)
+			err := w.sendDingDingMessage(uri, title, content, atMobiles, isAtAll)
 			if err != nil {
 				log.Errorf("sendDingDingMessage err : %s", err)
 				return err
@@ -647,12 +648,14 @@ func genTestCaseText(test string, subTask, testReports map[string]interface{}) s
 func getNotifyAtContent(notify *models.NotifyCtl) string {
 	resp := ""
 	if notify.WebHookType == dingDingType {
-		if len(notify.AtMobiles) > 0 && !notify.IsAtAll {
+		if len(notify.AtMobiles) > 0 {
+			notify.AtMobiles = lo.Filter(notify.AtMobiles, func(s string, _ int) bool { return s != "所有人" })
 			resp = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(notify.AtMobiles, "@"))
 		}
 	}
 	if notify.WebHookType == weChatWorkType && len(notify.WechatUserIDs) > 0 {
 		atUserList := []string{}
+		notify.WechatUserIDs = lo.Filter(notify.WechatUserIDs, func(s string, _ int) bool { return s != "所有人" })
 		for _, userID := range notify.WechatUserIDs {
 			atUserList = append(atUserList, fmt.Sprintf("<@%s>", userID))
 		}
@@ -660,6 +663,7 @@ func getNotifyAtContent(notify *models.NotifyCtl) string {
 	}
 	if notify.WebHookType == feiShuType {
 		atUserList := []string{}
+		notify.LarkUserIDs = lo.Filter(notify.LarkUserIDs, func(s string, _ int) bool { return s != "所有人" })
 		for _, userID := range notify.LarkUserIDs {
 			atUserList = append(atUserList, fmt.Sprintf("<at user_id=\"%s\"></at>", userID))
 		}
