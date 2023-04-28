@@ -17,7 +17,6 @@ limitations under the License.
 package handler
 
 import (
-	. "github.com/onsi/ginkgo/extensions/table"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -59,61 +58,61 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 	var nilSlicetoMap []map[string]interface{}
 	var nilPointerToSlice *[]StructWithNormalSlice
 	var nilStruct StructWithInterface
-	DescribeTable("Testing with different structs",
+	ginkgo.DescribeTable("Testing with different structs",
 		func(p testCase) {
 			result := responseHelper(p.input)
 
 			Expect(result).To(Equal(p.expect))
 		},
-		Entry("primitive type -- int", testCase{
+		ginkgo.Entry("primitive type -- int", testCase{
 			input:  1,
 			expect: 1,
 		}),
-		Entry("primitive type -- string", testCase{
+		ginkgo.Entry("primitive type -- string", testCase{
 			input:  mystring,
 			expect: mystring,
 		}),
-		Entry("primitive type -- bool", testCase{
+		ginkgo.Entry("primitive type -- bool", testCase{
 			input:  true,
 			expect: true,
 		}),
-		Entry("primitive type -- byte", testCase{
+		ginkgo.Entry("primitive type -- byte", testCase{
 			input:  byte('a'),
 			expect: byte('a'),
 		}),
-		Entry("primitive type -- rune", testCase{
+		ginkgo.Entry("primitive type -- rune", testCase{
 			input:  'a',
 			expect: 'a',
 		}),
-		Entry("primitive type -- float", testCase{
+		ginkgo.Entry("primitive type -- float", testCase{
 			input:  12.34,
 			expect: 12.34,
 		}),
-		Entry("slice -- string -- unchanged", testCase{
+		ginkgo.Entry("slice -- string -- unchanged", testCase{
 			input:  []string{"a"},
 			expect: &[]string{"a"},
 		}),
-		Entry("slice -- string -- changed", testCase{
+		ginkgo.Entry("slice -- string -- changed", testCase{
 			input:  nilSlice,
 			expect: &[]string{},
 		}),
-		Entry("slice -- slice -- unchanged", testCase{
+		ginkgo.Entry("slice -- slice -- unchanged", testCase{
 			input:  [][]string{{"a"}},
 			expect: &[][]string{{"a"}},
 		}),
-		Entry("slice -- slice -- changed", testCase{
+		ginkgo.Entry("slice -- slice -- changed", testCase{
 			input:  nil2dSlice,
 			expect: &[][]string{},
 		}),
-		Entry("slice -- pointer -- unchanged", testCase{
+		ginkgo.Entry("slice -- pointer -- unchanged", testCase{
 			input:  []*string{&mystring},
 			expect: &[]*string{&mystring},
 		}),
-		Entry("slice -- pointer -- changed", testCase{
+		ginkgo.Entry("slice -- pointer -- changed", testCase{
 			input:  nilSlicetoPointer,
 			expect: &[]*string{},
 		}),
-		Entry("slice -- map -- unchanged", testCase{
+		ginkgo.Entry("slice -- map -- unchanged", testCase{
 			input: []map[string]interface{}{
 				map[string]interface{}{
 					"a": "b",
@@ -125,19 +124,19 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				},
 			},
 		}),
-		Entry("slice -- map -- changed", testCase{
+		ginkgo.Entry("slice -- map -- changed", testCase{
 			input:  nilSlicetoMap,
 			expect: &[]map[string]interface{}{},
 		}),
-		Entry("slice in a struct -- unchanged", testCase{
+		ginkgo.Entry("slice in a struct -- unchanged", testCase{
 			input:  StructWithNormalSlice{Myarr: []string{"a"}},
 			expect: &StructWithNormalSlice{Myarr: []string{"a"}},
 		}),
-		Entry("slice in a struct -- changed", testCase{
+		ginkgo.Entry("slice in a struct -- changed", testCase{
 			input:  StructWithNormalSlice{Myarr: nil},
 			expect: &StructWithNormalSlice{Myarr: []string{}},
 		}),
-		Entry("slice in a map -- unchanged", testCase{
+		ginkgo.Entry("slice in a map -- unchanged", testCase{
 			input: map[string][]string{
 				"a": []string{"lol"},
 			},
@@ -145,7 +144,7 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				"a": []string{"lol"},
 			},
 		}),
-		Entry("slice in a map -- changed", testCase{
+		ginkgo.Entry("slice in a map -- changed", testCase{
 			input: map[string][]string{
 				"a": nil,
 			},
@@ -153,23 +152,23 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				"a": []string{},
 			},
 		}),
-		Entry("pointer to a struct -- unchanged", testCase{
+		ginkgo.Entry("pointer to a struct -- unchanged", testCase{
 			input:  &StructWithNormalSlice{Myarr: []string{"a"}},
 			expect: &StructWithNormalSlice{Myarr: []string{"a"}},
 		}),
-		Entry("pointer to a struct -- changed", testCase{
+		ginkgo.Entry("pointer to a struct -- changed", testCase{
 			input:  &StructWithNormalSlice{Myarr: nilSlice},
 			expect: &StructWithNormalSlice{Myarr: []string{}},
 		}),
-		Entry("pointer to a slice -- unchanged", testCase{
+		ginkgo.Entry("pointer to a slice -- unchanged", testCase{
 			input:  &[]string{"a"},
 			expect: &[]string{"a"},
 		}),
-		Entry("pointer to a slice -- changed", testCase{
+		ginkgo.Entry("pointer to a slice -- changed", testCase{
 			input:  &nilSlice,
 			expect: &[]string{},
 		}),
-		Entry("pointer to slice in a map -- unchanged", testCase{
+		ginkgo.Entry("pointer to slice in a map -- unchanged", testCase{
 			input: &map[string][]string{
 				"a": []string{"lol"},
 			},
@@ -177,7 +176,7 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				"a": []string{"lol"},
 			},
 		}),
-		Entry("pointer to slice in a map -- changed", testCase{
+		ginkgo.Entry("pointer to slice in a map -- changed", testCase{
 			input: &map[string][]string{
 				"a": nil,
 			},
@@ -185,7 +184,7 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				"a": []string{},
 			},
 		}),
-		Entry("slice of struct in a struct -- unchanged", testCase{
+		ginkgo.Entry("slice of struct in a struct -- unchanged", testCase{
 			input: StructWithStructSlice{InnerStruct: []StructWithNormalSlice{
 				{
 					Myarr: []string{"a"},
@@ -197,7 +196,7 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				},
 			}},
 		}),
-		Entry("slice of struct in a struct -- changed", testCase{
+		ginkgo.Entry("slice of struct in a struct -- changed", testCase{
 			input: StructWithStructSlice{InnerStruct: []StructWithNormalSlice{
 				{
 					Myarr: nilSlice,
@@ -209,7 +208,7 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				},
 			}},
 		}),
-		Entry("slice of pointers in struct -- unchanged", testCase{
+		ginkgo.Entry("slice of pointers in struct -- unchanged", testCase{
 			input: StructWithSliceOfPointer{
 				InnerStruct: []*StructWithNormalSlice{
 					&StructWithNormalSlice{[]string{"a"}}}},
@@ -217,7 +216,7 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				InnerStruct: []*StructWithNormalSlice{
 					&StructWithNormalSlice{[]string{"a"}}}},
 		}),
-		Entry("slice of pointers in struct -- changed", testCase{
+		ginkgo.Entry("slice of pointers in struct -- changed", testCase{
 			input: StructWithSliceOfPointer{
 				InnerStruct: []*StructWithNormalSlice{
 					&StructWithNormalSlice{nil}}},
@@ -225,7 +224,7 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				InnerStruct: []*StructWithNormalSlice{
 					&StructWithNormalSlice{[]string{}}}},
 		}),
-		Entry("slice of pointers in struct -- unchanged", testCase{
+		ginkgo.Entry("slice of pointers in struct -- unchanged", testCase{
 			input: StructWithPointerToSlice{
 				InnerStruct: &[]StructWithNormalSlice{
 					StructWithNormalSlice{[]string{"a"}}}},
@@ -233,7 +232,7 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				InnerStruct: &[]StructWithNormalSlice{
 					StructWithNormalSlice{[]string{"a"}}}},
 		}),
-		Entry("slice of pointers in struct -- changed", testCase{
+		ginkgo.Entry("slice of pointers in struct -- changed", testCase{
 			input: StructWithPointerToSlice{
 				InnerStruct: &[]StructWithNormalSlice{
 					StructWithNormalSlice{nil}}},
@@ -241,11 +240,11 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				InnerStruct: &[]StructWithNormalSlice{
 					StructWithNormalSlice{[]string{}}}},
 		}),
-		Entry("slice of pointer in struct -- nil pointer", testCase{
+		ginkgo.Entry("slice of pointer in struct -- nil pointer", testCase{
 			input:  StructWithPointerToSlice{InnerStruct: nilPointerToSlice},
 			expect: &StructWithPointerToSlice{InnerStruct: &[]StructWithNormalSlice{}},
 		}),
-		Entry("slice of pointer of slice -- unchanged", testCase{
+		ginkgo.Entry("slice of pointer of slice -- unchanged", testCase{
 			input: []*[]string{
 				&[]string{"a"},
 			},
@@ -253,7 +252,7 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				&[]string{"a"},
 			},
 		}),
-		Entry("slice of pointer of slice -- nil", testCase{
+		ginkgo.Entry("slice of pointer of slice -- nil", testCase{
 			input: []*[]StructWithNormalSlice{
 				nilPointerToSlice,
 			},
@@ -261,31 +260,31 @@ var _ = ginkgo.Describe("Replace nil Slice With Empty Slice", func() {
 				&[]StructWithNormalSlice{},
 			},
 		}),
-		Entry("struct with nil pointer", testCase{
+		ginkgo.Entry("struct with nil pointer", testCase{
 			input:  StructWithPointer{Myptr: nil},
 			expect: &StructWithPointer{Myptr: nil},
 		}),
-		Entry("struct with nil interface", testCase{
+		ginkgo.Entry("struct with nil interface", testCase{
 			input:  StructWithInterface{InnerStuff: nil},
 			expect: &StructWithInterface{InnerStuff: nil},
 		}),
-		Entry("struct with interface -- string", testCase{
+		ginkgo.Entry("struct with interface -- string", testCase{
 			input:  StructWithInterface{InnerStuff: "a"},
 			expect: &StructWithInterface{InnerStuff: "a"},
 		}),
-		Entry("struct with interface -- nil slice", testCase{
+		ginkgo.Entry("struct with interface -- nil slice", testCase{
 			input:  StructWithInterface{InnerStuff: nilSlice},
 			expect: &StructWithInterface{InnerStuff: []string{}},
 		}),
-		Entry("struct with interface -- non-nil slice", testCase{
+		ginkgo.Entry("struct with interface -- non-nil slice", testCase{
 			input:  StructWithInterface{InnerStuff: []string{"a"}},
 			expect: &StructWithInterface{InnerStuff: []string{"a"}},
 		}),
-		Entry("struct with interface -- nil struct", testCase{
+		ginkgo.Entry("struct with interface -- nil struct", testCase{
 			input:  StructWithInterface{InnerStuff: nilStruct},
 			expect: &StructWithInterface{InnerStuff: nilStruct},
 		}),
-		Entry("struct with interface -- non-nil struct", testCase{
+		ginkgo.Entry("struct with interface -- non-nil struct", testCase{
 			input: StructWithInterface{InnerStuff: struct {
 				A string
 			}{"a"}},
