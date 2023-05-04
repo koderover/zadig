@@ -190,6 +190,46 @@ func (c *BuildStatColl) GetBuildTotalAndSuccess() ([]*BuildItem, error) {
 	return resp, nil
 }
 
+func (c *BuildStatColl) GetBuildTotalAndSuccessByTime(startTime, endTime int64) (int64, int64, error) {
+	var result []*DeployTotalPipeResp
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"create_time": bson.M{
+					"$gte": startTime,
+					"$lte": endTime,
+				},
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": "null",
+				"total_deploy_success": bson.M{
+					"$sum": "$total_deploy_success",
+				},
+				"total_deploy_failure": bson.M{
+					"$sum": "$total_deploy_failure",
+				},
+			},
+		},
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return 0, 0, err
+	}
+	if err := cursor.All(context.TODO(), &result); err != nil {
+		return 0, 0, err
+	}
+
+	var totalSuccess, totalFailure int64
+	for _, res := range result {
+		totalSuccess += int64(res.TotalSuccess)
+		totalFailure += int64(res.TotalFailure)
+	}
+	return totalSuccess, totalFailure, nil
+}
+
 func (c *BuildStatColl) GetBuildStats(args *models.BuildStatOption) (*BuildItem, error) {
 	var result []*BuildItemResp
 	var pipeline []bson.M
