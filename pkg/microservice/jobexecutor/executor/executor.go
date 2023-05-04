@@ -20,7 +20,12 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	job "github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service"
@@ -59,6 +64,28 @@ func Execute(ctx context.Context) error {
 	var err error
 	defer func() {
 		// os.Remove(ZadigLifeCycleFile)
+		ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+		if err != nil {
+			log.Panicf("failed to get namespace")
+		}
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			// todo don't panic
+			log.Panicf("failed to get InClusterConfig")
+		}
+
+		clientset, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			log.Panicf("failed to get NewForConfig")
+		}
+		cmList, err := clientset.CoreV1().ConfigMaps(string(ns)).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			log.Panicf("failed to list configMaps")
+		}
+		for i, item := range cmList.Items {
+			fmt.Printf("%d: cm-%s\n", i, item.Name)
+		}
+
 		resultMsg := types.JobSuccess
 		if err != nil {
 			resultMsg = types.JobFail
