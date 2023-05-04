@@ -35,6 +35,11 @@ type DeployTotalPipeResp struct {
 	TotalFailure int             `bson:"total_deploy_failure"     json:"total_deploy_failure"`
 }
 
+type DeployStat struct {
+	TotalSuccess int `bson:"total_deploy_success"     json:"total_deploy_success"`
+	TotalFailure int `bson:"total_deploy_failure"     json:"total_deploy_failure"`
+}
+
 type DeployTotalItem struct {
 	ProductName  string `bson:"product_name"              json:"product_name"`
 	TotalSuccess int    `bson:"total_deploy_success"      json:"total_deploy_success"`
@@ -182,7 +187,7 @@ func (c *DeployStatColl) GetDeployTotalAndSuccess() ([]*DeployTotalItem, error) 
 }
 
 func (c *DeployStatColl) GetDeployTotalAndSuccessByTime(startTime, endTime int64) (int64, int64, error) {
-	var result []*DeployTotalPipeResp
+	var result []*DeployStat
 	pipeline := []bson.M{
 		{
 			"$match": bson.M{

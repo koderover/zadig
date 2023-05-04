@@ -191,7 +191,7 @@ func (c *BuildStatColl) GetBuildTotalAndSuccess() ([]*BuildItem, error) {
 }
 
 func (c *BuildStatColl) GetBuildTotalAndSuccessByTime(startTime, endTime int64) (int64, int64, error) {
-	var result []*DeployTotalPipeResp
+	var result []*DeployStat
 	pipeline := []bson.M{
 		{
 			"$match": bson.M{
