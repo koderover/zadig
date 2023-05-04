@@ -97,3 +97,16 @@ func GetStatsDashboard(c *gin.Context) {
 	ctx.Resp = getStatDashboardResp{resp}
 	ctx.Err = err
 }
+
+func GetStatsDashboardGeneralData(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(getStatDashboardReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetStatsDashboardGeneralData(args.StartTime, args.EndTime, ctx.Logger)
+}
