@@ -35,6 +35,11 @@ type BuildPipeResp struct {
 	TotalBuildCount int       `bson:"total_build_count"      json:"total_build_count"`
 }
 
+type BuildStat struct {
+	TotalSuccess    int `bson:"total_success"          json:"total_success"`
+	TotalBuildCount int `bson:"total_build_count"      json:"total_build_count"`
+}
+
 type BuildItemResp struct {
 	ID              string `bson:"_id" json:"_id"`
 	TotalSuccess    int    `bson:"total_success"          json:"total_success"`
@@ -191,7 +196,7 @@ func (c *BuildStatColl) GetBuildTotalAndSuccess() ([]*BuildItem, error) {
 }
 
 func (c *BuildStatColl) GetBuildTotalAndSuccessByTime(startTime, endTime int64) (int64, int64, error) {
-	var result []*DeployStat
+	var result []*BuildStat
 	pipeline := []bson.M{
 		{
 			"$match": bson.M{
@@ -204,11 +209,11 @@ func (c *BuildStatColl) GetBuildTotalAndSuccessByTime(startTime, endTime int64) 
 		{
 			"$group": bson.M{
 				"_id": "null",
-				"total_deploy_success": bson.M{
-					"$sum": "$total_deploy_success",
+				"total_success": bson.M{
+					"$sum": "$total_success",
 				},
-				"total_deploy_failure": bson.M{
-					"$sum": "$total_deploy_failure",
+				"total_build_count": bson.M{
+					"$sum": "$total_build_count",
 				},
 			},
 		},
