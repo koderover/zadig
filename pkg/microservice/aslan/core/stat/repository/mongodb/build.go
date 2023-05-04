@@ -230,7 +230,7 @@ func (c *BuildStatColl) GetBuildTotalAndSuccessByTime(startTime, endTime int64) 
 	var totalSuccess, totalFailure int64
 	for _, res := range result {
 		totalSuccess += int64(res.TotalSuccess)
-		totalFailure += int64(res.TotalFailure)
+		totalFailure += int64(res.TotalBuildCount - res.TotalSuccess)
 	}
 	return totalSuccess, totalFailure, nil
 }
