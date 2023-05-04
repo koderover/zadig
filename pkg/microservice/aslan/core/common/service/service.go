@@ -1170,6 +1170,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 		svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
 		for _, container := range svc.Containers {
+			// templateSvcs is default
 			if _, ok := svcModulesMap[svc.ServiceName]; !ok {
 				svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
 			}
@@ -1178,6 +1179,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 	}
 
 	for _, svc := range productInfo.GetServiceMap() {
+		// prodcutInfo override default
 		if _, ok := svcModulesMap[svc.ServiceName]; !ok {
 			svcModulesMap[svc.ServiceName] = make(map[string]*commonmodels.Container)
 		}
@@ -1191,6 +1193,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		ret := make([]*commonmodels.Container, 0)
 		if modulesMap, ok := svcModulesMap[svcName]; ok {
 			for _, module := range modulesMap {
+				module.ImageName = commonutil.ExtractImageName(module.Image)
 				ret = append(ret, module)
 			}
 		}

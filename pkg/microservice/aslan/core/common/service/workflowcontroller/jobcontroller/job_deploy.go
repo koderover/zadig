@@ -44,6 +44,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -181,7 +182,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 				containers = append(containers, &commonmodels.Container{
 					Name:      serviceImage.ServiceModule,
 					Image:     serviceImage.Image,
-					ImageName: serviceImage.ImageName,
+					ImageName: util.ExtractImageName(serviceImage.Image),
 				})
 			}
 		}

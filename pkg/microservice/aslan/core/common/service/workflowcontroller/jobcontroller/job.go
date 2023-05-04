@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/util/rand"
 )
 
@@ -270,6 +271,7 @@ func updateProductImageByNs(namespace, productName, serviceName string, targets 
 				for l, container := range service.Containers {
 					if image, ok := targets[container.Name]; ok {
 						prod.Services[i][j].Containers[l].Image = image
+						prod.Services[i][j].Containers[l].ImageName = util.ExtractImageName(image)
 					}
 				}
 			}
