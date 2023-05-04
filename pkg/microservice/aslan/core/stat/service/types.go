@@ -62,3 +62,12 @@ type StatDashboardItem struct {
 	Error    string      `json:"error,omitempty"`
 	HasValue bool        `json:"has_value"`
 }
+
+type StatDashboardBasicData struct {
+	BuildTotal    int64 `json:"build_total"`
+	BuildSuccess  int64 `json:"build_success"`
+	TestTotal     int64 `json:"test_total"`
+	TestSuccess   int64 `json:"test_success"`
+	DeployTotal   int64 `json:"deploy_total"`
+	DeploySuccess int64 `json:"deploy_success"`
+}
