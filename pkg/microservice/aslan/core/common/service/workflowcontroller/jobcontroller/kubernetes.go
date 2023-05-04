@@ -66,14 +66,15 @@ import (
 )
 
 const (
-	BusyBoxImage         = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
-	ZadigContextDir      = "/zadig/"
-	ZadigLogFile         = ZadigContextDir + "zadig.log"
-	ZadigLifeCycleFile   = ZadigContextDir + "lifecycle"
-	JobExecutorFile      = "http://resource-server/jobexecutor"
-	ResourceServer       = "resource-server"
-	defaultSecretEmail   = "bot@koderover.com"
-	registrySecretSuffix = "-registry-secret"
+	BusyBoxImage            = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
+	ZadigContextDir         = "/zadig/"
+	ZadigLogFile            = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile      = ZadigContextDir + "lifecycle"
+	JobExecutorFile         = "http://resource-server/jobexecutor"
+	ResourceServer          = "resource-server"
+	defaultSecretEmail      = "bot@koderover.com"
+	registrySecretSuffix    = "-registry-secret"
+	workflowConfigMapRoleSA = "workflow-cm-sa"
 
 	defaultRetryCount    = 3
 	defaultRetryInterval = time.Second * 3
@@ -423,8 +424,9 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy:    corev1.RestartPolicyNever,
-					ImagePullSecrets: ImagePullSecrets,
+					RestartPolicy:      corev1.RestartPolicyNever,
+					ImagePullSecrets:   ImagePullSecrets,
+					ServiceAccountName: workflowConfigMapRoleSA,
 					// InitContainers: []corev1.Container{
 					// 	{
 					// 		ImagePullPolicy: corev1.PullIfNotPresent,
