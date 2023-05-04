@@ -65,6 +65,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		v2.PUT("/config/:id", UpdateStatDashboardConfig)
 		v2.DELETE("/config/:id", DeleteStatDashboardConfig)
 		v2.GET("/dashboard", GetStatsDashboard)
+		v2.GET("/dashboard/general", GetStatsDashboardGeneralData)
 	}
 }
 
