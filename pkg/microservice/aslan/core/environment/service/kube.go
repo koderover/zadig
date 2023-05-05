@@ -1040,7 +1040,10 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 			log.Warnf("failed to get resources with gvk: %s, err: %s", gvk, err)
 			continue
 		}
-		resources := resourceMap[kind.Kind]
+		resources, ok := resourceMap[kind.Kind]
+		if !ok {
+			continue
+		}
 		for _, item := range u.Items {
 			if deployStatus, ok := resources[item.GetName()]; ok && deployStatus.Status == StatusUnDeployed {
 				deployStatus.Status = StatusDeployed
