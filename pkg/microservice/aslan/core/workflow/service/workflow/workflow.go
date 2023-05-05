@@ -37,6 +37,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 var mut sync.Mutex
@@ -142,7 +143,8 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 	// helm/k8syaml project may have customized products, use the real created products
 	if productTmpl.IsHelmProduct() || productTmpl.IsK8sYamlProduct() {
 		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-			Name: productName,
+			Name:       productName,
+			Production: util.GetBoolPointer(false),
 		})
 		if err != nil {
 			log.Errorf("fialed to list products, projectName %s, err %s", productName, err)

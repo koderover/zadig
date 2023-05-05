@@ -400,7 +400,7 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	}
 
 	// for situations only updating workload images, only return involved manifests of deployments and statefulsets
-	if !option.UpdateServiceRevision && len(option.VariableYaml) == 0 {
+	if !option.UnInstall && !option.UpdateServiceRevision && len(option.VariableYaml) == 0 {
 		manifest, _, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
 		return manifest, int(curProductSvc.Revision), err
 	}
@@ -547,6 +547,10 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		latestSvcTemplate = prodSvcTemplate
 	}
 
+	if latestSvcTemplate == nil {
+		return "", 0, nil, fmt.Errorf("failed to find service template for service %s, isProduction %v", option.ServiceName, productInfo.Production)
+	}
+
 	if productInfo.Production {
 		latestSvcTemplate.ServiceVars = setting.ServiceVarWildCard
 	}
@@ -555,10 +559,6 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if !option.UnInstall && !option.UpdateServiceRevision && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
 		manifest, workloads, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
 		return manifest, int(curProductSvc.Revision), workloads, err
-	}
-
-	if latestSvcTemplate == nil {
-		return "", 0, nil, fmt.Errorf("failed to find service template %s used in product %s", option.ServiceName, option.EnvName)
 	}
 
 	curContainers := latestSvcTemplate.Containers

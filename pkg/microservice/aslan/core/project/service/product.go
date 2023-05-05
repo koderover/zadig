@@ -372,6 +372,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name: projectName,
+		Production: util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return err

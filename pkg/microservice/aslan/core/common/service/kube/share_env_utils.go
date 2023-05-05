@@ -217,6 +217,7 @@ func fetchSubEnvs(ctx context.Context, productName, clusterID, baseEnvName strin
 		ShareEnvEnable:  zadigutil.GetBoolPointer(true),
 		ShareEnvIsBase:  zadigutil.GetBoolPointer(false),
 		ShareEnvBaseEnv: zadigutil.GetStrPointer(baseEnvName),
+		Production:      zadigutil.GetBoolPointer(false),
 	})
 }
 

@@ -370,6 +370,7 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product) (
 		Name:           projectName,
 		ShareEnvEnable: util.GetBoolPointer(true),
 		ShareEnvIsBase: util.GetBoolPointer(true),
+		Production:     util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return nil, err
@@ -406,6 +407,7 @@ func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*Deplo
 		ShareEnvEnable:  util.GetBoolPointer(true),
 		ShareEnvIsBase:  util.GetBoolPointer(false),
 		ShareEnvBaseEnv: util.GetStrPointer(baseEnvName),
+		Production:      util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return nil, err

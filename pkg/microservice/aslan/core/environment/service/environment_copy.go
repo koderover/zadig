@@ -69,8 +69,9 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 		envs = append(envs, item.OldName)
 	}
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name:   projectName,
-		InEnvs: envs,
+		Name:       projectName,
+		InEnvs:     envs,
+		Production: util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return err
@@ -121,8 +122,9 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 		envs = append(envs, item.OldName)
 	}
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name:   projectName,
-		InEnvs: envs,
+		Name:       projectName,
+		InEnvs:     envs,
+		Production: util.GetBoolPointer(false),
 	})
 	if err != nil {
 		return err

@@ -68,6 +68,7 @@ func ensureDeleteAssociatedEnvs(ctx context.Context, baseProduct *commonmodels.P
 		ShareEnvEnable:  zadigutil.GetBoolPointer(true),
 		ShareEnvIsBase:  zadigutil.GetBoolPointer(false),
 		ShareEnvBaseEnv: zadigutil.GetStrPointer(baseProduct.EnvName),
+		Production:      zadigutil.GetBoolPointer(false),
 	})
 	if err != nil {
 		log.Error(err)
@@ -89,6 +90,7 @@ func ensureDeleteAssociatedEnvs(ctx context.Context, baseProduct *commonmodels.P
 func ensureDeleteEnvoyFilter(ctx context.Context, baseEnv *commonmodels.Product, istioClient versionedclient.Interface) error {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		ShareEnvEnable: zadigutil.GetBoolPointer(true),
+		Production:     zadigutil.GetBoolPointer(false),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list products which enable env sharing: %s", err)
@@ -333,6 +335,7 @@ func fetchSubEnvs(ctx context.Context, productName, clusterID, baseEnvName strin
 		ShareEnvEnable:  zadigutil.GetBoolPointer(true),
 		ShareEnvIsBase:  zadigutil.GetBoolPointer(false),
 		ShareEnvBaseEnv: zadigutil.GetStrPointer(baseEnvName),
+		Production:      zadigutil.GetBoolPointer(false),
 	})
 }
 

@@ -69,6 +69,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.GET("/:name/environments/deployable", GetDeployableEnvs)
 		k8s.GET("/kube/workloads", GetKubeWorkloads)
 		k8s.POST("/yaml", LoadKubeWorkloadsYaml)
+		k8s.POST("/variable/convert", ConvertVaraibleKVAndYaml)
 	}
 
 	workload := router.Group("workloads")

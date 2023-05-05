@@ -35,6 +35,11 @@ type DeployTotalPipeResp struct {
 	TotalFailure int             `bson:"total_deploy_failure"     json:"total_deploy_failure"`
 }
 
+type DeployStat struct {
+	TotalSuccess int `bson:"total_deploy_success"     json:"total_deploy_success"`
+	TotalFailure int `bson:"total_deploy_failure"     json:"total_deploy_failure"`
+}
+
 type DeployTotalItem struct {
 	ProductName  string `bson:"product_name"              json:"product_name"`
 	TotalSuccess int    `bson:"total_deploy_success"      json:"total_deploy_success"`
@@ -179,6 +184,46 @@ func (c *DeployStatColl) GetDeployTotalAndSuccess() ([]*DeployTotalItem, error) 
 	}
 
 	return resp, nil
+}
+
+func (c *DeployStatColl) GetDeployTotalAndSuccessByTime(startTime, endTime int64) (int64, int64, error) {
+	var result []*DeployStat
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"create_time": bson.M{
+					"$gte": startTime,
+					"$lte": endTime,
+				},
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": "null",
+				"total_deploy_success": bson.M{
+					"$sum": "$total_deploy_success",
+				},
+				"total_deploy_failure": bson.M{
+					"$sum": "$total_deploy_failure",
+				},
+			},
+		},
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return 0, 0, err
+	}
+	if err := cursor.All(context.TODO(), &result); err != nil {
+		return 0, 0, err
+	}
+
+	var totalSuccess, totalFailure int64
+	for _, res := range result {
+		totalSuccess += int64(res.TotalSuccess)
+		totalFailure += int64(res.TotalFailure)
+	}
+	return totalSuccess, totalFailure, nil
 }
 
 func (c *DeployStatColl) GetDeployStats(args *models.DeployStatOption) ([]*DeployTotalItem, error) {

@@ -44,6 +44,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -51,6 +52,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/util/validator"
 )
 
 type DeployJobCtl struct {
@@ -172,10 +174,15 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		containers := []*commonmodels.Container{}
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
 			for _, serviceImage := range c.jobTaskSpec.ServiceAndImages {
+				if !validator.IsValidImageName(serviceImage.Image) {
+					msg := fmt.Sprintf("service_module %s image %s is not valid", serviceImage.ServiceModule, serviceImage.Image)
+					logError(c.job, msg, c.logger)
+					return errors.New(msg)
+				}
 				containers = append(containers, &commonmodels.Container{
 					Name:      serviceImage.ServiceModule,
 					Image:     serviceImage.Image,
-					ImageName: serviceImage.ImageName,
+					ImageName: util.ExtractImageName(serviceImage.Image),
 				})
 			}
 		}

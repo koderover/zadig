@@ -20,6 +20,7 @@ import (
 	"context"
 	"math"
 
+	repo "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/mongodb"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -237,6 +238,32 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 		})
 	}
 	return resp, nil
+}
+
+func GetStatsDashboardGeneralData(startTime, endTime int64, logger *zap.SugaredLogger) (*StatDashboardBasicData, error) {
+	totalDeploySuccess, totalDeployFailure, err := repo.NewDeployStatColl().GetDeployTotalAndSuccessByTime(startTime, endTime)
+	if err != nil {
+		logger.Errorf("failed to get total and success deploy count, error: %s", err)
+		return nil, err
+	}
+	totalBuildSuccess, totalBuildFailure, err := repo.NewBuildStatColl().GetBuildTotalAndSuccessByTime(startTime, endTime)
+	if err != nil {
+		logger.Errorf("failed to get total and success build count, error: %s", err)
+		return nil, err
+	}
+	testStat, err := GetTestDashboard(startTime, endTime, "", logger)
+	if err != nil {
+		logger.Errorf("failed to get total and success test count, error: %s", err)
+		return nil, err
+	}
+	return &StatDashboardBasicData{
+		BuildTotal:    totalBuildSuccess + totalBuildFailure,
+		BuildSuccess:  totalBuildSuccess,
+		TestTotal:     int64(testStat.TotalExecCount),
+		TestSuccess:   int64(testStat.Success),
+		DeployTotal:   totalDeploySuccess + totalDeployFailure,
+		DeploySuccess: totalDeploySuccess,
+	}, nil
 }
 
 var defaultStatDashboardConfigMap = map[string]*commonmodels.StatDashboardConfig{
