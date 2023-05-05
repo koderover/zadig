@@ -19,7 +19,6 @@ package executor
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -61,9 +60,23 @@ func Execute(ctx context.Context) error {
 	start := time.Now()
 
 	excutor := "job-executor"
+
 	var err error
+	var j *job.Job
+	j, err = job.NewJob()
+	if err != nil {
+		return err
+	}
+
 	defer func() {
 		// os.Remove(ZadigLifeCycleFile)
+		resultMsg := types.JobSuccess
+		if err != nil {
+			resultMsg = types.JobFail
+			fmt.Printf("Failed to run: %s.\n", err)
+		}
+		fmt.Printf("Job Status: %s\n", resultMsg)
+
 		ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 		if err != nil {
 			log.Panicf("failed to get namespace")
@@ -78,34 +91,28 @@ func Execute(ctx context.Context) error {
 		if err != nil {
 			log.Panicf("failed to get NewForConfig")
 		}
-		cmList, err := clientset.CoreV1().ConfigMaps(string(ns)).List(context.Background(), metav1.ListOptions{})
+		// todo add retry
+		configMap, err := clientset.CoreV1().ConfigMaps(string(ns)).Get(context.Background(), j.Ctx.ConfigMapName, metav1.GetOptions{})
 		if err != nil {
-			log.Panicf("failed to list configMaps")
+			log.Panicf("failed to get ConfigMap")
 		}
-		for i, item := range cmList.Items {
-			fmt.Printf("%d: cm-%s\n", i, item.Name)
+		configMap.Data[types.JobResultKey] = string(resultMsg)
+		configMap.Data[types.JobOutputsKey] = string(j.OutputsJsonBytes)
+
+		_, err = clientset.CoreV1().ConfigMaps(string(ns)).Update(context.Background(), configMap, metav1.UpdateOptions{})
+		if err != nil {
+			log.Panicf("failed to update ConfigMap")
 		}
 
-		resultMsg := types.JobSuccess
-		if err != nil {
-			resultMsg = types.JobFail
-			fmt.Printf("Failed to run: %s.\n", err)
-		}
-		fmt.Printf("Job Status: %s\n", resultMsg)
-		dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(resultMsg), 0644)
-		if dogFoodErr != nil {
-			log.Errorf("Failed to create dog food: %s.", dogFoodErr)
-		}
+		//dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(resultMsg), 0644)
+		//if dogFoodErr != nil {
+		//	log.Errorf("Failed to create dog food: %s.", dogFoodErr)
+		//}
 
 		fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
-		time.Sleep(30 * time.Second)
+		//time.Sleep(10 * time.Second)
 	}()
 
-	var j *job.Job
-	j, err = job.NewJob()
-	if err != nil {
-		return err
-	}
 	fmt.Printf("====================== %s Start ======================\n", excutor)
 	if err = j.Run(ctx); err != nil {
 		return err
