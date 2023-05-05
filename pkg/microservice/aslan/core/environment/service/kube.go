@@ -1025,26 +1025,6 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 		return nil
 	}
 
-	//allGvks := map[string]schema.GroupVersionKind{
-	//	getter.DeploymentGVK.Kind:  getter.DeploymentGVK,
-	//	getter.StatefulSetGVK.Kind: getter.StatefulSetGVK,
-	//	getter.ServiceGVK.Kind:     getter.ServiceGVK,
-	//	getter.IngressGVK.Kind:     getter.IngressGVK,
-	//	getter.ConfigMapGVK.Kind:   getter.ConfigMapGVK,
-	//	getter.JobGVK.Kind:         getter.JobGVK,
-	//	getter.CronJobGVK.Kind:     getter.CronJobGVK,
-	//	getter.RoleGVK.Kind:        getter.RoleGVK,
-	//	getter.ClusterRoleGVK.Kind: getter.ClusterRoleGVK,
-	//}
-
-	//version, err := clientset.Discovery().ServerVersion()
-	//if err != nil {
-	//	log.Warnf("Failed to determine server version, error is: %s", err)
-	//}
-	//if kubeclient.VersionLessThan122(version) {
-	//	allGvks[getter.IngressGVK.Kind] = getter.IngressBetaGVK
-	//}
-
 	relatedGvks := make(map[schema.GroupVersionKind]schema.GroupVersionKind)
 	for _, resList := range resourceMap {
 		for _, res := range resList {
@@ -1053,7 +1033,6 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 	}
 
 	for kind, gvk := range relatedGvks {
-		resources := resourceMap[kind.Kind]
 		u := &unstructured.UnstructuredList{}
 		u.SetGroupVersionKind(gvk)
 		err := getter.ListResourceInCache(namespace, nil, nil, u, kubeClient)
@@ -1061,6 +1040,7 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 			log.Warnf("failed to get resources with gvk: %s, err: %s", gvk, err)
 			continue
 		}
+		resources := resourceMap[kind.Kind]
 		for _, item := range u.Items {
 			if deployStatus, ok := resources[item.GetName()]; ok && deployStatus.Status == StatusUnDeployed {
 				deployStatus.Status = StatusDeployed
