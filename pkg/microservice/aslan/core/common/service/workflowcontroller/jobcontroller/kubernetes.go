@@ -1033,6 +1033,9 @@ func getJobOutputFromTerminalMsg(namespace, containerName string, jobTask *commo
 }
 
 func getJobOutputFromConfigMap(namespace, containerName string, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, informer informers.SharedInformerFactory) error {
+	if jobTask.Status != config.StatusPassed {
+		return nil
+	}
 	cmLister := informer.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace)
 	// configMap name is the same as the k8sJobName
 	cm, err := cmLister.Get(jobTask.K8sJobName)
