@@ -17,20 +17,18 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
-	gotemplate "text/template"
 
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -80,7 +78,7 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 		return err
 	}
 	renderedYaml := renderSystemVars(template.Content, projectName, serviceName)
-	fullRenderedYaml, err := renderK8sSvcYaml(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
+	fullRenderedYaml, err := commonutil.RenderK8sSvcYaml(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
 	if err != nil {
 		return err
 	}
@@ -143,65 +141,13 @@ func PreviewServiceFromYamlTemplate(req *LoadServiceFromYamlTemplateReq, logger 
 	//	return "", fmt.Errorf("failed to get variable yaml from yaml template")
 	//}
 	//templateVariableYaml := yamlTemplate.VariableYaml
-	return renderK8sSvcYaml(yamlTemplate.Content, req.ProjectName, req.ServiceName, yamlTemplate.VariableYaml, req.VariableYaml)
+	return commonutil.RenderK8sSvcYaml(yamlTemplate.Content, req.ProjectName, req.ServiceName, yamlTemplate.VariableYaml, req.VariableYaml)
 }
 
 func renderSystemVars(originYaml, productName, serviceName string) string {
 	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
 	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
 	return originYaml
-}
-
-// won't return error if template key is missing values
-func renderK8sSvcYaml(originYaml, productName, serviceName string, variableYamls ...string) (string, error) {
-	return renderK8sSvcYamlImpl(originYaml, productName, serviceName, "", variableYamls...)
-}
-
-// will return error if template key is missing values
-func renderK8sSvcYamlStrict(originYaml, productName, serviceName string, variableYamls ...string) (string, error) {
-	return renderK8sSvcYamlImpl(originYaml, productName, serviceName, "missingkey=error", variableYamls...)
-}
-
-func renderK8sSvcYamlImpl(originYaml, productName, serviceName, templateOption string, variableYamls ...string) (string, error) {
-	tmpl, err := gotemplate.New(serviceName).Parse(originYaml)
-	if err != nil {
-		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
-	}
-	if templateOption != "" {
-		tmpl.Option(templateOption)
-	}
-
-	variableYaml, replacedKv, err := commomtemplate.SafeMergeVariableYaml(variableYamls...)
-	if err != nil {
-		return originYaml, err
-	}
-
-	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableProduct, productName)
-	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableService, serviceName)
-
-	variableMap := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)
-	if err != nil {
-		return originYaml, fmt.Errorf("failed to unmarshal variable yaml, err: %s", err)
-	}
-
-	buf := bytes.NewBufferString("")
-	err = tmpl.Execute(buf, variableMap)
-	if err != nil {
-		return originYaml, fmt.Errorf("template validate err: %s", err)
-	}
-
-	originYaml = buf.String()
-
-	// replace system variables
-	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
-	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
-
-	for rk, rv := range replacedKv {
-		originYaml = strings.ReplaceAll(originYaml, rk, rv)
-	}
-
-	return originYaml, nil
 }
 
 // SyncServiceFromTemplate syncs services from (yaml|chart)template
@@ -431,7 +377,7 @@ func buildChartTemplateVariables(service *commonmodels.Service, template *common
 
 func reloadServiceFromYamlTemplateImpl(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service, variableYaml string) error {
 	renderedYaml := renderSystemVars(template.Content, projectName, service.ServiceName)
-	fullRenderedYaml, err := renderK8sSvcYaml(template.Content, projectName, service.ServiceName, template.VariableYaml, variableYaml)
+	fullRenderedYaml, err := commonutil.RenderK8sSvcYaml(template.Content, projectName, service.ServiceName, template.VariableYaml, variableYaml)
 	if err != nil {
 		return err
 	}

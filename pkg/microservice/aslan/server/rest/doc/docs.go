@@ -22,6 +22,47 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/service/services": {
+            "post": {
+                "description": "Create service template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Create service template",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "is force to create service template",
+                        "name": "force",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.createServiceTemplateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.ServiceOption"
+                        }
+                    }
+                }
+            }
+        },
         "/service/services/variable/convert": {
             "post": {
                 "description": "convert varaible kv and yaml",
@@ -55,9 +96,499 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/service/services/{name}/variable": {
+            "put": {
+                "description": "Update service varaible",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Update service varaible",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.updateServiceVariableRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/template/yaml/validateVariable": {
+            "post": {
+                "description": "Validate template varaibles",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Validate template varaibles",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.getYamlTemplateVariablesReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.createServiceTemplateRequest": {
+            "type": "object",
+            "required": [
+                "product_name",
+                "service_name",
+                "service_variable_kvs",
+                "source",
+                "type",
+                "variable_yaml",
+                "visibility",
+                "yaml"
+            ],
+            "properties": {
+                "product_name": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "service_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.ServiceVariableKV"
+                    }
+                },
+                "source": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "variable_yaml": {
+                    "type": "string"
+                },
+                "visibility": {
+                    "type": "string"
+                },
+                "yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.getYamlTemplateVariablesReq": {
+            "type": "object",
+            "required": [
+                "content",
+                "variable_yaml"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.updateServiceVariableRequest": {
+            "type": "object",
+            "required": [
+                "service_variable_kvs",
+                "variable_yaml"
+            ],
+            "properties": {
+                "service_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.ServiceVariableKV"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Commit": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "sha": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Container": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "imagePath": {
+                    "$ref": "#/definitions/models.ImagePathSpec"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.EnvConfig": {
+            "type": "object",
+            "properties": {
+                "env_name": {
+                    "type": "string"
+                },
+                "host_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "models.EnvStatus": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "host_id": {
+                    "type": "string"
+                },
+                "pm_info": {
+                    "$ref": "#/definitions/models.PmInfo"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.GUIConfig": {
+            "type": "object",
+            "properties": {
+                "deployment": {},
+                "ingress": {},
+                "service": {}
+            }
+        },
+        "models.HelmChart": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "values_yaml": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ImagePathSpec": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "repo": {
+                    "type": "string"
+                },
+                "tag": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.PmHealthCheck": {
+            "type": "object",
+            "properties": {
+                "current_healthy_num": {
+                    "type": "integer"
+                },
+                "current_unhealthy_num": {
+                    "type": "integer"
+                },
+                "healthy_threshold": {
+                    "type": "integer"
+                },
+                "interval": {
+                    "type": "integer"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "protocol": {
+                    "type": "string"
+                },
+                "time_out": {
+                    "type": "integer"
+                },
+                "unhealthy_threshold": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.PmInfo": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "is_prod": {
+                    "type": "boolean"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "provider": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/setting.PMHostStatus"
+                }
+            }
+        },
+        "models.Service": {
+            "type": "object",
+            "properties": {
+                "auto_sync": {
+                    "type": "boolean"
+                },
+                "branch_name": {
+                    "type": "string"
+                },
+                "build_name": {
+                    "type": "string"
+                },
+                "codehost_id": {
+                    "type": "integer"
+                },
+                "commit": {
+                    "$ref": "#/definitions/models.Commit"
+                },
+                "containers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Container"
+                    }
+                },
+                "create_by": {
+                    "type": "string"
+                },
+                "create_from": {},
+                "create_time": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "env_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EnvConfig"
+                    }
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "env_statuses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EnvStatus"
+                    }
+                },
+                "gerrit_branch_name": {
+                    "type": "string"
+                },
+                "gerrit_codeHost_id": {
+                    "type": "integer"
+                },
+                "gerrit_path": {
+                    "type": "string"
+                },
+                "gerrit_remote_name": {
+                    "type": "string"
+                },
+                "gerrit_repo_name": {
+                    "type": "string"
+                },
+                "gitee_path": {
+                    "type": "string"
+                },
+                "gui_config": {
+                    "$ref": "#/definitions/models.GUIConfig"
+                },
+                "hash256": {
+                    "type": "string"
+                },
+                "health_checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PmHealthCheck"
+                    }
+                },
+                "helm_chart": {
+                    "$ref": "#/definitions/models.HelmChart"
+                },
+                "is_dir": {
+                    "type": "boolean"
+                },
+                "load_path": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "release_naming": {
+                    "type": "string"
+                },
+                "repo_name": {
+                    "type": "string"
+                },
+                "repo_namespace": {
+                    "type": "string"
+                },
+                "repo_owner": {
+                    "type": "string"
+                },
+                "repo_uuid": {
+                    "type": "string"
+                },
+                "revision": {
+                    "type": "integer"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "service_variable_kvs": {
+                    "description": "New since 1.18.0, stores the variable kvs of k8s services",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.ServiceVariableKV"
+                    }
+                },
+                "service_vars": {
+                    "description": "DEPRECATED, New since 1.16.0, stores keys in variables which can be set in env",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "source": {
+                    "type": "string"
+                },
+                "src_path": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "team": {
+                    "type": "string"
+                },
+                "template_id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "variable_yaml": {
+                    "description": "New since 1.16.0, stores the variable yaml of k8s services",
+                    "type": "string"
+                },
+                "visibility": {
+                    "type": "string"
+                },
+                "workload_type": {
+                    "description": "WorkloadType is set in host projects",
+                    "type": "string"
+                },
+                "yaml": {
+                    "type": "string"
+                }
+            }
+        },
         "service.ConvertVaraibleKVAndYamlActionType": {
             "type": "string",
             "enum": [
@@ -71,6 +602,11 @@ const docTemplate = `{
         },
         "service.ConvertVaraibleKVAndYamlArgs": {
             "type": "object",
+            "required": [
+                "action",
+                "kvs",
+                "yaml"
+            ],
             "properties": {
                 "action": {
                     "$ref": "#/definitions/service.ConvertVaraibleKVAndYamlActionType"
@@ -85,6 +621,72 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "service.ServiceModule": {
+            "type": "object",
+            "properties": {
+                "build_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "image": {
+                    "type": "string"
+                },
+                "imagePath": {
+                    "$ref": "#/definitions/models.ImagePathSpec"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ServiceOption": {
+            "type": "object",
+            "properties": {
+                "service": {
+                    "$ref": "#/definitions/models.Service"
+                },
+                "service_module": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.ServiceModule"
+                    }
+                },
+                "service_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.ServiceVariableKV"
+                    }
+                },
+                "system_variable": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
+                },
+                "yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "setting.PMHostStatus": {
+            "type": "string",
+            "enum": [
+                "normal",
+                "abnormal"
+            ],
+            "x-enum-varnames": [
+                "PMHostStatusNormal",
+                "PMHostStatusAbnormal"
+            ]
         },
         "types.ServiceVariableKV": {
             "type": "object",

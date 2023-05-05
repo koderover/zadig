@@ -144,10 +144,18 @@ func SyncYamlTemplateReference(c *gin.Context) {
 }
 
 type getYamlTemplateVariablesReq struct {
-	Content      string `json:"content"`
-	VariableYaml string `json:"variable_yaml"`
+	Content      string `json:"content" binding:"required"`
+	VariableYaml string `json:"variable_yaml" binding:"required"`
 }
 
+// @Summary Validate template varaibles
+// @Description Validate template varaibles
+// @Tags service
+// @Accept json
+// @Produce json
+// @Param body body getYamlTemplateVariablesReq true "body"
+// @Success 200
+// @Router /template/yaml/validateVariable [post]
 func ValidateTemplateVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -17,10 +17,8 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	gotemplate "text/template"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -29,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -186,28 +185,17 @@ func ValidateVariable(content, variable string) error {
 	if len(content) == 0 || len(variable) == 0 {
 		return nil
 	}
-	variable, _, err := template.SafeMergeVariableYaml(variable)
+
+	defaultSystemVariableYaml, err := yaml.Marshal(DefaultSystemVariable)
 	if err != nil {
-		return err
-	}
-	valuesMap := map[string]interface{}{}
-	if err := yaml.Unmarshal([]byte(variable), &valuesMap); err != nil {
-		return fmt.Errorf("failed to unmarshal yaml: %s", err)
+		return fmt.Errorf("failed to marshal default system variable, err: %s", err)
 	}
 
-	tmpl, err := gotemplate.New("").Parse(content)
+	_, err = commonutil.RenderK8sSvcYamlStrict(content, "FakeProjectName", "FakeServiceName", variable, string(defaultSystemVariableYaml))
 	if err != nil {
-		return fmt.Errorf("failed to build template, err: %s", err)
+		return fmt.Errorf("failed to validate variable, err: %s", err)
 	}
 
-	for k := range DefaultSystemVariable {
-		valuesMap[k] = k
-	}
-	buf := bytes.NewBufferString("")
-	err = tmpl.Execute(buf, valuesMap)
-	if err != nil {
-		return fmt.Errorf("template validate err: %s", err)
-	}
 	return nil
 }
 
