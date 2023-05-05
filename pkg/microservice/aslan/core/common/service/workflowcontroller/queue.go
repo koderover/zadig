@@ -39,7 +39,7 @@ func RunningTasks() []*commonmodels.WorkflowQueue {
 	}
 	for _, t := range queueTasks {
 		// task状态为TaskQueued说明task已经被send到nsq,wd已经开始处理但是没有返回ack
-		if t.Status == config.StatusRunning {
+		if t.Status == config.StatusRunning || t.Status == config.StatusWaitingApprove {
 			tasks = append(tasks, t)
 		}
 	}
