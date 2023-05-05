@@ -42,6 +42,7 @@ var StopChanMap sync.Map
 // - Pod
 // - Ingress (extentions/v1beta1) <- as of version 1.9.0, this is the resource we watch
 // - ConfigMap
+// - Job
 func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) (informers.SharedInformerFactory, error) {
 	// this is a stupid compatibility code
 	if clusterID == "" {
@@ -59,6 +60,7 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) (inform
 	informerFactory.Core().V1().Services().Lister()
 	informerFactory.Core().V1().Pods().Lister()
 	informerFactory.Core().V1().ConfigMaps().Lister()
+	informerFactory.Batch().V1().Jobs().Lister()
 	versionInfo, err := cls.Discovery().ServerVersion()
 	if err != nil {
 		return nil, err
