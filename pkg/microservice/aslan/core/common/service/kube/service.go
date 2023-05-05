@@ -25,7 +25,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/koderover/zadig/pkg/tool/log"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +34,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/koderover/zadig/pkg/tool/log"
 
 	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -692,6 +693,42 @@ rules:
   - '*'
   verbs:
   - '*'
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: workflow-cm-manager
+  namespace: koderover-agent
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["*"]
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: workflow-cm-sa
+  namespace: koderover-agent
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: workflow-cm-rolebinding
+  namespace: koderover-agent
+subjects:
+- kind: ServiceAccount
+  name: workflow-cm-sa
+  namespace: koderover-agent
+roleRef:
+  kind: Role
+  name: workflow-cm-manager
+  apiGroup: rbac.authorization.k8s.io
 
 ---
 
