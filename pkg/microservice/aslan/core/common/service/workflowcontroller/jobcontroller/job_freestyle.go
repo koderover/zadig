@@ -138,16 +138,6 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		c.restConfig = restConfig
 		c.apiServer = apiServer
 	}
-	// set informer
-	clientSet, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), c.jobTaskSpec.Properties.ClusterID)
-	if err != nil {
-		return errors.Wrap(err, "get kube client set")
-	}
-	informer, err := informer.NewInformer(c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace, clientSet)
-	if err != nil {
-		return errors.Wrap(err, "get informer")
-	}
-	c.informer = informer
 
 	// decide which docker host to use.
 	// TODO: do not use code in warpdrive moudule, should move to a public place
@@ -232,6 +222,17 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
+
+	// set informer when job and cm have been created
+	clientSet, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), c.jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		return errors.Wrap(err, "get kube client set")
+	}
+	informer, err := informer.NewInformer(c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace, clientSet)
+	if err != nil {
+		return errors.Wrap(err, "get informer")
+	}
+	c.informer = informer
 	c.logger.Infof("succeed to create job %s", c.job.K8sJobName)
 	return nil
 }
@@ -248,7 +249,7 @@ func (c *FreestyleJobCtl) wait(ctx context.Context) {
 	} else {
 		return
 	}
-	c.job.Status, c.job.Error = waitJobEndWithFile(ctx, taskTimeout, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.informer, c.job, c.ack, c.logger)
+	c.job.Status, c.job.Error = waitJobEndByCheckingConfigMap(ctx, taskTimeout, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.informer, c.job, c.ack, c.logger)
 }
 
 func (c *FreestyleJobCtl) complete(ctx context.Context) {
@@ -270,8 +271,9 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 	}()
 
 	// get job outputs info from pod terminate message.
-	if err := getJobOutputFromRunningPod(c.jobTaskSpec.Properties.Namespace, c.job.Name, c.job, c.workflowCtx, c.kubeclient, c.clientset, c.restConfig); err != nil {
+	if err := getJobOutputFromConfigMap(c.jobTaskSpec.Properties.Namespace, c.job.Name, c.job, c.workflowCtx, c.informer); err != nil {
 		c.logger.Error(err)
+		c.job.Status, c.job.Error = config.StatusFailed, errors.Wrap(err, "get job outputs").Error()
 	}
 
 	if err := saveContainerLog(c.jobTaskSpec.Properties.Namespace, c.jobTaskSpec.Properties.ClusterID, c.workflowCtx.WorkflowName, c.job.Name, c.workflowCtx.TaskID, jobLabel, c.kubeclient); err != nil {

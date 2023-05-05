@@ -22,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -68,8 +69,28 @@ func Execute(ctx context.Context) error {
 		return err
 	}
 
+	ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		log.Errorf("Failed to get namespace, err: %v", err)
+		return errors.Wrap(err, "get namespace")
+	}
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		log.Errorf("failed to get InClusterConfig, err: %v", err)
+		return errors.Wrap(err, "get InClusterConfig")
+	}
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Errorf("failed to get ClientSet, err: %v", err)
+		return errors.Wrap(err, "get ClientSet")
+	}
+	configMap, err := clientset.CoreV1().ConfigMaps(string(ns)).Get(context.Background(), j.Ctx.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("failed to get ConfigMap, err: %v", err)
+		return errors.Wrap(err, "get configMap")
+	}
+
 	defer func() {
-		// os.Remove(ZadigLifeCycleFile)
 		resultMsg := types.JobSuccess
 		if err != nil {
 			resultMsg = types.JobFail
@@ -77,40 +98,21 @@ func Execute(ctx context.Context) error {
 		}
 		fmt.Printf("Job Status: %s\n", resultMsg)
 
-		ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-		if err != nil {
-			log.Panicf("failed to get namespace")
-		}
-		config, err := rest.InClusterConfig()
-		if err != nil {
-			// todo don't panic
-			log.Panicf("failed to get InClusterConfig")
-		}
-
-		clientset, err := kubernetes.NewForConfig(config)
-		if err != nil {
-			log.Panicf("failed to get NewForConfig")
-		}
-		// todo add retry
-		configMap, err := clientset.CoreV1().ConfigMaps(string(ns)).Get(context.Background(), j.Ctx.ConfigMapName, metav1.GetOptions{})
-		if err != nil {
-			log.Panicf("failed to get ConfigMap")
-		}
+		// set job status and outputs to job context configMap
 		configMap.Data[types.JobResultKey] = string(resultMsg)
 		configMap.Data[types.JobOutputsKey] = string(j.OutputsJsonBytes)
-
-		_, err = clientset.CoreV1().ConfigMaps(string(ns)).Update(context.Background(), configMap, metav1.UpdateOptions{})
-		if err != nil {
-			log.Panicf("failed to update ConfigMap")
+		for i := 0; i < 3; i++ {
+			_, err = clientset.CoreV1().ConfigMaps(string(ns)).Update(context.Background(), configMap, metav1.UpdateOptions{})
+			if err == nil {
+				log.Infof("Job result ConfigMap is updated successfully")
+				fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
+				return
+			} else {
+				log.Errorf("failed to update job context ConfigMap: %v, retry", err)
+				time.Sleep(time.Second * 3)
+			}
 		}
-
-		//dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(resultMsg), 0644)
-		//if dogFoodErr != nil {
-		//	log.Errorf("Failed to create dog food: %s.", dogFoodErr)
-		//}
-
-		fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
-		//time.Sleep(10 * time.Second)
+		log.Errorf("failed to update job context ConfigMap: %v", err)
 	}()
 
 	fmt.Printf("====================== %s Start ======================\n", excutor)
