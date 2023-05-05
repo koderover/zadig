@@ -27,6 +27,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
@@ -121,51 +122,41 @@ func (j *DeployJob) SetPreset() error {
 			return nil
 		}
 
-		listOpt := &commonrepo.SvcRevisionListOption{
-			ProductName:      product.ProductName,
-			ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
+		tmplSvcMap, err := repository.GetMaxRevisionsServicesMap(product.ProductName, product.Production)
+		if err != nil {
+			return fmt.Errorf("failed to get max revision services map, productName %s, isProduction %v, err: %w", product.ProductName, product.Production, err)
 		}
 
 		for _, svc := range j.spec.ServiceAndImages {
-			svc.ImageName = svc.ServiceModule
-
 			productSvc := product.GetServiceMap()[svc.ServiceName]
 			if productSvc == nil {
-				log.Errorf("service %s not found in product", svc.ServiceName)
-				continue
-			}
-
-			listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
-				ServiceName: productSvc.ServiceName,
-				Revision:    productSvc.Revision,
-			})
-		}
-
-		templateServices, err := repository.ListServicesWithSRevision(listOpt, product.Production)
-		if err != nil {
-			log.Errorf("failed to list template services for pruduct: %s:%s, err: %s", product.ProductName, product.EnvName, err)
-			return nil
-		}
-
-		templateSvcMap := make(map[string]*commonmodels.Service)
-		for _, svc := range templateServices {
-			templateSvcMap[svc.ServiceName] = svc
-		}
-
-		for _, svc := range j.spec.ServiceAndImages {
-			templateSvc, ok := templateSvcMap[svc.ServiceName]
-			if !ok {
-				log.Errorf("service %s not found in template", svc.ServiceName)
-				continue
-			}
-
-			for _, container := range templateSvc.Containers {
-				if container.Name == svc.ServiceModule {
-					svc.ImageName = container.ImageName
-					break
+				// get from template
+				tmplSvc := tmplSvcMap[svc.ServiceName]
+				if tmplSvc == nil {
+					return fmt.Errorf("service %s not found in template service, productName %s, isProduction %v", svc.ServiceName, product.ProductName, product.Production)
+				}
+				for _, container := range tmplSvc.Containers {
+					if container.Name == svc.ServiceModule {
+						svc.ImageName = commonutil.ExtractImageName(container.Image)
+						break
+					}
+				}
+			} else {
+				// get from env
+				for _, container := range productSvc.Containers {
+					if container.Name == svc.ServiceModule {
+						svc.ImageName = commonutil.ExtractImageName(container.Image)
+						break
+					}
 				}
 			}
+
+			if svc.ImageName == "" {
+				log.Errorf("service: %s module: %s not found in env and tmplSvc", svc.ServiceName, svc.ServiceModule)
+				svc.ImageName = svc.ServiceModule
+			}
 		}
+
 	}
 
 	return nil
