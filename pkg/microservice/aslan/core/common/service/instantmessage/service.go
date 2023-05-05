@@ -648,8 +648,8 @@ func genTestCaseText(test string, subTask, testReports map[string]interface{}) s
 func getNotifyAtContent(notify *models.NotifyCtl) string {
 	resp := ""
 	if notify.WebHookType == dingDingType {
+		notify.AtMobiles = lo.Filter(notify.AtMobiles, func(s string, _ int) bool { return s != "All" })
 		if len(notify.AtMobiles) > 0 {
-			notify.AtMobiles = lo.Filter(notify.AtMobiles, func(s string, _ int) bool { return s != "All" })
 			resp = fmt.Sprintf("##### **相关人员**: @%s \n", strings.Join(notify.AtMobiles, "@"))
 		}
 	}
