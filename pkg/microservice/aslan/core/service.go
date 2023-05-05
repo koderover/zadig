@@ -51,6 +51,7 @@ import (
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	hubserverconfig "github.com/koderover/zadig/pkg/microservice/hubserver/config"
 	"github.com/koderover/zadig/pkg/microservice/hubserver/core/repository/mongodb"
 	policydb "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	policybundle "github.com/koderover/zadig/pkg/microservice/policy/core/service/bundle"
@@ -208,7 +209,7 @@ func initResourcesForExternalClusters() {
 	namespace := "koderover-agent"
 
 	for _, cluster := range list {
-		if cluster.Local {
+		if cluster.Local || cluster.Status != hubserverconfig.Normal {
 			continue
 		}
 		client, err := kubeclient.GetKubeClient(config.HubServerAddress(), cluster.ID.Hex())
