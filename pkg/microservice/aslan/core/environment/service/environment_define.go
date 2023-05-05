@@ -18,6 +18,7 @@ package service
 
 import (
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -214,9 +215,10 @@ const (
 )
 
 type ResourceDeployStatus struct {
-	Type   string       `json:"type"`
-	Name   string       `json:"name"`
-	Status DeployStatus `json:"status"`
+	Type   string                  `json:"type"`
+	Name   string                  `json:"name"`
+	Status DeployStatus            `json:"status"`
+	GVK    schema.GroupVersionKind `json:"-"`
 }
 
 type ServiceDeployStatus struct {
