@@ -906,7 +906,7 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 	cmLister := informer.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace)
 
 	// todo debug
-	list, err := jobLister.List(labels.Set{}.AsSelector())
+	list, err := jobLister.List(labels.Everything())
 	if err != nil {
 		xl.Errorf("list job err %v", err)
 	}
@@ -915,7 +915,7 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 	}
 	informer.WaitForCacheSync(make(chan struct{}))
 	xl.Debugf("WaitForCacheSync")
-	list, err = jobLister.List(labels.Set{}.AsSelector())
+	list, err = jobLister.List(labels.Everything())
 	if err != nil {
 		xl.Errorf("list job err %v", err)
 	}
