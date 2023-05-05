@@ -26,19 +26,21 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/step"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/job"
-	"gopkg.in/yaml.v3"
 )
 
 type Job struct {
-	Ctx             *meta.JobContext
-	StartTime       time.Time
-	ActiveWorkspace string
-	UserEnvs        map[string]string
+	Ctx              *meta.JobContext
+	StartTime        time.Time
+	ActiveWorkspace  string
+	UserEnvs         map[string]string
+	OutputsJsonBytes []byte
 }
 
 const (
@@ -167,16 +169,8 @@ func (j *Job) collectJobResult(ctx context.Context) error {
 		return fmt.Errorf("termination message is above max allowed size 4096, caused by large task result")
 	}
 
-	f, err := os.OpenFile(job.JobTerminationFile, os.O_WRONLY|os.O_CREATE, 0666)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if _, err = f.Write(jsonOutput); err != nil {
-		return err
-	}
-	return f.Sync()
+	j.OutputsJsonBytes = jsonOutput
+	return nil
 }
 
 func (j *Job) getJobOutputVars(ctx context.Context) ([]*job.JobOutput, error) {

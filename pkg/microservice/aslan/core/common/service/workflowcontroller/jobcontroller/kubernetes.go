@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	batchv1 "k8s.io/api/batch/v1"
@@ -40,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -899,7 +899,7 @@ func isPodFailed(podName, namespace string, apiReader client.Reader, xl *zap.Sug
 	return nil
 }
 
-func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, jobTask *commonmodels.JobTask, ack func(), xl *zap.SugaredLogger) (status config.Status, errMsg string) {
+func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, informer informers.SharedInformerFactory, jobTask *commonmodels.JobTask, ack func(), xl *zap.SugaredLogger) (status config.Status, errMsg string) {
 	xl.Infof("wait job to end: %s %s", namespace, jobName)
 	// debugStage is used to record which debug stage the job has reached
 	var debugStageBefore, debugStageBeforeDone, debugStageAfter, debugStageAfterDone bool
@@ -983,6 +983,7 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, names
 							}
 						}
 
+						informer.Core().V1().ConfigMaps().Informer()
 						jobStatus, exists, err = checkDogFoodExistsInContainerWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0], defaultRetryCount, defaultRetryInterval)
 						if err != nil {
 							// Note:

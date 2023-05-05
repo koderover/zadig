@@ -18,13 +18,15 @@ package jobcontroller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,8 +37,10 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/stepcontroller"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/dockerhost"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -52,6 +56,7 @@ type FreestyleJobCtl struct {
 	kubeclient  crClient.Client
 	clientset   kubernetes.Interface
 	restConfig  *rest.Config
+	informer    informers.SharedInformerFactory
 	apiServer   crClient.Reader
 	paths       *string
 	jobTaskSpec *commonmodels.JobTaskFreestyleSpec
@@ -133,6 +138,16 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		c.restConfig = restConfig
 		c.apiServer = apiServer
 	}
+	// set informer
+	clientSet, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), c.jobTaskSpec.Properties.ClusterID)
+	if err != nil {
+		return errors.Wrap(err, "get kube client set")
+	}
+	informer, err := informer.NewInformer(c.jobTaskSpec.Properties.ClusterID, c.jobTaskSpec.Properties.Namespace, clientSet)
+	if err != nil {
+		return errors.Wrap(err, "get informer")
+	}
+	c.informer = informer
 
 	// decide which docker host to use.
 	// TODO: do not use code in warpdrive moudule, should move to a public place
@@ -233,7 +248,7 @@ func (c *FreestyleJobCtl) wait(ctx context.Context) {
 	} else {
 		return
 	}
-	c.job.Status, c.job.Error = waitJobEndWithFile(ctx, taskTimeout, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.job, c.ack, c.logger)
+	c.job.Status, c.job.Error = waitJobEndWithFile(ctx, taskTimeout, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.informer, c.job, c.ack, c.logger)
 }
 
 func (c *FreestyleJobCtl) complete(ctx context.Context) {
@@ -289,15 +304,16 @@ func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job 
 	}
 
 	return &JobContext{
-		Name:         job.Name,
-		Envs:         envVars,
-		SecretEnvs:   secretEnvVars,
-		WorkflowName: workflowCtx.WorkflowName,
-		Workspace:    workflowCtx.Workspace,
-		TaskID:       workflowCtx.TaskID,
-		Outputs:      outputs,
-		Steps:        jobTaskSpec.Steps,
-		Paths:        jobTaskSpec.Properties.Paths,
+		Name:          job.Name,
+		Envs:          envVars,
+		SecretEnvs:    secretEnvVars,
+		WorkflowName:  workflowCtx.WorkflowName,
+		Workspace:     workflowCtx.Workspace,
+		TaskID:        workflowCtx.TaskID,
+		Outputs:       outputs,
+		Steps:         jobTaskSpec.Steps,
+		Paths:         jobTaskSpec.Properties.Paths,
+		ConfigMapName: job.K8sJobName,
 	}
 }
 
