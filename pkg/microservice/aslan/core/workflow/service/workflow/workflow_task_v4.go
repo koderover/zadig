@@ -313,6 +313,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		log.Errorf("save original workflow args error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
+	originTaskArgs.HookCtls = nil
+	originTaskArgs.MeegoHookCtls = nil
+	originTaskArgs.JiraHookCtls = nil
+	originTaskArgs.GeneralHookCtls = nil
 	workflowTask.OriginWorkflowArgs = originTaskArgs
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.WorkflowTaskV4Fmt, workflow.Name))
 	if err != nil {
@@ -409,6 +413,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, err
 	}
 
+	workflow.HookCtls = nil
+	workflow.JiraHookCtls = nil
+	workflow.MeegoHookCtls = nil
+	workflow.GeneralHookCtls = nil
 	workflowTask.WorkflowArgs = workflow
 	workflowTask.Status = config.StatusCreated
 	workflowTask.StartTime = time.Now().Unix()
