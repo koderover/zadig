@@ -176,6 +176,7 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 }
 
 func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []string, policyFound bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
+	start := time.Now()
 	resp := make([]*Workflow, 0)
 	var err error
 	ignoreWorkflow := false
@@ -200,6 +201,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			ignoreWorkflowV4 = true
 		}
 	}
+	t := time.Now()
 	workflowV4List := []*commonmodels.WorkflowV4{}
 	if !ignoreWorkflowV4 {
 		workflowV4List, _, err = commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
@@ -211,9 +213,10 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			return resp, err
 		}
 	}
+	log.Infof("DEBUG-3 ListWorkflowV4 list v4 cost time %s", time.Since(t).String())
 
 	workflow := []*Workflow{}
-
+	t = time.Now()
 	// distribute center only surpport custom workflow.
 	if !ignoreWorkflow && projectName != setting.EnterpriseProject {
 		workflow, err = ListWorkflows([]string{projectName}, userID, names, logger)
@@ -221,6 +224,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			return resp, err
 		}
 	}
+	log.Infof("DEBUG-3 ListWorkflowV4 ListWorkflows cost time %s", time.Since(t).String())
 
 	workflowList := []string{}
 	for _, wV4 := range workflowV4List {
@@ -231,10 +235,13 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	if err != nil {
 		return nil, err
 	}
+	t = time.Now()
 	tasks, _, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowNames: workflowList})
 	if err != nil {
 		return resp, err
 	}
+	log.Infof("DEBUG-3 ListWorkflowV4 list v4 tasks cost time %s", time.Since(t).String())
+
 	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowTypeV4)})
 	if err != nil {
 		return resp, errors.Errorf("failed to get custom workflow favorite data, err: %v", err)
@@ -245,6 +252,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	}
 	workflowStatMap := getWorkflowStatMap(workflowList, config.WorkflowTypeV4)
 
+	t = time.Now()
 	for _, workflowModel := range workflowV4List {
 		stages := []string{}
 		for _, stage := range workflowModel.Stages {
@@ -283,6 +291,8 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 
 		resp = append(resp, workflow)
 	}
+	log.Infof("DEBUG-3 ListWorkflowV4 last step cost time %s", time.Since(t).String())
+	log.Infof("DEBUG-3 ListWorkflowV4 complete cost time %s", time.Since(start).String())
 	return resp, nil
 }
 

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -88,8 +89,13 @@ func CreateWorkflowTaskV4ByBuildInTrigger(c *gin.Context) {
 }
 
 func ListWorkflowTaskV4(c *gin.Context) {
+	t := time.Now()
 	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	defer func() {
+		t = time.Now()
+		internalhandler.JSONResponse(c, ctx)
+		log.Infof("DEBUG-1 ListWorkflowTaskV4 json resp cost time %s", time.Since(t).String())
+	}()
 	args := &listWorkflowTaskV4Query{}
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = err
@@ -103,6 +109,7 @@ func ListWorkflowTaskV4(c *gin.Context) {
 	}
 	ctx.Resp = resp
 	ctx.Err = err
+	log.Infof("DEBUG-1 ListWorkflowTaskV4 cost time %s", time.Since(t).String())
 }
 
 func GetWorkflowTaskV4(c *gin.Context) {

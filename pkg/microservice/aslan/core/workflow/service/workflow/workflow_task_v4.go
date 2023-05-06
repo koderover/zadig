@@ -774,12 +774,16 @@ func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, lo
 }
 
 func ListWorkflowTaskV4(workflowName string, pageNum, pageSize int64, logger *zap.SugaredLogger) ([]*commonmodels.WorkflowTask, int64, error) {
+	t := time.Now()
 	resp, total, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowName: workflowName, Limit: int(pageSize), Skip: int((pageNum - 1) * pageSize)})
+	log.Infof("DEBUG-1 ListWorkflowTaskV4 db cost time %s", time.Since(t).String())
 	if err != nil {
 		logger.Errorf("list workflowTaskV4 error: %s", err)
 		return resp, total, err
 	}
+	t = time.Now()
 	cleanWorkflowV4Tasks(resp)
+	log.Infof("DEBUG-1 ListWorkflowTaskV4 clean cost time %s", time.Since(t).String())
 	return resp, total, nil
 }
 
