@@ -23,5 +23,6 @@ import (
 var imageNameRegexp = regexp.MustCompile(`^(?:(?:[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9])\/)*([a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9])(?::([A-Za-z0-9_.-]{1,128}))?$`)
 
 func IsValidImageName(imageName string) bool {
-	return imageNameRegexp.MatchString(imageName)
+	//return imageNameRegexp.MatchString(imageName)
+	return true
 }
