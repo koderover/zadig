@@ -73,19 +73,19 @@ type ServiceTmplBuildObject struct {
 }
 
 type ServiceTmplObject struct {
-	ProductName  string                        `json:"product_name"`
-	ServiceName  string                        `json:"service_name"`
-	Visibility   string                        `json:"visibility"`
-	Revision     int64                         `json:"revision"`
-	Type         string                        `json:"type"`
-	Username     string                        `json:"username"`
-	EnvConfigs   []*commonmodels.EnvConfig     `json:"env_configs"`
-	EnvStatuses  []*commonmodels.EnvStatus     `json:"env_statuses,omitempty"`
-	From         string                        `json:"from,omitempty"`
-	HealthChecks []*commonmodels.PmHealthCheck `json:"health_checks"`
-	EnvName      string                        `json:"env_name"`
-	VariableYaml string                        `json:"variable_yaml"`
-	ServiceVars  []string                      `json:"service_vars"`
+	ProductName        string                           `json:"product_name"`
+	ServiceName        string                           `json:"service_name"`
+	Visibility         string                           `json:"visibility"`
+	Revision           int64                            `json:"revision"`
+	Type               string                           `json:"type"`
+	Username           string                           `json:"username"`
+	EnvConfigs         []*commonmodels.EnvConfig        `json:"env_configs"`
+	EnvStatuses        []*commonmodels.EnvStatus        `json:"env_statuses,omitempty"`
+	From               string                           `json:"from,omitempty"`
+	HealthChecks       []*commonmodels.PmHealthCheck    `json:"health_checks"`
+	EnvName            string                           `json:"env_name"`
+	VariableYaml       string                           `json:"variable_yaml"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
 }
 
 type ServiceProductMap struct {
@@ -1468,9 +1468,9 @@ const (
 )
 
 type ConvertVaraibleKVAndYamlArgs struct {
-	KVs    []*commontypes.ServiceVariableKV   `json:"kvs"`
-	Yaml   string                             `json:"yaml"`
-	Action ConvertVaraibleKVAndYamlActionType `json:"action"`
+	KVs    []*commontypes.ServiceVariableKV   `json:"kvs" binding:"required"`
+	Yaml   string                             `json:"yaml" binding:"required"`
+	Action ConvertVaraibleKVAndYamlActionType `json:"action" binding:"required"`
 }
 
 func ConvertVaraibleKVAndYaml(args *ConvertVaraibleKVAndYamlArgs) (*ConvertVaraibleKVAndYamlArgs, error) {

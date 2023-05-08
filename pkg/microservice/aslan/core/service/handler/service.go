@@ -29,6 +29,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	svcservice "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -71,11 +72,31 @@ func GetServiceTemplateOption(c *gin.Context) {
 	ctx.Resp, ctx.Err = svcservice.GetServiceTemplateOption(c.Param("name"), c.Query("projectName"), revision, ctx.Logger)
 }
 
+type createServiceTemplateRequest struct {
+	ProductName        string                           `json:"product_name" binding:"required"`
+	ServiceName        string                           `json:"service_name" binding:"required"`
+	Source             string                           `json:"source" binding:"required"`
+	Type               string                           `json:"type" binding:"required"`
+	VariableYaml       string                           `json:"variable_yaml" binding:"required"`
+	Visibility         string                           `json:"visibility" binding:"required"`
+	Yaml               string                           `json:"yaml" binding:"required"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs" binding:"required"`
+}
+
+// @Summary Create service template
+// @Description Create service template
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	force	query		bool							true	"is force to create service template"
+// @Param 	body 	body 		createServiceTemplateRequest 	true 	"body"
+// @Success 200 	{object} 	svcservice.ServiceOption
+// @Router /service/services [post]
 func CreateServiceTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(commonmodels.Service)
+	args := new(createServiceTemplateRequest)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateServiceTemplate c.GetRawData() err : %v", err)
@@ -97,9 +118,18 @@ func CreateServiceTemplate(c *gin.Context) {
 		return
 	}
 
-	args.CreateBy = ctx.UserName
+	svc := new(commonmodels.Service)
+	svc.CreateBy = ctx.UserName
+	svc.ProductName = args.ProductName
+	svc.ServiceName = args.ServiceName
+	svc.Source = args.Source
+	svc.Type = args.Type
+	svc.VariableYaml = args.VariableYaml
+	svc.ServiceVariableKVs = args.ServiceVariableKVs
+	svc.Visibility = args.Visibility
+	svc.Yaml = args.Yaml
 
-	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, args, force, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, svc, force, ctx.Logger)
 }
 
 // UpdateServiceTemplate TODO figure out in which scene this function will be used
@@ -119,20 +149,41 @@ func UpdateServiceTemplate(c *gin.Context) {
 	ctx.Err = svcservice.UpdateServiceVisibility(args)
 }
 
+type updateServiceVariableRequest struct {
+	VariableYaml       string                           `json:"variable_yaml" binding:"required"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs" binding:"required"`
+}
+
+// @Summary Update service varaible
+// @Description Update service varaible
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	name		path		string							true	"service name"
+// @Param 	projectName	query		string							true	"project name"
+// @Param 	body  		body 		updateServiceVariableRequest 	true 	"body"
+// @Success 200
+// @Router /service/services/{name}/variable [put]
 func UpdateServiceVariable(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(commonservice.ServiceTmplObject)
-	if err := c.ShouldBindJSON(args); err != nil {
+	req := new(updateServiceVariableRequest)
+	servceTmplObjectargs := new(commonservice.ServiceTmplObject)
+	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
 	}
-	args.ProductName = c.Query("projectName")
-	args.ServiceName = c.Param("name")
-	args.Username = ctx.UserName
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务变量", fmt.Sprintf("服务名称:%s", args.ServiceName), "", ctx.Logger)
-	ctx.Err = svcservice.UpdateServiceVariables(args)
+
+	servceTmplObjectargs.ProductName = c.Query("projectName")
+	servceTmplObjectargs.ServiceName = c.Param("name")
+	servceTmplObjectargs.Username = ctx.UserName
+	servceTmplObjectargs.VariableYaml = req.VariableYaml
+	servceTmplObjectargs.ServiceVariableKVs = req.ServiceVariableKVs
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, servceTmplObjectargs.ProductName, "更新", "项目管理-服务变量", fmt.Sprintf("服务名称:%s", servceTmplObjectargs.ServiceName), "", ctx.Logger)
+
+	ctx.Err = svcservice.UpdateServiceVariables(servceTmplObjectargs)
 }
 
 func UpdateServiceHealthCheckStatus(c *gin.Context) {

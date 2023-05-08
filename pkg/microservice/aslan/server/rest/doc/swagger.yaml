@@ -1,5 +1,283 @@
 basePath: /api/aslan
 definitions:
+  github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable:
+    properties:
+      description:
+        type: string
+      key:
+        type: string
+      value:
+        type: string
+    type: object
+  handler.createServiceTemplateRequest:
+    properties:
+      product_name:
+        type: string
+      service_name:
+        type: string
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      source:
+        type: string
+      type:
+        type: string
+      variable_yaml:
+        type: string
+      visibility:
+        type: string
+      yaml:
+        type: string
+    required:
+    - product_name
+    - service_name
+    - service_variable_kvs
+    - source
+    - type
+    - variable_yaml
+    - visibility
+    - yaml
+    type: object
+  handler.getYamlTemplateVariablesReq:
+    properties:
+      content:
+        type: string
+      variable_yaml:
+        type: string
+    required:
+    - content
+    - variable_yaml
+    type: object
+  handler.updateServiceVariableRequest:
+    properties:
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    required:
+    - service_variable_kvs
+    - variable_yaml
+    type: object
+  models.Commit:
+    properties:
+      message:
+        type: string
+      sha:
+        type: string
+    type: object
+  models.Container:
+    properties:
+      image:
+        type: string
+      image_name:
+        type: string
+      imagePath:
+        $ref: '#/definitions/models.ImagePathSpec'
+      name:
+        type: string
+    type: object
+  models.EnvConfig:
+    properties:
+      env_name:
+        type: string
+      host_ids:
+        items:
+          type: string
+        type: array
+      labels:
+        items:
+          type: string
+        type: array
+    type: object
+  models.EnvStatus:
+    properties:
+      address:
+        type: string
+      env_name:
+        type: string
+      host_id:
+        type: string
+      pm_info:
+        $ref: '#/definitions/models.PmInfo'
+      status:
+        type: string
+    type: object
+  models.GUIConfig:
+    properties:
+      deployment: {}
+      ingress: {}
+      service: {}
+    type: object
+  models.HelmChart:
+    properties:
+      name:
+        type: string
+      values_yaml:
+        type: string
+      version:
+        type: string
+    type: object
+  models.ImagePathSpec:
+    properties:
+      image:
+        type: string
+      repo:
+        type: string
+      tag:
+        type: string
+    type: object
+  models.PmHealthCheck:
+    properties:
+      current_healthy_num:
+        type: integer
+      current_unhealthy_num:
+        type: integer
+      healthy_threshold:
+        type: integer
+      interval:
+        type: integer
+      path:
+        type: string
+      port:
+        type: integer
+      protocol:
+        type: string
+      time_out:
+        type: integer
+      unhealthy_threshold:
+        type: integer
+    type: object
+  models.PmInfo:
+    properties:
+      id:
+        type: string
+      ip:
+        type: string
+      is_prod:
+        type: boolean
+      label:
+        type: string
+      name:
+        type: string
+      port:
+        type: integer
+      provider:
+        type: integer
+      status:
+        $ref: '#/definitions/setting.PMHostStatus'
+    type: object
+  models.Service:
+    properties:
+      auto_sync:
+        type: boolean
+      branch_name:
+        type: string
+      build_name:
+        type: string
+      codehost_id:
+        type: integer
+      commit:
+        $ref: '#/definitions/models.Commit'
+      containers:
+        items:
+          $ref: '#/definitions/models.Container'
+        type: array
+      create_by:
+        type: string
+      create_from: {}
+      create_time:
+        type: integer
+      description:
+        type: string
+      env_configs:
+        items:
+          $ref: '#/definitions/models.EnvConfig'
+        type: array
+      env_name:
+        type: string
+      env_statuses:
+        items:
+          $ref: '#/definitions/models.EnvStatus'
+        type: array
+      gerrit_branch_name:
+        type: string
+      gerrit_codeHost_id:
+        type: integer
+      gerrit_path:
+        type: string
+      gerrit_remote_name:
+        type: string
+      gerrit_repo_name:
+        type: string
+      gitee_path:
+        type: string
+      gui_config:
+        $ref: '#/definitions/models.GUIConfig'
+      hash256:
+        type: string
+      health_checks:
+        items:
+          $ref: '#/definitions/models.PmHealthCheck'
+        type: array
+      helm_chart:
+        $ref: '#/definitions/models.HelmChart'
+      is_dir:
+        type: boolean
+      load_path:
+        type: string
+      product_name:
+        type: string
+      release_naming:
+        type: string
+      repo_name:
+        type: string
+      repo_namespace:
+        type: string
+      repo_owner:
+        type: string
+      repo_uuid:
+        type: string
+      revision:
+        type: integer
+      service_name:
+        type: string
+      service_variable_kvs:
+        description: New since 1.18.0, stores the variable kvs of k8s services
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      service_vars:
+        description: DEPRECATED, New since 1.16.0, stores keys in variables which
+          can be set in env
+        items:
+          type: string
+        type: array
+      source:
+        type: string
+      src_path:
+        type: string
+      status:
+        type: string
+      team:
+        type: string
+      template_id:
+        type: string
+      type:
+        type: string
+      variable_yaml:
+        description: New since 1.16.0, stores the variable yaml of k8s services
+        type: string
+      visibility:
+        type: string
+      workload_type:
+        description: WorkloadType is set in host projects
+        type: string
+      yaml:
+        type: string
+    type: object
   service.ConvertVaraibleKVAndYamlActionType:
     enum:
     - toKV
@@ -18,7 +296,55 @@ definitions:
         type: array
       yaml:
         type: string
+    required:
+    - action
+    - kvs
+    - yaml
     type: object
+  service.ServiceModule:
+    properties:
+      build_names:
+        items:
+          type: string
+        type: array
+      image:
+        type: string
+      image_name:
+        type: string
+      imagePath:
+        $ref: '#/definitions/models.ImagePathSpec'
+      name:
+        type: string
+    type: object
+  service.ServiceOption:
+    properties:
+      service:
+        $ref: '#/definitions/models.Service'
+      service_module:
+        items:
+          $ref: '#/definitions/service.ServiceModule'
+        type: array
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      system_variable:
+        items:
+          $ref: '#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable'
+        type: array
+      variable_yaml:
+        type: string
+      yaml:
+        type: string
+    type: object
+  setting.PMHostStatus:
+    enum:
+    - normal
+    - abnormal
+    type: string
+    x-enum-varnames:
+    - PMHostStatusNormal
+    - PMHostStatusAbnormal
   types.ServiceVariableKV:
     properties:
       desc:
@@ -58,6 +384,63 @@ info:
   title: Zadig aslan service REST APIs
   version: "1.0"
 paths:
+  /service/services:
+    post:
+      consumes:
+      - application/json
+      description: Create service template
+      parameters:
+      - description: is force to create service template
+        in: query
+        name: force
+        required: true
+        type: boolean
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.createServiceTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ServiceOption'
+      summary: Create service template
+      tags:
+      - service
+  /service/services/{name}/variable:
+    put:
+      consumes:
+      - application/json
+      description: Update service varaible
+      parameters:
+      - description: service name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.updateServiceVariableRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update service varaible
+      tags:
+      - service
   /service/services/variable/convert:
     post:
       consumes:
@@ -78,6 +461,26 @@ paths:
           schema:
             $ref: '#/definitions/service.ConvertVaraibleKVAndYamlArgs'
       summary: convert varaible kv and yaml
+      tags:
+      - service
+  /template/yaml/validateVariable:
+    post:
+      consumes:
+      - application/json
+      description: Validate template varaibles
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.getYamlTemplateVariablesReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Validate template varaibles
       tags:
       - service
 swagger: "2.0"
