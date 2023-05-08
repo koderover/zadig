@@ -39,7 +39,7 @@ import (
 
 // UpsertEnvServiceScheduler ...
 func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
-	envs, err := c.AslanCli.ListEnvs(log, &client.EvnListOption{BasicFacility: setting.BasicFacilityCVM})
+	envs, err := c.AslanCli.ListEnvs(log, &client.EvnListOption{DeployType: []string{setting.PMDeployType}})
 	if err != nil {
 		log.Error(err)
 		return
