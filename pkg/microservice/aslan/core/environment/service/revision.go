@@ -60,8 +60,8 @@ func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (
 	return prodRevs, nil
 }
 
-// ListProductsRevisionByOption called by service cron
-func ListProductsRevisionByOption(basicFacility string, deployType string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
+// ListProductSnapsByOption called by service cron
+func ListProductSnapsByOption(deployType string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
 	var (
 		err          error
 		prodRevs     = make([]*ProductRevision, 0)
@@ -69,10 +69,15 @@ func ListProductsRevisionByOption(basicFacility string, deployType string, log *
 		projectNames = make([]string, 0)
 	)
 
-	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{
-		BasicFacility: basicFacility,
-		DeployType:    deployType,
-	})
+	listOption := &templaterepo.ProductListOpt{}
+	switch deployType {
+	case setting.PMDeployType:
+		listOption = &templaterepo.ProductListOpt{BasicFacility: setting.BasicFacilityCVM}
+	default:
+		listOption = &templaterepo.ProductListOpt{DeployType: deployType}
+	}
+
+	temProducts, err := templaterepo.NewProductColl().ListWithOption(listOption)
 	if err != nil {
 		log.Errorf("Collection.TemplateProduct.List error: %s", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
@@ -96,15 +101,16 @@ func ListProductsRevisionByOption(basicFacility string, deployType string, log *
 	}
 
 	for _, prod := range products {
-		if prod.Production {
-			continue
+		prodRev := &ProductRevision{
+			ProductName: prod.ProductName,
+			EnvName:     prod.EnvName,
 		}
-		// find all service templates with max revisions
-		allServiceTmpls, err := getServicesWithMaxRevision(prod.ProductName)
-		prodRev, err := GetProductRevision(prod, allServiceTmpls, log)
-		if err != nil {
-			log.Error(err)
-			return prodRevs, err
+		for _, svc := range prod.GetServiceMap() {
+			prodRev.ServiceRevisions = append(prodRev.ServiceRevisions, &SvcRevision{
+				ServiceName:     svc.ServiceName,
+				Type:            svc.Type,
+				CurrentRevision: svc.Revision,
+			})
 		}
 		prodRevs = append(prodRevs, prodRev)
 	}
