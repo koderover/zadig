@@ -917,7 +917,6 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 
 		default:
 			job, err := jobLister.Get(jobName)
-			//job, found, err := getter.GetJob(namespace, jobName, kubeClient)
 			if err != nil {
 				errMsg := fmt.Sprintf("failed to get job pod job-name=%s %v", jobName, err)
 				xl.Errorf(errMsg)
