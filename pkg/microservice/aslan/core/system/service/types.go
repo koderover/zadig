@@ -94,10 +94,11 @@ type DashBoardConfig struct {
 }
 
 type DashBoardCardConfig struct {
-	ID     string      `json:"id"`
-	Name   string      `json:"name"`
-	Type   string      `json:"type"`
-	Config interface{} `json:"config"`
+	ID       string      `json:"id"`
+	Name     string      `json:"name"`
+	EnvAlias string      `json:"env_alias"`
+	Type     string      `json:"type"`
+	Config   interface{} `json:"config"`
 }
 
 type MyWorkflowCardConfig struct {

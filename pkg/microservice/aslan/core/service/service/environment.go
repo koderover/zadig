@@ -38,6 +38,7 @@ import (
 
 type DeployableEnv struct {
 	EnvName   string                       `json:"env_name"`
+	Alias     string                       `json:"alias"`
 	Namespace string                       `json:"namespace"`
 	ClusterID string                       `json:"cluster_id"`
 	Services  []*types.ServiceWithVariable `json:"services"`
@@ -355,6 +356,7 @@ func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, err
 		envNames[i] = env.EnvName
 		ret[i] = &DeployableEnv{
 			EnvName:   env.EnvName,
+			Alias:     env.Alias,
 			Namespace: env.Namespace,
 			ClusterID: env.ClusterID,
 			Services:  getServiceVariables(templateProduct, env),

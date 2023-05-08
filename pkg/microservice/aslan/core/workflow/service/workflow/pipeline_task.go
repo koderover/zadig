@@ -334,6 +334,9 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 			continue
 		}
 		t.Namespace = t.WorkflowArgs.Namespace
+		if t.WorkflowArgs.EnvAlias == "" {
+			t.EnvAlias = t.Namespace
+		}
 		serviceModuleMap := make(map[string]*commonrepo.ServiceModule)
 
 		for _, target := range t.WorkflowArgs.Target {

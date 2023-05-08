@@ -37,6 +37,7 @@ import (
 type YamlProductItem struct {
 	OldName       string                           `json:"old_name"`
 	NewName       string                           `json:"new_name"`
+	Alias         string                           `json:"alias"`
 	BaseName      string                           `json:"base_name"`
 	DefaultValues string                           `json:"default_values"`
 	Services      []*commonservice.K8sSvcRenderArg `json:"services"`
@@ -50,6 +51,7 @@ type CopyYamlProductArg struct {
 type HelmProductItem struct {
 	OldName       string                            `json:"old_name"`
 	NewName       string                            `json:"new_name"`
+	Alias         string                            `json:"alias"`
 	BaseName      string                            `json:"base_name"`
 	DefaultValues string                            `json:"default_values"`
 	ChartValues   []*commonservice.HelmSvcRenderArg `json:"chart_values"`
@@ -96,6 +98,7 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 			args = append(args, &CreateSingleProductArg{
 				ProductName:   projectName,
 				EnvName:       item.NewName,
+				Alias:         item.Alias,
 				Namespace:     projectName + "-" + "env" + "-" + item.NewName,
 				ClusterID:     product.ClusterID,
 				DefaultValues: item.DefaultValues,
@@ -151,6 +154,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 		if product, ok := productMap[item.OldName]; ok {
 			newProduct := *product
 			newProduct.EnvName = item.NewName
+			newProduct.Alias = item.Alias
 			//newProduct.Vars = item.Vars
 			newProduct.Namespace = projectName + "-env-" + newProduct.EnvName
 			util.Clear(&newProduct.ID)

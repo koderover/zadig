@@ -17,7 +17,9 @@
 package migrate
 
 import (
+	"context"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
@@ -34,6 +36,10 @@ func init() {
 func V1170ToV1180() error {
 	if err := migrateJiraAuthType(); err != nil {
 		log.Errorf("migrateJiraAuthType err: %v", err)
+	}
+
+	if err := migrateProductAlias(); err != nil {
+		log.Errorf("migrateProductAlias err: %v", err)
 	}
 	return nil
 }
@@ -57,6 +63,34 @@ func migrateJiraAuthType() error {
 		if err := mongodb.NewProjectManagementColl().UpdateByID(jira.ID.Hex(), jira); err != nil {
 			return errors.Wrap(err, "update")
 		}
+	}
+	return nil
+}
+
+func migrateProductAlias() error {
+	log.Info("update product alias field")
+	mdb := mongodb.NewProductColl()
+
+	products, err := mdb.List(&mongodb.ProductListOptions{})
+	if err != nil {
+		return err
+	}
+	if products == nil {
+		return nil
+	}
+
+	var ms []mongo.WriteModel
+	for _, product := range products {
+		if product.EnvName != "" && product.Alias == "" {
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", product.ID}}).
+					SetUpdate(bson.D{{"$set", bson.D{{"alias", product.EnvName}}}}),
+			)
+		}
+	}
+	if _, err = mdb.BulkWrite(context.TODO(), ms); err != nil {
+		return err
 	}
 	return nil
 }

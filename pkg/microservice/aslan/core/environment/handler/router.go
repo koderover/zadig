@@ -164,6 +164,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name", UpdateProduct)
 		environments.PUT("/:name/registry", UpdateProductRegistry)
 		environments.PUT("", UpdateMultiProducts)
+		environments.GET("/check/env_name", CheckEnvName)
+		environments.GET("/check/alias", CheckEnvAlias)
 		environments.POST("", CreateProduct)
 
 		environments.GET("/:name", GetProduct)

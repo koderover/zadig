@@ -74,6 +74,7 @@ type ProductResp struct {
 	Status      string                     `json:"status"`
 	Error       string                     `json:"error"`
 	EnvName     string                     `json:"env_name"`
+	EnvAlias    string                     `json:"env_alias"`
 	UpdateBy    string                     `json:"update_by"`
 	UpdateTime  int64                      `json:"update_time"`
 	Services    [][]string                 `json:"services"`

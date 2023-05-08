@@ -284,8 +284,19 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 				baseRefs = append(baseRefs, cm)
 			}
 		}
+
+		// get the env alias name
+		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    workflowModel.Project,
+			EnvName: workflowModel.Name,
+		})
+		if err != nil {
+			return nil, errors.Errorf("failed to get product, project_name: %v, env_name: %v", workflowModel.Project, workflowModel.Name)
+		}
+
 		workflow := &Workflow{
 			Name:          workflowModel.Name,
+			Alias:         product.Alias,
 			DisplayName:   workflowModel.DisplayName,
 			ProjectName:   workflowModel.Project,
 			EnabledStages: stages,

@@ -50,6 +50,7 @@ type EnvStatus struct {
 
 type Workflow struct {
 	Name                 string                     `json:"name"`
+	Alias                string                     `json:"alias"`
 	DisplayName          string                     `json:"display_name"`
 	ProjectName          string                     `json:"projectName"`
 	UpdateTime           int64                      `json:"updateTime"`

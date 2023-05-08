@@ -93,6 +93,7 @@ type ServiceResp struct {
 	Images             []string     `json:"images,omitempty"`
 	ProductName        string       `json:"product_name"`
 	EnvName            string       `json:"env_name"`
+	EnvAlias           string       `json:"env_alias"`
 	Ingress            *IngressInfo `json:"ingress"`
 	//deprecated
 	Ready        string              `json:"ready"`

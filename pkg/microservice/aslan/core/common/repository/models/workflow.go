@@ -160,6 +160,7 @@ type WorkflowTaskArgs struct {
 	Description     string `bson:"description,omitempty"        json:"description,omitempty"`
 	//为了兼容老数据，namespace可能会存多个环境名称，用逗号隔开
 	Namespace           string          `bson:"namespace"                    json:"namespace"`
+	EnvAlias            string          `bson:"env_alias"             json:"env_alias"`
 	BaseNamespace       string          `bson:"base_namespace,omitempty"     json:"base_namespace,omitempty"`
 	EnvRecyclePolicy    string          `bson:"env_recycle_policy,omitempty" json:"env_recycle_policy,omitempty"`
 	EnvUpdatePolicy     string          `bson:"env_update_policy,omitempty"  json:"env_update_policy,omitempty"`

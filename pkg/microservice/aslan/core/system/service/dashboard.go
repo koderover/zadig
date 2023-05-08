@@ -68,6 +68,13 @@ func CreateOrUpdateDashboardConfiguration(username, userID string, config *DashB
 	return commonrepo.NewDashboardConfigColl().CreateOrUpdate(dashboardConfig)
 }
 
+type DashboardMyEnvConfig struct {
+	EnvName        string   `json:"env_name"`
+	EnvType        string   `json:"env_type"`
+	ProjectName    string   `json:"project_name"`
+	ServiceModules []string `json:"service_modules"`
+}
+
 func GetDashboardConfiguration(username, userID string, log *zap.SugaredLogger) (*DashBoardConfig, error) {
 	cfg, err := commonrepo.NewDashboardConfigColl().GetByUser(username, userID)
 	// if there is an error and the error is not empty document then we return error
@@ -85,6 +92,19 @@ func GetDashboardConfiguration(username, userID string, log *zap.SugaredLogger) 
 			Name:   card.Name,
 			Type:   card.Type,
 			Config: card.Config,
+		}
+		if card.Type == "my_env" {
+			if envConfig, ok := card.Config.(DashboardMyEnvConfig); ok {
+				product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: envConfig.ProjectName, EnvName: envConfig.EnvName})
+				if err != nil {
+					if err == mongo.ErrNoDocuments {
+						return generateDefaultDashboardConfig(), nil
+					} else {
+						return nil, err
+					}
+				}
+				retConfig.EnvAlias = product.Alias
+			}
 		}
 		cardConfig = append(cardConfig, retConfig)
 	}

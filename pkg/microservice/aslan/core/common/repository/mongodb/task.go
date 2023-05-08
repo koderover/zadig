@@ -84,6 +84,7 @@ type TaskPreview struct {
 	ProductName    string                    `bson:"product_name"          json:"product_name"`
 	PipelineName   string                    `bson:"pipeline_name"         json:"pipeline_name"`
 	Namespace      string                    `bson:"namespace"             json:"namespace"`
+	EnvAlias       string                    `bson:"env_alias"             json:"env_alias"`
 	ServiceName    string                    `bson:"service_name"          json:"service_name"`
 	Status         config.Status             `bson:"status"                json:"status"`
 	CreateTime     int64                     `bson:"create_time"           json:"create_time,omitempty"`

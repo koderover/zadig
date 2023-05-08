@@ -99,6 +99,7 @@ type Product struct {
 	BaseName          string                   `json:"base_name"`
 	CollaborationMode string                   `json:"collaboration_mode"`
 	Name              string                   `json:"name"`
+	Alias             string                   `json:"alias"`
 	DeployType        string                   `json:"deploy_type"`
 	//Vars              []*templatemodels.RenderKV        `json:"vars"`
 	DefaultValues string                            `json:"default_values,omitempty"`
@@ -978,6 +979,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 				helmProductArgs = append(helmProductArgs, service2.HelmProductItem{
 					OldName:       product.BaseName,
 					NewName:       product.Name,
+					Alias:         product.Alias,
 					BaseName:      product.BaseName,
 					DefaultValues: productArg.DefaultValues,
 					ChartValues:   productArg.ChartValues,
@@ -988,6 +990,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 				yamlProductItems = append(yamlProductItems, service2.YamlProductItem{
 					OldName:       product.BaseName,
 					NewName:       product.Name,
+					Alias:         product.Alias,
 					BaseName:      product.BaseName,
 					DefaultValues: productArg.DefaultValues,
 					Services:      productArg.Services,

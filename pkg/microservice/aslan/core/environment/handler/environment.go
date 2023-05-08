@@ -143,6 +143,10 @@ func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs [
 			ctx.Err = e.ErrInvalidParam.AddDesc("envName is empty")
 			return
 		}
+		if arg.Alias == "" {
+			ctx.Err = e.ErrInvalidParam.AddDesc("envAlias is empty")
+			return
+		}
 		arg.ProductName = param.ProjectName
 		envNameList = append(envNameList, arg.EnvName)
 	}
@@ -177,6 +181,24 @@ func copyProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*
 	}
 }
 
+func CheckEnvName(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	productName := c.Query("product_name")
+	envName := c.Query("env_name")
+	ctx.Resp = service.CheckEnvName(productName, envName)
+}
+
+func CheckEnvAlias(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	productName := c.Query("product_name")
+	alias := c.Query("alias")
+	ctx.Resp = service.CheckEnvAlias(productName, alias)
+}
+
 // CreateProduct creates new product
 // Query param `type` determines the type of product
 // Query param `scene` determines if the product is copied from some project
@@ -209,6 +231,12 @@ func CreateProduct(c *gin.Context) {
 			log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
 			ctx.Err = e.ErrInvalidParam.AddErr(err)
 			return
+		}
+
+		for i := 0; i < len(createArgs); i++ {
+			if createArgs[i].Alias == "" {
+				createArgs[i].Alias = createArgs[i].EnvName
+			}
 		}
 
 		for _, arg := range createArgs {
@@ -264,6 +292,9 @@ func CreateProduct(c *gin.Context) {
 		if args.EnvName == "" {
 			ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
 			return
+		}
+		if args.Alias == "" {
+			args.Alias = args.EnvName
 		}
 
 		ctx.Err = service.CreateProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)

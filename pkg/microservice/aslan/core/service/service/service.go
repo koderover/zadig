@@ -257,6 +257,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 type K8sWorkloadsArgs struct {
 	WorkLoads   []commonmodels.Workload `json:"workLoads"`
 	EnvName     string                  `json:"env_name"`
+	Alias       string                  `json:"alias"`
 	ClusterID   string                  `json:"cluster_id"`
 	Namespace   string                  `json:"namespace"`
 	ProductName string                  `json:"product_name"`
@@ -359,6 +360,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			ClusterID:   args.ClusterID,
 			RegistryID:  args.RegistryID,
 			EnvName:     args.EnvName,
+			Alias:       args.Alias,
 			Namespace:   args.Namespace,
 			UpdateBy:    userName,
 		}, log); err != nil {
@@ -1158,7 +1160,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 	// check if namings rule changes for services deployed in envs
 	if serviceTemplate.GetReleaseNaming() == args.NamingRule {
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-			Name: projectName,
+			Name:       projectName,
 			Production: util.GetBoolPointer(false),
 		})
 		if err != nil {

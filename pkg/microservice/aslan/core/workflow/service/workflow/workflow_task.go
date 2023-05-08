@@ -591,6 +591,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				fmt.Sprintf("找不到 %s 的 %s 环境 ", args.ProductTmplName, args.Namespace),
 			)
 		}
+		args.EnvAlias = env.Alias
 	}
 
 	// get global configPayload

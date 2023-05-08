@@ -620,6 +620,36 @@ func UpdateCVMProduct(envName, productName, user, requestID string, log *zap.Sug
 	return updateCVMProduct(exitedProd, user, requestID, log)
 }
 
+type CheckNameRsp struct {
+	Valid bool `json:"valid"`
+}
+
+func CheckEnvName(productName, envNmae string) CheckNameRsp {
+	_, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envNmae,
+	})
+
+	rsp := CheckNameRsp{Valid: false}
+	if err != nil && mongodb.IsErrNoDocuments(err) {
+		rsp.Valid = true
+	}
+	return rsp
+}
+
+func CheckEnvAlias(productName, alias string) CheckNameRsp {
+	_, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:  productName,
+		Alias: alias,
+	})
+
+	rsp := CheckNameRsp{Valid: false}
+	if err != nil && mongodb.IsErrNoDocuments(err) {
+		rsp.Valid = true
+	}
+	return rsp
+}
+
 // CreateProduct create a new product with its dependent stacks
 func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.SugaredLogger) (err error) {
 	log.Infof("[%s][P:%s] CreateProduct", args.EnvName, args.ProductName)
@@ -640,9 +670,15 @@ func UpdateProductAlias(envName, productName, alias string) error {
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to query product info, name %s", envName))
 	}
-	if !productInfo.Production {
-		return e.ErrUpdateEnv.AddErr(fmt.Errorf("cannot set alias for non-production environment %s", envName))
+
+	if productInfo.Alias == alias {
+		return nil
 	}
+
+	if !CheckEnvAlias(productName, alias).Valid {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("environment name is repeated"))
+	}
+
 	err = commonrepo.NewProductColl().UpdateProductAlias(envName, productName, alias)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)

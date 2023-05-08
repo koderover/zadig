@@ -237,6 +237,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		Services:    [][]string{},
 		Status:      setting.PodUnstable,
 		EnvName:     prod.EnvName,
+		EnvAlias:    prod.Alias,
 		UpdateTime:  prod.UpdateTime,
 		UpdateBy:    prod.UpdateBy,
 		Render:      prod.Render,
