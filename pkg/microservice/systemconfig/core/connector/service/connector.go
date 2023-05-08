@@ -103,10 +103,12 @@ func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connecto
 			ConnectorBase: ConnectorBase{
 				Type: ConnectorType(c.Type),
 			},
-			ID:        c.ID,
-			Name:      c.Name,
-			Config:    cf,
-			IsDefault: isDefault,
+			ID:                c.ID,
+			Name:              c.Name,
+			Config:            cf,
+			IsDefault:         isDefault,
+			EnableLogOut:      c.EnableLogOut,
+			LogoutRedirectURL: c.LogoutRedirectURL,
 		})
 	}
 
@@ -131,9 +133,11 @@ func GetConnector(id string, logger *zap.SugaredLogger) (*Connector, error) {
 		ConnectorBase: ConnectorBase{
 			Type: ConnectorType(c.Type),
 		},
-		ID:     c.ID,
-		Name:   c.Name,
-		Config: cf,
+		ID:                c.ID,
+		Name:              c.Name,
+		Config:            cf,
+		EnableLogOut:      c.EnableLogOut,
+		LogoutRedirectURL: c.LogoutRedirectURL,
 	}, nil
 
 }
