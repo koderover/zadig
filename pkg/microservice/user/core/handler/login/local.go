@@ -48,7 +48,7 @@ func LocalLogout(c *gin.Context) {
 	}
 	if shouldRedirect {
 		c.Header("Location", redirectURL)
-		c.Header("Content-Type", "text/html")
+		c.Header("Content-Type", "text/html;")
 		c.Status(http.StatusFound)
 		return
 	}
