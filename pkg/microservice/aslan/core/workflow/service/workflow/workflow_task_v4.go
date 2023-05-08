@@ -515,6 +515,12 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			}
 		}
 	}
+	
+	task.Status = config.StatusCreated
+	task.StartTime = time.Now().Unix()
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(task); err != nil {
+		log.Errorf("send workflow task notification failed, error: %v", err)
+	}
 
 	if err := workflowcontroller.UpdateTask(task); err != nil {
 		log.Errorf("retry workflow task error: %v", err)
