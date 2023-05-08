@@ -25,7 +25,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/koderover/zadig/pkg/tool/log"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,6 +46,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func GetKubeAPIReader(clusterID string) (client.Reader, error) {
@@ -692,6 +692,42 @@ rules:
   - '*'
   verbs:
   - '*'
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: workflow-cm-manager
+  namespace: koderover-agent
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["*"]
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: workflow-cm-sa
+  namespace: koderover-agent
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: workflow-cm-rolebinding
+  namespace: koderover-agent
+subjects:
+- kind: ServiceAccount
+  name: workflow-cm-sa
+  namespace: koderover-agent
+roleRef:
+  kind: Role
+  name: workflow-cm-manager
+  apiGroup: rbac.authorization.k8s.io
 
 ---
 

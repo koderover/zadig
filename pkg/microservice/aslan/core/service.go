@@ -26,6 +26,10 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
+
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -47,6 +51,8 @@ import (
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	hubserverconfig "github.com/koderover/zadig/pkg/microservice/hubserver/config"
+	"github.com/koderover/zadig/pkg/microservice/hubserver/core/repository/mongodb"
 	policydb "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	policybundle "github.com/koderover/zadig/pkg/microservice/policy/core/service/bundle"
 	configmongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
@@ -136,6 +142,7 @@ func Start(ctx context.Context) {
 
 	initService()
 	initDinD()
+	initResourcesForExternalClusters()
 
 	// old config service initialization, it didn't panic or stop if it fails, so I will just keep it that way.
 	InitializeConfigFeatureGates()
@@ -188,6 +195,92 @@ func initService() {
 
 	if err := workflowservice.SubScribeNSQ(); err != nil {
 		errors = multierror.Append(errors, err)
+	}
+}
+
+// initResourcesForExternalClusters create role, serviceAccount and roleBinding for custom workflow
+// The custom workflow requires a serviceAccount with configMap permission
+func initResourcesForExternalClusters() {
+	logger := log.SugaredLogger().With("func", "initResourcesForExternalClusters")
+	list, err := mongodb.NewK8sClusterColl().FindConnectedClusters()
+	if err != nil {
+		logger.Fatalf("FindConnectedClusters err: %v", err)
+	}
+	namespace := "koderover-agent"
+
+	for _, cluster := range list {
+		if cluster.Local || cluster.Status != hubserverconfig.Normal {
+			continue
+		}
+		client, err := kubeclient.GetKubeClient(config.HubServerAddress(), cluster.ID.Hex())
+		if err != nil {
+			logger.Fatalf("GetKubeClient id-%s err: %v", cluster.ID.Hex(), err)
+		}
+
+		// create role
+		role := &rbacv1.Role{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "workflow-cm-manager",
+				Namespace: namespace,
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"configmaps"},
+					Verbs:     []string{"*"},
+				},
+			},
+		}
+		if err := client.Create(context.Background(), role); err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				logger.Infof("cluster %s role is already exist", cluster.Name)
+			} else {
+				logger.Fatalf("cluster %s create role err: %s", cluster.Name, err)
+			}
+		}
+
+		// create service account
+		serviceAccount := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "workflow-cm-sa",
+				Namespace: namespace,
+			},
+		}
+		if err := client.Create(context.Background(), serviceAccount); err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				logger.Infof("cluster %s serviceAccount is already exist", cluster.Name)
+			} else {
+				logger.Fatalf("cluster %s create serviceAccount err: %s", cluster.Name, err)
+			}
+		}
+
+		// create role binding
+		roleBinding := &rbacv1.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "workflow-cm-rolebinding",
+				Namespace: namespace,
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      "ServiceAccount",
+					Name:      "workflow-cm-sa",
+					Namespace: namespace,
+				},
+			},
+			RoleRef: rbacv1.RoleRef{
+				Kind:     "Role",
+				Name:     "workflow-cm-manager",
+				APIGroup: "rbac.authorization.k8s.io",
+			},
+		}
+		if err := client.Create(context.Background(), roleBinding); err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				logger.Infof("cluster %s role binding is already exist", cluster.Name)
+			} else {
+				logger.Fatalf("cluster %s create role binding err: %s", cluster.Name, err)
+			}
+		}
+		logger.Infof("cluster %s done", cluster.Name)
 	}
 }
 
