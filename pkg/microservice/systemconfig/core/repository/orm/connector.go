@@ -30,6 +30,19 @@ type ConnectorColl struct {
 	coll string
 }
 
+//func init() {
+//	name := models.Connector{}.TableName()
+//	ret := &ConnectorColl{
+//		DB:   gormtool.DB(config.MysqlDexDB()),
+//		coll: name,
+//	}
+//
+//	err := ret.AutoMigrate(&models.Connector{})
+//	if err != nil {
+//		panic(err)
+//	}
+//}
+
 func NewConnectorColl() *ConnectorColl {
 	name := models.Connector{}.TableName()
 	return &ConnectorColl{

@@ -17,6 +17,8 @@ limitations under the License.
 package login
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
@@ -32,4 +34,21 @@ func LocalLogin(c *gin.Context) {
 		return
 	}
 	ctx.Resp, ctx.Err = login.LocalLogin(args, ctx.Logger)
+}
+
+func LocalLogout(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	shouldRedirect, redirectURL, err := login.LocalLogout(ctx.UserID, ctx.Logger)
+	if err != nil {
+		// TODO: for now only oauth2 service need to actually logout, so we just do nothing when an error happen
+		// this need to be fixed when there are more logout logic.
+		return
+	}
+	if shouldRedirect {
+		c.Header("Location", redirectURL)
+		c.Status(http.StatusFound)
+		return
+	}
 }

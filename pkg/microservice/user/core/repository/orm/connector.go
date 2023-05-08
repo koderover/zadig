@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,29 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package core
+package orm
 
 import (
-	"context"
-	_ "embed"
-
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"gorm.io/gorm"
 
-	config2 "github.com/koderover/zadig/pkg/microservice/user/config"
-	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 )
 
-var DB *gorm.DB
-var DexDB *gorm.DB
+func GetConnectorInfo(id string, db *gorm.DB) (*models.Connector, error) {
+	res := &models.Connector{}
+	result := db.First(&res, "id=?", id)
 
-func Start(_ context.Context) {
-	DB = gormtool.DB(config2.MysqlUserDB())
-	DexDB = gormtool.DB(config2.MysqlDexDB())
-
-	err := gormtool.DB(config2.MysqlDexDB()).AutoMigrate(&models.Connector{})
-	if err != nil {
-		panic(err)
-	}
+	return res, result.Error
 }
