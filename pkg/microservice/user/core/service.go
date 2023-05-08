@@ -21,10 +21,10 @@ import (
 	_ "embed"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"gorm.io/gorm"
 
 	config2 "github.com/koderover/zadig/pkg/microservice/user/config"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 )
 
