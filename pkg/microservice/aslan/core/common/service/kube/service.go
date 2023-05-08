@@ -35,8 +35,6 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -48,6 +46,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func GetKubeAPIReader(clusterID string) (client.Reader, error) {
