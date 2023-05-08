@@ -147,7 +147,6 @@ func (s *IssueService) SearchByJQL(jql string, findAll bool) ([]*Issue, error) {
 		}
 		start = next
 	}
-	return re, nil
 }
 
 func (s *IssueService) searchByJQL(jql string, start int) ([]*Issue, int, error) {

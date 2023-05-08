@@ -119,7 +119,12 @@ func ValidateMeego(info *models.ProjectManagement) error {
 	return nil
 }
 
-func ListJiraProjects() ([]string, error) {
+type JiraProjectsResp struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
+func ListJiraProjects() ([]JiraProjectsResp, error) {
 	info, err := mongodb.NewProjectManagementColl().GetJira()
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -127,7 +132,20 @@ func ListJiraProjects() ([]string, error) {
 		}
 		return nil, err
 	}
-	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Project.ListProjects()
+
+	list, err := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Project.ListProjects()
+	if err != nil {
+		return nil, err
+	}
+
+	var resp []JiraProjectsResp
+	for _, project := range list {
+		resp = append(resp, JiraProjectsResp{
+			Name: project.Name,
+			Key:  project.Key,
+		})
+	}
+	return resp, nil
 }
 
 func GetJiraTypes(project string) ([]*jira.IssueTypeWithStatus, error) {
@@ -139,6 +157,17 @@ func GetJiraTypes(project string) ([]*jira.IssueTypeWithStatus, error) {
 		return nil, err
 	}
 	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.GetTypes(project)
+}
+
+func GetJiraAllStatus(project string) ([]string, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJira()
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Project.ListAllStatues(project)
 }
 
 func SearchJiraIssues(project, _type, status, summary string, ne bool) ([]*jira.Issue, error) {
@@ -168,6 +197,18 @@ func SearchJiraIssues(project, _type, status, summary string, ne bool) ([]*jira.
 	}
 	// Search all results only if the summary query exist
 	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.SearchByJQL(strings.Join(jql, " AND "), summary != "")
+}
+
+func SearchJiraProjectIssuesWithJQL(project, jql string) ([]*jira.Issue, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJira()
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+	jql = fmt.Sprintf(`project = "%s" AND (%s)`, project, jql)
+	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.SearchByJQL(jql, true)
 }
 
 func HandleJiraHookEvent(workflowName, hookName string, event *jira.Event, logger *zap.SugaredLogger) error {
