@@ -22,3 +22,8 @@ const (
 	JobSuccess JobStatus = "success"
 	JobFail    JobStatus = "fail"
 )
+
+const (
+	JobResultKey  = "job-result"
+	JobOutputsKey = "job-outputs"
+)
