@@ -17,18 +17,26 @@ limitations under the License.
 package gin
 
 import (
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/metrics"
 )
 
 func RegisterRequest() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		start := time.Now()
 		startTime := time.Now().UnixMilli()
 		path := c.Request.URL.Path
 		c.Next()
 
+		if strings.Contains(c.Request.URL.Path, "workflow/sse") {
+			log.SugaredLogger().With("path", c.Request.URL.Path).
+				With("cost", time.Since(start).String()).Infof("DEBUG-1")
+		}
 		metrics.RegisterRequest(startTime, c.Request.Method, path, c.Writer.Status())
 	}
 }
