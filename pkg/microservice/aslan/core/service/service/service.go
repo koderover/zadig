@@ -160,6 +160,7 @@ func GetServiceTemplateOption(serviceName, productName string, revision int64, l
 	return serviceOption, err
 }
 
+// DEPRECATED ???
 // getTemplateMergedVariables gets merged variable yaml if service is created from yaml template
 func getTemplateMergedVariables(args *commonmodels.Service) string {
 	if args.TemplateID == "" {
@@ -171,7 +172,7 @@ func getTemplateMergedVariables(args *commonmodels.Service) string {
 		return ""
 	}
 
-	variableYaml, err := buildYamlTemplateVariables(args, templateInfo)
+	variableYaml, _, err := buildYamlTemplateVariables(args, templateInfo)
 	if err != nil {
 		log.Errorf("failed to extract template variables for service: %s, err: %s", args.ServiceName, err)
 		return ""
@@ -677,23 +678,11 @@ func extractAndMergeServiceVariable(args *commonmodels.Service, curRevision *com
 		args.ServiceVariableKVs = curRevision.ServiceVariableKVs
 	}
 
-	// merge extracted serviceVariableKVs and args' ServiceVariableKVs
-	tmplKVSet := sets.NewString()
-	for _, serviceVariableKV := range args.ServiceVariableKVs {
-		tmplKVSet.Insert(serviceVariableKV.Key)
-		args.ServiceVariableKVs = append(args.ServiceVariableKVs, serviceVariableKV)
-	}
-
-	for _, serviceVariableKV := range extractServiceVariableKVs {
-		if !tmplKVSet.Has(serviceVariableKV.Key) {
-			args.ServiceVariableKVs = append(args.ServiceVariableKVs, serviceVariableKV)
-		}
-	}
-
-	args.VariableYaml, err = commontypes.ServiceVariableKVToYaml(args.ServiceVariableKVs)
+	args.VariableYaml, args.ServiceVariableKVs, err = commontypes.MergeServiceVariableKVsIfNotExist(extractServiceVariableKVs, args.ServiceVariableKVs)
 	if err != nil {
-		return fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
+		return fmt.Errorf("failed to merge service variables, err %w", err)
 	}
+
 	return nil
 }
 

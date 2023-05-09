@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -149,11 +150,12 @@ func (a *BulkHelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
 }
 
 type LoadServiceFromYamlTemplateReq struct {
-	ServiceName  string `json:"service_name"`
-	ProjectName  string `json:"project_name"`
-	TemplateID   string `json:"template_id"`
-	AutoSync     bool   `json:"auto_sync"`
-	VariableYaml string `json:"variable_yaml"`
+	ServiceName        string                           `json:"service_name"`
+	ProjectName        string                           `json:"project_name"`
+	TemplateID         string                           `json:"template_id"`
+	AutoSync           bool                             `json:"auto_sync"`
+	VariableYaml       string                           `json:"variable_yaml"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
 }
 
 type OpenAPILoadServiceFromYamlTemplateReq struct {

@@ -186,3 +186,46 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 
 	return retKV, nil
 }
+
+func MergeServiceVariableKVsIfNotExist(origin, new []*ServiceVariableKV) (yaml string, kvs []*ServiceVariableKV, err error) {
+	KVSet := sets.NewString()
+	for _, kv := range origin {
+		KVSet.Insert(kv.Key)
+	}
+
+	for _, kv := range new {
+		if !KVSet.Has(kv.Key) {
+			origin = append(origin, kv)
+		}
+	}
+
+	yaml, err = ServiceVariableKVToYaml(origin)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
+	}
+
+	return yaml, origin, nil
+}
+
+func MergeServiceVariableKVs(base, override []*ServiceVariableKV) (yaml string, kvs []*ServiceVariableKV, err error) {
+	baseMap := map[string]*ServiceVariableKV{}
+	for _, kv := range base {
+		baseMap[kv.Key] = kv
+	}
+
+	for _, kv := range override {
+		baseMap[kv.Key] = kv
+	}
+
+	ret := []*ServiceVariableKV{}
+	for _, kv := range baseMap {
+		ret = append(ret, kv)
+	}
+
+	yaml, err = ServiceVariableKVToYaml(ret)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
+	}
+
+	return yaml, ret, nil
+}

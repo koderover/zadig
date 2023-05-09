@@ -301,6 +301,23 @@ definitions:
     - kvs
     - yaml
     type: object
+  service.LoadServiceFromYamlTemplateReq:
+    properties:
+      auto_sync:
+        type: boolean
+      project_name:
+        type: string
+      service_name:
+        type: string
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      template_id:
+        type: string
+      variable_yaml:
+        type: string
+    type: object
   service.ServiceModule:
     properties:
       build_names:
@@ -345,6 +362,34 @@ definitions:
     x-enum-varnames:
     - PMHostStatusNormal
     - PMHostStatusAbnormal
+  template.YamlDetail:
+    properties:
+      content:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
+  template.YamlTemplate:
+    properties:
+      content:
+        type: string
+      name:
+        type: string
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
   types.ServiceVariableKV:
     properties:
       desc:
@@ -463,6 +508,136 @@ paths:
       summary: convert varaible kv and yaml
       tags:
       - service
+  /service/template/load:
+    post:
+      consumes:
+      - application/json
+      description: Load service from yaml template
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.LoadServiceFromYamlTemplateReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Load service from yaml template
+      tags:
+      - service
+  /service/template/reload:
+    post:
+      consumes:
+      - application/json
+      description: Reload service from yaml template
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.LoadServiceFromYamlTemplateReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Reload service from yaml template
+      tags:
+      - service
+  /template/yaml:
+    post:
+      consumes:
+      - application/json
+      description: Create yaml template
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/template.YamlTemplate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Create yaml template
+      tags:
+      - template
+  /template/yaml/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get yaml template detail
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/template.YamlDetail'
+      summary: Get yaml template detail
+      tags:
+      - template
+    put:
+      consumes:
+      - application/json
+      description: Update yaml template
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/template.YamlTemplate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update yaml template
+      tags:
+      - template
+  /template/yaml/{id}/variable:
+    put:
+      consumes:
+      - application/json
+      description: Update yaml template variable
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/template.YamlTemplate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update yaml template variable
+      tags:
+      - template
   /template/yaml/validateVariable:
     post:
       consumes:
