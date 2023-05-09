@@ -22,15 +22,14 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/converter"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
@@ -41,11 +40,20 @@ var DefaultSystemVariable = map[string]string{
 }
 
 func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogger) error {
-	err := commonrepo.NewYamlTemplateColl().Create(&models.YamlTemplate{
-		Name:         template.Name,
-		Content:      template.Content,
-		VariableYaml: template.VariableYaml,
-		//Variables:    nil,
+	extractVariableYmal, err := yamlutil.ExtractVariableYaml(template.Content)
+	if err != nil {
+		return fmt.Errorf("failed to extract variable yaml from service yaml, err: %w", err)
+	}
+	extractServiceVariableKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYmal, nil)
+	if err != nil {
+		return fmt.Errorf("failed to convert variable yaml to service variable kv, err: %w", err)
+	}
+
+	err = commonrepo.NewYamlTemplateColl().Create(&models.YamlTemplate{
+		Name:               template.Name,
+		Content:            template.Content,
+		VariableYaml:       extractVariableYmal,
+		ServiceVariableKVs: extractServiceVariableKVs,
 	})
 	if err != nil {
 		logger.Errorf("create dockerfile template error: %s", err)
@@ -54,14 +62,32 @@ func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogg
 }
 
 func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
-	err := commonrepo.NewYamlTemplateColl().Update(
+	extractVariableYmal, err := yamlutil.ExtractVariableYaml(template.Content)
+	if err != nil {
+		return fmt.Errorf("failed to extract variable yaml from service yaml, err: %w", err)
+	}
+	extractServiceVariableKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYmal, nil)
+	if err != nil {
+		return fmt.Errorf("failed to convert variable yaml to service variable kv, err: %w", err)
+	}
+
+	origin, err := commonrepo.NewYamlTemplateColl().GetById(id)
+	if err != nil {
+		return fmt.Errorf("failed to find template by id: %s, err: %w", id, err)
+	}
+
+	template.VariableYaml, template.ServiceVariableKVs, err = commontypes.MergeServiceVariableKVsIfNotExist(origin.ServiceVariableKVs, extractServiceVariableKVs)
+	if err != nil {
+		return fmt.Errorf("failed to merge service variables, err %w", err)
+	}
+
+	err = commonrepo.NewYamlTemplateColl().Update(
 		id,
 		&models.YamlTemplate{
-			Name:    template.Name,
-			Content: template.Content,
-			//Variables:    nil,
-			VariableYaml: template.VariableYaml,
-			ServiceVars:  template.ServiceVars,
+			Name:               template.Name,
+			Content:            template.Content,
+			VariableYaml:       template.VariableYaml,
+			ServiceVariableKVs: template.ServiceVariableKVs,
 		},
 	)
 	if err != nil {
@@ -71,9 +97,17 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 }
 
 func UpdateYamlTemplateVariable(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
-	// NOTE. technically the content of variable yaml should be validated
-	// but the service is not rendered before applied to k8s, we ignore the validation on template
-	err := commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml, template.ServiceVars)
+	origin, err := commonrepo.NewYamlTemplateColl().GetById(id)
+	if err != nil {
+		return fmt.Errorf("failed to find template by id: %s, err: %w", id, err)
+	}
+
+	_, err = commonutil.RenderK8sSvcYamlStrict(origin.Content, "FakeProjectName", "FakeServiceName", template.VariableYaml)
+	if err != nil {
+		return fmt.Errorf("failed to validate variable, err: %s", err)
+	}
+
+	err = commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml, template.ServiceVariableKVs)
 	if err != nil {
 		logger.Errorf("update yaml template variable error: %s", err)
 	}
@@ -106,31 +140,8 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.Yaml
 	resp.ID = yamlTemplate.ID.Hex()
 	resp.Name = yamlTemplate.Name
 	resp.Content = yamlTemplate.Content
-	resp.ServiceVars = yamlTemplate.ServiceVars
 	resp.VariableYaml = yamlTemplate.VariableYaml
-	if len(resp.VariableYaml) > 0 {
-		flatMap, err := converter.YamlToFlatMap([]byte(resp.VariableYaml))
-		if err != nil {
-			log.Errorf("failed to get flat map of variable, err: %s", err)
-		} else {
-			allKeys := sets.NewString()
-			for k, v := range flatMap {
-				resp.VariableKVs = append(resp.VariableKVs, &models.VariableKV{
-					Key:   k,
-					Value: v,
-				})
-				allKeys.Insert(k)
-			}
-			validServiceVars := make([]string, 0)
-			for _, k := range resp.ServiceVars {
-				if allKeys.Has(k) {
-					validServiceVars = append(validServiceVars, k)
-				}
-			}
-			resp.ServiceVars = validServiceVars
-		}
-	}
-	//resp.VariableYaml, err = template.GetTemplateVariableYaml(yamlTemplate.Variables, yamlTemplate.VariableYaml)
+	resp.ServiceVariableKVs = yamlTemplate.ServiceVariableKVs
 	return resp, err
 }
 

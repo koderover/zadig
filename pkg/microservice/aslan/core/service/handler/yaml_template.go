@@ -26,6 +26,14 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
+// @Summary Load service from yaml template
+// @Description Load service from yaml template
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	body 	body 		svcservice.LoadServiceFromYamlTemplateReq 	true 	"body"
+// @Success 200
+// @Router /service/template/load [post]
 func LoadServiceFromYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -59,6 +67,14 @@ func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 	ctx.Err = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
 
+// @Summary Reload service from yaml template
+// @Description Reload service from yaml template
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	body 	body 		svcservice.LoadServiceFromYamlTemplateReq 	true 	"body"
+// @Success 200
+// @Router /service/template/reload [post]
 func ReloadServiceFromYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
