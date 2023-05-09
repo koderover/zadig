@@ -27,6 +27,14 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
+// @Summary Create yaml template
+// @Description Create yaml template
+// @Tags 	template
+// @Accept 	json
+// @Produce json
+// @Param 	body 	body 		template.YamlTemplate		true 	"body"
+// @Success 200
+// @Router /template/yaml [post]
 func CreateYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -44,6 +52,15 @@ func CreateYamlTemplate(c *gin.Context) {
 	ctx.Err = templateservice.CreateYamlTemplate(req, ctx.Logger)
 }
 
+// @Summary Update yaml template
+// @Description Update yaml template
+// @Tags 	template
+// @Accept 	json
+// @Produce json
+// @Param 	id		path		string						true	"template id"
+// @Param 	body 	body 		template.YamlTemplate		true 	"body"
+// @Success 200
+// @Router /template/yaml/{id} [put]
 func UpdateYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -61,6 +78,15 @@ func UpdateYamlTemplate(c *gin.Context) {
 	ctx.Err = templateservice.UpdateYamlTemplate(c.Param("id"), req, ctx.Logger)
 }
 
+// @Summary Update yaml template variable
+// @Description Update yaml template variable
+// @Tags 	template
+// @Accept 	json
+// @Produce json
+// @Param 	id		path		string						true	"template id"
+// @Param 	body 	body 		template.YamlTemplate		true 	"body"
+// @Success 200
+// @Router /template/yaml/{id}/variable [put]
 func UpdateYamlTemplateVariable(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -111,6 +137,14 @@ func ListYamlTemplate(c *gin.Context) {
 	ctx.Err = err
 }
 
+// @Summary Get yaml template detail
+// @Description Get yaml template detail
+// @Tags 	template
+// @Accept 	json
+// @Produce json
+// @Param 	id		path		string						true	"template id"
+// @Success 200 	{object} 	template.YamlDetail
+// @Router /template/yaml/{id} [get]
 func GetYamlTemplateDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -169,6 +203,7 @@ func ValidateTemplateVariables(c *gin.Context) {
 	ctx.Err = templateservice.ValidateVariable(req.Content, req.VariableYaml)
 }
 
+// DEPRECATED since 1.18, now we auto extract varialbes when save yaml content
 func ExtractTemplateVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -182,6 +217,7 @@ func ExtractTemplateVariables(c *gin.Context) {
 	ctx.Resp, ctx.Err = templateservice.ExtractVariable(req.VariableYaml)
 }
 
+// DEPRECATED, since 1.18
 func GetFlatKvs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

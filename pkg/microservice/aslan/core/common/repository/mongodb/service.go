@@ -364,8 +364,8 @@ func (c *ServiceColl) UpdateServiceVariables(args *models.Service) error {
 
 	query := bson.M{"product_name": args.ProductName, "service_name": args.ServiceName, "revision": args.Revision}
 	changeMap := bson.M{
-		"variable_yaml": args.VariableYaml,
-		"service_vars":  args.ServiceVars,
+		"variable_yaml":        args.VariableYaml,
+		"service_variable_kvs": args.ServiceVariableKVs,
 	}
 	change := bson.M{"$set": changeMap}
 	_, err := c.UpdateOne(context.TODO(), query, change)

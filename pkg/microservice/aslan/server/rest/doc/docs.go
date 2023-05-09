@@ -142,6 +142,99 @@ const docTemplate = `{
                 }
             }
         },
+        "/service/template/load": {
+            "post": {
+                "description": "Load service from yaml template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Load service from yaml template",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.LoadServiceFromYamlTemplateReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/service/template/reload": {
+            "post": {
+                "description": "Reload service from yaml template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Reload service from yaml template",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.LoadServiceFromYamlTemplateReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/template/yaml": {
+            "post": {
+                "description": "Create yaml template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "template"
+                ],
+                "summary": "Create yaml template",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/template.YamlTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/template/yaml/validateVariable": {
             "post": {
                 "description": "Validate template varaibles",
@@ -163,6 +256,112 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/handler.getYamlTemplateVariablesReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/template/yaml/{id}": {
+            "get": {
+                "description": "Get yaml template detail",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "template"
+                ],
+                "summary": "Get yaml template detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/template.YamlDetail"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update yaml template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "template"
+                ],
+                "summary": "Update yaml template",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/template.YamlTemplate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/template/yaml/{id}/variable": {
+            "put": {
+                "description": "Update yaml template variable",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "template"
+                ],
+                "summary": "Update yaml template variable",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "template id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/template.YamlTemplate"
                         }
                     }
                 ],
@@ -622,6 +821,32 @@ const docTemplate = `{
                 }
             }
         },
+        "service.LoadServiceFromYamlTemplateReq": {
+            "type": "object",
+            "properties": {
+                "auto_sync": {
+                    "type": "boolean"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "service_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.ServiceVariableKV"
+                    }
+                },
+                "template_id": {
+                    "type": "string"
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
         "service.ServiceModule": {
             "type": "object",
             "properties": {
@@ -687,6 +912,49 @@ const docTemplate = `{
                 "PMHostStatusNormal",
                 "PMHostStatusAbnormal"
             ]
+        },
+        "template.YamlDetail": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "service_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.ServiceVariableKV"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "template.YamlTemplate": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "service_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.ServiceVariableKV"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
         },
         "types.ServiceVariableKV": {
             "type": "object",
