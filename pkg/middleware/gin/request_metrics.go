@@ -33,6 +33,10 @@ func RegisterRequest() gin.HandlerFunc {
 		path := c.Request.URL.Path
 		c.Next()
 
+		if c.Request.Header.Get("Accept") == "text/event-stream" {
+			log.SugaredLogger().With("path", c.Request.URL.Path).
+				With("cost", time.Since(start).String()).Infof("DEBUG-2")
+		}
 		if strings.Contains(c.Request.URL.Path, "workflow/sse") {
 			log.SugaredLogger().With("path", c.Request.URL.Path).
 				With("cost", time.Since(start).String()).Infof("DEBUG-1")
