@@ -52,7 +52,7 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 	//compare to last revision, delete related schedulers when env is deleted
 	c.compareHelmProductEnvRevision(envs, log)
 
-	log.Info("start init env values sync scheduler... env count: %v", len(envs))
+	log.Infof("start init env values sync scheduler... env count: %v", len(envs))
 	for _, env := range envs {
 		log.Infof("schedule_env_update handle single helm env: %s/%s", env.ProductName, env.EnvName)
 		envObj, err := c.AslanCli.GetEnvService(env.ProductName, env.EnvName, log)

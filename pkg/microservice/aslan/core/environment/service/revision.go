@@ -142,20 +142,6 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		prodRev.Updatable = true
 	}
 
-	//var newRender, oldRender *commonmodels.RenderSet
-	//if prodTmpl.ProductFeature == nil || prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
-	//	// TODO is it the right way to fetch new product?
-	//	newRender, err = render.GetRenderSet(product.Render.Name, 0, false, product.EnvName, log)
-	//	if err != nil {
-	//		return prodRev, err
-	//	}
-	//
-	//	oldRender, err = render.GetRenderSet(product.Render.Name, product.Render.Revision, false, product.EnvName, log)
-	//	if err != nil {
-	//		return prodRev, err
-	//	}
-	//}
-
 	// 交叉对比已创建的服务组和服务组模板
 	prodRev.ServiceRevisions, err = compareGroupServicesRev(prodTmpl.Services, product, allServiceTmpls, log)
 	if err != nil {
@@ -306,29 +292,11 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 			}
 			serviceRevs = append(serviceRevs, serviceRev)
 		} else {
-			//maxServiceTmpl, err := getMaxServiceRevision(allServiceTmpls, service.ServiceName, service.ProductName)
-			//if err != nil {
-			//	log.Errorf("Failed to get max service revision. Service: %s; Prodcut: %s; Error: %v",
-			//		service.ServiceName, service.ProductName, err)
-			//	return serviceRevs, err
-			//}
 			maxServiceTmpl, ok := latestSvcTmplMap[service.ServiceName]
 			if !ok {
 				log.Errorf("service %s not found in allServiceTmpls", service.ServiceName)
 				return serviceRevs, fmt.Errorf("failed to find service: %s in allServiceTmpls", service.ServiceName)
 			}
-
-			//currentServiceTmpl, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-			//	ServiceName: service.ServiceName,
-			//	ProductName: service.ProductName,
-			//	Revision:    service.Revision,
-			//	Type:        service.Type,
-			//})
-			//if err != nil {
-			//	log.Errorf("Failed to get service by revision. Service: %s; Product: %s; Type: %s; Revision: %d; Error: %v",
-			//		service.ServiceName, service.ProductName, service.Type, service.Revision, err)
-			//	return serviceRevs, err
-			//}
 
 			serviceRev := &SvcRevision{
 				ServiceName:     service.ServiceName,
@@ -364,12 +332,6 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 					serviceRev.Containers = append(serviceRev.Containers, c)
 				}
 
-				//// 交叉对比已创建的配置和待更新配置模板
-				//// 检查模板yaml渲染后是否有变化
-				//if isRenderedStringUpdatable(currentServiceTmpl, maxServiceTmpl, oldRender, newRender) {
-				//	serviceRev.Updatable = true
-				//}
-
 				serviceRevs = append(serviceRevs, serviceRev)
 			} else if service.Type == setting.HelmDeployType {
 				serviceRevs = append(serviceRevs, serviceRev)
@@ -380,38 +342,3 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 	}
 	return serviceRevs, nil
 }
-
-//func getMaxServiceRevision(services []*commonmodels.Service, serviceName, productName string) (*commonmodels.Service, error) {
-//	resp := &commonmodels.Service{}
-//	for _, service := range services {
-//		if service.ServiceName == serviceName && service.ProductName == productName && service.Revision > resp.Revision {
-//			resp = service
-//		}
-//	}
-//	if resp.ServiceName == "" {
-//		return resp, fmt.Errorf("[%s] no service found", serviceName)
-//	}
-//	return resp, nil
-//}
-
-//func isRenderedStringUpdatable(currentSvc, nextSvc *commonmodels.Service, currentRender, nextRender *commonmodels.RenderSet) bool {
-//	resp := false
-//	currentString, nextString := currentSvc.Yaml, nextSvc.Yaml
-//	currentSvcVars, nextSvcVars := currentSvc.ServiceVars, nextSvc.ServiceVars
-//
-//	currentString, err := kube.RenderServiceYaml(currentString, "", "", currentRender, currentSvcVars, currentSvc.VariableYaml)
-//	if err != nil {
-//		//log.Errorf("failed to check is RenderedString updatable, err: %s", err)
-//		return false
-//	}
-//	nextString, err = kube.RenderServiceYaml(nextString, "", "", nextRender, nextSvcVars, nextSvc.VariableYaml)
-//	if err != nil {
-//		//log.Errorf("failed to check is RenderedString updatable, err: %s", err)
-//		return false
-//	}
-//	if currentString != nextString {
-//		resp = true
-//	}
-//	return resp
-//
-//}
