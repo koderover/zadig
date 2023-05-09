@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,21 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package orm
 
 import (
-	"github.com/koderover/zadig/pkg/setting"
+	"gorm.io/gorm"
+
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 )
 
-const (
-	AppState           = setting.ProductName + "user"
-	SystemIdentityType = "system"
-	OauthIdentityType  = "oauth"
-	FeiShuEmailHost    = "smtp.feishu.cn"
-)
+func GetConnectorInfo(id string, db *gorm.DB) (*models.Connector, error) {
+	res := &models.Connector{}
+	result := db.First(&res, "id=?", id)
 
-type LoginType int
-
-const (
-	AccountLoginType LoginType = 0
-)
+	return res, result.Error
+}

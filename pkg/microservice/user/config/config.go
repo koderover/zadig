@@ -53,6 +53,10 @@ func MysqlUserDB() string {
 	return viper.GetString(setting.ENVMysqlUserDB)
 }
 
+func MysqlDexDB() string {
+	return viper.GetString(setting.ENVMysqlDexDB)
+}
+
 func TokenExpiresAt() int {
 	return viper.GetInt(setting.ENVTokenExpiresAt)
 }
