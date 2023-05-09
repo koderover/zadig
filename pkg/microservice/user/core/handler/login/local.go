@@ -33,3 +33,21 @@ func LocalLogin(c *gin.Context) {
 	}
 	ctx.Resp, ctx.Err = login.LocalLogin(args, ctx.Logger)
 }
+
+type LocalLogoutResp struct {
+	EnableRedirect bool   `json:"enable_redirect"`
+	RedirectURL    string `json:"redirect_url"`
+}
+
+func LocalLogout(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	shouldRedirect, redirectURL, _ := login.LocalLogout(ctx.UserID, ctx.Logger)
+	// TODO: for now only oauth2 service need to actually logout, so we just do nothing when an error happen
+	// this need to be fixed when there are more logout logic.
+	ctx.Resp = &LocalLogoutResp{
+		EnableRedirect: shouldRedirect,
+		RedirectURL:    redirectURL,
+	}
+}

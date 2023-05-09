@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,21 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package models
 
-import (
-	"github.com/koderover/zadig/pkg/setting"
-)
+type Connector struct {
+	ID                string `json:"id"`
+	Type              string `json:"type"`
+	Name              string `json:"name"`
+	ResourceVersion   string `json:"resource_version"`
+	Config            string `json:"config"`
+	EnableLogOut      bool   `json:"enable_logout"`
+	LogoutRedirectURL string `json:"logout_redirect_url"`
+}
 
-const (
-	AppState           = setting.ProductName + "user"
-	SystemIdentityType = "system"
-	OauthIdentityType  = "oauth"
-	FeiShuEmailHost    = "smtp.feishu.cn"
-)
-
-type LoginType int
-
-const (
-	AccountLoginType LoginType = 0
-)
+// TableName sets the insert table name for this struct type
+func (Connector) TableName() string {
+	return "connector"
+}

@@ -144,3 +144,31 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 		IdentityType: user.IdentityType,
 	}, nil
 }
+
+func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error) {
+	userInfo, err := orm.GetUserByUid(userID, core.DB)
+	if err != nil {
+		logger.Errorf("LocalLogout get user:%s error, error msg:%s", userID, err.Error())
+		return false, "", err
+	}
+
+	logger.Infof("user Info: %v", userInfo)
+
+	if userInfo.IdentityType != config.OauthIdentityType {
+		return false, "", nil
+	}
+
+	// if we found a user with ouath login type, we check if the connector is still there
+	// if the connector exist, we check if the logout configuration is enabled and return.
+	connectorInfo, err := orm.GetConnectorInfo(config.OauthIdentityType, core.DexDB)
+	if err != nil {
+		logger.Errorf("LocalLogout get connector info error, error msg:%s", err.Error())
+		return false, "", err
+	}
+
+	if connectorInfo.EnableLogOut {
+		return true, connectorInfo.LogoutRedirectURL, nil
+	}
+
+	return false, "", nil
+}
