@@ -20,11 +20,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/koderover/zadig/pkg/tool/metrics"
 )
 
 func RegisterRequest() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.Request.Header.Get("Accept") == "text/event-stream" {
+			return
+		}
 		startTime := time.Now().UnixMilli()
 		path := c.Request.URL.Path
 		c.Next()
