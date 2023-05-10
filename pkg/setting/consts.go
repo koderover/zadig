@@ -30,11 +30,12 @@ const (
 	ENVMongoDBConnectionString = "MONGODB_CONNECTION_STRING"
 	ENVAslanDBName             = "ASLAN_DB"
 	ENVHubAgentImage           = "HUB_AGENT_IMAGE"
-	ENVResourceServerImage     = "RESOURCE_SERVER_IMAGE"
-	ENVMysqlUser               = "MYSQL_USER"
-	ENVMysqlPassword           = "MYSQL_PASSWORD"
-	ENVMysqlHost               = "MYSQL_HOST"
-	ENVMysqlUserDb             = "MYSQL_USER_DB"
+	ENVResourceImage           = "RESOURCE_IMAGE"
+	//ENVResourceServerImage     = "RESOURCE_SERVER_IMAGE"
+	ENVMysqlUser     = "MYSQL_USER"
+	ENVMysqlPassword = "MYSQL_PASSWORD"
+	ENVMysqlHost     = "MYSQL_HOST"
+	ENVMysqlUserDb   = "MYSQL_USER_DB"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"

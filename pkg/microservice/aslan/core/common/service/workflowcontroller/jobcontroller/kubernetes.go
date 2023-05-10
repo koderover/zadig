@@ -66,12 +66,15 @@ import (
 )
 
 const (
-	BusyBoxImage            = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
-	ZadigContextDir         = "/zadig/"
-	ZadigLogFile            = ZadigContextDir + "zadig.log"
-	ZadigLifeCycleFile      = ZadigContextDir + "lifecycle"
-	JobExecutorFile         = "http://resource-server/jobexecutor"
-	ResourceServer          = "resource-server"
+	BusyBoxImage       = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
+	ResourceImage      = ""
+	ZadigContextDir    = "/zadig/"
+	ZadigLogFile       = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
+	ResourceVolumeName = "resource-data"
+	ResourceVolumePath = "/resource"
+	JobExecutorFile    = ResourceVolumePath + "/jobexecutor"
+	//ResourceServer          = "resource-server"
 	defaultSecretEmail      = "bot@koderover.com"
 	registrySecretSuffix    = "-registry-secret"
 	workflowConfigMapRoleSA = "workflow-cm-sa"
@@ -372,11 +375,11 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 		jobExecutorBinaryFile    = JobExecutorFile
 	)
 	// not local cluster
-	if clusterID != "" && clusterID != setting.LocalClusterID {
-		jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+".koderover-agent", -1)
-	} else {
-		jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+"."+currentNamespace, -1)
-	}
+	//if clusterID != "" && clusterID != setting.LocalClusterID {
+	//	jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+".koderover-agent", -1)
+	//} else {
+	//	jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+"."+currentNamespace, -1)
+	//}
 
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
@@ -394,7 +397,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 	if jobTask.BreakpointAfter {
 		jobExecutorBootingScript += fmt.Sprintf("touch %sdebug/breakpoint_after;", ZadigContextDir)
 	}
-	jobExecutorBootingScript += fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", jobExecutorBinaryFile)
+	jobExecutorBootingScript += jobExecutorBinaryFile
 
 	labels := getJobLabels(&JobLabel{
 		JobType: string(jobType),
@@ -427,15 +430,20 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 					RestartPolicy:      corev1.RestartPolicyNever,
 					ImagePullSecrets:   ImagePullSecrets,
 					ServiceAccountName: workflowConfigMapRoleSA,
-					// InitContainers: []corev1.Container{
-					// 	{
-					// 		ImagePullPolicy: corev1.PullIfNotPresent,
-					// 		Name:            "init-log-file",
-					// 		Image:           BusyBoxImage,
-					// 		VolumeMounts:    getVolumeMounts(workflowCtx.ConfigMapMountDir),
-					// 		Command:         []string{"/bin/sh", "-c", fmt.Sprintf("touch %s %s", ZadigLogFile, ZadigLifeCycleFile)},
-					// 	},
-					// },
+					InitContainers: []corev1.Container{
+						{
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Name:            "resource-init",
+							Image:           config.ResourceImage(),
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      ResourceVolumeName,
+									MountPath: ResourceVolumePath,
+								},
+							},
+							Command: []string{"/bin/sh", "-c", fmt.Sprintf("cp /app/* %s", ResourceVolumePath)},
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullAlways,
@@ -658,6 +666,10 @@ func getVolumeMounts(configMapMountDir string, userHostDockerDaemon bool) []core
 		Name:      "zadig-context",
 		MountPath: ZadigContextDir,
 	})
+	resp = append(resp, corev1.VolumeMount{
+		Name:      ResourceVolumeName,
+		MountPath: ResourceVolumePath,
+	})
 	if userHostDockerDaemon {
 		resp = append(resp, corev1.VolumeMount{
 			Name:      "docker-sock",
@@ -681,6 +693,12 @@ func getVolumes(jobName string, userHostDockerDaemon bool) []corev1.Volume {
 	})
 	resp = append(resp, corev1.Volume{
 		Name: "zadig-context",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+	resp = append(resp, corev1.Volume{
+		Name: ResourceVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},

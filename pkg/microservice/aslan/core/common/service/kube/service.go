@@ -269,7 +269,7 @@ func (s *Service) ListConnectedClusters(logger *zap.SugaredLogger) ([]*models.K8
 	return clusters, nil
 }
 
-func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useDeployment bool, logger *zap.SugaredLogger) ([]byte, error) {
+func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment bool, logger *zap.SugaredLogger) ([]byte, error) {
 	var (
 		cluster *models.K8SCluster
 		err     error
@@ -301,7 +301,6 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 	if cluster.Namespace == "" {
 		err = YamlTemplate.Execute(buffer, TemplateSchema{
 			HubAgentImage:        agentImage,
-			ResourceServerImage:  rsImage,
 			ClientToken:          token,
 			HubServerBaseAddr:    hubBase.String(),
 			AslanBaseAddr:        config2.SystemAddress(),
@@ -317,7 +316,6 @@ func (s *Service) GetYaml(id, agentImage, rsImage, aslanURL, hubURI string, useD
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
 			HubAgentImage:        agentImage,
-			ResourceServerImage:  rsImage,
 			ClientToken:          token,
 			HubServerBaseAddr:    hubBase.String(),
 			AslanBaseAddr:        config2.SystemAddress(),
@@ -384,8 +382,7 @@ func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemo
 // InitializeExternalCluster initialized the resources in the cluster for zadig to run correctly.
 // if the cluster is of type kubeconfig, we need to create following resource:
 // Namespace: koderover-agent
-// Deployment: resource-server
-// Service:    resource-server, dind
+// Service: dind
 // StatefulSet: dind
 func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 	clientset, err := kubeclient.GetKubeClientSet(hubserverAddr, clusterID)
@@ -403,78 +400,6 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create namespace \"koderover-agent\" in the new cluster, error: %s", err)
 		}
-	}
-
-	resourceServerLabelMap := map[string]string{
-		"app.kubernetes.io/component": "resource-server",
-		"app.kubernetes.io/name":      "zadig",
-	}
-
-	// Then we create the resource-server deployment
-	resourceServerDeploymentSpec := &appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "resource-server",
-			Labels: resourceServerLabelMap,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: resourceServerLabelMap,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: resourceServerLabelMap,
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						corev1.Container{
-							Name:  "resource-server",
-							Image: config.ResourceServerImage(),
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(500) + setting.CpuUintM),
-									corev1.ResourceMemory: resource.MustParse(strconv.Itoa(500) + setting.MemoryUintMi),
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(100) + setting.CpuUintM),
-									corev1.ResourceMemory: resource.MustParse(strconv.Itoa(100) + setting.MemoryUintMi),
-								},
-							},
-							ImagePullPolicy: "Always",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	_, err = clientset.AppsV1().Deployments("koderover-agent").Create(context.TODO(), resourceServerDeploymentSpec, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to create resource server deployment to initialize cluster, err: %s", err)
-	}
-
-	// Resource-server service
-	resourceServerService := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "resource-server",
-			Labels: resourceServerLabelMap,
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Protocol:   "TCP",
-					Port:       80,
-					TargetPort: intstr.FromInt(80),
-				},
-			},
-			Selector: resourceServerLabelMap,
-			Type:     "ClusterIP",
-		},
-	}
-
-	_, err = clientset.CoreV1().Services("koderover-agent").Create(context.TODO(), resourceServerService, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to create resource server service to initialize cluster, err: %s", err)
 	}
 
 	dindLabelMap := map[string]string{
@@ -595,7 +520,7 @@ func RemoveClusterResources(hubserverAddr, clusterID string) error {
 
 	err = clientset.CoreV1().Services("koderover-agent").Delete(context.TODO(), "resource-server", metav1.DeleteOptions{})
 	if err != nil {
-		log.Errorf("failed to delete dind service, err: %s", err)
+		log.Errorf("failed to delete resource-server service, err: %s", err)
 	}
 
 	err = clientset.AppsV1().Deployments("koderover-agent").Delete(context.TODO(), "resource-server", metav1.DeleteOptions{})
@@ -618,7 +543,6 @@ func RemoveClusterResources(hubserverAddr, clusterID string) error {
 
 type TemplateSchema struct {
 	HubAgentImage        string
-	ResourceServerImage  string
 	ClientToken          string
 	HubServerBaseAddr    string
 	Namespace            string
@@ -817,60 +741,6 @@ spec:
 ---
 
 apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: resource-server
-  namespace: koderover-agent
-  labels:
-    app.kubernetes.io/component: resource-server
-    app.kubernetes.io/name: zadig
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app.kubernetes.io/component: resource-server
-      app.kubernetes.io/name: zadig
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/component: resource-server
-        app.kubernetes.io/name: zadig
-    spec:
-      containers:
-        - image: {{.ResourceServerImage}}
-          imagePullPolicy: Always
-          name: resource-server
-          resources:
-            limits:
-              cpu: 500m
-              memory: 500Mi
-            requests:
-              cpu: 100m
-              memory: 100Mi
-
----
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: resource-server
-  namespace: koderover-agent
-  labels:
-    app.kubernetes.io/component: resource-server
-    app.kubernetes.io/name: zadig
-spec:
-  type: ClusterIP
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
-  selector:
-    app.kubernetes.io/component: resource-server
-    app.kubernetes.io/name: zadig
-
----
-
-apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: dind
@@ -994,6 +864,42 @@ rules:
 
 ---
 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: workflow-cm-manager
+  namespace: {{.Namespace}}
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["*"]
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: workflow-cm-sa
+  namespace: {{.Namespace}}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: workflow-cm-rolebinding
+  namespace: {{.Namespace}}
+subjects:
+- kind: ServiceAccount
+  name: workflow-cm-sa
+  namespace: {{.Namespace}}
+roleRef:
+  kind: Role
+  name: workflow-cm-manager
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -1076,61 +982,6 @@ spec:
   updateStrategy:
     type: RollingUpdate
 {{- end }}
-
----
-
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: resource-server
-  namespace: {{.Namespace}}
-  labels:
-    app.kubernetes.io/component: resource-server
-    app.kubernetes.io/name: zadig
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app.kubernetes.io/component: resource-server
-      app.kubernetes.io/name: zadig
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/component: resource-server
-        app.kubernetes.io/name: zadig
-    spec:
-      containers:
-        - image: {{.ResourceServerImage}}
-          imagePullPolicy: Always
-          name: resource-server
-          resources:
-            limits:
-              cpu: 500m
-              memory: 500Mi
-            requests:
-              cpu: 100m
-              memory: 100Mi
-
----
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: resource-server
-  namespace: {{.Namespace}}
-  labels:
-    app.kubernetes.io/component: resource-server
-    app.kubernetes.io/instance: zadig-zadig
-    app.kubernetes.io/name: zadig
-spec:
-  type: ClusterIP
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
-  selector:
-    app.kubernetes.io/component: resource-server
-    app.kubernetes.io/name: zadig
 
 ---
 
