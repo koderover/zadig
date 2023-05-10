@@ -287,7 +287,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pm.DELETE("/:id", DeleteProjectManagement)
 		pm.GET("/jira/project", ListJiraProjects)
 		pm.GET("/jira/issue", SearchJiraIssues)
+		pm.GET("/jira/issue/jql", SearchJiraProjectIssuesWithJQL)
 		pm.GET("/jira/type", GetJiraTypes)
+		pm.GET("/jira/status", GetJiraAllStatus)
 		pm.POST("/jira/webhook/:workflowName/:hookName", HandleJiraEvent)
 		pm.POST("/meego/webhook/:workflowName/:hookName", HandleMeegoEvent)
 	}

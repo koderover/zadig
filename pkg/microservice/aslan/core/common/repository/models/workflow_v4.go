@@ -390,7 +390,12 @@ type GrayRollbackTarget struct {
 }
 
 type JiraJobSpec struct {
-	ProjectID    string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	ProjectID string `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	// QueryType: "" means common, "advanced" means use custom jql
+	QueryType string `bson:"query_type" json:"query_type" yaml:"query_type"`
+	// JQL: when query type is advanced, use this
+	JQL string `bson:"jql" json:"jql" yaml:"jql"`
+
 	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
 	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
 	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`
