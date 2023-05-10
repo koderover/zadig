@@ -92,10 +92,22 @@ func SearchJiraIssues(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.SearchJiraIssues(c.Query("project"), c.Query("type"), c.Query("status"), c.Query("summary"), c.Query("ne") == "true")
 }
 
+func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Query("project"), c.Query("jql"))
+}
+
 func GetJiraTypes(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	ctx.Resp, ctx.Err = service.GetJiraTypes(c.Query("project"))
+}
+
+func GetJiraAllStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = service.GetJiraAllStatus(c.Query("project"))
 }
 
 func HandleJiraEvent(c *gin.Context) {

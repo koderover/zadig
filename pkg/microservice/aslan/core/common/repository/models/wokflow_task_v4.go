@@ -309,8 +309,8 @@ type JobTasK8sPatchSpec struct {
 type IssueID struct {
 	Key    string `bson:"key" json:"key" yaml:"key"`
 	Name   string `bson:"name" json:"name" yaml:"name"`
-	Status string `bson:"status" json:"status" yaml:"status"`
-	Link   string `bson:"link" json:"link" yaml:"link"`
+	Status string `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
+	Link   string `bson:"link,omitempty" json:"link,omitempty" yaml:"link,omitempty"`
 }
 
 type JobTaskJiraSpec struct {

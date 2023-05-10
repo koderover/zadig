@@ -91,8 +91,7 @@ func (j *JiraJob) LintJob() error {
 		return err
 	}
 	switch j.spec.Source {
-	case setting.VariableSourceRuntime:
-	case setting.VariableSourceOther:
+	case setting.VariableSourceRuntime, setting.VariableSourceOther:
 	default:
 		return errors.New("invalid source")
 	}
