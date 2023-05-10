@@ -46,6 +46,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		product.PUT("", UpdateProject)
 		product.PUT("/:name/type", TransferProject)
 		product.DELETE("/:name", DeleteProductTemplate)
+		product.GET("/:name/globalVariables", GetGlobalVariables)
+		product.PUT("/:name/globalVariables", UpdateGlobalVariables)
+		product.GET("/:name/globalVariableCandidates", GetGlobalVariableCandidates)
 	}
 
 	production := router.Group("production/products")
