@@ -66,14 +66,14 @@ import (
 )
 
 const (
-	BusyBoxImage       = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
-	ResourceImage      = ""
-	ZadigContextDir    = "/zadig/"
-	ZadigLogFile       = ZadigContextDir + "zadig.log"
-	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
-	ResourceVolumeName = "resource-data"
-	ResourceVolumePath = "/resource"
-	JobExecutorFile    = ResourceVolumePath + "/jobexecutor"
+	BusyBoxImage               = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
+	ResourceImage              = ""
+	ZadigContextDir            = "/zadig/"
+	ZadigLogFile               = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile         = ZadigContextDir + "lifecycle"
+	ExecutorResourceVolumeName = "executor-resource"
+	ExecutorVolumePath         = "/executor"
+	JobExecutorFile            = ExecutorVolumePath + "/jobexecutor"
 	//ResourceServer          = "resource-server"
 	defaultSecretEmail      = "bot@koderover.com"
 	registrySecretSuffix    = "-registry-secret"
@@ -433,15 +433,15 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 					InitContainers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							Name:            "resource-init",
+							Name:            "executor-resource-init",
 							Image:           config.ResourceImage(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name:      ResourceVolumeName,
-									MountPath: ResourceVolumePath,
+									Name:      ExecutorResourceVolumeName,
+									MountPath: ExecutorVolumePath,
 								},
 							},
-							Command: []string{"/bin/sh", "-c", fmt.Sprintf("cp /app/* %s", ResourceVolumePath)},
+							Command: []string{"/bin/sh", "-c", fmt.Sprintf("cp /app/* %s", ExecutorVolumePath)},
 						},
 					},
 					Containers: []corev1.Container{
@@ -667,8 +667,8 @@ func getVolumeMounts(configMapMountDir string, userHostDockerDaemon bool) []core
 		MountPath: ZadigContextDir,
 	})
 	resp = append(resp, corev1.VolumeMount{
-		Name:      ResourceVolumeName,
-		MountPath: ResourceVolumePath,
+		Name:      ExecutorResourceVolumeName,
+		MountPath: ExecutorVolumePath,
 	})
 	if userHostDockerDaemon {
 		resp = append(resp, corev1.VolumeMount{
@@ -698,7 +698,7 @@ func getVolumes(jobName string, userHostDockerDaemon bool) []corev1.Volume {
 		},
 	})
 	resp = append(resp, corev1.Volume{
-		Name: ResourceVolumeName,
+		Name: ExecutorResourceVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},

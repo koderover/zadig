@@ -43,6 +43,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	aslanconfig "github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
@@ -71,6 +72,9 @@ const (
 	ResourceServer          = "resource-server"
 	DindServer              = "dind"
 	KoderoverAgentNamespace = "koderover-agent"
+
+	executorVolumeName = "executor-resource"
+	executorVolumePath = "/executor"
 
 	defaultRetryCount    = 3
 	defaultRetryInterval = time.Second * 3
@@ -451,24 +455,19 @@ func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterI
 func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	var (
 		reaperBootingScript string
-		reaperBinaryFile    = pipelineTask.ConfigPayload.Release.ReaperBinaryFile
+		//reaperBinaryFile    = "/resource/reaper"
 	)
-	// not local cluster
-	if clusterID != "" && clusterID != setting.LocalClusterID {
-		reaperBinaryFile = strings.Replace(reaperBinaryFile, ResourceServer, ResourceServer+".koderover-agent", -1)
-	} else {
-		reaperBinaryFile = strings.Replace(reaperBinaryFile, ResourceServer, ResourceServer+"."+currentNamespace, -1)
-	}
 
-	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) && !strings.Contains(jobImage, PackagerPlugin) {
-		reaperBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", reaperBinaryFile)
-		if pipelineTask.ConfigPayload.Proxy.EnableApplicationProxy && pipelineTask.ConfigPayload.Proxy.Type == "http" {
-			reaperBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL --proxy %s %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper",
-				pipelineTask.ConfigPayload.Proxy.GetProxyURL(),
-				reaperBinaryFile,
-			)
-		}
-	}
+	reaperBootingScript = "/resource/reaper"
+	//if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) && !strings.Contains(jobImage, PackagerPlugin) {
+	//	reaperBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", reaperBinaryFile)
+	//	if pipelineTask.ConfigPayload.Proxy.EnableApplicationProxy && pipelineTask.ConfigPayload.Proxy.Type == "http" {
+	//		reaperBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL --proxy %s %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper",
+	//			pipelineTask.ConfigPayload.Proxy.GetProxyURL(),
+	//			reaperBinaryFile,
+	//		)
+	//	}
+	//}
 
 	labels := label.GetJobLabels(&label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
@@ -514,6 +513,20 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 				Spec: corev1.PodSpec{
 					RestartPolicy:    corev1.RestartPolicyNever,
 					ImagePullSecrets: ImagePullSecrets,
+					InitContainers: []corev1.Container{
+						{
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Name:            "executor-resource-init",
+							Image:           aslanconfig.ResourceImage(),
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      executorVolumeName,
+									MountPath: executorVolumePath,
+								},
+							},
+							Command: []string{"/bin/sh", "-c", fmt.Sprintf("cp /app/* %s", executorVolumePath)},
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							ImagePullPolicy:          corev1.PullAlways,
@@ -747,6 +760,12 @@ func getVolumes(jobName string, userHostDockerDaemon bool) []corev1.Volume {
 					Name: jobName,
 				},
 			},
+		},
+	})
+	resp = append(resp, corev1.Volume{
+		Name: executorVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	})
 
