@@ -199,7 +199,7 @@ func SearchJiraIssues(project, _type, status, summary string, ne bool) ([]*jira.
 	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.SearchByJQL(strings.Join(jql, " AND "), summary != "")
 }
 
-func SearchJiraProjectIssuesWithJQL(project, jql string) ([]*jira.Issue, error) {
+func SearchJiraProjectIssuesWithJQL(project, jql, summary string) ([]*jira.Issue, error) {
 	info, err := mongodb.NewProjectManagementColl().GetJira()
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -208,6 +208,9 @@ func SearchJiraProjectIssuesWithJQL(project, jql string) ([]*jira.Issue, error) 
 		return nil, err
 	}
 	jql = fmt.Sprintf(`project = "%s" AND (%s)`, project, jql)
+	if summary != "" {
+		jql += fmt.Sprintf(` AND summary ~ "%s"`, summary)
+	}
 	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.SearchByJQL(jql, true)
 }
 
