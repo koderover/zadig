@@ -41,13 +41,8 @@ import (
 // )
 
 func Execute(ctx context.Context) error {
-	// f, err := os.OpenFile(ZadigLogFile, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0755)
-	// if err != nil {
-	// 	fmt.Println("open log file error")
-	// 	return err
-	// }
-	// os.Stdout = f
-	// os.Stderr = f
+	fmt.Printf("test")
+	select {}
 
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
