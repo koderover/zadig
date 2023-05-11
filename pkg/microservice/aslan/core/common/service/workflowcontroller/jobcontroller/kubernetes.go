@@ -74,10 +74,9 @@ const (
 	ExecutorResourceVolumeName = "executor-resource"
 	ExecutorVolumePath         = "/executor"
 	JobExecutorFile            = ExecutorVolumePath + "/jobexecutor"
-	//ResourceServer          = "resource-server"
-	defaultSecretEmail      = "bot@koderover.com"
-	registrySecretSuffix    = "-registry-secret"
-	workflowConfigMapRoleSA = "workflow-cm-sa"
+	defaultSecretEmail         = "bot@koderover.com"
+	registrySecretSuffix       = "-registry-secret"
+	workflowConfigMapRoleSA    = "workflow-cm-sa"
 
 	defaultRetryCount    = 3
 	defaultRetryInterval = time.Second * 3
@@ -362,24 +361,10 @@ echo $result > %s
 }
 
 func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskFreestyleSpec, workflowCtx *commonmodels.WorkflowTaskCtx, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
-	// 	tailLogCommandTemplate := `tail -f %s &
-	// while [ -f %s ];
-	// do
-	// 	sleep 1s;
-	// done;
-	// `
-	// 	tailLogCommand := fmt.Sprintf(tailLogCommandTemplate, ZadigLogFile, ZadigLifeCycleFile)
-
 	var (
 		jobExecutorBootingScript string
 		jobExecutorBinaryFile    = JobExecutorFile
 	)
-	// not local cluster
-	//if clusterID != "" && clusterID != setting.LocalClusterID {
-	//	jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+".koderover-agent", -1)
-	//} else {
-	//	jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+"."+currentNamespace, -1)
-	//}
 
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
@@ -400,7 +385,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 	jobExecutorBootingScript += jobExecutorBinaryFile
 
 	labels := getJobLabels(&JobLabel{
-		JobType: string(jobType),
+		JobType: jobType,
 		JobName: jobTask.K8sJobName,
 	})
 
@@ -451,30 +436,13 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 							Image:           jobImage,
 							Command:         []string{"/bin/sh", "-c"},
 							Args:            []string{jobExecutorBootingScript},
-							// Command:         []string{"/bin/sh", "-c", "jobexecutor"},
-							// Lifecycle: &corev1.Lifecycle{
-							// 	PreStop: &corev1.Handler{
-							// 		Exec: &corev1.ExecAction{
-							// 			Command: []string{"/bin/sh", "-c", fmt.Sprintf("rm %s", ZadigLifeCycleFile)},
-							// 		},
-							// 	},
-							// },
-							Env:          getEnvs(workflowCtx.ConfigMapMountDir, jobTaskSpec),
-							VolumeMounts: getVolumeMounts(workflowCtx.ConfigMapMountDir, jobTaskSpec.Properties.UseHostDockerDaemon),
-							Resources:    getResourceRequirements(resReq, resReqSpec),
+							Env:             getEnvs(workflowCtx.ConfigMapMountDir, jobTaskSpec),
+							VolumeMounts:    getVolumeMounts(workflowCtx.ConfigMapMountDir, jobTaskSpec.Properties.UseHostDockerDaemon),
+							Resources:       getResourceRequirements(resReq, resReqSpec),
 
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 							TerminationMessagePath:   job.JobTerminationFile,
 						},
-						// {
-						// 	ImagePullPolicy: corev1.PullIfNotPresent,
-						// 	Name:            "log",
-						// 	Image:           BusyBoxImage,
-						// 	VolumeMounts:    getVolumeMounts(workflowCtx.ConfigMapMountDir),
-						// 	Command:         []string{"/bin/sh", "-c"},
-						// 	Args:            []string{tailLogCommand},
-						// 	Lifecycle:       &corev1.Lifecycle{},
-						// },
 					},
 					Volumes:     getVolumes(jobName, jobTaskSpec.Properties.UseHostDockerDaemon),
 					Tolerations: buildTolerations(targetCluster.AdvancedConfig),

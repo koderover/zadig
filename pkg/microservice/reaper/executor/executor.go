@@ -29,8 +29,6 @@ import (
 )
 
 func Execute() error {
-	fmt.Println("test")
-	select {}
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
 		NoCaller:    true,

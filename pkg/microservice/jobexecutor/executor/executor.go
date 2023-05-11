@@ -41,9 +41,6 @@ import (
 // )
 
 func Execute(ctx context.Context) error {
-	fmt.Printf("test")
-	select {}
-
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
 		NoCaller:    true,

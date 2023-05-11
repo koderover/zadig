@@ -68,7 +68,6 @@ const (
 	JenkinsPlugin           = "jenkins-plugin"
 	PackagerPlugin          = "packager-plugin"
 	registrySecretSuffix    = "-registry-secret"
-	ResourceServer          = "resource-server"
 	DindServer              = "dind"
 	KoderoverAgentNamespace = "koderover-agent"
 
