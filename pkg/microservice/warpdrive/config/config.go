@@ -30,6 +30,10 @@ func WarpDrivePodName() string {
 	return viper.GetString(setting.WarpDrivePodName)
 }
 
+func ExecutorImage() string {
+	return viper.GetString(setting.ENVExecutorImage)
+}
+
 func NSQLookupAddrs() []string {
 	return strings.Split(viper.GetString(setting.ENVNsqLookupAddrs), ",")
 }

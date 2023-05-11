@@ -43,7 +43,6 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	aslanconfig "github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
@@ -517,7 +516,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 						{
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Name:            "executor-resource-init",
-							Image:           aslanconfig.ExecutorImage(),
+							Image:           config.ExecutorImage(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      executorVolumeName,
