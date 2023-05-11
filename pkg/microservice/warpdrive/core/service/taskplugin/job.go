@@ -723,13 +723,18 @@ func getVolumeMounts(ctx *task.PipelineCtx) []corev1.VolumeMount {
 		Name:      "job-config",
 		MountPath: ctx.ConfigMapMountDir,
 	})
+	resp = append(resp, corev1.VolumeMount{
 
+		Name:      executorVolumeName,
+		MountPath: executorVolumePath,
+	})
 	if ctx.UseHostDockerDaemon {
 		resp = append(resp, corev1.VolumeMount{
 			Name:      "docker-sock",
 			MountPath: setting.DefaultDockSock,
 		})
 	}
+
 	return resp
 }
 
