@@ -451,21 +451,9 @@ func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterI
 }
 
 func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
-	var (
-		reaperBootingScript string
-		//reaperBinaryFile    = "/resource/reaper"
-	)
+	var reaperBootingScript string
 
 	reaperBootingScript = executorVolumePath + "/reaper"
-	//if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) && !strings.Contains(jobImage, PackagerPlugin) {
-	//	reaperBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", reaperBinaryFile)
-	//	if pipelineTask.ConfigPayload.Proxy.EnableApplicationProxy && pipelineTask.ConfigPayload.Proxy.Type == "http" {
-	//		reaperBootingScript = fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL --proxy %s %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper",
-	//			pipelineTask.ConfigPayload.Proxy.GetProxyURL(),
-	//			reaperBinaryFile,
-	//		)
-	//	}
-	//}
 
 	labels := label.GetJobLabels(&label.JobLabel{
 		PipelineName: pipelineTask.PipelineName,
