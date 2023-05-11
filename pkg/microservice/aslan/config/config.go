@@ -98,8 +98,8 @@ func HubAgentImage() string {
 	return viper.GetString(setting.ENVHubAgentImage)
 }
 
-func ResourceImage() string {
-	return viper.GetString(setting.ENVResourceImage)
+func ExecutorImage() string {
+	return viper.GetString(setting.ENVExecutorImage)
 }
 
 //func ResourceServerImage() string {

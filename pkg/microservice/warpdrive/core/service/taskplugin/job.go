@@ -517,7 +517,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 						{
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Name:            "executor-resource-init",
-							Image:           aslanconfig.ResourceImage(),
+							Image:           aslanconfig.ExecutorImage(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      executorVolumeName,
