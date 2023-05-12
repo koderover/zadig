@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/cmd"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
@@ -35,7 +36,7 @@ type Step interface {
 	Run(ctx context.Context) error
 }
 
-func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs []string) error {
+func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs []string, updater configmap.Updater) error {
 	var stepInstance Step
 	var err error
 
@@ -86,12 +87,12 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 			return err
 		}
 	case "debug_before":
-		stepInstance, err = NewDebugStep("before", workspace, envs, secretEnvs)
+		stepInstance, err = NewDebugStep("before", workspace, envs, secretEnvs, updater)
 		if err != nil {
 			return err
 		}
 	case "debug_after":
-		stepInstance, err = NewDebugStep("after", workspace, envs, secretEnvs)
+		stepInstance, err = NewDebugStep("after", workspace, envs, secretEnvs, updater)
 		if err != nil {
 			return err
 		}
