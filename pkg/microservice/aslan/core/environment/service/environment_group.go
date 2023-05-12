@@ -165,7 +165,7 @@ func GetIngressInfo(product *commonmodels.Product, service *commonmodels.Service
 			return ingressInfo
 		}
 	}
-	parsedYaml, err := kube.RenderServiceYaml(service.Yaml, product.ProductName, service.ServiceName, renderSet, service.ServiceVars, service.VariableYaml)
+	parsedYaml, err := kube.RenderServiceYaml(service.Yaml, product.ProductName, service.ServiceName, renderSet)
 	if err != nil {
 		log.Errorf("RenderServiceYaml err: %s", err)
 		return nil

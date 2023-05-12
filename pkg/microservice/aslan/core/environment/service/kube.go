@@ -50,6 +50,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/podexec/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -935,7 +936,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		return resourcesByType[deployStatus.Type][deployStatus.Name]
 	}
 
-	defaultValues := request.DefaultValues
+	globalVariables := []*commontypes.GlobalVariableKV{}
 
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
@@ -951,12 +952,12 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 			Name:        productInfo.Render.Name,
 		})
 		if err == nil && renderset != nil {
-			defaultValues = renderset.DefaultValues
+			globalVariables = renderset.GlobalVariables
 		}
 	}
 
 	fakeRenderSet := &models.RenderSet{
-		DefaultValues: defaultValues,
+		GlobalVariables: globalVariables,
 	}
 
 	for _, sv := range request.Services {
@@ -972,7 +973,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 			continue
 		}
 		//rederedYaml := commonservice.RenderValueForString(svc.Yaml, fakeRenderSet)
-		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productInfo.ProductName, svc.ServiceName, fakeRenderSet, svc.ServiceVars, svc.VariableYaml)
+		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productInfo.ProductName, svc.ServiceName, fakeRenderSet)
 		if err != nil {
 			log.Errorf("failed to render service yaml, err: %s", err)
 			return nil, err

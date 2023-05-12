@@ -24,8 +24,9 @@ import (
 )
 
 type ServiceWithVariable struct {
-	ServiceName  string `json:"service_name"`
-	VariableYaml string `json:"variable_yaml"`
+	ServiceName  string              `json:"service_name"`
+	VariableYaml string              `json:"variable_yaml"`
+	VariableKVs  []*RenderVariableKV `json:"variable_kvs"`
 }
 
 type ServiceVariableKVType string
@@ -44,6 +45,16 @@ type ServiceVariableKV struct {
 	Type    ServiceVariableKVType `bson:"type"     yaml:"type"     json:"type"`
 	Options []string              `bson:"options"  yaml:"options"  json:"options"`
 	Desc    string                `bson:"desc"     yaml:"desc"     json:"desc"`
+}
+
+type RenderVariableKV struct {
+	ServiceVariableKV
+	UseGlobalVariable bool `bson:"use_global_variable"    json:"use_global_variable"`
+}
+
+type GlobalVariableKV struct {
+	ServiceVariableKV
+	RelatedServices []string `bson:"related_services" json:"related_services"`
 }
 
 // not suitable for flatten kv
@@ -228,4 +239,79 @@ func MergeServiceVariableKVs(base, override []*ServiceVariableKV) (yaml string, 
 	}
 
 	return yaml, ret, nil
+}
+
+func MergeRenderAndServiceVariableKVs(render []*RenderVariableKV, serivce []*ServiceVariableKV) []*RenderVariableKV {
+	svcMap := map[string]*ServiceVariableKV{}
+	for _, kv := range serivce {
+		svcMap[kv.Key] = kv
+	}
+
+	renderMap := map[string]*RenderVariableKV{}
+	for _, kv := range render {
+		renderMap[kv.Key] = kv
+	}
+
+	ret := []*RenderVariableKV{}
+	for _, kv := range svcMap {
+		if renderKV, ok := renderMap[kv.Key]; !ok {
+			ret = append(ret, &RenderVariableKV{
+				ServiceVariableKV: *kv,
+				UseGlobalVariable: false,
+			})
+		} else {
+			ret = append(ret, renderKV)
+		}
+	}
+
+	return ret
+}
+
+func RenderVariableKVToYaml(kvs []*RenderVariableKV) (string, error) {
+	serviceVariableKVs := make([]*ServiceVariableKV, 0)
+	for _, kv := range kvs {
+		serviceVariableKVs = append(serviceVariableKVs, &kv.ServiceVariableKV)
+	}
+
+	return ServiceVariableKVToYaml(serviceVariableKVs)
+}
+
+// update the global variable kvs base on the render variable kvs
+// if the key is not exist, create a new one
+// if the key exist, update the related services
+func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, renderVariables []*RenderVariableKV) ([]*GlobalVariableKV, error) {
+	globalVariableMap := map[string]*GlobalVariableKV{}
+	for _, kv := range globalVariables {
+		globalVariableMap[kv.Key] = kv
+	}
+
+	for _, kv := range renderVariables {
+		if kv.UseGlobalVariable {
+			globalVariableKV, ok := globalVariableMap[kv.Key]
+			if !ok {
+				globalVariableKV = &GlobalVariableKV{
+					ServiceVariableKV: ServiceVariableKV{
+						Key:     kv.Key,
+						Value:   kv.Value,
+						Type:    kv.Type,
+						Options: kv.Options,
+						Desc:    kv.Desc,
+					},
+					RelatedServices: []string{serviceName},
+				}
+			} else {
+				relatedServiceSet := sets.NewString(globalVariableKV.RelatedServices...)
+				if !relatedServiceSet.Has(serviceName) {
+					globalVariableKV.RelatedServices = append(globalVariableKV.RelatedServices, serviceName)
+				}
+			}
+		}
+	}
+
+	retGlobalVariables := []*GlobalVariableKV{}
+	for _, kv := range globalVariableMap {
+		retGlobalVariables = append(retGlobalVariables, kv)
+	}
+
+	return retGlobalVariables, nil
 }

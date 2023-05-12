@@ -283,7 +283,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 		if env.Production {
 			svcTmpl.ServiceVars = setting.ServiceVarWildCard
 		}
-		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, rs, svcTmpl.ServiceVars, svcTmpl.VariableYaml)
+		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, rs)
 		if err != nil {
 			log.Errorf("failed to render service yaml, err: %s", err)
 			return nil, err

@@ -9,6 +9,13 @@ definitions:
       value:
         type: string
     type: object
+  handler.DeleteProductServicesRequest:
+    properties:
+      service_names:
+        items:
+          type: string
+        type: array
+    type: object
   handler.createServiceTemplateRequest:
     properties:
       product_name:
@@ -38,6 +45,15 @@ definitions:
     - variable_yaml
     - visibility
     - yaml
+    type: object
+  handler.getGlobalVariablesRespone:
+    properties:
+      global_variables:
+        items:
+          $ref: '#/definitions/types.GlobalVariableKV'
+        type: array
+      yaml_data:
+        $ref: '#/definitions/template.CustomYaml'
     type: object
   handler.getYamlTemplateVariablesReq:
     properties:
@@ -308,6 +324,34 @@ definitions:
     - kvs
     - yaml
     type: object
+  service.DeployStatus:
+    enum:
+    - deployed
+    - undeployed
+    type: string
+    x-enum-varnames:
+    - StatusDeployed
+    - StatusUnDeployed
+  service.DeployableEnv:
+    properties:
+      cluster_id:
+        type: string
+      env_name:
+        type: string
+      namespace:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/types.ServiceWithVariable'
+        type: array
+    type: object
+  service.DeployableEnvResp:
+    properties:
+      envs:
+        items:
+          $ref: '#/definitions/service.DeployableEnv'
+        type: array
+    type: object
   service.GlobalVariableCandidates:
     properties:
       key_name:
@@ -316,6 +360,71 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  service.HelmSvcRenderArg:
+    properties:
+      chartVersion:
+        type: string
+      deploy_strategy:
+        description: New since 1.16.0, used to determine if the service will be installed
+        type: string
+      envName:
+        type: string
+      overrideValues:
+        items:
+          $ref: '#/definitions/service.KVPair'
+        type: array
+      overrideYaml:
+        type: string
+      serviceName:
+        type: string
+      valuesData:
+        $ref: '#/definitions/service.ValuesDataArgs'
+      variable_yaml:
+        type: string
+      yaml_data:
+        $ref: '#/definitions/template.CustomYaml'
+    type: object
+  service.K8sDeployStatusCheckRequest:
+    properties:
+      cluster_id:
+        type: string
+      env_name:
+        type: string
+      namespace:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/service.K8sSvcRenderArg'
+        type: array
+    type: object
+  service.K8sSvcRenderArg:
+    properties:
+      deploy_strategy:
+        description: New since 1.16.0, used to determine if the service will be installed
+        type: string
+      env_name:
+        type: string
+      latest_variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      latest_variable_yaml:
+        type: string
+      service_name:
+        type: string
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
+  service.KVPair:
+    properties:
+      key:
+        type: string
+      value: {}
     type: object
   service.LoadServiceFromYamlTemplateReq:
     properties:
@@ -332,6 +441,41 @@ definitions:
       template_id:
         type: string
       variable_yaml:
+        type: string
+    type: object
+  service.RepoConfig:
+    properties:
+      branch:
+        type: string
+      codehostID:
+        type: integer
+      namespace:
+        type: string
+      owner:
+        type: string
+      repo:
+        type: string
+      valuesPaths:
+        items:
+          type: string
+        type: array
+    type: object
+  service.ResourceDeployStatus:
+    properties:
+      name:
+        type: string
+      status:
+        $ref: '#/definitions/service.DeployStatus'
+      type:
+        type: string
+    type: object
+  service.ServiceDeployStatus:
+    properties:
+      resources:
+        items:
+          $ref: '#/definitions/service.ResourceDeployStatus'
+        type: array
+      service_name:
         type: string
     type: object
   service.ServiceModule:
@@ -370,6 +514,57 @@ definitions:
       yaml:
         type: string
     type: object
+  service.UpdateEnv:
+    properties:
+      env_name:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/service.UpdateServiceArg'
+        type: array
+    type: object
+  service.UpdateMultiHelmProductArg:
+    properties:
+      chartValues:
+        items:
+          $ref: '#/definitions/service.HelmSvcRenderArg'
+        type: array
+      deletedServices:
+        items:
+          type: string
+        type: array
+      envNames:
+        items:
+          type: string
+        type: array
+      productName:
+        type: string
+      replacePolicy:
+        description: TODO logic not implemented
+        type: string
+    type: object
+  service.UpdateServiceArg:
+    properties:
+      deploy_strategy:
+        type: string
+      service_name:
+        type: string
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+    type: object
+  service.ValuesDataArgs:
+    properties:
+      autoSync:
+        type: boolean
+      gitRepoConfig:
+        $ref: '#/definitions/service.RepoConfig'
+      source_id:
+        type: string
+      yamlSource:
+        type: string
+    type: object
   setting.PMHostStatus:
     enum:
     - normal
@@ -378,6 +573,22 @@ definitions:
     x-enum-varnames:
     - PMHostStatusNormal
     - PMHostStatusAbnormal
+  template.CustomYaml:
+    properties:
+      auto_sync:
+        type: boolean
+      render_variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      source:
+        type: string
+      source_detail: {}
+      source_id:
+        type: string
+      yaml_content:
+        type: string
+    type: object
   template.YamlDetail:
     properties:
       content:
@@ -406,6 +617,40 @@ definitions:
       variable_yaml:
         type: string
     type: object
+  types.GlobalVariableKV:
+    properties:
+      desc:
+        type: string
+      key:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      related_services:
+        items:
+          type: string
+        type: array
+      type:
+        $ref: '#/definitions/types.ServiceVariableKVType'
+      value: {}
+    type: object
+  types.RenderVariableKV:
+    properties:
+      desc:
+        type: string
+      key:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      type:
+        $ref: '#/definitions/types.ServiceVariableKVType'
+      use_global_variable:
+        type: boolean
+      value: {}
+    type: object
   types.ServiceVariableKV:
     properties:
       desc:
@@ -432,6 +677,17 @@ definitions:
     - ServiceVariableKVTypeString
     - ServiceVariableKVTypeEnum
     - ServiceVariableKVTypeYaml
+  types.ServiceWithVariable:
+    properties:
+      service_name:
+        type: string
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
 info:
   contact:
     email: contact@koderover.com
@@ -445,6 +701,143 @@ info:
   title: Zadig aslan service REST APIs
   version: "1.0"
 paths:
+  /environment/environments:
+    put:
+      consumes:
+      - application/json
+      description: Update Multi products
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: type
+        in: query
+        name: type
+        required: true
+        type: string
+      - description: is force
+        in: query
+        name: force
+        required: true
+        type: boolean
+      - description: updateMultiK8sEnv body
+        in: body
+        name: k8s_body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.UpdateEnv'
+          type: array
+      - description: updateMultiHelmEnv body
+        in: body
+        name: helm_body
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateMultiHelmProductArg'
+      - description: updateMultiCvmEnv body
+        in: body
+        name: pm_body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.UpdateEnv'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update Multi products
+      tags:
+      - environment
+  /environment/environments/{name}/services:
+    put:
+      consumes:
+      - application/json
+      description: Delete services from envrionment
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.DeleteProductServicesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Delete services
+      tags:
+      - environment
+  /environment/kube/k8s/resources:
+    post:
+      consumes:
+      - application/json
+      description: Get Resource Deploy Status
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.K8sDeployStatusCheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ServiceDeployStatus'
+            type: array
+      summary: Get Resource Deploy Status
+      tags:
+      - environment
+  /environment/rendersets/globalVariables:
+    get:
+      consumes:
+      - application/json
+      description: Get global variable from environment, current only used for k8s
+        project
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: query
+        name: envName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.getGlobalVariablesRespone'
+      summary: Get global variable
+      tags:
+      - environment
   /project/products/{name}/globalVariableCandidates:
     get:
       consumes:
@@ -540,6 +933,32 @@ paths:
           schema:
             $ref: '#/definitions/service.ServiceOption'
       summary: Create service template
+      tags:
+      - service
+  /service/services/{name}/environments/deployable:
+    get:
+      consumes:
+      - application/json
+      description: Get Deployable Envs
+      parameters:
+      - description: service name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.DeployableEnvResp'
+      summary: Get Deployable Envs
       tags:
       - service
   /service/services/{name}/variable:

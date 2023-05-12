@@ -94,6 +94,19 @@ func ListProductionEnvs(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envNames, ctx.Logger)
 }
 
+// @Summary Update Multi products
+// @Description Update Multi products
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	type 			query		string								true	"type"
+// @Param 	force 			query		bool								true	"is force"
+// @Param 	k8s_body 		body 		[]service.UpdateEnv 				true 	"updateMultiK8sEnv body"
+// @Param 	helm_body 		body 		service.UpdateMultiHelmProductArg 	true 	"updateMultiHelmEnv body"
+// @Param 	pm_body 		body 		[]service.UpdateEnv				 	true 	"updateMultiCvmEnv body"
+// @Success 200
+// @Router /environment/environments [put]
 func UpdateMultiProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -825,6 +838,16 @@ func DeleteProductionProduct(c *gin.Context) {
 	ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
 }
 
+// @Summary Delete services
+// @Description Delete services from envrionment
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	name			path		string							true	"env name"
+// @Param 	body 			body 		DeleteProductServicesRequest 	true 	"body"
+// @Success 200
+// @Router /environment/environments/{name}/services [put]
 func DeleteProductServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

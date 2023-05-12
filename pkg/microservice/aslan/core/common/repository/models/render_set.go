@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 )
 
 // RenderSet ...
@@ -34,10 +35,11 @@ type RenderSet struct {
 	UpdateTime  int64  `bson:"update_time"                    json:"update_time"`
 	UpdateBy    string `bson:"update_by"                      json:"update_by"`
 	IsDefault   bool   `bson:"is_default"                     json:"is_default"`
-	// yaml content, used as 'global variables' for both k8s/helm projects
-	DefaultValues string                     `bson:"default_values,omitempty"       json:"default_values,omitempty"`
-	YamlData      *templatemodels.CustomYaml `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
-	//KVs              []*templatemodels.RenderKV      `bson:"kvs,omitempty"                  json:"kvs,omitempty"`               // deprecated since 1.16.0
+	// yaml content, used as 'global variables' for helm projects, DEPRECATED for k8s since 1.18.0
+	DefaultValues string `bson:"default_values,omitempty"       json:"default_values,omitempty"`
+	// current only used for k8s
+	GlobalVariables  []*commontypes.GlobalVariableKV `bson:"global_variables,omitempty"     json:"global_variables,omitempty"` // new since 1.18.0 replace DefaultValues
+	YamlData         *templatemodels.CustomYaml      `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
 	ServiceVariables []*templatemodels.ServiceRender `bson:"service_variables,omitempty"    json:"service_variables,omitempty"` // new since 1.16.0 replace kvs
 	ChartInfos       []*templatemodels.ServiceRender `bson:"chart_infos,omitempty"          json:"chart_infos,omitempty"`
 	Description      string                          `bson:"description,omitempty"          json:"description,omitempty"`
