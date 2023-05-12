@@ -23,12 +23,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	job "github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -62,8 +62,10 @@ func Execute(ctx context.Context) error {
 
 	excutor := "job-executor"
 
-	var err error
-	var j *job.Job
+	var (
+		err error
+		j   *job.Job
+	)
 	j, err = job.NewJob()
 	if err != nil {
 		return err
@@ -84,11 +86,8 @@ func Execute(ctx context.Context) error {
 		log.Errorf("failed to get ClientSet, err: %v", err)
 		return errors.Wrap(err, "get ClientSet")
 	}
-	configMap, err := clientset.CoreV1().ConfigMaps(string(ns)).Get(context.Background(), j.Ctx.ConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		log.Errorf("failed to get ConfigMap, err: %v", err)
-		return errors.Wrap(err, "get configMap")
-	}
+
+	j.ConfigMapUpdater = configmap.NewUpdater(j.Ctx.ConfigMapName, string(ns), clientset)
 
 	defer func() {
 		resultMsg := types.JobSuccess
@@ -99,20 +98,19 @@ func Execute(ctx context.Context) error {
 		fmt.Printf("Job Status: %s\n", resultMsg)
 
 		// set job status and outputs to job context configMap
-		configMap.Data[types.JobResultKey] = string(resultMsg)
-		configMap.Data[types.JobOutputsKey] = string(j.OutputsJsonBytes)
-		for i := 0; i < 3; i++ {
-			_, err = clientset.CoreV1().ConfigMaps(string(ns)).Update(context.Background(), configMap, metav1.UpdateOptions{})
-			if err == nil {
-				log.Infof("Job result ConfigMap is updated successfully")
-				fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
-				return
-			} else {
-				log.Errorf("failed to update job context ConfigMap: %v, retry", err)
-				time.Sleep(time.Second * 3)
-			}
+		cm, err := j.ConfigMapUpdater.Get()
+		if err != nil {
+			log.Errorf("failed to get job context ConfigMap: %v", err)
+			return
 		}
-		log.Errorf("failed to update job context ConfigMap: %v", err)
+		cm.Data[types.JobResultKey] = string(resultMsg)
+		cm.Data[types.JobOutputsKey] = string(j.OutputsJsonBytes)
+		if j.ConfigMapUpdater.UpdateWithRetry(cm, 3, 3*time.Second) != nil {
+			log.Errorf("failed to update job context ConfigMap: %v", err)
+			return
+		}
+		log.Infof("Job result ConfigMap is updated successfully")
+		fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
 	}()
 
 	fmt.Printf("====================== %s Start ======================\n", excutor)

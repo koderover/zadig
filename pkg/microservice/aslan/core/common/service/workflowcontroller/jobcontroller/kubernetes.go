@@ -905,8 +905,6 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 	jobLister := informer.Batch().V1().Jobs().Lister().Jobs(namespace)
 	cmLister := informer.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace)
 
-	// debugStage is used to record which debug stage the job has reached
-	var debugStageBefore, debugStageBeforeDone, debugStageAfter, debugStageAfterDone bool
 	for {
 		select {
 		case <-ctx.Done():
@@ -919,6 +917,13 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 			job, err := jobLister.Get(jobName)
 			if err != nil {
 				errMsg := fmt.Sprintf("failed to get job pod job-name=%s %v", jobName, err)
+				xl.Errorf(errMsg)
+				return config.StatusFailed, errMsg
+			}
+			// configMap name is the same as the k8s job name
+			cm, err := cmLister.Get(jobName)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to get job context configMap job-name=%s %v", jobName, err)
 				xl.Errorf(errMsg)
 				return config.StatusFailed, errMsg
 			}
@@ -940,50 +945,21 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 					}
 					if !ipod.Finished() {
 						// check container whether is stuck in debug stage by checking stage file, if so, update job status to debug
-						if !debugStageBefore {
-							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
-								ZadigContextDir+"debug/debug_before", defaultRetryCount, defaultRetryInterval); found {
-								jobTask.Status = config.StatusDebugBefore
-								ack()
-								debugStageBefore = true
-							}
-						}
-						if debugStageBefore && !debugStageBeforeDone {
-							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
-								ZadigContextDir+"debug/debug_before_done", defaultRetryCount, defaultRetryInterval); found {
+						switch cm.Data[commontypes.JobDebugStatusKey] {
+						case commontypes.JobDebugStatusBefore:
+							jobTask.Status = config.StatusDebugBefore
+							ack()
+						case commontypes.JobDebugStatusAfter:
+							jobTask.Status = config.StatusDebugAfter
+							ack()
+						case commontypes.JobDebugStatusNotIn:
+							if jobTask.Status == config.StatusDebugBefore || jobTask.Status == config.StatusDebugAfter {
 								jobTask.Status = config.StatusRunning
 								ack()
-								debugStageBeforeDone = true
-							}
-						}
-						if !debugStageAfter {
-							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
-								ZadigContextDir+"debug/debug_after", defaultRetryCount, defaultRetryInterval); found {
-								jobTask.Status = config.StatusDebugAfter
-								ack()
-								debugStageAfter = true
-								// if job in debug_after step, it is unnecessary to check debug_before step
-								debugStageBefore = true
-							}
-						}
-						if debugStageAfter && !debugStageAfterDone {
-							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
-								ZadigContextDir+"debug/debug_after_done", defaultRetryCount, defaultRetryInterval); found {
-								jobTask.Status = config.StatusRunning
-								ack()
-								debugStageAfterDone = true
 							}
 						}
 					}
 				}
-
-			}
-			// configMap name is the same as the k8s job name
-			cm, err := cmLister.Get(jobName)
-			if err != nil {
-				errMsg := fmt.Sprintf("failed to get job context configMap job-name=%s %v", jobName, err)
-				xl.Errorf(errMsg)
-				return config.StatusFailed, errMsg
 			}
 			if status, ok := cm.Data[commontypes.JobResultKey]; ok {
 				switch commontypes.JobStatus(status) {
