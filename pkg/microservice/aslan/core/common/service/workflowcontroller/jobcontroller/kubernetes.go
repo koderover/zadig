@@ -905,8 +905,6 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 	jobLister := informer.Batch().V1().Jobs().Lister().Jobs(namespace)
 	cmLister := informer.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace)
 
-	// debugStage is used to record which debug stage the job has reached
-	var debugStageBefore, debugStageBeforeDone, debugStageAfter, debugStageAfterDone bool
 	for {
 		select {
 		case <-ctx.Done():
