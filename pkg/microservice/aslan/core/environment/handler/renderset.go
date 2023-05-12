@@ -21,7 +21,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -111,4 +113,38 @@ func GetYamlContent(c *gin.Context) {
 
 	pathArr := strings.Split(arg.ValuesPaths, ",")
 	ctx.Resp, ctx.Err = service.GetMergedYamlContent(arg, pathArr)
+}
+
+type getGlobalVariablesRespone struct {
+	GlobalVariables []*commontypes.GlobalVariableKV `json:"global_variables"`
+	YamlData        *templatemodels.CustomYaml      `json:"yaml_data,omitempty"`
+}
+
+// @Summary Get global variable
+// @Description Get global variable from envirionment
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	envName 	query		string										true	"env name"
+// @Success 200 		{object} 	getGlobalVariablesRespone
+// @Router /envirionment/rendersets/globalVariables [get]
+func GetGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Query("projectName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	if c.Query("envName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+		return
+	}
+
+	resp := new(getGlobalVariablesRespone)
+
+	resp.GlobalVariables, resp.YamlData, ctx.Err = service.GetGlobalVariables(c.Query("projectName"), c.Query("envName"), ctx.Logger)
+	ctx.Resp = resp
 }

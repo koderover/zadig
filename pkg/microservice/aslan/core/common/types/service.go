@@ -46,6 +46,16 @@ type ServiceVariableKV struct {
 	Desc    string                `bson:"desc"     yaml:"desc"     json:"desc"`
 }
 
+type RenderVariableKV struct {
+	ServiceVariableKV
+	UseGlobalVariable bool `bson:"use_global_variable"    json:"use_global_variable"`
+}
+
+type GlobalVariableKV struct {
+	ServiceVariableKV
+	RelatedServices []string `bson:"related_services" json:"related_services"`
+}
+
 // not suitable for flatten kv
 // ServiceVariableKV is a kv which aggregate complicated struct to the first layer
 func ServiceVariableKVToYaml(kvs []*ServiceVariableKV) (string, error) {
@@ -228,4 +238,50 @@ func MergeServiceVariableKVs(base, override []*ServiceVariableKV) (yaml string, 
 	}
 
 	return yaml, ret, nil
+}
+
+func RenderVariableKVToYaml(kvs []*RenderVariableKV) (string, error) {
+	serviceVariableKVs := make([]*ServiceVariableKV, 0)
+	for _, kv := range kvs {
+		serviceVariableKVs = append(serviceVariableKVs, &kv.ServiceVariableKV)
+	}
+
+	return ServiceVariableKVToYaml(serviceVariableKVs)
+}
+
+func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, renderVariables []*RenderVariableKV) ([]*GlobalVariableKV, error) {
+	globalVariableMap := map[string]*GlobalVariableKV{}
+	for _, kv := range globalVariables {
+		globalVariableMap[kv.Key] = kv
+	}
+
+	for _, kv := range renderVariables {
+		if kv.UseGlobalVariable {
+			globalVariableKV, ok := globalVariableMap[kv.Key]
+			if !ok {
+				globalVariableKV = &GlobalVariableKV{
+					ServiceVariableKV: ServiceVariableKV{
+						Key:     kv.Key,
+						Value:   kv.Value,
+						Type:    kv.Type,
+						Options: kv.Options,
+						Desc:    kv.Desc,
+					},
+					RelatedServices: []string{serviceName},
+				}
+			} else {
+				relatedServiceSet := sets.NewString(globalVariableKV.RelatedServices...)
+				if !relatedServiceSet.Has(serviceName) {
+					globalVariableKV.RelatedServices = append(globalVariableKV.RelatedServices, serviceName)
+				}
+			}
+		}
+	}
+
+	retGlobalVariables := []*GlobalVariableKV{}
+	for _, kv := range globalVariableMap {
+		retGlobalVariables = append(retGlobalVariables, kv)
+	}
+
+	return retGlobalVariables, nil
 }

@@ -422,14 +422,13 @@ func getMaxServiceRevision(services []*commonmodels.Service, serviceName, produc
 func isRenderedStringUpdatable(currentSvc, nextSvc *commonmodels.Service, currentRender, nextRender *commonmodels.RenderSet) bool {
 	resp := false
 	currentString, nextString := currentSvc.Yaml, nextSvc.Yaml
-	currentSvcVars, nextSvcVars := currentSvc.ServiceVars, nextSvc.ServiceVars
 
-	currentString, err := kube.RenderServiceYaml(currentString, "", "", currentRender, currentSvcVars, currentSvc.VariableYaml)
+	currentString, err := kube.RenderServiceYaml(currentString, "", "", currentRender)
 	if err != nil {
 		//log.Errorf("failed to check is RenderedString updatable, err: %s", err)
 		return false
 	}
-	nextString, err = kube.RenderServiceYaml(nextString, "", "", nextRender, nextSvcVars, nextSvc.VariableYaml)
+	nextString, err = kube.RenderServiceYaml(nextString, "", "", nextRender)
 	if err != nil {
 		//log.Errorf("failed to check is RenderedString updatable, err: %s", err)
 		return false

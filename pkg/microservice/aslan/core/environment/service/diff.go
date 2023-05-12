@@ -98,7 +98,7 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 	}
 	//resp.Current.Yaml = commonservice.RenderValueForString(oldService.Yaml, oldRender)
 
-	resp.Current.Yaml, err = kube.RenderServiceYaml(oldService.Yaml, "", "", oldRender, oldService.ServiceVars, oldService.VariableYaml)
+	resp.Current.Yaml, err = kube.RenderServiceYaml(oldService.Yaml, "", "", oldRender)
 	if err != nil {
 		log.Error("failed to RenderServiceYaml, err: %s", err)
 		return nil, err
@@ -107,7 +107,7 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 	resp.Current.Revision = oldService.Revision
 	resp.Current.UpdateBy = oldService.CreateBy
 
-	resp.Latest.Yaml, err = kube.RenderServiceYaml(newService.Yaml, "", "", newRender, newService.ServiceVars, newService.VariableYaml)
+	resp.Latest.Yaml, err = kube.RenderServiceYaml(newService.Yaml, "", "", newRender)
 	if err != nil {
 		log.Error("failed to RenderServiceYaml, err: %s", err)
 		return nil, err

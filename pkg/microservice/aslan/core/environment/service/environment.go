@@ -52,6 +52,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -204,9 +205,9 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 var mutexAutoUpdate sync.RWMutex
 
 type UpdateServiceArg struct {
-	ServiceName    string `json:"service_name"`
-	DeployStrategy string `json:"deploy_strategy"`
-	VariableYaml   string `json:"variable_yaml"`
+	ServiceName    string                          `json:"service_name"`
+	DeployStrategy string                          `json:"deploy_strategy"`
+	VariableKVs    []*commontypes.RenderVariableKV `json:"variable_kvs"`
 }
 
 type UpdateEnv struct {
@@ -245,14 +246,55 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 			continue
 		}
 
+		templateProd, err := templaterepo.NewProductColl().Find(productName)
+		if err != nil {
+			log.Errorf("[P:%s] TemplateProduct.Find error: %v", productName, err)
+			errList = multierror.Append(errList, e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg))
+			continue
+		}
+
+		globalVariablesDefineMap := map[string]*commontypes.ServiceVariableKV{}
+		for _, globalVariable := range templateProd.GlobalVariables {
+			globalVariablesDefineMap[globalVariable.Key] = globalVariable
+		}
+
 		strategyMap := make(map[string]string)
 		updateSvcs := make([]*templatemodels.ServiceRender, 0)
 		updateRevisionSvcs := make([]string, 0)
 		for _, svc := range arg.Services {
 			strategyMap[svc.ServiceName] = svc.DeployStrategy
+			// variableYaml, err := commontypes.RenderVariableKVToYaml(svc.VariableKVs)
+			// if err != nil {
+			// 	errList = multierror.Append(errList, e.ErrUpdateEnv.AddDesc("convert render variable kvs to yaml failed"))
+			// 	continue
+			// }
+
+			var validGlobalVariableErr error
+			for _, kv := range svc.VariableKVs {
+				if kv.UseGlobalVariable {
+					if varaibleDefine, ok := globalVariablesDefineMap[kv.Key]; !ok {
+						validGlobalVariableErr = e.ErrUpdateEnv.AddDesc(fmt.Sprintf("global variable %s not defined", kv.Key))
+						errList = multierror.Append(errList, validGlobalVariableErr)
+						continue
+					} else {
+						kv.Value = varaibleDefine.Value
+						kv.Type = varaibleDefine.Type
+						kv.Desc = varaibleDefine.Desc
+						kv.Options = varaibleDefine.Options
+					}
+				}
+			}
+
+			if validGlobalVariableErr != nil {
+				continue
+			}
+
 			updateSvcs = append(updateSvcs, &templatemodels.ServiceRender{
-				ServiceName:  svc.ServiceName,
-				OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
+				ServiceName: svc.ServiceName,
+				OverrideYaml: &templatemodels.CustomYaml{
+					// YamlContent:       variableYaml,
+					RenderVaraibleKVs: svc.VariableKVs,
+				},
 			})
 			updateRevisionSvcs = append(updateRevisionSvcs, svc.ServiceName)
 		}
@@ -283,7 +325,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 		// update env default variable, particular svcs from client are involved
 		// svc revision will not be updated
-		err = updateK8sProduct(exitedProd, setting.SystemUser, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, force, rendersetInfo.DefaultValues, log)
+		err = updateK8sProduct(exitedProd, setting.SystemUser, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, force, rendersetInfo.GlobalVariables, log)
 		if err != nil {
 			log.Errorf("UpdateMultipleK8sEnv UpdateProductV2 err:%v", err)
 			errList = multierror.Append(errList, err)
@@ -1318,6 +1360,7 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 			ProductTmpl:      productName,
 			UpdateBy:         username,
 			DefaultValues:    renderset.DefaultValues,
+			GlobalVariables:  renderset.GlobalVariables,
 			YamlData:         renderset.YamlData,
 			ChartInfos:       renderset.ChartInfos,
 			ServiceVariables: renderset.ServiceVariables,
@@ -1365,7 +1408,7 @@ func updateK8sProductVariable(productResp *commonmodels.Product, renderset *comm
 		}
 		return false
 	}
-	return updateK8sProduct(productResp, userName, requestID, nil, filter, renderset.ServiceVariables, nil, false, renderset.DefaultValues, log)
+	return updateK8sProduct(productResp, userName, requestID, nil, filter, renderset.ServiceVariables, nil, false, renderset.GlobalVariables, log)
 }
 
 func updateHelmProductVariable(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, userName, requestID string, log *zap.SugaredLogger) error {

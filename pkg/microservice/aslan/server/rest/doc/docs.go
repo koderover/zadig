@@ -22,6 +22,121 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/envirionment/environments": {
+            "put": {
+                "description": "Update Multi products",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Update Multi products",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "type",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is force",
+                        "name": "force",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "updateMultiK8sEnv body",
+                        "name": "k8s_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.UpdateEnv"
+                            }
+                        }
+                    },
+                    {
+                        "description": "updateMultiHelmEnv body",
+                        "name": "helm_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.UpdateMultiHelmProductArg"
+                        }
+                    },
+                    {
+                        "description": "updateMultiCvmEnv body",
+                        "name": "pm_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.UpdateEnv"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/envirionment/rendersets/globalVariables": {
+            "get": {
+                "description": "Get global variable from envirionment",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get global variable",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "envName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.getGlobalVariablesRespone"
+                        }
+                    }
+                }
+            }
+        },
         "/project/products/{name}/globalVariableCandidates": {
             "get": {
                 "description": "Get global variable candidates",
@@ -536,6 +651,20 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.getGlobalVariablesRespone": {
+            "type": "object",
+            "properties": {
+                "global_variables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.GlobalVariableKV"
+                    }
+                },
+                "yaml_data": {
+                    "$ref": "#/definitions/template.CustomYaml"
+                }
+            }
+        },
         "handler.getYamlTemplateVariablesReq": {
             "type": "object",
             "required": [
@@ -952,6 +1081,51 @@ const docTemplate = `{
                 }
             }
         },
+        "service.HelmSvcRenderArg": {
+            "type": "object",
+            "properties": {
+                "chartVersion": {
+                    "type": "string"
+                },
+                "deploy_strategy": {
+                    "description": "New since 1.16.0, used to determine if the service will be installed",
+                    "type": "string"
+                },
+                "envName": {
+                    "type": "string"
+                },
+                "overrideValues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.KVPair"
+                    }
+                },
+                "overrideYaml": {
+                    "type": "string"
+                },
+                "serviceName": {
+                    "type": "string"
+                },
+                "valuesData": {
+                    "$ref": "#/definitions/service.ValuesDataArgs"
+                },
+                "variable_yaml": {
+                    "type": "string"
+                },
+                "yaml_data": {
+                    "$ref": "#/definitions/template.CustomYaml"
+                }
+            }
+        },
+        "service.KVPair": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {}
+            }
+        },
         "service.LoadServiceFromYamlTemplateReq": {
             "type": "object",
             "properties": {
@@ -975,6 +1149,32 @@ const docTemplate = `{
                 },
                 "variable_yaml": {
                     "type": "string"
+                }
+            }
+        },
+        "service.RepoConfig": {
+            "type": "object",
+            "properties": {
+                "branch": {
+                    "type": "string"
+                },
+                "codehostID": {
+                    "type": "integer"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "repo": {
+                    "type": "string"
+                },
+                "valuesPaths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -1033,6 +1233,84 @@ const docTemplate = `{
                 }
             }
         },
+        "service.UpdateEnv": {
+            "type": "object",
+            "properties": {
+                "env_name": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.UpdateServiceArg"
+                    }
+                }
+            }
+        },
+        "service.UpdateMultiHelmProductArg": {
+            "type": "object",
+            "properties": {
+                "chartValues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.HelmSvcRenderArg"
+                    }
+                },
+                "deletedServices": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "envNames": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "productName": {
+                    "type": "string"
+                },
+                "replacePolicy": {
+                    "description": "TODO logic not implemented",
+                    "type": "string"
+                }
+            }
+        },
+        "service.UpdateServiceArg": {
+            "type": "object",
+            "properties": {
+                "deploy_strategy": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                }
+            }
+        },
+        "service.ValuesDataArgs": {
+            "type": "object",
+            "properties": {
+                "autoSync": {
+                    "type": "boolean"
+                },
+                "gitRepoConfig": {
+                    "$ref": "#/definitions/service.RepoConfig"
+                },
+                "source_id": {
+                    "type": "string"
+                },
+                "yamlSource": {
+                    "type": "string"
+                }
+            }
+        },
         "setting.PMHostStatus": {
             "type": "string",
             "enum": [
@@ -1043,6 +1321,30 @@ const docTemplate = `{
                 "PMHostStatusNormal",
                 "PMHostStatusAbnormal"
             ]
+        },
+        "template.CustomYaml": {
+            "type": "object",
+            "properties": {
+                "auto_sync": {
+                    "type": "boolean"
+                },
+                "render_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "source": {
+                    "type": "string"
+                },
+                "source_detail": {},
+                "source_id": {
+                    "type": "string"
+                },
+                "yaml_content": {
+                    "type": "string"
+                }
+            }
         },
         "template.YamlDetail": {
             "type": "object",
@@ -1085,6 +1387,57 @@ const docTemplate = `{
                 "variable_yaml": {
                     "type": "string"
                 }
+            }
+        },
+        "types.GlobalVariableKV": {
+            "type": "object",
+            "properties": {
+                "desc": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "related_services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "$ref": "#/definitions/types.ServiceVariableKVType"
+                },
+                "value": {}
+            }
+        },
+        "types.RenderVariableKV": {
+            "type": "object",
+            "properties": {
+                "desc": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "$ref": "#/definitions/types.ServiceVariableKVType"
+                },
+                "use_global_variable": {
+                    "type": "boolean"
+                },
+                "value": {}
             }
         },
         "types.ServiceVariableKV": {

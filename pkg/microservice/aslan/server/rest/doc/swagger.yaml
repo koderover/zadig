@@ -39,6 +39,15 @@ definitions:
     - visibility
     - yaml
     type: object
+  handler.getGlobalVariablesRespone:
+    properties:
+      global_variables:
+        items:
+          $ref: '#/definitions/types.GlobalVariableKV'
+        type: array
+      yaml_data:
+        $ref: '#/definitions/template.CustomYaml'
+    type: object
   handler.getYamlTemplateVariablesReq:
     properties:
       content:
@@ -317,6 +326,36 @@ definitions:
           type: string
         type: array
     type: object
+  service.HelmSvcRenderArg:
+    properties:
+      chartVersion:
+        type: string
+      deploy_strategy:
+        description: New since 1.16.0, used to determine if the service will be installed
+        type: string
+      envName:
+        type: string
+      overrideValues:
+        items:
+          $ref: '#/definitions/service.KVPair'
+        type: array
+      overrideYaml:
+        type: string
+      serviceName:
+        type: string
+      valuesData:
+        $ref: '#/definitions/service.ValuesDataArgs'
+      variable_yaml:
+        type: string
+      yaml_data:
+        $ref: '#/definitions/template.CustomYaml'
+    type: object
+  service.KVPair:
+    properties:
+      key:
+        type: string
+      value: {}
+    type: object
   service.LoadServiceFromYamlTemplateReq:
     properties:
       auto_sync:
@@ -333,6 +372,23 @@ definitions:
         type: string
       variable_yaml:
         type: string
+    type: object
+  service.RepoConfig:
+    properties:
+      branch:
+        type: string
+      codehostID:
+        type: integer
+      namespace:
+        type: string
+      owner:
+        type: string
+      repo:
+        type: string
+      valuesPaths:
+        items:
+          type: string
+        type: array
     type: object
   service.ServiceModule:
     properties:
@@ -370,6 +426,57 @@ definitions:
       yaml:
         type: string
     type: object
+  service.UpdateEnv:
+    properties:
+      env_name:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/service.UpdateServiceArg'
+        type: array
+    type: object
+  service.UpdateMultiHelmProductArg:
+    properties:
+      chartValues:
+        items:
+          $ref: '#/definitions/service.HelmSvcRenderArg'
+        type: array
+      deletedServices:
+        items:
+          type: string
+        type: array
+      envNames:
+        items:
+          type: string
+        type: array
+      productName:
+        type: string
+      replacePolicy:
+        description: TODO logic not implemented
+        type: string
+    type: object
+  service.UpdateServiceArg:
+    properties:
+      deploy_strategy:
+        type: string
+      service_name:
+        type: string
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+    type: object
+  service.ValuesDataArgs:
+    properties:
+      autoSync:
+        type: boolean
+      gitRepoConfig:
+        $ref: '#/definitions/service.RepoConfig'
+      source_id:
+        type: string
+      yamlSource:
+        type: string
+    type: object
   setting.PMHostStatus:
     enum:
     - normal
@@ -378,6 +485,22 @@ definitions:
     x-enum-varnames:
     - PMHostStatusNormal
     - PMHostStatusAbnormal
+  template.CustomYaml:
+    properties:
+      auto_sync:
+        type: boolean
+      render_variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      source:
+        type: string
+      source_detail: {}
+      source_id:
+        type: string
+      yaml_content:
+        type: string
+    type: object
   template.YamlDetail:
     properties:
       content:
@@ -405,6 +528,40 @@ definitions:
         type: array
       variable_yaml:
         type: string
+    type: object
+  types.GlobalVariableKV:
+    properties:
+      desc:
+        type: string
+      key:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      related_services:
+        items:
+          type: string
+        type: array
+      type:
+        $ref: '#/definitions/types.ServiceVariableKVType'
+      value: {}
+    type: object
+  types.RenderVariableKV:
+    properties:
+      desc:
+        type: string
+      key:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      type:
+        $ref: '#/definitions/types.ServiceVariableKVType'
+      use_global_variable:
+        type: boolean
+      value: {}
     type: object
   types.ServiceVariableKV:
     properties:
@@ -445,6 +602,83 @@ info:
   title: Zadig aslan service REST APIs
   version: "1.0"
 paths:
+  /envirionment/environments:
+    put:
+      consumes:
+      - application/json
+      description: Update Multi products
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: type
+        in: query
+        name: type
+        required: true
+        type: string
+      - description: is force
+        in: query
+        name: force
+        required: true
+        type: boolean
+      - description: updateMultiK8sEnv body
+        in: body
+        name: k8s_body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.UpdateEnv'
+          type: array
+      - description: updateMultiHelmEnv body
+        in: body
+        name: helm_body
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateMultiHelmProductArg'
+      - description: updateMultiCvmEnv body
+        in: body
+        name: pm_body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.UpdateEnv'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update Multi products
+      tags:
+      - environment
+  /envirionment/rendersets/globalVariables:
+    get:
+      consumes:
+      - application/json
+      description: Get global variable from envirionment
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: query
+        name: envName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.getGlobalVariablesRespone'
+      summary: Get global variable
+      tags:
+      - environment
   /project/products/{name}/globalVariableCandidates:
     get:
       consumes:
