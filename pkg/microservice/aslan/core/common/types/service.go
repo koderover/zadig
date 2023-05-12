@@ -24,8 +24,9 @@ import (
 )
 
 type ServiceWithVariable struct {
-	ServiceName  string `json:"service_name"`
-	VariableYaml string `json:"variable_yaml"`
+	ServiceName  string              `json:"service_name"`
+	VariableYaml string              `json:"variable_yaml"`
+	VariableKVs  []*RenderVariableKV `json:"variable_kvs"`
 }
 
 type ServiceVariableKVType string
@@ -240,6 +241,32 @@ func MergeServiceVariableKVs(base, override []*ServiceVariableKV) (yaml string, 
 	return yaml, ret, nil
 }
 
+func MergeRenderAndServiceVariableKVs(render []*RenderVariableKV, serivce []*ServiceVariableKV) []*RenderVariableKV {
+	svcMap := map[string]*ServiceVariableKV{}
+	for _, kv := range serivce {
+		svcMap[kv.Key] = kv
+	}
+
+	renderMap := map[string]*RenderVariableKV{}
+	for _, kv := range render {
+		renderMap[kv.Key] = kv
+	}
+
+	ret := []*RenderVariableKV{}
+	for _, kv := range svcMap {
+		if renderKV, ok := renderMap[kv.Key]; !ok {
+			ret = append(ret, &RenderVariableKV{
+				ServiceVariableKV: *kv,
+				UseGlobalVariable: false,
+			})
+		} else {
+			ret = append(ret, renderKV)
+		}
+	}
+
+	return ret
+}
+
 func RenderVariableKVToYaml(kvs []*RenderVariableKV) (string, error) {
 	serviceVariableKVs := make([]*ServiceVariableKV, 0)
 	for _, kv := range kvs {
@@ -249,6 +276,9 @@ func RenderVariableKVToYaml(kvs []*RenderVariableKV) (string, error) {
 	return ServiceVariableKVToYaml(serviceVariableKVs)
 }
 
+// update the global variable kvs base on the render variable kvs
+// if the key is not exist, create a new one
+// if the key exist, update the related services
 func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, renderVariables []*RenderVariableKV) ([]*GlobalVariableKV, error) {
 	globalVariableMap := map[string]*GlobalVariableKV{}
 	for _, kv := range globalVariables {

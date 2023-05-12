@@ -121,14 +121,14 @@ type getGlobalVariablesRespone struct {
 }
 
 // @Summary Get global variable
-// @Description Get global variable from envirionment
+// @Description Get global variable from environment, current only used for k8s project
 // @Tags 	environment
 // @Accept 	json
 // @Produce json
 // @Param 	projectName	query		string										true	"project name"
 // @Param 	envName 	query		string										true	"env name"
 // @Success 200 		{object} 	getGlobalVariablesRespone
-// @Router /envirionment/rendersets/globalVariables [get]
+// @Router /environment/rendersets/globalVariables [get]
 func GetGlobalVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

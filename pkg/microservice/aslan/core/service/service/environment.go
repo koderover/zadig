@@ -332,6 +332,7 @@ func getServiceVariables(templateProduct *template.Product, product *commonmodel
 		ret = append(ret, &types.ServiceWithVariable{
 			ServiceName:  arg.ServiceName,
 			VariableYaml: arg.LatestVariableYaml,
+			VariableKVs:  arg.LatestVariableKVs,
 		})
 	}
 
@@ -413,13 +414,6 @@ func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*Deplo
 		return nil, err
 	}
 
-	//if templateProduct.IsK8sYamlProduct() {
-	//	err = service.FillProductVars(envs, log.SugaredLogger())
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
-
 	ret := make([]*DeployableEnv, len(envs))
 	for i, env := range envs {
 		ret[i] = &DeployableEnv{
@@ -427,7 +421,6 @@ func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*Deplo
 			Namespace: env.Namespace,
 			ClusterID: env.ClusterID,
 			Services:  getServiceVariables(templateProduct, env),
-			//Vars:      env.Vars,
 		}
 	}
 

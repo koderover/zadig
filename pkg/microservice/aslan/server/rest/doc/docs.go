@@ -22,7 +22,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/envirionment/environments": {
+        "/environment/environments": {
             "put": {
                 "description": "Update Multi products",
                 "consumes": [
@@ -98,9 +98,98 @@ const docTemplate = `{
                 }
             }
         },
-        "/envirionment/rendersets/globalVariables": {
+        "/environment/environments/{name}/services": {
+            "put": {
+                "description": "Delete services from envrionment",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Delete services",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.DeleteProductServicesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/environment/kube/k8s/resources": {
+            "post": {
+                "description": "Get Resource Deploy Status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Resource Deploy Status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.K8sDeployStatusCheckRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.ServiceDeployStatus"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/environment/rendersets/globalVariables": {
             "get": {
-                "description": "Get global variable from envirionment",
+                "description": "Get global variable from environment, current only used for k8s project",
                 "consumes": [
                     "application/json"
                 ],
@@ -313,6 +402,45 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/service.ConvertVaraibleKVAndYamlArgs"
+                        }
+                    }
+                }
+            }
+        },
+        "/service/services/{name}/environments/deployable": {
+            "get": {
+                "description": "Get Deployable Envs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Get Deployable Envs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.DeployableEnvResp"
                         }
                     }
                 }
@@ -606,6 +734,17 @@ const docTemplate = `{
                 },
                 "value": {
                     "type": "string"
+                }
+            }
+        },
+        "handler.DeleteProductServicesRequest": {
+            "type": "object",
+            "properties": {
+                "service_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -1067,6 +1206,48 @@ const docTemplate = `{
                 }
             }
         },
+        "service.DeployStatus": {
+            "type": "string",
+            "enum": [
+                "deployed",
+                "undeployed"
+            ],
+            "x-enum-varnames": [
+                "StatusDeployed",
+                "StatusUnDeployed"
+            ]
+        },
+        "service.DeployableEnv": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.ServiceWithVariable"
+                    }
+                }
+            }
+        },
+        "service.DeployableEnvResp": {
+            "type": "object",
+            "properties": {
+                "envs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.DeployableEnv"
+                    }
+                }
+            }
+        },
         "service.GlobalVariableCandidates": {
             "type": "object",
             "properties": {
@@ -1114,6 +1295,59 @@ const docTemplate = `{
                 },
                 "yaml_data": {
                     "$ref": "#/definitions/template.CustomYaml"
+                }
+            }
+        },
+        "service.K8sDeployStatusCheckRequest": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.K8sSvcRenderArg"
+                    }
+                }
+            }
+        },
+        "service.K8sSvcRenderArg": {
+            "type": "object",
+            "properties": {
+                "deploy_strategy": {
+                    "description": "New since 1.16.0, used to determine if the service will be installed",
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "latest_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "latest_variable_yaml": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
                 }
             }
         },
@@ -1175,6 +1409,34 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "service.ResourceDeployStatus": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/service.DeployStatus"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ServiceDeployStatus": {
+            "type": "object",
+            "properties": {
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.ResourceDeployStatus"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
                 }
             }
         },
@@ -1475,6 +1737,23 @@ const docTemplate = `{
                 "ServiceVariableKVTypeEnum",
                 "ServiceVariableKVTypeYaml"
             ]
+        },
+        "types.ServiceWithVariable": {
+            "type": "object",
+            "properties": {
+                "service_name": {
+                    "type": "string"
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
         }
     }
 }`

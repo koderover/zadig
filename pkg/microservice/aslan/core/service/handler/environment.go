@@ -28,6 +28,15 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+// @Summary Get Deployable Envs
+// @Description Get Deployable Envs
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	name			path		string							true	"service name"
+// @Param 	projectName		query		string							true	"project name"
+// @Success 200 			{object}  	service.DeployableEnvResp
+// @Router /service/services/{name}/environments/deployable [get]
 func GetDeployableEnvs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
