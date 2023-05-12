@@ -992,6 +992,8 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 				default:
 					return config.StatusPassed, ""
 				}
+			} else {
+				log.Infof("cm.Data not found result")
 			}
 		}
 
@@ -1140,6 +1142,10 @@ func GetObjectPath(subFolder, name string) string {
 }
 
 func checkFileExistsWithRetry(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container, filePath string, retryCount int, retryInterval time.Duration) (bool, error) {
+	t := time.Now()
+	defer func() {
+		log.Infof("checkFileExistsWithRetry cost time %s", time.Since(t))
+	}()
 	opt := podexec.ExecOptions{
 		Command:       []string{"ls", filePath},
 		Namespace:     namespace,
