@@ -22,7 +22,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type DebugStep struct {
@@ -30,14 +32,16 @@ type DebugStep struct {
 	envs       []string
 	secretEnvs []string
 	workspace  string
+	updater    configmap.Updater
 }
 
-func NewDebugStep(_type string, workspace string, envs, secretEnvs []string) (*DebugStep, error) {
+func NewDebugStep(_type string, workspace string, envs, secretEnvs []string, updater configmap.Updater) (*DebugStep, error) {
 	return &DebugStep{
 		Type:       _type,
 		envs:       envs,
 		secretEnvs: secretEnvs,
 		workspace:  workspace,
+		updater:    updater,
 	}, nil
 }
 
@@ -51,17 +55,29 @@ func (s *DebugStep) Run(ctx context.Context) error {
 		return nil
 	}
 	// This is to record that the debug step beginning and finished
-	err = os.WriteFile(fmt.Sprintf("/zadig/debug/debug_%s", s.Type), nil, 0700)
-	if err != nil {
-		log.Errorf("debug step unexpected write file error: %v", err)
+
+	s.updater.Get().Data[types.JobDebugStatusKey] = s.Type
+	if s.updater.UpdateWithRetry(3, 3*time.Second) != nil {
+		log.Errorf("debug step unexpected update configmap error: %v", err)
 		return err
 	}
 	defer func() {
-		err = os.WriteFile(fmt.Sprintf("/zadig/debug/debug_%s_done", s.Type), nil, 0700)
-		if err != nil {
-			log.Errorf("debug step unexpected write file error: %v", err)
+		s.updater.Get().Data[types.JobDebugStatusKey] = types.JobDebugStatusNotIn
+		if s.updater.UpdateWithRetry(3, 3*time.Second) != nil {
+			log.Errorf("debug step unexpected update configmap error: %v", err)
 		}
 	}()
+	//err = os.WriteFile(fmt.Sprintf("/zadig/debug/debug_%s", s.Type), nil, 0700)
+	//if err != nil {
+	//	log.Errorf("debug step unexpected write file error: %v", err)
+	//	return err
+	//}
+	//defer func() {
+	//	err = os.WriteFile(fmt.Sprintf("/zadig/debug/debug_%s_done", s.Type), nil, 0700)
+	//	if err != nil {
+	//		log.Errorf("debug step unexpected write file error: %v", err)
+	//	}
+	//}()
 
 	log.Infof("Running debugger %s job, Use debugger console.", s.Type)
 	for _, err := os.Stat(path); err == nil; {

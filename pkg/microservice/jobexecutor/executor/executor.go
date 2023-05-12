@@ -29,6 +29,7 @@ import (
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	job "github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -62,8 +63,10 @@ func Execute(ctx context.Context) error {
 
 	excutor := "job-executor"
 
-	var err error
-	var j *job.Job
+	var (
+		err error
+		j   *job.Job
+	)
 	j, err = job.NewJob()
 	if err != nil {
 		return err
@@ -90,6 +93,8 @@ func Execute(ctx context.Context) error {
 		return errors.Wrap(err, "get configMap")
 	}
 
+	j.ConfigMapUpdater = configmap.NewUpdater(configMap, string(ns), clientset)
+
 	defer func() {
 		resultMsg := types.JobSuccess
 		if err != nil {
@@ -99,20 +104,14 @@ func Execute(ctx context.Context) error {
 		fmt.Printf("Job Status: %s\n", resultMsg)
 
 		// set job status and outputs to job context configMap
-		configMap.Data[types.JobResultKey] = string(resultMsg)
-		configMap.Data[types.JobOutputsKey] = string(j.OutputsJsonBytes)
-		for i := 0; i < 3; i++ {
-			_, err = clientset.CoreV1().ConfigMaps(string(ns)).Update(context.Background(), configMap, metav1.UpdateOptions{})
-			if err == nil {
-				log.Infof("Job result ConfigMap is updated successfully")
-				fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
-				return
-			} else {
-				log.Errorf("failed to update job context ConfigMap: %v, retry", err)
-				time.Sleep(time.Second * 3)
-			}
+		j.ConfigMapUpdater.Get().Data[types.JobResultKey] = string(resultMsg)
+		j.ConfigMapUpdater.Get().Data[types.JobOutputsKey] = string(j.OutputsJsonBytes)
+		if j.ConfigMapUpdater.UpdateWithRetry(3, 3*time.Second) != nil {
+			log.Errorf("failed to update job context ConfigMap: %v", err)
+			return
 		}
-		log.Errorf("failed to update job context ConfigMap: %v", err)
+		log.Infof("Job result ConfigMap is updated successfully")
+		fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
 	}()
 
 	fmt.Printf("====================== %s Start ======================\n", excutor)
