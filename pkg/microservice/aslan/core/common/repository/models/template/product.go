@@ -116,11 +116,12 @@ func (grc *GitRepoConfig) GetNamespace() string {
 }
 
 type CustomYaml struct {
-	YamlContent  string      `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
-	Source       string      `bson:"source" json:"source"`
-	AutoSync     bool        `bson:"auto_sync" json:"auto_sync"`
-	SourceDetail interface{} `bson:"source_detail" json:"source_detail"`
-	SourceID     string      `bson:"source_id" json:"source_id"`
+	YamlContent       string                          `bson:"yaml_content,omitempty"            json:"yaml_content,omitempty"`
+	RenderVaraibleKVs []*commontypes.RenderVariableKV `bson:"render_variable_kvs,omitempty"     json:"render_variable_kvs,omitempty"`
+	Source            string                          `bson:"source"                            json:"source"`
+	AutoSync          bool                            `bson:"auto_sync"                         json:"auto_sync"`
+	SourceDetail      interface{}                     `bson:"source_detail"                     json:"source_detail"`
+	SourceID          string                          `bson:"source_id"                         json:"source_id"`
 }
 
 // ServiceRender used for helm product service ...

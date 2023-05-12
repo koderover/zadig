@@ -1067,7 +1067,7 @@ func YamlViewServiceTemplate(args *YamlViewServiceTemplateReq) (string, error) {
 	renderSet := new(commonmodels.RenderSet)
 	//renderSet.KVs = args.Variables
 	//parsedYaml := commonservice.RenderValueForString(svcTmpl.Yaml, renderSet)
-	parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, args.ProjectName, svcTmpl.ServiceName, renderSet, svcTmpl.ServiceVars, svcTmpl.VariableYaml)
+	parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, args.ProjectName, svcTmpl.ServiceName, renderSet)
 	if err != nil {
 		log.Errorf("failed to render service yaml, err: %s", err)
 		return "", err

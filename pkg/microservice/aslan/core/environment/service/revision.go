@@ -25,6 +25,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -341,4 +342,73 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 		}
 	}
 	return serviceRevs, nil
+}
+
+// 分别获取三种type的最大revision对应的service
+func getMaxServices(services []*commonmodels.Service, serviceName string) ([]*commonmodels.Service, error) {
+	var (
+		resp        []*commonmodels.Service
+		k8sService  = &commonmodels.Service{}
+		helmService = &commonmodels.Service{}
+		pmService   = &commonmodels.Service{}
+	)
+
+	for _, service := range services {
+		if service.ServiceName == serviceName && service.Type == setting.K8SDeployType && service.Revision > k8sService.Revision {
+			k8sService = service
+		}
+		if service.ServiceName == serviceName && service.Type == setting.PMDeployType && service.Revision > pmService.Revision {
+			pmService = service
+		}
+		if service.ServiceName == serviceName && service.Type == setting.HelmDeployType && service.Revision > helmService.Revision {
+			helmService = service
+		}
+	}
+	if k8sService.ServiceName != "" {
+		resp = append(resp, k8sService)
+	}
+	if pmService.ServiceName != "" {
+		resp = append(resp, pmService)
+	}
+	if helmService.ServiceName != "" {
+		resp = append(resp, helmService)
+	}
+	if len(resp) <= 0 {
+		return resp, fmt.Errorf("[%s] no service found", serviceName)
+	}
+	return resp, nil
+}
+
+func getMaxServiceRevision(services []*commonmodels.Service, serviceName, productName string) (*commonmodels.Service, error) {
+	resp := &commonmodels.Service{}
+	for _, service := range services {
+		if service.ServiceName == serviceName && service.ProductName == productName && service.Revision > resp.Revision {
+			resp = service
+		}
+	}
+	if resp.ServiceName == "" {
+		return resp, fmt.Errorf("[%s] no service found", serviceName)
+	}
+	return resp, nil
+}
+
+func isRenderedStringUpdatable(currentSvc, nextSvc *commonmodels.Service, currentRender, nextRender *commonmodels.RenderSet) bool {
+	resp := false
+	currentString, nextString := currentSvc.Yaml, nextSvc.Yaml
+
+	currentString, err := kube.RenderServiceYaml(currentString, "", "", currentRender)
+	if err != nil {
+		//log.Errorf("failed to check is RenderedString updatable, err: %s", err)
+		return false
+	}
+	nextString, err = kube.RenderServiceYaml(nextString, "", "", nextRender)
+	if err != nil {
+		//log.Errorf("failed to check is RenderedString updatable, err: %s", err)
+		return false
+	}
+	if currentString != nextString {
+		resp = true
+	}
+	return resp
+
 }

@@ -35,6 +35,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -203,7 +204,7 @@ func updateK8sServiceInEnv(productInfo *commonmodels.Product, templateSvc *commo
 		}
 		return false
 	}
-	return updateK8sProduct(productInfo, "system", "", []string{svcRender.ServiceName}, filter, []*templatemodels.ServiceRender{svcRender}, nil, false, currentRenderset.DefaultValues, log.SugaredLogger())
+	return updateK8sProduct(productInfo, "system", "", []string{svcRender.ServiceName}, filter, []*templatemodels.ServiceRender{svcRender}, nil, false, currentRenderset.GlobalVariables, log.SugaredLogger())
 }
 
 // ReInstallHelmSvcInAllEnvs reinstall svc in all envs in which the svc is already installed
@@ -315,7 +316,7 @@ func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service
 }
 
 func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, updateRevisionSvc []string, filter svcUpgradeFilter, updatedSvcs []*templatemodels.ServiceRender, deployStrategy map[string]string,
-	force bool, variableYaml string, log *zap.SugaredLogger) error {
+	force bool, globalVariables []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
 	envName, productName := exitedProd.EnvName, exitedProd.ProductName
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
@@ -341,10 +342,24 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	}
 
 	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, map[string]string{setting.ProductLabel: productName}, exitedProd.ShareEnv.Enable, kubeClient, log)
-
 	if err != nil {
 		log.Errorf("[%s][P:%s] service.UpdateProductV2 create kubeEnv error: %v", envName, productName, err)
 		return err
+	}
+
+	// merge render variable and global variable
+	for _, svc := range updatedSvcs {
+		globalVariables, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVaraibleKVs)
+		if err != nil {
+			log.Errorf("failed to merge global and render variables for service %s, err: %w", svc.ServiceName, err)
+			return e.ErrUpdateEnv.AddDesc("failed to merge global and render variables")
+		}
+
+		svc.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(svc.OverrideYaml.RenderVaraibleKVs)
+		if err != nil {
+			log.Errorf("failed to convert render variable kvs to yaml, err: %w", err)
+			return e.ErrUpdateEnv.AddDesc("failed to convert render variable kvs to yaml")
+		}
 	}
 
 	renderSet, err := render.CreateRenderSetByMerge(
@@ -353,7 +368,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			EnvName:          envName,
 			ProductTmpl:      productName,
 			ServiceVariables: updatedSvcs,
-			DefaultValues:    variableYaml,
+			GlobalVariables:  globalVariables,
 		},
 		log,
 	)
