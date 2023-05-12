@@ -43,6 +43,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -371,7 +372,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 	}
 
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name: projectName,
+		Name:       projectName,
 		Production: util.GetBoolPointer(false),
 	})
 	if err != nil {
@@ -1333,4 +1334,75 @@ func DeleteLabels(productName string, log *zap.SugaredLogger) error {
 		return err
 	}
 	return nil
+}
+
+func GetGlobalVariables(productName string, log *zap.SugaredLogger) ([]*commontypes.ServiceVariableKV, error) {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find product %s, err: %w", productName, err)
+	}
+
+	return productInfo.GlobalVariables, nil
+}
+
+func UpdateGlobalVariables(productName, userName string, globalVariables []*commontypes.ServiceVariableKV) error {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return fmt.Errorf("failed to find product %s, err: %w", productName, err)
+	}
+
+	productInfo.UpdateBy = userName
+	productInfo.GlobalVariables = globalVariables
+
+	err = templaterepo.NewProductColl().Update(productName, productInfo)
+	if err != nil {
+		return fmt.Errorf("failed to update product: %s, err: %w", productName, err)
+	}
+
+	return nil
+}
+
+type GlobalVariableCandidates struct {
+	KeyName        string   `json:"key_name"`
+	RelatedService []string `json:"related_service"`
+}
+
+func GetGlobalVariableCandidates(productName string, log *zap.SugaredLogger) ([]*GlobalVariableCandidates, error) {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find product %s, err: %w", productName, err)
+	}
+
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list services by product %s, err: %w", productName, err)
+	}
+
+	existedVariableSet := sets.NewString()
+	variableMap := make(map[string]*GlobalVariableCandidates)
+	for _, kv := range productInfo.GlobalVariables {
+		existedVariableSet.Insert(kv.Key)
+	}
+
+	ret := make([]*GlobalVariableCandidates, 0)
+	for _, service := range services {
+		for _, kv := range service.ServiceVariableKVs {
+			if !existedVariableSet.Has(kv.Key) {
+				if candiate, ok := variableMap[kv.Key]; ok {
+					candiate.RelatedService = append(candiate.RelatedService, service.ServiceName)
+				} else {
+					variableMap[kv.Key] = &GlobalVariableCandidates{
+						KeyName:        kv.Key,
+						RelatedService: []string{service.ServiceName},
+					}
+				}
+			}
+		}
+	}
+
+	for _, candiate := range variableMap {
+		ret = append(ret, candiate)
+	}
+
+	return ret, nil
 }

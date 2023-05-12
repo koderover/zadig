@@ -22,6 +22,112 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/project/products/{name}/globalVariableCandidates": {
+            "get": {
+                "description": "Get global variable candidates",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Get global variable candidates",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GlobalVariableCandidates"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/project/products/{name}/globalVariables": {
+            "get": {
+                "description": "Get global variables",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Get global variables",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/types.ServiceVariableKV"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update global variables",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Update global variables",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.updateGlobalVariablesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/service/services": {
             "post": {
                 "description": "Create service template",
@@ -445,6 +551,17 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.updateGlobalVariablesRequest": {
+            "type": "object",
+            "properties": {
+                "global_variables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.ServiceVariableKV"
+                    }
+                }
+            }
+        },
         "handler.updateServiceVariableRequest": {
             "type": "object",
             "required": [
@@ -818,6 +935,20 @@ const docTemplate = `{
                 },
                 "yaml": {
                     "type": "string"
+                }
+            }
+        },
+        "service.GlobalVariableCandidates": {
+            "type": "object",
+            "properties": {
+                "key_name": {
+                    "type": "string"
+                },
+                "related_service": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

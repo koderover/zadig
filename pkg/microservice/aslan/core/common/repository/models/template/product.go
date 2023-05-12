@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -47,31 +48,32 @@ type Product struct {
 	// onboarding状态，0表示onboarding完成，1、2、3、4代表当前onboarding所在的步骤
 	OnboardingStatus int `bson:"onboarding_status"         json:"onboarding_status"`
 	// CI场景的onboarding流程创建的ci工作流id，用于前端跳转
-	CiPipelineID               string               `bson:"-"                                   json:"ci_pipeline_id"`
-	Role                       string               `bson:"-"                                   json:"role,omitempty"`
-	PermissionUUIDs            []string             `bson:"-"                                   json:"permissionUUIDs"`
-	TotalServiceNum            int                  `bson:"-"                                   json:"total_service_num"`
-	LatestServiceUpdateTime    int64                `bson:"-"                                   json:"latest_service_update_time"`
-	LatestServiceUpdateBy      string               `bson:"-"                                   json:"latest_service_update_by"`
-	TotalBuildNum              int                  `bson:"-"                                   json:"total_build_num"`
-	LatestBuildUpdateTime      int64                `bson:"-"                                   json:"latest_build_update_time"`
-	LatestBuildUpdateBy        string               `bson:"-"                                   json:"latest_build_update_by"`
-	TotalTestNum               int                  `bson:"-"                                   json:"total_test_num"`
-	LatestTestUpdateTime       int64                `bson:"-"                                   json:"latest_test_update_time"`
-	LatestTestUpdateBy         string               `bson:"-"                                   json:"latest_test_update_by"`
-	TotalEnvNum                int                  `bson:"-"                                   json:"total_env_num"`
-	LatestEnvUpdateTime        int64                `bson:"-"                                   json:"latest_env_update_time"`
-	LatestEnvUpdateBy          string               `bson:"-"                                   json:"latest_env_update_by"`
-	TotalWorkflowNum           int                  `bson:"-"                                   json:"total_workflow_num"`
-	LatestWorkflowUpdateTime   int64                `bson:"-"                                   json:"latest_workflow_update_time"`
-	LatestWorkflowUpdateBy     string               `bson:"-"                                   json:"latest_workflow_update_by"`
-	TotalEnvTemplateServiceNum int                  `bson:"-"                                   json:"total_env_template_service_num"`
-	ClusterIDs                 []string             `bson:"-"                                   json:"cluster_ids"`
-	IsOpensource               bool                 `bson:"is_opensource"                       json:"is_opensource"`
-	CustomImageRule            *CustomRule          `bson:"custom_image_rule,omitempty"         json:"custom_image_rule,omitempty"`
-	CustomTarRule              *CustomRule          `bson:"custom_tar_rule,omitempty"           json:"custom_tar_rule,omitempty"`
-	DeliveryVersionHook        *DeliveryVersionHook `bson:"delivery_version_hook"               json:"delivery_version_hook"`
-	Public                     bool                 `bson:"public,omitempty"                    json:"public"`
+	CiPipelineID               string                           `bson:"-"                                   json:"ci_pipeline_id"`
+	Role                       string                           `bson:"-"                                   json:"role,omitempty"`
+	PermissionUUIDs            []string                         `bson:"-"                                   json:"permissionUUIDs"`
+	TotalServiceNum            int                              `bson:"-"                                   json:"total_service_num"`
+	LatestServiceUpdateTime    int64                            `bson:"-"                                   json:"latest_service_update_time"`
+	LatestServiceUpdateBy      string                           `bson:"-"                                   json:"latest_service_update_by"`
+	TotalBuildNum              int                              `bson:"-"                                   json:"total_build_num"`
+	LatestBuildUpdateTime      int64                            `bson:"-"                                   json:"latest_build_update_time"`
+	LatestBuildUpdateBy        string                           `bson:"-"                                   json:"latest_build_update_by"`
+	TotalTestNum               int                              `bson:"-"                                   json:"total_test_num"`
+	LatestTestUpdateTime       int64                            `bson:"-"                                   json:"latest_test_update_time"`
+	LatestTestUpdateBy         string                           `bson:"-"                                   json:"latest_test_update_by"`
+	TotalEnvNum                int                              `bson:"-"                                   json:"total_env_num"`
+	LatestEnvUpdateTime        int64                            `bson:"-"                                   json:"latest_env_update_time"`
+	LatestEnvUpdateBy          string                           `bson:"-"                                   json:"latest_env_update_by"`
+	TotalWorkflowNum           int                              `bson:"-"                                   json:"total_workflow_num"`
+	LatestWorkflowUpdateTime   int64                            `bson:"-"                                   json:"latest_workflow_update_time"`
+	LatestWorkflowUpdateBy     string                           `bson:"-"                                   json:"latest_workflow_update_by"`
+	TotalEnvTemplateServiceNum int                              `bson:"-"                                   json:"total_env_template_service_num"`
+	ClusterIDs                 []string                         `bson:"-"                                   json:"cluster_ids"`
+	IsOpensource               bool                             `bson:"is_opensource"                       json:"is_opensource"`
+	CustomImageRule            *CustomRule                      `bson:"custom_image_rule,omitempty"         json:"custom_image_rule,omitempty"`
+	CustomTarRule              *CustomRule                      `bson:"custom_tar_rule,omitempty"           json:"custom_tar_rule,omitempty"`
+	DeliveryVersionHook        *DeliveryVersionHook             `bson:"delivery_version_hook"               json:"delivery_version_hook"`
+	GlobalVariables            []*commontypes.ServiceVariableKV `bson:"global_variables,omitempty"          json:"global_variables,omitempty"`
+	Public                     bool                             `bson:"public,omitempty"                    json:"public"`
 }
 
 type ServiceInfo struct {

@@ -49,6 +49,13 @@ definitions:
     - content
     - variable_yaml
     type: object
+  handler.updateGlobalVariablesRequest:
+    properties:
+      global_variables:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+    type: object
   handler.updateServiceVariableRequest:
     properties:
       service_variable_kvs:
@@ -301,6 +308,15 @@ definitions:
     - kvs
     - yaml
     type: object
+  service.GlobalVariableCandidates:
+    properties:
+      key_name:
+        type: string
+      related_service:
+        items:
+          type: string
+        type: array
+    type: object
   service.LoadServiceFromYamlTemplateReq:
     properties:
       auto_sync:
@@ -429,6 +445,76 @@ info:
   title: Zadig aslan service REST APIs
   version: "1.0"
 paths:
+  /project/products/{name}/globalVariableCandidates:
+    get:
+      consumes:
+      - application/json
+      description: Get global variable candidates
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GlobalVariableCandidates'
+            type: array
+      summary: Get global variable candidates
+      tags:
+      - project
+  /project/products/{name}/globalVariables:
+    get:
+      consumes:
+      - application/json
+      description: Get global variables
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/types.ServiceVariableKV'
+            type: array
+      summary: Get global variables
+      tags:
+      - project
+    put:
+      consumes:
+      - application/json
+      description: Update global variables
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.updateGlobalVariablesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update global variables
+      tags:
+      - project
   /service/services:
     post:
       consumes:
