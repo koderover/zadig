@@ -76,17 +76,6 @@ func (s *DebugStep) Run(ctx context.Context) (err error) {
 			log.Errorf("debug step unexpected update configmap error: %v", err)
 		}
 	}()
-	//err = os.WriteFile(fmt.Sprintf("/zadig/debug/debug_%s", s.Type), nil, 0700)
-	//if err != nil {
-	//	log.Errorf("debug step unexpected write file error: %v", err)
-	//	return err
-	//}
-	//defer func() {
-	//	err = os.WriteFile(fmt.Sprintf("/zadig/debug/debug_%s_done", s.Type), nil, 0700)
-	//	if err != nil {
-	//		log.Errorf("debug step unexpected write file error: %v", err)
-	//	}
-	//}()
 
 	log.Infof("Running debugger %s job, Use debugger console.", s.Type)
 	for _, err := os.Stat(path); err == nil; {
