@@ -27,6 +27,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	projectservice "github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -287,4 +288,77 @@ func CreateOrUpdateMatchRules(c *gin.Context) {
 	}
 
 	ctx.Err = projectservice.UpdateCustomMatchRules(c.Param("name"), ctx.UserName, ctx.RequestID, args.Rules)
+}
+
+// @Summary Get global variables
+// @Description Get global variables
+// @Tags 	project
+// @Accept 	json
+// @Produce json
+// @Param 	name	path		string							true	"project name"
+// @Success 200 	{array} 	commontypes.ServiceVariableKV
+// @Router /project/products/{name}/globalVariables [get]
+func GetGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Param("name") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.GetGlobalVariables(c.Param("name"), ctx.Logger)
+}
+
+type updateGlobalVariablesRequest struct {
+	GlobalVariables []*commontypes.ServiceVariableKV `json:"global_variables"`
+}
+
+// @Summary Update global variables
+// @Description Update global variables
+// @Tags 	project
+// @Accept 	json
+// @Produce json
+// @Param 	name	path		string							true	"project name"
+// @Param 	body 	body 		updateGlobalVariablesRequest 	true 	"body"
+// @Success 200
+// @Router /project/products/{name}/globalVariables [put]
+func UpdateGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Param("name") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("name"), "更新", "工程管理-项目", c.Param("name"), "", ctx.Logger)
+
+	args := new(updateGlobalVariablesRequest)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateGlobalVariablesRequest json args")
+		return
+	}
+
+	ctx.Err = projectservice.UpdateGlobalVariables(c.Param("name"), ctx.UserName, args.GlobalVariables)
+}
+
+// @Summary Get global variable candidates
+// @Description Get global variable candidates
+// @Tags 	project
+// @Accept 	json
+// @Produce json
+// @Param 	name	path		string										true	"project name"
+// @Success 200 	{array} 	projectservice.GlobalVariableCandidates
+// @Router /project/products/{name}/globalVariableCandidates [get]
+func GetGlobalVariableCandidates(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Param("name") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.GetGlobalVariableCandidates(c.Param("name"), ctx.Logger)
 }
