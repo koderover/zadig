@@ -35,7 +35,6 @@ type Updater interface {
 }
 
 type updater struct {
-	//cm            *v1.ConfigMap
 	configMapName string
 	ns            string
 	client        *kubernetes.Clientset
