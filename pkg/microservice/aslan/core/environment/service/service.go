@@ -94,6 +94,18 @@ func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
 	return nil
 }
 
+func OpenAPIScale(req *OpenAPIScaleServiceReq, logger *zap.SugaredLogger) error {
+	args := &ScaleArgs{
+		Type:        req.WorkloadType,
+		ProductName: req.ProjectKey,
+		EnvName:     req.EnvName,
+		Name:        req.WorkloadName,
+		Number:      req.TargetReplicas,
+	}
+
+	return Scale(args, logger)
+}
+
 func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
