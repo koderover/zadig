@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -28,41 +29,47 @@ import (
 )
 
 type Updater interface {
-	Get() *v1.ConfigMap
-	Update() error
-	UpdateWithRetry(retryCount int, retryInterval time.Duration) error
+	Get() (*v1.ConfigMap, error)
+	Update(cm *v1.ConfigMap) error
+	UpdateWithRetry(cm *v1.ConfigMap, retryCount int, retryInterval time.Duration) error
 }
 
 type updater struct {
-	cm     *v1.ConfigMap
-	ns     string
-	client *kubernetes.Clientset
+	//cm            *v1.ConfigMap
+	configMapName string
+	ns            string
+	client        *kubernetes.Clientset
 }
 
-func NewUpdater(cm *v1.ConfigMap, namespace string, client *kubernetes.Clientset) Updater {
+func NewUpdater(cmName, namespace string, client *kubernetes.Clientset) Updater {
 	return &updater{
-		cm:     cm,
-		ns:     namespace,
-		client: client,
+		configMapName: cmName,
+		ns:            namespace,
+		client:        client,
 	}
 }
 
-func (u *updater) Get() *v1.ConfigMap {
-	return u.cm
+func (u *updater) Get() (*v1.ConfigMap, error) {
+	configMap, err := u.client.CoreV1().ConfigMaps(u.ns).Get(context.Background(), u.configMapName, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("failed to get ConfigMap, err: %v", err)
+		return nil, errors.Wrap(err, "get configMap")
+	}
+	return configMap, nil
 }
 
-func (u *updater) Update() error {
-	_, err := u.client.CoreV1().ConfigMaps(u.ns).Update(context.Background(), u.cm, metav1.UpdateOptions{})
+func (u *updater) Update(cm *v1.ConfigMap) error {
+	_, err := u.client.CoreV1().ConfigMaps(u.ns).Update(context.Background(), cm, metav1.UpdateOptions{})
 	return err
 }
 
-func (u *updater) UpdateWithRetry(retryCount int, retryInterval time.Duration) (err error) {
+func (u *updater) UpdateWithRetry(cm *v1.ConfigMap, retryCount int, retryInterval time.Duration) (err error) {
 	for i := 0; i < retryCount; i++ {
-		err = u.Update()
+		err = u.Update(cm)
 		if err == nil {
 			return nil
 		}
-		log.Warnf("update configmap %s/%s error: %v, retry", u.ns, u.cm.Name, err)
+		log.Warnf("update configmap %s/%s error: %v, retry", u.ns, cm.Name, err)
 		time.Sleep(retryInterval)
 	}
 	return err

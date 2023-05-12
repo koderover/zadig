@@ -45,9 +45,9 @@ func NewDebugStep(_type string, workspace string, envs, secretEnvs []string, upd
 	}, nil
 }
 
-func (s *DebugStep) Run(ctx context.Context) error {
+func (s *DebugStep) Run(ctx context.Context) (err error) {
 	path := fmt.Sprintf("/zadig/debug/breakpoint_%s", s.Type)
-	_, err := os.Stat(path)
+	_, err = os.Stat(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			log.Warnf("debug step unexpected stat error: %v", err)
@@ -55,15 +55,24 @@ func (s *DebugStep) Run(ctx context.Context) error {
 		return nil
 	}
 	// This is to record that the debug step beginning and finished
-
-	s.updater.Get().Data[types.JobDebugStatusKey] = s.Type
-	if s.updater.UpdateWithRetry(3, 3*time.Second) != nil {
+	cm, err := s.updater.Get()
+	if err != nil {
+		log.Errorf("debug step unexpected get configmap error: %v", err)
+		return err
+	}
+	cm.Data[types.JobDebugStatusKey] = s.Type
+	if s.updater.UpdateWithRetry(cm, 3, 3*time.Second) != nil {
 		log.Errorf("debug step unexpected update configmap error: %v", err)
 		return err
 	}
 	defer func() {
-		s.updater.Get().Data[types.JobDebugStatusKey] = types.JobDebugStatusNotIn
-		if s.updater.UpdateWithRetry(3, 3*time.Second) != nil {
+		cm, err = s.updater.Get()
+		if err != nil {
+			log.Errorf("debug step unexpected get configmap error: %v", err)
+			return
+		}
+		cm.Data[types.JobDebugStatusKey] = types.JobDebugStatusNotIn
+		if s.updater.UpdateWithRetry(cm, 3, 3*time.Second) != nil {
 			log.Errorf("debug step unexpected update configmap error: %v", err)
 		}
 	}()

@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -87,13 +86,8 @@ func Execute(ctx context.Context) error {
 		log.Errorf("failed to get ClientSet, err: %v", err)
 		return errors.Wrap(err, "get ClientSet")
 	}
-	configMap, err := clientset.CoreV1().ConfigMaps(string(ns)).Get(context.Background(), j.Ctx.ConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		log.Errorf("failed to get ConfigMap, err: %v", err)
-		return errors.Wrap(err, "get configMap")
-	}
 
-	j.ConfigMapUpdater = configmap.NewUpdater(configMap, string(ns), clientset)
+	j.ConfigMapUpdater = configmap.NewUpdater(j.Ctx.ConfigMapName, string(ns), clientset)
 
 	defer func() {
 		resultMsg := types.JobSuccess
@@ -104,9 +98,14 @@ func Execute(ctx context.Context) error {
 		fmt.Printf("Job Status: %s\n", resultMsg)
 
 		// set job status and outputs to job context configMap
-		j.ConfigMapUpdater.Get().Data[types.JobResultKey] = string(resultMsg)
-		j.ConfigMapUpdater.Get().Data[types.JobOutputsKey] = string(j.OutputsJsonBytes)
-		if j.ConfigMapUpdater.UpdateWithRetry(3, 3*time.Second) != nil {
+		cm, err := j.ConfigMapUpdater.Get()
+		if err != nil {
+			log.Errorf("failed to get job context ConfigMap: %v", err)
+			return
+		}
+		cm.Data[types.JobResultKey] = string(resultMsg)
+		cm.Data[types.JobOutputsKey] = string(j.OutputsJsonBytes)
+		if j.ConfigMapUpdater.UpdateWithRetry(cm, 3, 3*time.Second) != nil {
 			log.Errorf("failed to update job context ConfigMap: %v", err)
 			return
 		}
