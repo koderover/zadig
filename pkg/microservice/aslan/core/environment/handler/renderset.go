@@ -21,7 +21,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
@@ -117,7 +116,7 @@ func GetYamlContent(c *gin.Context) {
 
 type getGlobalVariablesRespone struct {
 	GlobalVariables []*commontypes.GlobalVariableKV `json:"global_variables"`
-	YamlData        *templatemodels.CustomYaml      `json:"yaml_data,omitempty"`
+	Revision        int64                           `json:"revision"`
 }
 
 // @Summary Get global variable
@@ -145,6 +144,6 @@ func GetGlobalVariables(c *gin.Context) {
 
 	resp := new(getGlobalVariablesRespone)
 
-	resp.GlobalVariables, resp.YamlData, ctx.Err = service.GetGlobalVariables(c.Query("projectName"), c.Query("envName"), ctx.Logger)
+	resp.GlobalVariables, resp.Revision, ctx.Err = service.GetGlobalVariables(c.Query("projectName"), c.Query("envName"), ctx.Logger)
 	ctx.Resp = resp
 }

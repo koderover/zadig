@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -100,7 +101,7 @@ func ListProductionEnvs(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	projectName		query		string								true	"project name"
-// @Param 	type 			query		string								true	"type"
+// @Param 	type 			query		string								false	"type"
 // @Param 	force 			query		bool								true	"is force"
 // @Param 	k8s_body 		body 		[]service.UpdateEnv 				true 	"updateMultiK8sEnv body"
 // @Param 	helm_body 		body 		service.UpdateMultiHelmProductArg 	true 	"updateMultiHelmEnv body"
@@ -623,6 +624,48 @@ func UpdateK8sProductDefaultValues(c *gin.Context) {
 	ctx.Err = service.UpdateProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, envRenderArg, ctx.Logger)
 }
 
+type updateK8sProductGlobalVariablesRequest struct {
+	CurrentRevision int64                           `json:"current_revision"`
+	GlobalVariables []*commontypes.GlobalVariableKV `json:"global_variables"`
+}
+
+// @Summary Update global variables
+// @Description Update global variables
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string									true	"project name"
+// @Param 	name 		path		string									true	"env name"
+// @Param 	body 		body 		updateK8sProductGlobalVariablesRequest 	true 	"body"
+// @Success 200
+// @Router /environment/environments/{name}/k8s/globalVariables [put]
+func UpdateK8sProductGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	arg := new(updateK8sProductGlobalVariablesRequest)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateK8sProductDefaultValues c.GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
+
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.UpdateProductGlobalVariables(projectName, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, ctx.Logger)
+}
+
 func UpdateHelmProductCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1023,4 +1066,30 @@ func ListWorkloadsInEnv(c *gin.Context) {
 	}
 	ctx.Err = err
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
+}
+
+// @Summary Get global variable candidate
+// @Description Get global variable candidate
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Success 200 		{array} 	commontypes.ServiceVariableKV
+// @Router /environment/environments/{name}/globalVariableCandidate [get]
+func GetGlobalVariableCandidate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Query("projectName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	if c.Param("name") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetGlobalVariableCandidate(c.Query("projectName"), c.Param("name"), ctx.Logger)
 }

@@ -349,7 +349,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	// merge render variable and global variable
 	for _, svc := range updatedSvcs {
-		globalVariables, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVaraibleKVs)
+		globalVariables, svc.OverrideYaml.RenderVaraibleKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVaraibleKVs)
 		if err != nil {
 			log.Errorf("failed to merge global and render variables for service %s, err: %w", svc.ServiceName, err)
 			return e.ErrUpdateEnv.AddDesc("failed to merge global and render variables")
