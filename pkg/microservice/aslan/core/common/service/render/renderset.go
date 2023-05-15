@@ -130,10 +130,10 @@ func calcGlobalVariableRelatedService(origin, new *commonmodels.RenderSet) []*co
 	for _, serviceVariable := range origin.ServiceVariables {
 		if _, ok := orignSvcVarKVMap[serviceVariable.ServiceName]; !ok {
 			orignSvcVarKVMap[serviceVariable.ServiceName] = map[string]*commontypes.RenderVariableKV{}
-		} else {
-			for _, variableKV := range serviceVariable.OverrideYaml.RenderVaraibleKVs {
-				orignSvcVarKVMap[serviceVariable.ServiceName][variableKV.Key] = variableKV
-			}
+		}
+		for _, variableKV := range serviceVariable.OverrideYaml.RenderVaraibleKVs {
+			orignSvcVarKVMap[serviceVariable.ServiceName][variableKV.Key] = variableKV
+			log.Debugf("orignSvcVarKVMap[%s][%s] = %+v", serviceVariable.ServiceName, variableKV.Key, variableKV)
 		}
 	}
 
@@ -141,16 +141,12 @@ func calcGlobalVariableRelatedService(origin, new *commonmodels.RenderSet) []*co
 	for _, serviceVariable := range new.ServiceVariables {
 		if _, ok := newSvcVarKVMap[serviceVariable.ServiceName]; !ok {
 			newSvcVarKVMap[serviceVariable.ServiceName] = map[string]*commontypes.RenderVariableKV{}
-		} else {
-			for _, variableKV := range serviceVariable.OverrideYaml.RenderVaraibleKVs {
-				newSvcVarKVMap[serviceVariable.ServiceName][variableKV.Key] = variableKV
-			}
+		}
+		for _, variableKV := range serviceVariable.OverrideYaml.RenderVaraibleKVs {
+			newSvcVarKVMap[serviceVariable.ServiceName][variableKV.Key] = variableKV
+			log.Debugf("newSvcVarKVMap[%s][%s] = %+v", serviceVariable.ServiceName, variableKV.Key, variableKV)
 		}
 	}
-
-	log.Debugf("originGlobalVarKVMap: %+v", originGlobalVarKVMap)
-	log.Debugf("orignSvcVarKVMap: %+v", orignSvcVarKVMap)
-	log.Debugf("newSvcVarKVMap: %+v", newSvcVarKVMap)
 
 	addGlobalVarKV := func(svcName string, varKV *commontypes.ServiceVariableKV, GlobalVarKVMap map[string]*commontypes.GlobalVariableKV) {
 		key := varKV.Key
@@ -192,27 +188,23 @@ func calcGlobalVariableRelatedService(origin, new *commonmodels.RenderSet) []*co
 				if kv.UseGlobalVariable {
 					log.Debugf("not existed in origin service, but existed in new service, a new entire service")
 					addGlobalVarKV(svcName, &kv.ServiceVariableKV, originGlobalVarKVMap)
-
-					log.Debugf("origin global variable begin")
-					for _, kv := range originGlobalVarKVMap {
-						log.Debugf("global variable: %+v", kv)
-					}
-					log.Debugf("origin global variable end")
 				}
 			}
 		} else {
 			// both existed in origin service and new service, so check diff
-			for key, kv := range newVarKVMap {
-				originVarKV, ok := originVarKVMap[key]
-				if !ok || !originVarKV.UseGlobalVariable {
-					// 1. if new service variable existed, origin service variable not existed, add it
-					log.Debugf("condtiion 1")
-					addGlobalVarKV(svcName, &kv.ServiceVariableKV, originGlobalVarKVMap)
-				} else {
-					// 2. if new service variable existed, origin service variable existed, ignore
-					// deleted for convenient comparison later in condition 3
-					log.Debugf("condtiion 2")
-					delete(originVarKVMap, key)
+			for key, newKV := range newVarKVMap {
+				if newKV.UseGlobalVariable {
+					originKV, ok := originVarKVMap[key]
+					if !ok || !originKV.UseGlobalVariable {
+						// 1. if new service variable existed, origin service variable not existed, add it
+						log.Debugf("condtiion 1: kv: %+v", newKV)
+						addGlobalVarKV(svcName, &newKV.ServiceVariableKV, originGlobalVarKVMap)
+					} else {
+						// 2. if new service variable existed, origin service variable existed, ignore
+						// deleted for convenient comparison later in condition 3
+						log.Debugf("condtiion 2: kv: %+v", newKV)
+						delete(originVarKVMap, key)
+					}
 				}
 			}
 		}
@@ -235,7 +227,7 @@ func calcGlobalVariableRelatedService(origin, new *commonmodels.RenderSet) []*co
 				log.Debugf("both existed in origin service and new service, so check diff")
 				if _, ok := newVarKVMap[kv.Key]; !ok {
 					// 3. if new service variable not existed, origin service variable existed, delete it
-					log.Debugf("condtiion 3")
+					log.Debugf("condtiion 3: kv: %+v", kv)
 					if kv.UseGlobalVariable {
 						delGlobalVarKV(svcName, &kv.ServiceVariableKV, originGlobalVarKVMap)
 					}

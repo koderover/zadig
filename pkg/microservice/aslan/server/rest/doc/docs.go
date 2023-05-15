@@ -47,8 +47,7 @@ const docTemplate = `{
                         "type": "string",
                         "description": "type",
                         "name": "type",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "boolean",
