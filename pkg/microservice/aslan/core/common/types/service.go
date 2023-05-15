@@ -276,10 +276,20 @@ func RenderVariableKVToYaml(kvs []*RenderVariableKV) (string, error) {
 	return ServiceVariableKVToYaml(serviceVariableKVs)
 }
 
+func GlobalVariableKVToYaml(kvs []*GlobalVariableKV) (string, error) {
+	serviceVariableKVs := make([]*ServiceVariableKV, 0)
+	for _, kv := range kvs {
+		serviceVariableKVs = append(serviceVariableKVs, &kv.ServiceVariableKV)
+	}
+
+	return ServiceVariableKVToYaml(serviceVariableKVs)
+}
+
 // update the global variable kvs base on the render variable kvs
 // if the key is not exist, create a new one
 // if the key exist, update the related services
-func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, renderVariables []*RenderVariableKV) ([]*GlobalVariableKV, error) {
+// @note how to update global variable and render variable exzactly ?
+func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, renderVariables []*RenderVariableKV) ([]*GlobalVariableKV, []*RenderVariableKV, error) {
 	globalVariableMap := map[string]*GlobalVariableKV{}
 	for _, kv := range globalVariables {
 		globalVariableMap[kv.Key] = kv
@@ -289,21 +299,17 @@ func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariab
 		if kv.UseGlobalVariable {
 			globalVariableKV, ok := globalVariableMap[kv.Key]
 			if !ok {
-				globalVariableKV = &GlobalVariableKV{
-					ServiceVariableKV: ServiceVariableKV{
-						Key:     kv.Key,
-						Value:   kv.Value,
-						Type:    kv.Type,
-						Options: kv.Options,
-						Desc:    kv.Desc,
-					},
-					RelatedServices: []string{serviceName},
-				}
-			} else {
-				relatedServiceSet := sets.NewString(globalVariableKV.RelatedServices...)
-				if !relatedServiceSet.Has(serviceName) {
-					globalVariableKV.RelatedServices = append(globalVariableKV.RelatedServices, serviceName)
-				}
+				return nil, nil, fmt.Errorf("referenced global variable not exist, key: %s", kv.Key)
+			}
+
+			kv.Type = globalVariableKV.Type
+			kv.Value = globalVariableKV.Value
+			kv.Options = globalVariableKV.Options
+			kv.Desc = globalVariableKV.Desc
+
+			relatedServiceSet := sets.NewString(globalVariableKV.RelatedServices...)
+			if !relatedServiceSet.Has(serviceName) {
+				globalVariableKV.RelatedServices = append(globalVariableKV.RelatedServices, serviceName)
 			}
 		}
 	}
@@ -313,5 +319,5 @@ func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariab
 		retGlobalVariables = append(retGlobalVariables, kv)
 	}
 
-	return retGlobalVariables, nil
+	return retGlobalVariables, renderVariables, nil
 }

@@ -97,6 +97,93 @@ const docTemplate = `{
                 }
             }
         },
+        "/environment/environments/{name}/globalVariableCandidate": {
+            "get": {
+                "description": "Get global variable candidate",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get global variable candidate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/types.ServiceVariableKV"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/environment/environments/{name}/k8s/globalVariables": {
+            "put": {
+                "description": "Update global variables",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Update global variables",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.updateK8sProductGlobalVariablesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/environment/environments/{name}/services": {
             "put": {
                 "description": "Delete services from envrionment",
@@ -798,8 +885,8 @@ const docTemplate = `{
                         "$ref": "#/definitions/types.GlobalVariableKV"
                     }
                 },
-                "yaml_data": {
-                    "$ref": "#/definitions/template.CustomYaml"
+                "revision": {
+                    "type": "integer"
                 }
             }
         },
@@ -825,6 +912,20 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/types.ServiceVariableKV"
+                    }
+                }
+            }
+        },
+        "handler.updateK8sProductGlobalVariablesRequest": {
+            "type": "object",
+            "properties": {
+                "current_revision": {
+                    "type": "integer"
+                },
+                "global_variables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.GlobalVariableKV"
                     }
                 }
             }

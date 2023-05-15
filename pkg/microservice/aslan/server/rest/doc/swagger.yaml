@@ -52,8 +52,8 @@ definitions:
         items:
           $ref: '#/definitions/types.GlobalVariableKV'
         type: array
-      yaml_data:
-        $ref: '#/definitions/template.CustomYaml'
+      revision:
+        type: integer
     type: object
   handler.getYamlTemplateVariablesReq:
     properties:
@@ -70,6 +70,15 @@ definitions:
       global_variables:
         items:
           $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+    type: object
+  handler.updateK8sProductGlobalVariablesRequest:
+    properties:
+      current_revision:
+        type: integer
+      global_variables:
+        items:
+          $ref: '#/definitions/types.GlobalVariableKV'
         type: array
     type: object
   handler.updateServiceVariableRequest:
@@ -749,6 +758,64 @@ paths:
         "200":
           description: OK
       summary: Update Multi products
+      tags:
+      - environment
+  /environment/environments/{name}/globalVariableCandidate:
+    get:
+      consumes:
+      - application/json
+      description: Get global variable candidate
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/types.ServiceVariableKV'
+            type: array
+      summary: Get global variable candidate
+      tags:
+      - environment
+  /environment/environments/{name}/k8s/globalVariables:
+    put:
+      consumes:
+      - application/json
+      description: Update global variables
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.updateK8sProductGlobalVariablesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update global variables
       tags:
       - environment
   /environment/environments/{name}/services:
