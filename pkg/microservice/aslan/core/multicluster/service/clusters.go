@@ -250,7 +250,6 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		}
 	}
 
-	err = buildConfigs(args)
 	if err != nil {
 		return nil, err
 	}

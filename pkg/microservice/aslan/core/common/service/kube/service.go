@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"net/url"
 	"strconv"
 	"strings"
@@ -115,7 +116,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 	cluster.Status = setting.Pending
 	if cluster.Type == setting.KubeConfigClusterType {
 		// since we will always be able to connect with direct connection
-		err := InitializeExternalCluster(config.HubServerAddress(), cluster.ID.Hex())
+		err := InitializeExternalCluster(config.HubServerAddress(), cluster)
 		if err != nil {
 			return nil, err
 		}
@@ -387,10 +388,18 @@ func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemo
 // Deployment: resource-server
 // Service:    resource-server, dind
 // StatefulSet: dind
-func InitializeExternalCluster(hubserverAddr, clusterID string) error {
-	clientset, err := kubeclient.GetKubeClientSet(hubserverAddr, clusterID)
-	if err != nil {
-		return err
+func InitializeExternalCluster(hubserverAddr string, cluster *models.K8SCluster) (err error) {
+	var clientset *kubernetes.Clientset
+	if primitive.ObjectID.IsZero(cluster.ID) {
+		clientset, err = kubeclient.GetKubeClientSetByConfig(cluster.KubeConfig)
+		if err != nil {
+			return err
+		}
+	} else {
+		clientset, err = kubeclient.GetKubeClientSet(hubserverAddr, cluster.ID.Hex())
+		if err != nil {
+			return err
+		}
 	}
 
 	// if no namespace named "koderover-agent" exists, we create one

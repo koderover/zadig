@@ -18,13 +18,13 @@ package client
 
 import (
 	"fmt"
-
 	"github.com/koderover/zadig/pkg/config"
 	"istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -79,6 +79,21 @@ func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, e
 	default:
 		return nil, fmt.Errorf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
 	}
+}
+
+func GetKubeClientSetByConfig(config string) (*kubernetes.Clientset, error) {
+	// 根据 kubeconfig 创建配置对象
+	cg, err := clientcmd.RESTConfigFromKubeConfig([]byte(config))
+	if err != nil {
+		return nil, err
+	}
+
+	// 根据配置创建 clientset
+	clientset, err := kubernetes.NewForConfig(cg)
+	if err != nil {
+		return nil, err
+	}
+	return clientset, nil
 }
 
 func GetKubeMetricsClient(hubserverAddr, clusterID string) (*v1beta1.MetricsV1beta1Client, error) {
