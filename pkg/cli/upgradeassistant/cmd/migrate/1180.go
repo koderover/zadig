@@ -17,11 +17,13 @@
 package migrate
 
 import (
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	aslanConfig "github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -34,6 +36,9 @@ func init() {
 func V1170ToV1180() error {
 	if err := migrateJiraAuthType(); err != nil {
 		log.Errorf("migrateJiraAuthType err: %v", err)
+	}
+	if err := migrateSystemTheme(); err != nil {
+		log.Errorf("migrateSystemTheme err: %v", err)
 	}
 	return nil
 }
@@ -56,6 +61,53 @@ func migrateJiraAuthType() error {
 		jira.JiraAuthType = config.JiraBasicAuth
 		if err := mongodb.NewProjectManagementColl().UpdateByID(jira.ID.Hex(), jira); err != nil {
 			return errors.Wrap(err, "update")
+		}
+	}
+	return nil
+}
+
+func migrateSystemTheme() error {
+	mdb := mongodb.NewSystemSettingColl()
+	if systemSetting, err := mdb.Get(); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil
+		}
+		return errors.Wrap(err, "get system setting")
+	} else {
+		if systemSetting.Theme != nil {
+			return nil
+		}
+		theme := &models.Theme{
+			ThemeType: aslanConfig.CUSTOME_THEME,
+			CustomTheme: &models.CustomTheme{
+				BorderGray:               "#d2d7dc",
+				FontGray:                 "#888888",
+				FontLightGray:            "#a0a0a0",
+				ThemeColor:               "#0066ff",
+				ThemeBorderColor:         "#66bbff",
+				ThemeBackgroundColor:     "#eeeeff",
+				ThemeLightColor:          "#66bbff",
+				BackgroundColor:          "#e5e5e5",
+				GlobalBackgroundColor:    "#f6f6f6",
+				Success:                  "#67c23a",
+				Danger:                   "#f56c6c",
+				Warning:                  "#e6a23c",
+				Info:                     "#909399",
+				Primary:                  "#0066ff",
+				WarningLight:             "#cdb62c",
+				NotRunning:               "#303133",
+				PrimaryColor:             "#000",
+				SecondaryColor:           "#888888",
+				SideBarBg:                "#f5f7fa",
+				SidebarActiveColor:       "rgba(0,102,255,0.07)",
+				ProjectItemIconColor:     "#0066ff",
+				ProjectNameColor:         "#121212",
+				TableCellBackgroundColor: "#eaeaea",
+			},
+		}
+		err := mdb.UpdateTheme(theme)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
