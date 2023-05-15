@@ -100,7 +100,7 @@ func ListProductionEnvs(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	projectName		query		string								true	"project name"
-// @Param 	type 			query		string								true	"type"
+// @Param 	type 			query		string								false	"type"
 // @Param 	force 			query		bool								true	"is force"
 // @Param 	k8s_body 		body 		[]service.UpdateEnv 				true 	"updateMultiK8sEnv body"
 // @Param 	helm_body 		body 		service.UpdateMultiHelmProductArg 	true 	"updateMultiHelmEnv body"

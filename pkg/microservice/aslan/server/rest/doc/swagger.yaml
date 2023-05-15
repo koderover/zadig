@@ -715,7 +715,6 @@ paths:
       - description: type
         in: query
         name: type
-        required: true
         type: string
       - description: is force
         in: query
