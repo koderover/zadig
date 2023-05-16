@@ -51,7 +51,7 @@ type CustomTheme struct {
 	NotRunning               string `bson:"not_running" json:"not_running"`
 	PrimaryColor             string `bson:"primary_color" json:"primary_color"`
 	SecondaryColor           string `bson:"secondary_color" json:"secondary_color"`
-	SideBarBg                string `bson:"side_bar_bg" json:"side_bar_bg"`
+	SidebarBg                string `bson:"sidebar_bg" json:"sidebar_bg"`
 	SidebarActiveColor       string `bson:"sidebar_active_color" json:"sidebar_active_color"`
 	ProjectItemIconColor     string `bson:"project_item_icon_color" json:"project_item_icon_color"`
 	ProjectNameColor         string `bson:"project_name_color" json:"project_name_color"`

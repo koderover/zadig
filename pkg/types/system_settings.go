@@ -24,7 +24,7 @@ type CustomTheme struct {
 	NotRunning               string `json:"not_running"`
 	PrimaryColor             string `json:"primary_color"`
 	SecondaryColor           string `json:"secondary_color"`
-	SideBarBg                string `json:"side_bar_bg"`
+	SidebarBg                string `json:"sidebar_bg"`
 	SidebarActiveColor       string `json:"sidebar_active_color"`
 	ProjectItemIconColor     string `json:"project_item_icon_color"`
 	ProjectNameColor         string `json:"project_name_color"`

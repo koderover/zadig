@@ -16,6 +16,9 @@ func GetThemeInfos(log *zap.SugaredLogger) (*types.Theme, error) {
 	}
 
 	theme := setting.Theme
+	if theme == nil {
+		return &types.Theme{}, nil
+	}
 	if theme.ThemeType != config.CUSTOME_THEME {
 		return &types.Theme{ThemeType: theme.ThemeType}, nil
 	}
@@ -49,7 +52,7 @@ func convertThemeToRsp(m *models.Theme) *types.Theme {
 			NotRunning:               m.CustomTheme.NotRunning,
 			PrimaryColor:             m.CustomTheme.PrimaryColor,
 			SecondaryColor:           m.CustomTheme.SecondaryColor,
-			SideBarBg:                m.CustomTheme.SideBarBg,
+			SidebarBg:                m.CustomTheme.SidebarBg,
 			SidebarActiveColor:       m.CustomTheme.SidebarActiveColor,
 			ProjectItemIconColor:     m.CustomTheme.ProjectItemIconColor,
 			ProjectNameColor:         m.CustomTheme.ProjectNameColor,

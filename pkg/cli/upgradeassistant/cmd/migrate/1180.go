@@ -98,7 +98,7 @@ func migrateSystemTheme() error {
 				NotRunning:               "#303133",
 				PrimaryColor:             "#000",
 				SecondaryColor:           "#888888",
-				SideBarBg:                "#f5f7fa",
+				SidebarBg:                "#f5f7fa",
 				SidebarActiveColor:       "rgba(0,102,255,0.07)",
 				ProjectItemIconColor:     "#0066ff",
 				ProjectNameColor:         "#121212",
