@@ -106,6 +106,25 @@ func OpenAPIScale(req *OpenAPIScaleServiceReq, logger *zap.SugaredLogger) error 
 	return Scale(args, logger)
 }
 
+func OpenAPIApplyYamlService(req *OpenAPIApplyYamlServiceReq, requestID string, logger *zap.SugaredLogger) ([]*EnvStatus, error) {
+	args := make([]*UpdateEnv, 0)
+	svcList := make([]*UpdateServiceArg, 0)
+
+	for _, service := range req.ServiceList {
+		// for now we hard code the deploy strategy to deploy, since only this is required for now
+		svcList = append(svcList, &UpdateServiceArg{
+			ServiceName:    service.ServiceName,
+			DeployStrategy: setting.ServiceDeployStrategyDeploy,
+		})
+	}
+	args = append(args, &UpdateEnv{
+		EnvName:  req.EnvName,
+		Services: svcList,
+	})
+
+	return UpdateMultipleK8sEnv(args, []string{req.EnvName}, req.ProjectKey, requestID, false, logger)
+}
+
 func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	prod, err := commonrepo.NewProductColl().Find(opt)

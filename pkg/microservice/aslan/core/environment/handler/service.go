@@ -17,10 +17,7 @@ limitations under the License.
 package handler
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -199,43 +196,6 @@ func ScaleNewService(c *gin.Context) {
 		Name:        name,
 		Number:      number,
 	}, ctx.Logger)
-}
-
-func OpenAPIScaleWorkloads(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	req := new(service.OpenAPIScaleServiceReq)
-	data, err := c.GetRawData()
-	if err != nil {
-		ctx.Logger.Errorf("CreateProductTemplate c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, req); err != nil {
-		ctx.Logger.Errorf("CreateProductTemplate json.Unmarshal err : %v", err)
-	}
-
-	internalhandler.InsertDetailedOperationLog(
-		c, ctx.UserName+"(openAPI)",
-		req.ProjectKey, setting.OperationSceneEnv,
-		"伸缩",
-		"环境-服务",
-		fmt.Sprintf("环境名称:%s,%s:%s", req.EnvName, req.WorkloadType, req.WorkloadName),
-		string(data), ctx.Logger, req.EnvName)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.BindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
-		return
-	}
-
-	// input validation for OpenAPI
-	err = req.Validate()
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Err = service.OpenAPIScale(req, ctx.Logger)
 }
 
 func GetServiceContainer(c *gin.Context) {

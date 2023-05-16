@@ -243,5 +243,6 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	common := router.Group("")
 	{
 		common.POST("/scale", OpenAPIScaleWorkloads)
+		common.POST("/service/yaml", OpenAPIApplyYamlService)
 	}
 }
