@@ -249,7 +249,6 @@ func (req *OpenAPIScaleServiceReq) Validate() error {
 }
 
 type OpenAPIApplyYamlServiceReq struct {
-	ProjectKey  string               `json:"project_key"`
 	EnvName     string               `json:"env_name"`
 	ServiceList []*YamlServiceWithKV `json:"service_list"`
 }
@@ -259,10 +258,6 @@ type YamlServiceWithKV struct {
 }
 
 func (req *OpenAPIApplyYamlServiceReq) Validate() error {
-	if req.ProjectKey == "" {
-		return fmt.Errorf("project_key is required")
-	}
-
 	if req.EnvName == "" {
 		return fmt.Errorf("env_name is required")
 	}
@@ -272,5 +267,18 @@ func (req *OpenAPIApplyYamlServiceReq) Validate() error {
 			return fmt.Errorf("service_name is required for all services")
 		}
 	}
+	return nil
+}
+
+type OpenAPIDeleteYamlServiceFromEnvReq struct {
+	EnvName      string   `json:"env_name"`
+	ServiceNames []string `json:"service_names"`
+}
+
+func (req *OpenAPIDeleteYamlServiceFromEnvReq) Validate() error {
+	if req.EnvName == "" {
+		return fmt.Errorf("env_name is required")
+	}
+
 	return nil
 }

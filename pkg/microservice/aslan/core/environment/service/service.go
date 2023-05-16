@@ -106,7 +106,7 @@ func OpenAPIScale(req *OpenAPIScaleServiceReq, logger *zap.SugaredLogger) error 
 	return Scale(args, logger)
 }
 
-func OpenAPIApplyYamlService(req *OpenAPIApplyYamlServiceReq, requestID string, logger *zap.SugaredLogger) ([]*EnvStatus, error) {
+func OpenAPIApplyYamlService(projectKey string, req *OpenAPIApplyYamlServiceReq, requestID string, logger *zap.SugaredLogger) ([]*EnvStatus, error) {
 	args := make([]*UpdateEnv, 0)
 	svcList := make([]*UpdateServiceArg, 0)
 
@@ -122,7 +122,7 @@ func OpenAPIApplyYamlService(req *OpenAPIApplyYamlServiceReq, requestID string, 
 		Services: svcList,
 	})
 
-	return UpdateMultipleK8sEnv(args, []string{req.EnvName}, req.ProjectKey, requestID, false, logger)
+	return UpdateMultipleK8sEnv(args, []string{req.EnvName}, projectKey, requestID, false, logger)
 }
 
 func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {

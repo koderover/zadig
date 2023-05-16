@@ -244,5 +244,6 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		common.POST("/scale", OpenAPIScaleWorkloads)
 		common.POST("/service/yaml", OpenAPIApplyYamlService)
+		common.DELETE("/service/yaml", OpenAPIDeleteYamlServiceFromEnv)
 	}
 }

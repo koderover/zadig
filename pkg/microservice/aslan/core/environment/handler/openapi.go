@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -80,6 +81,13 @@ func OpenAPIApplyYamlService(c *gin.Context) {
 		return
 	}
 
+	projectKey := c.Param("projectName")
+
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+		return
+	}
+
 	data, err := c.GetRawData()
 	if err != nil {
 		ctx.Logger.Errorf("CreateProductTemplate c.GetRawData() err : %v", err)
@@ -101,9 +109,59 @@ func OpenAPIApplyYamlService(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", req.ProjectKey, setting.OperationSceneEnv, "更新", "环境", req.EnvName, string(data), ctx.Logger, req.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "更新", "环境", req.EnvName, string(data), ctx.Logger, req.EnvName)
 
-	_, err = service.OpenAPIApplyYamlService(req, ctx.RequestID, ctx.Logger)
+	_, err = service.OpenAPIApplyYamlService(projectKey, req, ctx.RequestID, ctx.Logger)
 
 	ctx.Err = err
+}
+
+func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(service.OpenAPIDeleteYamlServiceFromEnvReq)
+
+	if err := c.BindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		return
+	}
+
+	// input validation for OpenAPI
+	err := req.Validate()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectKey := c.Param("projectName")
+
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Logger.Errorf("CreateProductTemplate c.GetRawData() err : %v", err)
+	}
+
+	svcsInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c, projectKey, req.EnvName, req.ServiceNames)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	if len(svcsInSubEnvs) > 0 {
+		data := make(map[string]interface{}, len(svcsInSubEnvs))
+		for k, v := range svcsInSubEnvs {
+			data[k] = v
+		}
+
+		ctx.Err = e.NewWithExtras(e.ErrDeleteSvcHasSvcsInSubEnv, "", data)
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", req.EnvName, strings.Join(req.ServiceNames, ",")), "", ctx.Logger, req.EnvName)
+	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, ctx.Logger)
 }
