@@ -110,7 +110,7 @@ func (c *SystemSettingColl) InitSystemSettings() error {
 					PrimaryColor:             "#000",
 					SecondaryColor:           "#888888",
 					SidebarBg:                "#f5f7fa",
-					SidebarActiveColor:       "rgba(0,102,255,0.07)",
+					SidebarActiveColor:       "#0066ff12",
 					ProjectItemIconColor:     "#0066ff",
 					ProjectNameColor:         "#121212",
 					TableCellBackgroundColor: "#eaeaea",
