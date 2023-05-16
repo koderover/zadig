@@ -141,11 +141,6 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 		return
 	}
 
-	data, err := c.GetRawData()
-	if err != nil {
-		ctx.Logger.Errorf("CreateProductTemplate c.GetRawData() err : %v", err)
-	}
-
 	svcsInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c, projectKey, req.EnvName, req.ServiceNames)
 	if err != nil {
 		ctx.Err = err
