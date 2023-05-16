@@ -191,6 +191,20 @@ func copyProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*
 	}
 }
 
+// @Summary Create Product(environment)
+// @Description Create Product(environment)
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	type 			query		string								true	"type"
+// @Param 	envType 		query		string								false	"env type"
+// @Param 	scene	 		query		string								false	"scene"
+// @Param 	auto 			query		bool								false	"is auto"
+// @Param 	body 			body 		[]service.CreateSingleProductArg 	true 	"body"
+// @Success 200
+// @Router /environment/environments [post]
+//
 // CreateProduct creates new product
 // Query param `type` determines the type of product
 // Query param `scene` determines if the product is copied from some project
@@ -256,6 +270,7 @@ func CreateProduct(c *gin.Context) {
 		}
 		return
 	} else {
+		// is pm project
 		// 'auto = true' only happens in the onboarding progress of pm projects
 		if createParam.Auto {
 			ctx.Resp = service.AutoCreateProduct(createParam.ProjectName, createParam.EnvType, ctx.RequestID, ctx.Logger)
@@ -1068,16 +1083,16 @@ func ListWorkloadsInEnv(c *gin.Context) {
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
-// @Summary Get global variable candidate
-// @Description Get global variable candidate
+// @Summary Get global variable candidates
+// @Description Get global variable candidates
 // @Tags 	environment
 // @Accept 	json
 // @Produce json
 // @Param 	projectName	query		string										true	"project name"
 // @Param 	name 		path		string										true	"env name"
 // @Success 200 		{array} 	commontypes.ServiceVariableKV
-// @Router /environment/environments/{name}/globalVariableCandidate [get]
-func GetGlobalVariableCandidate(c *gin.Context) {
+// @Router /environment/environments/{name}/globalVariableCandidates [get]
+func GetGlobalVariableCandidates(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 

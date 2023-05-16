@@ -22,6 +22,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/types"
@@ -34,6 +36,28 @@ func CleanProductCronJob(c *gin.Context) {
 	service.CleanProductCronJob(ctx.RequestID, ctx.Logger)
 }
 
+type getInitProductRespone struct {
+	ProductName    string                           `json:"product_name"`
+	CreateTime     int64                            `json:"create_time"`
+	Revision       int64                            `json:"revision"`
+	UpdateBy       string                           `json:"update_by"`
+	Services       [][]*commonmodels.ProductService `json:"services"`
+	Render         *commonmodels.RenderInfo         `json:"render"`
+	ServiceRenders []*templatemodels.ServiceRender  `json:"chart_infos,omitempty"`
+	Source         string                           `json:"source"`
+}
+
+// @Summary Get init product
+// @Description Get init product
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name			path		string								true	"project template name"
+// @Param 	envType 		query		string								true	"env type"
+// @Param 	isBaseEnv 		query		string								true	"is base env"
+// @Param 	baseEnv 		query		string								true	"base env"
+// @Success 200 			{object} 	getInitProductRespone
+// @Router /environment/init_info/{name} [get]
 func GetInitProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -58,5 +82,20 @@ func GetInitProduct(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetInitProduct(productTemplateName, envType, isBaseEnv, baseEnvName, ctx.Logger)
+	product, err := service.GetInitProduct(productTemplateName, envType, isBaseEnv, baseEnvName, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp = getInitProductRespone{
+		ProductName:    product.ProductName,
+		CreateTime:     product.CreateTime,
+		Revision:       product.Revision,
+		UpdateBy:       product.UpdateBy,
+		Services:       product.Services,
+		Render:         product.Render,
+		ServiceRenders: product.ServiceRenders,
+		Source:         product.Source,
+	}
 }

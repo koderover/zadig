@@ -118,6 +118,7 @@ func mergeServiceVariables(newVariables []*templatemodels.ServiceRender, oldVari
 	return ret
 }
 
+// @todo remove comments
 // calc global variable's related services when update a renderSet
 // check the diff between origin and new renderSet
 func calcGlobalVariableRelatedService(origin, new *commonmodels.RenderSet) []*commontypes.GlobalVariableKV {

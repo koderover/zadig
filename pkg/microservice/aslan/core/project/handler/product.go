@@ -348,8 +348,8 @@ func UpdateGlobalVariables(c *gin.Context) {
 // @Tags 	project
 // @Accept 	json
 // @Produce json
-// @Param 	name	path		string										true	"project name"
-// @Success 200 	{array} 	projectservice.GlobalVariableCandidates
+// @Param 	name	path		string												true	"project name"
+// @Success 200 	{array} 	projectservice.GetGlobalVariableCandidatesRespone
 // @Router /project/products/{name}/globalVariableCandidates [get]
 func GetGlobalVariableCandidates(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)

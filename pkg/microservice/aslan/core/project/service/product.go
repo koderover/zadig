@@ -1362,12 +1362,12 @@ func UpdateGlobalVariables(productName, userName string, globalVariables []*comm
 	return nil
 }
 
-type GlobalVariableCandidates struct {
+type GetGlobalVariableCandidatesRespone struct {
 	KeyName        string   `json:"key_name"`
 	RelatedService []string `json:"related_service"`
 }
 
-func GetGlobalVariableCandidates(productName string, log *zap.SugaredLogger) ([]*GlobalVariableCandidates, error) {
+func GetGlobalVariableCandidates(productName string, log *zap.SugaredLogger) ([]*GetGlobalVariableCandidatesRespone, error) {
 	productInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find product %s, err: %w", productName, err)
@@ -1379,19 +1379,19 @@ func GetGlobalVariableCandidates(productName string, log *zap.SugaredLogger) ([]
 	}
 
 	existedVariableSet := sets.NewString()
-	variableMap := make(map[string]*GlobalVariableCandidates)
+	variableMap := make(map[string]*GetGlobalVariableCandidatesRespone)
 	for _, kv := range productInfo.GlobalVariables {
 		existedVariableSet.Insert(kv.Key)
 	}
 
-	ret := make([]*GlobalVariableCandidates, 0)
+	ret := make([]*GetGlobalVariableCandidatesRespone, 0)
 	for _, service := range services {
 		for _, kv := range service.ServiceVariableKVs {
 			if !existedVariableSet.Has(kv.Key) {
 				if candiate, ok := variableMap[kv.Key]; ok {
 					candiate.RelatedService = append(candiate.RelatedService, service.ServiceName)
 				} else {
-					variableMap[kv.Key] = &GlobalVariableCandidates{
+					variableMap[kv.Key] = &GetGlobalVariableCandidatesRespone{
 						KeyName:        kv.Key,
 						RelatedService: []string{service.ServiceName},
 					}

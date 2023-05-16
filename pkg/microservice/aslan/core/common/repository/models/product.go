@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 )
 
 type ProductAuthType string
@@ -101,14 +102,15 @@ type ProductAuth struct {
 }
 
 type ProductService struct {
-	ServiceName  string       `bson:"service_name"               json:"service_name"`
-	ProductName  string       `bson:"product_name"               json:"product_name"`
-	Type         string       `bson:"type"                       json:"type"`
-	Revision     int64        `bson:"revision"                   json:"revision"`
-	Containers   []*Container `bson:"containers"                 json:"containers,omitempty"`
-	Error        string       `bson:"error,omitempty"            json:"error,omitempty"`
-	EnvConfigs   []*EnvConfig `bson:"-"                          json:"env_configs,omitempty"`
-	VariableYaml string       `bson:"-"                          json:"variable_yaml,omitempty"`
+	ServiceName  string                          `bson:"service_name"               json:"service_name"`
+	ProductName  string                          `bson:"product_name"               json:"product_name"`
+	Type         string                          `bson:"type"                       json:"type"`
+	Revision     int64                           `bson:"revision"                   json:"revision"`
+	Containers   []*Container                    `bson:"containers"                 json:"containers,omitempty"`
+	Error        string                          `bson:"error,omitempty"            json:"error,omitempty"`
+	EnvConfigs   []*EnvConfig                    `bson:"-"                          json:"env_configs,omitempty"`
+	VariableYaml string                          `bson:"-"                          json:"variable_yaml,omitempty"`
+	VariableKVs  []*commontypes.RenderVariableKV `bson:"-"                          json:"variable_kvs,omitempty"`
 }
 
 type ServiceConfig struct {

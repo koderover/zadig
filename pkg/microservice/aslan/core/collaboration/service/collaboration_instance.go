@@ -32,6 +32,7 @@ import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	config2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	mongodb2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
@@ -95,17 +96,17 @@ type Workflow struct {
 }
 
 type Product struct {
-	CollaborationType config.CollaborationType `json:"collaboration_type"`
-	BaseName          string                   `json:"base_name"`
-	CollaborationMode string                   `json:"collaboration_mode"`
-	Name              string                   `json:"name"`
-	DeployType        string                   `json:"deploy_type"`
-	//Vars              []*templatemodels.RenderKV        `json:"vars"`
-	DefaultValues string                            `json:"default_values,omitempty"`
-	ValuesData    *commonservice.ValuesDataArgs     `json:"valuesData,omitempty"`
-	YamlData      *templatemodels.CustomYaml        `json:"yaml_data,omitempty"`
-	ChartValues   []*commonservice.HelmSvcRenderArg `json:"chartValues,omitempty"`
-	Services      []*commonservice.K8sSvcRenderArg  `json:"services"`
+	CollaborationType config.CollaborationType          `json:"collaboration_type"`
+	BaseName          string                            `json:"base_name"`
+	CollaborationMode string                            `json:"collaboration_mode"`
+	Name              string                            `json:"name"`
+	DeployType        string                            `json:"deploy_type"`
+	DefaultValues     string                            `json:"default_values,omitempty"`
+	GlobalVariables   []*commontypes.GlobalVariableKV   `json:"global_variables,omitempty"`
+	ValuesData        *commonservice.ValuesDataArgs     `json:"valuesData,omitempty"`
+	YamlData          *templatemodels.CustomYaml        `json:"yaml_data,omitempty"`
+	ChartValues       []*commonservice.HelmSvcRenderArg `json:"chartValues,omitempty"`
+	Services          []*commonservice.K8sSvcRenderArg  `json:"services"`
 }
 
 type GetCollaborationNewResp struct {
@@ -986,12 +987,12 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 			}
 			if productArg.DeployType == setting.K8SDeployType {
 				yamlProductItems = append(yamlProductItems, service2.YamlProductItem{
-					OldName:       product.BaseName,
-					NewName:       product.Name,
-					BaseName:      product.BaseName,
-					DefaultValues: productArg.DefaultValues,
-					Services:      productArg.Services,
-					//Vars:          productArg.Vars,
+					OldName:         product.BaseName,
+					NewName:         product.Name,
+					BaseName:        product.BaseName,
+					DefaultValues:   productArg.DefaultValues,
+					GlobalVariables: productArg.GlobalVariables,
+					Services:        productArg.Services,
 				})
 			}
 		}

@@ -28,6 +28,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
@@ -296,6 +297,11 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 	}
 	productObj.ServiceDeployStrategy = serviceDeployStrategy
 
+	// validate the global variables
+	if !commontypes.ValidateGlobalVariables(templateProduct.GlobalVariables, arg.GlobalVariables) {
+		return fmt.Errorf("global variables not match the definition")
+	}
+
 	// insert renderset info into db
 	err := render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
 		Name:             commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
@@ -304,6 +310,7 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 		UpdateBy:         productObj.UpdateBy,
 		IsDefault:        false,
 		DefaultValues:    arg.DefaultValues,
+		GlobalVariables:  arg.GlobalVariables,
 		ServiceVariables: productObj.ServiceRenders,
 	}, log)
 	if err != nil {
@@ -339,9 +346,17 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 
 	for _, svg := range arg.Services {
 		for _, sv := range svg {
+			variableYaml, err := commontypes.RenderVariableKVToYaml(sv.VariableKVs)
+			if err != nil {
+				return fmt.Errorf("failed to convert render variable kvs to yaml, svcName: %s, err: %w", sv.ServiceName, err)
+			}
+
 			productObj.ServiceRenders = append(productObj.ServiceRenders, &templatemodels.ServiceRender{
-				ServiceName:  sv.ServiceName,
-				OverrideYaml: &templatemodels.CustomYaml{YamlContent: sv.VariableYaml},
+				ServiceName: sv.ServiceName,
+				OverrideYaml: &templatemodels.CustomYaml{
+					YamlContent:       variableYaml,
+					RenderVaraibleKVs: sv.VariableKVs,
+				},
 			})
 		}
 	}

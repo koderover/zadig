@@ -22,6 +22,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 )
 
 const (
@@ -152,8 +153,8 @@ type CreateSingleProductArg struct {
 	ChartValues []*ProductHelmServiceCreationInfo `json:"chartValues"`
 
 	// for k8s products
-	//Vars     []*templatemodels.RenderKV         `json:"vars"`
-	Services [][]*ProductK8sServiceCreationInfo `json:"services"`
+	GlobalVariables []*commontypes.GlobalVariableKV    `json:"global_variables"`
+	Services        [][]*ProductK8sServiceCreationInfo `json:"services"`
 
 	IsExisted bool `json:"is_existed"`
 

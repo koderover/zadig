@@ -101,6 +101,17 @@ func PreviewService(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.PreviewService(args, ctx.Logger)
 }
 
+// @Summary Update service
+// @Description Update service
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	name 			path		string								true	"env name"
+// @Param 	serviceName	 	path		string								true	"service name"
+// @Param 	body 			body 		service.SvcRevision 				true 	"body"
+// @Success 200
+// @Router /environment/environments [put]
 func UpdateService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

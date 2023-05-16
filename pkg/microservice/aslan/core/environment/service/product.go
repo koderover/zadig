@@ -32,6 +32,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -116,7 +117,6 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 	ret.UpdateBy = prodTmpl.UpdateBy
 	ret.CreateTime = prodTmpl.CreateTime
 	ret.Render = &commonmodels.RenderInfo{Name: "", Description: ""}
-	//ret.Vars = prodTmpl.Vars
 	ret.ServiceRenders = prodTmpl.ChartInfos
 	if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
 		ret.Source = setting.PMDeployType
@@ -192,6 +192,7 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 					serviceResp.VariableYaml = serviceTmpl.VariableYaml
+					serviceResp.VariableKVs = commontypes.ServiceToRenderVariableKVs(serviceTmpl.ServiceVariableKVs)
 				}
 			}
 			servicesResp = append(servicesResp, serviceResp)

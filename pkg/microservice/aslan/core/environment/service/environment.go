@@ -2353,7 +2353,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 					ProductTmpl:      args.ProductName,
 					UpdateBy:         args.UpdateBy,
 					ServiceVariables: args.ServiceRenders,
-					//KVs:         args.Vars,
 				},
 				log,
 			)
@@ -2364,8 +2363,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 			return e.ErrCreateEnv.AddDesc(e.FindProductTmplErrMsg)
 		}
 	}
-
-	//args.Vars = nil
 
 	var productTmpl *templatemodels.Product
 	// 查询产品模板
@@ -3037,6 +3034,7 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		productSet.Insert(kv.Key)
 	}
 
+	// TODO: validate added new variable
 	deletedVariableSet := productSet.Difference(argSet)
 	for _, key := range deletedVariableSet.List() {
 		if _, ok := productMap[key]; !ok {
@@ -3065,7 +3063,6 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 
 		svcSet := sets.NewString()
 		for _, svc := range productKV.RelatedServices {
-			// @note check ServiceDeployed status???
 			if !commonutil.ServiceDeployed(svc, product.ServiceDeployStrategy) {
 				continue
 			}
