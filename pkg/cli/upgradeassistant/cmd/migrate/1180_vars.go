@@ -165,6 +165,9 @@ func migrateVariables() error {
 	if err = migrateProductionProductVariables(); err != nil {
 		return err
 	}
+
+	// TODO migrate workflow config data
+	// TODO migrate workflow task data
 	return nil
 }
 
@@ -173,13 +176,8 @@ func migrateTemplateVariables() error {
 	if err != nil {
 		return errors.Wrap(err, "list yaml templates")
 	}
-
 	for _, yamlTemplate := range k8sTemplates {
-		if len(yamlTemplate.ServiceVariableKVs) > 0 {
-			continue
-		}
-
-		if len(yamlTemplate.VariableYaml) == 0 {
+		if len(yamlTemplate.ServiceVariableKVs) > 0 || len(yamlTemplate.VariableYaml) == 0 {
 			continue
 		}
 		serviceKVs, err := types.YamlToServiceVariableKV(yamlTemplate.VariableYaml, nil)
@@ -196,7 +194,6 @@ func migrateTemplateVariables() error {
 }
 
 func migrateTemplateServiceVariables() error {
-
 	insertSvcToMap := func(productName, serviceName string, serviceRevision int64) {
 		svcKey := fmt.Sprintf("%s/%s", productName, serviceName)
 		if _, ok := allTestServiceRevisions[svcKey]; !ok {
@@ -353,11 +350,11 @@ func migrateTestProductVariables() error {
 
 			// change global variable yaml to kvs
 			relations := make(map[string]sets.String)
+			var globalKvs map[string]interface{}
 			if len(renderInfo.DefaultValues) > 0 {
 				// calculate variable yaml and service relations by keys
 				// fill renderset.GlobalVariables
-				var kvs map[string]interface{}
-				relations, kvs, err = GenerateEnvVariableAffectServices(product, renderInfo)
+				relations, globalKvs, err = GenerateEnvVariableAffectServices(product, renderInfo)
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate env variable affected services")
 				}
@@ -367,7 +364,7 @@ func migrateTestProductVariables() error {
 						relatedSvcs = svcSets.List()
 					}
 					gvKV := &types.GlobalVariableKV{
-						ServiceVariableKV: types.ServiceVariableKV{Key: k, Value: kvs[k]},
+						ServiceVariableKV: types.ServiceVariableKV{Key: k, Value: globalKvs[k]},
 						RelatedServices:   relatedSvcs,
 					}
 					renderInfo.GlobalVariables = append(renderInfo.GlobalVariables, gvKV)
@@ -419,10 +416,11 @@ func migrateTestProductVariables() error {
 						})
 					}
 
-					// set to use global variable if global variable is set
-					for _, svcKV := range svcKV.OverrideYaml.RenderVaraibleKVs {
-						if svcSet, ok := relations[svcKV.Key]; ok && svcSet.Has(svcKV.Key) {
-							svcKV.UseGlobalVariable = true
+					// set to use global variable value if global variable is set
+					for _, singleKV := range svcKV.OverrideYaml.RenderVaraibleKVs {
+						if svcSet, ok := relations[singleKV.Key]; ok && svcSet.Has(svcKV.ServiceName) {
+							singleKV.UseGlobalVariable = true
+							singleKV.Value = globalKvs[singleKV.Key]
 						}
 					}
 				}
