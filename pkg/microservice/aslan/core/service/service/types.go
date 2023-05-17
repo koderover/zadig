@@ -163,3 +163,40 @@ type OpenAPILoadServiceFromYamlTemplateReq struct {
 	AutoSync     bool         `json:"auto_sync"`
 	VariableYaml util.KVInput `json:"variable_yaml"`
 }
+
+func (req *OpenAPILoadServiceFromYamlTemplateReq) Validate() error {
+	if req.ServiceName == "" {
+		return fmt.Errorf("service name cannot be empty")
+	}
+
+	if req.ProjectKey == "" {
+		return fmt.Errorf("project key cannot be empty")
+	}
+
+	if req.TemplateName == "" {
+		return fmt.Errorf("template name cannot be empty")
+	}
+
+	return nil
+}
+
+type OpenAPICreateYamlServiceReq struct {
+	ServiceName string `json:"service_name"`
+	Yaml        string `json:"yaml"`
+}
+
+func (req *OpenAPICreateYamlServiceReq) Validate() error {
+	if req.ServiceName == "" {
+		return fmt.Errorf("service name cannot be empty")
+	}
+
+	if req.Yaml == "" {
+		return fmt.Errorf("yaml cannot be empty")
+	}
+
+	return nil
+}
+
+type OpenAPIGetYamlServiceResp struct {
+	Yaml string `json:"yaml"`
+}

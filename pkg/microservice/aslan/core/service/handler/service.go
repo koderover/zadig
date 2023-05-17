@@ -427,3 +427,72 @@ func UpdatePmServiceTemplate(c *gin.Context) {
 	}
 	ctx.Err = commonservice.UpdatePmServiceTemplate(ctx.UserName, args, ctx.Logger)
 }
+
+func CreateRawYamlServicesOpenAPI(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = fmt.Errorf("projectName cannot be empty")
+		return
+	}
+
+	req := new(svcservice.OpenAPICreateYamlServiceReq)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Logger.Errorf("CreateProductTemplate c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, req); err != nil {
+		ctx.Logger.Errorf("CreateProductTemplate json.Unmarshal err : %v", err)
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openapi)", projectKey, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(data), ctx.Logger)
+	createArgs := &commonmodels.Service{
+		ServiceName: req.ServiceName,
+		Type:        "k8s",
+		ProductName: projectKey,
+		Source:      "spock",
+		Yaml:        req.Yaml,
+		CreateBy:    ctx.UserName,
+		Visibility:  "private",
+	}
+
+	_, creationErr := svcservice.CreateServiceTemplate(ctx.UserName, createArgs, false, ctx.Logger)
+	ctx.Err = creationErr
+}
+
+func DeleteYamlServicesOpenAPI(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectKey := c.Query("projectName")
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openapi)", c.Query("projectName"), "删除", "项目管理-服务", c.Param("name"), "", ctx.Logger)
+
+	ctx.Err = svcservice.DeleteServiceTemplate(c.Param("name"), "k8s", projectKey, c.DefaultQuery("isEnvTemplate", "true"), "private", ctx.Logger)
+}
+
+func GetYamlServiceOpenAPI(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = fmt.Errorf("projectName cannot be empty")
+		return
+	}
+
+	resp, err := svcservice.GetServiceTemplateOption(c.Param("name"), c.Query("projectName"), 0, ctx.Logger)
+	ctx.Logger.Infof("resp: %+v", resp)
+	if err == nil {
+		ctx.Logger.Infof("yaml in resp: %s", resp.Yaml)
+	}
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = &svcservice.OpenAPIGetYamlServiceResp{
+		Yaml: resp.Service.Yaml,
+	}
+}
