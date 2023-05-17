@@ -249,21 +249,21 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 	return string(ret), nil
 }
 
-func GetGlobalVariables(productName, envName string, log *zap.SugaredLogger) ([]*commontypes.GlobalVariableKV, *templatemodels.CustomYaml, error) {
+func GetGlobalVariables(productName, envName string, log *zap.SugaredLogger) ([]*commontypes.GlobalVariableKV, int64, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,
 	})
 	if err == mongo.ErrNoDocuments {
-		return nil, nil, nil
+		return nil, 0, nil
 	}
 	if err != nil {
 		log.Errorf("failed to query product info, productName %s envName %s err %s", productName, envName, err)
-		return nil, nil, fmt.Errorf("failed to query product info, productName %s envName %s", productName, envName)
+		return nil, 0, fmt.Errorf("failed to query product info, productName %s envName %s", productName, envName)
 	}
 
 	if productInfo.Render == nil {
-		return nil, nil, fmt.Errorf("invalid product, nil render data")
+		return nil, 0, fmt.Errorf("invalid product, nil render data")
 	}
 
 	opt := &commonrepo.RenderSetFindOption{
@@ -275,16 +275,11 @@ func GetGlobalVariables(productName, envName string, log *zap.SugaredLogger) ([]
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
 		log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
-		return nil, nil, err
+		return nil, 0, err
 	}
 	if !existed {
-		return nil, nil, nil
+		return nil, 0, nil
 	}
 
-	err = service.FillGitNamespace(rendersetObj.YamlData)
-	if err != nil {
-		// Note, since user can always reselect the git info, error should not block normal logic
-		log.Warnf("failed to fill git namespace data, err: %s", err)
-	}
-	return rendersetObj.GlobalVariables, rendersetObj.YamlData, nil
+	return rendersetObj.GlobalVariables, rendersetObj.Revision, nil
 }
