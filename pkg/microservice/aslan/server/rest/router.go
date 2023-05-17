@@ -97,13 +97,14 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	}
 
 	for name, r := range map[string]injector{
-		"/openapi/statistics": new(stathandler.OpenAPIRouter),
-		"/openapi/projects":   new(projecthandler.OpenAPIRouter),
-		"/openapi/system":     new(systemhandler.OpenAPIRouter),
-		"/openapi/workflows":  new(workflowhandler.OpenAPIRouter),
-		"/openapi/quality":    new(testinghandler.QualityRouter),
-		"/openapi/build":      new(buildhandler.OpenAPIRouter),
-		"/openapi/service":    new(servicehandler.OpenAPIRouter),
+		"/openapi/statistics":   new(stathandler.OpenAPIRouter),
+		"/openapi/projects":     new(projecthandler.OpenAPIRouter),
+		"/openapi/system":       new(systemhandler.OpenAPIRouter),
+		"/openapi/workflows":    new(workflowhandler.OpenAPIRouter),
+		"/openapi/environments": new(environmenthandler.OpenAPIRouter),
+		"/openapi/quality":      new(testinghandler.QualityRouter),
+		"/openapi/build":        new(buildhandler.OpenAPIRouter),
+		"/openapi/service":      new(servicehandler.OpenAPIRouter),
 	} {
 		r.Inject(router.Group(name))
 	}

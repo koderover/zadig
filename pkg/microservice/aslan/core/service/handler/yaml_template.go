@@ -53,6 +53,11 @@ func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 		return
 	}
 
+	if err := req.Validate(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	bs, _ := json.Marshal(req)
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", req.ProjectKey, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 

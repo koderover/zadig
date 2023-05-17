@@ -21,6 +21,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalresource "github.com/koderover/zadig/pkg/shared/kube/resource"
 )
 
@@ -83,8 +84,9 @@ type RestartScaleArgs struct {
 	Type        string `json:"type"`
 	ProductName string `json:"product_name"`
 	EnvName     string `json:"env_name"`
-	ServiceName string `json:"service_name"`
 	Name        string `json:"name"`
+	// deprecated, since it is not used
+	ServiceName string `json:"service_name"`
 }
 
 type ScaleArgs struct {
@@ -209,4 +211,74 @@ const (
 type MatchedEnv struct {
 	EnvName   string
 	Namespace string
+}
+
+type OpenAPIScaleServiceReq struct {
+	ProjectKey     string `json:"project_key"`
+	EnvName        string `json:"env_name"`
+	WorkloadName   string `json:"workload_name"`
+	WorkloadType   string `json:"workload_type"`
+	TargetReplicas int    `json:"target_replicas"`
+}
+
+func (req *OpenAPIScaleServiceReq) Validate() error {
+	if req.ProjectKey == "" {
+		return fmt.Errorf("project_key is required")
+	}
+	if req.EnvName == "" {
+		return fmt.Errorf("env_name is required")
+	}
+	if req.WorkloadName == "" {
+		return fmt.Errorf("workload_name is required")
+	}
+	if req.WorkloadType == "" {
+		return fmt.Errorf("workload_type is required")
+	}
+
+	switch req.WorkloadType {
+	case setting.Deployment, setting.StatefulSet:
+	default:
+		return fmt.Errorf("unsupported workload type: %s", req.WorkloadType)
+	}
+
+	if req.TargetReplicas < 0 {
+		return fmt.Errorf("target_replicas must be greater than or equal to 0")
+	}
+
+	return nil
+}
+
+type OpenAPIApplyYamlServiceReq struct {
+	EnvName     string               `json:"env_name"`
+	ServiceList []*YamlServiceWithKV `json:"service_list"`
+}
+
+type YamlServiceWithKV struct {
+	ServiceName string `json:"service_name"`
+}
+
+func (req *OpenAPIApplyYamlServiceReq) Validate() error {
+	if req.EnvName == "" {
+		return fmt.Errorf("env_name is required")
+	}
+
+	for _, serviceDef := range req.ServiceList {
+		if serviceDef.ServiceName == "" {
+			return fmt.Errorf("service_name is required for all services")
+		}
+	}
+	return nil
+}
+
+type OpenAPIDeleteYamlServiceFromEnvReq struct {
+	EnvName      string   `json:"env_name"`
+	ServiceNames []string `json:"service_names"`
+}
+
+func (req *OpenAPIDeleteYamlServiceFromEnvReq) Validate() error {
+	if req.EnvName == "" {
+		return fmt.Errorf("env_name is required")
+	}
+
+	return nil
 }
