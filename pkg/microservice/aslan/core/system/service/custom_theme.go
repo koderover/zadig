@@ -1,11 +1,12 @@
 package service
 
 import (
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/types"
-	"go.uber.org/zap"
 )
 
 func GetThemeInfos(log *zap.SugaredLogger) (*types.Theme, error) {
