@@ -493,7 +493,7 @@ func GetYamlServiceOpenAPI(c *gin.Context) {
 		return
 	}
 	ctx.Resp = &svcservice.OpenAPIGetYamlServiceResp{
-		Yaml: resp.Yaml,
+		Yaml: resp.Service.Yaml,
 	}
 }
 
