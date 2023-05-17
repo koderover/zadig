@@ -429,9 +429,9 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 		// kubeconfig cluster does not need to upgrade hub-agent.
-		if clusterInfo.Type == setting.KubeConfigClusterType && u.GetName() == "hub-agent" {
-			continue
-		}
+		//if clusterInfo.Type == setting.KubeConfigClusterType && u.GetName() == "hub-agent" {
+		//	continue
+		//}
 		if err != nil {
 			log.Errorf("[UpgradeAgent] Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
 			errList = multierror.Append(errList, err)
