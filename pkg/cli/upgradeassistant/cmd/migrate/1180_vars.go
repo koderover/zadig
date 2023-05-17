@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	template2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+
 	util2 "github.com/koderover/zadig/pkg/util"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
@@ -105,13 +107,73 @@ func MaxRevision(revisionList []int64) int64 {
 	return retValue
 }
 
+var k8sProjects []*template2.Product
+var allTestServiceRevisions map[string]sets.Int64
+var allProductionServiceMap map[string]sets.Int64
+
+// all test services map[productName/serviceName/revision] => service
+var allTestServices map[string]*models.Service
+
+// all product services map[productName/serviceName/revision] => service
+var allProductionServices map[string]*models.Service
+
+// all global kvs defined in services
+// map[productName][VariableKey] -> types.ServiceVariableKV
+var globalSvcKVsByProject map[string]map[string]*types.ServiceVariableKV
+
 func migrateVariables() error {
+	var err error
+
+	// 1. turn variable yaml of template to service variable kv
+	if err = migrateTemplateVariables(); err != nil {
+		return err
+	}
+
+	k8sProjects, err = template.NewProductColl().ListWithOption(&template.ProductListOpt{
+		DeployType:    setting.K8SDeployType,
+		BasicFacility: setting.BasicFacilityK8S,
+	})
+	if err != nil {
+		return errors.Wrapf(err, "list k8s projects")
+	}
+
+	allTestServiceRevisions = make(map[string]sets.Int64)
+	allTestServices = make(map[string]*models.Service)
+
+	// 2. change ServiceVars to ServiceVariableKVs for test services
+	if err = migrateTemplateServiceVariables(); err != nil {
+		return err
+	}
+
+	// 3. set default global vars for test services by project
+	if err = generateGlobalVariables(); err != nil {
+		return err
+	}
+
+	// 4. calculate env global variable <-> services relations and transfer global vars to KV format
+	// 5. change env variable(global variable and service variable) to KV format from yaml format and set `UseGlobalVariable`
+	if err = migrateTestProductVariables(); err != nil {
+		return err
+	}
+
+	// 6. change service vars to KVS for production services
+	if err = migrateProductionService(); err != nil {
+		return err
+	}
+
+	// 7. change service variable to KV format from yaml for production envs
+	if err = migrateProductionProductVariables(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func migrateTemplateVariables() error {
 	k8sTemplates, _, err := mongodb.NewYamlTemplateColl().List(0, 0)
 	if err != nil {
 		return errors.Wrap(err, "list yaml templates")
 	}
 
-	// 1. turn variable yaml of template to service variable kv
 	for _, yamlTemplate := range k8sTemplates {
 		if len(yamlTemplate.ServiceVariableKVs) > 0 {
 			continue
@@ -130,16 +192,11 @@ func migrateVariables() error {
 			return errors.Wrapf(err, "failed to update yaml template, template name: %s", yamlTemplate.Name)
 		}
 	}
+	return nil
+}
 
-	k8sProjects, err := template.NewProductColl().ListWithOption(&template.ProductListOpt{
-		DeployType:    setting.K8SDeployType,
-		BasicFacility: setting.BasicFacilityK8S,
-	})
-	if err != nil {
-		return errors.Wrapf(err, "list k8s projects")
-	}
+func migrateTemplateServiceVariables() error {
 
-	allTestServiceRevisions := make(map[string]sets.Int64)
 	insertSvcToMap := func(productName, serviceName string, serviceRevision int64) {
 		svcKey := fmt.Sprintf("%s/%s", productName, serviceName)
 		if _, ok := allTestServiceRevisions[svcKey]; !ok {
@@ -147,9 +204,6 @@ func migrateVariables() error {
 		}
 		allTestServiceRevisions[svcKey].Insert(serviceRevision)
 	}
-
-	// all test services map[productName/serviceName/revision] => service
-	allTestServices := make(map[string]*models.Service)
 
 	// fetch all related test services
 	for _, project := range k8sProjects {
@@ -175,9 +229,7 @@ func migrateVariables() error {
 		}
 	}
 
-	// all global kvs defined in services
-	// map[productName][VariableKey] -> types.ServiceVariableKV
-	globalSvcKVsByProject := make(map[string]map[string]*types.ServiceVariableKV)
+	globalSvcKVsByProject = make(map[string]map[string]*types.ServiceVariableKV)
 	insertGlobalKVS := func(productName string, kv *types.ServiceVariableKV) {
 		if _, ok := globalSvcKVsByProject[productName]; !ok {
 			globalSvcKVsByProject[productName] = make(map[string]*types.ServiceVariableKV)
@@ -187,7 +239,6 @@ func migrateVariables() error {
 		}
 	}
 
-	// 2. change ServiceVars to ServiceVariableKVs for test services
 	for svcKey, revisions := range allTestServiceRevisions {
 		names := strings.Split(svcKey, "/")
 		if len(names) != 2 {
@@ -245,7 +296,10 @@ func migrateVariables() error {
 		}
 	}
 
-	// 3. set default global vars for test services by project
+	return nil
+}
+
+func generateGlobalVariables() error {
 	for _, project := range k8sProjects {
 		globalVars, ok := globalSvcKVsByProject[project.ProductName]
 		if !ok {
@@ -260,15 +314,16 @@ func migrateVariables() error {
 		for _, kv := range globalVars {
 			project.GlobalVariables = append(project.GlobalVariables, kv)
 		}
-		err = template.NewProductColl().UpdateGlobalVars(project.ProductName, project.GlobalVariables)
+		err := template.NewProductColl().UpdateGlobalVars(project.ProductName, project.GlobalVariables)
 		if err != nil {
 			return errors.Wrapf(err, "failed to update global vars for project: %s", project.ProductName)
 		}
 
 	}
+	return nil
+}
 
-	// 4. calculate env global variable <-> services relations and transfer global vars to KV format
-	// 5. change env variable(global variable and service variable) to KV format from yaml format and set `UseGlobalVariable`
+func migrateTestProductVariables() error {
 	for _, project := range k8sProjects {
 		envs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{
 			Name:       project.ProductName,
@@ -306,7 +361,7 @@ func migrateVariables() error {
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate env variable affected services")
 				}
-				for k, _ := range relations {
+				for k := range relations {
 					var relatedSvcs []string = nil
 					if svcSets, ok := relations[k]; ok {
 						relatedSvcs = svcSets.List()
@@ -387,8 +442,12 @@ func migrateVariables() error {
 			}
 		}
 	}
+	return nil
+}
 
-	allProductionServiceMap := make(map[string]sets.Int64)
+func migrateProductionService() error {
+
+	allProductionServiceMap = make(map[string]sets.Int64)
 	insertProductionSvcToMap := func(productName, serviceName string, serviceRevision int64) {
 		svcKey := fmt.Sprintf("%s/%s", productName, serviceName)
 		if _, ok := allProductionServiceMap[svcKey]; !ok {
@@ -396,17 +455,17 @@ func migrateVariables() error {
 		}
 		allProductionServiceMap[svcKey].Insert(serviceRevision)
 	}
-	// all test services map[productName/serviceName/revision] => service
-	allProductionServices := make(map[string]*models.Service)
+	// all product services map[productName/serviceName/revision] => service
+	allProductionServices = make(map[string]*models.Service)
 
 	// fetch all related production services
 	for _, project := range k8sProjects {
-		testSvcs, err := repository.GetMaxRevisionsServicesMap(project.ProductName, true)
+		productionSvcs, err := repository.GetMaxRevisionsServicesMap(project.ProductName, true)
 		if err != nil {
 			return errors.Wrapf(err, "get test services, project name: %s", project.ProductName)
 		}
-		for _, svc := range testSvcs {
-			insertSvcToMap(svc.ProductName, svc.ServiceName, svc.Revision)
+		for _, svc := range productionSvcs {
+			insertProductionSvcToMap(svc.ProductName, svc.ServiceName, svc.Revision)
 		}
 
 		envs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{
@@ -423,7 +482,6 @@ func migrateVariables() error {
 		}
 	}
 
-	// 6. change service vars to KVS for production services
 	for svcKey, revisions := range allProductionServiceMap {
 		names := strings.Split(svcKey, "/")
 		if len(names) != 2 {
@@ -456,8 +514,10 @@ func migrateVariables() error {
 			}
 		}
 	}
+	return nil
+}
 
-	// 7. change service variable to KV format from yaml for production envs
+func migrateProductionProductVariables() error {
 	for _, project := range k8sProjects {
 		envs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{
 			Name:       project.ProductName,
@@ -545,6 +605,5 @@ func migrateVariables() error {
 			}
 		}
 	}
-
 	return nil
 }

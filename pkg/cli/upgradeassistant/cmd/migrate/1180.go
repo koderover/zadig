@@ -34,6 +34,11 @@ func V1170ToV1180() error {
 	if err := migrateJiraAuthType(); err != nil {
 		log.Errorf("migrateJiraAuthType err: %v", err)
 	}
+
+	if err := migrateVariables(); err != nil {
+		log.Errorf("failed to migrateVariables, err: %s", err)
+		return err
+	}
 	return nil
 }
 
