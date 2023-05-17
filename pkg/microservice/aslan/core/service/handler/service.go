@@ -484,6 +484,10 @@ func GetYamlServiceOpenAPI(c *gin.Context) {
 	}
 
 	resp, err := svcservice.GetServiceTemplateOption(c.Param("name"), c.Query("projectName"), 0, ctx.Logger)
+	ctx.Logger.Infof("resp: %+v", resp)
+	if err == nil {
+		ctx.Logger.Infof("yaml in resp: %s", resp.Yaml)
+	}
 	if err != nil {
 		ctx.Err = err
 		return
