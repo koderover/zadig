@@ -212,3 +212,8 @@ func FilterKV(varKV *commonmodels.VariableKV, keySet sets.String) bool {
 	}
 	return false
 }
+
+func ExtractRootKeyFromFlat(flatKey string) string {
+	splitStrs := strings.Split(flatKey, ".")
+	return strings.Split(splitStrs[0], "[")[0]
+}

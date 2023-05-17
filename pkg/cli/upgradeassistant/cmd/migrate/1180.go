@@ -17,13 +17,12 @@
 package migrate
 
 import (
-	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/mongo"
-
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func init() {
