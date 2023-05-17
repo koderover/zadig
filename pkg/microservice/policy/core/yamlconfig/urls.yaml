@@ -191,6 +191,9 @@ exemption_urls:
     - endpoint: api/aslan/service/services/?*/environments/deployable
       methods:
         - GET
+    - endpoint: api/aslan/system/theme
+      methods:
+        - GET
   system_admin:
     - endpoint: api/v1/features/?*
       methods:
@@ -391,6 +394,9 @@ exemption_urls:
     - endpoint: api/aslan/workflow/plugin/enterprise
       methods:
         - POST
+    - endpoint: api/aslan/system/theme
+      methods:
+        - PUT
   project_admin:
     - endpoint: api/aslan/project/products
       methods:
