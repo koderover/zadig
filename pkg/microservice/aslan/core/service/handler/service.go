@@ -435,6 +435,7 @@ func CreateRawYamlServicesOpenAPI(c *gin.Context) {
 	projectKey := c.Query("projectName")
 	if projectKey == "" {
 		ctx.Err = fmt.Errorf("projectName cannot be empty")
+		return
 	}
 
 	req := new(svcservice.OpenAPICreateYamlServiceReq)

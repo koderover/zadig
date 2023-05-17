@@ -81,7 +81,7 @@ func OpenAPIApplyYamlService(c *gin.Context) {
 		return
 	}
 
-	projectKey := c.Param("projectName")
+	projectKey := c.Query("projectName")
 
 	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
@@ -134,7 +134,7 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 		return
 	}
 
-	projectKey := c.Param("projectName")
+	projectKey := c.Query("projectName")
 
 	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
