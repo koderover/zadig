@@ -39,6 +39,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -366,7 +367,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
-	newVariable, err := kube.GenerateYamlFromKV(args.VariableKVS)
+	newVariable, err := commontypes.RenderVariableKVToYaml(args.VariableKVs)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
@@ -390,7 +391,7 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 	}
 
 	// for situations only update images, replace images directly
-	if !args.UpdateServiceRevision && len(args.VariableKVS) == 0 {
+	if !args.UpdateServiceRevision && len(args.VariableKVs) == 0 {
 		latestYaml, _, err := kube.ReplaceWorkloadImages(curYaml, args.ServiceModules)
 		if err != nil {
 			return nil, e.ErrPreviewYaml.AddErr(err)

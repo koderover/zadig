@@ -961,9 +961,16 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 	}
 
 	for _, sv := range request.Services {
+		variableYaml, err := commontypes.RenderVariableKVToYaml(sv.VariableKVs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert render variable yaml, err: %s", err)
+		}
 		fakeRenderSet.ServiceVariables = append(fakeRenderSet.ServiceVariables, &template.ServiceRender{
-			ServiceName:  sv.ServiceName,
-			OverrideYaml: &template.CustomYaml{YamlContent: sv.VariableYaml},
+			ServiceName: sv.ServiceName,
+			OverrideYaml: &template.CustomYaml{
+				YamlContent:       variableYaml,
+				RenderVaraibleKVs: sv.VariableKVs,
+			},
 		})
 	}
 
@@ -972,11 +979,10 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		if len(svcSet) > 0 && !svcSet.Has(svc.ServiceName) {
 			continue
 		}
-		//rederedYaml := commonservice.RenderValueForString(svc.Yaml, fakeRenderSet)
+
 		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productInfo.ProductName, svc.ServiceName, fakeRenderSet)
 		if err != nil {
-			log.Errorf("failed to render service yaml, err: %s", err)
-			return nil, err
+			return nil, fmt.Errorf("failed to render service yaml, err: %w", err)
 		}
 
 		rederedYaml = kube.ParseSysKeys(namespace, request.EnvName, productName, svc.ServiceName, rederedYaml)

@@ -73,12 +73,12 @@ type SvcOptArgs struct {
 }
 
 type PreviewServiceArgs struct {
-	ProductName           string                     `json:"product_name"`
-	EnvName               string                     `json:"env_name"`
-	ServiceName           string                     `json:"service_name"`
-	UpdateServiceRevision bool                       `json:"update_service_revision"`
-	ServiceModules        []*commonmodels.Container  `json:"service_modules"`
-	VariableKVS           []*commonmodels.VariableKV `json:"variable_kvs"`
+	ProductName           string                          `json:"product_name"`
+	EnvName               string                          `json:"env_name"`
+	ServiceName           string                          `json:"service_name"`
+	UpdateServiceRevision bool                            `json:"update_service_revision"`
+	ServiceModules        []*commonmodels.Container       `json:"service_modules"`
+	VariableKVs           []*commontypes.RenderVariableKV `json:"variable_kvs"`
 }
 
 type RestartScaleArgs struct {
