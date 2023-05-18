@@ -25,9 +25,11 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -393,10 +395,11 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 		return err
 	}
 
+	namespace := "koderover-agent"
 	// if no namespace named "koderover-agent" exists, we create one
-	if _, err := clientset.CoreV1().Namespaces().Get(context.TODO(), "koderover-agent", metav1.GetOptions{}); err != nil {
+	if _, err := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{}); err != nil {
 		namespaceSpec := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
-			Name: "koderover-agent",
+			Name: namespace,
 		}}
 
 		_, err := clientset.CoreV1().Namespaces().Create(context.TODO(), namespaceSpec, metav1.CreateOptions{})
@@ -404,6 +407,59 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 			return fmt.Errorf("failed to create namespace \"koderover-agent\" in the new cluster, error: %s", err)
 		}
 	}
+
+	// create role
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "workflow-cm-manager",
+			Namespace: namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"configmaps"},
+				Verbs:     []string{"*"},
+			},
+		},
+	}
+	if _, err := clientset.RbacV1().Roles(namespace).Create(context.Background(), role, metav1.CreateOptions{}); err != nil {
+		return errors.Errorf("cluster %s create role err: %s", clusterID, err)
+	}
+
+	// create service account
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "workflow-cm-sa",
+			Namespace: namespace,
+		},
+	}
+	if _, err := clientset.CoreV1().ServiceAccounts(namespace).Create(context.Background(), serviceAccount, metav1.CreateOptions{}); err != nil {
+		return errors.Errorf("cluster %s create serviceAccount err: %s", clusterID, err)
+	}
+
+	// create role binding
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "workflow-cm-rolebinding",
+			Namespace: namespace,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      "workflow-cm-sa",
+				Namespace: namespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "Role",
+			Name:     "workflow-cm-manager",
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}
+	if _, err := clientset.RbacV1().RoleBindings(namespace).Create(context.Background(), roleBinding, metav1.CreateOptions{}); err != nil {
+		return errors.Errorf("cluster %s create role binding err: %s", clusterID, err)
+	}
+	log.Infof("cluster %s create role binding successfully", clusterID)
 
 	resourceServerLabelMap := map[string]string{
 		"app.kubernetes.io/component": "resource-server",
