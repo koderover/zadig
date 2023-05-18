@@ -29,18 +29,19 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
 )
 
 type YamlProductItem struct {
-	OldName       string                           `json:"old_name"`
-	NewName       string                           `json:"new_name"`
-	BaseName      string                           `json:"base_name"`
-	DefaultValues string                           `json:"default_values"`
-	Services      []*commonservice.K8sSvcRenderArg `json:"services"`
-	//Vars          []*templatemodels.RenderKV       `json:"vars"`
+	OldName         string                           `json:"old_name"`
+	NewName         string                           `json:"new_name"`
+	BaseName        string                           `json:"base_name"`
+	DefaultValues   string                           `json:"default_values"`
+	GlobalVariables []*commontypes.GlobalVariableKV  `json:"global_variables"`
+	Services        []*commonservice.K8sSvcRenderArg `json:"services"`
 }
 
 type CopyYamlProductArg struct {
@@ -134,7 +135,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 	for _, product := range products {
 		renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: product.Render.Name, Revision: product.Render.Revision, IsDefault: false})
 		if err != nil {
-			return fmt.Errorf("failed to find renderset of base product %s/%s, err: %s", product.ProductName, product.EnvName)
+			return fmt.Errorf("failed to find renderset of base product %s/%s, err: %s", product.ProductName, product.EnvName, err)
 		}
 		renderSetMap[renderset.EnvName] = renderset
 	}
@@ -164,13 +165,21 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 			newRenderset.Revision = 0
 			newRenderset.EnvName = newProduct.EnvName
 			newRenderset.DefaultValues = item.DefaultValues
-			svcVariableYamlMap := make(map[string]string)
+			newRenderset.GlobalVariables = item.GlobalVariables
+			svcVariableKVMap := make(map[string][]*commontypes.RenderVariableKV)
 			for _, sv := range item.Services {
-				svcVariableYamlMap[sv.ServiceName] = sv.VariableYaml
+				svcVariableKVMap[sv.ServiceName] = sv.VariableKVs
 			}
 			for _, sv := range newRenderset.ServiceVariables {
-				if variableYaml, ok := svcVariableYamlMap[sv.ServiceName]; ok {
-					sv.OverrideYaml = &templatemodels.CustomYaml{YamlContent: variableYaml}
+				if variableKVs, ok := svcVariableKVMap[sv.ServiceName]; ok {
+					yamlContent, err := commontypes.RenderVariableKVToYaml(variableKVs)
+					if err != nil {
+						return fmt.Errorf("failed to convert variable kvs to yaml, err: %w", err)
+					}
+					sv.OverrideYaml = &templatemodels.CustomYaml{
+						YamlContent:       yamlContent,
+						RenderVaraibleKVs: variableKVs,
+					}
 				}
 			}
 

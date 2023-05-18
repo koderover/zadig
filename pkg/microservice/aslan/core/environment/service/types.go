@@ -21,6 +21,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	internalresource "github.com/koderover/zadig/pkg/shared/kube/resource"
 )
 
@@ -41,18 +42,19 @@ type ProductRevision struct {
 }
 
 type SvcRevision struct {
-	ServiceName       string                    `json:"service_name"`
-	Type              string                    `json:"type"`
-	CurrentRevision   int64                     `json:"current_revision"`
-	NextRevision      int64                     `json:"next_revision"`
-	Updatable         bool                      `json:"updatable"`
-	DeployStrategy    string                    `json:"deploy_strategy"`
-	Error             string                    `json:"error"`
-	Deleted           bool                      `json:"deleted"`
-	New               bool                      `json:"new"`
-	Containers        []*commonmodels.Container `json:"containers,omitempty"`
-	UpdateServiceTmpl bool                      `json:"update_service_tmpl"`
-	VariableYaml      string                    `json:"variable_yaml"`
+	ServiceName       string                          `json:"service_name"`
+	Type              string                          `json:"type"`
+	CurrentRevision   int64                           `json:"current_revision"`
+	NextRevision      int64                           `json:"next_revision"`
+	Updatable         bool                            `json:"updatable"`
+	DeployStrategy    string                          `json:"deploy_strategy"`
+	Error             string                          `json:"error"`
+	Deleted           bool                            `json:"deleted"`
+	New               bool                            `json:"new"`
+	Containers        []*commonmodels.Container       `json:"containers,omitempty"`
+	UpdateServiceTmpl bool                            `json:"update_service_tmpl"`
+	VariableYaml      string                          `json:"variable_yaml"`
+	VariableKVs       []*commontypes.RenderVariableKV `json:"variable_kvs"`
 }
 
 type ProductIngressInfo struct {

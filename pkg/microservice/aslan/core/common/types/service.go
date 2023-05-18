@@ -48,13 +48,13 @@ type ServiceVariableKV struct {
 }
 
 type RenderVariableKV struct {
-	ServiceVariableKV
+	ServiceVariableKV `bson:",inline"`
 	UseGlobalVariable bool `bson:"use_global_variable"    json:"use_global_variable"`
 }
 
 type GlobalVariableKV struct {
-	ServiceVariableKV
-	RelatedServices []string `bson:"related_services" json:"related_services"`
+	ServiceVariableKV `bson:",inline"`
+	RelatedServices   []string `bson:"related_services" json:"related_services"`
 }
 
 // not suitable for flatten kv
@@ -288,7 +288,6 @@ func GlobalVariableKVToYaml(kvs []*GlobalVariableKV) (string, error) {
 // update the global variable kvs base on the render variable kvs
 // if the key is not exist, create a new one
 // if the key exist, update the related services
-// @note how to update global variable and render variable exzactly ?
 func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, renderVariables []*RenderVariableKV) ([]*GlobalVariableKV, []*RenderVariableKV, error) {
 	globalVariableMap := map[string]*GlobalVariableKV{}
 	for _, kv := range globalVariables {
@@ -320,4 +319,31 @@ func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariab
 	}
 
 	return retGlobalVariables, renderVariables, nil
+}
+
+func ValidateGlobalVariables(globalVariablesDefine []*ServiceVariableKV, globalVariables []*GlobalVariableKV) bool {
+	globalVariableMap := map[string]*ServiceVariableKV{}
+	for _, kv := range globalVariablesDefine {
+		globalVariableMap[kv.Key] = kv
+	}
+
+	for _, kv := range globalVariables {
+		if _, ok := globalVariableMap[kv.Key]; !ok {
+			return false
+		}
+	}
+
+	return true
+}
+
+func ServiceToRenderVariableKVs(ServiceVariables []*ServiceVariableKV) []*RenderVariableKV {
+	ret := []*RenderVariableKV{}
+	for _, kv := range ServiceVariables {
+		ret = append(ret, &RenderVariableKV{
+			ServiceVariableKV: *kv,
+			UseGlobalVariable: false,
+		})
+	}
+
+	return ret
 }

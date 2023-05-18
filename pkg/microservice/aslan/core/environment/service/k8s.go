@@ -42,6 +42,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -185,19 +186,34 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		EnvName:  exitedProd.EnvName,
 		Revision: exitedProd.Render.Revision,
 	})
+
+	curRenderset.GlobalVariables, args.ServiceRev.VariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, curRenderset.GlobalVariables, args.ServiceRev.VariableKVs)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to update global variable, err: %s", err))
+	}
+	args.ServiceRev.VariableYaml, err = commontypes.RenderVariableKVToYaml(args.ServiceRev.VariableKVs)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to convert render variable to yaml, err: %s", err))
+	}
+
 	foundServiceVariable := false
 	for _, svc := range curRenderset.ServiceVariables {
 		if svc.ServiceName != args.ServiceName {
 			continue
 		}
+
 		foundServiceVariable = true
-		svc.OverrideYaml = &template.CustomYaml{YamlContent: args.ServiceRev.VariableYaml}
+		svc.OverrideYaml = &template.CustomYaml{
+			YamlContent:       args.ServiceRev.VariableYaml,
+			RenderVaraibleKVs: args.ServiceRev.VariableKVs,
+		}
 	}
 	if !foundServiceVariable {
 		curRenderset.ServiceVariables = append(curRenderset.ServiceVariables, &template.ServiceRender{
 			ServiceName: args.ServiceName,
 			OverrideYaml: &template.CustomYaml{
-				YamlContent: args.ServiceRev.VariableYaml,
+				YamlContent:       args.ServiceRev.VariableYaml,
+				RenderVaraibleKVs: args.ServiceRev.VariableKVs,
 			},
 		})
 	}

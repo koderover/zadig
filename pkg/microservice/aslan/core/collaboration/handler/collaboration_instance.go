@@ -38,6 +38,15 @@ func GetCollaborationNew(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetCollaborationNew(projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.Logger)
 }
 
+// @Summary Sync Collaboration Instance
+// @Description Sync Collaboration Instance
+// @Tags 	collaboration
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string									true	"project name"
+// @Param 	body 			body 		service.SyncCollaborationInstanceArgs 	true 	"body"
+// @Success 200
+// @Router /collaboration/collaborations/sync [post]
 func SyncCollaborationInstance(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
