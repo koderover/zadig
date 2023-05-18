@@ -348,6 +348,10 @@ func migrateTestProductVariables() error {
 				return fmt.Errorf("render set not found, product name: %s, render name: %s, revision: %d", product.ProductName, product.Render.Name, product.Render.Revision)
 			}
 
+			if len(renderInfo.GlobalVariables) > 0 {
+				continue
+			}
+
 			// change global variable yaml to kvs
 			relations := make(map[string]sets.String)
 			var globalKvs map[string]interface{}
@@ -496,6 +500,7 @@ func migrateProductionService() error {
 				return errors.Wrapf(err, "failed to query service: %s/%d", svcKey, revision)
 			}
 			allProductionServices[fmt.Sprintf("%s/%s/%d", projectName, serviceName, revision)] = tmpSvc
+
 			if len(tmpSvc.ServiceVariableKVs) > 0 || len(tmpSvc.VariableYaml) == 0 {
 				continue
 			}
