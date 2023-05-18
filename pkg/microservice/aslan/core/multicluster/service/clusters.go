@@ -429,7 +429,8 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 		// kubeconfig cluster does not need to upgrade hub-agent.
-		if clusterInfo.Type == setting.KubeConfigClusterType && u.GetName() == "hub-agent" {
+		uName := u.GetName()
+		if clusterInfo.Type == setting.KubeConfigClusterType && (uName == "hub-agent" || uName == "koderover-agent-node-agent") {
 			continue
 		}
 		if err != nil {
