@@ -7,6 +7,7 @@ require (
 	github.com/27149chen/afero v1.6.2
 	github.com/Knetic/govaluate v3.0.0+incompatible
 	github.com/RyanCarrier/dijkstra v1.1.0
+	github.com/alibabacloud-go/tea v1.1.19
 	github.com/andygrunwald/go-gerrit v0.0.0-20220906192238-4fc99996c860
 	github.com/andygrunwald/go-jira v1.16.0
 	github.com/antihax/optional v1.0.0
@@ -48,16 +49,17 @@ require (
 	github.com/jinzhu/now v1.1.5
 	github.com/larksuite/oapi-sdk-go/v3 v3.0.10
 	github.com/mholt/archiver v3.1.1+incompatible
-	github.com/mittwald/go-helm-client v0.11.3
+	github.com/mittwald/go-helm-client v0.8.5
 	github.com/moby/buildkit v0.10.4
 	github.com/nsqio/go-nsq v1.1.0
 	github.com/onsi/ginkgo/v2 v2.8.3
 	github.com/onsi/gomega v1.27.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/otiai10/copy v1.7.0
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
-	github.com/regclient/regclient v0.4.5
+	github.com/regclient/regclient v0.4.8
 	github.com/rfyiamcool/cronlib v1.2.1
 	github.com/samber/lo v1.37.0
 	github.com/shirou/gopsutil/v3 v3.22.8
@@ -82,7 +84,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.3.6
 	gorm.io/gorm v1.23.8
-	helm.sh/helm/v3 v3.9.1
+	helm.sh/helm/v3 v3.7.2
 	istio.io/api v0.0.0-20221109202042-b9e5d446a83d
 	istio.io/client-go v1.16.0
 	k8s.io/api v0.25.0
@@ -113,6 +115,7 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
+	github.com/alibabacloud-go/debug v0.0.0-20190504072949-9472017b5c68 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
