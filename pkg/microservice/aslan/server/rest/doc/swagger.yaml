@@ -1,5 +1,595 @@
 basePath: /api/aslan
 definitions:
+  config.CollaborationType:
+    enum:
+    - share
+    - new
+    type: string
+    x-enum-varnames:
+    - CollaborationShare
+    - CollaborationNew
+  config.CommonEnvCfgType:
+    enum:
+    - Ingress
+    - ConfigMap
+    - Secret
+    - PVC
+    type: string
+    x-enum-varnames:
+    - CommonEnvCfgTypeIngress
+    - CommonEnvCfgTypeConfigMap
+    - CommonEnvCfgTypeSecret
+    - CommonEnvCfgTypePvc
+  config.DeployContent:
+    enum:
+    - image
+    - vars
+    - config
+    type: string
+    x-enum-varnames:
+    - DeployImage
+    - DeployVars
+    - DeployConfig
+  config.DeploySourceType:
+    enum:
+    - runtime
+    - fromjob
+    type: string
+    x-enum-varnames:
+    - SourceRuntime
+    - SourceFromJob
+  github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService:
+    properties:
+      deployed:
+        type: boolean
+      latest_variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      latest_variable_yaml:
+        type: string
+      service_modules:
+        items:
+          $ref: '#/definitions/models.Container'
+        type: array
+      service_name:
+        type: string
+      updatable:
+        type: boolean
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
+  github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable:
+    properties:
+      description:
+        type: string
+      key:
+        type: string
+      value:
+        type: string
+    type: object
+  handler.DeleteProductServicesRequest:
+    properties:
+      service_names:
+        items:
+          type: string
+        type: array
+    type: object
+  handler.createServiceTemplateRequest:
+    properties:
+      product_name:
+        type: string
+      service_name:
+        type: string
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      source:
+        type: string
+      type:
+        type: string
+      variable_yaml:
+        type: string
+      visibility:
+        type: string
+      yaml:
+        type: string
+    required:
+    - product_name
+    - service_name
+    - source
+    - type
+    - visibility
+    - yaml
+    type: object
+  handler.filterDeployServiceVarsQuery:
+    properties:
+      env_name:
+        type: string
+      job_name:
+        type: string
+      service_names:
+        items:
+          type: string
+        type: array
+      workflow_name:
+        type: string
+    type: object
+  handler.getGlobalVariablesRespone:
+    properties:
+      global_variables:
+        items:
+          $ref: '#/definitions/types.GlobalVariableKV'
+        type: array
+      revision:
+        type: integer
+    type: object
+  handler.getInitProductRespone:
+    properties:
+      chart_infos:
+        items:
+          $ref: '#/definitions/template.ServiceRender'
+        type: array
+      create_time:
+        type: integer
+      product_name:
+        type: string
+      render:
+        $ref: '#/definitions/models.RenderInfo'
+      revision:
+        type: integer
+      services:
+        items:
+          items:
+            $ref: '#/definitions/models.ProductService'
+          type: array
+        type: array
+      source:
+        type: string
+      update_by:
+        type: string
+    type: object
+  handler.getYamlTemplateVariablesReq:
+    properties:
+      content:
+        type: string
+      variable_yaml:
+        type: string
+    required:
+    - content
+    - variable_yaml
+    type: object
+  handler.updateGlobalVariablesRequest:
+    properties:
+      global_variables:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+    type: object
+  handler.updateK8sProductGlobalVariablesRequest:
+    properties:
+      current_revision:
+        type: integer
+      global_variables:
+        items:
+          $ref: '#/definitions/types.GlobalVariableKV'
+        type: array
+    type: object
+  handler.updateServiceVariableRequest:
+    properties:
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    required:
+    - service_variable_kvs
+    - variable_yaml
+    type: object
+  models.Commit:
+    properties:
+      message:
+        type: string
+      sha:
+        type: string
+    type: object
+  models.Container:
+    properties:
+      image:
+        type: string
+      image_name:
+        type: string
+      imagePath:
+        $ref: '#/definitions/models.ImagePathSpec'
+      name:
+        type: string
+    type: object
+  models.CreateUpdateCommonEnvCfgArgs:
+    properties:
+      auto_sync:
+        type: boolean
+      common_env_cfg_type:
+        $ref: '#/definitions/config.CommonEnvCfgType'
+      env_name:
+        type: string
+      git_repo_config:
+        $ref: '#/definitions/template.GitRepoConfig'
+      name:
+        type: string
+      product_name:
+        type: string
+      restart_associated_svc:
+        type: boolean
+      service_name:
+        type: string
+      services:
+        items:
+          type: string
+        type: array
+      yaml_data:
+        type: string
+    type: object
+  models.DeplopyVariableConfig:
+    properties:
+      use_global_variable:
+        type: boolean
+      variable_key:
+        type: string
+    type: object
+  models.DeployService:
+    properties:
+      key_vals:
+        description: KeyVals Deprecated since 1.18
+        items:
+          $ref: '#/definitions/models.ServiceKeyVal'
+        type: array
+      latest_key_vals:
+        description: LatestKeyVals Deprecated since 1.18
+        items:
+          $ref: '#/definitions/models.ServiceKeyVal'
+        type: array
+      latest_variable_kvs:
+        description: LatestVariableKVs added since 1.18
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      service_name:
+        type: string
+      updatable:
+        type: boolean
+      update_config:
+        type: boolean
+      variable_configs:
+        description: VariableConfigs added since 1.18
+        items:
+          $ref: '#/definitions/models.DeplopyVariableConfig'
+        type: array
+      variable_kvs:
+        description: VariableKVs added since 1.18
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+    type: object
+  models.EnvConfig:
+    properties:
+      env_name:
+        type: string
+      host_ids:
+        items:
+          type: string
+        type: array
+      labels:
+        items:
+          type: string
+        type: array
+    type: object
+  models.EnvStatus:
+    properties:
+      address:
+        type: string
+      env_name:
+        type: string
+      host_id:
+        type: string
+      pm_info:
+        $ref: '#/definitions/models.PmInfo'
+      status:
+        type: string
+    type: object
+  models.GUIConfig:
+    properties:
+      deployment: {}
+      ingress: {}
+      service: {}
+    type: object
+  models.HelmChart:
+    properties:
+      name:
+        type: string
+      values_yaml:
+        type: string
+      version:
+        type: string
+    type: object
+  models.ImagePathSpec:
+    properties:
+      image:
+        type: string
+      repo:
+        type: string
+      tag:
+        type: string
+    type: object
+  models.ParameterSettingType:
+    enum:
+    - string
+    - choice
+    - external
+    type: string
+    x-enum-varnames:
+    - StringType
+    - ChoiceType
+    - ExternalType
+  models.PmHealthCheck:
+    properties:
+      current_healthy_num:
+        type: integer
+      current_unhealthy_num:
+        type: integer
+      healthy_threshold:
+        type: integer
+      interval:
+        type: integer
+      path:
+        type: string
+      port:
+        type: integer
+      protocol:
+        type: string
+      time_out:
+        type: integer
+      unhealthy_threshold:
+        type: integer
+    type: object
+  models.PmInfo:
+    properties:
+      id:
+        type: string
+      ip:
+        type: string
+      is_prod:
+        type: boolean
+      label:
+        type: string
+      name:
+        type: string
+      port:
+        type: integer
+      provider:
+        type: integer
+      status:
+        $ref: '#/definitions/setting.PMHostStatus'
+    type: object
+  models.ProductService:
+    properties:
+      containers:
+        items:
+          $ref: '#/definitions/models.Container'
+        type: array
+      env_configs:
+        items:
+          $ref: '#/definitions/models.EnvConfig'
+        type: array
+      error:
+        type: string
+      product_name:
+        type: string
+      revision:
+        type: integer
+      service_name:
+        type: string
+      type:
+        type: string
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
+  models.ProductShareEnv:
+    properties:
+      base_env:
+        type: string
+      enable:
+        type: boolean
+      is_base:
+        type: boolean
+    type: object
+  models.RenderInfo:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      product_tmpl:
+        type: string
+      revision:
+        type: integer
+    type: object
+  models.Service:
+    properties:
+      auto_sync:
+        type: boolean
+      branch_name:
+        type: string
+      build_name:
+        type: string
+      codehost_id:
+        type: integer
+      commit:
+        $ref: '#/definitions/models.Commit'
+      containers:
+        items:
+          $ref: '#/definitions/models.Container'
+        type: array
+      create_by:
+        type: string
+      create_from: {}
+      create_time:
+        type: integer
+      description:
+        type: string
+      env_configs:
+        items:
+          $ref: '#/definitions/models.EnvConfig'
+        type: array
+      env_name:
+        type: string
+      env_statuses:
+        items:
+          $ref: '#/definitions/models.EnvStatus'
+        type: array
+      gerrit_branch_name:
+        type: string
+      gerrit_codeHost_id:
+        type: integer
+      gerrit_path:
+        type: string
+      gerrit_remote_name:
+        type: string
+      gerrit_repo_name:
+        type: string
+      gitee_path:
+        type: string
+      gui_config:
+        $ref: '#/definitions/models.GUIConfig'
+      hash256:
+        type: string
+      health_checks:
+        items:
+          $ref: '#/definitions/models.PmHealthCheck'
+        type: array
+      helm_chart:
+        $ref: '#/definitions/models.HelmChart'
+      is_dir:
+        type: boolean
+      load_path:
+        type: string
+      product_name:
+        type: string
+      release_naming:
+        type: string
+      repo_name:
+        type: string
+      repo_namespace:
+        type: string
+      repo_owner:
+        type: string
+      repo_uuid:
+        type: string
+      revision:
+        type: integer
+      service_name:
+        type: string
+      service_variable_kvs:
+        description: New since 1.18.0, stores the variable kvs of k8s services
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      service_vars:
+        description: DEPRECATED, New since 1.16.0, stores keys in variables which
+          can be set in env
+        items:
+          type: string
+        type: array
+      source:
+        type: string
+      src_path:
+        type: string
+      status:
+        type: string
+      team:
+        type: string
+      template_id:
+        type: string
+      type:
+        type: string
+      variable_yaml:
+        description: New since 1.16.0, stores the variable yaml of k8s services
+        type: string
+      visibility:
+        type: string
+      workload_type:
+        description: WorkloadType is set in host projects
+        type: string
+      yaml:
+        type: string
+    type: object
+  models.ServiceAndImage:
+    properties:
+      image:
+        type: string
+      image_name:
+        type: string
+      service_module:
+        type: string
+      service_name:
+        type: string
+    type: object
+  models.ServiceKeyVal:
+    properties:
+      choice_option:
+        items:
+          type: string
+        type: array
+      is_credential:
+        type: boolean
+      key:
+        type: string
+      type:
+        $ref: '#/definitions/models.ParameterSettingType'
+      value: {}
+    type: object
+  models.ZadigDeployJobSpec:
+    properties:
+      deploy_contents:
+        items:
+          $ref: '#/definitions/config.DeployContent'
+        type: array
+      deploy_type:
+        type: string
+      env:
+        type: string
+      job_name:
+        description: 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
+        type: string
+      origin_job_name:
+        description: save the origin quoted job name
+        type: string
+      production:
+        type: boolean
+      service_and_images:
+        items:
+          $ref: '#/definitions/models.ServiceAndImage'
+        type: array
+      services:
+        items:
+          $ref: '#/definitions/models.DeployService'
+        type: array
+      skip_check_run_status:
+        type: boolean
+      source:
+        allOf:
+        - $ref: '#/definitions/config.DeploySourceType'
+        description: fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
+    type: object
   service.ConvertVaraibleKVAndYamlActionType:
     enum:
     - toKV
@@ -18,6 +608,605 @@ definitions:
         type: array
       yaml:
         type: string
+    required:
+    - action
+    - kvs
+    - yaml
+    type: object
+  service.CreateSingleProductArg:
+    properties:
+      alias:
+        type: string
+      base_env_name:
+        type: string
+      base_name:
+        description: for collaboration mode
+        type: string
+      chartValues:
+        items:
+          $ref: '#/definitions/service.ProductHelmServiceCreationInfo'
+        type: array
+      cluster_id:
+        type: string
+      default_values:
+        type: string
+      defaultValues:
+        description: TODO fix me
+        type: string
+      env_configs:
+        description: New Since v1.13.0
+        items:
+          $ref: '#/definitions/models.CreateUpdateCommonEnvCfgArgs'
+        type: array
+      env_name:
+        type: string
+      global_variables:
+        description: for k8s products
+        items:
+          $ref: '#/definitions/types.GlobalVariableKV'
+        type: array
+      is_existed:
+        type: boolean
+      namespace:
+        type: string
+      product_name:
+        type: string
+      production:
+        type: boolean
+      registry_id:
+        type: string
+      services:
+        items:
+          items:
+            $ref: '#/definitions/service.ProductK8sServiceCreationInfo'
+          type: array
+        type: array
+      share_env:
+        allOf:
+        - $ref: '#/definitions/models.ProductShareEnv'
+        description: New Since v1.12.0
+      valuesData:
+        allOf:
+        - $ref: '#/definitions/service.ValuesDataArgs'
+        description: for helm products
+    type: object
+  service.DeployStatus:
+    enum:
+    - deployed
+    - undeployed
+    type: string
+    x-enum-varnames:
+    - StatusDeployed
+    - StatusUnDeployed
+  service.DeployableEnv:
+    properties:
+      cluster_id:
+        type: string
+      env_name:
+        type: string
+      global_variable_kvs:
+        items:
+          $ref: '#/definitions/types.GlobalVariableKV'
+        type: array
+      namespace:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/types.ServiceWithVariable'
+        type: array
+    type: object
+  service.DeployableEnvResp:
+    properties:
+      envs:
+        items:
+          $ref: '#/definitions/service.DeployableEnv'
+        type: array
+    type: object
+  service.EnvServices:
+    properties:
+      env_name:
+        type: string
+      product_name:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService'
+        type: array
+    type: object
+  service.GetGlobalVariableCandidatesRespone:
+    properties:
+      key_name:
+        type: string
+      related_service:
+        items:
+          type: string
+        type: array
+    type: object
+  service.HelmSvcRenderArg:
+    properties:
+      chartVersion:
+        type: string
+      deploy_strategy:
+        description: New since 1.16.0, used to determine if the service will be installed
+        type: string
+      envName:
+        type: string
+      overrideValues:
+        items:
+          $ref: '#/definitions/service.KVPair'
+        type: array
+      overrideYaml:
+        type: string
+      serviceName:
+        type: string
+      valuesData:
+        $ref: '#/definitions/service.ValuesDataArgs'
+      variable_yaml:
+        type: string
+      yaml_data:
+        $ref: '#/definitions/template.CustomYaml'
+    type: object
+  service.K8sDeployStatusCheckRequest:
+    properties:
+      cluster_id:
+        type: string
+      env_name:
+        type: string
+      namespace:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/service.K8sSvcRenderArg'
+        type: array
+    type: object
+  service.K8sSvcRenderArg:
+    properties:
+      deploy_strategy:
+        description: New since 1.16.0, used to determine if the service will be installed
+        type: string
+      env_name:
+        type: string
+      latest_variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      latest_variable_yaml:
+        type: string
+      service_name:
+        type: string
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
+  service.KVPair:
+    properties:
+      key:
+        type: string
+      value: {}
+    type: object
+  service.LoadServiceFromYamlTemplateReq:
+    properties:
+      auto_sync:
+        type: boolean
+      project_name:
+        type: string
+      service_name:
+        type: string
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      template_id:
+        type: string
+      variable_yaml:
+        type: string
+    type: object
+  service.PreviewServiceArgs:
+    properties:
+      env_name:
+        type: string
+      product_name:
+        type: string
+      service_modules:
+        items:
+          $ref: '#/definitions/models.Container'
+        type: array
+      service_name:
+        type: string
+      update_service_revision:
+        type: boolean
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+    type: object
+  service.Product:
+    properties:
+      base_name:
+        type: string
+      chartValues:
+        items:
+          $ref: '#/definitions/service.HelmSvcRenderArg'
+        type: array
+      collaboration_mode:
+        type: string
+      collaboration_type:
+        $ref: '#/definitions/config.CollaborationType'
+      default_values:
+        type: string
+      deploy_type:
+        type: string
+      global_variables:
+        items:
+          $ref: '#/definitions/types.GlobalVariableKV'
+        type: array
+      name:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/service.K8sSvcRenderArg'
+        type: array
+      valuesData:
+        $ref: '#/definitions/service.ValuesDataArgs'
+      yaml_data:
+        $ref: '#/definitions/template.CustomYaml'
+    type: object
+  service.ProductHelmServiceCreationInfo:
+    properties:
+      chartVersion:
+        type: string
+      deploy_strategy:
+        type: string
+      envName:
+        type: string
+      overrideValues:
+        items:
+          $ref: '#/definitions/service.KVPair'
+        type: array
+      overrideYaml:
+        type: string
+      serviceName:
+        type: string
+      valuesData:
+        $ref: '#/definitions/service.ValuesDataArgs'
+      variable_yaml:
+        type: string
+      yaml_data:
+        $ref: '#/definitions/template.CustomYaml'
+    type: object
+  service.ProductK8sServiceCreationInfo:
+    properties:
+      containers:
+        items:
+          $ref: '#/definitions/models.Container'
+        type: array
+      deploy_strategy:
+        type: string
+      env_configs:
+        items:
+          $ref: '#/definitions/models.EnvConfig'
+        type: array
+      error:
+        type: string
+      product_name:
+        type: string
+      revision:
+        type: integer
+      service_name:
+        type: string
+      type:
+        type: string
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
+  service.RepoConfig:
+    properties:
+      branch:
+        type: string
+      codehostID:
+        type: integer
+      namespace:
+        type: string
+      owner:
+        type: string
+      repo:
+        type: string
+      valuesPaths:
+        items:
+          type: string
+        type: array
+    type: object
+  service.ResourceDeployStatus:
+    properties:
+      name:
+        type: string
+      status:
+        $ref: '#/definitions/service.DeployStatus'
+      type:
+        type: string
+    type: object
+  service.ServiceDeployStatus:
+    properties:
+      resources:
+        items:
+          $ref: '#/definitions/service.ResourceDeployStatus'
+        type: array
+      service_name:
+        type: string
+    type: object
+  service.ServiceModule:
+    properties:
+      build_names:
+        items:
+          type: string
+        type: array
+      image:
+        type: string
+      image_name:
+        type: string
+      imagePath:
+        $ref: '#/definitions/models.ImagePathSpec'
+      name:
+        type: string
+    type: object
+  service.ServiceOption:
+    properties:
+      service:
+        $ref: '#/definitions/models.Service'
+      service_module:
+        items:
+          $ref: '#/definitions/service.ServiceModule'
+        type: array
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      system_variable:
+        items:
+          $ref: '#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable'
+        type: array
+      variable_yaml:
+        type: string
+      yaml:
+        type: string
+    type: object
+  service.SvcDiffResult:
+    properties:
+      current:
+        $ref: '#/definitions/service.TmplYaml'
+      latest:
+        $ref: '#/definitions/service.TmplYaml'
+    type: object
+  service.SvcRevision:
+    properties:
+      containers:
+        items:
+          $ref: '#/definitions/models.Container'
+        type: array
+      current_revision:
+        type: integer
+      deleted:
+        type: boolean
+      deploy_strategy:
+        type: string
+      error:
+        type: string
+      new:
+        type: boolean
+      next_revision:
+        type: integer
+      service_name:
+        type: string
+      type:
+        type: string
+      updatable:
+        type: boolean
+      update_service_tmpl:
+        type: boolean
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
+  service.SyncCollaborationInstanceArgs:
+    properties:
+      products:
+        items:
+          $ref: '#/definitions/service.Product'
+        type: array
+    type: object
+  service.TmplYaml:
+    properties:
+      revision:
+        type: integer
+      update_by:
+        type: string
+      yaml:
+        type: string
+    type: object
+  service.UpdateEnv:
+    properties:
+      env_name:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/service.UpdateServiceArg'
+        type: array
+    type: object
+  service.UpdateMultiHelmProductArg:
+    properties:
+      chartValues:
+        items:
+          $ref: '#/definitions/service.HelmSvcRenderArg'
+        type: array
+      deletedServices:
+        items:
+          type: string
+        type: array
+      envNames:
+        items:
+          type: string
+        type: array
+      productName:
+        type: string
+      replacePolicy:
+        description: TODO logic not implemented
+        type: string
+    type: object
+  service.UpdateServiceArg:
+    properties:
+      deploy_strategy:
+        type: string
+      service_name:
+        type: string
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+    type: object
+  service.ValuesDataArgs:
+    properties:
+      autoSync:
+        type: boolean
+      gitRepoConfig:
+        $ref: '#/definitions/service.RepoConfig'
+      source_id:
+        type: string
+      yamlSource:
+        type: string
+    type: object
+  setting.PMHostStatus:
+    enum:
+    - normal
+    - abnormal
+    type: string
+    x-enum-varnames:
+    - PMHostStatusNormal
+    - PMHostStatusAbnormal
+  template.CustomYaml:
+    properties:
+      auto_sync:
+        type: boolean
+      render_variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      source:
+        type: string
+      source_detail: {}
+      source_id:
+        type: string
+      yaml_content:
+        type: string
+    type: object
+  template.GitRepoConfig:
+    properties:
+      branch:
+        type: string
+      codehost_id:
+        type: integer
+      namespace:
+        description: records the actual namespace of repo, used to generate correct
+          project name
+        type: string
+      owner:
+        type: string
+      repo:
+        type: string
+      values_paths:
+        items:
+          type: string
+        type: array
+    type: object
+  template.ServiceRender:
+    properties:
+      chart_version:
+        description: '---- for helm services begin ----'
+        type: string
+      override_values:
+        description: used for helm services, json-encoded string of kv value
+        type: string
+      override_yaml:
+        allOf:
+        - $ref: '#/definitions/template.CustomYaml'
+        description: |-
+          OverrideYaml will be used in both helm and k8s projects
+          In k8s this is variable_yaml
+      service_name:
+        type: string
+      values_yaml:
+        type: string
+    type: object
+  template.YamlDetail:
+    properties:
+      content:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
+  template.YamlTemplate:
+    properties:
+      content:
+        type: string
+      name:
+        type: string
+      service_variable_kvs:
+        items:
+          $ref: '#/definitions/types.ServiceVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
+  types.GlobalVariableKV:
+    properties:
+      desc:
+        type: string
+      key:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      related_services:
+        items:
+          type: string
+        type: array
+      type:
+        $ref: '#/definitions/types.ServiceVariableKVType'
+      value: {}
+    type: object
+  types.RenderVariableKV:
+    properties:
+      desc:
+        type: string
+      key:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      type:
+        $ref: '#/definitions/types.ServiceVariableKVType'
+      use_global_variable:
+        type: boolean
+      value: {}
     type: object
   types.ServiceVariableKV:
     properties:
@@ -45,6 +1234,17 @@ definitions:
     - ServiceVariableKVTypeString
     - ServiceVariableKVTypeEnum
     - ServiceVariableKVTypeYaml
+  types.ServiceWithVariable:
+    properties:
+      service_name:
+        type: string
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
 info:
   contact:
     email: contact@koderover.com
@@ -58,6 +1258,665 @@ info:
   title: Zadig aslan service REST APIs
   version: "1.0"
 paths:
+  /collaboration/collaborations/sync:
+    post:
+      consumes:
+      - application/json
+      description: Sync Collaboration Instance
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.SyncCollaborationInstanceArgs'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Sync Collaboration Instance
+      tags:
+      - collaboration
+  /environment/environments:
+    post:
+      consumes:
+      - application/json
+      description: Create Product(environment)
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: type
+        in: query
+        name: type
+        required: true
+        type: string
+      - description: env type
+        in: query
+        name: envType
+        type: string
+      - description: scene
+        in: query
+        name: scene
+        type: string
+      - description: is auto
+        in: query
+        name: auto
+        type: boolean
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.CreateSingleProductArg'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Create Product(environment)
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Update Multi products
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: type
+        in: query
+        name: type
+        type: string
+      - description: is force
+        in: query
+        name: force
+        required: true
+        type: boolean
+      - description: updateMultiK8sEnv body
+        in: body
+        name: k8s_body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.UpdateEnv'
+          type: array
+      - description: updateMultiHelmEnv body
+        in: body
+        name: helm_body
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateMultiHelmProductArg'
+      - description: updateMultiCvmEnv body
+        in: body
+        name: pm_body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.UpdateEnv'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update Multi products
+      tags:
+      - environment
+  /environment/environments/{name}/globalVariableCandidates:
+    get:
+      consumes:
+      - application/json
+      description: Get global variable candidates
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/types.ServiceVariableKV'
+            type: array
+      summary: Get global variable candidates
+      tags:
+      - environment
+  /environment/environments/{name}/k8s/globalVariables:
+    put:
+      consumes:
+      - application/json
+      description: Update global variables
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.updateK8sProductGlobalVariablesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update global variables
+      tags:
+      - environment
+  /environment/environments/{name}/services:
+    get:
+      consumes:
+      - application/json
+      description: List services in env
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvServices'
+      summary: List services in env
+      tags:
+      - environments
+    put:
+      consumes:
+      - application/json
+      description: Delete services from envrionment
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.DeleteProductServicesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Delete services
+      tags:
+      - environment
+  /environment/environments/{name}/services/{serviceName}:
+    put:
+      consumes:
+      - application/json
+      description: Update service
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.SvcRevision'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update service
+      tags:
+      - environment
+  /environment/environments/{name}/services/{serviceName}/preview:
+    post:
+      consumes:
+      - application/json
+      description: Preview service
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.PreviewServiceArgs'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.SvcDiffResult'
+      summary: Preview service
+      tags:
+      - environment
+  /environment/init_info/{name}:
+    get:
+      consumes:
+      - application/json
+      description: Get init product
+      parameters:
+      - description: project template name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: env type
+        in: query
+        name: envType
+        required: true
+        type: string
+      - description: is base env
+        in: query
+        name: isBaseEnv
+        required: true
+        type: string
+      - description: base env
+        in: query
+        name: baseEnv
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.getInitProductRespone'
+      summary: Get init product
+      tags:
+      - environment
+  /environment/kube/k8s/resources:
+    post:
+      consumes:
+      - application/json
+      description: Get Resource Deploy Status
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.K8sDeployStatusCheckRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ServiceDeployStatus'
+            type: array
+      summary: Get Resource Deploy Status
+      tags:
+      - environment
+  /environment/production/environments/{name}/servicesForUpdate:
+    get:
+      consumes:
+      - application/json
+      description: List services in production env
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvServices'
+      summary: List services in production env
+      tags:
+      - environments
+  /environment/rendersets/globalVariables:
+    get:
+      consumes:
+      - application/json
+      description: Get global variable from environment, current only used for k8s
+        project
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: query
+        name: envName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.getGlobalVariablesRespone'
+      summary: Get global variable
+      tags:
+      - environment
+  /environment/rendersets/variables:
+    get:
+      consumes:
+      - application/json
+      description: Get service variables
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: query
+        name: envName
+        type: string
+      - description: service name
+        in: query
+        name: serviceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.K8sSvcRenderArg'
+            type: array
+      summary: Get service variables
+      tags:
+      - environment
+  /environments/{name}/services/{serviceName}/variables:
+    get:
+      consumes:
+      - application/json
+      description: Get production service variables
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.K8sSvcRenderArg'
+            type: array
+      summary: Get production service variables
+      tags:
+      - environment
+  /placeholder/deploy_job_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] ZadigDeployJobSpec'
+      parameters:
+      - description: body
+        in: body
+        name: deploy_job_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.ZadigDeployJobSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE]  ZadigDeployJobSpec'
+      tags:
+      - placeholder
+  /project/products/{name}/globalVariableCandidates:
+    get:
+      consumes:
+      - application/json
+      description: Get global variable candidates
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GetGlobalVariableCandidatesRespone'
+            type: array
+      summary: Get global variable candidates
+      tags:
+      - project
+  /project/products/{name}/globalVariables:
+    get:
+      consumes:
+      - application/json
+      description: Get global variables
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/types.ServiceVariableKV'
+            type: array
+      summary: Get global variables
+      tags:
+      - project
+    put:
+      consumes:
+      - application/json
+      description: Update global variables
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.updateGlobalVariablesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update global variables
+      tags:
+      - project
+  /service/services:
+    post:
+      consumes:
+      - application/json
+      description: Create service template
+      parameters:
+      - description: is force to create service template
+        in: query
+        name: force
+        required: true
+        type: boolean
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.createServiceTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ServiceOption'
+      summary: Create service template
+      tags:
+      - service
+  /service/services/{name}/environments/deployable:
+    get:
+      consumes:
+      - application/json
+      description: Get Deployable Envs
+      parameters:
+      - description: service name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.DeployableEnvResp'
+      summary: Get Deployable Envs
+      tags:
+      - service
+  /service/services/{name}/variable:
+    put:
+      consumes:
+      - application/json
+      description: Update service varaible
+      parameters:
+      - description: service name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.updateServiceVariableRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update service varaible
+      tags:
+      - service
   /service/services/variable/convert:
     post:
       consumes:
@@ -80,4 +1939,178 @@ paths:
       summary: convert varaible kv and yaml
       tags:
       - service
+  /service/template/load:
+    post:
+      consumes:
+      - application/json
+      description: Load service from yaml template
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.LoadServiceFromYamlTemplateReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Load service from yaml template
+      tags:
+      - service
+  /service/template/reload:
+    post:
+      consumes:
+      - application/json
+      description: Reload service from yaml template
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.LoadServiceFromYamlTemplateReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Reload service from yaml template
+      tags:
+      - service
+  /template/yaml:
+    post:
+      consumes:
+      - application/json
+      description: Create yaml template
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/template.YamlTemplate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Create yaml template
+      tags:
+      - template
+  /template/yaml/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get yaml template detail
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/template.YamlDetail'
+      summary: Get yaml template detail
+      tags:
+      - template
+    put:
+      consumes:
+      - application/json
+      description: Update yaml template
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/template.YamlTemplate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update yaml template
+      tags:
+      - template
+  /template/yaml/{id}/variable:
+    put:
+      consumes:
+      - application/json
+      description: Update yaml template variable
+      parameters:
+      - description: template id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/template.YamlTemplate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update yaml template variable
+      tags:
+      - template
+  /template/yaml/validateVariable:
+    post:
+      consumes:
+      - application/json
+      description: Validate template varaibles
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.getYamlTemplateVariablesReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Validate template varaibles
+      tags:
+      - service
+  /workflow/v4/filterEnv:
+    post:
+      consumes:
+      - application/json
+      description: Get filtered env services
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.filterDeployServiceVarsQuery'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.DeployService'
+            type: array
+      summary: Get filtered env services
+      tags:
+      - workflow
 swagger: "2.0"

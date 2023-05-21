@@ -547,6 +547,14 @@ func ListAllAvailableWorkflows(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.ListAllAvailableWorkflows(c.QueryArray("projects"), ctx.Logger)
 }
 
+// @Summary Get filtered env services
+// @Description Get filtered env services
+// @Tags 	workflow
+// @Accept 	json
+// @Produce json
+// @Param 	body 		body 		filterDeployServiceVarsQuery	 	true 	"body"
+// @Success 200 		{array} 	commonmodels.DeployService
+// @Router /workflow/v4/filterEnv [post]
 func GetFilteredEnvServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

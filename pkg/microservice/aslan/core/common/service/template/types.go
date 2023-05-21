@@ -19,6 +19,7 @@ package template
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 )
 
 type Chart struct {
@@ -57,12 +58,10 @@ type BuildReference struct {
 }
 
 type YamlTemplate struct {
-	Name         string                  `json:"name"`
-	Content      string                  `json:"content"`
-	Variable     []*models.ChartVariable `json:"variable"`
-	VariableYaml string                  `json:"variable_yaml"`
-	// services vars stores the flat keys of variable which can be edited in service templates, used in k8s projects
-	ServiceVars []string `json:"service_vars"`
+	Name               string                           `json:"name"`
+	Content            string                           `json:"content"`
+	VariableYaml       string                           `json:"variable_yaml"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
 }
 
 type YamlListObject struct {
@@ -71,13 +70,11 @@ type YamlListObject struct {
 }
 
 type YamlDetail struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Content string `json:"content"`
-	//Variables    []*models.ChartVariable `json:"variable"`
-	VariableYaml string               `json:"variable_yaml"`
-	VariableKVs  []*models.VariableKV `json:"variable_kvs"`
-	ServiceVars  []string             `json:"service_vars"`
+	ID                 string                           `json:"id"`
+	Name               string                           `json:"name"`
+	Content            string                           `json:"content"`
+	VariableYaml       string                           `json:"variable_yaml"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
 }
 
 type ServiceReference struct {

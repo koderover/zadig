@@ -41,7 +41,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -73,19 +72,19 @@ type ServiceTmplBuildObject struct {
 }
 
 type ServiceTmplObject struct {
-	ProductName  string                        `json:"product_name"`
-	ServiceName  string                        `json:"service_name"`
-	Visibility   string                        `json:"visibility"`
-	Revision     int64                         `json:"revision"`
-	Type         string                        `json:"type"`
-	Username     string                        `json:"username"`
-	EnvConfigs   []*commonmodels.EnvConfig     `json:"env_configs"`
-	EnvStatuses  []*commonmodels.EnvStatus     `json:"env_statuses,omitempty"`
-	From         string                        `json:"from,omitempty"`
-	HealthChecks []*commonmodels.PmHealthCheck `json:"health_checks"`
-	EnvName      string                        `json:"env_name"`
-	VariableYaml string                        `json:"variable_yaml"`
-	ServiceVars  []string                      `json:"service_vars"`
+	ProductName        string                           `json:"product_name"`
+	ServiceName        string                           `json:"service_name"`
+	Visibility         string                           `json:"visibility"`
+	Revision           int64                            `json:"revision"`
+	Type               string                           `json:"type"`
+	Username           string                           `json:"username"`
+	EnvConfigs         []*commonmodels.EnvConfig        `json:"env_configs"`
+	EnvStatuses        []*commonmodels.EnvStatus        `json:"env_statuses,omitempty"`
+	From               string                           `json:"from,omitempty"`
+	HealthChecks       []*commonmodels.PmHealthCheck    `json:"health_checks"`
+	EnvName            string                           `json:"env_name"`
+	VariableYaml       string                           `json:"variable_yaml"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
 }
 
 type ServiceProductMap struct {
@@ -108,18 +107,19 @@ type ServiceProductMap struct {
 	CreateFrom       interface{}               `json:"create_from"`
 	AutoSync         bool                      `json:"auto_sync"`
 	//estimated merged variable is set when the service is created from template
-	EstimatedMergedVariable string `json:"estimated_merged_variable"`
+	EstimatedMergedVariable    string                           `json:"estimated_merged_variable"`
+	EstimatedMergedVariableKVs []*commontypes.ServiceVariableKV `json:"estimated_merged_variable_kvs"`
 }
 
 type EnvService struct {
-	ServiceName        string                     `json:"service_name"`
-	ServiceModules     []*commonmodels.Container  `json:"service_modules"`
-	VariableYaml       string                     `json:"variable_yaml"`
-	VariableKVs        []*commonmodels.VariableKV `json:"variable_kvs"`
-	LatestVariableYaml string                     `json:"latest_variable_yaml"`
-	LatestVariableKVs  []*commonmodels.VariableKV `json:"latest_variable_kvs"`
-	Updatable          bool                       `json:"updatable"`
-	Deployed           bool                       `json:"deployed"`
+	ServiceName        string                          `json:"service_name"`
+	ServiceModules     []*commonmodels.Container       `json:"service_modules"`
+	VariableYaml       string                          `json:"variable_yaml"`
+	VariableKVs        []*commontypes.RenderVariableKV `json:"variable_kvs"`
+	LatestVariableYaml string                          `json:"latest_variable_yaml"`
+	LatestVariableKVs  []*commontypes.RenderVariableKV `json:"latest_variable_kvs"`
+	Updatable          bool                            `json:"updatable"`
+	Deployed           bool                            `json:"deployed"`
 }
 
 type EnvServices struct {
@@ -201,7 +201,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	estimatedVariables := getEstimatedMergedVariables(services, productTmpl)
+	estimatedVariableYamlMap, estimatedVariableKVMap := getEstimatedMergedVariables(services, productTmpl)
 	for _, serviceObject := range services {
 		if serviceObject.Source == setting.SourceFromGitlab {
 			if serviceObject.CodehostID == 0 {
@@ -229,25 +229,26 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			log.Warnf("faile to fill service creation info: %s", err)
 		}
 		spmap := &ServiceProductMap{
-			Service:                 serviceObject.ServiceName,
-			Type:                    serviceObject.Type,
-			Source:                  serviceObject.Source,
-			ProductName:             serviceObject.ProductName,
-			Containers:              serviceObject.Containers,
-			Product:                 []string{productName},
-			Visibility:              serviceObject.Visibility,
-			CodehostID:              serviceObject.CodehostID,
-			RepoOwner:               serviceObject.RepoOwner,
-			RepoNamespace:           serviceObject.GetRepoNamespace(),
-			RepoName:                serviceObject.RepoName,
-			RepoUUID:                serviceObject.RepoUUID,
-			BranchName:              serviceObject.BranchName,
-			LoadFromDir:             serviceObject.LoadFromDir,
-			LoadPath:                serviceObject.LoadPath,
-			GerritRemoteName:        serviceObject.GerritRemoteName,
-			CreateFrom:              serviceObject.CreateFrom,
-			AutoSync:                serviceObject.AutoSync,
-			EstimatedMergedVariable: estimatedVariables[serviceObject.ServiceName],
+			Service:                    serviceObject.ServiceName,
+			Type:                       serviceObject.Type,
+			Source:                     serviceObject.Source,
+			ProductName:                serviceObject.ProductName,
+			Containers:                 serviceObject.Containers,
+			Product:                    []string{productName},
+			Visibility:                 serviceObject.Visibility,
+			CodehostID:                 serviceObject.CodehostID,
+			RepoOwner:                  serviceObject.RepoOwner,
+			RepoNamespace:              serviceObject.GetRepoNamespace(),
+			RepoName:                   serviceObject.RepoName,
+			RepoUUID:                   serviceObject.RepoUUID,
+			BranchName:                 serviceObject.BranchName,
+			LoadFromDir:                serviceObject.LoadFromDir,
+			LoadPath:                   serviceObject.LoadPath,
+			GerritRemoteName:           serviceObject.GerritRemoteName,
+			CreateFrom:                 serviceObject.CreateFrom,
+			AutoSync:                   serviceObject.AutoSync,
+			EstimatedMergedVariable:    estimatedVariableYamlMap[serviceObject.ServiceName],
+			EstimatedMergedVariableKVs: estimatedVariableKVMap[serviceObject.ServiceName],
 		}
 
 		if _, ok := serviceToProject[serviceObject.ServiceName]; ok {
@@ -260,8 +261,9 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 	return resp, nil
 }
 
-func getEstimatedMergedVariables(services []*commonmodels.Service, product *template.Product) map[string]string {
-	retValue := make(map[string]string)
+func getEstimatedMergedVariables(services []*commonmodels.Service, product *template.Product) (map[string]string, map[string][]*commontypes.ServiceVariableKV) {
+	retYamlMap := make(map[string]string)
+	retKVMap := make(map[string][]*commontypes.ServiceVariableKV)
 	if product.IsK8sYamlProduct() {
 		templateMap := make(map[string]*commonmodels.YamlTemplate)
 		k8sYamlTemplates, _, _ := commonrepo.NewYamlTemplateColl().List(0, 0)
@@ -273,19 +275,18 @@ func getEstimatedMergedVariables(services []*commonmodels.Service, product *temp
 			if service.Source != setting.ServiceSourceTemplate {
 				continue
 			}
-			retValue[service.ServiceName] = service.VariableYaml
+			retYamlMap[service.ServiceName] = service.VariableYaml
+			retKVMap[service.ServiceName] = service.ServiceVariableKVs
 
 			sourceTemplate, ok := templateMap[service.TemplateID]
 			if !ok {
 				continue
 			}
 
-			templateVariable, kvs, err := commomtemplate.SafeMergeVariableYaml(sourceTemplate.VariableYaml, service.VariableYaml)
+			mergedYaml, mergedKVs, err := commontypes.MergeServiceVariableKVsIfNotExist(service.ServiceVariableKVs, sourceTemplate.ServiceVariableKVs)
 			if err == nil {
-				for k, v := range kvs {
-					templateVariable = strings.ReplaceAll(templateVariable, k, v)
-				}
-				retValue[service.ServiceName] = templateVariable
+				retYamlMap[service.ServiceName] = mergedYaml
+				retKVMap[service.ServiceName] = mergedKVs
 			}
 		}
 	}
@@ -298,13 +299,13 @@ func getEstimatedMergedVariables(services []*commonmodels.Service, product *temp
 			creation, err := GetCreateFromChartTemplate(service.CreateFrom)
 			if err == nil {
 				if creation.YamlData != nil {
-					retValue[service.ServiceName] = creation.YamlData.YamlContent
+					retYamlMap[service.ServiceName] = creation.YamlData.YamlContent
 				}
 			}
 		}
 	}
 
-	return retValue
+	return retYamlMap, retKVMap
 }
 
 // ListWorkloadTemplate 列出实例模板
@@ -1211,7 +1212,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		return false
 	}
 
-	variables := func(svcName string) (string, []*commonmodels.VariableKV, string, []*commonmodels.VariableKV, error) {
+	variables := func(svcName string) (string, []*commontypes.RenderVariableKV, string, []*commontypes.RenderVariableKV, error) {
 		svcRender := rendersetInfo.GetServiceRenderMap()[svcName]
 		if svcRender == nil {
 			svcRender = &template.ServiceRender{
@@ -1220,10 +1221,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			}
 		}
 
-		serviceVars := setting.ServiceVarWildCard
-
-		getVarsAndKVs := func(svcName string, updateSvcRevision bool) (string, []*commonmodels.VariableKV, error) {
-			yamlContent := ""
+		getVarsAndKVs := func(svcName string, updateSvcRevision bool) (string, []*commontypes.RenderVariableKV, error) {
 			var tmplSvc *commonmodels.Service
 			if updateSvcRevision {
 				tmplSvc = templateSvcMap[svcName]
@@ -1239,34 +1237,13 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 			if newSvcKVsMap[svcName] == nil {
 				// config phase
-				mergedValues, _, err := commomtemplate.SafeMergeVariableYaml(svcRender.OverrideYaml.YamlContent, tmplSvc.VariableYaml)
-				if err != nil {
-					return "", nil, errors.Wrapf(err, "failed to merge variable yaml for service %s", svcName)
-				} else {
-					yamlContent = string(mergedValues)
-				}
+				return commontypes.MergeRenderAndServiceVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, tmplSvc.ServiceVariableKVs)
 			} else {
+				// @todo TBD 是否根据工作流配置来过滤
 				// "exec" phase
-				yamlContent, err = prefixOverride(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent, newSvcKVsMap[svcName])
-				if err != nil {
-					return "", nil, errors.Wrapf(err, "failed to partial override variable yaml for service %s", svcName)
-				}
+				// yamlContent, err = prefixOverride(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent, newSvcKVsMap[svcName])
+				return commontypes.MergeRenderAndServiceVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, tmplSvc.ServiceVariableKVs)
 			}
-			if !productInfo.Production {
-				serviceVars = tmplSvc.ServiceVars
-			}
-
-			yamlContent, err = commonutil.ClipVariableYaml(yamlContent, serviceVars)
-			if err != nil {
-				return "", nil, errors.Wrapf(err, "failed to clip variable yaml for service %s", svcName)
-			}
-
-			kvs, err := kube.GeneKVFromYaml(yamlContent)
-			if err != nil {
-				return "", nil, errors.Wrapf(err, "failed to generate variable kv for service %s", svcName)
-			}
-
-			return yamlContent, kvs, nil
 		}
 
 		svcRenderYaml, kvs, err := getVarsAndKVs(svcName, false)
@@ -1340,6 +1317,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 		return mergeValues, kvs, latestMergeValues, latestKvs, nil
 	}
+	_ = values
 
 	// get all service values info
 
@@ -1360,10 +1338,12 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
 			}
 		} else if deployType == setting.HelmDeployType {
-			svc.VariableYaml, svc.VariableKVs, svc.LatestVariableYaml, svc.LatestVariableKVs, err = values(serviceName)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get values for service %s", serviceName)
-			}
+			// TODO: helm doesn't support variables for now
+
+			// svc.VariableYaml, svc.VariableKVs, svc.LatestVariableYaml, svc.LatestVariableKVs, err = values(serviceName)
+			// if err != nil {
+			// 	return nil, errors.Wrapf(err, "failed to get values for service %s", serviceName)
+			// }
 		}
 
 		ret.Services = append(ret.Services, svc)
@@ -1383,14 +1363,16 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 		if deployType == setting.K8SDeployType {
 			svc.VariableYaml = templateSvc.VariableYaml
-			svc.VariableKVs, _ = kube.GeneKVFromYaml(templateSvc.VariableYaml)
+			svc.VariableKVs = commontypes.ServiceToRenderVariableKVs(templateSvc.ServiceVariableKVs)
 			svc.LatestVariableYaml = svc.VariableYaml
 			svc.LatestVariableKVs = svc.VariableKVs
 		} else if deployType == setting.HelmDeployType {
-			svc.VariableYaml = templateSvc.HelmChart.ValuesYaml
-			svc.VariableKVs, _ = kube.GeneKVFromYaml(templateSvc.HelmChart.ValuesYaml)
-			svc.LatestVariableYaml = svc.VariableYaml
-			svc.LatestVariableKVs = svc.VariableKVs
+			// TODO: helm doesn't support variables for now
+
+			// svc.VariableYaml = templateSvc.HelmChart.ValuesYaml
+			// svc.VariableKVs, _ = kube.GeneKVFromYaml(templateSvc.HelmChart.ValuesYaml)
+			// svc.LatestVariableYaml = svc.VariableYaml
+			// svc.LatestVariableKVs = svc.VariableKVs
 		}
 
 		ret.Services = append(ret.Services, svc)
@@ -1468,9 +1450,9 @@ const (
 )
 
 type ConvertVaraibleKVAndYamlArgs struct {
-	KVs    []*commontypes.ServiceVariableKV   `json:"kvs"`
-	Yaml   string                             `json:"yaml"`
-	Action ConvertVaraibleKVAndYamlActionType `json:"action"`
+	KVs    []*commontypes.ServiceVariableKV   `json:"kvs" binding:"required"`
+	Yaml   string                             `json:"yaml" binding:"required"`
+	Action ConvertVaraibleKVAndYamlActionType `json:"action" binding:"required"`
 }
 
 func ConvertVaraibleKVAndYaml(args *ConvertVaraibleKVAndYamlArgs) (*ConvertVaraibleKVAndYamlArgs, error) {

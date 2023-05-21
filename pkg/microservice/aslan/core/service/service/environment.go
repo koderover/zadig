@@ -28,6 +28,7 @@ import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -37,11 +38,11 @@ import (
 )
 
 type DeployableEnv struct {
-	EnvName   string                       `json:"env_name"`
-	Namespace string                       `json:"namespace"`
-	ClusterID string                       `json:"cluster_id"`
-	Services  []*types.ServiceWithVariable `json:"services"`
-	//Vars      []*template.RenderKV `json:"vars"`
+	EnvName           string                          `json:"env_name"`
+	Namespace         string                          `json:"namespace"`
+	ClusterID         string                          `json:"cluster_id"`
+	Services          []*types.ServiceWithVariable    `json:"services"`
+	GlobalVariableKVs []*commontypes.GlobalVariableKV `json:"global_variable_kvs"`
 }
 
 type DeployableEnvResp struct {
@@ -332,6 +333,7 @@ func getServiceVariables(templateProduct *template.Product, product *commonmodel
 		ret = append(ret, &types.ServiceWithVariable{
 			ServiceName:  arg.ServiceName,
 			VariableYaml: arg.LatestVariableYaml,
+			VariableKVs:  arg.LatestVariableKVs,
 		})
 	}
 
@@ -352,12 +354,22 @@ func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, err
 
 	envNames := make([]string, len(envs))
 	for i, env := range envs {
+		renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+			Name:     env.Render.Name,
+			EnvName:  env.EnvName,
+			Revision: env.Render.Revision,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find render set, name: %s, envName: %s, revision: %d, err: %s", env.Render.Name, env.EnvName, env.Render.Revision, err)
+		}
+
 		envNames[i] = env.EnvName
 		ret[i] = &DeployableEnv{
-			EnvName:   env.EnvName,
-			Namespace: env.Namespace,
-			ClusterID: env.ClusterID,
-			Services:  getServiceVariables(templateProduct, env),
+			EnvName:           env.EnvName,
+			Namespace:         env.Namespace,
+			ClusterID:         env.ClusterID,
+			GlobalVariableKVs: renderSet.GlobalVariables,
+			Services:          getServiceVariables(templateProduct, env),
 		}
 	}
 
@@ -378,11 +390,21 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product) (
 
 	ret := make([]*DeployableEnv, 0)
 	for _, baseEnv := range baseEnvs {
+		renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+			Name:     baseEnv.Render.Name,
+			EnvName:  baseEnv.EnvName,
+			Revision: baseEnv.Render.Revision,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find render set, name: %s, envName: %s, revision: %d, err: %s", baseEnv.Render.Name, baseEnv.EnvName, baseEnv.Render.Revision, err)
+		}
+
 		ret = append(ret, &DeployableEnv{
-			EnvName:   baseEnv.EnvName,
-			Namespace: baseEnv.Namespace,
-			ClusterID: baseEnv.ClusterID,
-			Services:  getServiceVariables(templateProduct, baseEnv),
+			EnvName:           baseEnv.EnvName,
+			Namespace:         baseEnv.Namespace,
+			ClusterID:         baseEnv.ClusterID,
+			GlobalVariableKVs: renderSet.GlobalVariables,
+			Services:          getServiceVariables(templateProduct, baseEnv),
 		})
 
 		if !hasSvcInEnv(svcName, baseEnv) {
@@ -413,21 +435,23 @@ func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*Deplo
 		return nil, err
 	}
 
-	//if templateProduct.IsK8sYamlProduct() {
-	//	err = service.FillProductVars(envs, log.SugaredLogger())
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
-
 	ret := make([]*DeployableEnv, len(envs))
 	for i, env := range envs {
+		renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+			Name:     env.Render.Name,
+			EnvName:  env.EnvName,
+			Revision: env.Render.Revision,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find render set, name: %s, envName: %s, revision: %d, err: %s", env.Render.Name, env.EnvName, env.Render.Revision, err)
+		}
+
 		ret[i] = &DeployableEnv{
-			EnvName:   env.EnvName,
-			Namespace: env.Namespace,
-			ClusterID: env.ClusterID,
-			Services:  getServiceVariables(templateProduct, env),
-			//Vars:      env.Vars,
+			EnvName:           env.EnvName,
+			Namespace:         env.Namespace,
+			ClusterID:         env.ClusterID,
+			GlobalVariableKVs: renderSet.GlobalVariables,
+			Services:          getServiceVariables(templateProduct, env),
 		}
 	}
 

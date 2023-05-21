@@ -722,7 +722,7 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	baseRenderset.Revision = 0
 	baseRenderset.EnvName = envName
 	baseRenderset.Name = baseProduct.Namespace
-	err = render.ForceCreateReaderSet(baseRenderset, log)
+	err = render.CreateRenderSet(baseRenderset, log)
 	if err != nil {
 		return fmt.Errorf("CreateEnvAndTaskByPR renderset create err:%v", err)
 	}

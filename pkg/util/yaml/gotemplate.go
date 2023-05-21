@@ -90,9 +90,19 @@ func parseTemplateVariables(parsedTemplate *template.Template) []string {
 						ret.Insert(fmt.Sprintf("%v:%s", itemNode, guessPreciseType(listNode)))
 					}
 				}
+			} else if rangeNode, ok := vInterface.(parse.RangeNode); ok {
+				for _, cmd := range rangeNode.Pipe.Cmds {
+					for _, arg := range cmd.Args {
+						if arg.Type() == parse.NodeField {
+							ret.Insert(fmt.Sprintf("%v:%s", arg, "default"))
+						}
+					}
+				}
+				continue
 			}
 		}
 
+		// traverse the struct, array, slice, etc, add nodes to the queue
 		var n int
 		if node.Kind() == reflect.Array || node.Kind() == reflect.Slice {
 			n = node.Len()

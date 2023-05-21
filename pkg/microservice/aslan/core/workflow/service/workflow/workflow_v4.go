@@ -45,7 +45,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
@@ -1750,37 +1750,31 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 	if service == nil {
 		service = &commonmodels.DeployService{}
 	} else {
-		keySet = commonutil.KVs2Set(service.KeyVals)
+		for _, config := range service.VariableConfigs {
+			keySet = keySet.Insert(config.VariableKey)
+		}
 	}
 
 	service.ServiceName = serviceName
 	service.Updatable = serviceEnv.Updatable
 	service.UpdateConfig = defaultUpdateConfig
 
-	service.KeyVals = []*commonmodels.ServiceKeyVal{}
-	service.LatestKeyVals = []*commonmodels.ServiceKeyVal{}
+	service.VariableKVs = []*commontypes.RenderVariableKV{}
+	service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
 
 	for _, svcVar := range serviceEnv.VariableKVs {
-		if commonutil.FilterKV(svcVar, keySet) {
-			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
-				Key:   svcVar.Key,
-				Value: svcVar.Value,
-				Type:  commonmodels.StringType,
-			})
+		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
+			service.VariableKVs = append(service.VariableKVs, svcVar)
 		}
 	}
 	for _, svcVar := range serviceEnv.LatestVariableKVs {
-		if commonutil.FilterKV(svcVar, keySet) {
-			service.LatestKeyVals = append(service.LatestKeyVals, &commonmodels.ServiceKeyVal{
-				Key:   svcVar.Key,
-				Value: svcVar.Value,
-				Type:  commonmodels.StringType,
-			})
+		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
+			service.LatestVariableKVs = append(service.LatestVariableKVs, svcVar)
 		}
 	}
 	if !slices.Contains(deployContents, config.DeployVars) {
-		service.KeyVals = []*commonmodels.ServiceKeyVal{}
-		service.LatestKeyVals = []*commonmodels.ServiceKeyVal{}
+		service.VariableKVs = []*commontypes.RenderVariableKV{}
+		service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
 	}
 
 	return service, nil

@@ -335,6 +335,7 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"custom_tar_rule":       args.CustomTarRule,
 		"custom_image_rule":     args.CustomImageRule,
 		"delivery_version_hook": args.DeliveryVersionHook,
+		"global_variables":      args.GlobalVariables,
 		"public":                args.Public,
 	}}
 

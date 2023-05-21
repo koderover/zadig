@@ -39,6 +39,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/user/core"
@@ -139,12 +140,15 @@ type ZadigScanningJobSpec struct {
 	ScanningName string              `bson:"scanning_name"   json:"scanning_name"`
 }
 
-type ZadigDeployJobSpec struct {
-	Env                string                        `bson:"env"                          json:"env"`
-	SkipCheckRunStatus bool                          `bson:"skip_check_run_status"        json:"skip_check_run_status"`
-	ServiceAndImages   []*ServiceAndImage            `bson:"service_and_images"           json:"service_and_images"`
-	YamlContent        string                        `bson:"yaml_content"                 json:"yaml_content"`
-	KeyVals            []*commonmodels.ServiceKeyVal `bson:"key_vals"                     json:"key_vals"`
+type ZadigDeployJobPreviewSpec struct {
+	Env                string             `bson:"env"                          json:"env"`
+	SkipCheckRunStatus bool               `bson:"skip_check_run_status"        json:"skip_check_run_status"`
+	ServiceAndImages   []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
+	YamlContent        string             `bson:"yaml_content"                 json:"yaml_content"`
+	// VariableConfigs new since 1.18, only used for k8s
+	VariableConfigs []*commonmodels.DeplopyVariableConfig `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"`
+	// VariableKVs new since 1.18, only used for k8s
+	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"                 json:"variable_kvs"                    yaml:"variable_kvs"`
 }
 
 type CustomDeployJobSpec struct {
@@ -515,7 +519,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			}
 		}
 	}
-	
+
 	task.Status = config.StatusCreated
 	task.StartTime = time.Now().Unix()
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(task); err != nil {
@@ -1044,13 +1048,14 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 			jobPreview.Spec = spec
 		case string(config.JobZadigDeploy):
-			spec := ZadigDeployJobSpec{}
+			spec := ZadigDeployJobPreviewSpec{}
 			taskJobSpec := &commonmodels.JobTaskDeploySpec{}
 			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
 				continue
 			}
 			spec.Env = taskJobSpec.Env
-			spec.KeyVals = taskJobSpec.KeyVals
+			spec.VariableConfigs = taskJobSpec.VariableConfigs
+			spec.VariableKVs = taskJobSpec.VariableKVs
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			// for compatibility
@@ -1072,14 +1077,13 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			jobPreview.Spec = spec
 		case string(config.JobZadigHelmDeploy):
 			jobPreview.JobType = string(config.JobZadigDeploy)
-			spec := ZadigDeployJobSpec{}
+			spec := ZadigDeployJobPreviewSpec{}
 			job.JobType = string(config.JobZadigDeploy)
 			taskJobSpec := &commonmodels.JobTaskHelmDeploySpec{}
 			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
 				continue
 			}
 			spec.Env = taskJobSpec.Env
-			spec.KeyVals = taskJobSpec.KeyVals
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			for _, imageAndmodule := range taskJobSpec.ImageAndModules {

@@ -27,6 +27,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -83,15 +84,15 @@ func (c *YamlTemplateColl) Update(idString string, obj *models.YamlTemplate) err
 	return err
 }
 
-func (c *YamlTemplateColl) UpdateVariable(idString string, variable string, serviceVars []string) error {
+func (c *YamlTemplateColl) UpdateVariable(idString string, variable string, serviceVariableKVs []*commontypes.ServiceVariableKV) error {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
 		return fmt.Errorf("invalid id")
 	}
 	filter := bson.M{"_id": id}
 	update := bson.M{"$set": bson.M{
-		"variable_yaml": variable,
-		"service_vars":  serviceVars,
+		"variable_yaml":        variable,
+		"service_variable_kvs": serviceVariableKVs,
 	}}
 
 	_, err = c.UpdateOne(context.TODO(), filter, update)

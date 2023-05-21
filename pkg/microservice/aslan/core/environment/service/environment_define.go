@@ -23,6 +23,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 )
 
 const (
@@ -153,8 +154,8 @@ type CreateSingleProductArg struct {
 	ChartValues []*ProductHelmServiceCreationInfo `json:"chartValues"`
 
 	// for k8s products
-	//Vars     []*templatemodels.RenderKV         `json:"vars"`
-	Services [][]*ProductK8sServiceCreationInfo `json:"services"`
+	GlobalVariables []*commontypes.GlobalVariableKV    `json:"global_variables"`
+	Services        [][]*ProductK8sServiceCreationInfo `json:"services"`
 
 	IsExisted bool `json:"is_existed"`
 
@@ -193,11 +194,10 @@ type UpdateEnvRequest struct {
 // ------------ used for api of getting deploy status of k8s resource/helm release
 
 type K8sDeployStatusCheckRequest struct {
-	EnvName       string                           `json:"env_name"`
-	Services      []*commonservice.K8sSvcRenderArg `json:"services"`
-	ClusterID     string                           `json:"cluster_id"`
-	Namespace     string                           `json:"namespace"`
-	DefaultValues string                           `json:"default_values"`
+	EnvName   string                           `json:"env_name"`
+	Services  []*commonservice.K8sSvcRenderArg `json:"services"`
+	ClusterID string                           `json:"cluster_id"`
+	Namespace string                           `json:"namespace"`
 }
 
 type HelmDeployStatusCheckRequest struct {
