@@ -43,6 +43,8 @@ type RenderSet struct {
 	ServiceVariables []*templatemodels.ServiceRender `bson:"service_variables,omitempty"    json:"service_variables,omitempty"` // new since 1.16.0 replace kvs
 	ChartInfos       []*templatemodels.ServiceRender `bson:"chart_infos,omitempty"          json:"chart_infos,omitempty"`
 	Description      string                          `bson:"description,omitempty"          json:"description,omitempty"`
+
+	KVs []*templatemodels.RenderKV `bson:"kvs,omitempty"            json:"kvs,omitempty"`
 }
 
 func (RenderSet) TableName() string {

@@ -129,7 +129,7 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 
 	service.AutoSync = autoSync
 	service.TemplateID = templateID
-	return reloadServiceFromYamlTemplateImpl(username, projectName, template, service, req.VariableYaml, req.ServiceVariableKVs)
+	return ReloadServiceFromYamlTemplateImpl(username, projectName, template, service, req.VariableYaml, req.ServiceVariableKVs)
 }
 
 func PreviewServiceFromYamlTemplate(req *LoadServiceFromYamlTemplateReq, logger *zap.SugaredLogger) (string, error) {
@@ -310,7 +310,7 @@ func buildChartTemplateVariables(service *commonmodels.Service, template *common
 	return variables, customYaml, nil
 }
 
-func reloadServiceFromYamlTemplateImpl(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service, variableYaml string, serviceVariableKVs []*commontypes.ServiceVariableKV) error {
+func ReloadServiceFromYamlTemplateImpl(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service, variableYaml string, serviceVariableKVs []*commontypes.ServiceVariableKV) error {
 	renderedYaml := renderSystemVars(template.Content, projectName, service.ServiceName)
 	fullRenderedYaml, err := commonutil.RenderK8sSvcYamlStrict(template.Content, projectName, service.ServiceName, template.VariableYaml, variableYaml)
 	if err != nil {
@@ -345,5 +345,5 @@ func reloadServiceFromYamlTemplate(userName, projectName string, template *commo
 		return err
 	}
 
-	return reloadServiceFromYamlTemplateImpl(userName, projectName, template, service, variableYaml, kvs)
+	return ReloadServiceFromYamlTemplateImpl(userName, projectName, template, service, variableYaml, kvs)
 }
