@@ -23,8 +23,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/cmd/migrate"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
@@ -38,9 +36,6 @@ var outPutMessages = false
 var serviceVarsOnly = false
 var appointedTemplates string = ""
 var appointedProjects string = ""
-
-var templateMap = make(map[string]*models.YamlTemplate)
-var defaultRenderMap = make(map[string]*models.RenderSet)
 
 var rootCmd = &cobra.Command{
 	Use:   "vars-upgrade",

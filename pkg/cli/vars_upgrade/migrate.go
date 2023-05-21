@@ -46,7 +46,9 @@ import (
 
 var k8sProjects []*template2.Product
 var k8sTemplates []*models.YamlTemplate
-var k8sProductDefaultRenderset map[string]*models.RenderSet
+var defaultRenderMap = make(map[string]*models.RenderSet)
+
+var templateMap = make(map[string]*models.YamlTemplate)
 
 var allTestServiceRevisions map[string]sets.Int64
 
@@ -66,9 +68,10 @@ func prepareData() error {
 		return errors.Wrapf(err, "list k8s projects")
 	}
 
+	log.Infof("------------ %d k8s projects found", len(k8sProjects))
+
 	allTestServiceRevisions = make(map[string]sets.Int64)
 	allTestServices = make(map[string]*models.Service)
-	k8sProductDefaultRenderset = make(map[string]*models.RenderSet)
 
 	insertSvcToMap := func(productName, serviceName string, serviceRevision int64) {
 		svcKey := fmt.Sprintf("%s/%s", productName, serviceName)
@@ -113,7 +116,6 @@ func prepareData() error {
 			}
 		}
 		defaultRenderMap[project.ProductName] = defaultRenderset
-		k8sProductDefaultRenderset[project.ProductName] = defaultRenderset
 	}
 
 	k8sTemplates, _, err = mongodb.NewYamlTemplateColl().List(0, 0)
@@ -163,6 +165,8 @@ func handleSingleTemplateService(tmpSvc *models.Service) error {
 	if len(tmpSvc.ServiceVariableKVs) > 0 {
 		return nil
 	}
+
+	log.Infof("----------- handling service variable, service: %s/%s:%d", tmpSvc.ProductName, tmpSvc.ServiceName, tmpSvc.Revision)
 
 	creation := &models.CreateFromYamlTemplate{}
 	bs, err := json.Marshal(tmpSvc.CreateFrom)
@@ -217,6 +221,10 @@ func handleSingleTemplateService(tmpSvc *models.Service) error {
 		return errors.Wrapf(err, "!!!!!!!!!!!!!! failed to generate yaml from service variables, service: %s/%s/%d", tmpSvc.ProductName, tmpSvc.ServiceName, tmpSvc.Revision)
 	}
 	tmpSvc.VariableYaml = variableYaml
+
+	if outPutMessages {
+		log.Infof("----------- service: %s/%s:%d, variable: \n%s", tmpSvc.ProductName, tmpSvc.ServiceName, tmpSvc.Revision, tmpSvc.VariableYaml)
+	}
 
 	if !write {
 		return nil
@@ -303,6 +311,10 @@ func handleProjectGlobalVariables() error {
 			return errors.Wrapf(err, "!!!!!!!!!!!!! ailed to generate variable kvs from original kv, project: %s", project.ProductName)
 		}
 
+		if outPutMessages {
+			log.Infof("----------- project: %s, global variables: %v", project.ProductName, project.GlobalVariables)
+		}
+
 		if !write {
 			continue
 		}
@@ -343,7 +355,7 @@ func handleK8sEnvGlobalVariables() error {
 				continue
 			}
 
-			log.Infof("------- start to handle env global variables, %s/%s", project.ProductName, product.EnvName)
+			log.Infof("------------- start to handle env global variables, %s/%s", project.ProductName, product.EnvName)
 
 			// 当前的服务关联关系 map[KEY]=>[]SERVICES
 			svcRelations := make(map[string]sets.String)
@@ -396,12 +408,20 @@ func handleK8sEnvGlobalVariables() error {
 					RelatedServices:   relatedSvcs,
 				})
 
-				// 1.15.0中没有服务变量，仅需将全局变量写入
+				// 1.15.0中没有服务变量，仅需将全局变量写入服务render
 				for _, svc := range relatedSvcs {
 					err = insertServiceUsedVariable(svc, svcKV, targetRenderset)
 					if err != nil {
 						return err
 					}
+				}
+			}
+			targetRenderset.GlobalVariables = globalVariableKV
+
+			if outPutMessages {
+				log.Infof("--------------- env: %s/%s, global variables count: %v", project.ProductName, product.EnvName, len(globalVariableKV))
+				for i, variable := range globalVariableKV {
+					log.Infof("++++++++++++ env: %s/%s, global variable [%d/%d] key: %s, value: %v, related services: %v", project.ProductName, product.EnvName, i+1, len(globalVariableKV), variable.Key, variable.Value, variable.RelatedServices)
 				}
 			}
 
