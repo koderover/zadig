@@ -1432,8 +1432,8 @@ const docTemplate = `{
                 "service_name",
                 "source",
                 "type",
-                "variable_yaml",
-                "visibility"
+                "visibility",
+                "yaml"
             ],
             "properties": {
                 "product_name": {

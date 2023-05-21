@@ -104,8 +104,8 @@ definitions:
     - service_name
     - source
     - type
-    - variable_yaml
     - visibility
+    - yaml
     type: object
   handler.filterDeployServiceVarsQuery:
     properties:

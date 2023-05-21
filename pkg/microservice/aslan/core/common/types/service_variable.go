@@ -42,13 +42,13 @@ type ServiceVariableKV struct {
 }
 
 type RenderVariableKV struct {
-	ServiceVariableKV `bson:"inline"`
-	UseGlobalVariable bool `bson:"use_global_variable"    json:"use_global_variable"`
+	ServiceVariableKV `bson:",inline" yaml:",inline" json:",inline"`
+	UseGlobalVariable bool `bson:"use_global_variable"     yaml:"use_global_variable"    json:"use_global_variable"`
 }
 
 type GlobalVariableKV struct {
-	ServiceVariableKV `bson:"inline"`
-	RelatedServices   []string `bson:"related_services" json:"related_services"`
+	ServiceVariableKV `bson:",inline" yaml:",inline" json:",inline"`
+	RelatedServices   []string `bson:"related_services"     yaml:"related_services"     json:"related_services"`
 }
 
 // not suitable for flatten kv
@@ -65,12 +65,12 @@ func ServiceVariableKVToYaml(kvs []*ServiceVariableKV) (string, error) {
 			intf := new(interface{})
 			value, ok := kv.Value.(string)
 			if !ok {
-				return "", fmt.Errorf("failed to convert value to string, value: %v", kv.Value)
+				return "", fmt.Errorf("failed to convert value to yaml, key: %v, value: %v", kv.Key, kv.Value)
 			}
 
 			err := yaml.Unmarshal([]byte(value), intf)
 			if err != nil {
-				return "", fmt.Errorf("failed to unmarshal yaml, err: %w", err)
+				return "", fmt.Errorf("failed to unmarshal yaml, key: %v, err: %w", kv.Key, err)
 			}
 			kvMap[kv.Key] = intf
 		case ServiceVariableKVTypeBoolean:
@@ -82,7 +82,7 @@ func ServiceVariableKVToYaml(kvs []*ServiceVariableKV) (string, error) {
 			} else if kv.Value == "false" {
 				kvMap[kv.Key] = false
 			} else {
-				return "", fmt.Errorf("invaild value for boolean")
+				return "", fmt.Errorf("invaild value for boolean, key: %v, value: %v", kv.Key, kv.Value)
 			}
 		default:
 			kvMap[kv.Key] = kv.Value
@@ -143,7 +143,7 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 		case map[string]interface{}, []interface{}:
 			snippetBytes, err := yaml.Marshal(snippet)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal snippet, err: %w", err)
+				return nil, fmt.Errorf("key %s: failed to marshal snippet, err: %w", retKV.Key, err)
 			}
 			retKV.Type = ServiceVariableKVTypeYaml
 			retKV.Value = string(snippetBytes)
@@ -173,12 +173,12 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 			value, ok := snippet.(string)
 			if ok {
 				if value != "true" && value != "false" {
-					return nil, fmt.Errorf("invalid value: %s for boolean", snippet.(string))
+					return nil, fmt.Errorf("key %s: invalid value: %s for boolean", retKV.Key, snippet.(string))
 				}
 			} else {
 				_, ok = snippet.(bool)
 				if !ok {
-					return nil, fmt.Errorf("invalid value: %v for boolean", snippet)
+					return nil, fmt.Errorf("key %s: invalid value: %v for boolean", retKV.Key, snippet)
 				}
 			}
 		case ServiceVariableKVTypeEnum:
@@ -186,7 +186,7 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 			optionSet := sets.NewString(origKV.Options...)
 			valueStr := fmt.Sprintf("%v", snippet)
 			if !optionSet.Has(valueStr) {
-				return nil, fmt.Errorf("invalid value: %v, valid options: %v", snippet, origKV.Options)
+				return nil, fmt.Errorf("key %s: invalid value: %v, valid options: %v", retKV.Key, snippet, origKV.Options)
 			}
 		}
 
@@ -194,7 +194,7 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 		if retKV.Type == ServiceVariableKVTypeYaml {
 			snippetBytes, err := yaml.Marshal(snippet)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal snippet, err: %w", err)
+				return nil, fmt.Errorf("key %s: failed to marshal snippet, err: %w", retKV.Key, err)
 			}
 			retKV.Value = string(snippetBytes)
 		} else {
@@ -205,24 +205,24 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 	return retKV, nil
 }
 
-func MergeServiceVariableKVsIfNotExist(origin, new []*ServiceVariableKV) (yaml string, kvs []*ServiceVariableKV, err error) {
+func MergeServiceVariableKVsIfNotExist(base, override []*ServiceVariableKV) (yaml string, kvs []*ServiceVariableKV, err error) {
 	KVSet := sets.NewString()
-	for _, kv := range origin {
+	for _, kv := range base {
 		KVSet.Insert(kv.Key)
 	}
 
-	for _, kv := range new {
+	for _, kv := range override {
 		if !KVSet.Has(kv.Key) {
-			origin = append(origin, kv)
+			base = append(base, kv)
 		}
 	}
 
-	yaml, err = ServiceVariableKVToYaml(origin)
+	yaml, err = ServiceVariableKVToYaml(base)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 	}
 
-	return yaml, origin, nil
+	return yaml, base, nil
 }
 
 func MergeServiceVariableKVs(base, override []*ServiceVariableKV) (yaml string, kvs []*ServiceVariableKV, err error) {

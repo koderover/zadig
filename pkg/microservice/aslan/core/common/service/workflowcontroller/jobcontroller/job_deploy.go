@@ -156,7 +156,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		}
 		varsYaml := ""
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
-			varsYaml, err = commontypes.RenderVariableKVToYaml(c.jobTaskSpec.Variables)
+			varsYaml, err = commontypes.RenderVariableKVToYaml(c.jobTaskSpec.VariableKVs)
 			if err != nil {
 				msg := fmt.Sprintf("generate vars yaml error: %v", err)
 				logError(c.job, msg, c.logger)
@@ -190,7 +190,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		}
 		// if not only deploy image, we will redeploy service
 		if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
-			if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.Variables, revision, containers, updateRevision); err != nil {
+			if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, updateRevision); err != nil {
 				logError(c.job, err.Error(), c.logger)
 				return err
 			}
