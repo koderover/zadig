@@ -63,7 +63,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type ServiceOption struct {
@@ -660,30 +659,16 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 	return nil
 }
 
-func extractAndMergeServiceVariable(args *commonmodels.Service, curRevision *commonmodels.Service) error {
-	extractVariableYmal, err := yamlutil.ExtractVariableYaml(args.Yaml)
-	if err != nil {
-		return fmt.Errorf("failed to extract variable yaml from service yaml, err: %w", err)
-	}
-	extractServiceVariableKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYmal, nil)
-	if err != nil {
-		return fmt.Errorf("failed to convert variable yaml to service variable kv, err: %w", err)
-	}
-
-	// if source is [spock, template], origin args don't have args.VariableYaml and args.ServiceVariableKVs
-	// fill service.variableYaml and service.serviceVars by the previous revision
+// fillServiceVariable fill service.variableYaml and service.serviceVariableKVs by the previous revision
+// services created by [spock, template] do not need to be filled
+func fillServiceVariable(args *commonmodels.Service, curRevision *commonmodels.Service) {
 	if args.Source == setting.SourceFromZadig || args.Source == setting.ServiceSourceTemplate {
-	} else {
+		return
+	}
+	if curRevision != nil {
 		args.VariableYaml = curRevision.VariableYaml
 		args.ServiceVariableKVs = curRevision.ServiceVariableKVs
 	}
-
-	args.VariableYaml, args.ServiceVariableKVs, err = commontypes.MergeServiceVariableKVsIfNotExist(extractServiceVariableKVs, args.ServiceVariableKVs)
-	if err != nil {
-		return fmt.Errorf("failed to merge service variables, err %w", err)
-	}
-
-	return nil
 }
 
 func CreateServiceTemplate(userName string, args *commonmodels.Service, force bool, log *zap.SugaredLogger) (*ServiceOption, error) {
@@ -709,11 +694,8 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 		}
 	}
 
-	//  extract and merge variableYaml and serviceVariableKVs
-	err := extractAndMergeServiceVariable(args, serviceTmpl)
-	if err != nil {
-		return nil, err
-	}
+	// fill serviceVars and variableYaml and serviceVariableKVs
+	fillServiceVariable(args, serviceTmpl)
 
 	// 校验args
 	if err := ensureServiceTmpl(userName, args, log); err != nil {
@@ -749,7 +731,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 	}
 	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
 
-	err = service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
+	err := service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
 	if err != nil {
 		return nil, e.ErrCreateTemplate.AddErr(err)
 	}

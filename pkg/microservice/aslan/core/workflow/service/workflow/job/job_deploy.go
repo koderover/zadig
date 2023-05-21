@@ -323,7 +323,11 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.VariableConfigs = service.VariableConfigs
-					jobTaskSpec.Variables = service.VariableKVs
+					if service.UpdateConfig {
+						jobTaskSpec.Variables = service.LatestVariableKVs
+					} else {
+						jobTaskSpec.Variables = service.VariableKVs
+					}
 				}
 				// if only deploy images, clear keyvals
 				if onlyDeployImage(j.spec.DeployContents) {
