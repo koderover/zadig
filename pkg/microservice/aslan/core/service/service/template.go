@@ -180,7 +180,7 @@ func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.Sugar
 	for _, services := range servicesByProject {
 		go func(pServices []*commonmodels.Service) {
 			for _, service := range pServices {
-				err := reloadServiceFromYamlTemplate(userName, service.ProductName, yamlTemplate, service)
+				err := ReloadServiceFromYamlTemplateWithMerge(userName, service.ProductName, yamlTemplate, service)
 				if err != nil {
 					logger.Error(err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
@@ -338,7 +338,7 @@ func ReloadServiceFromYamlTemplateImpl(userName, projectName string, template *c
 	return nil
 }
 
-func reloadServiceFromYamlTemplate(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service) error {
+func ReloadServiceFromYamlTemplateWithMerge(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service) error {
 	// merge service variable and yaml variable
 	variableYaml, kvs, err := buildYamlTemplateVariables(service, template)
 	if err != nil {

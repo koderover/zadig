@@ -312,7 +312,10 @@ func handleProjectGlobalVariables() error {
 		}
 
 		if outPutMessages {
-			log.Infof("----------- project: %s, global variables: %v", project.ProductName, project.GlobalVariables)
+			log.Infof("----------- project: %s, global variables count: %d", project.ProductName, len(project.GlobalVariables))
+			for i, kv := range project.GlobalVariables {
+				log.Infof("----------- project: %s, global variable[%d/%d], key: %s, type: %v, value: %v", project.ProductName, i+1, len(project.GlobalVariables), kv.Key, kv.Type, kv.Value)
+			}
 		}
 
 		if !write {
@@ -341,10 +344,21 @@ func handleK8sEnvGlobalVariables() error {
 		for _, product := range envs {
 			product.EnsureRenderInfo()
 
+			targetRevision := product.Render.Revision
+			for _, productSvc := range product.GetServiceMap() {
+				if productSvc.Render != nil && productSvc.Render.Revision > targetRevision {
+					targetRevision = productSvc.Render.Revision
+				}
+			}
+
+			if targetRevision != product.Render.Revision {
+				log.Infof("revision not match, product: %s/%s, target revision: %d, current revision: %d", product.ProductName, product.EnvName, targetRevision, product.Render.Revision)
+			}
+
 			targetRenderset, err := mongodb.NewRenderSetColl().Find(&mongodb.RenderSetFindOption{
 				ProductTmpl: project.ProductName,
 				Name:        product.Render.Name,
-				Revision:    product.Render.Revision,
+				Revision:    targetRevision,
 				IsDefault:   false,
 			})
 			if err != nil {
@@ -473,6 +487,10 @@ func handleTemplates() error {
 		}
 		yamlTemplate.ServiceVariableKVs = serviceKVs
 
+		if outPutMessages {
+			log.Infof("--------------- template: %s, service variable count: %v, variable yaml: %s", yamlTemplate.Name, len(serviceKVs), yamlTemplate.VariableYaml)
+		}
+
 		if !write {
 			continue
 		}
@@ -535,7 +553,7 @@ func syncTemplateSvcs() error {
 			}
 
 			// 重新从模板reload服务
-			err = service.ReloadServiceFromYamlTemplateImpl(tmpSvc.CreateBy, tmpSvc.ProductName, yamlTemplate, tmpSvc, tmpSvc.VariableYaml, tmpSvc.ServiceVariableKVs)
+			err = service.ReloadServiceFromYamlTemplateWithMerge(tmpSvc.CreateBy, tmpSvc.ProductName, yamlTemplate, tmpSvc)
 			if err != nil {
 				return errors.Wrapf(err, "!!!!!!!!!! failed to reload service: %s/%s", tmpSvc.ProductName, tmpSvc.ServiceName)
 			}

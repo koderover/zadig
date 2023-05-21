@@ -111,6 +111,9 @@ type ProductService struct {
 	EnvConfigs   []*EnvConfig                    `bson:"-"                          json:"env_configs,omitempty"`
 	VariableYaml string                          `bson:"-"                          json:"variable_yaml,omitempty"`
 	VariableKVs  []*commontypes.RenderVariableKV `bson:"-"                          json:"variable_kvs,omitempty"`
+
+	// For migration
+	Render *RenderInfo `bson:"render,omitempty"           json:"render,omitempty"` // 记录每个服务render信息 便于更新单个服务
 }
 
 type ServiceConfig struct {
