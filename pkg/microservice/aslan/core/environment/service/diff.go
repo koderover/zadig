@@ -17,12 +17,15 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -84,21 +87,15 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 		log.Errorf("[%s][%s][%s]find max revision config template error: %v", envName, productName, serviceName, err)
 		return resp, e.ErrGetService.AddDesc("查找service template失败")
 	}
-	oldRender := &commonmodels.RenderSet{}
-	newRender := &commonmodels.RenderSet{}
+	curRender := &commonmodels.RenderSet{}
 	if productInfo.Render != nil {
-		oldRender, err = render.GetRenderSet(productInfo.Render.Name, productInfo.Render.Revision, false, envName, log)
-		if err != nil {
-			return resp, err
-		}
-		newRender, err = render.GetRenderSet(productInfo.Render.Name, 0, false, envName, log)
+		curRender, err = render.GetRenderSet(productInfo.Render.Name, productInfo.Render.Revision, false, envName, log)
 		if err != nil {
 			return resp, err
 		}
 	}
-	//resp.Current.Yaml = commonservice.RenderValueForString(oldService.Yaml, oldRender)
 
-	resp.Current.Yaml, err = kube.RenderServiceYaml(oldService.Yaml, productName, serviceName, oldRender)
+	resp.Current.Yaml, err = kube.RenderServiceYaml(oldService.Yaml, productName, serviceName, curRender)
 	if err != nil {
 		log.Error("failed to RenderServiceYaml, err: %s", err)
 		return nil, err
@@ -107,13 +104,26 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 	resp.Current.Revision = oldService.Revision
 	resp.Current.UpdateBy = oldService.CreateBy
 
-	resp.Latest.Yaml, err = kube.RenderServiceYaml(newService.Yaml, productName, serviceName, newRender)
+	for _, svcRender := range curRender.ServiceVariables {
+		if svcRender.ServiceName == serviceName {
+			mergedYaml, mergedServiceVariableKVs, err := commontypes.MergeRenderAndServiceVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, newService.ServiceVariableKVs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to merge render and service variable kvs serviceName: %s, error: %v", svcRender.ServiceName, err)
+			}
+
+			svcRender.OverrideYaml.YamlContent = mergedYaml
+			svcRender.OverrideYaml.RenderVaraibleKVs = mergedServiceVariableKVs
+
+			break
+		}
+	}
+
+	resp.Latest.Yaml, err = kube.RenderServiceYaml(newService.Yaml, productName, serviceName, curRender)
 	if err != nil {
 		log.Error("failed to RenderServiceYaml, err: %s", err)
 		return nil, err
 	}
 
-	//resp.Latest.Yaml = commonservice.RenderValueForString(newService.Yaml, newRender)
 	resp.Latest.Revision = newService.Revision
 	resp.Latest.UpdateBy = newService.CreateBy
 	return resp, nil
