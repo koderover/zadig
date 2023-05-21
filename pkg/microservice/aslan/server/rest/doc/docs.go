@@ -62,7 +62,7 @@ const docTemplate = `{
         },
         "/environment/environments": {
             "put": {
-                "description": "Update service",
+                "description": "Update Multi products",
                 "consumes": [
                     "application/json"
                 ],
@@ -72,7 +72,7 @@ const docTemplate = `{
                 "tags": [
                     "environment"
                 ],
-                "summary": "Update service",
+                "summary": "Update Multi products",
                 "parameters": [
                     {
                         "type": "string",
@@ -83,25 +83,48 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
+                        "description": "type",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is force",
+                        "name": "force",
+                        "in": "query",
                         "required": true
                     },
                     {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "body",
-                        "name": "body",
+                        "description": "updateMultiK8sEnv body",
+                        "name": "k8s_body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/service.SvcRevision"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.UpdateEnv"
+                            }
+                        }
+                    },
+                    {
+                        "description": "updateMultiHelmEnv body",
+                        "name": "helm_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.UpdateMultiHelmProductArg"
+                        }
+                    },
+                    {
+                        "description": "updateMultiCvmEnv body",
+                        "name": "pm_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.UpdateEnv"
+                            }
                         }
                     }
                 ],
@@ -264,6 +287,43 @@ const docTemplate = `{
             }
         },
         "/environment/environments/{name}/services": {
+            "get": {
+                "description": "List services in env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environments"
+                ],
+                "summary": "List services in env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvServices"
+                        }
+                    }
+                }
+            },
             "put": {
                 "description": "Delete services from envrionment",
                 "consumes": [
@@ -304,6 +364,113 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
+                    }
+                }
+            }
+        },
+        "/environment/environments/{name}/services/{serviceName}": {
+            "put": {
+                "description": "Update service",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Update service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.SvcRevision"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/environment/environments/{name}/services/{serviceName}/preview": {
+            "post": {
+                "description": "Preview service",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Preview service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.PreviewServiceArgs"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.SvcDiffResult"
+                        }
                     }
                 }
             }
@@ -400,6 +567,45 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/service.ServiceDeployStatus"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/environment/production/environments/{name}/servicesForUpdate": {
+            "get": {
+                "description": "List services in production env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environments"
+                ],
+                "summary": "List services in production env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvServices"
                         }
                     }
                 }
@@ -537,6 +743,37 @@ const docTemplate = `{
                                 "$ref": "#/definitions/service.K8sSvcRenderArg"
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/placeholder/deploy_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigDeployJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigDeployJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigDeployJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
                     }
                 }
             }
@@ -1035,6 +1272,43 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/workflow/v4/filterEnv": {
+            "post": {
+                "description": "Get filtered env services",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workflow"
+                ],
+                "summary": "Get filtered env services",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.filterDeployServiceVarsQuery"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.DeployService"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1063,6 +1337,68 @@ const docTemplate = `{
                 "CommonEnvCfgTypeSecret",
                 "CommonEnvCfgTypePvc"
             ]
+        },
+        "config.DeployContent": {
+            "type": "string",
+            "enum": [
+                "image",
+                "vars",
+                "config"
+            ],
+            "x-enum-varnames": [
+                "DeployImage",
+                "DeployVars",
+                "DeployConfig"
+            ]
+        },
+        "config.DeploySourceType": {
+            "type": "string",
+            "enum": [
+                "runtime",
+                "fromjob"
+            ],
+            "x-enum-varnames": [
+                "SourceRuntime",
+                "SourceFromJob"
+            ]
+        },
+        "github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService": {
+            "type": "object",
+            "properties": {
+                "deployed": {
+                    "type": "boolean"
+                },
+                "latest_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "latest_variable_yaml": {
+                    "type": "string"
+                },
+                "service_modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Container"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "updatable": {
+                    "type": "boolean"
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
         },
         "github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable": {
             "type": "object",
@@ -1094,12 +1430,10 @@ const docTemplate = `{
             "required": [
                 "product_name",
                 "service_name",
-                "service_variable_kvs",
                 "source",
                 "type",
                 "variable_yaml",
-                "visibility",
-                "yaml"
+                "visibility"
             ],
             "properties": {
                 "product_name": {
@@ -1127,6 +1461,26 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.filterDeployServiceVarsQuery": {
+            "type": "object",
+            "properties": {
+                "env_name": {
+                    "type": "string"
+                },
+                "job_name": {
+                    "type": "string"
+                },
+                "service_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "workflow_name": {
                     "type": "string"
                 }
             }
@@ -1307,6 +1661,66 @@ const docTemplate = `{
                 }
             }
         },
+        "models.DeplopyVariableConfig": {
+            "type": "object",
+            "properties": {
+                "use_global_variable": {
+                    "type": "boolean"
+                },
+                "variable_key": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeployService": {
+            "type": "object",
+            "properties": {
+                "key_vals": {
+                    "description": "KeyVals Deprecated since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceKeyVal"
+                    }
+                },
+                "latest_key_vals": {
+                    "description": "LatestKeyVals Deprecated since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceKeyVal"
+                    }
+                },
+                "latest_variable_kvs": {
+                    "description": "LatestVariableKVs added since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "updatable": {
+                    "type": "boolean"
+                },
+                "update_config": {
+                    "type": "boolean"
+                },
+                "variable_configs": {
+                    "description": "VariableConfigs added since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeplopyVariableConfig"
+                    }
+                },
+                "variable_kvs": {
+                    "description": "VariableKVs added since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                }
+            }
+        },
         "models.EnvConfig": {
             "type": "object",
             "properties": {
@@ -1382,6 +1796,19 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "models.ParameterSettingType": {
+            "type": "string",
+            "enum": [
+                "string",
+                "choice",
+                "external"
+            ],
+            "x-enum-varnames": [
+                "StringType",
+                "ChoiceType",
+                "ExternalType"
+            ]
         },
         "models.PmHealthCheck": {
             "type": "object",
@@ -1676,6 +2103,95 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ServiceAndImage": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ServiceKeyVal": {
+            "type": "object",
+            "properties": {
+                "choice_option": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "is_credential": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/models.ParameterSettingType"
+                },
+                "value": {}
+            }
+        },
+        "models.ZadigDeployJobSpec": {
+            "type": "object",
+            "properties": {
+                "deploy_contents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/config.DeployContent"
+                    }
+                },
+                "deploy_type": {
+                    "type": "string"
+                },
+                "env": {
+                    "type": "string"
+                },
+                "job_name": {
+                    "description": "当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务",
+                    "type": "string"
+                },
+                "origin_job_name": {
+                    "description": "save the origin quoted job name",
+                    "type": "string"
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "service_and_images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceAndImage"
+                    }
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployService"
+                    }
+                },
+                "skip_check_run_status": {
+                    "type": "boolean"
+                },
+                "source": {
+                    "description": "fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.DeploySourceType"
+                        }
+                    ]
+                }
+            }
+        },
         "service.ConvertVaraibleKVAndYamlActionType": {
             "type": "string",
             "enum": [
@@ -1817,6 +2333,12 @@ const docTemplate = `{
                 "env_name": {
                     "type": "string"
                 },
+                "global_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.GlobalVariableKV"
+                    }
+                },
                 "namespace": {
                     "type": "string"
                 },
@@ -1835,6 +2357,23 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/service.DeployableEnv"
+                    }
+                }
+            }
+        },
+        "service.EnvServices": {
+            "type": "object",
+            "properties": {
+                "env_name": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService"
                     }
                 }
             }
@@ -1974,6 +2513,35 @@ const docTemplate = `{
                 },
                 "variable_yaml": {
                     "type": "string"
+                }
+            }
+        },
+        "service.PreviewServiceArgs": {
+            "type": "object",
+            "properties": {
+                "env_name": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "service_modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Container"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "update_service_revision": {
+                    "type": "boolean"
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
                 }
             }
         },
@@ -2212,6 +2780,17 @@ const docTemplate = `{
                 }
             }
         },
+        "service.SvcDiffResult": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "$ref": "#/definitions/service.TmplYaml"
+                },
+                "latest": {
+                    "$ref": "#/definitions/service.TmplYaml"
+                }
+            }
+        },
         "service.SvcRevision": {
             "type": "object",
             "properties": {
@@ -2270,6 +2849,20 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/service.Product"
                     }
+                }
+            }
+        },
+        "service.TmplYaml": {
+            "type": "object",
+            "properties": {
+                "revision": {
+                    "type": "integer"
+                },
+                "update_by": {
+                    "type": "string"
+                },
+                "yaml": {
+                    "type": "string"
                 }
             }
         },

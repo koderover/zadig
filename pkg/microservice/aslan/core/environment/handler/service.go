@@ -28,6 +28,15 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+// @Summary List services in env
+// @Description List services in env
+// @Tags 	environments
+// @Accept 	json
+// @Produce json
+// @Param 	name 			path 		string 						 	true 	"env name"
+// @Param 	projectName 	query 		string 						 	true 	"project name"
+// @Success 200 			{object} 	commonservice.EnvServices
+// @Router /environment/environments/{name}/services [get]
 func ListSvcsInEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -37,6 +46,15 @@ func ListSvcsInEnv(c *gin.Context) {
 	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, productName, nil, ctx.Logger)
 }
 
+// @Summary List services in production env
+// @Description List services in production env
+// @Tags 	environments
+// @Accept 	json
+// @Produce json
+// @Param 	name 			path 		string 						 	true 	"env name"
+// @Param 	projectName 	query 		string 						 	true 	"project name"
+// @Success 200 			{object} 	commonservice.EnvServices
+// @Router /environment/production/environments/{name}/servicesForUpdate [get]
 func ListSvcsInProductionEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -83,6 +101,17 @@ func RestartService(c *gin.Context) {
 	ctx.Err = service.RestartService(args.EnvName, args, ctx.Logger)
 }
 
+// @Summary Preview service
+// @Description Preview service
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	name			path		string								true	"env name"
+// @Param 	serviceName		path		string								true	"service name"
+// @Param 	body 			body 		service.PreviewServiceArgs 			true 	"body"
+// @Success 200 			{object} 	service.SvcDiffResult
+// @Router /environment/environments/{name}/services/{serviceName}/preview [post]
 func PreviewService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -110,7 +139,7 @@ func PreviewService(c *gin.Context) {
 // @Param 	serviceName	 	path		string								true	"service name"
 // @Param 	body 			body 		service.SvcRevision 				true 	"body"
 // @Success 200
-// @Router /environment/environments [put]
+// @Router /environment/environments/{name}/services/{serviceName} [put]
 func UpdateService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

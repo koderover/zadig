@@ -183,7 +183,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 				}
 			}
 
-			err = render.ForceCreateReaderSet(&newRenderset, log)
+			err = render.CreateRenderSet(&newRenderset, log)
 			if err != nil {
 				return err
 			}

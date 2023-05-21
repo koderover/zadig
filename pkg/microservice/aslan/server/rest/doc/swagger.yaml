@@ -20,6 +20,49 @@ definitions:
     - CommonEnvCfgTypeConfigMap
     - CommonEnvCfgTypeSecret
     - CommonEnvCfgTypePvc
+  config.DeployContent:
+    enum:
+    - image
+    - vars
+    - config
+    type: string
+    x-enum-varnames:
+    - DeployImage
+    - DeployVars
+    - DeployConfig
+  config.DeploySourceType:
+    enum:
+    - runtime
+    - fromjob
+    type: string
+    x-enum-varnames:
+    - SourceRuntime
+    - SourceFromJob
+  github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService:
+    properties:
+      deployed:
+        type: boolean
+      latest_variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      latest_variable_yaml:
+        type: string
+      service_modules:
+        items:
+          $ref: '#/definitions/models.Container'
+        type: array
+      service_name:
+        type: string
+      updatable:
+        type: boolean
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      variable_yaml:
+        type: string
+    type: object
   github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable:
     properties:
       description:
@@ -59,12 +102,23 @@ definitions:
     required:
     - product_name
     - service_name
-    - service_variable_kvs
     - source
     - type
     - variable_yaml
     - visibility
-    - yaml
+    type: object
+  handler.filterDeployServiceVarsQuery:
+    properties:
+      env_name:
+        type: string
+      job_name:
+        type: string
+      service_names:
+        items:
+          type: string
+        type: array
+      workflow_name:
+        type: string
     type: object
   handler.getGlobalVariablesRespone:
     properties:
@@ -181,6 +235,47 @@ definitions:
       yaml_data:
         type: string
     type: object
+  models.DeplopyVariableConfig:
+    properties:
+      use_global_variable:
+        type: boolean
+      variable_key:
+        type: string
+    type: object
+  models.DeployService:
+    properties:
+      key_vals:
+        description: KeyVals Deprecated since 1.18
+        items:
+          $ref: '#/definitions/models.ServiceKeyVal'
+        type: array
+      latest_key_vals:
+        description: LatestKeyVals Deprecated since 1.18
+        items:
+          $ref: '#/definitions/models.ServiceKeyVal'
+        type: array
+      latest_variable_kvs:
+        description: LatestVariableKVs added since 1.18
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+      service_name:
+        type: string
+      updatable:
+        type: boolean
+      update_config:
+        type: boolean
+      variable_configs:
+        description: VariableConfigs added since 1.18
+        items:
+          $ref: '#/definitions/models.DeplopyVariableConfig'
+        type: array
+      variable_kvs:
+        description: VariableKVs added since 1.18
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
+    type: object
   models.EnvConfig:
     properties:
       env_name:
@@ -231,6 +326,16 @@ definitions:
       tag:
         type: string
     type: object
+  models.ParameterSettingType:
+    enum:
+    - string
+    - choice
+    - external
+    type: string
+    x-enum-varnames:
+    - StringType
+    - ChoiceType
+    - ExternalType
   models.PmHealthCheck:
     properties:
       current_healthy_num:
@@ -427,6 +532,64 @@ definitions:
       yaml:
         type: string
     type: object
+  models.ServiceAndImage:
+    properties:
+      image:
+        type: string
+      image_name:
+        type: string
+      service_module:
+        type: string
+      service_name:
+        type: string
+    type: object
+  models.ServiceKeyVal:
+    properties:
+      choice_option:
+        items:
+          type: string
+        type: array
+      is_credential:
+        type: boolean
+      key:
+        type: string
+      type:
+        $ref: '#/definitions/models.ParameterSettingType'
+      value: {}
+    type: object
+  models.ZadigDeployJobSpec:
+    properties:
+      deploy_contents:
+        items:
+          $ref: '#/definitions/config.DeployContent'
+        type: array
+      deploy_type:
+        type: string
+      env:
+        type: string
+      job_name:
+        description: 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
+        type: string
+      origin_job_name:
+        description: save the origin quoted job name
+        type: string
+      production:
+        type: boolean
+      service_and_images:
+        items:
+          $ref: '#/definitions/models.ServiceAndImage'
+        type: array
+      services:
+        items:
+          $ref: '#/definitions/models.DeployService'
+        type: array
+      skip_check_run_status:
+        type: boolean
+      source:
+        allOf:
+        - $ref: '#/definitions/config.DeploySourceType'
+        description: fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
+    type: object
   service.ConvertVaraibleKVAndYamlActionType:
     enum:
     - toKV
@@ -521,6 +684,10 @@ definitions:
         type: string
       env_name:
         type: string
+      global_variable_kvs:
+        items:
+          $ref: '#/definitions/types.GlobalVariableKV'
+        type: array
       namespace:
         type: string
       services:
@@ -533,6 +700,17 @@ definitions:
       envs:
         items:
           $ref: '#/definitions/service.DeployableEnv'
+        type: array
+    type: object
+  service.EnvServices:
+    properties:
+      env_name:
+        type: string
+      product_name:
+        type: string
+      services:
+        items:
+          $ref: '#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService'
         type: array
     type: object
   service.GetGlobalVariableCandidatesRespone:
@@ -625,6 +803,25 @@ definitions:
         type: string
       variable_yaml:
         type: string
+    type: object
+  service.PreviewServiceArgs:
+    properties:
+      env_name:
+        type: string
+      product_name:
+        type: string
+      service_modules:
+        items:
+          $ref: '#/definitions/models.Container'
+        type: array
+      service_name:
+        type: string
+      update_service_revision:
+        type: boolean
+      variable_kvs:
+        items:
+          $ref: '#/definitions/types.RenderVariableKV'
+        type: array
     type: object
   service.Product:
     properties:
@@ -780,6 +977,13 @@ definitions:
       yaml:
         type: string
     type: object
+  service.SvcDiffResult:
+    properties:
+      current:
+        $ref: '#/definitions/service.TmplYaml'
+      latest:
+        $ref: '#/definitions/service.TmplYaml'
+    type: object
   service.SvcRevision:
     properties:
       containers:
@@ -819,6 +1023,15 @@ definitions:
         items:
           $ref: '#/definitions/service.Product'
         type: array
+    type: object
+  service.TmplYaml:
+    properties:
+      revision:
+        type: integer
+      update_by:
+        type: string
+      yaml:
+        type: string
     type: object
   service.UpdateEnv:
     properties:
@@ -1117,35 +1330,50 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update service
+      description: Update Multi products
       parameters:
       - description: project name
         in: query
         name: projectName
         required: true
         type: string
-      - description: env name
-        in: path
-        name: name
-        required: true
+      - description: type
+        in: query
+        name: type
         type: string
-      - description: service name
-        in: path
-        name: serviceName
+      - description: is force
+        in: query
+        name: force
         required: true
-        type: string
-      - description: body
+        type: boolean
+      - description: updateMultiK8sEnv body
         in: body
-        name: body
+        name: k8s_body
         required: true
         schema:
-          $ref: '#/definitions/service.SvcRevision'
+          items:
+            $ref: '#/definitions/service.UpdateEnv'
+          type: array
+      - description: updateMultiHelmEnv body
+        in: body
+        name: helm_body
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateMultiHelmProductArg'
+      - description: updateMultiCvmEnv body
+        in: body
+        name: pm_body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.UpdateEnv'
+          type: array
       produces:
       - application/json
       responses:
         "200":
           description: OK
-      summary: Update service
+      summary: Update Multi products
       tags:
       - environment
   /environment/environments/{name}/globalVariableCandidates:
@@ -1207,6 +1435,31 @@ paths:
       tags:
       - environment
   /environment/environments/{name}/services:
+    get:
+      consumes:
+      - application/json
+      description: List services in env
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvServices'
+      summary: List services in env
+      tags:
+      - environments
     put:
       consumes:
       - application/json
@@ -1234,6 +1487,78 @@ paths:
         "200":
           description: OK
       summary: Delete services
+      tags:
+      - environment
+  /environment/environments/{name}/services/{serviceName}:
+    put:
+      consumes:
+      - application/json
+      description: Update service
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.SvcRevision'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update service
+      tags:
+      - environment
+  /environment/environments/{name}/services/{serviceName}/preview:
+    post:
+      consumes:
+      - application/json
+      description: Preview service
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.PreviewServiceArgs'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.SvcDiffResult'
+      summary: Preview service
       tags:
       - environment
   /environment/init_info/{name}:
@@ -1301,6 +1626,32 @@ paths:
       summary: Get Resource Deploy Status
       tags:
       - environment
+  /environment/production/environments/{name}/servicesForUpdate:
+    get:
+      consumes:
+      - application/json
+      description: List services in production env
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvServices'
+      summary: List services in production env
+      tags:
+      - environments
   /environment/rendersets/globalVariables:
     get:
       consumes:
@@ -1393,6 +1744,26 @@ paths:
       summary: Get production service variables
       tags:
       - environment
+  /placeholder/deploy_job_spec:
+    post:
+      consumes:
+      - application/json
+      description: '[DONT USE] ZadigDeployJobSpec'
+      parameters:
+      - description: body
+        in: body
+        name: deploy_job_spec
+        required: true
+        schema:
+          $ref: '#/definitions/models.ZadigDeployJobSpec'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: '[DONT USE]  ZadigDeployJobSpec'
+      tags:
+      - placeholder
   /project/products/{name}/globalVariableCandidates:
     get:
       consumes:
@@ -1718,4 +2089,28 @@ paths:
       summary: Validate template varaibles
       tags:
       - service
+  /workflow/v4/filterEnv:
+    post:
+      consumes:
+      - application/json
+      description: Get filtered env services
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.filterDeployServiceVarsQuery'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.DeployService'
+            type: array
+      summary: Get filtered env services
+      tags:
+      - workflow
 swagger: "2.0"

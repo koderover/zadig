@@ -48,12 +48,12 @@ type ServiceVariableKV struct {
 }
 
 type RenderVariableKV struct {
-	ServiceVariableKV `bson:",inline"`
+	ServiceVariableKV `bson:"inline"`
 	UseGlobalVariable bool `bson:"use_global_variable"    json:"use_global_variable"`
 }
 
 type GlobalVariableKV struct {
-	ServiceVariableKV `bson:",inline"`
+	ServiceVariableKV `bson:"inline"`
 	RelatedServices   []string `bson:"related_services" json:"related_services"`
 }
 
@@ -80,11 +80,16 @@ func ServiceVariableKVToYaml(kvs []*ServiceVariableKV) (string, error) {
 			}
 			kvMap[kv.Key] = intf
 		case ServiceVariableKVTypeBoolean:
-			_, ok := kv.Value.(bool)
-			if !ok {
+			v, ok := kv.Value.(bool)
+			if ok {
+				kvMap[kv.Key] = v
+			} else if kv.Value == "true" {
+				kvMap[kv.Key] = true
+			} else if kv.Value == "false" {
+				kvMap[kv.Key] = false
+			} else {
 				return "", fmt.Errorf("invaild value for boolean")
 			}
-			kvMap[kv.Key] = kv.Value
 		default:
 			kvMap[kv.Key] = kv.Value
 		}
@@ -162,19 +167,26 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 			Desc:    origKV.Desc,
 		}
 
-		// check key
+		// validate key
 		if key != retKV.Key {
 			return nil, fmt.Errorf("key not match, key: %s, orig key: %s", key, origKV.Key)
 		}
 
+		// validate value match type
 		switch retKV.Type {
 		case ServiceVariableKVTypeBoolean:
 			// check if value valid for boolean
 			value, ok := snippet.(string)
-			if ok && value != "true" && value != "false" {
-				return nil, fmt.Errorf("invalid value: %s for boolean", snippet.(string))
+			if ok {
+				if value != "true" && value != "false" {
+					return nil, fmt.Errorf("invalid value: %s for boolean", snippet.(string))
+				}
+			} else {
+				_, ok = snippet.(bool)
+				if !ok {
+					return nil, fmt.Errorf("invalid value: %v for boolean", snippet)
+				}
 			}
-
 		case ServiceVariableKVTypeEnum:
 			// check if value exist in options
 			optionSet := sets.NewString(origKV.Options...)
@@ -184,6 +196,7 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 			}
 		}
 
+		// convert snippet to value
 		if retKV.Type == ServiceVariableKVTypeYaml {
 			snippetBytes, err := yaml.Marshal(snippet)
 			if err != nil {
@@ -241,7 +254,30 @@ func MergeServiceVariableKVs(base, override []*ServiceVariableKV) (yaml string, 
 	return yaml, ret, nil
 }
 
-func MergeRenderAndServiceVariableKVs(render []*RenderVariableKV, serivce []*ServiceVariableKV) []*RenderVariableKV {
+func MergeRenderVariableKVs(base, override []*RenderVariableKV) (yaml string, kvs []*RenderVariableKV, err error) {
+	baseMap := map[string]*RenderVariableKV{}
+	for _, kv := range base {
+		baseMap[kv.Key] = kv
+	}
+
+	for _, kv := range override {
+		baseMap[kv.Key] = kv
+	}
+
+	ret := []*RenderVariableKV{}
+	for _, kv := range baseMap {
+		ret = append(ret, kv)
+	}
+
+	yaml, err = RenderVariableKVToYaml(ret)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to convert render variable kv to yaml, err: %w", err)
+	}
+
+	return yaml, ret, nil
+}
+
+func MergeRenderAndServiceVariableKVs(render []*RenderVariableKV, serivce []*ServiceVariableKV) (string, []*RenderVariableKV, error) {
 	svcMap := map[string]*ServiceVariableKV{}
 	for _, kv := range serivce {
 		svcMap[kv.Key] = kv
@@ -264,7 +300,12 @@ func MergeRenderAndServiceVariableKVs(render []*RenderVariableKV, serivce []*Ser
 		}
 	}
 
-	return ret
+	yaml, err := RenderVariableKVToYaml(ret)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to convert render variable kv to yaml, err: %w", err)
+	}
+
+	return yaml, ret, nil
 }
 
 func RenderVariableKVToYaml(kvs []*RenderVariableKV) (string, error) {
@@ -346,4 +387,14 @@ func ServiceToRenderVariableKVs(ServiceVariables []*ServiceVariableKV) []*Render
 	}
 
 	return ret
+}
+
+func RemoveGlobalVariableRelatedService(globalVariableKVs []*GlobalVariableKV, serviceNames ...string) []*GlobalVariableKV {
+	for _, kv := range globalVariableKVs {
+		relatedServiceSet := sets.NewString(kv.RelatedServices...)
+		relatedServiceSet = relatedServiceSet.Delete(serviceNames...)
+		kv.RelatedServices = relatedServiceSet.List()
+	}
+
+	return globalVariableKVs
 }

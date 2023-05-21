@@ -77,10 +77,10 @@ type createServiceTemplateRequest struct {
 	ServiceName        string                           `json:"service_name" binding:"required"`
 	Source             string                           `json:"source" binding:"required"`
 	Type               string                           `json:"type" binding:"required"`
-	VariableYaml       string                           `json:"variable_yaml" binding:"required"`
 	Visibility         string                           `json:"visibility" binding:"required"`
 	Yaml               string                           `json:"yaml" binding:"required"`
-	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs" binding:"required"`
+	VariableYaml       string                           `json:"variable_yaml"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
 }
 
 // @Summary Create service template
