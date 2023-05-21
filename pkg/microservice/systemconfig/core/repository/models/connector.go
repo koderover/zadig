@@ -19,11 +19,13 @@ package models
 import "strconv"
 
 type Connector struct {
-	ID              string `json:"id"`
-	Type            string `json:"type"`
-	Name            string `json:"name"`
-	ResourceVersion string `json:"resource_version"`
-	Config          string `json:"config"`
+	ID                string `json:"id"`
+	Type              string `json:"type"`
+	Name              string `json:"name"`
+	ResourceVersion   string `json:"resource_version"`
+	Config            string `json:"config"`
+	EnableLogOut      bool   `json:"enable_logout"`
+	LogoutRedirectURL string `json:"logout_redirect_url"`
 }
 
 func (m *Connector) IncreaseResourceVersion() {

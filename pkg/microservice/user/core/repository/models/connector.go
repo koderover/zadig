@@ -14,25 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gin
+package models
 
-import (
-	"time"
+type Connector struct {
+	ID                string `json:"id"`
+	Type              string `json:"type"`
+	Name              string `json:"name"`
+	ResourceVersion   string `json:"resource_version"`
+	Config            string `json:"config"`
+	EnableLogOut      bool   `json:"enable_logout"`
+	LogoutRedirectURL string `json:"logout_redirect_url"`
+}
 
-	"github.com/gin-gonic/gin"
-
-	"github.com/koderover/zadig/pkg/tool/metrics"
-)
-
-func RegisterRequest() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if c.Request.Header.Get("Accept") == "text/event-stream" {
-			return
-		}
-		startTime := time.Now().UnixMilli()
-		path := c.Request.URL.Path
-		c.Next()
-
-		metrics.RegisterRequest(startTime, c.Request.Method, path, c.Writer.Status())
-	}
+// TableName sets the insert table name for this struct type
+func (Connector) TableName() string {
+	return "connector"
 }

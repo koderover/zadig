@@ -44,10 +44,12 @@ const (
 
 type Connector struct {
 	ConnectorBase
-	IsDefault bool        `json:"is_default"`
-	ID        string      `json:"id"`
-	Name      string      `json:"name"`
-	Config    interface{} `json:"config"`
+	IsDefault         bool        `json:"is_default"`
+	ID                string      `json:"id"`
+	Name              string      `json:"name"`
+	Config            interface{} `json:"config"`
+	EnableLogOut      bool        `json:"enable_logout"`
+	LogoutRedirectURL string      `json:"logout_redirect_url"`
 }
 
 type ConnectorBase struct {

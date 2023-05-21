@@ -147,8 +147,8 @@ type ZadigDeployJobPreviewSpec struct {
 	YamlContent        string             `bson:"yaml_content"                 json:"yaml_content"`
 	// VariableConfigs new since 1.18, only used for k8s
 	VariableConfigs []*commonmodels.DeplopyVariableConfig `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"`
-	// Variables new since 1.18, only used for k8s
-	Variables []*commontypes.RenderVariableKV `bson:"variables"                    json:"variables"`
+	// VariableKVs new since 1.18, only used for k8s
+	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"                 json:"variable_kvs"                    yaml:"variable_kvs"`
 }
 
 type CustomDeployJobSpec struct {
@@ -317,6 +317,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		log.Errorf("save original workflow args error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
+	originTaskArgs.HookCtls = nil
+	originTaskArgs.MeegoHookCtls = nil
+	originTaskArgs.JiraHookCtls = nil
+	originTaskArgs.GeneralHookCtls = nil
 	workflowTask.OriginWorkflowArgs = originTaskArgs
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.WorkflowTaskV4Fmt, workflow.Name))
 	if err != nil {
@@ -413,6 +417,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, err
 	}
 
+	workflow.HookCtls = nil
+	workflow.JiraHookCtls = nil
+	workflow.MeegoHookCtls = nil
+	workflow.GeneralHookCtls = nil
 	workflowTask.WorkflowArgs = workflow
 	workflowTask.Status = config.StatusCreated
 	workflowTask.StartTime = time.Now().Unix()
@@ -510,6 +518,12 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)
 			}
 		}
+	}
+
+	task.Status = config.StatusCreated
+	task.StartTime = time.Now().Unix()
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(task); err != nil {
+		log.Errorf("send workflow task notification failed, error: %v", err)
 	}
 
 	if err := workflowcontroller.UpdateTask(task); err != nil {
@@ -1041,7 +1055,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 			spec.Env = taskJobSpec.Env
 			spec.VariableConfigs = taskJobSpec.VariableConfigs
-			spec.Variables = taskJobSpec.Variables
+			spec.VariableKVs = taskJobSpec.VariableKVs
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			// for compatibility

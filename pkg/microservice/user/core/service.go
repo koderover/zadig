@@ -24,11 +24,19 @@ import (
 	"gorm.io/gorm"
 
 	config2 "github.com/koderover/zadig/pkg/microservice/user/config"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 )
 
 var DB *gorm.DB
+var DexDB *gorm.DB
 
 func Start(_ context.Context) {
 	DB = gormtool.DB(config2.MysqlUserDB())
+	DexDB = gormtool.DB(config2.MysqlDexDB())
+
+	err := gormtool.DB(config2.MysqlDexDB()).AutoMigrate(&models.Connector{})
+	if err != nil {
+		panic(err)
+	}
 }

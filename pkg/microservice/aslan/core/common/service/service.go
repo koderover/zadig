@@ -283,7 +283,7 @@ func getEstimatedMergedVariables(services []*commonmodels.Service, product *temp
 				continue
 			}
 
-			mergedYaml, mergedKVs, err := commontypes.MergeServiceVariableKVs(service.ServiceVariableKVs, sourceTemplate.ServiceVariableKVs)
+			mergedYaml, mergedKVs, err := commontypes.MergeServiceVariableKVsIfNotExist(service.ServiceVariableKVs, sourceTemplate.ServiceVariableKVs)
 			if err == nil {
 				retYamlMap[service.ServiceName] = mergedYaml
 				retKVMap[service.ServiceName] = mergedKVs

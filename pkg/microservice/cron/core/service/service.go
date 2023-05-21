@@ -25,30 +25,16 @@ import (
 )
 
 type SvcRevision struct {
-	ServiceName     string       `json:"service_name"`
-	Type            string       `json:"type"`
-	CurrentRevision int64        `json:"current_revision"`
-	NextRevision    int64        `json:"next_revision"`
-	Updatable       bool         `json:"updatable"`
-	Deleted         bool         `json:"deleted"`
-	New             bool         `json:"new"`
-	Containers      []*Container `json:"containers,omitempty"`
+	ServiceName     string `json:"service_name"`
+	Type            string `json:"type"`
+	CurrentRevision int64  `json:"current_revision"`
 }
 
 type ProductRevision struct {
-	ID          string `json:"id,omitempty"`
-	EnvName     string `json:"env_name"`
-	ProductName string `json:"product_name"`
-	// 表示该产品更新前版本
-	CurrentRevision int64 `json:"current_revision"`
-	// 表示该产品更新后版本
-	NextRevision int64 `json:"next_revision"`
-	// ture: 表示该产品的服务发生变化, 需要更新
-	// false: 表示该产品的服务未发生变化, 无需更新
-	Updatable bool `json:"updatable"`
-	// 可以自动更新产品, 展示用户更新前和更新后的服务组以及服务详细对比
+	ID               string         `json:"id,omitempty"`
+	EnvName          string         `json:"env_name"`
+	ProductName      string         `json:"product_name"`
 	ServiceRevisions []*SvcRevision `json:"services"`
-	IsPublic         bool           `json:"isPublic"`
 }
 
 type EnvResource struct {

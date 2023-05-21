@@ -14,25 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package gin
+package orm
 
 import (
-	"time"
+	"gorm.io/gorm"
 
-	"github.com/gin-gonic/gin"
-
-	"github.com/koderover/zadig/pkg/tool/metrics"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 )
 
-func RegisterRequest() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if c.Request.Header.Get("Accept") == "text/event-stream" {
-			return
-		}
-		startTime := time.Now().UnixMilli()
-		path := c.Request.URL.Path
-		c.Next()
+func GetConnectorInfo(id string, db *gorm.DB) (*models.Connector, error) {
+	res := &models.Connector{}
+	result := db.First(&res, "id=?", id)
 
-		metrics.RegisterRequest(startTime, c.Request.Method, path, c.Writer.Status())
-	}
+	return res, result.Error
 }

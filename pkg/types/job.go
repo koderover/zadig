@@ -22,3 +22,13 @@ const (
 	JobSuccess JobStatus = "success"
 	JobFail    JobStatus = "fail"
 )
+
+const (
+	JobResultKey  = "job-result"
+	JobOutputsKey = "job-outputs"
+
+	JobDebugStatusKey    = "job-debug-status"
+	JobDebugStatusBefore = "before"
+	JobDebugStatusAfter  = "after"
+	JobDebugStatusNotIn  = "not-in"
+)

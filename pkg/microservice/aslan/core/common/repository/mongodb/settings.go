@@ -26,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/config"
+	aslanConfig "github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
@@ -87,6 +88,34 @@ func (c *SystemSettingColl) InitSystemSettings() error {
 			WorkflowConcurrency: 2,
 			BuildConcurrency:    5,
 			DefaultLogin:        setting.DefaultLoginLocal,
+			Theme: &models.Theme{
+				ThemeType: aslanConfig.CUSTOME_THEME,
+				CustomTheme: &models.CustomTheme{
+					BorderGray:               "#d2d7dc",
+					FontGray:                 "#888888",
+					FontLightGray:            "#a0a0a0",
+					ThemeColor:               "#0066ff",
+					ThemeBorderColor:         "#66bbff",
+					ThemeBackgroundColor:     "#eeeeff",
+					ThemeLightColor:          "#66bbff",
+					BackgroundColor:          "#e5e5e5",
+					GlobalBackgroundColor:    "#f6f6f6",
+					Success:                  "#67c23a",
+					Danger:                   "#f56c6c",
+					Warning:                  "#e6a23c",
+					Info:                     "#909399",
+					Primary:                  "#0066ff",
+					WarningLight:             "#cdb62c",
+					NotRunning:               "#303133",
+					PrimaryColor:             "#000",
+					SecondaryColor:           "#888888",
+					SidebarBg:                "#f5f7fa",
+					SidebarActiveColor:       "#0066ff12",
+					ProjectItemIconColor:     "#0066ff",
+					ProjectNameColor:         "#121212",
+					TableCellBackgroundColor: "#eaeaea",
+				},
+			},
 		})
 	}
 	return nil
@@ -105,5 +134,20 @@ func (c *SystemSettingColl) CreateOrUpdate(id string, args *models.SystemSetting
 	query := bson.M{"_id": objectID}
 	change := bson.M{"$set": args}
 	_, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
+	return err
+}
+
+func (c *SystemSettingColl) UpdateTheme(theme *models.Theme) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	query := bson.M{"_id": id}
+
+	var change bson.M
+	if theme.ThemeType != aslanConfig.CUSTOME_THEME {
+		change = bson.M{"$set": bson.M{"theme.theme_type": theme.ThemeType}}
+	} else {
+		change = bson.M{"$set": bson.M{"theme": theme}}
+	}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }

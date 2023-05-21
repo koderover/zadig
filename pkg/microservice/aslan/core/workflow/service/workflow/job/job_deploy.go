@@ -220,6 +220,7 @@ func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
+
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
@@ -323,12 +324,16 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.VariableConfigs = service.VariableConfigs
-					jobTaskSpec.Variables = service.VariableKVs
+					if service.UpdateConfig {
+						jobTaskSpec.VariableKVs = service.LatestVariableKVs
+					} else {
+						jobTaskSpec.VariableKVs = service.VariableKVs
+					}
 				}
 				// if only deploy images, clear keyvals
 				if onlyDeployImage(j.spec.DeployContents) {
 					jobTaskSpec.VariableConfigs = []*commonmodels.DeplopyVariableConfig{}
-					jobTaskSpec.Variables = []*commontypes.RenderVariableKV{}
+					jobTaskSpec.VariableKVs = []*commontypes.RenderVariableKV{}
 				}
 			}
 			jobTask := &commonmodels.JobTask{

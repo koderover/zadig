@@ -231,10 +231,22 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	revision := router.Group("revision")
 	{
 		revision.GET("/products", ListProductsRevision)
+		revision.GET("/productsnaps", ListProductsRevisionSnaps)
 	}
 
 	bundles := router.Group("bundle-resources")
 	{
 		bundles.GET("", GetBundleResources)
+	}
+}
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	common := router.Group("")
+	{
+		common.POST("/scale", OpenAPIScaleWorkloads)
+		common.POST("/service/yaml", OpenAPIApplyYamlService)
+		common.DELETE("/service/yaml", OpenAPIDeleteYamlServiceFromEnv)
 	}
 }

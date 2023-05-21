@@ -32,8 +32,7 @@ import (
 )
 
 type EvnListOption struct {
-	BasicFacility string
-	DeployType    []string
+	DeployType []string
 }
 
 func (c *Client) ListEnvs(log *zap.SugaredLogger, option *EvnListOption) ([]*service.ProductRevision, error) {
@@ -42,7 +41,7 @@ func (c *Client) ListEnvs(log *zap.SugaredLogger, option *EvnListOption) ([]*ser
 		resp = make([]*service.ProductRevision, 0)
 	)
 
-	url := fmt.Sprintf("%s/environment/revision/products?basicFacility=%s&deployType=%s", c.APIBase, option.BasicFacility, strings.Join(option.DeployType, ","))
+	url := fmt.Sprintf("%s/environment/revision/productsnaps?deployType=%s", c.APIBase, strings.Join(option.DeployType, ","))
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Errorf("ListEnvs new http request error: %v", err)

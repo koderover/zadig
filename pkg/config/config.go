@@ -203,16 +203,17 @@ func ObjectStorageChartTemplatePath(name string) string {
 	return ObjectStorageTemplatePath(name, setting.ChartTemplatesPath)
 }
 
-func LocalServicePath(project, service string) string {
-	return filepath.Join(DataPath(), project, service)
+func LocalTestServicePath(project, service string) string {
+	return filepath.Join(DataPath(), project, "test", service)
 }
 
 func LocalWorkflowServicePath(project, service string) string {
 	return filepath.Join(WorkflowDataPath(), project, service)
 }
 
-func LocalServicePathWithRevision(project, service, revision string) string {
-	return filepath.Join(DataPath(), project, service, revision)
+// LocalTestServicePathWithRevision returns a test service path with a given revision.
+func LocalTestServicePathWithRevision(project, service, revision string) string {
+	return filepath.Join(DataPath(), project, "test", service, revision)
 }
 
 func LocalTemplatePath(name, kind string) string {

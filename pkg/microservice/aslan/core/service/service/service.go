@@ -63,7 +63,10 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
+<<<<<<< HEAD
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+=======
+>>>>>>> upstream/main
 )
 
 type ServiceOption struct {
@@ -660,6 +663,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 	return nil
 }
 
+<<<<<<< HEAD
 func extractAndMergeServiceVariable(args *commonmodels.Service, curRevision *commonmodels.Service) error {
 	extractVariableYmal, err := yamlutil.ExtractVariableYaml(args.Yaml)
 	if err != nil {
@@ -674,6 +678,15 @@ func extractAndMergeServiceVariable(args *commonmodels.Service, curRevision *com
 	// fill service.variableYaml and service.serviceVars by the previous revision
 	if args.Source == setting.SourceFromZadig || args.Source == setting.ServiceSourceTemplate {
 	} else {
+=======
+// fillServiceVariable fill service.variableYaml and service.serviceVariableKVs by the previous revision
+// services created by [spock, template] do not need to be filled
+func fillServiceVariable(args *commonmodels.Service, curRevision *commonmodels.Service) {
+	if args.Source == setting.SourceFromZadig || args.Source == setting.ServiceSourceTemplate {
+		return
+	}
+	if curRevision != nil {
+>>>>>>> upstream/main
 		args.VariableYaml = curRevision.VariableYaml
 		args.ServiceVariableKVs = curRevision.ServiceVariableKVs
 	}
@@ -709,11 +722,16 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 		}
 	}
 
+<<<<<<< HEAD
 	//  extract and merge variableYaml and serviceVariableKVs
 	err := extractAndMergeServiceVariable(args, serviceTmpl)
 	if err != nil {
 		return nil, err
 	}
+=======
+	// fill serviceVars and variableYaml and serviceVariableKVs
+	fillServiceVariable(args, serviceTmpl)
+>>>>>>> upstream/main
 
 	// 校验args
 	if err := ensureServiceTmpl(userName, args, log); err != nil {

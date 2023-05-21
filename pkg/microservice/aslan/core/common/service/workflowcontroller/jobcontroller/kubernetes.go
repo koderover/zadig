@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	batchv1 "k8s.io/api/batch/v1"
@@ -40,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -66,14 +66,15 @@ import (
 )
 
 const (
-	BusyBoxImage         = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
-	ZadigContextDir      = "/zadig/"
-	ZadigLogFile         = ZadigContextDir + "zadig.log"
-	ZadigLifeCycleFile   = ZadigContextDir + "lifecycle"
-	JobExecutorFile      = "http://resource-server/jobexecutor"
-	ResourceServer       = "resource-server"
-	defaultSecretEmail   = "bot@koderover.com"
-	registrySecretSuffix = "-registry-secret"
+	BusyBoxImage            = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
+	ZadigContextDir         = "/zadig/"
+	ZadigLogFile            = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile      = ZadigContextDir + "lifecycle"
+	JobExecutorFile         = "http://resource-server/jobexecutor"
+	ResourceServer          = "resource-server"
+	defaultSecretEmail      = "bot@koderover.com"
+	registrySecretSuffix    = "-registry-secret"
+	workflowConfigMapRoleSA = "workflow-cm-sa"
 
 	defaultRetryCount    = 3
 	defaultRetryInterval = time.Second * 3
@@ -423,8 +424,9 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy:    corev1.RestartPolicyNever,
-					ImagePullSecrets: ImagePullSecrets,
+					RestartPolicy:      corev1.RestartPolicyNever,
+					ImagePullSecrets:   ImagePullSecrets,
+					ServiceAccountName: workflowConfigMapRoleSA,
 					// InitContainers: []corev1.Container{
 					// 	{
 					// 		ImagePullPolicy: corev1.PullIfNotPresent,
@@ -897,10 +899,12 @@ func isPodFailed(podName, namespace string, apiReader client.Reader, xl *zap.Sug
 	return nil
 }
 
-func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, jobTask *commonmodels.JobTask, ack func(), xl *zap.SugaredLogger) (status config.Status, errMsg string) {
+func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.Time, namespace, jobName string, checkFile bool, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config, informer informers.SharedInformerFactory, jobTask *commonmodels.JobTask, ack func(), xl *zap.SugaredLogger) (status config.Status, errMsg string) {
 	xl.Infof("wait job to end: %s %s", namespace, jobName)
-	// debugStage is used to record which debug stage the job has reached
-	var debugStageBefore, debugStageBeforeDone, debugStageAfter, debugStageAfterDone bool
+	podLister := informer.Core().V1().Pods().Lister().Pods(namespace)
+	jobLister := informer.Batch().V1().Jobs().Lister().Jobs(namespace)
+	cmLister := informer.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -910,32 +914,27 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, names
 			return config.StatusTimeout, ""
 
 		default:
-			job, found, err := getter.GetJob(namespace, jobName, kubeClient)
+			job, err := jobLister.Get(jobName)
 			if err != nil {
-				xl.Errorf("failed to get pod with label job-name=%s %v", jobName, err)
-				time.Sleep(defaultRetryInterval)
-				continue
+				errMsg := fmt.Sprintf("failed to get job pod job-name=%s %v", jobName, err)
+				xl.Errorf(errMsg)
+				return config.StatusFailed, errMsg
 			}
-			if !found {
-				errMsg := fmt.Sprintf("failed to get pod with label job-name=%s %v", jobName, err)
+			// configMap name is the same as the k8s job name
+			cm, err := cmLister.Get(jobName)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to get job context configMap job-name=%s %v", jobName, err)
 				xl.Errorf(errMsg)
 				return config.StatusFailed, errMsg
 			}
 			// pod is still running
 			if job.Status.Active != 0 {
-				if !checkFile {
-					// break only break the select{}, not the outside for{}
-					break
-				}
-
-				pods, err := getter.ListPods(namespace, labels.Set{"job-name": jobName}.AsSelector(), kubeClient)
+				pods, err := podLister.List(labels.Set{"job-name": jobName}.AsSelector())
 				if err != nil {
-					xl.Errorf("failed to find pod with label job-name=%s %v", jobName, err)
-					time.Sleep(defaultRetryInterval)
-					continue
+					errMsg := fmt.Sprintf("failed to find pod with label job-name=%s %v", jobName, err)
+					xl.Errorf(errMsg)
+					return config.StatusFailed, errMsg
 				}
-				var done, exists bool
-				var jobStatus commontypes.JobStatus
 				for _, pod := range pods {
 					ipod := wrapper.Pod(pod)
 					if ipod.Pending() {
@@ -946,70 +945,29 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout <-chan time.Time, names
 					}
 					if !ipod.Finished() {
 						// check container whether is stuck in debug stage by checking stage file, if so, update job status to debug
-						if !debugStageBefore {
-							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
-								ZadigContextDir+"debug/debug_before", defaultRetryCount, defaultRetryInterval); found {
-								jobTask.Status = config.StatusDebugBefore
-								ack()
-								debugStageBefore = true
-							}
-						}
-						if debugStageBefore && !debugStageBeforeDone {
-							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
-								ZadigContextDir+"debug/debug_before_done", defaultRetryCount, defaultRetryInterval); found {
+						switch cm.Data[commontypes.JobDebugStatusKey] {
+						case commontypes.JobDebugStatusBefore:
+							jobTask.Status = config.StatusDebugBefore
+							ack()
+						case commontypes.JobDebugStatusAfter:
+							jobTask.Status = config.StatusDebugAfter
+							ack()
+						case commontypes.JobDebugStatusNotIn:
+							if jobTask.Status == config.StatusDebugBefore || jobTask.Status == config.StatusDebugAfter {
 								jobTask.Status = config.StatusRunning
 								ack()
-								debugStageBeforeDone = true
 							}
-						}
-						if !debugStageAfter {
-							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
-								ZadigContextDir+"debug/debug_after", defaultRetryCount, defaultRetryInterval); found {
-								jobTask.Status = config.StatusDebugAfter
-								ack()
-								debugStageAfter = true
-								// if job in debug_after step, it is unnecessary to check debug_before step
-								debugStageBefore = true
-							}
-						}
-						if debugStageAfter && !debugStageAfterDone {
-							if found, _ := checkFileExistsWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0],
-								ZadigContextDir+"debug/debug_after_done", defaultRetryCount, defaultRetryInterval); found {
-								jobTask.Status = config.StatusRunning
-								ack()
-								debugStageAfterDone = true
-							}
-						}
-
-						jobStatus, exists, err = checkDogFoodExistsInContainerWithRetry(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0], defaultRetryCount, defaultRetryInterval)
-						if err != nil {
-							// Note:
-							// Currently, this error indicates "the target Pod cannot be accessed" or "the target Pod can be accessed, but the dog food file does not exist".
-							// In these two scenarios, `Info` is used to print logs because they are not business semantic exceptions.
-							xl.Infof("Result of checking dog food file %s: %s", pods[0].Name, err)
-							break
-						}
-						if !exists {
-							break
 						}
 					}
-					done = true
 				}
-
-				if done {
-					xl.Infof("Dog food is found, stop to wait %s. Job status: %s.", job.Name, jobStatus)
-
-					switch jobStatus {
-					case commontypes.JobFail:
-						return config.StatusFailed, ""
-					default:
-						return config.StatusPassed, ""
-					}
+			}
+			if status, ok := cm.Data[commontypes.JobResultKey]; ok {
+				switch commontypes.JobStatus(status) {
+				case commontypes.JobFail:
+					return config.StatusFailed, ""
+				default:
+					return config.StatusPassed, ""
 				}
-			} else if job.Status.Succeeded != 0 {
-				return config.StatusPassed, ""
-			} else {
-				return config.StatusFailed, ""
 			}
 		}
 
@@ -1049,35 +1007,21 @@ func getJobOutputFromTerminalMsg(namespace, containerName string, jobTask *commo
 	return nil
 }
 
-func getJobOutputFromRunningPod(namespace, containerName string, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, kubeClient crClient.Client, clientset kubernetes.Interface, restConfig *rest.Config) error {
-	jobLabel := &JobLabel{
-		JobType: string(jobTask.JobType),
-		JobName: jobTask.K8sJobName,
+func getJobOutputFromConfigMap(namespace, containerName string, jobTask *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, informer informers.SharedInformerFactory) error {
+	if jobTask.Status != config.StatusPassed {
+		return nil
+	}
+	cmLister := informer.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace)
+	// configMap name is the same as the k8sJobName
+	cm, err := cmLister.Get(jobTask.K8sJobName)
+	if err != nil {
+		return errors.Wrap(err, "get config map")
 	}
 	outputs := []*job.JobOutput{}
-	ls := getJobLabels(jobLabel)
-	pods, err := getter.ListPods(namespace, labels.Set(ls).AsSelector(), kubeClient)
-	if err != nil {
-		return err
+	if err := json.Unmarshal([]byte(cm.Data[commontypes.JobOutputsKey]), &outputs); err != nil {
+		return errors.Wrap(err, "unmarshal outputs")
 	}
-	for _, pod := range pods {
-		stdout, _, success, err := podexec.KubeExecWithRetry(clientset, restConfig, podexec.ExecOptions{
-			Command:       []string{"/bin/sh", "-c", fmt.Sprintf("test -f %[1]s && cat %[1]s", job.JobTerminationFile)},
-			Namespace:     namespace,
-			PodName:       pod.Name,
-			ContainerName: containerName,
-		}, defaultRetryCount, defaultRetryInterval)
-		if err != nil {
-			return fmt.Errorf("failed to exec pod: %v", err)
-		}
-		if !success {
-			return nil
-		}
-		if err := json.Unmarshal([]byte(stdout), &outputs); err != nil {
-			return err
-		}
-		break
-	}
+
 	writeOutputs(outputs, jobTask.Key, workflowCtx)
 	return nil
 }

@@ -19,11 +19,16 @@ package executor
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
+
+	"github.com/pkg/errors"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	job "github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -56,29 +61,58 @@ func Execute(ctx context.Context) error {
 	start := time.Now()
 
 	excutor := "job-executor"
-	var err error
+
+	var (
+		err error
+		j   *job.Job
+	)
+	j, err = job.NewJob()
+	if err != nil {
+		return err
+	}
+
+	ns, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		log.Errorf("Failed to get namespace, err: %v", err)
+		return errors.Wrap(err, "get namespace")
+	}
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		log.Errorf("failed to get InClusterConfig, err: %v", err)
+		return errors.Wrap(err, "get InClusterConfig")
+	}
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Errorf("failed to get ClientSet, err: %v", err)
+		return errors.Wrap(err, "get ClientSet")
+	}
+
+	j.ConfigMapUpdater = configmap.NewUpdater(j.Ctx.ConfigMapName, string(ns), clientset)
+
 	defer func() {
-		// os.Remove(ZadigLifeCycleFile)
 		resultMsg := types.JobSuccess
 		if err != nil {
 			resultMsg = types.JobFail
 			fmt.Printf("Failed to run: %s.\n", err)
 		}
 		fmt.Printf("Job Status: %s\n", resultMsg)
-		dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(resultMsg), 0644)
-		if dogFoodErr != nil {
-			log.Errorf("Failed to create dog food: %s.", dogFoodErr)
-		}
 
+		// set job status and outputs to job context configMap
+		cm, err := j.ConfigMapUpdater.Get()
+		if err != nil {
+			log.Errorf("failed to get job context ConfigMap: %v", err)
+			return
+		}
+		cm.Data[types.JobResultKey] = string(resultMsg)
+		cm.Data[types.JobOutputsKey] = string(j.OutputsJsonBytes)
+		if j.ConfigMapUpdater.UpdateWithRetry(cm, 3, 3*time.Second) != nil {
+			log.Errorf("failed to update job context ConfigMap: %v", err)
+			return
+		}
+		log.Infof("Job result ConfigMap is updated successfully")
 		fmt.Printf("====================== %s End. Duration: %.2f seconds ======================\n", excutor, time.Since(start).Seconds())
-		time.Sleep(30 * time.Second)
 	}()
 
-	var j *job.Job
-	j, err = job.NewJob()
-	if err != nil {
-		return err
-	}
 	fmt.Printf("====================== %s Start ======================\n", excutor)
 	if err = j.Run(ctx); err != nil {
 		return err

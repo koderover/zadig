@@ -39,7 +39,7 @@ import (
 
 // UpsertEnvServiceScheduler ...
 func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
-	envs, err := c.AslanCli.ListEnvs(log, &client.EvnListOption{BasicFacility: setting.BasicFacilityCVM})
+	envs, err := c.AslanCli.ListEnvs(log, &client.EvnListOption{DeployType: []string{setting.PMDeployType}})
 	if err != nil {
 		log.Error(err)
 		return
@@ -373,8 +373,7 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 	for _, lastProductRevision := range c.lastPMProductRevisions {
 		isContain := false
 		for _, currentProductRevision := range currentProductRevisions {
-			if currentProductRevision.ProductName == lastProductRevision.ProductName &&
-				currentProductRevision.EnvName == lastProductRevision.EnvName {
+			if currentProductRevision.ProductName == lastProductRevision.ProductName && currentProductRevision.EnvName == lastProductRevision.EnvName {
 				currentProductSvcRevisionMap[currentProductRevision.ProductName+"-"+currentProductRevision.EnvName] = currentProductRevision.ServiceRevisions
 				lastProductSvcRevisionMap[lastProductRevision.ProductName+"-"+lastProductRevision.EnvName] = lastProductRevision.ServiceRevisions
 				isContain = true
@@ -468,10 +467,10 @@ func (c *CronClient) comparePMProductRevision(currentProductRevisions []*service
 	//判断相同的服务，revision是否相同，如果revision相同在判断env_configs和health_checks是否相同
 	//找出老的revision的service
 	oldRevisionServices := make(map[string]*service.SvcRevision)
-	for lastKey, lastServiceRevison := range lastServiceMap {
-		currentRevison := currentServicesMap[lastKey]
-		if lastServiceRevison.CurrentRevision < currentRevison.CurrentRevision {
-			oldRevisionServices[lastKey] = lastServiceRevison
+	for lastKey, lastServiceRevision := range lastServiceMap {
+		currentRevision := currentServicesMap[lastKey]
+		if lastServiceRevision.CurrentRevision < currentRevision.CurrentRevision {
+			oldRevisionServices[lastKey] = lastServiceRevision
 		}
 	}
 	//清理掉老版本的探活定时器

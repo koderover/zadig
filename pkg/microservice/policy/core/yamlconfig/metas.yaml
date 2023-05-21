@@ -250,15 +250,21 @@ metas:
         description: ''
         rules:
           - method: GET
-            endpoint: api/aslan/template/build
+            endpoint: /api/aslan/template/build/?*
           - method: GET
-            endpoint: api/aslan/template/dockerfile
+            endpoint: /api/aslan/template/build
+          - method: GET
+            endpoint: /api/aslan/template/dockerfile
           - method: POST
             endpoint: /api/aslan/build/build
       - action: edit_build
         alias: 编辑
         description: ''
         rules:
+          - method: GET
+            endpoint: /api/aslan/template/build/?*
+          - method: GET
+            endpoint: /api/aslan/template/build
           - method: PUT
             endpoint: /api/aslan/build/build
           - method: POST

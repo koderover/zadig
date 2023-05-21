@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -231,10 +232,34 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	if err != nil {
 		return nil, err
 	}
-	tasks, _, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowNames: workflowList})
+
+	var (
+		wg    sync.WaitGroup
+		mu    sync.Mutex
+		tasks []*models.WorkflowTask
+	)
+	for _, name := range workflowList {
+		wg.Add(1)
+		go func(workflowName string) {
+			defer wg.Done()
+			resp, _, err2 := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{
+				WorkflowName: workflowName,
+				Limit:        10,
+			})
+			if err2 != nil {
+				err = err2
+				return
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			tasks = append(tasks, resp...)
+		}(name)
+	}
+	wg.Wait()
 	if err != nil {
 		return resp, err
 	}
+	
 	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowTypeV4)})
 	if err != nil {
 		return resp, errors.Errorf("failed to get custom workflow favorite data, err: %v", err)

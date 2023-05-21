@@ -53,7 +53,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/util/validator"
 )
 
 type DeployJobCtl struct {
@@ -157,7 +156,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		}
 		varsYaml := ""
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
-			varsYaml, err = commontypes.RenderVariableKVToYaml(c.jobTaskSpec.Variables)
+			varsYaml, err = commontypes.RenderVariableKVToYaml(c.jobTaskSpec.VariableKVs)
 			if err != nil {
 				msg := fmt.Sprintf("generate vars yaml error: %v", err)
 				logError(c.job, msg, c.logger)
@@ -167,11 +166,6 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		containers := []*commonmodels.Container{}
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
 			for _, serviceImage := range c.jobTaskSpec.ServiceAndImages {
-				if !validator.IsValidImageName(serviceImage.Image) {
-					msg := fmt.Sprintf("service_module %s image %s is not valid", serviceImage.ServiceModule, serviceImage.Image)
-					logError(c.job, msg, c.logger)
-					return errors.New(msg)
-				}
 				containers = append(containers, &commonmodels.Container{
 					Name:      serviceImage.ServiceModule,
 					Image:     serviceImage.Image,
@@ -196,7 +190,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		}
 		// if not only deploy image, we will redeploy service
 		if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
-			if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.Variables, revision, containers, updateRevision); err != nil {
+			if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, updateRevision); err != nil {
 				logError(c.job, err.Error(), c.logger)
 				return err
 			}

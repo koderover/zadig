@@ -21,7 +21,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"

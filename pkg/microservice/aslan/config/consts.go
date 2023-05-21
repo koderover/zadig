@@ -474,3 +474,7 @@ const (
 	DashboardFunctionTestAverageDuration  = "90000/(x+900)"
 	DashboardFunctionReleaseFrequency     = "100-200/(x+2)"
 )
+
+const (
+	CUSTOME_THEME = "custom"
+)

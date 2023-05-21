@@ -23,6 +23,7 @@ import (
 const (
 	AppState           = setting.ProductName + "user"
 	SystemIdentityType = "system"
+	OauthIdentityType  = "oauth"
 	FeiShuEmailHost    = "smtp.feishu.cn"
 )
 
