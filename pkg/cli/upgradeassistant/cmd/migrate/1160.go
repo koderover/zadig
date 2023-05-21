@@ -86,9 +86,9 @@ func V1150ToV1160() error {
 		return err
 	}
 
-	if err := HandleK8sYamlVars(); err != nil {
-		log.Errorf("HandleK8sYamlVars err:%s", err)
-	}
+	//if err := HandleK8sYamlVars(); err != nil {
+	//	log.Errorf("HandleK8sYamlVars err:%s", err)
+	//}
 
 	return nil
 }

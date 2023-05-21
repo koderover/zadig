@@ -53,7 +53,7 @@ var allTestServiceRevisions map[string]sets.Int64
 // all test services map[productName/serviceName/revision] => service
 var allTestServices map[string]*models.Service
 
-// 准备数据，查出所有的项目细腻
+// 准备数据，查出所有的项目
 // 查出所有被使用的服务信息
 // 查出所有项目的默认 renderset信息
 func prepareData() error {
