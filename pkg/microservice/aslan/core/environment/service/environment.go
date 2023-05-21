@@ -279,24 +279,9 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 		for _, svc := range arg.Services {
 			strategyMap[svc.ServiceName] = svc.DeployStrategy
 
-			// validate global variable
-			var validGlobalVariableErr error
-			for _, kv := range svc.VariableKVs {
-				if kv.UseGlobalVariable {
-					if renderGlobalVaraible, ok := renderGlobalVariablesMap[kv.Key]; !ok {
-						validGlobalVariableErr = e.ErrUpdateEnv.AddDesc(fmt.Sprintf("global variable %s not defined", kv.Key))
-						errList = multierror.Append(errList, validGlobalVariableErr)
-						continue
-					} else {
-						kv.Value = renderGlobalVaraible.Value
-						kv.Type = renderGlobalVaraible.Type
-						kv.Desc = renderGlobalVaraible.Desc
-						kv.Options = renderGlobalVaraible.Options
-					}
-				}
-			}
-
-			if validGlobalVariableErr != nil {
+			err = commontypes.ValidateRenderVariables(rendersetInfo.GlobalVariables, svc.VariableKVs)
+			if err != nil {
+				errList = multierror.Append(errList, e.ErrUpdateEnv.AddErr(err))
 				continue
 			}
 
@@ -304,7 +289,6 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 				ServiceName: svc.ServiceName,
 				OverrideYaml: &templatemodels.CustomYaml{
 					// set YamlContent later
-					// YamlContent:       variableYaml,
 					RenderVaraibleKVs: svc.VariableKVs,
 				},
 			})

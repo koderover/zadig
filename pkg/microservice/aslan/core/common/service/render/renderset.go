@@ -118,7 +118,7 @@ func mergeServiceVariables(newVariables []*templatemodels.ServiceRender, oldVari
 	return ret
 }
 
-// @todo remove comments
+// @todo remove comments, may need to remove
 // calc global variable's related services when update a renderSet
 // check the diff between origin and new renderSet
 func calcGlobalVariableRelatedService(origin, new *commonmodels.RenderSet) []*commontypes.GlobalVariableKV {
@@ -261,13 +261,14 @@ func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger
 		}
 		args.ServiceVariables = mergeServiceVariables(args.ServiceVariables, rs.ServiceVariables)
 
+		// @note remove comment
 		// calc global variable related service
-		args.GlobalVariables = calcGlobalVariableRelatedService(rs, args)
-		log.Debugf("global variable begin")
-		for _, kv := range args.GlobalVariables {
-			log.Debugf("global variable: %+v", kv)
-		}
-		log.Debugf("global variable end")
+		// args.GlobalVariables = calcGlobalVariableRelatedService(rs, args)
+		// log.Debugf("global variable begin")
+		// for _, kv := range args.GlobalVariables {
+		// 	log.Debugf("global variable: %+v", kv)
+		// }
+		// log.Debugf("global variable end")
 	}
 	err = createRenderset(args, log)
 	return args, err
