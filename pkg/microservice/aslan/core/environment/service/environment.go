@@ -2206,10 +2206,16 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 
 	// 获取服务模板
 	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
-
 	if err != nil {
 		log.Errorf("Failed to render service %s, error: %v", service.ServiceName, err)
 		errList = multierror.Append(errList, fmt.Errorf("service template %s error: %v", service.ServiceName, err))
+		return nil, errList
+	}
+
+	// FIXME: not really needed to replace images here
+	parsedYaml, _, err = kube.ReplaceWorkloadImages(parsedYaml, service.Containers)
+	if err != nil {
+		errList = multierror.Append(errList, fmt.Errorf("failed to replace image for service %s, error: %v", service.ServiceName, err))
 		return nil, errList
 	}
 
