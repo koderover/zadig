@@ -27,6 +27,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -122,11 +123,43 @@ func (j *DeployJob) SetPreset() error {
 			return nil
 		}
 
+		findOption := &commonrepo.RenderSetFindOption{
+			Name:     product.Render.Name,
+			Revision: product.Render.Revision,
+			EnvName:  product.EnvName,
+		}
+		renderSet, err := commonrepo.NewRenderSetColl().Find(findOption)
+		if err != nil {
+			log.Errorf("can't find renderSet for %s in env %s, error: %w", product.ProductName, product.EnvName, err)
+			return nil
+		}
+		globalVariableMap := map[string]*commontypes.GlobalVariableKV{}
+		for _, kv := range renderSet.GlobalVariables {
+			globalVariableMap[kv.Key] = kv
+		}
+
+		// validate global variables
+		/*
+			for _, deploySvc := range j.spec.Services {
+				updatedVariableConfigs := []*commonmodels.DeplopyVariableConfig{}
+				for _, varConfig := range deploySvc.VariableConfigs {
+					if varConfig.UseGlobalVariable {
+						if _, ok := globalVariableMap[varConfig.VariableKey]; !ok {
+							continue
+						}
+						updatedVariableConfigs = append(updatedVariableConfigs, varConfig)
+					}
+				}
+				deploySvc.VariableConfigs = updatedVariableConfigs
+			}
+		*/
+
 		tmplSvcMap, err := repository.GetMaxRevisionsServicesMap(product.ProductName, product.Production)
 		if err != nil {
 			return fmt.Errorf("failed to get max revision services map, productName %s, isProduction %v, err: %w", product.ProductName, product.Production, err)
 		}
 
+		// update image name
 		for _, svc := range j.spec.ServiceAndImages {
 			productSvc := product.GetServiceMap()[svc.ServiceName]
 			if productSvc == nil {
@@ -289,11 +322,13 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				service := serviceMap[serviceName]
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
-					jobTaskSpec.KeyVals = service.KeyVals
+					jobTaskSpec.VariableConfigs = service.VariableConfigs
+					jobTaskSpec.Variables = service.VariableKVs
 				}
 				// if only deploy images, clear keyvals
 				if onlyDeployImage(j.spec.DeployContents) {
-					jobTaskSpec.KeyVals = []*commonmodels.ServiceKeyVal{}
+					jobTaskSpec.VariableConfigs = []*commonmodels.DeplopyVariableConfig{}
+					jobTaskSpec.Variables = []*commontypes.RenderVariableKV{}
 				}
 			}
 			jobTask := &commonmodels.JobTask{

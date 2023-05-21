@@ -279,10 +279,6 @@ func FetchCurrentServiceVariable(option *GeneSvcYamlOption) ([]*commonmodels.Var
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, productSvcRevision)
 	}
-	serviceVars := prodSvcTemplate.ServiceVars
-	if productInfo.Production {
-		serviceVars = setting.ServiceVarWildCard
-	}
 
 	var usedRenderset *commonmodels.RenderSet
 	usedRenderset, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
@@ -305,10 +301,6 @@ func FetchCurrentServiceVariable(option *GeneSvcYamlOption) ([]*commonmodels.Var
 	variableYaml, _, err := commomtemplate.SafeMergeVariableYaml(prodSvcTemplate.VariableYaml, serviceVariableYaml)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to merge variable yaml for %s/%s", option.ProductName, option.ServiceName)
-	}
-	variableYaml, err = commonutil.ClipVariableYaml(variableYaml, serviceVars)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to clip variable yaml for %s/%s", option.ProductName, option.ServiceName)
 	}
 
 	return GeneKVFromYaml(variableYaml)
@@ -438,6 +430,8 @@ func variableYamlNil(variableYaml string) bool {
 	return len(kvMap) == 0
 }
 
+// render can only use variable yaml, don't need variable kvs for now
+//
 // GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)
 // and returns the service yaml, used service revision
 func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadResource, error) {
@@ -501,10 +495,6 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		return "", 0, nil, fmt.Errorf("failed to find service template for service %s, isProduction %v", option.ServiceName, productInfo.Production)
 	}
 
-	if productInfo.Production {
-		latestSvcTemplate.ServiceVars = setting.ServiceVarWildCard
-	}
-
 	// service not deployed by zadig, should only be updated with images
 	if !option.UnInstall && !option.UpdateServiceRevision && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
 		manifest, workloads, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
@@ -532,12 +522,10 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		serviceVariableYaml = serviceRender.OverrideYaml.YamlContent
 	}
 
-	serviceVariableYaml = commonutil.ClipVariableYamlNoErr(serviceVariableYaml, latestSvcTemplate.ServiceVars)
 	mergedBs, err := zadigyamlutil.Merge([][]byte{[]byte(serviceVariableYaml), []byte(option.VariableYaml)})
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
 	}
-
 	usedRenderset.ServiceVariables = []*template.ServiceRender{{
 		ServiceName: option.ServiceName,
 		OverrideYaml: &template.CustomYaml{

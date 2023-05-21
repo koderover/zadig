@@ -22,6 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -104,21 +105,23 @@ type JobTaskCustomDeploySpec struct {
 }
 
 type JobTaskDeploySpec struct {
-	Env                string                 `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName        string                 `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	Production         bool                   `bson:"production"                       json:"production"                          yaml:"production"`
-	DeployContents     []config.DeployContent `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
-	KeyVals            []*ServiceKeyVal       `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
-	UpdateConfig       bool                   `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
-	YamlContent        string                 `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
-	ServiceAndImages   []*DeployServiceModule `bson:"service_and_images"               json:"service_and_images"                  yaml:"service_and_images"`
-	ServiceType        string                 `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
-	CreateEnvType      string                 `bson:"env_type"                         json:"env_type"                            yaml:"env_type"`
-	SkipCheckRunStatus bool                   `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
-	ClusterID          string                 `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
-	Timeout            int                    `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
-	ReplaceResources   []Resource             `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
-	RelatedPodLabels   []map[string]string    `bson:"-"                                json:"-"                                   yaml:"-"`
+	Env                string                          `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName        string                          `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	Production         bool                            `bson:"production"                       json:"production"                          yaml:"production"`
+	DeployContents     []config.DeployContent          `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
+	KeyVals            []*ServiceKeyVal                `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`         // deprecated since 1.18.0
+	VariableConfigs    []*DeplopyVariableConfig        `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"` // new since 1.18.0, only used for k8s
+	Variables          []*commontypes.RenderVariableKV `bson:"variables"                        json:"variables"                           yaml:"variables"`        // new since 1.18.0, only used for k8s
+	UpdateConfig       bool                            `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
+	YamlContent        string                          `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
+	ServiceAndImages   []*DeployServiceModule          `bson:"service_and_images"               json:"service_and_images"                  yaml:"service_and_images"`
+	ServiceType        string                          `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	CreateEnvType      string                          `bson:"env_type"                         json:"env_type"                            yaml:"env_type"`
+	SkipCheckRunStatus bool                            `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	ClusterID          string                          `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	Timeout            int                             `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources   []Resource                      `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+	RelatedPodLabels   []map[string]string             `bson:"-"                                json:"-"                                   yaml:"-"`
 	// for compatibility
 	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"-"`
 	Image         string `bson:"image"                            json:"image"                               yaml:"-"`

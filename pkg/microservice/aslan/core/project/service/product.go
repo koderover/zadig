@@ -542,7 +542,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			UpdateBy:    user,
 			IsDefault:   false,
 		}
-		err = render.ForceCreateReaderSet(rendersetInfo, logger)
+		err = render.CreateRenderSet(rendersetInfo, logger)
 		if err != nil {
 			return nil, err
 		}

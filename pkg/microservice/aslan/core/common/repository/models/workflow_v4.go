@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/types"
@@ -202,11 +203,24 @@ type ZadigDeployJobSpec struct {
 }
 
 type DeployService struct {
-	ServiceName   string           `bson:"service_name"        yaml:"service_name"     json:"service_name"`
-	KeyVals       []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	ServiceName string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	// VariableConfigs added since 1.18
+	VariableConfigs []*DeplopyVariableConfig `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"`
+	// VariableKVs added since 1.18
+	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"       yaml:"variable_kvs"    json:"variable_kvs"`
+	// LatestVariableKVs added since 1.18
+	LatestVariableKVs []*commontypes.RenderVariableKV `bson:"latest_variable_kvs"       yaml:"latest_variable_kvs"    json:"latest_variable_kvs"`
+	// KeyVals Deprecated since 1.18
+	KeyVals []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	// LatestKeyVals Deprecated since 1.18
 	LatestKeyVals []*ServiceKeyVal `bson:"latest_key_vals"     yaml:"latest_key_vals"  json:"latest_key_vals"`
 	UpdateConfig  bool             `bson:"update_config"       yaml:"update_config"    json:"update_config"`
 	Updatable     bool             `bson:"updatable"           yaml:"updatable"        json:"updatable"`
+}
+
+type DeplopyVariableConfig struct {
+	VariableKey       string `bson:"variable_key"                     json:"variable_key"                        yaml:"variable_key"`
+	UseGlobalVariable bool   `bson:"use_global_variable"              json:"use_global_variable"                 yaml:"use_global_variable"`
 }
 
 type ServiceKeyVal struct {
