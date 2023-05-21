@@ -1923,24 +1923,27 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		return err
 	}
 
-	// update global variable related service
-	for _, globalVariable := range rs.GlobalVariables {
-		relatedServiceSet := sets.NewString(globalVariable.RelatedServices...)
-		relatedServiceSet = relatedServiceSet.Delete(serviceNames...)
-		globalVariable.RelatedServices = relatedServiceSet.List()
-	}
+	// update variables
+	rs.GlobalVariables = commontypes.RemoveGlobalVariableRelatedService(rs.GlobalVariables, serviceNames...)
 	validServiceVars := make([]*templatemodels.ServiceRender, 0)
-	for _, sr := range rs.ServiceVariables {
-		if !util.InStringArray(sr.ServiceName, serviceNames) {
-			validServiceVars = append(validServiceVars, sr)
+	for _, svcRender := range rs.ServiceVariables {
+		if !util.InStringArray(svcRender.ServiceName, serviceNames) {
+			validServiceVars = append(validServiceVars, svcRender)
 		}
 	}
 	rs.ServiceVariables = validServiceVars
-	err = commonrepo.NewRenderSetColl().Update(rs)
+
+	err = render.CreateRenderSet(rs, log)
 	if err != nil {
-		log.Errorf("failed to update renderSet, error: %v", err)
-		return err
+		return fmt.Errorf("failed to update renderSet, error: %w", err)
 	}
+	renderInfo := &commonmodels.RenderInfo{
+		Name:        productInfo.Render.Name,
+		Revision:    rs.Revision,
+		ProductTmpl: productInfo.Render.ProductTmpl,
+		Description: productInfo.Render.Description,
+	}
+	commonrepo.NewProductColl().UpdateRender(productInfo.EnvName, productInfo.ProductName, renderInfo)
 
 	ctx := context.TODO()
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
@@ -2353,7 +2356,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 					ProductTmpl:      args.ProductName,
 					UpdateBy:         args.UpdateBy,
 					ServiceVariables: args.ServiceRenders,
-					//KVs:         args.Vars,
 				},
 				log,
 			)
@@ -2364,8 +2366,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 			return e.ErrCreateEnv.AddDesc(e.FindProductTmplErrMsg)
 		}
 	}
-
-	//args.Vars = nil
 
 	var productTmpl *templatemodels.Product
 	// 查询产品模板
@@ -3037,6 +3037,7 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		productSet.Insert(kv.Key)
 	}
 
+	// TODO: validate added new variable
 	deletedVariableSet := productSet.Difference(argSet)
 	for _, key := range deletedVariableSet.List() {
 		if _, ok := productMap[key]; !ok {
@@ -3065,7 +3066,6 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 
 		svcSet := sets.NewString()
 		for _, svc := range productKV.RelatedServices {
-			// @note check ServiceDeployed status???
 			if !commonutil.ServiceDeployed(svc, product.ServiceDeployStrategy) {
 				continue
 			}
@@ -3076,7 +3076,6 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		for _, svc := range productRenderset.ServiceVariables {
 			svcVariableMap[svc.ServiceName] = svc
 		}
-		// @note weather to update service variable base on arg(global variable) value ?
 		for _, svc := range svcSet.List() {
 			if curVariable, ok := svcVariableMap[svc]; ok {
 				updatedSvcList = append(updatedSvcList, curVariable)

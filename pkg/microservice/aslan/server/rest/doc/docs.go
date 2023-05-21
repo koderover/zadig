@@ -22,6 +22,44 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/collaboration/collaborations/sync": {
+            "post": {
+                "description": "Sync Collaboration Instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "collaboration"
+                ],
+                "summary": "Sync Collaboration Instance",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.SyncCollaborationInstanceArgs"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/environment/environments": {
             "put": {
                 "description": "Update Multi products",
@@ -95,11 +133,9 @@ const docTemplate = `{
                         "description": "OK"
                     }
                 }
-            }
-        },
-        "/environment/environments/{name}/globalVariableCandidate": {
-            "get": {
-                "description": "Get global variable candidate",
+            },
+            "post": {
+                "description": "Create Product(environment)",
                 "consumes": [
                     "application/json"
                 ],
@@ -109,7 +145,73 @@ const docTemplate = `{
                 "tags": [
                     "environment"
                 ],
-                "summary": "Get global variable candidate",
+                "summary": "Create Product(environment)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "type",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env type",
+                        "name": "envType",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "scene",
+                        "name": "scene",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is auto",
+                        "name": "auto",
+                        "in": "query"
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.CreateSingleProductArg"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/environment/environments/{name}/globalVariableCandidates": {
+            "get": {
+                "description": "Get global variable candidates",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get global variable candidates",
                 "parameters": [
                     {
                         "type": "string",
@@ -185,6 +287,43 @@ const docTemplate = `{
             }
         },
         "/environment/environments/{name}/services": {
+            "get": {
+                "description": "List services in env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environments"
+                ],
+                "summary": "List services in env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvServices"
+                        }
+                    }
+                }
+            },
             "put": {
                 "description": "Delete services from envrionment",
                 "consumes": [
@@ -225,6 +364,166 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
+                    }
+                }
+            }
+        },
+        "/environment/environments/{name}/services/{serviceName}": {
+            "put": {
+                "description": "Update service",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Update service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.SvcRevision"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/environment/environments/{name}/services/{serviceName}/preview": {
+            "post": {
+                "description": "Preview service",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Preview service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.PreviewServiceArgs"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.SvcDiffResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/environment/init_info/{name}": {
+            "get": {
+                "description": "Get init product",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get init product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project template name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env type",
+                        "name": "envType",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "is base env",
+                        "name": "isBaseEnv",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "base env",
+                        "name": "baseEnv",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.getInitProductRespone"
+                        }
                     }
                 }
             }
@@ -273,6 +572,45 @@ const docTemplate = `{
                 }
             }
         },
+        "/environment/production/environments/{name}/servicesForUpdate": {
+            "get": {
+                "description": "List services in production env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environments"
+                ],
+                "summary": "List services in production env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvServices"
+                        }
+                    }
+                }
+            }
+        },
         "/environment/rendersets/globalVariables": {
             "get": {
                 "description": "Get global variable from environment, current only used for k8s project",
@@ -312,6 +650,134 @@ const docTemplate = `{
                 }
             }
         },
+        "/environment/rendersets/variables": {
+            "get": {
+                "description": "Get service variables",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get service variables",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "envName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.K8sSvcRenderArg"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/environments/{name}/services/{serviceName}/variables": {
+            "get": {
+                "description": "Get production service variables",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get production service variables",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.K8sSvcRenderArg"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/placeholder/deploy_job_spec": {
+            "post": {
+                "description": "[DONT USE] ZadigDeployJobSpec",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "placeholder"
+                ],
+                "summary": "[DONT USE]  ZadigDeployJobSpec",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "deploy_job_spec",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ZadigDeployJobSpec"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/project/products/{name}/globalVariableCandidates": {
             "get": {
                 "description": "Get global variable candidates",
@@ -340,7 +806,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/service.GlobalVariableCandidates"
+                                "$ref": "#/definitions/service.GetGlobalVariableCandidatesRespone"
                             }
                         }
                     }
@@ -806,9 +1272,134 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/workflow/v4/filterEnv": {
+            "post": {
+                "description": "Get filtered env services",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workflow"
+                ],
+                "summary": "Get filtered env services",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.filterDeployServiceVarsQuery"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.DeployService"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "config.CollaborationType": {
+            "type": "string",
+            "enum": [
+                "share",
+                "new"
+            ],
+            "x-enum-varnames": [
+                "CollaborationShare",
+                "CollaborationNew"
+            ]
+        },
+        "config.CommonEnvCfgType": {
+            "type": "string",
+            "enum": [
+                "Ingress",
+                "ConfigMap",
+                "Secret",
+                "PVC"
+            ],
+            "x-enum-varnames": [
+                "CommonEnvCfgTypeIngress",
+                "CommonEnvCfgTypeConfigMap",
+                "CommonEnvCfgTypeSecret",
+                "CommonEnvCfgTypePvc"
+            ]
+        },
+        "config.DeployContent": {
+            "type": "string",
+            "enum": [
+                "image",
+                "vars",
+                "config"
+            ],
+            "x-enum-varnames": [
+                "DeployImage",
+                "DeployVars",
+                "DeployConfig"
+            ]
+        },
+        "config.DeploySourceType": {
+            "type": "string",
+            "enum": [
+                "runtime",
+                "fromjob"
+            ],
+            "x-enum-varnames": [
+                "SourceRuntime",
+                "SourceFromJob"
+            ]
+        },
+        "github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService": {
+            "type": "object",
+            "properties": {
+                "deployed": {
+                    "type": "boolean"
+                },
+                "latest_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "latest_variable_yaml": {
+                    "type": "string"
+                },
+                "service_modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Container"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "updatable": {
+                    "type": "boolean"
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable": {
             "type": "object",
             "properties": {
@@ -839,12 +1430,10 @@ const docTemplate = `{
             "required": [
                 "product_name",
                 "service_name",
-                "service_variable_kvs",
                 "source",
                 "type",
                 "variable_yaml",
-                "visibility",
-                "yaml"
+                "visibility"
             ],
             "properties": {
                 "product_name": {
@@ -876,6 +1465,26 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.filterDeployServiceVarsQuery": {
+            "type": "object",
+            "properties": {
+                "env_name": {
+                    "type": "string"
+                },
+                "job_name": {
+                    "type": "string"
+                },
+                "service_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "workflow_name": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.getGlobalVariablesRespone": {
             "type": "object",
             "properties": {
@@ -887,6 +1496,44 @@ const docTemplate = `{
                 },
                 "revision": {
                     "type": "integer"
+                }
+            }
+        },
+        "handler.getInitProductRespone": {
+            "type": "object",
+            "properties": {
+                "chart_infos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/template.ServiceRender"
+                    }
+                },
+                "create_time": {
+                    "type": "integer"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "render": {
+                    "$ref": "#/definitions/models.RenderInfo"
+                },
+                "revision": {
+                    "type": "integer"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/models.ProductService"
+                        }
+                    }
+                },
+                "source": {
+                    "type": "string"
+                },
+                "update_by": {
+                    "type": "string"
                 }
             }
         },
@@ -976,6 +1623,104 @@ const docTemplate = `{
                 }
             }
         },
+        "models.CreateUpdateCommonEnvCfgArgs": {
+            "type": "object",
+            "properties": {
+                "auto_sync": {
+                    "type": "boolean"
+                },
+                "common_env_cfg_type": {
+                    "$ref": "#/definitions/config.CommonEnvCfgType"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "git_repo_config": {
+                    "$ref": "#/definitions/template.GitRepoConfig"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "restart_associated_svc": {
+                    "type": "boolean"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "yaml_data": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeplopyVariableConfig": {
+            "type": "object",
+            "properties": {
+                "use_global_variable": {
+                    "type": "boolean"
+                },
+                "variable_key": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DeployService": {
+            "type": "object",
+            "properties": {
+                "key_vals": {
+                    "description": "KeyVals Deprecated since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceKeyVal"
+                    }
+                },
+                "latest_key_vals": {
+                    "description": "LatestKeyVals Deprecated since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceKeyVal"
+                    }
+                },
+                "latest_variable_kvs": {
+                    "description": "LatestVariableKVs added since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "updatable": {
+                    "type": "boolean"
+                },
+                "update_config": {
+                    "type": "boolean"
+                },
+                "variable_configs": {
+                    "description": "VariableConfigs added since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeplopyVariableConfig"
+                    }
+                },
+                "variable_kvs": {
+                    "description": "VariableKVs added since 1.18",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                }
+            }
+        },
         "models.EnvConfig": {
             "type": "object",
             "properties": {
@@ -1052,6 +1797,19 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ParameterSettingType": {
+            "type": "string",
+            "enum": [
+                "string",
+                "choice",
+                "external"
+            ],
+            "x-enum-varnames": [
+                "StringType",
+                "ChoiceType",
+                "ExternalType"
+            ]
+        },
         "models.PmHealthCheck": {
             "type": "object",
             "properties": {
@@ -1110,6 +1868,78 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/setting.PMHostStatus"
+                }
+            }
+        },
+        "models.ProductService": {
+            "type": "object",
+            "properties": {
+                "containers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Container"
+                    }
+                },
+                "env_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EnvConfig"
+                    }
+                },
+                "error": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "revision": {
+                    "type": "integer"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ProductShareEnv": {
+            "type": "object",
+            "properties": {
+                "base_env": {
+                    "type": "string"
+                },
+                "enable": {
+                    "type": "boolean"
+                },
+                "is_base": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.RenderInfo": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "product_tmpl": {
+                    "type": "string"
+                },
+                "revision": {
+                    "type": "integer"
                 }
             }
         },
@@ -1273,6 +2103,95 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ServiceAndImage": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "service_module": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ServiceKeyVal": {
+            "type": "object",
+            "properties": {
+                "choice_option": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "is_credential": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/models.ParameterSettingType"
+                },
+                "value": {}
+            }
+        },
+        "models.ZadigDeployJobSpec": {
+            "type": "object",
+            "properties": {
+                "deploy_contents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/config.DeployContent"
+                    }
+                },
+                "deploy_type": {
+                    "type": "string"
+                },
+                "env": {
+                    "type": "string"
+                },
+                "job_name": {
+                    "description": "当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务",
+                    "type": "string"
+                },
+                "origin_job_name": {
+                    "description": "save the origin quoted job name",
+                    "type": "string"
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "service_and_images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceAndImage"
+                    }
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DeployService"
+                    }
+                },
+                "skip_check_run_status": {
+                    "type": "boolean"
+                },
+                "source": {
+                    "description": "fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.DeploySourceType"
+                        }
+                    ]
+                }
+            }
+        },
         "service.ConvertVaraibleKVAndYamlActionType": {
             "type": "string",
             "enum": [
@@ -1306,6 +2225,94 @@ const docTemplate = `{
                 }
             }
         },
+        "service.CreateSingleProductArg": {
+            "type": "object",
+            "properties": {
+                "alias": {
+                    "type": "string"
+                },
+                "base_env_name": {
+                    "type": "string"
+                },
+                "base_name": {
+                    "description": "for collaboration mode",
+                    "type": "string"
+                },
+                "chartValues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.ProductHelmServiceCreationInfo"
+                    }
+                },
+                "cluster_id": {
+                    "type": "string"
+                },
+                "defaultValues": {
+                    "description": "TODO fix me",
+                    "type": "string"
+                },
+                "default_values": {
+                    "type": "string"
+                },
+                "env_configs": {
+                    "description": "New Since v1.13.0",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CreateUpdateCommonEnvCfgArgs"
+                    }
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "global_variables": {
+                    "description": "for k8s products",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.GlobalVariableKV"
+                    }
+                },
+                "is_existed": {
+                    "type": "boolean"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "registry_id": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/service.ProductK8sServiceCreationInfo"
+                        }
+                    }
+                },
+                "share_env": {
+                    "description": "New Since v1.12.0",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ProductShareEnv"
+                        }
+                    ]
+                },
+                "valuesData": {
+                    "description": "for helm products",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/service.ValuesDataArgs"
+                        }
+                    ]
+                }
+            }
+        },
         "service.DeployStatus": {
             "type": "string",
             "enum": [
@@ -1325,6 +2332,12 @@ const docTemplate = `{
                 },
                 "env_name": {
                     "type": "string"
+                },
+                "global_variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.GlobalVariableKV"
+                    }
                 },
                 "namespace": {
                     "type": "string"
@@ -1348,7 +2361,24 @@ const docTemplate = `{
                 }
             }
         },
-        "service.GlobalVariableCandidates": {
+        "service.EnvServices": {
+            "type": "object",
+            "properties": {
+                "env_name": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService"
+                    }
+                }
+            }
+        },
+        "service.GetGlobalVariableCandidatesRespone": {
             "type": "object",
             "properties": {
                 "key_name": {
@@ -1486,6 +2516,161 @@ const docTemplate = `{
                 }
             }
         },
+        "service.PreviewServiceArgs": {
+            "type": "object",
+            "properties": {
+                "env_name": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "service_modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Container"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "update_service_revision": {
+                    "type": "boolean"
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                }
+            }
+        },
+        "service.Product": {
+            "type": "object",
+            "properties": {
+                "base_name": {
+                    "type": "string"
+                },
+                "chartValues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.HelmSvcRenderArg"
+                    }
+                },
+                "collaboration_mode": {
+                    "type": "string"
+                },
+                "collaboration_type": {
+                    "$ref": "#/definitions/config.CollaborationType"
+                },
+                "default_values": {
+                    "type": "string"
+                },
+                "deploy_type": {
+                    "type": "string"
+                },
+                "global_variables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.GlobalVariableKV"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.K8sSvcRenderArg"
+                    }
+                },
+                "valuesData": {
+                    "$ref": "#/definitions/service.ValuesDataArgs"
+                },
+                "yaml_data": {
+                    "$ref": "#/definitions/template.CustomYaml"
+                }
+            }
+        },
+        "service.ProductHelmServiceCreationInfo": {
+            "type": "object",
+            "properties": {
+                "chartVersion": {
+                    "type": "string"
+                },
+                "deploy_strategy": {
+                    "type": "string"
+                },
+                "envName": {
+                    "type": "string"
+                },
+                "overrideValues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.KVPair"
+                    }
+                },
+                "overrideYaml": {
+                    "type": "string"
+                },
+                "serviceName": {
+                    "type": "string"
+                },
+                "valuesData": {
+                    "$ref": "#/definitions/service.ValuesDataArgs"
+                },
+                "variable_yaml": {
+                    "type": "string"
+                },
+                "yaml_data": {
+                    "$ref": "#/definitions/template.CustomYaml"
+                }
+            }
+        },
+        "service.ProductK8sServiceCreationInfo": {
+            "type": "object",
+            "properties": {
+                "containers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Container"
+                    }
+                },
+                "deploy_strategy": {
+                    "type": "string"
+                },
+                "env_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EnvConfig"
+                    }
+                },
+                "error": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "revision": {
+                    "type": "integer"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
         "service.RepoConfig": {
             "type": "object",
             "properties": {
@@ -1588,6 +2773,92 @@ const docTemplate = `{
                     }
                 },
                 "variable_yaml": {
+                    "type": "string"
+                },
+                "yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.SvcDiffResult": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "$ref": "#/definitions/service.TmplYaml"
+                },
+                "latest": {
+                    "$ref": "#/definitions/service.TmplYaml"
+                }
+            }
+        },
+        "service.SvcRevision": {
+            "type": "object",
+            "properties": {
+                "containers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Container"
+                    }
+                },
+                "current_revision": {
+                    "type": "integer"
+                },
+                "deleted": {
+                    "type": "boolean"
+                },
+                "deploy_strategy": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "new": {
+                    "type": "boolean"
+                },
+                "next_revision": {
+                    "type": "integer"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updatable": {
+                    "type": "boolean"
+                },
+                "update_service_tmpl": {
+                    "type": "boolean"
+                },
+                "variable_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.RenderVariableKV"
+                    }
+                },
+                "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.SyncCollaborationInstanceArgs": {
+            "type": "object",
+            "properties": {
+                "products": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.Product"
+                    }
+                }
+            }
+        },
+        "service.TmplYaml": {
+            "type": "object",
+            "properties": {
+                "revision": {
+                    "type": "integer"
+                },
+                "update_by": {
                     "type": "string"
                 },
                 "yaml": {
@@ -1704,6 +2975,60 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "yaml_content": {
+                    "type": "string"
+                }
+            }
+        },
+        "template.GitRepoConfig": {
+            "type": "object",
+            "properties": {
+                "branch": {
+                    "type": "string"
+                },
+                "codehost_id": {
+                    "type": "integer"
+                },
+                "namespace": {
+                    "description": "records the actual namespace of repo, used to generate correct project name",
+                    "type": "string"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "repo": {
+                    "type": "string"
+                },
+                "values_paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "template.ServiceRender": {
+            "type": "object",
+            "properties": {
+                "chart_version": {
+                    "description": "---- for helm services begin ----",
+                    "type": "string"
+                },
+                "override_values": {
+                    "description": "used for helm services, json-encoded string of kv value",
+                    "type": "string"
+                },
+                "override_yaml": {
+                    "description": "OverrideYaml will be used in both helm and k8s projects\nIn k8s this is variable_yaml",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/template.CustomYaml"
+                        }
+                    ]
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "values_yaml": {
                     "type": "string"
                 }
             }
