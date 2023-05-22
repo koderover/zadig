@@ -262,6 +262,17 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 	}
 
+	usedRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		ProductTmpl: product.ProductName,
+		EnvName:     product.EnvName,
+		IsDefault:   false,
+		Revision:    product.Render.Revision,
+		Name:        product.Render.Name,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find renderset for %s/%s, err: %w", product.ProductName, product.EnvName, err)
+	}
+
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
 		// adapt to the front end, use the direct quoted job name
@@ -304,6 +315,15 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				DeployContents:     j.spec.DeployContents,
 				Timeout:            timeout,
 			}
+
+			svcRenderVarMap := map[string]*commontypes.RenderVariableKV{}
+			serviceRender := usedRenderset.GetServiceRenderMap()[serviceName]
+			if serviceRender != nil {
+				for _, varKV := range serviceRender.OverrideYaml.RenderVaraibleKVs {
+					svcRenderVarMap[varKV.Key] = varKV
+				}
+			}
+
 			for _, deploy := range deploys {
 				// if external env, check service exists
 				if project.ProductFeature.CreateEnvType == "external" {
@@ -329,6 +349,22 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					} else {
 						jobTaskSpec.VariableKVs = service.VariableKVs
 					}
+
+					// filter variables that used global variable
+					filterdKV := []*commontypes.RenderVariableKV{}
+					for _, jobKV := range jobTaskSpec.VariableKVs {
+						svcKV, ok := svcRenderVarMap[jobKV.Key]
+						if !ok {
+							// deploy new variable
+							filterdKV = append(filterdKV, jobKV)
+						}
+						// deploy existed variable
+						if svcKV.UseGlobalVariable {
+							continue
+						}
+						filterdKV = append(filterdKV, jobKV)
+					}
+					jobTaskSpec.VariableKVs = filterdKV
 				}
 				// if only deploy images, clear keyvals
 				if onlyDeployImage(j.spec.DeployContents) {
