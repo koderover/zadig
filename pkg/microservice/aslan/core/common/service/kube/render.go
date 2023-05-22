@@ -511,7 +511,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		serviceVariableYaml = serviceRender.OverrideYaml.YamlContent
 	}
 
-	mergedBs, err := zadigyamlutil.Merge([][]byte{[]byte(serviceVariableYaml), []byte(option.VariableYaml)})
+	mergedBs, err := zadigyamlutil.Merge([][]byte{[]byte(latestSvcTemplate.VariableYaml), []byte(serviceVariableYaml), []byte(option.VariableYaml)})
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
 	}
