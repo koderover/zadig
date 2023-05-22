@@ -320,41 +320,41 @@ func GlobalVariableKVToYaml(kvs []*GlobalVariableKV) (string, error) {
 	return ServiceVariableKVToYaml(serviceVariableKVs)
 }
 
+// @todo remove
 // update the global variable kvs base on the render variable kvs
-// if the key is not exist, create a new one
-// if the key exist, update the related services
-func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, renderVariables []*RenderVariableKV) ([]*GlobalVariableKV, []*RenderVariableKV, error) {
-	globalVariableMap := map[string]*GlobalVariableKV{}
-	for _, kv := range globalVariables {
-		globalVariableMap[kv.Key] = kv
-	}
+// func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, renderVariables []*RenderVariableKV) ([]*GlobalVariableKV, []*RenderVariableKV, error) {
+// 	globalVariableMap := map[string]*GlobalVariableKV{}
+// 	for _, kv := range globalVariables {
+// 		globalVariableMap[kv.Key] = kv
+// 	}
 
-	for _, kv := range renderVariables {
-		if kv.UseGlobalVariable {
-			globalVariableKV, ok := globalVariableMap[kv.Key]
-			if !ok {
-				return nil, nil, fmt.Errorf("referenced global variable not exist, key: %s", kv.Key)
-			}
+// 	for _, kv := range renderVariables {
+// 		globalVariableKV, ok := globalVariableMap[kv.Key]
+// 		if !ok {
+// 			// global variable not exist
+// 			if kv.UseGlobalVariable {
+// 				return nil, nil, fmt.Errorf("referenced global variable not exist, key: %s", kv.Key)
+// 			}
+// 		} else {
+// 			// global variable exist
+// 			relatedServiceSet := sets.NewString(globalVariableKV.RelatedServices...)
+// 			if kv.UseGlobalVariable {
+// 				relatedServiceSet = relatedServiceSet.Insert(serviceName)
+// 				globalVariableKV.RelatedServices = relatedServiceSet.List()
+// 			} else {
+// 				relatedServiceSet = relatedServiceSet.Delete(serviceName)
+// 				globalVariableKV.RelatedServices = relatedServiceSet.List()
+// 			}
+// 		}
+// 	}
 
-			kv.Type = globalVariableKV.Type
-			kv.Value = globalVariableKV.Value
-			kv.Options = globalVariableKV.Options
-			kv.Desc = globalVariableKV.Desc
+// 	retGlobalVariables := []*GlobalVariableKV{}
+// 	for _, kv := range globalVariableMap {
+// 		retGlobalVariables = append(retGlobalVariables, kv)
+// 	}
 
-			relatedServiceSet := sets.NewString(globalVariableKV.RelatedServices...)
-			if !relatedServiceSet.Has(serviceName) {
-				globalVariableKV.RelatedServices = append(globalVariableKV.RelatedServices, serviceName)
-			}
-		}
-	}
-
-	retGlobalVariables := []*GlobalVariableKV{}
-	for _, kv := range globalVariableMap {
-		retGlobalVariables = append(retGlobalVariables, kv)
-	}
-
-	return retGlobalVariables, renderVariables, nil
-}
+// 	return retGlobalVariables, renderVariables, nil
+// }
 
 func ValidateGlobalVariables(globalVariablesDefine []*ServiceVariableKV, globalVariables []*GlobalVariableKV) bool {
 	globalVariableMap := map[string]*ServiceVariableKV{}
@@ -369,6 +369,28 @@ func ValidateGlobalVariables(globalVariablesDefine []*ServiceVariableKV, globalV
 	}
 
 	return true
+}
+
+func ValidateRenderVariables(globalVariables []*GlobalVariableKV, renderVariables []*RenderVariableKV) error {
+	globalVariableMap := map[string]*GlobalVariableKV{}
+	for _, kv := range globalVariables {
+		globalVariableMap[kv.Key] = kv
+	}
+
+	for _, kv := range renderVariables {
+		if kv.UseGlobalVariable {
+			globalVariable, ok := globalVariableMap[kv.Key]
+			if !ok {
+				return fmt.Errorf("referenced global variable not exist, key: %s", kv.Key)
+			}
+			kv.Value = globalVariable.Value
+			kv.Type = globalVariable.Type
+			kv.Options = globalVariable.Options
+			kv.Desc = globalVariable.Desc
+		}
+	}
+
+	return nil
 }
 
 func ServiceToRenderVariableKVs(ServiceVariables []*ServiceVariableKV) []*RenderVariableKV {
@@ -391,4 +413,141 @@ func RemoveGlobalVariableRelatedService(globalVariableKVs []*GlobalVariableKV, s
 	}
 
 	return globalVariableKVs
+}
+
+func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, argVariables, currentVariables []*RenderVariableKV) ([]*GlobalVariableKV, []*RenderVariableKV, error) {
+	globalVariableMap := map[string]*GlobalVariableKV{}
+	for _, kv := range globalVariables {
+		globalVariableMap[kv.Key] = kv
+	}
+	argVariableMap := map[string]*RenderVariableKV{}
+	for _, kv := range argVariables {
+		argVariableMap[kv.Key] = kv
+	}
+	renderVariableMap := map[string]*RenderVariableKV{}
+	for _, kv := range currentVariables {
+		renderVariableMap[kv.Key] = kv
+	}
+
+	addRelatedServices := func(globalVariableKV *GlobalVariableKV, serviceName string) {
+		relatedSvcSet := sets.NewString(globalVariableKV.RelatedServices...)
+		relatedSvcSet.Insert(serviceName)
+		globalVariableKV.RelatedServices = relatedSvcSet.List()
+	}
+
+	delRelatedServices := func(globalVariableKV *GlobalVariableKV, serviceName string) {
+		relatedSvcSet := sets.NewString(globalVariableKV.RelatedServices...)
+		relatedSvcSet.Delete(serviceName)
+		globalVariableKV.RelatedServices = relatedSvcSet.List()
+	}
+
+	updateRenderVariable := func(globalVariableKV *GlobalVariableKV, renderVariableKV *RenderVariableKV) {
+		renderVariableKV.Value = globalVariableKV.Value
+		renderVariableKV.Type = globalVariableKV.Type
+		renderVariableKV.Options = globalVariableKV.Options
+		renderVariableKV.Desc = globalVariableKV.Desc
+	}
+
+	// check render vairaible diff
+	for _, argKV := range argVariableMap {
+		globalVariableKV, ok := globalVariableMap[argKV.Key]
+		if !ok && argKV.UseGlobalVariable {
+			// global variable not exist, but arg use global variable
+			return nil, nil, fmt.Errorf("global variable not exist, but used by serviceName: %s, key: %s", serviceName, argKV.Key)
+		}
+
+		renderKV, ok := renderVariableMap[argKV.Key]
+		if !ok {
+			// render variable not exist, newly added variable
+			if argKV.UseGlobalVariable {
+				// arg use global variable
+				addRelatedServices(globalVariableKV, serviceName)
+				updateRenderVariable(globalVariableKV, argKV)
+			}
+		} else {
+			// render variable exist
+			if argKV.UseGlobalVariable && !renderKV.UseGlobalVariable {
+				addRelatedServices(globalVariableKV, serviceName)
+				updateRenderVariable(globalVariableKV, argKV)
+			} else if !argKV.UseGlobalVariable && renderKV.UseGlobalVariable {
+				delRelatedServices(globalVariableKV, serviceName)
+			}
+
+			// delete from render when this kv is checked
+			delete(renderVariableMap, argKV.Key)
+		}
+	}
+
+	// deleted variable
+	for _, renderKV := range renderVariableMap {
+		globalVariableKV, ok := globalVariableMap[renderKV.Key]
+		if !ok && renderKV.UseGlobalVariable {
+			// global variable not exist, but render use global variable
+			return nil, nil, fmt.Errorf("global variable not exist, but used by serviceName: %s, key: %s", serviceName, renderKV.Key)
+		}
+
+		if renderKV.UseGlobalVariable {
+			delRelatedServices(globalVariableKV, serviceName)
+		}
+	}
+
+	retGlobalVariables := []*GlobalVariableKV{}
+	for _, kv := range globalVariableMap {
+		retGlobalVariables = append(retGlobalVariables, kv)
+	}
+
+	return retGlobalVariables, argVariables, nil
+}
+
+func UpdateRenderVariable(global []*GlobalVariableKV, render []*RenderVariableKV) []*RenderVariableKV {
+	globalMap := map[string]*GlobalVariableKV{}
+	for _, kv := range global {
+		globalMap[kv.Key] = kv
+	}
+
+	ret := []*RenderVariableKV{}
+	for _, kv := range render {
+		if globalKV, ok := globalMap[kv.Key]; ok {
+			if kv.UseGlobalVariable {
+				retKV := &RenderVariableKV{
+					ServiceVariableKV: ServiceVariableKV{
+						Key:     globalKV.Key,
+						Value:   globalKV.Value,
+						Type:    globalKV.Type,
+						Options: globalKV.Options,
+						Desc:    globalKV.Desc,
+					},
+					UseGlobalVariable: true,
+				}
+				ret = append(ret, retKV)
+			} else {
+				ret = append(ret, kv)
+			}
+		} else {
+			ret = append(ret, kv)
+		}
+	}
+
+	return ret
+}
+
+func ClipRenderVariableKVs(template []*ServiceVariableKV, render []*RenderVariableKV) (yaml string, kvs []*RenderVariableKV, err error) {
+	templateSet := sets.NewString()
+	for _, kv := range template {
+		templateSet.Insert(kv.Key)
+	}
+
+	ret := []*RenderVariableKV{}
+	for _, kv := range render {
+		if templateSet.Has(kv.Key) {
+			ret = append(ret, kv)
+		}
+	}
+
+	yaml, err = RenderVariableKVToYaml(ret)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to convert render variable kv to yaml, err: %w", err)
+	}
+
+	return yaml, ret, nil
 }

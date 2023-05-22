@@ -347,9 +347,26 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		return err
 	}
 
+	curRender, err := render.GetRenderSetInfo(exitedProd.Render.Name, exitedProd.Render.Revision)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to get render set, render name: %s, revision: %d, error: %w", exitedProd.Render.Name, exitedProd.Render.Revision, err))
+	}
+
+	curSvcRenderMap := make(map[string]*templatemodels.ServiceRender)
+	for _, svcRender := range curRender.ServiceVariables {
+		curSvcRenderMap[svcRender.ServiceName] = svcRender
+	}
+
 	// merge render variable and global variable
 	for _, svc := range updatedSvcs {
-		globalVariables, svc.OverrideYaml.RenderVaraibleKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVaraibleKVs)
+		curSvcRender, ok := curSvcRenderMap[svc.ServiceName]
+		if !ok {
+			curSvcRender = &templatemodels.ServiceRender{
+				OverrideYaml: &templatemodels.CustomYaml{},
+			}
+		}
+
+		globalVariables, svc.OverrideYaml.RenderVaraibleKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVaraibleKVs, curSvcRender.OverrideYaml.RenderVaraibleKVs)
 		if err != nil {
 			log.Errorf("failed to merge global and render variables for service %s, err: %w", svc.ServiceName, err)
 			return e.ErrUpdateEnv.AddDesc("failed to merge global and render variables")
@@ -362,6 +379,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		}
 	}
 
+	// FIXME: best to render yaml before create renderset
 	renderSet, err := render.CreateRenderSetByMerge(
 		&commonmodels.RenderSet{
 			Name:             exitedProd.Namespace,

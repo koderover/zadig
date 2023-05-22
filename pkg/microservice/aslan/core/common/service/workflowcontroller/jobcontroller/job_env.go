@@ -148,16 +148,20 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		}
 
 		// merge render variables and deploy variables
-		mergedVariable := deployInfo.VariableYaml
+		mergedVariableYaml := deployInfo.VariableYaml
 		mergedVariableKVs := deployInfo.VariableKVs
 		if svcRender.OverrideYaml != nil {
-			mergedVariable, mergedVariableKVs, err = commontypes.MergeRenderVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, deployInfo.VariableKVs)
+			_, mergedVariableKVs, err = commontypes.MergeRenderVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, deployInfo.VariableKVs)
 			if err != nil {
 				return errors.Wrapf(err, "failed to merge render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
 			}
+			mergedVariableYaml, mergedVariableKVs, err = commontypes.ClipRenderVariableKVs(svcTemplate.ServiceVariableKVs, mergedVariableKVs)
+			if err != nil {
+				return errors.Wrapf(err, "failed to clip render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
+			}
 		}
 		svcRender.OverrideYaml = &template.CustomYaml{
-			YamlContent:       mergedVariable,
+			YamlContent:       mergedVariableYaml,
 			RenderVaraibleKVs: mergedVariableKVs,
 		}
 
@@ -178,6 +182,9 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		productInfo.Render.Revision = curRenderset.Revision
 		log.Infof("UpdateServiceRevision : %v, sevOnline: %v, variableYamlNil %v, serviceName: %s", deployInfo.UpdateServiceRevision, sevOnline, variableYamlNil(deployInfo.VariableYaml), deployInfo.ServiceName)
 		if deployInfo.UpdateServiceRevision || sevOnline || !variableYamlNil(deployInfo.VariableYaml) {
+			if productInfo.ServiceDeployStrategy == nil {
+				productInfo.ServiceDeployStrategy = make(map[string]string)
+			}
 			productInfo.ServiceDeployStrategy[deployInfo.ServiceName] = setting.ServiceDeployStrategyDeploy
 		}
 	} else {

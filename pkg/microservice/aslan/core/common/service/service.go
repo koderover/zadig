@@ -1117,6 +1117,9 @@ func ListServicesInProductionEnv(envName, productName string, newSvcKVsMap map[s
 	return buildServiceInfoInEnv(env, latestSvcs, newSvcKVsMap, log)
 }
 
+// @todo newSvcKVsMap is old struct kv map, which are the kv are from deoply job config
+// may need to be removed, or use new kv struct
+// helm values need to be refactored
 func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger) (*EnvServices, error) {
 	productName, envName := productInfo.ProductName, productInfo.EnvName
 	ret := &EnvServices{
@@ -1317,6 +1320,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 		return mergeValues, kvs, latestMergeValues, latestKvs, nil
 	}
+	// TODO FIXME refactor helm values
 	_ = values
 
 	// get all service values info

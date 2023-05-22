@@ -113,7 +113,9 @@ func GenerateYamlFromKV(kvs []*commonmodels.VariableKV) (string, error) {
 // extract valid svc variable from service variable
 func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet) string {
 	serviceVariable := ""
+	log.Debugf("extractValidSvcVariable serviceName:%s", serviceName)
 	for _, v := range rs.ServiceVariables {
+		log.Debugf("extractValidSvcVariable rs serviceName:%s", v.ServiceName)
 		if v.ServiceName != serviceName {
 			continue
 		}
@@ -364,6 +366,8 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		manifest, _, err := fetchImportedManifests(option, productInfo, prodSvcTemplate, usedRenderset)
 		return manifest, int(curProductSvc.Revision), err
 	}
+	// @note get render for deploy job
+	log.Debugf("used renderset: %+v", usedRenderset)
 
 	fullRenderedYaml, err := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset)
 	if err != nil {
@@ -523,6 +527,9 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		serviceVariableYaml = serviceRender.OverrideYaml.YamlContent
 	}
 
+	// @todo update variable merge method
+	log.Debugf("serviceVariableYaml: %s", serviceVariableYaml)
+	log.Debugf("option.variableYaml: %s", option.VariableYaml)
 	mergedBs, err := zadigyamlutil.Merge([][]byte{[]byte(serviceVariableYaml), []byte(option.VariableYaml)})
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
@@ -551,6 +558,7 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 		return originYaml, nil
 	}
 	variableYaml := extractValidSvcVariable(serviceName, rs)
+	log.Debugf("variableYaml: %s", variableYaml)
 	return commonutil.RenderK8sSvcYamlStrict(originYaml, productName, serviceName, variableYaml)
 }
 
