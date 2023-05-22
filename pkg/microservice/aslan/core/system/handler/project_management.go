@@ -17,6 +17,8 @@
 package handler
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -95,7 +97,10 @@ func SearchJiraIssues(c *gin.Context) {
 func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Query("project"), c.Query("jql"), c.Query("summary"))
+
+	// 5.22 summary only support {{.System.USERNAME}} variable
+	// refactor if more variables are needed
+	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Query("project"), c.Query("jql"), strings.ReplaceAll(c.Query("summary"), "{{.System.USERNAME}}", ctx.UserName))
 }
 
 func GetJiraTypes(c *gin.Context) {
