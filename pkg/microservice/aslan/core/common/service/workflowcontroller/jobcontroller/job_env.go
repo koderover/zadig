@@ -151,6 +151,18 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		mergedVariableYaml := deployInfo.VariableYaml
 		mergedVariableKVs := deployInfo.VariableKVs
 		if svcRender.OverrideYaml != nil {
+			templateVarKVs := []*commontypes.RenderVariableKV{}
+			for _, kv := range svcTemplate.ServiceVariableKVs {
+				templateVarKVs = append(templateVarKVs, &commontypes.RenderVariableKV{
+					ServiceVariableKV: *kv,
+					UseGlobalVariable: false,
+				})
+			}
+			_, svcRender.OverrideYaml.RenderVaraibleKVs, err = commontypes.MergeRenderVariableKVs(templateVarKVs, svcRender.OverrideYaml.RenderVaraibleKVs)
+			if err != nil {
+				return errors.Wrapf(err, "failed to merge template and render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
+			}
+
 			_, mergedVariableKVs, err = commontypes.MergeRenderVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, deployInfo.VariableKVs)
 			if err != nil {
 				return errors.Wrapf(err, "failed to merge render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)

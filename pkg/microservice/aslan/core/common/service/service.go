@@ -1240,12 +1240,12 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 			if newSvcKVsMap[svcName] == nil {
 				// config phase
-				return commontypes.MergeRenderAndServiceVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, tmplSvc.ServiceVariableKVs)
+				return commontypes.MergeRenderAndServiceTemplateVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, tmplSvc.ServiceVariableKVs)
 			} else {
 				// @todo TBD 是否根据工作流配置来过滤
 				// "exec" phase
 				// yamlContent, err = prefixOverride(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent, newSvcKVsMap[svcName])
-				return commontypes.MergeRenderAndServiceVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, tmplSvc.ServiceVariableKVs)
+				return commontypes.MergeRenderAndServiceTemplateVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, tmplSvc.ServiceVariableKVs)
 			}
 		}
 

@@ -106,7 +106,7 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 
 	for _, svcRender := range curRender.ServiceVariables {
 		if svcRender.ServiceName == serviceName {
-			mergedYaml, mergedServiceVariableKVs, err := commontypes.MergeRenderAndServiceVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, newService.ServiceVariableKVs)
+			mergedYaml, mergedServiceVariableKVs, err := commontypes.MergeRenderAndServiceTemplateVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, newService.ServiceVariableKVs)
 			if err != nil {
 				return nil, fmt.Errorf("failed to merge render and service variable kvs serviceName: %s, error: %v", svcRender.ServiceName, err)
 			}

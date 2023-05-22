@@ -290,10 +290,10 @@ func MergeRenderVariableKVs(base, override []*RenderVariableKV) (yaml string, kv
 	return yaml, ret, nil
 }
 
-func MergeRenderAndServiceVariableKVs(render []*RenderVariableKV, serivce []*ServiceVariableKV) (string, []*RenderVariableKV, error) {
-	svcMap := map[string]*ServiceVariableKV{}
-	for _, kv := range serivce {
-		svcMap[kv.Key] = kv
+func MergeRenderAndServiceTemplateVariableKVs(render []*RenderVariableKV, serivceTemplate []*ServiceVariableKV) (string, []*RenderVariableKV, error) {
+	svcTemplMap := map[string]*ServiceVariableKV{}
+	for _, kv := range serivceTemplate {
+		svcTemplMap[kv.Key] = kv
 	}
 
 	renderMap := map[string]*RenderVariableKV{}
@@ -302,7 +302,7 @@ func MergeRenderAndServiceVariableKVs(render []*RenderVariableKV, serivce []*Ser
 	}
 
 	ret := []*RenderVariableKV{}
-	for _, kv := range svcMap {
+	for _, kv := range svcTemplMap {
 		if renderKV, ok := renderMap[kv.Key]; !ok {
 			ret = append(ret, &RenderVariableKV{
 				ServiceVariableKV: *kv,
