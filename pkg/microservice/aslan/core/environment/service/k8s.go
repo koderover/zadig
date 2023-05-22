@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -186,8 +187,22 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		EnvName:  exitedProd.EnvName,
 		Revision: exitedProd.Render.Revision,
 	})
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to find render set, err: %s", err))
+	}
 
-	curRenderset.GlobalVariables, args.ServiceRev.VariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, curRenderset.GlobalVariables, args.ServiceRev.VariableKVs)
+	curSvcRender := &templatemodels.ServiceRender{
+		ServiceName:  args.ServiceName,
+		OverrideYaml: &templatemodels.CustomYaml{},
+	}
+	for _, svcRender := range curRenderset.ServiceVariables {
+		if svcRender.ServiceName == args.ServiceName {
+			curSvcRender = svcRender
+			break
+		}
+	}
+
+	curRenderset.GlobalVariables, args.ServiceRev.VariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, curRenderset.GlobalVariables, args.ServiceRev.VariableKVs, curSvcRender.OverrideYaml.RenderVaraibleKVs)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to update global variable, err: %s", err))
 	}

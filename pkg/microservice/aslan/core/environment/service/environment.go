@@ -241,7 +241,6 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 	errList := &multierror.Error{}
 	for _, arg := range args {
-
 		if len(arg.EnvName) == 0 {
 			log.Warnf("UpdateMultipleK8sEnv arg.EnvName is empty, skipped")
 			continue
@@ -279,24 +278,9 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 		for _, svc := range arg.Services {
 			strategyMap[svc.ServiceName] = svc.DeployStrategy
 
-			// validate global variable
-			var validGlobalVariableErr error
-			for _, kv := range svc.VariableKVs {
-				if kv.UseGlobalVariable {
-					if renderGlobalVaraible, ok := renderGlobalVariablesMap[kv.Key]; !ok {
-						validGlobalVariableErr = e.ErrUpdateEnv.AddDesc(fmt.Sprintf("global variable %s not defined", kv.Key))
-						errList = multierror.Append(errList, validGlobalVariableErr)
-						continue
-					} else {
-						kv.Value = renderGlobalVaraible.Value
-						kv.Type = renderGlobalVaraible.Type
-						kv.Desc = renderGlobalVaraible.Desc
-						kv.Options = renderGlobalVaraible.Options
-					}
-				}
-			}
-
-			if validGlobalVariableErr != nil {
+			err = commontypes.ValidateRenderVariables(rendersetInfo.GlobalVariables, svc.VariableKVs)
+			if err != nil {
+				errList = multierror.Append(errList, e.ErrUpdateEnv.AddErr(err))
 				continue
 			}
 
@@ -304,7 +288,6 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 				ServiceName: svc.ServiceName,
 				OverrideYaml: &templatemodels.CustomYaml{
 					// set YamlContent later
-					// YamlContent:       variableYaml,
 					RenderVaraibleKVs: svc.VariableKVs,
 				},
 			})
@@ -1345,6 +1328,7 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 		}
 	}
 
+	// FIXME: best to render yaml before create renderset
 	if err = render.CreateK8sHelmRenderSet(
 		&commonmodels.RenderSet{
 			Name:             productResp.Namespace,
@@ -2967,9 +2951,10 @@ func UpdateProductGlobalVariables(productName, envName, userName, requestID stri
 	}
 
 	opt := &commonrepo.RenderSetFindOption{
-		Name:        product.Namespace,
+		Name:        product.Render.Name,
 		EnvName:     envName,
-		ProductTmpl: productName,
+		ProductTmpl: product.Render.ProductTmpl,
+		Revision:    product.Render.Revision,
 	}
 	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil || productRenderset == nil {
@@ -3010,23 +2995,6 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		return fmt.Errorf("failed to check if product and args global variable is equal, err: %s", err)
 	}
 	if equal {
-		if err = render.CreateK8sHelmRenderSet(
-			&commonmodels.RenderSet{
-				Name:             productRenderset.Name,
-				EnvName:          productRenderset.EnvName,
-				ProductTmpl:      productRenderset.ProductTmpl,
-				UpdateBy:         userName,
-				DefaultValues:    productRenderset.DefaultValues,
-				GlobalVariables:  args,
-				YamlData:         productRenderset.YamlData,
-				ChartInfos:       productRenderset.ChartInfos,
-				ServiceVariables: productRenderset.ServiceVariables,
-			},
-			log,
-		); err != nil {
-			log.Errorf("[%s][P:%s] create renderset error: %v", productRenderset.EnvName, productRenderset.ProductTmpl, err)
-			return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
-		}
 		return nil
 	}
 
@@ -3082,13 +3050,18 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		for _, svc := range productRenderset.ServiceVariables {
 			svcVariableMap[svc.ServiceName] = svc
 		}
+
 		for _, svc := range svcSet.List() {
 			if curVariable, ok := svcVariableMap[svc]; ok {
+				curVariable.OverrideYaml.RenderVaraibleKVs = commontypes.UpdateRenderVariable(args, curVariable.OverrideYaml.RenderVaraibleKVs)
+				curVariable.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(curVariable.OverrideYaml.RenderVaraibleKVs)
+				if err != nil {
+					return fmt.Errorf("failed to convert service %s's render variables to yaml, err: %s", svc, err)
+				}
+
 				updatedSvcList = append(updatedSvcList, curVariable)
 			} else {
-				updatedSvcList = append(updatedSvcList, &templatemodels.ServiceRender{
-					ServiceName: svc,
-				})
+				log.Errorf("UNEXPECT ERROR: service %s not found in environment", svc)
 			}
 		}
 	}

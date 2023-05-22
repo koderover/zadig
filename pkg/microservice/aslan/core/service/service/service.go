@@ -660,34 +660,31 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 	return nil
 }
 
-// fillServiceVariable fill service.variableYaml and service.serviceVariableKVs by the previous revision
-// services created by [template] do not need to be filled
-// services created by [spock] will merge from extract variable and args variable, and do not need to be filled too
+// fillServiceVariable fill and merge service.variableYaml and service.serviceVariableKVs by the previous revision
 func fillServiceVariable(args *commonmodels.Service, curRevision *commonmodels.Service) error {
 	if args.Source == setting.ServiceSourceTemplate {
 		return nil
 	}
-	if args.Source == setting.SourceFromZadig {
-		extractVariableYmal, err := yamlutil.ExtractVariableYaml(args.Yaml)
-		if err != nil {
-			return fmt.Errorf("failed to extract variable yaml from service yaml, err: %w", err)
-		}
-		extractServiceVariableKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYmal, nil)
-		if err != nil {
-			return fmt.Errorf("failed to convert variable yaml to service variable kv, err: %w", err)
-		}
 
+	extractVariableYmal, err := yamlutil.ExtractVariableYaml(args.Yaml)
+	if err != nil {
+		return fmt.Errorf("failed to extract variable yaml from service yaml, err: %w", err)
+	}
+	extractServiceVariableKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYmal, nil)
+	if err != nil {
+		return fmt.Errorf("failed to convert variable yaml to service variable kv, err: %w", err)
+	}
+
+	if args.Source == setting.SourceFromZadig {
 		args.VariableYaml, args.ServiceVariableKVs, err = commontypes.MergeServiceVariableKVsIfNotExist(args.ServiceVariableKVs, extractServiceVariableKVs)
 		if err != nil {
 			return fmt.Errorf("failed to merge service variables, err %w", err)
 		}
-
-		return nil
-	}
-
-	if curRevision != nil {
-		args.VariableYaml = curRevision.VariableYaml
-		args.ServiceVariableKVs = curRevision.ServiceVariableKVs
+	} else if curRevision != nil {
+		args.VariableYaml, args.ServiceVariableKVs, err = commontypes.MergeServiceVariableKVsIfNotExist(curRevision.ServiceVariableKVs, extractServiceVariableKVs)
+		if err != nil {
+			return fmt.Errorf("failed to merge service variables, err %w", err)
+		}
 	}
 
 	return nil
