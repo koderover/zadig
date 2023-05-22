@@ -458,6 +458,13 @@ func handleK8sEnvGlobalVariables() error {
 			if err != nil {
 				return errors.Wrapf(err, "failed to update product info: %s/%s", product.ProductName, product.EnvName)
 			}
+			if product.ServiceDeployStrategy == nil {
+				product.ServiceDeployStrategy = make(map[string]string)
+				err = mongodb.NewProductColl().UpdateDeployStrategy(product.EnvName, product.ProductName, product.ServiceDeployStrategy)
+				if err != nil {
+					return errors.Wrapf(err, "failed to update product deploy info: %s/%s", product.ProductName, product.EnvName)
+				}
+			}
 		}
 	}
 
