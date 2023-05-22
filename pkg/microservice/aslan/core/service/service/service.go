@@ -685,6 +685,9 @@ func fillServiceVariable(args *commonmodels.Service, curRevision *commonmodels.S
 		if err != nil {
 			return fmt.Errorf("failed to merge service variables, err %w", err)
 		}
+	} else {
+		args.VariableYaml = extractVariableYmal
+		args.ServiceVariableKVs = extractServiceVariableKVs
 	}
 
 	return nil

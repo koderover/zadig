@@ -260,15 +260,6 @@ func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger
 			return args, nil
 		}
 		args.ServiceVariables = mergeServiceVariables(args.ServiceVariables, rs.ServiceVariables)
-
-		// @note remove comment
-		// calc global variable related service
-		// args.GlobalVariables = calcGlobalVariableRelatedService(rs, args)
-		// log.Debugf("global variable begin")
-		// for _, kv := range args.GlobalVariables {
-		// 	log.Debugf("global variable: %+v", kv)
-		// }
-		// log.Debugf("global variable end")
 	}
 	err = createRenderset(args, log)
 	return args, err

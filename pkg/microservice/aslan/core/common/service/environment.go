@@ -138,7 +138,7 @@ func latestVariables(variableKVs []*commontypes.RenderVariableKV, serviceTemplat
 		}
 		return variableKVs, yamlStr, nil
 	}
-	yamlStr, mergedVariableKVs, err := commontypes.MergeRenderAndServiceVariableKVs(variableKVs, serviceTemplate.ServiceVariableKVs)
+	yamlStr, mergedVariableKVs, err := commontypes.MergeRenderAndServiceTemplateVariableKVs(variableKVs, serviceTemplate.ServiceVariableKVs)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to merge render and service variableKVs, err: %s", err)
 	}
