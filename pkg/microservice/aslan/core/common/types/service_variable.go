@@ -205,6 +205,25 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 	return retKV, nil
 }
 
+func transferServiceVariable(render, template *ServiceVariableKV) *ServiceVariableKV {
+	if render == nil {
+		return template
+	}
+	if template == nil {
+		return render
+	}
+
+	ret := &ServiceVariableKV{}
+	if render.Type != template.Type {
+		ret = template
+	} else {
+		ret = template
+		ret.Value = render.Value
+	}
+
+	return ret
+}
+
 func MergeServiceVariableKVsIfNotExist(base, override []*ServiceVariableKV) (yaml string, kvs []*ServiceVariableKV, err error) {
 	KVSet := sets.NewString()
 	for _, kv := range base {
@@ -290,7 +309,16 @@ func MergeRenderAndServiceVariableKVs(render []*RenderVariableKV, serivce []*Ser
 				UseGlobalVariable: false,
 			})
 		} else {
-			ret = append(ret, renderKV)
+			if renderKV.UseGlobalVariable {
+				ret = append(ret, renderKV)
+			} else {
+				newKV := transferServiceVariable(&renderKV.ServiceVariableKV, kv)
+				transferedKV := &RenderVariableKV{
+					ServiceVariableKV: *newKV,
+					UseGlobalVariable: false,
+				}
+				ret = append(ret, transferedKV)
+			}
 		}
 	}
 
@@ -319,42 +347,6 @@ func GlobalVariableKVToYaml(kvs []*GlobalVariableKV) (string, error) {
 
 	return ServiceVariableKVToYaml(serviceVariableKVs)
 }
-
-// @todo remove
-// update the global variable kvs base on the render variable kvs
-// func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, renderVariables []*RenderVariableKV) ([]*GlobalVariableKV, []*RenderVariableKV, error) {
-// 	globalVariableMap := map[string]*GlobalVariableKV{}
-// 	for _, kv := range globalVariables {
-// 		globalVariableMap[kv.Key] = kv
-// 	}
-
-// 	for _, kv := range renderVariables {
-// 		globalVariableKV, ok := globalVariableMap[kv.Key]
-// 		if !ok {
-// 			// global variable not exist
-// 			if kv.UseGlobalVariable {
-// 				return nil, nil, fmt.Errorf("referenced global variable not exist, key: %s", kv.Key)
-// 			}
-// 		} else {
-// 			// global variable exist
-// 			relatedServiceSet := sets.NewString(globalVariableKV.RelatedServices...)
-// 			if kv.UseGlobalVariable {
-// 				relatedServiceSet = relatedServiceSet.Insert(serviceName)
-// 				globalVariableKV.RelatedServices = relatedServiceSet.List()
-// 			} else {
-// 				relatedServiceSet = relatedServiceSet.Delete(serviceName)
-// 				globalVariableKV.RelatedServices = relatedServiceSet.List()
-// 			}
-// 		}
-// 	}
-
-// 	retGlobalVariables := []*GlobalVariableKV{}
-// 	for _, kv := range globalVariableMap {
-// 		retGlobalVariables = append(retGlobalVariables, kv)
-// 	}
-
-// 	return retGlobalVariables, renderVariables, nil
-// }
 
 func ValidateGlobalVariables(globalVariablesDefine []*ServiceVariableKV, globalVariables []*GlobalVariableKV) bool {
 	globalVariableMap := map[string]*ServiceVariableKV{}
