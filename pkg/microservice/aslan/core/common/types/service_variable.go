@@ -498,3 +498,35 @@ func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariab
 
 	return retGlobalVariables, argVariables, nil
 }
+
+func UpdateRenderVariable(global []*GlobalVariableKV, render []*RenderVariableKV) []*RenderVariableKV {
+	globalMap := map[string]*GlobalVariableKV{}
+	for _, kv := range global {
+		globalMap[kv.Key] = kv
+	}
+
+	ret := []*RenderVariableKV{}
+	for _, kv := range render {
+		if globalKV, ok := globalMap[kv.Key]; ok {
+			if kv.UseGlobalVariable {
+				retKV := &RenderVariableKV{
+					ServiceVariableKV: ServiceVariableKV{
+						Key:     globalKV.Key,
+						Value:   globalKV.Value,
+						Type:    globalKV.Type,
+						Options: globalKV.Options,
+						Desc:    globalKV.Desc,
+					},
+					UseGlobalVariable: true,
+				}
+				ret = append(ret, retKV)
+			} else {
+				ret = append(ret, kv)
+			}
+		} else {
+			ret = append(ret, kv)
+		}
+	}
+
+	return ret
+}

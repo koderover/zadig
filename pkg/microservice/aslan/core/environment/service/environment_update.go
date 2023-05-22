@@ -379,6 +379,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		}
 	}
 
+	// FIXME: best to render yaml before create renderset
 	renderSet, err := render.CreateRenderSetByMerge(
 		&commonmodels.RenderSet{
 			Name:             exitedProd.Namespace,
