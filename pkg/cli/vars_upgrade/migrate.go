@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"gorm.io/gorm/utils"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 
 	template3 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
@@ -59,6 +61,7 @@ var allTestServices map[string]*models.Service
 // 查出所有被使用的服务信息
 // 查出所有项目的默认 renderset信息
 func prepareData() error {
+
 	var err error
 	k8sProjects, err = template.NewProductColl().ListWithOption(&template.ProductListOpt{
 		DeployType:    setting.K8SDeployType,
@@ -275,7 +278,7 @@ func generateGlobalVariableKVSFromOriginalKV(renderset *models.RenderSet) ([]*ty
 		if kv.Key == "NODE_AFFINITY_KEY" || kv.Key == "NODE_AFFINITY_VALUE" {
 			handledSpecialKeys.Insert("NODE_AFFINITY_KEY", "NODE_AFFINITY_VALUE")
 			yamlMap["NODE_AFFINITY"] = []map[string]interface{}{
-				{"KEY": getValueFromKVListByKey("NODE_AFFINITY_KEY", svcKVMap), "VALUES": getValueFromKVListByKey("NODE_AFFINITY_VALUE", svcKVMap)},
+				{"KEY": getValueFromKVListByKey("NODE_AFFINITY_KEY", svcKVMap), "VALUES": []string{getValueFromKVListByKey("NODE_AFFINITY_VALUE", svcKVMap).(string)}},
 			}
 		} else if kv.Key == "TOLERATION_KEY" || kv.Key == "TOLERATION_VALUE" {
 			handledSpecialKeys.Insert("TOLERATION_KEY", "TOLERATION_VALUE")
@@ -503,6 +506,8 @@ func handleTemplates() error {
 	return nil
 }
 
+var SpecialKeys []string = []string{"NODE_AFFINITY_KEY", "NODE_AFFINITY_VALUE", "TOLERATION_KEY", "TOLERATION_VALUE"}
+
 // 对于从模板创建并强管理的服务，自动同步，服务版本 + 1，但是不应用到环境
 func syncTemplateSvcs() error {
 	templateMap = make(map[string]*models.YamlTemplate)
@@ -551,6 +556,15 @@ func syncTemplateSvcs() error {
 			if !write {
 				continue
 			}
+
+			cleanVariables := make([]*types.ServiceVariableKV, 0)
+			for _, kv := range tmpSvc.ServiceVariableKVs {
+				if utils.Contains(SpecialKeys, kv.Key) {
+					continue
+				}
+				cleanVariables = append(cleanVariables, kv)
+			}
+			tmpSvc.ServiceVariableKVs = cleanVariables
 
 			// 重新从模板reload服务
 			err = service.ReloadServiceFromYamlTemplateWithMerge(tmpSvc.CreateBy, tmpSvc.ProductName, yamlTemplate, tmpSvc)
