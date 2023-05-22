@@ -174,6 +174,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 			}
 		}
 		option := &kube.GeneSvcYamlOption{ProductName: env.ProductName, EnvName: c.jobTaskSpec.Env, ServiceName: c.jobTaskSpec.ServiceName, UpdateServiceRevision: updateRevision, VariableYaml: varsYaml, Containers: containers}
+		c.logger.Infof("generate service yaml option: %+v", option)
 		updatedYaml, revision, resources, err := kube.GenerateRenderedYaml(option)
 		if err != nil {
 			msg := fmt.Sprintf("generate service yaml error: %v", err)

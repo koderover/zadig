@@ -546,6 +546,8 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		return "", 0, nil, err
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+	log.Infof("fullRenderedYaml is: %s", fullRenderedYaml)
+
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, err
@@ -558,7 +560,6 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 		return originYaml, nil
 	}
 	variableYaml := extractValidSvcVariable(serviceName, rs)
-	log.Debugf("variableYaml: %s", variableYaml)
 	return commonutil.RenderK8sSvcYamlStrict(originYaml, productName, serviceName, variableYaml)
 }
 
