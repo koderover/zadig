@@ -21,6 +21,8 @@ import (
 	"time"
 )
 
+const TIME_TEMPLATE = "2006-01-02T15:04:05.99999999Z"
+
 // Age returns a string representing the time elapsed since unixTime in the form "1d", "2h", "3m", or "4s".
 func Age(unixTime int64) string {
 	duration := time.Now().Unix() - unixTime
@@ -66,4 +68,12 @@ func GetDailyStartTimestamps(startTimestamp, endTimestamp int64) []int64 {
 	dailyStartTimestamps[numDays+1] = endTimestamp + 24*60*60
 
 	return dailyStartTimestamps
+}
+
+func ConvertStrTimeToTimestamp(timeStr string) (int64, error) {
+	stamp, err := time.ParseInLocation(TIME_TEMPLATE, timeStr, time.Local)
+	if err != nil {
+		return 0, err
+	}
+	return stamp.Unix(), nil
 }
