@@ -357,6 +357,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 						if !ok {
 							// deploy new variable
 							filterdKV = append(filterdKV, jobKV)
+							continue
 						}
 						// deploy existed variable
 						if svcKV.UseGlobalVariable {

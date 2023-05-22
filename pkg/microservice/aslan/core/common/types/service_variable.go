@@ -530,3 +530,24 @@ func UpdateRenderVariable(global []*GlobalVariableKV, render []*RenderVariableKV
 
 	return ret
 }
+
+func ClipRenderVariableKVs(template []*ServiceVariableKV, render []*RenderVariableKV) (yaml string, kvs []*RenderVariableKV, err error) {
+	templateSet := sets.NewString()
+	for _, kv := range template {
+		templateSet.Insert(kv.Key)
+	}
+
+	ret := []*RenderVariableKV{}
+	for _, kv := range render {
+		if templateSet.Has(kv.Key) {
+			ret = append(ret, kv)
+		}
+	}
+
+	yaml, err = RenderVariableKVToYaml(ret)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to convert render variable kv to yaml, err: %w", err)
+	}
+
+	return yaml, ret, nil
+}
