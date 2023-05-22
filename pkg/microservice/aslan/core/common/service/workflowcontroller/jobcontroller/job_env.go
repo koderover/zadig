@@ -178,6 +178,9 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		productInfo.Render.Revision = curRenderset.Revision
 		log.Infof("UpdateServiceRevision : %v, sevOnline: %v, variableYamlNil %v, serviceName: %s", deployInfo.UpdateServiceRevision, sevOnline, variableYamlNil(deployInfo.VariableYaml), deployInfo.ServiceName)
 		if deployInfo.UpdateServiceRevision || sevOnline || !variableYamlNil(deployInfo.VariableYaml) {
+			if productInfo.ServiceDeployStrategy == nil {
+				productInfo.ServiceDeployStrategy = make(map[string]string)
+			}
 			productInfo.ServiceDeployStrategy[deployInfo.ServiceName] = setting.ServiceDeployStrategyDeploy
 		}
 	} else {
