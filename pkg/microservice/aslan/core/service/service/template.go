@@ -230,6 +230,12 @@ func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.Sugar
 	if err != nil {
 		return err
 	}
+	productionServiceList, err := commonrepo.NewProductionServiceColl().GetYamlTemplateReference(templateId)
+	if err != nil {
+		return err
+	}
+
+	// serviceList = append(serviceList, productionServiceList...)
 	servicesByProject := make(map[string][]*commonmodels.Service)
 	for _, service := range serviceList {
 		if !service.AutoSync {
@@ -237,6 +243,14 @@ func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.Sugar
 		}
 		servicesByProject[service.ProductName] = append(servicesByProject[service.ProductName], service)
 	}
+	productionServicesByProject := make(map[string][]*commonmodels.Service)
+	for _, service := range productionServiceList {
+		if !service.AutoSync {
+			continue
+		}
+		productionServicesByProject[service.ProductName] = append(productionServicesByProject[service.ProductName], service)
+	}
+
 	yamlTemplate, err := commonrepo.NewYamlTemplateColl().GetById(templateId)
 	if err != nil {
 		return fmt.Errorf("failed to find yaml template: %s, err: %s", templateId, err)
@@ -244,10 +258,22 @@ func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.Sugar
 	for _, services := range servicesByProject {
 		go func(pServices []*commonmodels.Service) {
 			for _, service := range pServices {
-				err := reloadServiceFromYamlTemplate(userName, service.ProductName, yamlTemplate, service)
+				err := reloadServiceFromYamlTemplate(userName, service.ProductName, yamlTemplate, service, false)
 				if err != nil {
 					logger.Error(err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
+					notify.SendErrorMessage(userName, title, "", err, logger)
+				}
+			}
+		}(services)
+	}
+	for _, services := range productionServicesByProject {
+		go func(pServices []*commonmodels.Service) {
+			for _, service := range pServices {
+				err := reloadServiceFromYamlTemplate(userName, service.ProductName, yamlTemplate, service, true)
+				if err != nil {
+					logger.Error(err)
+					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 生产服务失败", service.ProductName, service.ServiceName)
 					notify.SendErrorMessage(userName, title, "", err, logger)
 				}
 			}
@@ -430,12 +456,15 @@ func reloadProductionServiceFromYamlTemplateImpl(userName, projectName string, t
 	return nil
 }
 
-func reloadServiceFromYamlTemplate(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service) error {
+func reloadServiceFromYamlTemplate(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service, production bool) error {
 	// merge service variable and yaml variable
 	variableYaml, kvs, err := buildYamlTemplateVariables(service, template)
 	if err != nil {
 		return err
 	}
 
+	if production {
+		return reloadProductionServiceFromYamlTemplateImpl(userName, projectName, template, service, variableYaml, kvs)
+	}
 	return reloadServiceFromYamlTemplateImpl(userName, projectName, template, service, variableYaml, kvs)
 }

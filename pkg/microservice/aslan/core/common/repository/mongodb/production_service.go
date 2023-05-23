@@ -39,24 +39,11 @@ type ProductionServiceColl struct {
 }
 
 func NewProductionServiceColl() *ProductionServiceColl {
-	name := models.ProductionService{}.TableName()
+	name := "production_template_service"
 	return &ProductionServiceColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
-}
-
-type ProductionServiceFindOption struct {
-	ServiceName         string
-	Revision            int64
-	Type                string
-	Source              string
-	ProductName         string
-	ExcludeStatus       string
-	CodehostID          int
-	RepoName            string
-	BranchName          string
-	IgnoreNoDocumentErr bool
 }
 
 func (c *ProductionServiceColl) EnsureIndex(ctx context.Context) error {
@@ -95,6 +82,41 @@ func (c *ProductionServiceColl) Delete(serviceName, productName, status string, 
 	}
 
 	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}
+
+type ProductionServiceDeleteOption struct {
+	ServiceName string
+	ProductName string
+	Type        string
+	Status      string
+	Revision    int64
+}
+
+func (c *ProductionServiceColl) DeleteByOptions(opts ProductionServiceDeleteOption) error {
+	query := bson.M{}
+	if opts.ServiceName != "" {
+		query["service_name"] = opts.ServiceName
+	}
+	if opts.Type != "" {
+		query["type"] = opts.Type
+	}
+	if opts.ProductName != "" {
+		query["product_name"] = opts.ProductName
+	}
+	if opts.Revision != 0 {
+		query["revision"] = opts.Revision
+	}
+	if opts.Status != "" {
+		query["status"] = opts.Status
+	}
+
+	if len(query) == 0 {
+		return nil
+	}
+
+	_, err := c.DeleteMany(context.TODO(), query)
+
 	return err
 }
 
@@ -301,4 +323,23 @@ func (c *ProductionServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]
 	}
 
 	return resp, nil
+}
+
+func (c *ProductionServiceColl) GetYamlTemplateReference(templateID string) ([]*models.Service, error) {
+	services := make([]*models.Service, 0)
+	query := bson.M{
+		"status":      bson.M{"$ne": setting.ProductStatusDeleting},
+		"source":      setting.ServiceSourceTemplate,
+		"template_id": templateID,
+	}
+
+	cursor, err := c.Collection.Find(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &services)
+	if err != nil {
+		return nil, err
+	}
+	return services, nil
 }

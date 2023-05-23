@@ -799,7 +799,13 @@ func CreateProductionServiceTemplate(userName string, args *commonmodels.Service
 		return nil, e.ErrValidateTemplate.AddDesc(err.Error())
 	}
 
-	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, args.Revision); err != nil {
+	if err := commonrepo.NewProductionServiceColl().DeleteByOptions(commonrepo.ProductionServiceDeleteOption{
+		ServiceName: args.ServiceName,
+		Type:        args.Type,
+		ProductName: args.ProductName,
+		Revision:    args.Revision,
+		Status:      setting.ProductStatusDeleting,
+	}); err != nil {
 		log.Errorf("ProductionServiceTmpl.delete %s error: %v", args.ServiceName, err)
 	}
 
@@ -812,10 +818,10 @@ func CreateProductionServiceTemplate(userName string, args *commonmodels.Service
 	if notFoundErr != nil {
 		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
 			//获取项目里面的所有服务
-			if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceName) {
-				productTempl.Services[0] = append(productTempl.Services[0], args.ServiceName)
+			if len(productTempl.ProductionServices) > 0 && !sets.NewString(productTempl.ProductionServices[0]...).Has(args.ServiceName) {
+				productTempl.ProductionServices[0] = append(productTempl.ProductionServices[0], args.ServiceName)
 			} else {
-				productTempl.Services = [][]string{{args.ServiceName}}
+				productTempl.ProductionServices = [][]string{{args.ServiceName}}
 			}
 			//更新项目模板
 			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
