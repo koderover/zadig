@@ -98,7 +98,7 @@ func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	// 5.22 JQL only support {{.System.USERNAME}} variable
+	// 5.22 JQL only support {{.system.username}} variable
 	// refactor if more variables are needed
 	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Query("project"), strings.ReplaceAll(c.Query("jql"), "{{.system.username}}", ctx.UserName), c.Query("summary"))
 }
