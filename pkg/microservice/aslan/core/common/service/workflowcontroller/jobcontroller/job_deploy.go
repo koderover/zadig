@@ -154,7 +154,9 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
 			updateRevision = true
 		}
+
 		varsYaml := ""
+		varKVs := []*commontypes.RenderVariableKV{}
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
 			varsYaml, err = commontypes.RenderVariableKVToYaml(c.jobTaskSpec.VariableKVs)
 			if err != nil {
@@ -162,6 +164,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 				logError(c.job, msg, c.logger)
 				return errors.New(msg)
 			}
+			varKVs = c.jobTaskSpec.VariableKVs
 		}
 		containers := []*commonmodels.Container{}
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
@@ -173,8 +176,16 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 				})
 			}
 		}
-		option := &kube.GeneSvcYamlOption{ProductName: env.ProductName, EnvName: c.jobTaskSpec.Env, ServiceName: c.jobTaskSpec.ServiceName, UpdateServiceRevision: updateRevision, VariableYaml: varsYaml, Containers: containers}
-		c.logger.Infof("generate service yaml option: %+v", option)
+
+		option := &kube.GeneSvcYamlOption{
+			ProductName:           env.ProductName,
+			EnvName:               c.jobTaskSpec.Env,
+			ServiceName:           c.jobTaskSpec.ServiceName,
+			UpdateServiceRevision: updateRevision,
+			VariableYaml:          varsYaml,
+			VariableKVs:           varKVs,
+			Containers:            containers,
+		}
 		updatedYaml, revision, resources, err := kube.GenerateRenderedYaml(option)
 		if err != nil {
 			msg := fmt.Sprintf("generate service yaml error: %v", err)
@@ -183,12 +194,14 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		}
 		c.jobTaskSpec.YamlContent = updatedYaml
 		c.ack()
+
 		currentYaml, _, err := kube.FetchCurrentAppliedYaml(option)
 		if err != nil {
 			msg := fmt.Sprintf("get current service yaml error: %v", err)
 			logError(c.job, msg, c.logger)
 			return errors.New(msg)
 		}
+
 		// if not only deploy image, we will redeploy service
 		if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
 			if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, updateRevision); err != nil {
@@ -204,6 +217,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		}
 		return nil
 	}
+
 	// get servcie info
 	var (
 		serviceInfo *commonmodels.Service

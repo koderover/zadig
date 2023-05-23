@@ -1472,21 +1472,18 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		}
 
 		var err error
-		args.RenderedYaml, err = commonutil.RenderK8sSvcYamlStrict(args.RenderedYaml, args.ProductName, args.ServiceName, args.VariableYaml)
+		args.RenderedYaml, err = commonutil.RenderK8sSvcYaml(args.RenderedYaml, args.ProductName, args.ServiceName, args.VariableYaml)
 		if err != nil {
 			return fmt.Errorf("failed to render yaml, err: %s", err)
 		}
 
-		// Only the gerrit/spock/external type needs to be processed by yaml
-		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig || args.Source == setting.SourceFromExternal || args.Source == setting.ServiceSourceTemplate || args.Source == setting.SourceFromGitee {
-			// 拆分 all-in-one yaml文件
-			// 替换分隔符
-			args.Yaml = util.ReplaceWrapLine(args.Yaml)
-			args.RenderedYaml = util.ReplaceWrapLine(args.RenderedYaml)
+		// 拆分 all-in-one yaml文件
+		// 替换分隔符
+		args.Yaml = util.ReplaceWrapLine(args.Yaml)
+		args.RenderedYaml = util.ReplaceWrapLine(args.RenderedYaml)
 
-			// 分隔符为\n---\n
-			args.KubeYamls = util.SplitYaml(args.RenderedYaml)
-		}
+		// 分隔符为\n---\n
+		args.KubeYamls = util.SplitYaml(args.RenderedYaml)
 
 		// since service may contain go-template grammar, errors may occur when parsing as k8s workloads
 		// errors will only be logged here

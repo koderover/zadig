@@ -40,6 +40,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -49,7 +50,6 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
-	zadigyamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type GeneSvcYamlOption struct {
@@ -58,6 +58,7 @@ type GeneSvcYamlOption struct {
 	ServiceName           string
 	UpdateServiceRevision bool
 	VariableYaml          string
+	VariableKVs           []*commontypes.RenderVariableKV
 	UnInstall             bool
 	Containers            []*models.Container
 }
@@ -418,8 +419,6 @@ func variableYamlNil(variableYaml string) bool {
 	return len(kvMap) == 0
 }
 
-// render can only use variable yaml, don't need variable kvs for now
-//
 // GenerateRenderedYaml generates full yaml of some service defined in Zadig (images not included)
 // and returns the service yaml, used service revision
 func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadResource, error) {
@@ -505,20 +504,22 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		curContainers = curProductSvc.Containers
 	}
 
-	serviceVariableYaml := ""
+	renderVariableKVs := []*commontypes.RenderVariableKV{}
 	serviceRender := usedRenderset.GetServiceRenderMap()[option.ServiceName]
 	if serviceRender != nil && serviceRender.OverrideYaml != nil {
-		serviceVariableYaml = serviceRender.OverrideYaml.YamlContent
+		renderVariableKVs = serviceRender.OverrideYaml.RenderVaraibleKVs
 	}
 
-	mergedBs, err := zadigyamlutil.Merge([][]byte{[]byte(latestSvcTemplate.VariableYaml), []byte(serviceVariableYaml), []byte(option.VariableYaml)})
+	// merge service template, renderset and opton variables
+	templVariableKV := commontypes.ServiceToRenderVariableKVs(latestSvcTemplate.ServiceVariableKVs)
+	mergedYaml, _, err := commontypes.MergeRenderVariableKVs(templVariableKV, renderVariableKVs, option.VariableKVs)
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
 	}
 	usedRenderset.ServiceVariables = []*template.ServiceRender{{
 		ServiceName: option.ServiceName,
 		OverrideYaml: &template.CustomYaml{
-			YamlContent: string(mergedBs),
+			YamlContent: mergedYaml,
 		},
 	}}
 

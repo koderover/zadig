@@ -398,7 +398,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
-	newVariable, err := commontypes.RenderVariableKVToYaml(args.VariableKVs)
+	newVariableYaml, err := commontypes.RenderVariableKVToYaml(args.VariableKVs)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
@@ -413,12 +413,11 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		EnvName:               args.EnvName,
 		ServiceName:           args.ServiceName,
 		UpdateServiceRevision: args.UpdateServiceRevision,
-		VariableYaml:          newVariable,
 	})
 	if err != nil {
 		curYaml = ""
 		log.Errorf("failed to fetch current applied yaml, productName: %s envName: %s serviceName: %s, updateSvcRevision: %v, variableYaml: %s err: %s",
-			args.ProductName, args.EnvName, args.ServiceName, args.UpdateServiceRevision, newVariable, err)
+			args.ProductName, args.EnvName, args.ServiceName, args.UpdateServiceRevision, newVariableYaml, err)
 	}
 
 	// for situations only update images, replace images directly
@@ -437,7 +436,8 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		EnvName:               args.EnvName,
 		ServiceName:           args.ServiceName,
 		UpdateServiceRevision: args.UpdateServiceRevision,
-		VariableYaml:          newVariable,
+		VariableYaml:          newVariableYaml,
+		VariableKVs:           args.VariableKVs,
 		Containers:            args.ServiceModules,
 	})
 	if err != nil {
