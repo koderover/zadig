@@ -234,7 +234,7 @@ func GetK8sWorkflowDetail(c *gin.Context) {
 // @Param 	projectName		query		string									true	"project name"
 // @Param 	body 			body 		service.K8sDeployStatusCheckRequest 	true 	"body"
 // @Success 200 			{array}  	service.ServiceDeployStatus
-// @Router /environment/kube/k8s/resources [post]
+// @Router /api/aslan/environment/kube/k8s/resources [post]
 func GetResourceDeployStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -54,7 +54,7 @@ func GetServiceRenderCharts(c *gin.Context) {
 // @Param 	envName		query		string										false	"env name"
 // @Param 	serviceName	query		string										true	"service name"
 // @Success 200 		{array} 	commonservice.K8sSvcRenderArg
-// @Router /environment/rendersets/variables [get]
+// @Router /api/aslan/environment/rendersets/variables [get]
 func GetServiceVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -76,7 +76,7 @@ func GetServiceVariables(c *gin.Context) {
 // @Param 	name		path		string										true	"env name"
 // @Param 	serviceName	path		string										true	"service name"
 // @Success 200 		{array} 	commonservice.K8sSvcRenderArg
-// @Router /environments/{name}/services/{serviceName}/variables [get]
+// @Router /api/aslan/environments/{name}/services/{serviceName}/variables [get]
 func GetProductionVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -147,7 +147,7 @@ type getGlobalVariablesRespone struct {
 // @Param 	projectName	query		string										true	"project name"
 // @Param 	envName 	query		string										true	"env name"
 // @Success 200 		{object} 	getGlobalVariablesRespone
-// @Router /environment/rendersets/globalVariables [get]
+// @Router /api/aslan/environment/rendersets/globalVariables [get]
 func GetGlobalVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

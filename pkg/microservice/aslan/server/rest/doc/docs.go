@@ -22,7 +22,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/collaboration/collaborations/sync": {
+        "/api/aslan/collaboration/collaborations/sync": {
             "post": {
                 "description": "Sync Collaboration Instance",
                 "consumes": [
@@ -60,7 +60,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environment/environments": {
+        "/api/aslan/environment/environments": {
             "put": {
                 "description": "Update Multi products",
                 "consumes": [
@@ -199,7 +199,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environment/environments/{name}/globalVariableCandidates": {
+        "/api/aslan/environment/environments/{name}/globalVariableCandidates": {
             "get": {
                 "description": "Get global variable candidates",
                 "consumes": [
@@ -241,7 +241,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environment/environments/{name}/k8s/globalVariables": {
+        "/api/aslan/environment/environments/{name}/k8s/globalVariables": {
             "put": {
                 "description": "Update global variables",
                 "consumes": [
@@ -286,7 +286,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environment/environments/{name}/services": {
+        "/api/aslan/environment/environments/{name}/services": {
             "get": {
                 "description": "List services in env",
                 "consumes": [
@@ -368,7 +368,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environment/environments/{name}/services/{serviceName}": {
+        "/api/aslan/environment/environments/{name}/services/{serviceName}": {
             "put": {
                 "description": "Update service",
                 "consumes": [
@@ -420,7 +420,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environment/environments/{name}/services/{serviceName}/preview": {
+        "/api/aslan/environment/environments/{name}/services/{serviceName}/preview": {
             "post": {
                 "description": "Preview service",
                 "consumes": [
@@ -475,7 +475,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environment/init_info/{name}": {
+        "/api/aslan/environment/init_info/{name}": {
             "get": {
                 "description": "Get init product",
                 "consumes": [
@@ -528,7 +528,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environment/kube/k8s/resources": {
+        "/api/aslan/environment/kube/k8s/resources": {
             "post": {
                 "description": "Get Resource Deploy Status",
                 "consumes": [
@@ -572,7 +572,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environment/production/environments/{name}/servicesForUpdate": {
+        "/api/aslan/environment/production/environments/{name}/servicesForUpdate": {
             "get": {
                 "description": "List services in production env",
                 "consumes": [
@@ -611,7 +611,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environment/rendersets/globalVariables": {
+        "/api/aslan/environment/rendersets/globalVariables": {
             "get": {
                 "description": "Get global variable from environment, current only used for k8s project",
                 "consumes": [
@@ -650,7 +650,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environment/rendersets/variables": {
+        "/api/aslan/environment/rendersets/variables": {
             "get": {
                 "description": "Get service variables",
                 "consumes": [
@@ -698,7 +698,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/environments/{name}/services/{serviceName}/variables": {
+        "/api/aslan/environments/{name}/services/{serviceName}/variables": {
             "get": {
                 "description": "Get production service variables",
                 "consumes": [
@@ -747,7 +747,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/placeholder/deploy_job_spec": {
+        "/api/aslan/placeholder/deploy_job_spec": {
             "post": {
                 "description": "[DONT USE] ZadigDeployJobSpec",
                 "consumes": [
@@ -778,7 +778,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/project/products/{name}/globalVariableCandidates": {
+        "/api/aslan/project/products/{name}/globalVariableCandidates": {
             "get": {
                 "description": "Get global variable candidates",
                 "consumes": [
@@ -813,7 +813,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/project/products/{name}/globalVariables": {
+        "/api/aslan/project/products/{name}/globalVariables": {
             "get": {
                 "description": "Get global variables",
                 "consumes": [
@@ -884,7 +884,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/service/services": {
+        "/api/aslan/service/services": {
             "post": {
                 "description": "Create service template",
                 "consumes": [
@@ -925,7 +925,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/service/services/variable/convert": {
+        "/api/aslan/service/services/variable/convert": {
             "post": {
                 "description": "convert varaible kv and yaml",
                 "consumes": [
@@ -959,7 +959,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/service/services/{name}/environments/deployable": {
+        "/api/aslan/service/services/{name}/environments/deployable": {
             "get": {
                 "description": "Get Deployable Envs",
                 "consumes": [
@@ -998,7 +998,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/service/services/{name}/variable": {
+        "/api/aslan/service/services/{name}/variable": {
             "put": {
                 "description": "Update service varaible",
                 "consumes": [
@@ -1043,7 +1043,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/service/template/load": {
+        "/api/aslan/service/template/load": {
             "post": {
                 "description": "Load service from yaml template",
                 "consumes": [
@@ -1074,7 +1074,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/service/template/reload": {
+        "/api/aslan/service/template/reload": {
             "post": {
                 "description": "Reload service from yaml template",
                 "consumes": [
@@ -1105,7 +1105,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/template/yaml": {
+        "/api/aslan/template/yaml": {
             "post": {
                 "description": "Create yaml template",
                 "consumes": [
@@ -1136,7 +1136,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/template/yaml/validateVariable": {
+        "/api/aslan/template/yaml/validateVariable": {
             "post": {
                 "description": "Validate template varaibles",
                 "consumes": [
@@ -1167,7 +1167,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/template/yaml/{id}": {
+        "/api/aslan/template/yaml/{id}": {
             "get": {
                 "description": "Get yaml template detail",
                 "consumes": [
@@ -1235,7 +1235,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/template/yaml/{id}/variable": {
+        "/api/aslan/template/yaml/{id}/variable": {
             "put": {
                 "description": "Update yaml template variable",
                 "consumes": [
@@ -1273,7 +1273,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/workflow/v4/filterEnv": {
+        "/api/aslan/workflow/v4/filterEnv": {
             "post": {
                 "description": "Get filtered env services",
                 "consumes": [
@@ -1306,6 +1306,68 @@ const docTemplate = `{
                                 "$ref": "#/definitions/models.DeployService"
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/openapi/projects/project/init/yaml": {
+            "post": {
+                "description": "OpenAPI Initialize Yaml Project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI Initialize Yaml Project",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.OpenAPIInitializeProjectReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/openapi/service/template/load/yaml": {
+            "post": {
+                "description": "OpenAPI Load Service From Yaml Template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI Load Service From Yaml Template",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.OpenAPILoadServiceFromYamlTemplateReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
                     }
                 }
             }
@@ -2361,6 +2423,20 @@ const docTemplate = `{
                 }
             }
         },
+        "service.EnvDefinition": {
+            "type": "object",
+            "properties": {
+                "cluster_name": {
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
         "service.EnvServices": {
             "type": "object",
             "properties": {
@@ -2513,6 +2589,58 @@ const docTemplate = `{
                 },
                 "variable_yaml": {
                     "type": "string"
+                }
+            }
+        },
+        "service.OpenAPIInitializeProjectReq": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "env_list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.EnvDefinition"
+                    }
+                },
+                "is_public": {
+                    "type": "boolean"
+                },
+                "project_key": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "service_list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.ServiceDefinition"
+                    }
+                }
+            }
+        },
+        "service.OpenAPILoadServiceFromYamlTemplateReq": {
+            "type": "object",
+            "properties": {
+                "auto_sync": {
+                    "type": "boolean"
+                },
+                "project_key": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "template_name": {
+                    "type": "string"
+                },
+                "variable_yaml": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/util.KeyValue"
+                    }
                 }
             }
         },
@@ -2707,6 +2835,32 @@ const docTemplate = `{
                     "$ref": "#/definitions/service.DeployStatus"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ServiceDefinition": {
+            "type": "object",
+            "properties": {
+                "auto_sync": {
+                    "type": "boolean"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "template_name": {
+                    "type": "string"
+                },
+                "variable_yaml": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/util.KeyValue"
+                    }
+                },
+                "yaml": {
                     "type": "string"
                 }
             }
@@ -3179,6 +3333,15 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "util.KeyValue": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {}
+            }
         }
     }
 }`
@@ -3187,7 +3350,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "",
-	BasePath:         "/api/aslan",
+	BasePath:         "",
 	Schemes:          []string{},
 	Title:            "Zadig aslan service REST APIs",
 	Description:      "The API doc is targeting for Zadig developers rather than Zadig users.\nThe majority of these APIs are not designed for public use, there is no guarantee on version compatibility.\nPlease reach out to contact@koderover.com before you decide to depend on these APIs directly.",
