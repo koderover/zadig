@@ -56,6 +56,7 @@ type CustomTheme struct {
 	ProjectItemIconColor     string `bson:"project_item_icon_color" json:"project_item_icon_color"`
 	ProjectNameColor         string `bson:"project_name_color" json:"project_name_color"`
 	TableCellBackgroundColor string `bson:"table_cell_background_color" json:"table_cell_background_color"`
+	LinkColor                string `bson:"link_color" json:"link_color"`
 }
 
 func (SystemSetting) TableName() string {
