@@ -55,18 +55,20 @@ func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadService
 		return err
 	}
 
-	variableYaml, err := req.VariableYaml.FormYamlString()
+	mergedYaml, mergedKVs, err := commonutil.MergeServiceVariableKVsAndKVInput(template.ServiceVariableKVs, req.VariableYaml)
 	if err != nil {
-		logger.Errorf("Failed to form yaml string, the error is: %s", err)
-		return err
+		return fmt.Errorf("failed to merge variable yaml, the error is: %s", err)
 	}
+
 	loadArgs := &LoadServiceFromYamlTemplateReq{
-		ProjectName:  req.ProjectKey,
-		ServiceName:  req.ServiceName,
-		TemplateID:   template.ID.Hex(),
-		AutoSync:     req.AutoSync,
-		VariableYaml: variableYaml,
+		ProjectName:        req.ProjectKey,
+		ServiceName:        req.ServiceName,
+		TemplateID:         template.ID.Hex(),
+		AutoSync:           req.AutoSync,
+		VariableYaml:       mergedYaml,
+		ServiceVariableKVs: mergedKVs,
 	}
+
 	return LoadServiceFromYamlTemplate(username, loadArgs, force, logger)
 }
 

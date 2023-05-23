@@ -27,13 +27,13 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// @note MAY NOT support multi variableYamls, need to check
+// @fixme MAY NOT support multi variableYamls, need to check
 // won't return error if template key is missing values
 func RenderK8sSvcYaml(originYaml, productName, serviceName string, variableYamls ...string) (string, error) {
 	return renderK8sSvcYamlImpl(originYaml, productName, serviceName, "", variableYamls...)
 }
 
-// @note MAY NOT support multi variableYamls, need to check
+// @fixme MAY NOT support multi variableYamls, need to check
 // will return error if template key is missing values
 func RenderK8sSvcYamlStrict(originYaml, productName, serviceName string, variableYamls ...string) (string, error) {
 	return renderK8sSvcYamlImpl(originYaml, productName, serviceName, "missingkey=error", variableYamls...)

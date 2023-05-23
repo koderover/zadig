@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -211,4 +212,33 @@ func FilterKV(varKV *commonmodels.VariableKV, keySet sets.String) bool {
 		return true
 	}
 	return false
+}
+
+func MergeServiceVariableKVsAndKVInput(serviceKVs []*commontypes.ServiceVariableKV, kvinput util.KVInput) (string, []*commontypes.ServiceVariableKV, error) {
+	svcVarMap := map[string]*commontypes.ServiceVariableKV{}
+	for _, kv := range serviceKVs {
+		svcVarMap[kv.Key] = kv
+	}
+
+	mergedKVs := make([]*commontypes.ServiceVariableKV, 0)
+	for _, kv := range kvinput {
+		templKV, ok := svcVarMap[kv.Key]
+		if !ok {
+			mergedKVs = append(mergedKVs, &commontypes.ServiceVariableKV{
+				Key:   kv.Key,
+				Type:  commontypes.ServiceVariableKVTypeString,
+				Value: kv.Value,
+			})
+		} else {
+			templKV.Value = kv.Value
+			mergedKVs = append(mergedKVs, templKV)
+		}
+	}
+
+	mergedYaml, err := commontypes.ServiceVariableKVToYaml(mergedKVs)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to merge variable yaml, the error is: %s", err)
+	}
+
+	return mergedYaml, mergedKVs, nil
 }
