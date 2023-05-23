@@ -224,42 +224,19 @@ func transferServiceVariable(render, template *ServiceVariableKV) *ServiceVariab
 	return ret
 }
 
-func MergeServiceVariableKVsIfNotExist(base, override []*ServiceVariableKV) (yaml string, kvs []*ServiceVariableKV, err error) {
-	KVSet := sets.NewString()
-	for _, kv := range base {
-		KVSet.Insert(kv.Key)
-	}
-
-	for _, kv := range override {
-		if !KVSet.Has(kv.Key) {
-			base = append(base, kv)
+func MergeServiceVariableKVsIfNotExist(kvsList ...[]*ServiceVariableKV) (string, []*ServiceVariableKV, error) {
+	kvSet := sets.NewString()
+	ret := make([]*ServiceVariableKV, 0)
+	for _, kvs := range kvsList {
+		for _, kv := range kvs {
+			if !kvSet.Has(kv.Key) {
+				kvSet.Insert(kv.Key)
+				ret = append(ret, kv)
+			}
 		}
 	}
 
-	yaml, err = ServiceVariableKVToYaml(base)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
-	}
-
-	return yaml, base, nil
-}
-
-func MergeServiceVariableKVs(base, override []*ServiceVariableKV) (yaml string, kvs []*ServiceVariableKV, err error) {
-	baseMap := map[string]*ServiceVariableKV{}
-	for _, kv := range base {
-		baseMap[kv.Key] = kv
-	}
-
-	for _, kv := range override {
-		baseMap[kv.Key] = kv
-	}
-
-	ret := []*ServiceVariableKV{}
-	for _, kv := range baseMap {
-		ret = append(ret, kv)
-	}
-
-	yaml, err = ServiceVariableKVToYaml(ret)
+	yaml, err := ServiceVariableKVToYaml(ret)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 	}
@@ -267,22 +244,43 @@ func MergeServiceVariableKVs(base, override []*ServiceVariableKV) (yaml string, 
 	return yaml, ret, nil
 }
 
-func MergeRenderVariableKVs(base, override []*RenderVariableKV) (yaml string, kvs []*RenderVariableKV, err error) {
-	baseMap := map[string]*RenderVariableKV{}
-	for _, kv := range base {
-		baseMap[kv.Key] = kv
+func MergeServiceVariableKVs(kvsList ...[]*ServiceVariableKV) (string, []*ServiceVariableKV, error) {
+	kvMap := map[string]*ServiceVariableKV{}
+
+	for _, kvs := range kvsList {
+		for _, kv := range kvs {
+			kvMap[kv.Key] = kv
+		}
 	}
 
-	for _, kv := range override {
-		baseMap[kv.Key] = kv
-	}
-
-	ret := []*RenderVariableKV{}
-	for _, kv := range baseMap {
+	ret := []*ServiceVariableKV{}
+	for _, kv := range kvMap {
 		ret = append(ret, kv)
 	}
 
-	yaml, err = RenderVariableKVToYaml(ret)
+	yaml, err := ServiceVariableKVToYaml(ret)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
+	}
+
+	return yaml, ret, nil
+}
+
+func MergeRenderVariableKVs(kvsList ...[]*RenderVariableKV) (string, []*RenderVariableKV, error) {
+	kvMap := map[string]*RenderVariableKV{}
+
+	for _, kvs := range kvsList {
+		for _, kv := range kvs {
+			kvMap[kv.Key] = kv
+		}
+	}
+
+	ret := []*RenderVariableKV{}
+	for _, kv := range kvMap {
+		ret = append(ret, kv)
+	}
+
+	yaml, err := RenderVariableKVToYaml(ret)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to convert render variable kv to yaml, err: %w", err)
 	}
