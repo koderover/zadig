@@ -100,7 +100,7 @@ func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
 
 	// 5.22 JQL only support {{.System.USERNAME}} variable
 	// refactor if more variables are needed
-	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Query("project"), strings.ReplaceAll(c.Query("jql"), "{{.System.USERNAME}}", ctx.UserName), c.Query("summary"))
+	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Query("project"), strings.ReplaceAll(c.Query("jql"), "{{.system.username}}", ctx.UserName), c.Query("summary"))
 }
 
 func GetJiraTypes(c *gin.Context) {
