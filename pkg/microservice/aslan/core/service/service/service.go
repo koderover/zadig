@@ -764,6 +764,77 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 	return GetServiceOption(args, log)
 }
 
+func CreateProductionServiceTemplate(userName string, args *commonmodels.Service, force bool, log *zap.SugaredLogger) (*ServiceOption, error) {
+	opt := &commonrepo.ServiceFindOption{
+		ServiceName:   args.ServiceName,
+		Revision:      0,
+		Type:          args.Type,
+		ProductName:   args.ProductName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	}
+
+	// 在更新数据库前检查是否有完全重复的Item，如果有，则退出。
+	serviceTmpl, notFoundErr := commonrepo.NewProductionServiceColl().Find(opt)
+	if notFoundErr == nil && !force {
+		return nil, fmt.Errorf("production_service:%s already exists", serviceTmpl.ServiceName)
+	} else {
+		if args.Source == setting.SourceFromGerrit {
+			//创建gerrit webhook
+			if err := createGerritWebhookByService(args.GerritCodeHostID, args.ServiceName, args.GerritRepoName, args.GerritBranchName); err != nil {
+				log.Errorf("createGerritWebhookByService error: %v", err)
+				return nil, err
+			}
+		}
+	}
+
+	// fill serviceVars and variableYaml and serviceVariableKVs
+	err := fillServiceVariable(args, serviceTmpl)
+	if err != nil {
+		return nil, err
+	}
+
+	// 校验args
+	if err := ensureServiceTmpl(userName, args, log); err != nil {
+		log.Errorf("ensureProductionServiceTmpl error: %+v", err)
+		return nil, e.ErrValidateTemplate.AddDesc(err.Error())
+	}
+
+	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, args.Revision); err != nil {
+		log.Errorf("ProductionServiceTmpl.delete %s error: %v", args.ServiceName, err)
+	}
+
+	// create a new revision of template service
+	if err := commonrepo.NewProductionServiceColl().Create(args); err != nil {
+		log.Errorf("ProductionServiceTmpl.Create %s error: %v", args.ServiceName, err)
+		return nil, e.ErrCreateTemplate.AddDesc(err.Error())
+	}
+
+	if notFoundErr != nil {
+		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
+			//获取项目里面的所有服务
+			if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceName) {
+				productTempl.Services[0] = append(productTempl.Services[0], args.ServiceName)
+			} else {
+				productTempl.Services = [][]string{{args.ServiceName}}
+			}
+			//更新项目模板
+			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
+			if err != nil {
+				log.Errorf("CreateProductionServiceTemplate Update %s error: %s", args.ServiceName, err)
+				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
+			}
+		}
+	}
+	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
+
+	err = service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
+	if err != nil {
+		return nil, e.ErrCreateTemplate.AddErr(err)
+	}
+
+	return GetServiceOption(args, log)
+}
+
 func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName: args.ProductName,

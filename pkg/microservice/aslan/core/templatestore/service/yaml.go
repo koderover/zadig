@@ -118,7 +118,7 @@ func ListYamlTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*temp
 	resp := make([]*template.YamlListObject, 0)
 	templateList, total, err := commonrepo.NewYamlTemplateColl().List(pageNum, pageSize)
 	if err != nil {
-		logger.Errorf("list dockerfile template error: %s", err)
+		logger.Errorf("list yaml template error: %s", err)
 		return resp, 0, err
 	}
 	for _, obj := range templateList {

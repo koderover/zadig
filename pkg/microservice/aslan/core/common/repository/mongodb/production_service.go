@@ -39,11 +39,24 @@ type ProductionServiceColl struct {
 }
 
 func NewProductionServiceColl() *ProductionServiceColl {
-	name := "production_template_service"
+	name := models.ProductionService{}.TableName()
 	return &ProductionServiceColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
+}
+
+type ProductionServiceFindOption struct {
+	ServiceName         string
+	Revision            int64
+	Type                string
+	Source              string
+	ProductName         string
+	ExcludeStatus       string
+	CodehostID          int
+	RepoName            string
+	BranchName          string
+	IgnoreNoDocumentErr bool
 }
 
 func (c *ProductionServiceColl) EnsureIndex(ctx context.Context) error {
