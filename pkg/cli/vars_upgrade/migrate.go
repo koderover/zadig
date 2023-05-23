@@ -193,7 +193,7 @@ func handleSingleTemplateService(tmpSvc *models.Service) error {
 	replacedYaml := creation.VariableYaml
 	log.Infof("--------- replaced yaml: %s", replacedYaml)
 	for _, kv := range defaultRenderset.KVs {
-		replacedYaml = strings.ReplaceAll(replacedYaml, kv.Alias, kv.Value)
+		replacedYaml = strings.ReplaceAll(replacedYaml, fmt.Sprintf("{{.%s}}", kv.Alias), kv.Value)
 		if slices.Contains(kv.Services, tmpSvc.ServiceName) {
 			usedGlobalVars = append(usedGlobalVars, &types.ServiceVariableKV{
 				Key:   kv.Key,
