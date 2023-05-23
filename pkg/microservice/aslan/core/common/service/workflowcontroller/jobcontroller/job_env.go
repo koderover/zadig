@@ -153,7 +153,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		mergedVariableKVs := deployInfo.VariableKVs
 		if svcRender.OverrideYaml != nil {
 			templateVarKVs := commontypes.ServiceToRenderVariableKVs(svcTemplate.ServiceVariableKVs)
-			_, mergedVariableKVs, err = commontypes.MergeRenderVariableKVs(templateVarKVs, svcRender.OverrideYaml.RenderVaraibleKVs, deployInfo.VariableKVs)
+			_, mergedVariableKVs, err = commontypes.MergeRenderVariableKVs(templateVarKVs, svcRender.OverrideYaml.RenderVariableKVs, deployInfo.VariableKVs)
 			if err != nil {
 				return errors.Wrapf(err, "failed to merge render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
 			}
@@ -164,11 +164,11 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		}
 		svcRender.OverrideYaml = &template.CustomYaml{
 			YamlContent:       mergedVariableYaml,
-			RenderVaraibleKVs: mergedVariableKVs,
+			RenderVariableKVs: mergedVariableKVs,
 		}
 
 		// update global variables
-		// curRenderset.GlobalVariables, _, err = commontypes.UpdateGlobalVariableKVs(deployInfo.ServiceName, curRenderset.GlobalVariables, svcRender.OverrideYaml.RenderVaraibleKVs)
+		// curRenderset.GlobalVariables, _, err = commontypes.UpdateGlobalVariableKVs(deployInfo.ServiceName, curRenderset.GlobalVariables, svcRender.OverrideYaml.RenderVariableKVs)
 		// if err != nil {
 		// 	return errors.Wrapf(err, "failed to update global variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
 		// }

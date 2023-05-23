@@ -288,7 +288,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 				ServiceName: svc.ServiceName,
 				OverrideYaml: &templatemodels.CustomYaml{
 					// set YamlContent later
-					RenderVaraibleKVs: svc.VariableKVs,
+					RenderVariableKVs: svc.VariableKVs,
 				},
 			})
 			updateRevisionSvcs = append(updateRevisionSvcs, svc.ServiceName)
@@ -3053,8 +3053,8 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 
 		for _, svc := range svcSet.List() {
 			if curVariable, ok := svcVariableMap[svc]; ok {
-				curVariable.OverrideYaml.RenderVaraibleKVs = commontypes.UpdateRenderVariable(args, curVariable.OverrideYaml.RenderVaraibleKVs)
-				curVariable.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(curVariable.OverrideYaml.RenderVaraibleKVs)
+				curVariable.OverrideYaml.RenderVariableKVs = commontypes.UpdateRenderVariable(args, curVariable.OverrideYaml.RenderVariableKVs)
+				curVariable.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(curVariable.OverrideYaml.RenderVariableKVs)
 				if err != nil {
 					return fmt.Errorf("failed to convert service %s's render variables to yaml, err: %s", svc, err)
 				}
