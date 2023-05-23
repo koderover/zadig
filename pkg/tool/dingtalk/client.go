@@ -27,7 +27,6 @@ import (
 )
 
 var (
-	//once       sync.Once
 	tokenCache = cache.New(time.Hour*2, time.Minute*5)
 )
 
@@ -47,6 +46,9 @@ func NewClient(key, secret string) (client *Client) {
 				return json.Unmarshal(data, v)
 			}).
 			OnBeforeRequest(func(c *req.Client, req *req.Request) (err error) {
+				// QPS limit
+				limit.Wait(1)
+				// get or refresh access token
 				token, found := tokenCache.Get(key)
 				if !found {
 					token, err = client.RefreshAccessToken()
@@ -68,10 +70,14 @@ func NewClient(key, secret string) (client *Client) {
 					resp.Err = errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
 					return nil
 				}
+				if gjson.Get(resp.String(), "errcode").Int() != 0 {
+					resp.Err = errors.Errorf("DingTalk API Error %s", resp.String())
+					return nil
+				}
 				return nil
-			}).
-			// TODO disable dump
-			EnableDumpAll(),
+			}),
+		// TODO disable dump
+		//EnableDumpAll(),
 		AppKey:    key,
 		AppSecret: secret,
 	}
