@@ -202,10 +202,25 @@ func handleSingleTemplateService(tmpSvc *models.Service) error {
 		}
 	}
 
+	// 保证variable yaml 中没有残留的template变量
+	kvs, err := template3.GetYamlVariables(replacedYaml, log.SugaredLogger())
+	if err != nil {
+		return fmt.Errorf("!!!!!!!! failed to get variable from yaml for ensure: %s, err: %s", replacedYaml, err)
+	}
+	// parse go template variables
+	for _, kv := range kvs {
+		newValue := ""
+		if kv.Key == "LOGBACK_CONFIGMAP" {
+			newValue = "lotus-logback-cm"
+		}
+		replacedYaml = strings.ReplaceAll(replacedYaml, fmt.Sprintf("{{.%s}}", kv.Key), newValue)
+		log.Infof("-------------- 数据兼容， service: %s/%s/%d, key: %s, value: %s", tmpSvc.ProductName, tmpSvc.ServiceName, tmpSvc.Revision, kv.Key, newValue)
+	}
+
 	// 使用当前的creation参数，生成新版本的KV数据
 	serviceKVs, err := types.YamlToServiceVariableKV(replacedYaml, nil)
 	if err != nil {
-		return errors.Wrapf(err, "!!!!!!!!!! failed to convert yaml to service variable kv, service name: %s/%s/%d", tmpSvc.ProductName, tmpSvc.ServiceName, tmpSvc.Revision)
+		return errors.Wrapf(err, "!!!!!!!!!! failed to convert yaml to service variable kv, replacedYaml: %s, service name: %s/%s/%d", replacedYaml, tmpSvc.ProductName, tmpSvc.ServiceName, tmpSvc.Revision)
 	}
 	svcKVMap := make(map[string]*types.ServiceVariableKV)
 	for _, kv := range serviceKVs {

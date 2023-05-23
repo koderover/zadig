@@ -149,6 +149,9 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 			retKV.Value = string(snippetBytes)
 		default:
 			retKV.Type = ServiceVariableKVTypeString
+			if snippet == nil {
+				snippet = ""
+			}
 			retKV.Value = snippet
 		}
 	} else {
