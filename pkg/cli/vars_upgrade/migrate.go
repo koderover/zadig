@@ -191,6 +191,7 @@ func handleSingleTemplateService(tmpSvc *models.Service) error {
 	// 1. 替换全局变量；保证creation中的yaml为合法yaml
 	// 2. 添加全局变量的，生成完全体的变量值
 	replacedYaml := creation.VariableYaml
+	log.Infof("--------- replaced yaml: %s", replacedYaml)
 	for _, kv := range defaultRenderset.KVs {
 		replacedYaml = strings.ReplaceAll(replacedYaml, kv.Alias, kv.Value)
 		if slices.Contains(kv.Services, tmpSvc.ServiceName) {
@@ -201,6 +202,7 @@ func handleSingleTemplateService(tmpSvc *models.Service) error {
 			})
 		}
 	}
+	log.Infof("--------- replaced yaml after merge: %s", replacedYaml)
 
 	// 保证variable yaml 中没有残留的template变量
 	kvs, err := template3.GetYamlVariables(replacedYaml, log.SugaredLogger())
@@ -216,6 +218,8 @@ func handleSingleTemplateService(tmpSvc *models.Service) error {
 		replacedYaml = strings.ReplaceAll(replacedYaml, fmt.Sprintf("{{.%s}}", kv.Key), newValue)
 		log.Infof("-------------- 数据兼容， service: %s/%s/%d, key: %s, value: %s", tmpSvc.ProductName, tmpSvc.ServiceName, tmpSvc.Revision, kv.Key, newValue)
 	}
+
+	log.Infof("--------- replaced yaml after back merge: %s", replacedYaml)
 
 	// 使用当前的creation参数，生成新版本的KV数据
 	serviceKVs, err := types.YamlToServiceVariableKV(replacedYaml, nil)
