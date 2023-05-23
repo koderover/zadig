@@ -36,25 +36,21 @@ type UserIDResp struct {
 func (c *Client) GetUserIDByPhone(phone string) (resp *UserIDResp, err error) {
 	_, err = c.R().SetBodyJsonMarshal(map[string]string{
 		"mobile": phone,
-	}).
-		SetSuccessResult(&resp).
+	}).SetSuccessResult(&resp).
 		Post("https://oapi.dingtalk.com/topapi/v2/user/getbymobile")
 	return
 }
 
-type DepartmentResp struct {
+type SubDepartmentInfoResponse struct {
 }
 
-type DepartmentInfo struct {
-	ID       int    `json:"dept_id"`
-	Name     string `json:"name"`
-	ParentID int    `json:"parent_id"`
+type SubDepartmentInfo struct {
 }
 
-func (c *Client) GetDepartment(id int) (resp *DepartmentInfo, err error) {
+func (c *Client) GetSubDepartmentInfo(id int) (resp *SubDepartmentInfoResponse, err error) {
 	_, err = c.R().SetBodyJsonMarshal(map[string]interface{}{
 		"dept_id": id,
 	}).SetSuccessResult(&resp).
-		Post("https://oapi.dingtalk.com/topapi/v2/department/get")
+		Post("https://oapi.dingtalk.com/topapi/v2/department/listsub")
 	return
 }

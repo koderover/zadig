@@ -17,11 +17,13 @@
 package dingtalk
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/imroc/req/v3"
 	cache "github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 )
 
 var (
@@ -38,12 +40,12 @@ type Client struct {
 func NewClient(key, secret string) (client *Client) {
 	client = &Client{
 		Client: req.C().
-			//SetJsonUnmarshal(func(data []byte, v interface{}) error {
-			//	if result := gjson.Get(string(data), "result").String(); result != "" {
-			//		return json.Unmarshal([]byte(result), v)
-			//	}
-			//	return json.Unmarshal(data, v)
-			//}).
+			SetJsonUnmarshal(func(data []byte, v interface{}) error {
+				if result := gjson.Get(string(data), "result").String(); result != "" {
+					return json.Unmarshal([]byte(result), v)
+				}
+				return json.Unmarshal(data, v)
+			}).
 			OnBeforeRequest(func(c *req.Client, req *req.Request) (err error) {
 				token, found := tokenCache.Get(key)
 				if !found {
@@ -67,7 +69,9 @@ func NewClient(key, secret string) (client *Client) {
 					return nil
 				}
 				return nil
-			}),
+			}).
+			// TODO disable dump
+			EnableDumpAll(),
 		AppKey:    key,
 		AppSecret: secret,
 	}

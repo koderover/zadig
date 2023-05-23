@@ -15,8 +15,6 @@
 // */
 package dingtalk
 
-import "github.com/tidwall/gjson"
-
 const (
 	defaultApprovalFormName  = "Zadig 审批表单模板"
 	defaultApprovalFormLabel = "详情"
@@ -64,20 +62,15 @@ type TemplateConfig struct {
 	DisableFormEdit bool `json:"disableFormEdit"`
 }
 
-func (c *Client) CreateApproval() (string, error) {
-	//type result struct {
-	//	Result struct {
-	//		ProcessCode string `json:"processCode"`
-	//	} `json:"result"`
-	//}
-	//var re *result
-	resp, err := c.R().SetBodyJsonMarshal(defaultApprovalFormDefinition).
-		//SetSuccessResult(&re).
+type CreateApprovalResponse struct {
+	ProcessCode string `json:"processCode"`
+}
+
+func (c *Client) CreateApproval() (resp *CreateApprovalResponse, err error) {
+	_, err = c.R().SetBodyJsonMarshal(defaultApprovalFormDefinition).
+		SetSuccessResult(&resp).
 		Post("https://api.dingtalk.com/v1.0/workflow/forms")
-	if err != nil {
-		return "", err
-	}
-	return gjson.Get(resp.String(), "result.processCode").String(), nil
+	return
 }
 
 type ApprovalInstance struct {
@@ -101,41 +94,29 @@ type ApprovalNode struct {
 type CreateApprovalInstanceArgs struct {
 	ProcessCode      string
 	OriginatorUserID string
-	ApproverIDList   []string
+	ApproverNodeList []ApprovalNode
 	FormContent      string
 }
 
-func (c *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (string, error) {
-	type result struct {
-		Result struct {
-			InstanceID string `json:"instanceId"`
-		} `json:"result"`
-	}
-	var re *result
-	_, err := c.R().SetBodyJsonMarshal(ApprovalInstance{
-		ProcessCode: args.ProcessCode,
-		Originator:  args.OriginatorUserID,
-		Approvers: []ApprovalNode{
-			//{
-			//	ActionType: "NONE",
-			//	UserIDs:    args.ApproverIDList,
-			//},
-			{
-				ActionType: "OR",
-				UserIDs:    args.ApproverIDList,
-			}},
-		FormComponentValues: []FormComponentValue{
-			{
-				Name:  defaultApprovalFormLabel,
-				Value: args.FormContent,
+type CreateApprovalInstanceResponse struct {
+	InstanceID string `json:"instanceId"`
+}
+
+func (c *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (resp *CreateApprovalInstanceResponse, err error) {
+	_, err = c.R().
+		SetBodyJsonMarshal(ApprovalInstance{
+			ProcessCode: args.ProcessCode,
+			Originator:  args.OriginatorUserID,
+			Approvers:   args.ApproverNodeList,
+			FormComponentValues: []FormComponentValue{
+				{
+					Name:  defaultApprovalFormLabel,
+					Value: args.FormContent,
+				},
 			},
-		},
-		MicroAgentID: 2594089750,
-	}).
-		SetSuccessResult(&re).
+			//MicroAgentID: 2594089750,
+		}).
+		SetSuccessResult(&resp).
 		Post("https://api.dingtalk.com/v1.0/workflow/processInstances")
-	if err != nil {
-		return "", err
-	}
-	return re.Result.InstanceID, nil
+	return
 }
