@@ -63,10 +63,18 @@ var allTestServices map[string]*models.Service
 func prepareData() error {
 
 	var err error
-	k8sProjects, err = template.NewProductColl().ListWithOption(&template.ProductListOpt{
+	allk8sProjects, err := template.NewProductColl().ListWithOption(&template.ProductListOpt{
 		DeployType:    setting.K8SDeployType,
 		BasicFacility: setting.BasicFacilityK8S,
 	})
+
+	for _, project := range allk8sProjects {
+		if project.IsHostProduct() {
+			continue
+		}
+		k8sProjects = append(k8sProjects, project)
+	}
+
 	if err != nil {
 		return errors.Wrapf(err, "list k8s projects")
 	}
