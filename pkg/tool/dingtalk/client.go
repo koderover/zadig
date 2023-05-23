@@ -17,31 +17,33 @@
 package dingtalk
 
 import (
-	"sync"
 	"time"
 
 	"github.com/imroc/req/v3"
-	"github.com/pkg/errors"
-
 	cache "github.com/patrickmn/go-cache"
+	"github.com/pkg/errors"
 )
 
 var (
-	once       sync.Once
+	//once       sync.Once
 	tokenCache = cache.New(time.Hour*2, time.Minute*5)
 )
 
 type Client struct {
 	*req.Client
-	AppKey      string
-	AppSecret   string
-	accessToken string
+	AppKey    string
+	AppSecret string
 }
 
 func NewClient(key, secret string) (client *Client) {
 	client = &Client{
 		Client: req.C().
-			SetBaseURL("https://api.dingtalk.com").
+			//SetJsonUnmarshal(func(data []byte, v interface{}) error {
+			//	if result := gjson.Get(string(data), "result").String(); result != "" {
+			//		return json.Unmarshal([]byte(result), v)
+			//	}
+			//	return json.Unmarshal(data, v)
+			//}).
 			OnBeforeRequest(func(c *req.Client, req *req.Request) (err error) {
 				token, found := tokenCache.Get(key)
 				if !found {
@@ -50,7 +52,9 @@ func NewClient(key, secret string) (client *Client) {
 						return errors.Wrap(err, "refresh access token")
 					}
 				}
+				// DingTalk some api use header, some use query param
 				req.SetHeader("x-acs-dingtalk-access-token", token.(string))
+				req.AddQueryParam("access_token", token.(string))
 				return nil
 			}).
 			OnAfterResponse(func(client *req.Client, resp *req.Response) error {
@@ -64,6 +68,8 @@ func NewClient(key, secret string) (client *Client) {
 				}
 				return nil
 			}),
+		AppKey:    key,
+		AppSecret: secret,
 	}
 	return client
 }
@@ -73,18 +79,21 @@ type TokenResponse struct {
 	ExpireIn    int    `json:"expireIn"`
 }
 
-func (c *Client) RefreshAccessToken() (token string, err error) {
-	var resp *TokenResponse
-	_, err = req.R().SetBodyJsonMarshal(struct {
+func (c *Client) RefreshAccessToken() (string, error) {
+	var tokenResponse *TokenResponse
+	resp, err := req.R().SetBodyJsonMarshal(struct {
 		AppKey    string `json:"appKey"`
 		AppSecret string `json:"appSecret"`
 	}{
 		AppKey:    c.AppKey,
 		AppSecret: c.AppSecret,
-	}).SetSuccessResult(&resp).Post("https://api.dingtalk.com/v1.0/oauth2/accessToken")
+	}).SetSuccessResult(&tokenResponse).Post("https://api.dingtalk.com/v1.0/oauth2/accessToken")
 	if err != nil {
 		return "", errors.Wrap(err, "request failed")
 	}
-	tokenCache.Set(c.AppKey, resp.AccessToken, cache.DefaultExpiration)
-	return resp.AccessToken, nil
+	if resp.IsErrorState() {
+		return "", errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
+	}
+	tokenCache.Set(c.AppKey, tokenResponse.AccessToken, cache.DefaultExpiration)
+	return tokenResponse.AccessToken, nil
 }
