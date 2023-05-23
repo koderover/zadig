@@ -123,6 +123,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 	}
 
 	if len(productInfo.Services) == 0 {
+		// DO NOT REMOVE []*models.ProductService{}, it's for compatibility
 		productInfo.Services = [][]*models.ProductService{[]*models.ProductService{}}
 	}
 
@@ -151,19 +152,8 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		mergedVariableYaml := deployInfo.VariableYaml
 		mergedVariableKVs := deployInfo.VariableKVs
 		if svcRender.OverrideYaml != nil {
-			templateVarKVs := []*commontypes.RenderVariableKV{}
-			for _, kv := range svcTemplate.ServiceVariableKVs {
-				templateVarKVs = append(templateVarKVs, &commontypes.RenderVariableKV{
-					ServiceVariableKV: *kv,
-					UseGlobalVariable: false,
-				})
-			}
-			_, svcRender.OverrideYaml.RenderVaraibleKVs, err = commontypes.MergeRenderVariableKVs(templateVarKVs, svcRender.OverrideYaml.RenderVaraibleKVs)
-			if err != nil {
-				return errors.Wrapf(err, "failed to merge template and render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
-			}
-
-			_, mergedVariableKVs, err = commontypes.MergeRenderVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, deployInfo.VariableKVs)
+			templateVarKVs := commontypes.ServiceToRenderVariableKVs(svcTemplate.ServiceVariableKVs)
+			_, mergedVariableKVs, err = commontypes.MergeRenderVariableKVs(templateVarKVs, svcRender.OverrideYaml.RenderVaraibleKVs, deployInfo.VariableKVs)
 			if err != nil {
 				return errors.Wrapf(err, "failed to merge render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
 			}
@@ -207,9 +197,9 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		for _, svcRender := range curRenderset.ServiceVariables {
 			if svcRender.ServiceName == deployInfo.ServiceName {
 				curRenderset.GlobalVariables = commontypes.RemoveGlobalVariableRelatedService(curRenderset.GlobalVariables, svcRender.ServiceName)
-				continue
+			} else {
+				filteredRenders = append(filteredRenders, svcRender)
 			}
-			filteredRenders = append(filteredRenders, svcRender)
 		}
 		curRenderset.ServiceVariables = filteredRenders
 
