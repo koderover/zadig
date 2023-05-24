@@ -542,3 +542,24 @@ func ClipRenderVariableKVs(template []*ServiceVariableKV, render []*RenderVariab
 
 	return yaml, ret, nil
 }
+
+func ClipServiceVariableKVs(clipRange []*ServiceVariableKV, kvs []*ServiceVariableKV) (string, []*ServiceVariableKV, error) {
+	clipRangeSet := sets.NewString()
+	for _, kv := range clipRange {
+		clipRangeSet.Insert(kv.Key)
+	}
+
+	ret := []*ServiceVariableKV{}
+	for _, kv := range kvs {
+		if clipRangeSet.Has(kv.Key) {
+			ret = append(ret, kv)
+		}
+	}
+
+	yaml, err := ServiceVariableKVToYaml(ret)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
+	}
+
+	return yaml, ret, nil
+}

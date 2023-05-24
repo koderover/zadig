@@ -283,11 +283,19 @@ func getEstimatedMergedVariables(services []*commonmodels.Service, product *temp
 				continue
 			}
 
-			mergedYaml, mergedKVs, err := commontypes.MergeServiceVariableKVsIfNotExist(service.ServiceVariableKVs, sourceTemplate.ServiceVariableKVs)
-			if err == nil {
-				retYamlMap[service.ServiceName] = mergedYaml
-				retKVMap[service.ServiceName] = mergedKVs
+			_, mergedKVs, err := commontypes.MergeServiceVariableKVsIfNotExist(service.ServiceVariableKVs, sourceTemplate.ServiceVariableKVs)
+			if err != nil {
+				log.Errorf("Failed to merge service variable kvs if not exist, error: %s", err)
+				continue
 			}
+			mergedYaml, mergedKVs, err := commontypes.ClipServiceVariableKVs(sourceTemplate.ServiceVariableKVs, mergedKVs)
+			if err != nil {
+				log.Errorf("Failed to clip service variable kvs, error: %s", err)
+				continue
+			}
+
+			retYamlMap[service.ServiceName] = mergedYaml
+			retKVMap[service.ServiceName] = mergedKVs
 		}
 	}
 
