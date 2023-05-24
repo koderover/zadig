@@ -84,6 +84,12 @@ func ServiceVariableKVToYaml(kvs []*ServiceVariableKV) (string, error) {
 			} else {
 				return "", fmt.Errorf("invaild value for boolean, key: %v, value: %v", kv.Key, kv.Value)
 			}
+		case ServiceVariableKVTypeEnum:
+			v := fmt.Sprintf("%v", kv.Value)
+			if !sets.NewString(kv.Options...).Has(v) {
+				return "", fmt.Errorf("invaild value for enum, key: %v, value: %v, options: %v", kv.Key, kv.Value, kv.Options)
+			}
+			kvMap[kv.Key] = kv.Value
 		default:
 			kvMap[kv.Key] = kv.Value
 		}

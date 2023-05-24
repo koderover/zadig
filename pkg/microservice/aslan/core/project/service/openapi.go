@@ -202,13 +202,13 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 		} else if service.Source == config.SourceFromTemplate {
 			template, err := commonrepo.NewYamlTemplateColl().GetByName(service.TemplateName)
 			if err != nil {
-				logger.Errorf("Failed to find template of name: %s, the error is: %s", service.TemplateName, err)
+				logger.Errorf("Failed to find template of name: %s, err: %w", service.TemplateName, err)
 				return err
 			}
 
 			mergedYaml, mergedKVs, err := commonutil.MergeServiceVariableKVsAndKVInput(template.ServiceVariableKVs, service.VariableYaml)
 			if err != nil {
-				return fmt.Errorf("failed to merge variable yaml, the error is: %s", err)
+				return fmt.Errorf("failed to merge variable yaml, err: %w", err)
 			}
 			loadArgs := &svcService.LoadServiceFromYamlTemplateReq{
 				ProjectName:        args.ProjectKey,

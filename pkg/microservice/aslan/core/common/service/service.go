@@ -1464,12 +1464,12 @@ func ConvertVaraibleKVAndYaml(args *ConvertVaraibleKVAndYamlArgs) (*ConvertVarai
 	if args.Action == ConvertVaraibleKVAndYamlActionTypeToYaml {
 		args.Yaml, err = commontypes.ServiceVariableKVToYaml(args.KVs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert service variable kv to yaml, err %w", err)
+			return nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 		}
 	} else if args.Action == ConvertVaraibleKVAndYamlActionTypeToKV {
 		args.KVs, err = commontypes.YamlToServiceVariableKV(args.Yaml, args.KVs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert yaml to service variable kv, err %w", err)
+			return nil, fmt.Errorf("failed to convert yaml to service variable kv, err: %w", err)
 		}
 	} else {
 		return nil, fmt.Errorf("invalid action %s", args.Action)

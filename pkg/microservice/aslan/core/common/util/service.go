@@ -237,7 +237,7 @@ func MergeServiceVariableKVsAndKVInput(serviceKVs []*commontypes.ServiceVariable
 
 	mergedYaml, err := commontypes.ServiceVariableKVToYaml(mergedKVs)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to merge variable yaml, the error is: %s", err)
+		return "", nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 	}
 
 	return mergedYaml, mergedKVs, nil
