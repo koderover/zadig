@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+
 	"gorm.io/gorm/utils"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
@@ -341,6 +343,16 @@ func handleProjectGlobalVariables() error {
 			return errors.Wrapf(err, "!!!!!!!!!!!!! ailed to generate variable kvs from original kv, project: %s", project.ProductName)
 		}
 
+		// 过滤特殊key，TOLERATIONS_KEY 等接口不需要再保留
+		filteredKvs := make([]*types.ServiceVariableKV, 0)
+		for _, globalKv := range project.GlobalVariables {
+			if utils.Contains(SpecialKeys, globalKv.Key) {
+				continue
+			}
+			filteredKvs = append(filteredKvs, globalKv)
+		}
+		project.GlobalVariables = filteredKvs
+
 		if outPutMessages {
 			log.Infof("----------- project: %s, global variables count: %d", project.ProductName, len(project.GlobalVariables))
 			for i, kv := range project.GlobalVariables {
@@ -374,11 +386,6 @@ func handleK8sEnvGlobalVariables() error {
 		for _, product := range envs {
 			product.EnsureRenderInfo()
 
-			productServices := make([]string, 0)
-			for _, service := range product.GetServiceMap() {
-				productServices = append(productServices, service.ServiceName)
-			}
-
 			targetRevision := product.Render.Revision
 			for _, productSvc := range product.GetServiceMap() {
 				if productSvc.Render != nil && productSvc.Render.Revision > targetRevision {
@@ -397,7 +404,7 @@ func handleK8sEnvGlobalVariables() error {
 				IsDefault:   false,
 			})
 			if err != nil {
-				return fmt.Errorf("!!!!!!!!!! failed to find product renderset: %s/%s, err: %s", product.ProductName, product.EnvName, err)
+				return fmt.Errorf("!!!!!!!!!! failed to find product renderset: %s/%s/%d, err: %s", product.ProductName, product.EnvName, targetRevision, err)
 			}
 
 			if len(targetRenderset.GlobalVariables) > 0 {
@@ -406,28 +413,35 @@ func handleK8sEnvGlobalVariables() error {
 
 			log.Infof("------------- start to handle env global variables, %s/%s", project.ProductName, product.EnvName)
 
+			templateSvcsOfProduct, err := commonservice.GetProductUsedTemplateSvcs(product)
+			if err != nil {
+				log.Errorf("failed to get service templates applied in product, err: %s", err)
+				return nil
+			}
+
+			renderKvs, err := ListRenderKeysByTemplateSvc(templateSvcsOfProduct, log.SugaredLogger())
+			if err != nil {
+				log.Errorf("failed to get render kvs in product, err: %s", err)
+				return nil
+			}
+
+			relatedSvcs := make(map[string][]string)
+			for _, key := range renderKvs {
+				relatedSvcs[key.Key] = key.Services
+			}
+
 			// 当前的服务关联关系 map[KEY]=>[]SERVICES
+			// 使用实际计算过的值
 			svcRelations := make(map[string]sets.String)
 			for _, kv := range targetRenderset.KVs {
-				svcRelations[kv.Key] = sets.NewString(kv.Services...)
-			}
+				//svcRelations[kv.Key] = sets.NewString(kv.Services...)
+				svcRelations[kv.Key] = sets.NewString(relatedSvcs[kv.Key]...)
 
-			for _, kv := range targetRenderset.KVs {
-				if len(svcRelations[kv.Key]) == 0 {
-					log.Infof("add compatibility for data when relations are all nil, product: %s/%s, key: %s", product.ProductName, product.EnvName, kv.Key)
-					for _, kv := range targetRenderset.KVs {
-						kv.Services = productServices
-					}
-
-					for _, kv := range targetRenderset.KVs {
-						svcRelations[kv.Key] = sets.NewString(kv.Services...)
-					}
+				servicesInRender := sets.NewString(kv.Services...)
+				servicesCalculated := sets.NewString(relatedSvcs[kv.Key]...)
+				if !servicesInRender.Equal(servicesCalculated) {
+					log.Infof("***********  related services not equal, product name: %s, env name: %s, key: %s, services in render: %v, services calculated: %v", product.ProductName, product.EnvName, kv.Key, kv.Services, relatedSvcs[kv.Key])
 				}
-			}
-
-			// 兼容数据关联性问题
-			if len(svcRelations) == 0 {
-
 			}
 
 			globalVariableKV := make([]*types.GlobalVariableKV, 0)
@@ -484,16 +498,7 @@ func handleK8sEnvGlobalVariables() error {
 				}
 			}
 
-			// 过滤特殊key，TOLERATIONS_KEY 等接口不需要再保留
-			filteredKvs := make([]*types.GlobalVariableKV, 0)
-			for _, globalKv := range globalVariableKV {
-				if utils.Contains(SpecialKeys, globalKv.Key) {
-					continue
-				}
-				filteredKvs = append(filteredKvs, globalKv)
-			}
-
-			targetRenderset.GlobalVariables = filteredKvs
+			targetRenderset.GlobalVariables = globalVariableKV
 
 			if outPutMessages {
 				log.Infof("--------------- env: %s/%s, global variables count: %v", project.ProductName, product.EnvName, len(globalVariableKV))
