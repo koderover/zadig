@@ -19,18 +19,27 @@ package dingtalk
 import "sync"
 
 var (
-	userInfoCache = map[string]*UserInfo{}
-	mu            sync.RWMutex
+	globalUserInfoCacheMap = map[string]map[string]*UserInfo{}
+	mu                     sync.RWMutex
 )
 
-func StoreUserInfoCache(userID string, userInfo *UserInfo) {
+func (c *Client) getUserInfoMap() map[string]*UserInfo {
 	mu.Lock()
 	defer mu.Unlock()
-	userInfoCache[userID] = userInfo
+	if globalUserInfoCacheMap[c.AppKey] == nil {
+		globalUserInfoCacheMap[c.AppKey] = map[string]*UserInfo{}
+	}
+	return globalUserInfoCacheMap[c.AppKey]
 }
 
-func GetUserInfoCache(userID string) *UserInfo {
-	mu.RLock()
-	defer mu.RUnlock()
-	return userInfoCache[userID]
+func (c *Client) storeUserInfoInCache(userID string, userInfo *UserInfo) {
+	c.cacheLock.Lock()
+	defer c.cacheLock.Unlock()
+	c.getUserInfoMap()[userID] = userInfo
+}
+
+func (c *Client) getUserInfoFromCache(userID string) *UserInfo {
+	c.cacheLock.RLock()
+	defer c.cacheLock.RUnlock()
+	return c.getUserInfoMap()[userID]
 }

@@ -109,8 +109,15 @@ func (c *IMAppColl) GetByID(ctx context.Context, idString string) (*models.IMApp
 	return resp, c.FindOne(ctx, query).Decode(resp)
 }
 
-func (c *IMAppColl) GetByAppID(ctx context.Context, appID string) (*models.IMApp, error) {
+func (c *IMAppColl) GetLarkByAppID(ctx context.Context, appID string) (*models.IMApp, error) {
 	query := bson.M{"app_id": appID}
+
+	resp := new(models.IMApp)
+	return resp, c.FindOne(ctx, query).Decode(resp)
+}
+
+func (c *IMAppColl) GetDingTalkByAppKey(ctx context.Context, appKey string) (*models.IMApp, error) {
+	query := bson.M{"dingtalk_app_key": appKey}
 
 	resp := new(models.IMApp)
 	return resp, c.FindOne(ctx, query).Decode(resp)

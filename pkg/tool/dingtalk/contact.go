@@ -18,7 +18,7 @@ package dingtalk
 
 import "github.com/pkg/errors"
 
-//func (c *Client) GetUserIDByPhone(phone string) (string, error) {
+//func (c *Client) GetUserIDByMobile(phone string) (string, error) {
 //	resp, err := c.R().SetBodyJsonMarshal(map[string]string{
 //		"mobile": phone,
 //	}).Post("https://oapi.dingtalk.com/topapi/v2/user/getbymobile")
@@ -35,21 +35,21 @@ type UserIDResponse struct {
 	UserID string `json:"userid"`
 }
 
-func (c *Client) GetUserIDByPhone(phone string) (resp *UserIDResponse, err error) {
+func (c *Client) GetUserIDByMobile(mobile string) (resp *UserIDResponse, err error) {
 	_, err = c.R().SetBodyJsonMarshal(map[string]string{
-		"mobile": phone,
+		"mobile": mobile,
 	}).SetSuccessResult(&resp).
 		Post("https://oapi.dingtalk.com/topapi/v2/user/getbymobile")
 	return
 }
 
 type SubDepartmentInfo struct {
-	ID       int    `json:"dept_id"`
+	ID       int64  `json:"dept_id"`
 	Name     string `json:"name"`
 	ParentID int    `json:"parent_id"`
 }
 
-func (c *Client) GetSubDepartmentInfo(id int) (resp []SubDepartmentInfo, err error) {
+func (c *Client) GetSubDepartmentsInfo(id int) (resp []SubDepartmentInfo, err error) {
 	_, err = c.R().SetBodyJsonMarshal(map[string]interface{}{
 		"dept_id": id,
 	}).SetSuccessResult(&resp).
@@ -61,7 +61,7 @@ type GetDepartmentUserIDResponse struct {
 	UserIDList []string `json:"userid_list"`
 }
 
-func (c *Client) GetDepartmentUserID(id int) (resp *GetDepartmentUserIDResponse, err error) {
+func (c *Client) GetDepartmentUserIDs(id int) (resp *GetDepartmentUserIDResponse, err error) {
 	_, err = c.R().SetBodyJsonMarshal(map[string]interface{}{
 		"dept_id": id,
 	}).SetSuccessResult(&resp).
@@ -94,7 +94,7 @@ func (c *Client) GetUserInfo(id string) (resp *UserInfo, err error) {
 func (c *Client) GetUserInfos(ids []string) ([]*UserInfo, error) {
 	var resp []*UserInfo
 	for _, id := range ids {
-		if userInfo := GetUserInfoCache(id); userInfo != nil {
+		if userInfo := c.getUserInfoFromCache(id); userInfo != nil {
 			resp = append(resp, userInfo)
 			continue
 		}
@@ -103,7 +103,7 @@ func (c *Client) GetUserInfos(ids []string) ([]*UserInfo, error) {
 			return nil, errors.Wrap(err, "get user infos failed")
 		}
 		resp = append(resp, userInfo)
-		StoreUserInfoCache(id, userInfo)
+		c.storeUserInfoInCache(id, userInfo)
 	}
 	return resp, nil
 }

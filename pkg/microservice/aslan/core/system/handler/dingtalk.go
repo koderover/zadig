@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 The KodeRover Authors.
+ * Copyright 2023 The KodeRover Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,46 +19,35 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dingtalk"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func GetLarkDepartment(c *gin.Context) {
+func GetDingTalkDepartment(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	approvalID, departmentID := c.Param("id"), c.Param("department_id")
-	if departmentID == "root" {
-		ctx.Resp, ctx.Err = lark.GetLarkAppContactRange(approvalID)
-	} else {
-		ctx.Resp, ctx.Err = lark.GetLarkDepartment(approvalID, departmentID)
-	}
+	ctx.Resp, ctx.Err = dingtalk.GetDingTalkDepartment(c.Param("id"), c.Param("department_id"))
 }
 
-func GetLarkUserID(c *gin.Context) {
+func GetDingTalkUserID(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	id, err := lark.GetLarkUserID(c.Param("id"), c.Query("type"), c.Query("value"))
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-	ctx.Resp = map[string]string{"id": id}
+	ctx.Resp, ctx.Err = dingtalk.GetDingTalkUserIDByMobile(c.Param("id"), c.Query("mobile"))
 }
 
-func LarkEventHandler(c *gin.Context) {
+func DingTalkEventHandler(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	log.Infof("DingTalkEventHandler: New request url %s", c.Request.RequestURI)
 	body, err := c.GetRawData()
 	if err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = lark.EventHandler(
-		c.Param("id"),
-		c.GetHeader("X-Lark-Signature"),
-		c.GetHeader("X-Lark-Request-Timestamp"),
-		c.GetHeader("X-Lark-Request-Nonce"), string(body))
+	ctx.Resp, ctx.Err = dingtalk.EventHandler(c.Param("ak"), body,
+		c.Query("signature"), c.Query("timestamp"), c.Query("nonce"))
 }

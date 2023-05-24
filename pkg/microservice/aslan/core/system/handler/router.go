@@ -287,6 +287,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		lark.POST("/:id/webhook", LarkEventHandler)
 	}
 
+	dingtalk := router.Group("dingtalk")
+	{
+		dingtalk.GET("/:id/department/:department_id", GetDingTalkDepartment)
+		dingtalk.GET("/:id/user", GetDingTalkUserID)
+		dingtalk.POST("/:ak/webhook", DingTalkEventHandler)
+	}
+
 	pm := router.Group("project_management")
 	{
 		pm.GET("", ListProjectManagement)
