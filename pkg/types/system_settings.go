@@ -29,4 +29,5 @@ type CustomTheme struct {
 	ProjectItemIconColor     string `json:"project_item_icon_color"`
 	ProjectNameColor         string `json:"project_name_color"`
 	TableCellBackgroundColor string `json:"table_cell_background_color"`
+	LinkColor                string `json:"link_color"`
 }
