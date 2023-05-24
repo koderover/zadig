@@ -307,10 +307,10 @@ func generateGlobalVariableKVSFromOriginalKV(renderset *models.RenderSet) ([]*ty
 			yamlMap["NODE_AFFINITY"] = []map[string]interface{}{
 				{"KEY": getValueFromKVListByKey("NODE_AFFINITY_KEY", svcKVMap), "VALUES": []string{getValueFromKVListByKey("NODE_AFFINITY_VALUE", svcKVMap).(string)}},
 			}
-		} else if kv.Key == "TOLERATION_KEY" || kv.Key == "TOLERATION_VALUE" {
-			handledSpecialKeys.Insert("TOLERATION_KEY", "TOLERATION_VALUE")
+		} else if kv.Key == "TOLERATIONS_KEY" || kv.Key == "TOLERATIONS_VALUE" {
+			handledSpecialKeys.Insert("TOLERATIONS_KEY", "TOLERATIONS_VALUE")
 			yamlMap["TOLERATIONS"] = []map[string]interface{}{
-				{"KEY": getValueFromKVListByKey("TOLERATION_KEY", svcKVMap), "VALUE": getValueFromKVListByKey("TOLERATION_VALUE", svcKVMap)},
+				{"KEY": getValueFromKVListByKey("TOLERATIONS_KEY", svcKVMap), "VALUE": getValueFromKVListByKey("TOLERATIONS_VALUE", svcKVMap)},
 			}
 		}
 	}
@@ -374,6 +374,11 @@ func handleK8sEnvGlobalVariables() error {
 		for _, product := range envs {
 			product.EnsureRenderInfo()
 
+			productServices := make([]string, 0)
+			for _, service := range product.GetServiceMap() {
+				productServices = append(productServices, service.ServiceName)
+			}
+
 			targetRevision := product.Render.Revision
 			for _, productSvc := range product.GetServiceMap() {
 				if productSvc.Render != nil && productSvc.Render.Revision > targetRevision {
@@ -405,6 +410,24 @@ func handleK8sEnvGlobalVariables() error {
 			svcRelations := make(map[string]sets.String)
 			for _, kv := range targetRenderset.KVs {
 				svcRelations[kv.Key] = sets.NewString(kv.Services...)
+			}
+
+			for _, kv := range targetRenderset.KVs {
+				if len(svcRelations[kv.Key]) == 0 {
+					log.Infof("add compatibility for data when relations are all nil, product: %s/%s, key: %s", product.ProductName, product.EnvName, kv.Key)
+					for _, kv := range targetRenderset.KVs {
+						kv.Services = productServices
+					}
+
+					for _, kv := range targetRenderset.KVs {
+						svcRelations[kv.Key] = sets.NewString(kv.Services...)
+					}
+				}
+			}
+
+			// 兼容数据关联性问题
+			if len(svcRelations) == 0 {
+
 			}
 
 			globalVariableKV := make([]*types.GlobalVariableKV, 0)
@@ -460,7 +483,17 @@ func handleK8sEnvGlobalVariables() error {
 					}
 				}
 			}
-			targetRenderset.GlobalVariables = globalVariableKV
+
+			// 过滤特殊key，TOLERATIONS_KEY 等接口不需要再保留
+			filteredKvs := make([]*types.GlobalVariableKV, 0)
+			for _, globalKv := range globalVariableKV {
+				if utils.Contains(SpecialKeys, globalKv.Key) {
+					continue
+				}
+				filteredKvs = append(filteredKvs, globalKv)
+			}
+
+			targetRenderset.GlobalVariables = filteredKvs
 
 			if outPutMessages {
 				log.Infof("--------------- env: %s/%s, global variables count: %v", project.ProductName, product.EnvName, len(globalVariableKV))
@@ -540,7 +573,7 @@ func handleTemplates() error {
 	return nil
 }
 
-var SpecialKeys []string = []string{"NODE_AFFINITY_KEY", "NODE_AFFINITY_VALUE", "TOLERATION_KEY", "TOLERATION_VALUE"}
+var SpecialKeys []string = []string{"NODE_AFFINITY_KEY", "NODE_AFFINITY_VALUE", "TOLERATIONS_KEY", "TOLERATIONS_VALUE"}
 
 // 对于从模板创建并强管理的服务，自动同步，服务版本 + 1，但是不应用到环境
 func syncTemplateSvcs() error {
