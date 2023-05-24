@@ -102,7 +102,7 @@ func UpdateYamlTemplateVariable(id string, template *template.YamlTemplate, logg
 		return fmt.Errorf("failed to find template by id: %s, err: %w", id, err)
 	}
 
-	_, err = commonutil.RenderK8sSvcYamlStrict(origin.Content, "FakeProjectName", "FakeServiceName", template.VariableYaml)
+	_, err = commonutil.RenderK8sSvcYamlStrict(origin.Content, "FakeProjectName", template.Name, template.VariableYaml)
 	if err != nil {
 		return fmt.Errorf("failed to validate variable, err: %s", err)
 	}
@@ -202,7 +202,7 @@ func ValidateVariable(content, variable string) error {
 		return fmt.Errorf("failed to marshal default system variable, err: %s", err)
 	}
 
-	_, err = commonutil.RenderK8sSvcYamlStrict(content, "FakeProjectName", "FakeServiceName", variable, string(defaultSystemVariableYaml))
+	_, err = commonutil.RenderK8sSvcYamlStrict(content, "FakeProjectName", "ValidateVariable", variable, string(defaultSystemVariableYaml))
 	if err != nil {
 		return fmt.Errorf("failed to validate variable, err: %s", err)
 	}
