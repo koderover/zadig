@@ -44,7 +44,7 @@ func ImproveTemplateExecuteErrReadability(err error) error {
 		}
 		return fmt.Errorf("template validate err: missing keys %v", missingKeys)
 	}
-	return err
+	return fmt.Errorf("template validate err: %w", err)
 }
 
 // @fixme MAY NOT support multi variableYamls, need to check

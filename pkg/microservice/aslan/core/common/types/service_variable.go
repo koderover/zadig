@@ -204,7 +204,16 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 			}
 			retKV.Value = string(snippetBytes)
 		} else {
-			retKV.Value = snippet
+			switch snippet.(type) {
+			case map[string]interface{}, []interface{}:
+				snippetBytes, err := yaml.Marshal(snippet)
+				if err != nil {
+					return nil, fmt.Errorf("key %s: failed to marshal snippet, err: %w", retKV.Key, err)
+				}
+				retKV.Value = string(snippetBytes)
+			default:
+				retKV.Value = snippet
+			}
 		}
 	}
 
@@ -294,6 +303,9 @@ func MergeRenderVariableKVs(kvsList ...[]*RenderVariableKV) (string, []*RenderVa
 	return yaml, ret, nil
 }
 
+// merge render variables base on service template variables
+// render variables has higher value priority, service template variables has higher type priority
+// normally used to get latest variables for a service
 func MergeRenderAndServiceTemplateVariableKVs(render []*RenderVariableKV, serivceTemplate []*ServiceVariableKV) (string, []*RenderVariableKV, error) {
 	renderMap := map[string]*RenderVariableKV{}
 	for _, kv := range render {
@@ -347,6 +359,7 @@ func GlobalVariableKVToYaml(kvs []*GlobalVariableKV) (string, error) {
 	return ServiceVariableKVToYaml(serviceVariableKVs)
 }
 
+// validate global variables base on global variables define
 func ValidateGlobalVariables(globalVariablesDefine []*ServiceVariableKV, globalVariables []*GlobalVariableKV) bool {
 	globalVariableMap := map[string]*ServiceVariableKV{}
 	for _, kv := range globalVariablesDefine {
@@ -406,6 +419,7 @@ func RemoveGlobalVariableRelatedService(globalVariableKVs []*GlobalVariableKV, s
 	return globalVariableKVs
 }
 
+// update global variable's related serivces and render variables value base on useGlobalVariable flag
 func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariableKV, argVariables, currentVariables []*RenderVariableKV) ([]*GlobalVariableKV, []*RenderVariableKV, error) {
 	globalVariableMap := map[string]*GlobalVariableKV{}
 	for _, kv := range globalVariables {
@@ -490,6 +504,7 @@ func UpdateGlobalVariableKVs(serviceName string, globalVariables []*GlobalVariab
 	return retGlobalVariables, argVariables, nil
 }
 
+// update render variables base on global variables and useGlobalVariable flag
 func UpdateRenderVariable(global []*GlobalVariableKV, render []*RenderVariableKV) []*RenderVariableKV {
 	globalMap := map[string]*GlobalVariableKV{}
 	for _, kv := range global {
