@@ -297,7 +297,7 @@ func CreateOrUpdateMatchRules(c *gin.Context) {
 // @Produce json
 // @Param 	name	path		string							true	"project name"
 // @Success 200 	{array} 	commontypes.ServiceVariableKV
-// @Router /project/products/{name}/globalVariables [get]
+// @Router /api/aslan/project/products/{name}/globalVariables [get]
 func GetGlobalVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -322,7 +322,7 @@ type updateGlobalVariablesRequest struct {
 // @Param 	name	path		string							true	"project name"
 // @Param 	body 	body 		updateGlobalVariablesRequest 	true 	"body"
 // @Success 200
-// @Router /project/products/{name}/globalVariables [put]
+// @Router /api/aslan/project/products/{name}/globalVariables [put]
 func UpdateGlobalVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -350,7 +350,7 @@ func UpdateGlobalVariables(c *gin.Context) {
 // @Produce json
 // @Param 	name	path		string												true	"project name"
 // @Success 200 	{array} 	projectservice.GetGlobalVariableCandidatesRespone
-// @Router /project/products/{name}/globalVariableCandidates [get]
+// @Router /api/aslan/project/products/{name}/globalVariableCandidates [get]
 func GetGlobalVariableCandidates(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

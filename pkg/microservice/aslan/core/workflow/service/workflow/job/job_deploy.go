@@ -319,7 +319,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			svcRenderVarMap := map[string]*commontypes.RenderVariableKV{}
 			serviceRender := usedRenderset.GetServiceRenderMap()[serviceName]
 			if serviceRender != nil {
-				for _, varKV := range serviceRender.OverrideYaml.RenderVaraibleKVs {
+				for _, varKV := range serviceRender.OverrideYaml.RenderVariableKVs {
 					svcRenderVarMap[varKV.Key] = varKV
 				}
 			}

@@ -46,7 +46,7 @@ func GetCollaborationNew(c *gin.Context) {
 // @Param 	projectName		query		string									true	"project name"
 // @Param 	body 			body 		service.SyncCollaborationInstanceArgs 	true 	"body"
 // @Success 200
-// @Router /collaboration/collaborations/sync [post]
+// @Router /api/aslan/collaboration/collaborations/sync [post]
 func SyncCollaborationInstance(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

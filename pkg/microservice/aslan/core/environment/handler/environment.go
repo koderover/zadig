@@ -107,7 +107,7 @@ func ListProductionEnvs(c *gin.Context) {
 // @Param 	helm_body 		body 		service.UpdateMultiHelmProductArg 	true 	"updateMultiHelmEnv body"
 // @Param 	pm_body 		body 		[]service.UpdateEnv				 	true 	"updateMultiCvmEnv body"
 // @Success 200
-// @Router /environment/environments [put]
+// @Router /api/aslan/environment/environments [put]
 func UpdateMultiProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -203,7 +203,7 @@ func copyProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*
 // @Param 	auto 			query		bool								false	"is auto"
 // @Param 	body 			body 		[]service.CreateSingleProductArg 	true 	"body"
 // @Success 200
-// @Router /environment/environments [post]
+// @Router /api/aslan/environment/environments [post]
 //
 // CreateProduct creates new product
 // Query param `type` determines the type of product
@@ -653,7 +653,7 @@ type updateK8sProductGlobalVariablesRequest struct {
 // @Param 	name 		path		string									true	"env name"
 // @Param 	body 		body 		updateK8sProductGlobalVariablesRequest 	true 	"body"
 // @Success 200
-// @Router /environment/environments/{name}/k8s/globalVariables [put]
+// @Router /api/aslan/environment/environments/{name}/k8s/globalVariables [put]
 func UpdateK8sProductGlobalVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -905,7 +905,7 @@ func DeleteProductionProduct(c *gin.Context) {
 // @Param 	name			path		string							true	"env name"
 // @Param 	body 			body 		DeleteProductServicesRequest 	true 	"body"
 // @Success 200
-// @Router /environment/environments/{name}/services [put]
+// @Router /api/aslan/environment/environments/{name}/services [put]
 func DeleteProductServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1091,7 +1091,7 @@ func ListWorkloadsInEnv(c *gin.Context) {
 // @Param 	projectName	query		string										true	"project name"
 // @Param 	name 		path		string										true	"env name"
 // @Success 200 		{array} 	commontypes.ServiceVariableKV
-// @Router /environment/environments/{name}/globalVariableCandidates [get]
+// @Router /api/aslan/environment/environments/{name}/globalVariableCandidates [get]
 func GetGlobalVariableCandidates(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

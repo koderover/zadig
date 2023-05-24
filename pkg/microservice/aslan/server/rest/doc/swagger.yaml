@@ -1,4 +1,3 @@
-basePath: /api/aslan
 definitions:
   config.CollaborationType:
     enum:
@@ -702,6 +701,15 @@ definitions:
           $ref: '#/definitions/service.DeployableEnv'
         type: array
     type: object
+  service.EnvDefinition:
+    properties:
+      cluster_name:
+        type: string
+      env_name:
+        type: string
+      namespace:
+        type: string
+    type: object
   service.EnvServices:
     properties:
       env_name:
@@ -803,6 +811,40 @@ definitions:
         type: string
       variable_yaml:
         type: string
+    type: object
+  service.OpenAPIInitializeProjectReq:
+    properties:
+      description:
+        type: string
+      env_list:
+        items:
+          $ref: '#/definitions/service.EnvDefinition'
+        type: array
+      is_public:
+        type: boolean
+      project_key:
+        type: string
+      project_name:
+        type: string
+      service_list:
+        items:
+          $ref: '#/definitions/service.ServiceDefinition'
+        type: array
+    type: object
+  service.OpenAPILoadServiceFromYamlTemplateReq:
+    properties:
+      auto_sync:
+        type: boolean
+      project_key:
+        type: string
+      service_name:
+        type: string
+      template_name:
+        type: string
+      variable_yaml:
+        items:
+          $ref: '#/definitions/util.KeyValue'
+        type: array
     type: object
   service.PreviewServiceArgs:
     properties:
@@ -930,6 +972,23 @@ definitions:
       status:
         $ref: '#/definitions/service.DeployStatus'
       type:
+        type: string
+    type: object
+  service.ServiceDefinition:
+    properties:
+      auto_sync:
+        type: boolean
+      service_name:
+        type: string
+      source:
+        type: string
+      template_name:
+        type: string
+      variable_yaml:
+        items:
+          $ref: '#/definitions/util.KeyValue'
+        type: array
+      yaml:
         type: string
     type: object
   service.ServiceDeployStatus:
@@ -1245,6 +1304,12 @@ definitions:
       variable_yaml:
         type: string
     type: object
+  util.KeyValue:
+    properties:
+      key:
+        type: string
+      value: {}
+    type: object
 info:
   contact:
     email: contact@koderover.com
@@ -1258,7 +1323,7 @@ info:
   title: Zadig aslan service REST APIs
   version: "1.0"
 paths:
-  /collaboration/collaborations/sync:
+  /api/aslan/collaboration/collaborations/sync:
     post:
       consumes:
       - application/json
@@ -1283,7 +1348,7 @@ paths:
       summary: Sync Collaboration Instance
       tags:
       - collaboration
-  /environment/environments:
+  /api/aslan/environment/environments:
     post:
       consumes:
       - application/json
@@ -1376,7 +1441,7 @@ paths:
       summary: Update Multi products
       tags:
       - environment
-  /environment/environments/{name}/globalVariableCandidates:
+  /api/aslan/environment/environments/{name}/globalVariableCandidates:
     get:
       consumes:
       - application/json
@@ -1404,7 +1469,7 @@ paths:
       summary: Get global variable candidates
       tags:
       - environment
-  /environment/environments/{name}/k8s/globalVariables:
+  /api/aslan/environment/environments/{name}/k8s/globalVariables:
     put:
       consumes:
       - application/json
@@ -1434,7 +1499,7 @@ paths:
       summary: Update global variables
       tags:
       - environment
-  /environment/environments/{name}/services:
+  /api/aslan/environment/environments/{name}/services:
     get:
       consumes:
       - application/json
@@ -1489,7 +1554,7 @@ paths:
       summary: Delete services
       tags:
       - environment
-  /environment/environments/{name}/services/{serviceName}:
+  /api/aslan/environment/environments/{name}/services/{serviceName}:
     put:
       consumes:
       - application/json
@@ -1524,7 +1589,7 @@ paths:
       summary: Update service
       tags:
       - environment
-  /environment/environments/{name}/services/{serviceName}/preview:
+  /api/aslan/environment/environments/{name}/services/{serviceName}/preview:
     post:
       consumes:
       - application/json
@@ -1561,7 +1626,7 @@ paths:
       summary: Preview service
       tags:
       - environment
-  /environment/init_info/{name}:
+  /api/aslan/environment/init_info/{name}:
     get:
       consumes:
       - application/json
@@ -1597,7 +1662,7 @@ paths:
       summary: Get init product
       tags:
       - environment
-  /environment/kube/k8s/resources:
+  /api/aslan/environment/kube/k8s/resources:
     post:
       consumes:
       - application/json
@@ -1626,7 +1691,7 @@ paths:
       summary: Get Resource Deploy Status
       tags:
       - environment
-  /environment/production/environments/{name}/servicesForUpdate:
+  /api/aslan/environment/production/environments/{name}/servicesForUpdate:
     get:
       consumes:
       - application/json
@@ -1652,7 +1717,7 @@ paths:
       summary: List services in production env
       tags:
       - environments
-  /environment/rendersets/globalVariables:
+  /api/aslan/environment/rendersets/globalVariables:
     get:
       consumes:
       - application/json
@@ -1679,7 +1744,7 @@ paths:
       summary: Get global variable
       tags:
       - environment
-  /environment/rendersets/variables:
+  /api/aslan/environment/rendersets/variables:
     get:
       consumes:
       - application/json
@@ -1711,7 +1776,7 @@ paths:
       summary: Get service variables
       tags:
       - environment
-  /environments/{name}/services/{serviceName}/variables:
+  /api/aslan/environments/{name}/services/{serviceName}/variables:
     get:
       consumes:
       - application/json
@@ -1744,7 +1809,7 @@ paths:
       summary: Get production service variables
       tags:
       - environment
-  /placeholder/deploy_job_spec:
+  /api/aslan/placeholder/deploy_job_spec:
     post:
       consumes:
       - application/json
@@ -1764,7 +1829,7 @@ paths:
       summary: '[DONT USE]  ZadigDeployJobSpec'
       tags:
       - placeholder
-  /project/products/{name}/globalVariableCandidates:
+  /api/aslan/project/products/{name}/globalVariableCandidates:
     get:
       consumes:
       - application/json
@@ -1787,7 +1852,7 @@ paths:
       summary: Get global variable candidates
       tags:
       - project
-  /project/products/{name}/globalVariables:
+  /api/aslan/project/products/{name}/globalVariables:
     get:
       consumes:
       - application/json
@@ -1834,7 +1899,7 @@ paths:
       summary: Update global variables
       tags:
       - project
-  /service/services:
+  /api/aslan/service/services:
     post:
       consumes:
       - application/json
@@ -1861,7 +1926,7 @@ paths:
       summary: Create service template
       tags:
       - service
-  /service/services/{name}/environments/deployable:
+  /api/aslan/service/services/{name}/environments/deployable:
     get:
       consumes:
       - application/json
@@ -1887,7 +1952,7 @@ paths:
       summary: Get Deployable Envs
       tags:
       - service
-  /service/services/{name}/variable:
+  /api/aslan/service/services/{name}/variable:
     put:
       consumes:
       - application/json
@@ -1917,7 +1982,7 @@ paths:
       summary: Update service varaible
       tags:
       - service
-  /service/services/variable/convert:
+  /api/aslan/service/services/variable/convert:
     post:
       consumes:
       - application/json
@@ -1939,7 +2004,7 @@ paths:
       summary: convert varaible kv and yaml
       tags:
       - service
-  /service/template/load:
+  /api/aslan/service/template/load:
     post:
       consumes:
       - application/json
@@ -1959,7 +2024,7 @@ paths:
       summary: Load service from yaml template
       tags:
       - service
-  /service/template/reload:
+  /api/aslan/service/template/reload:
     post:
       consumes:
       - application/json
@@ -1979,7 +2044,7 @@ paths:
       summary: Reload service from yaml template
       tags:
       - service
-  /template/yaml:
+  /api/aslan/template/yaml:
     post:
       consumes:
       - application/json
@@ -1999,7 +2064,7 @@ paths:
       summary: Create yaml template
       tags:
       - template
-  /template/yaml/{id}:
+  /api/aslan/template/yaml/{id}:
     get:
       consumes:
       - application/json
@@ -2044,7 +2109,7 @@ paths:
       summary: Update yaml template
       tags:
       - template
-  /template/yaml/{id}/variable:
+  /api/aslan/template/yaml/{id}/variable:
     put:
       consumes:
       - application/json
@@ -2069,7 +2134,7 @@ paths:
       summary: Update yaml template variable
       tags:
       - template
-  /template/yaml/validateVariable:
+  /api/aslan/template/yaml/validateVariable:
     post:
       consumes:
       - application/json
@@ -2089,7 +2154,7 @@ paths:
       summary: Validate template varaibles
       tags:
       - service
-  /workflow/v4/filterEnv:
+  /api/aslan/workflow/v4/filterEnv:
     post:
       consumes:
       - application/json
@@ -2113,4 +2178,44 @@ paths:
       summary: Get filtered env services
       tags:
       - workflow
+  /openapi/projects/project/init/yaml:
+    post:
+      consumes:
+      - application/json
+      description: OpenAPI Initialize Yaml Project
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.OpenAPIInitializeProjectReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: OpenAPI Initialize Yaml Project
+      tags:
+      - OpenAPI
+  /openapi/service/template/load/yaml:
+    post:
+      consumes:
+      - application/json
+      description: OpenAPI Load Service From Yaml Template
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.OpenAPILoadServiceFromYamlTemplateReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: OpenAPI Load Service From Yaml Template
+      tags:
+      - OpenAPI
 swagger: "2.0"

@@ -195,7 +195,7 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 	}
 	if svcRender != nil && svcRender.OverrideYaml != nil {
 		prodTemplateSvc.ServiceVars = setting.ServiceVarWildCard
-		rArg.VariableKVs, rArg.VariableYaml, err = latestVariables(svcRender.OverrideYaml.RenderVaraibleKVs, prodTemplateSvc)
+		rArg.VariableKVs, rArg.VariableYaml, err = latestVariables(svcRender.OverrideYaml.RenderVariableKVs, prodTemplateSvc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get latest variables, error: %w", err)
 		}
@@ -295,7 +295,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 		}
 		if svcRender.OverrideYaml != nil {
 			rArg.VariableYaml = svcRender.OverrideYaml.YamlContent
-			rArg.VariableKVs = svcRender.OverrideYaml.RenderVaraibleKVs
+			rArg.VariableKVs = svcRender.OverrideYaml.RenderVariableKVs
 			rArg.LatestVariableKVs, rArg.LatestVariableYaml, err = latestVariables(rArg.VariableKVs, templateSvcMap[svcRender.ServiceName])
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to get latest variables, error: %w", err)

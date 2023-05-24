@@ -51,22 +51,24 @@ func geneCreateFromDetail(templateId string, variableYaml string) *commonmodels.
 func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadServiceFromYamlTemplateReq, force bool, logger *zap.SugaredLogger) error {
 	template, err := commonrepo.NewYamlTemplateColl().GetByName(req.TemplateName)
 	if err != nil {
-		logger.Errorf("Failed to find template of name: %s, the error is: %s", req.TemplateName, err)
+		logger.Errorf("Failed to find template of name: %s, err: %w", req.TemplateName, err)
 		return err
 	}
 
-	variableYaml, err := req.VariableYaml.FormYamlString()
+	mergedYaml, mergedKVs, err := commonutil.MergeServiceVariableKVsAndKVInput(template.ServiceVariableKVs, req.VariableYaml)
 	if err != nil {
-		logger.Errorf("Failed to form yaml string, the error is: %s", err)
-		return err
+		return fmt.Errorf("failed to merge variable yaml, err: %w", err)
 	}
+
 	loadArgs := &LoadServiceFromYamlTemplateReq{
-		ProjectName:  req.ProjectKey,
-		ServiceName:  req.ServiceName,
-		TemplateID:   template.ID.Hex(),
-		AutoSync:     req.AutoSync,
-		VariableYaml: variableYaml,
+		ProjectName:        req.ProjectKey,
+		ServiceName:        req.ServiceName,
+		TemplateID:         template.ID.Hex(),
+		AutoSync:           req.AutoSync,
+		VariableYaml:       mergedYaml,
+		ServiceVariableKVs: mergedKVs,
 	}
+
 	return LoadServiceFromYamlTemplate(username, loadArgs, force, logger)
 }
 

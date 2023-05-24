@@ -181,7 +181,7 @@ func CopyWorkflow(c *gin.Context) {
 // @Produce json
 // @Param 	deploy_job_spec 			body 		 commonmodels.ZadigDeployJobSpec	true 	"body"
 // @Success 200
-// @Router /placeholder/deploy_job_spec [post]
+// @Router /api/aslan/placeholder/deploy_job_spec [post]
 func Placeholder(c *gin.Context) {
 
 }

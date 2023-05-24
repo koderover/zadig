@@ -12,9 +12,8 @@
         },
         "version": "1.0"
     },
-    "basePath": "/api/aslan",
     "paths": {
-        "/collaboration/collaborations/sync": {
+        "/api/aslan/collaboration/collaborations/sync": {
             "post": {
                 "description": "Sync Collaboration Instance",
                 "consumes": [
@@ -52,7 +51,7 @@
                 }
             }
         },
-        "/environment/environments": {
+        "/api/aslan/environment/environments": {
             "put": {
                 "description": "Update Multi products",
                 "consumes": [
@@ -191,7 +190,7 @@
                 }
             }
         },
-        "/environment/environments/{name}/globalVariableCandidates": {
+        "/api/aslan/environment/environments/{name}/globalVariableCandidates": {
             "get": {
                 "description": "Get global variable candidates",
                 "consumes": [
@@ -233,7 +232,7 @@
                 }
             }
         },
-        "/environment/environments/{name}/k8s/globalVariables": {
+        "/api/aslan/environment/environments/{name}/k8s/globalVariables": {
             "put": {
                 "description": "Update global variables",
                 "consumes": [
@@ -278,7 +277,7 @@
                 }
             }
         },
-        "/environment/environments/{name}/services": {
+        "/api/aslan/environment/environments/{name}/services": {
             "get": {
                 "description": "List services in env",
                 "consumes": [
@@ -360,7 +359,7 @@
                 }
             }
         },
-        "/environment/environments/{name}/services/{serviceName}": {
+        "/api/aslan/environment/environments/{name}/services/{serviceName}": {
             "put": {
                 "description": "Update service",
                 "consumes": [
@@ -412,7 +411,7 @@
                 }
             }
         },
-        "/environment/environments/{name}/services/{serviceName}/preview": {
+        "/api/aslan/environment/environments/{name}/services/{serviceName}/preview": {
             "post": {
                 "description": "Preview service",
                 "consumes": [
@@ -467,7 +466,7 @@
                 }
             }
         },
-        "/environment/init_info/{name}": {
+        "/api/aslan/environment/init_info/{name}": {
             "get": {
                 "description": "Get init product",
                 "consumes": [
@@ -520,7 +519,7 @@
                 }
             }
         },
-        "/environment/kube/k8s/resources": {
+        "/api/aslan/environment/kube/k8s/resources": {
             "post": {
                 "description": "Get Resource Deploy Status",
                 "consumes": [
@@ -564,7 +563,7 @@
                 }
             }
         },
-        "/environment/production/environments/{name}/servicesForUpdate": {
+        "/api/aslan/environment/production/environments/{name}/servicesForUpdate": {
             "get": {
                 "description": "List services in production env",
                 "consumes": [
@@ -603,7 +602,7 @@
                 }
             }
         },
-        "/environment/rendersets/globalVariables": {
+        "/api/aslan/environment/rendersets/globalVariables": {
             "get": {
                 "description": "Get global variable from environment, current only used for k8s project",
                 "consumes": [
@@ -642,7 +641,7 @@
                 }
             }
         },
-        "/environment/rendersets/variables": {
+        "/api/aslan/environment/rendersets/variables": {
             "get": {
                 "description": "Get service variables",
                 "consumes": [
@@ -690,7 +689,7 @@
                 }
             }
         },
-        "/environments/{name}/services/{serviceName}/variables": {
+        "/api/aslan/environments/{name}/services/{serviceName}/variables": {
             "get": {
                 "description": "Get production service variables",
                 "consumes": [
@@ -739,7 +738,7 @@
                 }
             }
         },
-        "/placeholder/deploy_job_spec": {
+        "/api/aslan/placeholder/deploy_job_spec": {
             "post": {
                 "description": "[DONT USE] ZadigDeployJobSpec",
                 "consumes": [
@@ -770,7 +769,7 @@
                 }
             }
         },
-        "/project/products/{name}/globalVariableCandidates": {
+        "/api/aslan/project/products/{name}/globalVariableCandidates": {
             "get": {
                 "description": "Get global variable candidates",
                 "consumes": [
@@ -805,7 +804,7 @@
                 }
             }
         },
-        "/project/products/{name}/globalVariables": {
+        "/api/aslan/project/products/{name}/globalVariables": {
             "get": {
                 "description": "Get global variables",
                 "consumes": [
@@ -876,7 +875,7 @@
                 }
             }
         },
-        "/service/services": {
+        "/api/aslan/service/services": {
             "post": {
                 "description": "Create service template",
                 "consumes": [
@@ -917,7 +916,7 @@
                 }
             }
         },
-        "/service/services/variable/convert": {
+        "/api/aslan/service/services/variable/convert": {
             "post": {
                 "description": "convert varaible kv and yaml",
                 "consumes": [
@@ -951,7 +950,7 @@
                 }
             }
         },
-        "/service/services/{name}/environments/deployable": {
+        "/api/aslan/service/services/{name}/environments/deployable": {
             "get": {
                 "description": "Get Deployable Envs",
                 "consumes": [
@@ -990,7 +989,7 @@
                 }
             }
         },
-        "/service/services/{name}/variable": {
+        "/api/aslan/service/services/{name}/variable": {
             "put": {
                 "description": "Update service varaible",
                 "consumes": [
@@ -1035,7 +1034,7 @@
                 }
             }
         },
-        "/service/template/load": {
+        "/api/aslan/service/template/load": {
             "post": {
                 "description": "Load service from yaml template",
                 "consumes": [
@@ -1066,7 +1065,7 @@
                 }
             }
         },
-        "/service/template/reload": {
+        "/api/aslan/service/template/reload": {
             "post": {
                 "description": "Reload service from yaml template",
                 "consumes": [
@@ -1097,7 +1096,7 @@
                 }
             }
         },
-        "/template/yaml": {
+        "/api/aslan/template/yaml": {
             "post": {
                 "description": "Create yaml template",
                 "consumes": [
@@ -1128,7 +1127,7 @@
                 }
             }
         },
-        "/template/yaml/validateVariable": {
+        "/api/aslan/template/yaml/validateVariable": {
             "post": {
                 "description": "Validate template varaibles",
                 "consumes": [
@@ -1159,7 +1158,7 @@
                 }
             }
         },
-        "/template/yaml/{id}": {
+        "/api/aslan/template/yaml/{id}": {
             "get": {
                 "description": "Get yaml template detail",
                 "consumes": [
@@ -1227,7 +1226,7 @@
                 }
             }
         },
-        "/template/yaml/{id}/variable": {
+        "/api/aslan/template/yaml/{id}/variable": {
             "put": {
                 "description": "Update yaml template variable",
                 "consumes": [
@@ -1265,7 +1264,7 @@
                 }
             }
         },
-        "/workflow/v4/filterEnv": {
+        "/api/aslan/workflow/v4/filterEnv": {
             "post": {
                 "description": "Get filtered env services",
                 "consumes": [
@@ -1298,6 +1297,68 @@
                                 "$ref": "#/definitions/models.DeployService"
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/openapi/projects/project/init/yaml": {
+            "post": {
+                "description": "OpenAPI Initialize Yaml Project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI Initialize Yaml Project",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.OpenAPIInitializeProjectReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/openapi/service/template/load/yaml": {
+            "post": {
+                "description": "OpenAPI Load Service From Yaml Template",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OpenAPI"
+                ],
+                "summary": "OpenAPI Load Service From Yaml Template",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.OpenAPILoadServiceFromYamlTemplateReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
                     }
                 }
             }
@@ -2353,6 +2414,20 @@
                 }
             }
         },
+        "service.EnvDefinition": {
+            "type": "object",
+            "properties": {
+                "cluster_name": {
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
         "service.EnvServices": {
             "type": "object",
             "properties": {
@@ -2505,6 +2580,58 @@
                 },
                 "variable_yaml": {
                     "type": "string"
+                }
+            }
+        },
+        "service.OpenAPIInitializeProjectReq": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "env_list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.EnvDefinition"
+                    }
+                },
+                "is_public": {
+                    "type": "boolean"
+                },
+                "project_key": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "service_list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.ServiceDefinition"
+                    }
+                }
+            }
+        },
+        "service.OpenAPILoadServiceFromYamlTemplateReq": {
+            "type": "object",
+            "properties": {
+                "auto_sync": {
+                    "type": "boolean"
+                },
+                "project_key": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "template_name": {
+                    "type": "string"
+                },
+                "variable_yaml": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/util.KeyValue"
+                    }
                 }
             }
         },
@@ -2699,6 +2826,32 @@
                     "$ref": "#/definitions/service.DeployStatus"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ServiceDefinition": {
+            "type": "object",
+            "properties": {
+                "auto_sync": {
+                    "type": "boolean"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "template_name": {
+                    "type": "string"
+                },
+                "variable_yaml": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/util.KeyValue"
+                    }
+                },
+                "yaml": {
                     "type": "string"
                 }
             }
@@ -3170,6 +3323,15 @@
                 "variable_yaml": {
                     "type": "string"
                 }
+            }
+        },
+        "util.KeyValue": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {}
             }
         }
     }

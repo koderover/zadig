@@ -33,7 +33,7 @@ import (
 // @Produce json
 // @Param 	body 	body 		svcservice.LoadServiceFromYamlTemplateReq 	true 	"body"
 // @Success 200
-// @Router /service/template/load [post]
+// @Router /api/aslan/service/template/load [post]
 func LoadServiceFromYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -51,6 +51,14 @@ func LoadServiceFromYamlTemplate(c *gin.Context) {
 	ctx.Err = svcservice.LoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
 
+// @Summary OpenAPI Load Service From Yaml Template
+// @Description OpenAPI Load Service From Yaml Template
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	body 			body 		svcservice.OpenAPILoadServiceFromYamlTemplateReq 	true 	"body"
+// @Success 200
+// @Router /openapi/service/template/load/yaml [post]
 func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -79,7 +87,7 @@ func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 // @Produce json
 // @Param 	body 	body 		svcservice.LoadServiceFromYamlTemplateReq 	true 	"body"
 // @Success 200
-// @Router /service/template/reload [post]
+// @Router /api/aslan/service/template/reload [post]
 func ReloadServiceFromYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

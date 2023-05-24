@@ -507,7 +507,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	renderVariableKVs := []*commontypes.RenderVariableKV{}
 	serviceRender := usedRenderset.GetServiceRenderMap()[option.ServiceName]
 	if serviceRender != nil && serviceRender.OverrideYaml != nil {
-		renderVariableKVs = serviceRender.OverrideYaml.RenderVaraibleKVs
+		renderVariableKVs = serviceRender.OverrideYaml.RenderVariableKVs
 	}
 
 	// merge service template, renderset and opton variables

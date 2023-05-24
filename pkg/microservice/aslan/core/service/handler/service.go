@@ -91,7 +91,7 @@ type createServiceTemplateRequest struct {
 // @Param 	force	query		bool							true	"is force to create service template"
 // @Param 	body 	body 		createServiceTemplateRequest 	true 	"body"
 // @Success 200 	{object} 	svcservice.ServiceOption
-// @Router /service/services [post]
+// @Router /api/aslan/service/services [post]
 func CreateServiceTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -163,7 +163,7 @@ type updateServiceVariableRequest struct {
 // @Param 	projectName	query		string							true	"project name"
 // @Param 	body  		body 		updateServiceVariableRequest 	true 	"body"
 // @Success 200
-// @Router /service/services/{name}/variable [put]
+// @Router /api/aslan/service/services/{name}/variable [put]
 func UpdateServiceVariable(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -555,7 +555,7 @@ func GetYamlServiceOpenAPI(c *gin.Context) {
 // @Produce json
 // @Param body body commonservice.ConvertVaraibleKVAndYamlArgs true "body"
 // @Success 200 {object} commonservice.ConvertVaraibleKVAndYamlArgs
-// @Router /service/services/variable/convert [post]
+// @Router /api/aslan/service/services/variable/convert [post]
 func ConvertVaraibleKVAndYaml(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

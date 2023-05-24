@@ -202,7 +202,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		}
 	}
 
-	curRenderset.GlobalVariables, args.ServiceRev.VariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, curRenderset.GlobalVariables, args.ServiceRev.VariableKVs, curSvcRender.OverrideYaml.RenderVaraibleKVs)
+	curRenderset.GlobalVariables, args.ServiceRev.VariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, curRenderset.GlobalVariables, args.ServiceRev.VariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to update global variable, err: %s", err))
 	}
@@ -220,7 +220,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		foundServiceVariable = true
 		svc.OverrideYaml = &template.CustomYaml{
 			YamlContent:       args.ServiceRev.VariableYaml,
-			RenderVaraibleKVs: args.ServiceRev.VariableKVs,
+			RenderVariableKVs: args.ServiceRev.VariableKVs,
 		}
 	}
 	if !foundServiceVariable {
@@ -228,7 +228,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 			ServiceName: args.ServiceName,
 			OverrideYaml: &template.CustomYaml{
 				YamlContent:       args.ServiceRev.VariableYaml,
-				RenderVaraibleKVs: args.ServiceRev.VariableKVs,
+				RenderVariableKVs: args.ServiceRev.VariableKVs,
 			},
 		})
 	}

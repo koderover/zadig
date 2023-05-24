@@ -554,7 +554,7 @@ func ListAllAvailableWorkflows(c *gin.Context) {
 // @Produce json
 // @Param 	body 		body 		filterDeployServiceVarsQuery	 	true 	"body"
 // @Success 200 		{array} 	commonmodels.DeployService
-// @Router /workflow/v4/filterEnv [post]
+// @Router /api/aslan/workflow/v4/filterEnv [post]
 func GetFilteredEnvServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

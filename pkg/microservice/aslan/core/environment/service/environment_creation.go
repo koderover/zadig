@@ -355,7 +355,7 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 				ServiceName: sv.ServiceName,
 				OverrideYaml: &templatemodels.CustomYaml{
 					YamlContent:       variableYaml,
-					RenderVaraibleKVs: sv.VariableKVs,
+					RenderVariableKVs: sv.VariableKVs,
 				},
 			})
 		}

@@ -969,7 +969,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 			ServiceName: sv.ServiceName,
 			OverrideYaml: &template.CustomYaml{
 				YamlContent:       variableYaml,
-				RenderVaraibleKVs: sv.VariableKVs,
+				RenderVariableKVs: sv.VariableKVs,
 			},
 		})
 	}
