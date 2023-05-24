@@ -295,18 +295,13 @@ func MergeRenderVariableKVs(kvsList ...[]*RenderVariableKV) (string, []*RenderVa
 }
 
 func MergeRenderAndServiceTemplateVariableKVs(render []*RenderVariableKV, serivceTemplate []*ServiceVariableKV) (string, []*RenderVariableKV, error) {
-	svcTemplMap := map[string]*ServiceVariableKV{}
-	for _, kv := range serivceTemplate {
-		svcTemplMap[kv.Key] = kv
-	}
-
 	renderMap := map[string]*RenderVariableKV{}
 	for _, kv := range render {
 		renderMap[kv.Key] = kv
 	}
 
 	ret := []*RenderVariableKV{}
-	for _, kv := range svcTemplMap {
+	for _, kv := range serivceTemplate {
 		if renderKV, ok := renderMap[kv.Key]; !ok {
 			ret = append(ret, &RenderVariableKV{
 				ServiceVariableKV: *kv,
