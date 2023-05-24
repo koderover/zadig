@@ -234,14 +234,28 @@ func ObjectStorageServicePath(project, service string) string {
 	return configbase.ObjectStorageServicePath(project, service)
 }
 
+func ObjectStorageProductionServicePath(project, service string) string {
+	return configbase.ObjectStorageProductionServicePath(project, service)
+}
+
 // LocalServicePath returns the path of the normal service with the latest version
 func LocalServicePath(project, service string) string {
 	return configbase.LocalTestServicePathWithRevision(project, service, "latest")
 }
 
+// LocalProductionServicePath returns the path of the production service with the latest version
+func LocalProductionServicePath(project, service string) string {
+	return configbase.LocalProductionServicePathWithRevision(project, service, "latest")
+}
+
 // LocalServicePathWithRevision returns the path of the normal service with the specific revision
 func LocalServicePathWithRevision(project, service string, revision int64) string {
 	return configbase.LocalTestServicePathWithRevision(project, service, fmt.Sprintf("%d", revision))
+}
+
+// LocalProductionServicePathWithRevision returns the path of the normal service with the specific revision
+func LocalProductionServicePathWithRevision(project, service string, revision int64) string {
+	return configbase.LocalProductionServicePathWithRevision(project, service, fmt.Sprintf("%d", revision))
 }
 
 // LocalDeliveryChartPathWithRevision returns the path of the normal service with the specific revision

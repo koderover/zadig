@@ -67,6 +67,29 @@ func CreateK8sProductionService(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.CreateK8sProductionService(c.Query("projectName"), args, ctx.Logger)
 }
 
+func CreateHelmProductionService(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		return
+	}
+
+	args := new(svcservice.HelmServiceCreationArgs)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
+		return
+	}
+
+	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", args.Name), string(bs), ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, false, ctx.Logger)
+}
+
 func UpdateK8sProductionServiceVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

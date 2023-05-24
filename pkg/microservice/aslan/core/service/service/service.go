@@ -1157,7 +1157,7 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 	}
 
 	serviceTemplate.ReleaseNaming = args.NamingRule
-	rev, err := getNextServiceRevision(projectName, args.ServiceName)
+	rev, err := getNextServiceRevision(projectName, args.ServiceName, false)
 	if err != nil {
 		return fmt.Errorf("failed to get service next revision, service %s, err: %s", args.ServiceName, err)
 	}
