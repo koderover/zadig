@@ -28,7 +28,11 @@ func GetDingTalkDepartment(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = dingtalk.GetDingTalkDepartment(c.Param("id"), c.Param("department_id"))
+	deptID := c.Param("department_id")
+	if deptID == "root" {
+		deptID = "1"
+	}
+	ctx.Resp, ctx.Err = dingtalk.GetDingTalkDepartment(c.Param("id"), deptID)
 }
 
 func GetDingTalkUserID(c *gin.Context) {
