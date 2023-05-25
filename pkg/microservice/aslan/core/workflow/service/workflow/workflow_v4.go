@@ -259,7 +259,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	if err != nil {
 		return resp, err
 	}
-	
+
 	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowTypeV4)})
 	if err != nil {
 		return resp, errors.Errorf("failed to get custom workflow favorite data, err: %v", err)
@@ -698,6 +698,22 @@ func lintApprovals(approval *commonmodels.Approval) error {
 		}
 		if len(approval.LarkApproval.ApproveUsers) == 0 {
 			return errors.New("num of approver is 0")
+		}
+	case config.DingTalkApproval:
+		if approval.DingTalkApproval == nil {
+			return errors.New("approval not found")
+		}
+		userIDSets := sets.NewString()
+		for i, node := range approval.DingTalkApproval.ApprovalNodes {
+			if len(node.ApproveUsers) == 0 {
+				return errors.Errorf("num of approval-node %d approver is 0", i)
+			}
+			for _, user := range node.ApproveUsers {
+				if userIDSets.Has(user.ID) {
+					return errors.Errorf("Duplicate approvers %s should not appear in a complete approval process", user.Name)
+				}
+				userIDSets.Insert(user.ID)
+			}
 		}
 	default:
 		return errors.New("invalid approval type")
