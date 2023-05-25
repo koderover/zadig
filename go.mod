@@ -49,7 +49,7 @@ require (
 	github.com/juju/ratelimit v1.0.2
 	github.com/larksuite/oapi-sdk-go/v3 v3.0.10
 	github.com/mholt/archiver v3.1.1+incompatible
-	github.com/mittwald/go-helm-client v0.8.5
+	github.com/mittwald/go-helm-client v0.11.3
 	github.com/moby/buildkit v0.10.4
 	github.com/nsqio/go-nsq v1.1.0
 	github.com/onsi/ginkgo/v2 v2.8.3
@@ -59,7 +59,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
-	github.com/regclient/regclient v0.4.8
+	github.com/regclient/regclient v0.4.5
 	github.com/rfyiamcool/cronlib v1.2.1
 	github.com/samber/lo v1.37.0
 	github.com/shirou/gopsutil/v3 v3.22.8
@@ -84,7 +84,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.3.6
 	gorm.io/gorm v1.23.8
-	helm.sh/helm/v3 v3.7.2
+	helm.sh/helm/v3 v3.9.1
 	istio.io/api v0.0.0-20221109202042-b9e5d446a83d
 	istio.io/client-go v1.16.0
 	k8s.io/api v0.25.0
