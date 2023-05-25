@@ -716,7 +716,7 @@ func lintApprovals(approval *commonmodels.Approval) error {
 			}
 		}
 	default:
-		return errors.New("invalid approval type")
+		return errors.Errorf("invalid approval type %s", approval.Type)
 	}
 
 	return nil
