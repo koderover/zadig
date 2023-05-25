@@ -54,17 +54,14 @@ func (c *IMAppColl) EnsureIndex(ctx context.Context) error {
 	mod := []mongo.IndexModel{
 		{
 			Keys: bson.D{
-				bson.E{Key: "app_id", Value: 1},
-			},
-			Options: options.Index().SetUnique(true),
-		},
-		{
-			Keys: bson.D{
 				bson.E{Key: "name", Value: 1},
 			},
 			Options: options.Index().SetUnique(true),
 		},
 	}
+
+	// drop unique index on app_id
+	_, _ = c.Indexes().DropOne(ctx, "app_id_1")
 
 	_, err := c.Indexes().CreateMany(ctx, mod)
 	return err
