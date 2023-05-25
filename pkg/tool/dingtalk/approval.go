@@ -20,6 +20,14 @@ const (
 	defaultApprovalFormLabel = "详情"
 )
 
+type ApprovalAction string
+
+const (
+	AND  = "AND"
+	OR   = "OR"
+	NONE = "NONE"
+)
+
 var (
 	defaultApprovalFormDefinition = ApprovalFormDefinition{
 		Name:        defaultApprovalFormName,
@@ -76,7 +84,7 @@ func (c *Client) CreateApproval() (resp *CreateApprovalResponse, err error) {
 type ApprovalInstance struct {
 	ProcessCode         string               `json:"processCode"`
 	Originator          string               `json:"originatorUserId"`
-	Approvers           []ApprovalNode       `json:"approvers"`
+	Approvers           []*ApprovalNode      `json:"approvers"`
 	FormComponentValues []FormComponentValue `json:"formComponentValues"`
 	MicroAgentID        int                  `json:"microappAgentId,omitempty"`
 }
@@ -87,14 +95,14 @@ type FormComponentValue struct {
 }
 
 type ApprovalNode struct {
-	ActionType string   `json:"actionType"`
-	UserIDs    []string `json:"userIds"`
+	ActionType ApprovalAction `json:"actionType"`
+	UserIDs    []string       `json:"userIds"`
 }
 
 type CreateApprovalInstanceArgs struct {
 	ProcessCode      string
 	OriginatorUserID string
-	ApproverNodeList []ApprovalNode
+	ApproverNodeList []*ApprovalNode
 	FormContent      string
 }
 
@@ -103,6 +111,11 @@ type CreateApprovalInstanceResponse struct {
 }
 
 func (c *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (resp *CreateApprovalInstanceResponse, err error) {
+	for _, node := range args.ApproverNodeList {
+		if len(node.UserIDs) == 1 {
+			node.ActionType = NONE
+		}
+	}
 	_, err = c.R().
 		SetBodyJsonMarshal(ApprovalInstance{
 			ProcessCode: args.ProcessCode,
@@ -117,5 +130,33 @@ func (c *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (resp 
 		}).
 		SetSuccessResult(&resp).
 		Post("https://api.dingtalk.com/v1.0/workflow/processInstances")
+	return
+}
+
+type ApprovalInstanceInfo struct {
+	Title            string                  `json:"title"`
+	Status           string                  `json:"status"`
+	Result           string                  `json:"result"`
+	OperationRecords []*OperationRecord      `json:"operationRecords"`
+	Tasks            []*ApprovalInstanceTask `json:"tasks"`
+}
+
+type OperationRecord struct {
+	UserID string `json:"userid"`
+	Date   string `json:"date"`
+	Result string `json:"result"`
+	Remark string `json:"remark"`
+}
+
+type ApprovalInstanceTask struct {
+	UserID     string `json:"userid"`
+	Result     string `json:"result"`
+	ActivityID string `json:"activityId"`
+}
+
+func (c *Client) GetApprovalInstance(id string) (resp *ApprovalInstanceInfo, err error) {
+	_, err = c.R().SetQueryParam("processInstanceId", id).
+		SetSuccessResult(&resp).
+		Get("https://api.dingtalk.com/v1.0/workflow/processInstances")
 	return
 }

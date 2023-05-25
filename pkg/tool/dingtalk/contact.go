@@ -44,9 +44,9 @@ func (c *Client) GetUserIDByMobile(mobile string) (resp *UserIDResponse, err err
 }
 
 type SubDepartmentInfo struct {
-	ID       int64  `json:"dept_id"`
-	Name     string `json:"name"`
-	ParentID int    `json:"parent_id"`
+	ID   int64  `json:"dept_id"`
+	Name string `json:"name"`
+	//ParentID int    `json:"parent_id"`
 }
 
 func (c *Client) GetSubDepartmentsInfo(id int) (resp []SubDepartmentInfo, err error) {

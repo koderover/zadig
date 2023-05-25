@@ -59,6 +59,17 @@ func createDingTalkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error
 	}
 
 	client := dingtalk.NewClient(args.AppID, args.AppSecret)
+	resp, err := client.CreateApproval()
+	if err != nil {
+		return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "create approval form"))
+	}
+
+	args.DingTalkDefaultApprovalFormCode = resp.ProcessCode
+	err = mongodb.NewIMAppColl().Update(context.Background(), oid, args)
+	if err != nil {
+		return errors.Wrap(err, "update dingtalk info with process code")
+	}
+	return nil
 }
 
 func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
@@ -69,7 +80,6 @@ func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	}
 
 	client := lark.NewClient(args.AppID, args.AppSecret)
-
 	approvalCode, err := createLarkDefaultApprovalDefinition(client)
 	if err != nil {
 		return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "create definition"))
@@ -90,6 +100,36 @@ func createLarkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 }
 
 func UpdateIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) error {
+	switch args.Type {
+	case setting.IMDingTalk:
+		return updateDingTalkIMApp(id, args, log)
+	case setting.IMLark:
+		return updateLarkIMApp(id, args, log)
+	default:
+		return errors.Errorf("unknown im type %s", args.Type)
+	}
+}
+
+func updateDingTalkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) error {
+	if err := dingtalk.Validate(args.AppID, args.AppSecret); err != nil {
+		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "validate"))
+	}
+
+	client := dingtalk.NewClient(args.AppID, args.AppSecret)
+	resp, err := client.CreateApproval()
+	if err != nil {
+		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "create approval form"))
+	}
+
+	args.DingTalkDefaultApprovalFormCode = resp.ProcessCode
+	err = mongodb.NewIMAppColl().Update(context.Background(), id, args)
+	if err != nil {
+		return errors.Wrap(err, "update dingtalk info with process code")
+	}
+	return nil
+}
+
+func updateLarkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	if err := lark.Validate(args.AppID, args.AppSecret); err != nil {
 		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "validate"))
 	}

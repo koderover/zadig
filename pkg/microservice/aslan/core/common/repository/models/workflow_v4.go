@@ -28,6 +28,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/dingtalk"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -91,14 +92,15 @@ type WorkflowStage struct {
 }
 
 type Approval struct {
-	Enabled        bool                `bson:"enabled"                     yaml:"enabled"                       json:"enabled"`
-	Status         config.Status       `bson:"status"                      yaml:"status"                        json:"status"`
-	Type           config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
-	Description    string              `bson:"description"                 yaml:"description"                   json:"description"`
-	StartTime      int64               `bson:"start_time"                  yaml:"start_time,omitempty"          json:"start_time,omitempty"`
-	EndTime        int64               `bson:"end_time"                    yaml:"end_time,omitempty"            json:"end_time,omitempty"`
-	NativeApproval *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
-	LarkApproval   *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
+	Enabled          bool                `bson:"enabled"                     yaml:"enabled"                       json:"enabled"`
+	Status           config.Status       `bson:"status"                      yaml:"status"                        json:"status"`
+	Type             config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
+	Description      string              `bson:"description"                 yaml:"description"                   json:"description"`
+	StartTime        int64               `bson:"start_time"                  yaml:"start_time,omitempty"          json:"start_time,omitempty"`
+	EndTime          int64               `bson:"end_time"                    yaml:"end_time,omitempty"            json:"end_time,omitempty"`
+	NativeApproval   *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
+	LarkApproval     *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
+	DingTalkApproval *DingTalkApproval   `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"   json:"dingtalk_approval,omitempty"`
 }
 
 type NativeApproval struct {
@@ -106,6 +108,27 @@ type NativeApproval struct {
 	ApproveUsers    []*User                `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	NeededApprovers int                    `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
 	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+}
+
+type DingTalkApproval struct {
+	Timeout       int                     `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	ApprovalID    string                  `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
+	ApprovalNodes []*DingTalkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+}
+
+type DingTalkApprovalNode struct {
+	ApproveUsers    []*DingTalkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Type            dingtalk.ApprovalAction `bson:"type"                        yaml:"type"                       json:"type"`
+	RejectOrApprove config.ApproveOrReject  `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+}
+
+type DingTalkApprovalUser struct {
+	ID              string                 `bson:"id"                          yaml:"id"                         json:"id"`
+	Name            string                 `bson:"name"                        yaml:"name"                       json:"name"`
+	Avatar          string                 `bson:"avatar"                      yaml:"avatar"                     json:"avatar"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	Comment         string                 `bson:"comment"                     yaml:"-"                          json:"comment"`
+	OperationTime   int64                  `bson:"operation_time"              yaml:"-"                          json:"operation_time"`
 }
 
 type LarkApproval struct {

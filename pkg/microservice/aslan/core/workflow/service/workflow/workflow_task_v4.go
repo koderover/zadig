@@ -305,6 +305,14 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		}
 		workflowTask.TaskCreatorEmail = userInfo.Email
 		workflowTask.TaskCreatorPhone = userInfo.Phone
+	} else {
+		// try to get workflow creator phone as the default approval initiator
+		userInfo, err := orm.GetUserByName(workflow.CreatedBy, core.DB)
+		if err != nil {
+			log.Warnf("CreateWorkflowTaskV4: failed to get workflow creator")
+		} else {
+			workflowTask.DefaultApprovalInitiatorPhone = userInfo.Phone
+		}
 	}
 
 	// save workflow original workflow task args.
@@ -515,7 +523,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			}
 		}
 	}
-	
+
 	task.Status = config.StatusCreated
 	task.StartTime = time.Now().Unix()
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(task); err != nil {

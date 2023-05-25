@@ -21,17 +21,15 @@ import (
 	"strconv"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/dingtalk"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type SubDepartmentAndUserIDsResponse struct {
-	SubDepartmentIDs []int64  `json:"sub_department_ids"`
-	UserIDs          []string `json:"user_ids"`
+	SubDepartmentIDs []dingtalk.SubDepartmentInfo `json:"sub_department_ids"`
+	UserIDs          []string                     `json:"user_ids"`
 }
 
 func GetDingTalkDepartment(id, departmentID string) (*SubDepartmentAndUserIDsResponse, error) {
@@ -52,13 +50,8 @@ func GetDingTalkDepartment(id, departmentID string) (*SubDepartmentAndUserIDsRes
 		return nil, errors.Wrap(err, "get sub departments error")
 	}
 	return &SubDepartmentAndUserIDsResponse{
-		SubDepartmentIDs: func() (list []int64) {
-			for _, department := range subDepartments {
-				list = append(list, department.ID)
-			}
-			return
-		}(),
-		UserIDs: userIDs.UserIDList,
+		SubDepartmentIDs: subDepartments,
+		UserIDs:          userIDs.UserIDList,
 	}, nil
 }
 
@@ -72,49 +65,6 @@ func GetDingTalkUserIDByMobile(id, mobile string) (string, error) {
 		return "", errors.Wrap(err, "get userID by mobile error")
 	}
 	return resp.UserID, nil
-}
-
-type EventResponse struct {
-	MsgSignature string `json:"msg_signature"`
-	TimeStamp    string `json:"timeStamp"`
-	Nonce        string `json:"nonce"`
-	Encrypt      string `json:"encrypt"`
-}
-
-func EventHandler(appKey string, body []byte, signature, ts, nonce string) (*EventResponse, error) {
-	logger := log.SugaredLogger().With("func", "DingTalkEventHandler").With("appKey", appKey)
-
-	logger.Info("New dingtalk event received")
-	info, err := mongodb.NewIMAppColl().GetDingTalkByAppKey(context.Background(), appKey)
-	if err != nil {
-		logger.Errorf("get dingtalk info error: %v", err)
-		return nil, errors.Wrap(err, "get dingtalk info error")
-	}
-
-	d, err := NewDingTalkCrypto(info.DingTalkToken, info.DingTalkAesKey, info.DingTalkAppKey)
-	if err != nil {
-		logger.Errorf("new dingtalk crypto error: %v", err)
-		return nil, errors.Wrap(err, "new dingtalk crypto error")
-	}
-
-	suc, err := d.GetDecryptMsg(signature, ts, nonce, gjson.Get(string(body), "encrypt").String())
-	if err != nil {
-		logger.Errorf("get decrypt msg error: %v", err)
-		return nil, errors.Wrap(err, "get decrypt msg error")
-	}
-	log.Infof("suc: %s", suc)
-
-	msg, err := d.GetEncryptMsg("success")
-	if err != nil {
-		logger.Errorf("get encrypt msg error: %v", err)
-		return nil, errors.Wrap(err, "get encrypt msg error")
-	}
-	return &EventResponse{
-		MsgSignature: msg["msg_signature"],
-		TimeStamp:    msg["timeStamp"],
-		Nonce:        msg["nonce"],
-		Encrypt:      msg["encrypt"],
-	}, nil
 }
 
 func GetDingTalkClientByIMAppID(id string) (*dingtalk.Client, error) {
