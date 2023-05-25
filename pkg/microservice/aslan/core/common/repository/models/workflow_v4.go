@@ -62,7 +62,8 @@ type WorkflowV4 struct {
 	Hash            string                   `bson:"hash"                yaml:"hash"                json:"hash"`
 	// ConcurrencyLimit is the max number of concurrent runs of this workflow
 	// -1 means no limit
-	ConcurrencyLimit int `bson:"concurrency_limit"   yaml:"concurrency_limit"   json:"concurrency_limit"`
+	ConcurrencyLimit int          `bson:"concurrency_limit"   yaml:"concurrency_limit"   json:"concurrency_limit"`
+	CustomField      *CustomField `bson:"custom_field"        yaml:"-"                   json:"custom_field"`
 }
 
 func (w *WorkflowV4) UpdateHash() {
@@ -120,7 +121,7 @@ type DingTalkApproval struct {
 	ID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
 	// DefaultApprovalInitiator if not set, use workflow task creator as approval initiator
 	DefaultApprovalInitiator *DingTalkApprovalUser   `bson:"default_approval_initiator" yaml:"default_approval_initiator" json:"default_approval_initiator"`
-	ApprovalNodes            []*DingTalkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+	ApprovalNodes            []*DingTalkApprovalNode `bson:"approval_nodes"             yaml:"approval_nodes"             json:"approval_nodes"`
 }
 
 type DingTalkApprovalNode struct {
@@ -199,9 +200,16 @@ type Job struct {
 	Name    string         `bson:"name"           yaml:"name"     json:"name"`
 	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
 	// only for webhook workflow args to skip some tasks.
-	Skipped   bool                `bson:"skipped"        yaml:"skipped"  json:"skipped"`
-	Spec      interface{}         `bson:"spec"           yaml:"spec"     json:"spec"`
-	RunPolicy config.JobRunPolicy `bson:"run_policy"   yaml:"run_policy" json:"run_policy"`
+	Skipped        bool                     `bson:"skipped"        yaml:"skipped"    json:"skipped"`
+	Spec           interface{}              `bson:"spec"           yaml:"spec"       json:"spec"`
+	RunPolicy      config.JobRunPolicy      `bson:"run_policy"     yaml:"run_policy" json:"run_policy"`
+	ServiceModules []*WorkflowServiceModule `bson:"service_modules"                  json:"service_modules"`
+}
+
+type WorkflowServiceModule struct {
+	ServiceModule string              `bson:"service_module" json:"service_module"`
+	ServiceName   string              `bson:"service_name"   json:"service_name"`
+	CodeInfo      []*types.Repository `bson:"code_info"      json:"code_info"`
 }
 
 type CustomDeployJobSpec struct {
@@ -705,4 +713,17 @@ func IToiYaml(before interface{}, after interface{}) error {
 
 func (WorkflowV4) TableName() string {
 	return "workflow_v4"
+}
+
+// CustomField use to display custom field of workflow history tasks
+type CustomField struct {
+	TaskID                 int            `bson:"task_id"                             json:"task_id"`
+	Status                 int            `bson:"status"                              json:"status"`
+	Duration               int            `bson:"duration"                            json:"duration"`
+	Executor               int            `bson:"executor"                            json:"executor"`
+	BuildServiceComponent  map[string]int `bson:"build_service_component,omitempty"   json:"build_service_component,omitempty"`
+	BuildCodeMsg           map[string]int `bson:"build_code_msg,omitempty"            json:"build_code_msg,omitempty"`
+	DeployServiceComponent map[string]int `bson:"deploy_service_component,omitempty"  json:"deploy_service_component,omitempty"`
+	DeployEnv              map[string]int `bson:"deploy_env,omitempty"                json:"deploy_env,omitempty"`
+	TestResult             map[string]int `bson:"test_result,omitempty"               json:"test_result,omitempty"`
 }

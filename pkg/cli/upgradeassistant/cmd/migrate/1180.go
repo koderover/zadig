@@ -30,6 +30,7 @@ import (
 	aslanConfig "github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -65,7 +66,10 @@ func V1170ToV1180() error {
 		log.Errorf("migrateWorkflowV4ConcurrencyLimit err: %v", err)
 		return err
 	}
-
+	if err := migrateServiceModulesFieldForWorkflowV4Task(); err != nil {
+		log.Errorf("migrateServiceModulesFieldForWorkflowV4Task err: %v", err)
+		return errors.Wrapf(err, "failed to execute migrateServiceModulesFieldForWorkflowV4Task")
+	}
 	return nil
 }
 
@@ -373,5 +377,43 @@ func migrateWorkflowV4ConcurrencyLimit() error {
 	if err != nil {
 		return errors.Wrap(err, "update workflow v4 template concurrency limit -1")
 	}
+	return nil
+}
+
+func migrateServiceModulesFieldForWorkflowV4Task() error {
+	tasks, _, err := mongodb.NewworkflowTaskv4Coll().List(&mongodb.ListWorkflowTaskV4Option{})
+	if err != nil {
+		return err
+	}
+
+	var mTasks []mongo.WriteModel
+	change := false
+	for _, task := range tasks {
+		task.WorkflowArgs, change, err = service.FillServiceModules2Jobs(task.WorkflowArgs)
+		if err != nil {
+			return err
+		}
+		if change {
+			mTasks = append(mTasks,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", task.ID}}).
+					SetUpdate(bson.D{{"$set", bson.D{{"workflow_args", task.WorkflowArgs}}}}),
+			)
+			if len(mTasks) >= 50 {
+				log.Infof("update %d workflowv4 tasks", len(mTasks))
+				if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
+					return fmt.Errorf("udpate workflowV4 tasks error: %s", err)
+				}
+				mTasks = []mongo.WriteModel{}
+			}
+		}
+	}
+	if len(mTasks) > 0 {
+		log.Infof("update %d workflowv4 tasks", len(mTasks))
+		if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
+			return fmt.Errorf("udpate workflowV4 tasks error: %s", err)
+		}
+	}
+
 	return nil
 }
