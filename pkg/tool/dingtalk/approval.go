@@ -15,6 +15,8 @@
 // */
 package dingtalk
 
+import "strings"
+
 const (
 	defaultApprovalFormName  = "Zadig 审批表单模板"
 	defaultApprovalFormLabel = "详情"
@@ -78,6 +80,9 @@ func (c *Client) CreateApproval() (resp *CreateApprovalResponse, err error) {
 	_, err = c.R().SetBodyJsonMarshal(defaultApprovalFormDefinition).
 		SetSuccessResult(&resp).
 		Post("https://api.dingtalk.com/v1.0/workflow/forms")
+	if strings.Contains(err.Error(), "已有相同名称表单") {
+		return nil, ErrApprovalFormNameExists
+	}
 	return
 }
 

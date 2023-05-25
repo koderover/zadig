@@ -120,8 +120,12 @@ func updateDingTalkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLo
 	}
 
 	client := dingtalk.NewClient(args.DingTalkAppKey, args.DingTalkAppSecret)
+
 	resp, err := client.CreateApproval()
 	if err != nil {
+		if err == dingtalk.ErrApprovalFormNameExists {
+			return nil
+		}
 		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "create approval form"))
 	}
 
