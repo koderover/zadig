@@ -52,7 +52,7 @@ func CreateIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
 }
 
 func createDingTalkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error {
-	if err := dingtalk.Validate(args.AppID, args.AppSecret); err != nil {
+	if err := dingtalk.Validate(args.DingTalkAppKey, args.DingTalkAppSecret); err != nil {
 		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "validate"))
 	}
 
@@ -115,7 +115,7 @@ func UpdateIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) er
 }
 
 func updateDingTalkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLogger) error {
-	if err := dingtalk.Validate(args.AppID, args.AppSecret); err != nil {
+	if err := dingtalk.Validate(args.DingTalkAppKey, args.DingTalkAppSecret); err != nil {
 		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "validate"))
 	}
 
