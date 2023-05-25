@@ -35,7 +35,8 @@ func GetDingTalkUserID(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = dingtalk.GetDingTalkUserIDByMobile(c.Param("id"), c.Query("mobile"))
+	userID, err := dingtalk.GetDingTalkUserIDByMobile(c.Param("id"), c.Query("mobile"))
+	ctx.Resp, ctx.Err = map[string]string{"user_id": userID}, err
 }
 
 func DingTalkEventHandler(c *gin.Context) {
