@@ -28,12 +28,17 @@ import (
 )
 
 type SubDepartmentAndUserIDsResponse struct {
-	SubDepartmentIDs []dingtalk.SubDepartmentInfo `json:"sub_department_ids"`
-	Users            []*UserInfo                  `json:"users"`
+	SubDepartmentIDs []*DepartmentInfo `json:"sub_department_list"`
+	Users            []*UserInfo       `json:"user_list"`
+}
+
+type DepartmentInfo struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 type UserInfo struct {
-	UserID string `json:"user_id"`
+	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Avatar string `json:"avatar"`
 }
@@ -62,11 +67,19 @@ func GetDingTalkDepartment(id, departmentID string) (*SubDepartmentAndUserIDsRes
 		return nil, errors.Wrap(err, "get sub departments error")
 	}
 	return &SubDepartmentAndUserIDsResponse{
-		SubDepartmentIDs: subDepartments,
+		SubDepartmentIDs: func() (resp []*DepartmentInfo) {
+			for _, department := range subDepartments {
+				resp = append(resp, &DepartmentInfo{
+					ID:   department.ID,
+					Name: department.Name,
+				})
+			}
+			return
+		}(),
 		Users: func() (resp []*UserInfo) {
 			for _, info := range userInfos {
 				resp = append(resp, &UserInfo{
-					UserID: info.UserID,
+					ID:     info.UserID,
 					Name:   info.Name,
 					Avatar: info.Avatar,
 				})
