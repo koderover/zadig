@@ -1192,6 +1192,75 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 	return nil
 }
 
+func UpdateProductionServiceReleaseNamingRule(userName, requestID, projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
+	serviceTemplate, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName:   args.ServiceName,
+		Revision:      0,
+		Type:          setting.HelmDeployType,
+		ProductName:   projectName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	})
+	if err != nil {
+		return err
+	}
+
+	// check if namings rule changes for services deployed in envs
+	if serviceTemplate.GetReleaseNaming() == args.NamingRule {
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name:       projectName,
+			Production: util.GetBoolPointer(true),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list envs for product: %s, err: %s", projectName, err)
+		}
+		modified := false
+		for _, product := range products {
+			if pSvc, ok := product.GetServiceMap()[args.ServiceName]; ok && pSvc.Revision != serviceTemplate.Revision {
+				modified = true
+				break
+			}
+		}
+		if !modified {
+			return nil
+		}
+	}
+
+	serviceTemplate.ReleaseNaming = args.NamingRule
+	rev, err := getNextServiceRevision(projectName, args.ServiceName, true)
+	if err != nil {
+		return fmt.Errorf("failed to get service next revision, service %s, err: %s", args.ServiceName, err)
+	}
+
+	basePath := config.LocalProductionServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
+	if err = commonutil.PreLoadProductionServiceManifests(basePath, serviceTemplate); err != nil {
+		return fmt.Errorf("failed to load chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+	}
+
+	fsTree := os.DirFS(config.LocalProductionServicePath(projectName, serviceTemplate.ServiceName))
+	s3Base := config.ObjectStorageProductionServicePath(projectName, serviceTemplate.ServiceName)
+	err = fs.ArchiveAndUploadFilesToS3(fsTree, []string{fmt.Sprintf("%s-%d", serviceTemplate.ServiceName, rev)}, s3Base, log)
+	if err != nil {
+		return fmt.Errorf("failed to upload chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
+	}
+
+	serviceTemplate.Revision = rev
+	err = commonrepo.NewServiceColl().Create(serviceTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to update relase naming for service: %s, err: %s", args.ServiceName, err)
+	}
+
+	go func() {
+		// reinstall services in envs
+		err = service.ReInstallHelmProductionSvcInAllEnvs(projectName, serviceTemplate)
+		if err != nil {
+			title := fmt.Sprintf("服务 [%s] 重建失败", args.ServiceName)
+			notify.SendErrorMessage(userName, title, requestID, err, log)
+		}
+	}()
+
+	return nil
+}
+
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {
 	openEnvTemplate, _ := strconv.ParseBool(isEnvTemplate)
 	if openEnvTemplate && visibility == "public" {

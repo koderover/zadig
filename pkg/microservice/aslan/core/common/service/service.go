@@ -513,6 +513,107 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 	return resp, nil
 }
 
+// GetProductionServiceTemplate is basically the same version of GetServiceTemplate, except that it does not support PM type service. And reads from production service coll.
+func GetProductionServiceTemplate(serviceName, serviceType, productName, excludeStatus string, revision int64, log *zap.SugaredLogger) (*commonmodels.Service, error) {
+	opt := &commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		Type:        serviceType,
+		Revision:    revision,
+		ProductName: productName,
+	}
+	if excludeStatus != "" {
+		opt.ExcludeStatus = excludeStatus
+	}
+
+	resp, err := commonrepo.NewProductionServiceColl().Find(opt)
+	if err != nil {
+		err = func() error {
+			if !commonrepo.IsErrNoDocuments(err) {
+				return err
+			}
+			templateProductInfo, errFindProject := templaterepo.NewProductColl().Find(productName)
+			if errFindProject != nil {
+				return errFindProject
+			}
+			for _, svc := range templateProductInfo.SharedServices {
+				if svc.Name == serviceName && svc.Owner != productName {
+					opt.ProductName = svc.Owner
+					resp, err = commonrepo.NewServiceColl().Find(opt)
+					break
+				}
+			}
+			return err
+		}()
+
+		if err != nil {
+			errMsg := fmt.Sprintf("[ServiceTmpl.Find] %s error: %v", serviceName, err)
+			log.Error(errMsg)
+			return resp, e.ErrGetTemplate.AddDesc(errMsg)
+		}
+	}
+
+	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
+		if resp.CodehostID == 0 {
+			return nil, e.ErrGetTemplate.AddDesc("Please confirm if codehost exists")
+		}
+		err = fillServiceRepoInfo(resp)
+		if err != nil {
+			log.Errorf("Failed to load info from url: %s, the error is: %s", resp.SrcPath, err)
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("Failed to load info from url: %s, the error is: %+v", resp.SrcPath, err))
+		}
+		return resp, nil
+	} else if resp.Source == setting.SourceFromGithub {
+		if resp.CodehostID == 0 {
+			return nil, e.ErrGetTemplate.AddDesc("Please confirm if codehost exists")
+		}
+		err = fillServiceRepoInfo(resp)
+		if err != nil {
+			return nil, err
+		}
+
+		return resp, nil
+
+	} else if resp.Source == setting.SourceFromGUI {
+		yamls := util.SplitYaml(resp.Yaml)
+		for _, y := range yamls {
+			data, err := yaml.YAMLToJSON([]byte(y))
+			if err != nil {
+				log.Errorf("convert yaml to json failed, yaml:%s, err:%v", y, err)
+				return nil, err
+			}
+
+			var result interface{}
+			err = json.Unmarshal(data, &result)
+			if err != nil {
+				log.Errorf("unmarshal yaml data failed, yaml:%s, err:%v", y, err)
+				return nil, err
+			}
+
+			yamlPreview := yamlPreview{}
+			err = json.Unmarshal(data, &yamlPreview)
+			if err != nil {
+				log.Errorf("unmarshal yaml data failed, yaml:%s, err:%v", y, err)
+				return nil, err
+			}
+
+			if resp.GUIConfig == nil {
+				resp.GUIConfig = new(commonmodels.GUIConfig)
+			}
+
+			switch yamlPreview.Kind {
+			case "Deployment":
+				resp.GUIConfig.Deployment = result
+			case "Ingress":
+				resp.GUIConfig.Ingress = result
+			case "Service":
+				resp.GUIConfig.Service = result
+			}
+		}
+	}
+	resp.RepoNamespace = resp.GetRepoNamespace()
+	return resp, nil
+}
+
 func fillPmInfo(svc *commonmodels.Service) error {
 	pms, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{})
 	if err != nil {

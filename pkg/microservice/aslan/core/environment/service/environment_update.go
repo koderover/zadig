@@ -226,6 +226,24 @@ func ReInstallHelmSvcInAllEnvs(productName string, templateSvc *commonmodels.Ser
 	return retErr.ErrorOrNil()
 }
 
+func ReInstallHelmProductionSvcInAllEnvs(productName string, templateSvc *commonmodels.Service) error {
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:       productName,
+		Production: util.GetBoolPointer(true),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
+	}
+	retErr := &multierror.Error{}
+	for _, product := range products {
+		err := reInstallHelmServiceInEnv(product, templateSvc)
+		if err != nil {
+			retErr = multierror.Append(retErr, fmt.Errorf("failed to update service: %s/%s, err: %s", product.EnvName, templateSvc.ServiceName, err))
+		}
+	}
+	return retErr.ErrorOrNil()
+}
+
 // updateHelmSvcInAllEnvs updates helm svc in all envs in which the svc is already installed
 func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*commonmodels.Service) error {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{

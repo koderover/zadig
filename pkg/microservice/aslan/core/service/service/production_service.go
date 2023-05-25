@@ -42,13 +42,13 @@ import (
 func ListProductionServices(productName string, log *zap.SugaredLogger) (*service.ServiceTmplResp, error) {
 	resp := new(service.ServiceTmplResp)
 	resp.Data = make([]*service.ServiceProductMap, 0)
-	_, err := templaterepo.NewProductColl().Find(productName)
+	projectInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("Can not find project %s, error: %s", productName, err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	services, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(productName, setting.K8SDeployType)
+	services, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(productName, projectInfo.ProductFeature.DeployType)
 
 	if err != nil {
 		log.Errorf("Failed to list production services, err: %s", err)

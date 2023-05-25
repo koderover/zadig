@@ -19,6 +19,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -67,29 +68,6 @@ func CreateK8sProductionService(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.CreateK8sProductionService(c.Query("projectName"), args, ctx.Logger)
 }
 
-func CreateHelmProductionService(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
-		return
-	}
-
-	args := new(svcservice.HelmServiceCreationArgs)
-	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
-		return
-	}
-
-	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
-
-	bs, _ := json.Marshal(args)
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", args.Name), string(bs), ctx.Logger)
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, false, ctx.Logger)
-}
-
 func UpdateK8sProductionServiceVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -116,4 +94,91 @@ func DeleteProductionService(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", c.Param("name")), "", ctx.Logger)
 
 	ctx.Err = svcservice.DeleteProductionServiceTemplate(c.Param("name"), c.Query("projectName"), ctx.Logger)
+}
+
+func CreateHelmProductionService(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		return
+	}
+
+	args := new(svcservice.HelmServiceCreationArgs)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
+		return
+	}
+
+	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", args.Name), string(bs), ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, false, ctx.Logger)
+}
+
+func GetProductionHelmServiceModule(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
+		return
+	}
+
+	ctx.Resp, ctx.Err = svcservice.GetHelmServiceModule(c.Param("name"), c.Query("projectName"), revision, true, ctx.Logger)
+}
+
+func GetProductionHelmFilePath(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	revision := int64(0)
+	var err error
+	if len(c.Query("revision")) > 0 {
+		revision, err = strconv.ParseInt(c.Query("revision"), 10, 64)
+	}
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
+		return
+	}
+	ctx.Resp, ctx.Err = svcservice.GetProductionHelmServiceFilePath(c.Param("name"), c.Query("projectName"), revision, c.Query("dir"), ctx.Logger)
+}
+
+func GetProductionHelmFileContent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	param := new(svcservice.GetFileContentParam)
+	err := c.ShouldBindQuery(param)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = svcservice.GetProductionServiceFileContent(c.Param("name"), c.Query("projectName"), param, ctx.Logger)
+}
+
+func UpdateProductionHelmReleaseNaming(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		return
+	}
+
+	args := new(svcservice.ReleaseNamingRule)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid yaml args")
+		return
+	}
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "修改", "项目管理-生产服务", args.ServiceName, string(bs), ctx.Logger)
+
+	ctx.Err = svcservice.UpdateProductionServiceReleaseNamingRule(ctx.UserName, ctx.RequestID, projectName, args, ctx.Logger)
 }
