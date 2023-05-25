@@ -462,7 +462,19 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 				break
 			}
 			if approval.ApprovalNodes[len(approval.ApprovalNodes)-1].RejectOrApprove == config.Approve {
-				return nil
+				instanceInfo, err := client.GetApprovalInstance(instanceID)
+				if err != nil {
+					stage.Status = config.StatusFailed
+					log.Errorf("get instance final info failed: %v", err)
+					return errors.Wrap(err, "get instance final info")
+				}
+				if instanceInfo.Status == "COMPLETED" && instanceInfo.Result == "agree" {
+					return nil
+				} else {
+					log.Errorf("Unexpect instance final status is %s, result is %s", instanceInfo.Status, instanceInfo.Result)
+					stage.Status = config.StatusFailed
+					return errors.Wrap(err, "get unexpected instance final info")
+				}
 			}
 		}
 	}
