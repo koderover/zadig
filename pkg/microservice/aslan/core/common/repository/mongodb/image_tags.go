@@ -90,7 +90,7 @@ func (c *ImageTagsColl) Insert(args *models.ImageTags) error {
 	return nil
 }
 
-func (c *ImageTagsColl) Update(args *models.ImageTags) error {
+func (c *ImageTagsColl) InsertOrUpdate(args *models.ImageTags) error {
 	if args == nil {
 		return errors.New("nil image_tag args")
 	}
@@ -102,17 +102,8 @@ func (c *ImageTagsColl) Update(args *models.ImageTags) error {
 		{"registry_id", args.RegistryID},
 	}
 	update := bson.M{"$set": bson.M{"image_tags": args.ImageTags}}
+	opts := options.Update().SetUpsert(true)
 
-	result, err := c.UpdateOne(context.TODO(), filter, update)
-	if err != nil {
-		return err
-	}
-
-	if result.MatchedCount == 0 {
-		_, err = c.InsertOne(context.TODO(), args)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err := c.UpdateOne(context.TODO(), filter, update, opts)
+	return err
 }
