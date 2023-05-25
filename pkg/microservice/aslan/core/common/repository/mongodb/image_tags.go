@@ -6,6 +6,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -24,6 +25,21 @@ func NewImageTagsCollColl() *ImageTagsColl {
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
+}
+
+func (c *ImageTagsColl) EnsureIndex(ctx context.Context) error {
+	mod := mongo.IndexModel{
+		Keys: bson.D{
+			bson.E{Key: "registry_id", Value: 1},
+			bson.E{Key: "reg_provider", Value: 1},
+			bson.E{Key: "image_name", Value: 1},
+			bson.E{Key: "namespace", Value: 1},
+		},
+		Options: options.Index().SetUnique(true),
+	}
+
+	_, err := c.Indexes().CreateOne(ctx, mod)
+	return err
 }
 
 func (c *ImageTagsColl) GetCollectionName() string {
@@ -74,7 +90,7 @@ func (c *ImageTagsColl) Insert(args *models.ImageTags) error {
 	return nil
 }
 
-func (c *ImageTagsColl) UpdateOrInsert(args *models.ImageTags) error {
+func (c *ImageTagsColl) Update(args *models.ImageTags) error {
 	if args == nil {
 		return errors.New("nil image_tag args")
 	}
@@ -85,16 +101,9 @@ func (c *ImageTagsColl) UpdateOrInsert(args *models.ImageTags) error {
 		{"reg_provider", args.RegProvider},
 		{"registry_id", args.RegistryID},
 	}
+	update := bson.M{"$set": bson.M{"image_tags": args.ImageTags}}
 
-	update := bson.D{
-		{"$push", bson.D{
-			{"image_tags", bson.D{
-				{"$each", args.ImageTags},
-			}},
-		}},
-	}
-
-	result, err := c.UpdateOne(context.Background(), filter, update)
+	result, err := c.UpdateOne(context.TODO(), filter, update)
 	if err != nil {
 		return err
 	}
@@ -105,6 +114,5 @@ func (c *ImageTagsColl) UpdateOrInsert(args *models.ImageTags) error {
 			return err
 		}
 	}
-
 	return nil
 }

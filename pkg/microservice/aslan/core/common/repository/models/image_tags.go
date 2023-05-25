@@ -13,7 +13,8 @@ type ImageTags struct {
 
 type ImageTag struct {
 	TagName string `bson:"tag_name" json:"tag_name"`
-	Created int64  `bson:"created" json:"created"`
+	Digest  string `bson:"digest" json:"digest"`
+	Created string `bson:"created" json:"created"`
 }
 
 func (ImageTags) TableName() string {
