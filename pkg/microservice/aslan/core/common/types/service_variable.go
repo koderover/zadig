@@ -17,10 +17,11 @@ limitations under the License.
 package types
 
 import (
+	"bytes"
 	"fmt"
 
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/yaml"
 )
 
 type ServiceVariableKVType string
@@ -51,10 +52,77 @@ type GlobalVariableKV struct {
 	RelatedServices   []string `bson:"related_services"     yaml:"related_services"     json:"related_services"`
 }
 
+// yaml spec document: https://yaml.org/spec/1.2.2/
+func convertValueToNode(data interface{}) *yaml.Node {
+	node := &yaml.Node{}
+	if dataMap, ok := data.(map[string]interface{}); ok {
+		node.Kind = yaml.MappingNode
+
+		for key, value := range dataMap {
+			childKey := &yaml.Node{
+				Kind:  yaml.ScalarNode,
+				Value: key,
+			}
+			node.Content = append(node.Content, childKey)
+
+			childValue := convertValueToNode(value)
+			node.Content = append(node.Content, childValue)
+		}
+	} else if dataSlice, ok := data.([]interface{}); ok {
+		node.Kind = yaml.SequenceNode
+
+		for _, value := range dataSlice {
+			child := convertValueToNode(value)
+			node.Content = append(node.Content, child)
+		}
+	} else {
+		node.Kind = yaml.ScalarNode
+		node.Value = fmt.Sprintf("%v", data)
+	}
+
+	return node
+}
+
+func addValueToNode(key string, data interface{}, node *yaml.Node) *yaml.Node {
+	keyNode := &yaml.Node{
+		Kind:  yaml.ScalarNode,
+		Value: key,
+	}
+	node.Content = append(node.Content, keyNode)
+
+	switch data.(type) {
+	case *yaml.Node:
+		valueNode := data.(*yaml.Node)
+		if valueNode.Kind == yaml.DocumentNode {
+			node.Content = append(node.Content, valueNode.Content...)
+		}
+	default:
+		valueChild := convertValueToNode(data)
+		node.Content = append(node.Content, valueChild)
+	}
+
+	return node
+}
+
+// inorder to preserve the order of the yaml, we need to use yaml.node to marshal and unmarshal yaml
+func marshalYamlNode(node *yaml.Node) (string, error) {
+	buf := bytes.Buffer{}
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	err := enc.Encode(node)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal node yaml, err: %w", err)
+	}
+	return buf.String(), nil
+}
+
 // not suitable for flatten kv
 // ServiceVariableKV is a kv which aggregate complicated struct to the first layer
 func ServiceVariableKVToYaml(kvs []*ServiceVariableKV) (string, error) {
-	kvMap := make(map[string]interface{}, 0)
+	node := &yaml.Node{
+		Kind: yaml.MappingNode,
+	}
+
 	for _, kv := range kvs {
 		if kv == nil {
 			continue
@@ -62,25 +130,25 @@ func ServiceVariableKVToYaml(kvs []*ServiceVariableKV) (string, error) {
 
 		switch kv.Type {
 		case ServiceVariableKVTypeYaml:
-			intf := new(interface{})
 			value, ok := kv.Value.(string)
 			if !ok {
 				return "", fmt.Errorf("failed to convert value to yaml, key: %v, value: %v", kv.Key, kv.Value)
 			}
 
-			err := yaml.Unmarshal([]byte(value), intf)
+			valueNode := &yaml.Node{}
+			err := yaml.Unmarshal([]byte(value), valueNode)
 			if err != nil {
 				return "", fmt.Errorf("failed to unmarshal yaml, key: %v, err: %w", kv.Key, err)
 			}
-			kvMap[kv.Key] = intf
+			node = addValueToNode(kv.Key, valueNode, node)
 		case ServiceVariableKVTypeBoolean:
 			v, ok := kv.Value.(bool)
 			if ok {
-				kvMap[kv.Key] = v
+				node = addValueToNode(kv.Key, v, node)
 			} else if kv.Value == "true" {
-				kvMap[kv.Key] = true
+				node = addValueToNode(kv.Key, true, node)
 			} else if kv.Value == "false" {
-				kvMap[kv.Key] = false
+				node = addValueToNode(kv.Key, false, node)
 			} else {
 				return "", fmt.Errorf("invaild value for boolean, key: %v, value: %v", kv.Key, kv.Value)
 			}
@@ -89,25 +157,20 @@ func ServiceVariableKVToYaml(kvs []*ServiceVariableKV) (string, error) {
 			if !sets.NewString(kv.Options...).Has(v) {
 				return "", fmt.Errorf("invaild value for enum, key: %v, value: %v, options: %v", kv.Key, kv.Value, kv.Options)
 			}
-			kvMap[kv.Key] = kv.Value
+			node = addValueToNode(kv.Key, kv.Value, node)
 		default:
-			kvMap[kv.Key] = kv.Value
+			node = addValueToNode(kv.Key, kv.Value, node)
 		}
 	}
 
-	yamlBytes, err := yaml.Marshal(kvMap)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal yaml, err: %w", err)
-	}
-
-	return string(yamlBytes), nil
+	return marshalYamlNode(node)
 }
 
 // not suitable for flatten kv
 // ServiceVariableKV is a kv which aggregate complicated struct to the first layer
 func YamlToServiceVariableKV(yamlStr string, origKVs []*ServiceVariableKV) ([]*ServiceVariableKV, error) {
-	kvMap := make(map[string]interface{}, 0)
-	err := yaml.Unmarshal([]byte(yamlStr), &kvMap)
+	node := &yaml.Node{}
+	err := yaml.Unmarshal([]byte(yamlStr), node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal yaml, err: %w", err)
 	}
@@ -118,20 +181,35 @@ func YamlToServiceVariableKV(yamlStr string, origKVs []*ServiceVariableKV) ([]*S
 	}
 
 	ret := make([]*ServiceVariableKV, 0)
-	for k, v := range kvMap {
-		kv, err := snippetToKV(k, v, origKVMap[k])
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert snippet to kv, err: %w", err)
+	if node != nil && node.Content != nil {
+		if node.Kind != yaml.DocumentNode {
+			return nil, fmt.Errorf("root node is not docment node")
 		}
 
-		ret = append(ret, kv)
+		for _, root := range node.Content {
+			if root.Kind == yaml.MappingNode {
+				for i := 0; i < len(root.Content); i += 2 {
+					key := root.Content[i].Value
+					value := root.Content[i+1]
+
+					kv, err := snippetToKV(key, value, origKVMap[key])
+					if err != nil {
+						return nil, fmt.Errorf("failed to convert snippet to kv, err: %w", err)
+					}
+
+					ret = append(ret, kv)
+				}
+			} else {
+				return nil, fmt.Errorf("root node is not mapping node")
+			}
+		}
 	}
 
 	return ret, nil
 }
 
 // FIXME: ServiceVariableKVType not equal with golang runtime type
-func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*ServiceVariableKV, error) {
+func snippetToKV(key string, snippet *yaml.Node, origKV *ServiceVariableKV) (*ServiceVariableKV, error) {
 	var retKV *ServiceVariableKV
 	if origKV == nil {
 		// origKV is nil, create a new kv
@@ -139,23 +217,33 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 			Key: key,
 		}
 
-		switch snippet.(type) {
-		case bool:
-			retKV.Type = ServiceVariableKVTypeBoolean
-			retKV.Value = snippet.(bool)
-		case string:
+		switch snippet.Kind {
+		case yaml.ScalarNode:
 			retKV.Type = ServiceVariableKVTypeString
-			retKV.Value = snippet.(string)
-		case map[string]interface{}, []interface{}:
-			snippetBytes, err := yaml.Marshal(snippet)
+			retKV.Value = snippet.Value
+		case yaml.MappingNode:
+			retKV.Type = ServiceVariableKVTypeYaml
+			snippetYaml, err := marshalYamlNode(snippet)
 			if err != nil {
 				return nil, fmt.Errorf("key %s: failed to marshal snippet, err: %w", retKV.Key, err)
 			}
 			retKV.Type = ServiceVariableKVTypeYaml
-			retKV.Value = string(snippetBytes)
+			retKV.Value = snippetYaml
+		case yaml.SequenceNode:
+			retKV.Type = ServiceVariableKVTypeYaml
+			snippetYaml, err := marshalYamlNode(snippet)
+			if err != nil {
+				return nil, fmt.Errorf("key %s: failed to marshal snippet, err: %w", retKV.Key, err)
+			}
+			retKV.Type = ServiceVariableKVTypeYaml
+			retKV.Value = snippetYaml
 		default:
-			retKV.Type = ServiceVariableKVTypeString
-			retKV.Value = snippet
+			if snippet.Value == "true" || snippet.Value == "false" {
+				retKV.Type = ServiceVariableKVTypeBoolean
+			} else {
+				retKV.Type = ServiceVariableKVTypeString
+			}
+			retKV.Value = snippet.Value
 		}
 	} else {
 		// origKV is not nil, inherit type, options, and desc from it
@@ -176,43 +264,35 @@ func snippetToKV(key string, snippet interface{}, origKV *ServiceVariableKV) (*S
 		switch retKV.Type {
 		case ServiceVariableKVTypeBoolean:
 			// check if value valid for boolean
-			value, ok := snippet.(string)
-			if ok {
-				if value != "true" && value != "false" {
-					return nil, fmt.Errorf("key %s: invalid value: %s for boolean", retKV.Key, snippet.(string))
-				}
-			} else {
-				_, ok = snippet.(bool)
-				if !ok {
-					return nil, fmt.Errorf("key %s: invalid value: %v for boolean", retKV.Key, snippet)
-				}
+			value := snippet.Value
+			if value != "true" && value != "false" {
+				return nil, fmt.Errorf("key %s: invalid value: %s for boolean", retKV.Key, snippet.Value)
 			}
 		case ServiceVariableKVTypeEnum:
 			// check if value exist in options
 			optionSet := sets.NewString(origKV.Options...)
-			valueStr := fmt.Sprintf("%v", snippet)
-			if !optionSet.Has(valueStr) {
-				return nil, fmt.Errorf("key %s: invalid value: %v, valid options: %v", retKV.Key, snippet, origKV.Options)
+			if !optionSet.Has(snippet.Value) {
+				return nil, fmt.Errorf("key %s: invalid value: %v, valid options: %v", retKV.Key, snippet.Value, origKV.Options)
 			}
 		}
 
 		// convert snippet to value
 		if retKV.Type == ServiceVariableKVTypeYaml {
-			snippetBytes, err := yaml.Marshal(snippet)
+			snippetYaml, err := marshalYamlNode(snippet)
 			if err != nil {
 				return nil, fmt.Errorf("key %s: failed to marshal snippet, err: %w", retKV.Key, err)
 			}
-			retKV.Value = string(snippetBytes)
+			retKV.Value = snippetYaml
 		} else {
-			switch snippet.(type) {
-			case map[string]interface{}, []interface{}:
-				snippetBytes, err := yaml.Marshal(snippet)
+			switch snippet.Kind {
+			case yaml.MappingNode, yaml.SequenceNode:
+				snippetYaml, err := marshalYamlNode(snippet)
 				if err != nil {
 					return nil, fmt.Errorf("key %s: failed to marshal snippet, err: %w", retKV.Key, err)
 				}
-				retKV.Value = string(snippetBytes)
+				retKV.Value = snippetYaml
 			default:
-				retKV.Value = snippet
+				retKV.Value = snippet.Value
 			}
 		}
 	}

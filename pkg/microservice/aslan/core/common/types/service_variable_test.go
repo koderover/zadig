@@ -19,7 +19,6 @@ package types_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 )
@@ -34,6 +33,11 @@ var (
 		{
 			Key:   "strStr",
 			Value: "a string",
+			Type:  types.ServiceVariableKVTypeString,
+		},
+		{
+			Key:   "strBool",
+			Value: "true",
 			Type:  types.ServiceVariableKVTypeString,
 		},
 		{
@@ -70,50 +74,48 @@ B: a string`,
 		},
 	}
 
-	yamlStr = `
-strInt: 1
+	yamlStr = `strInt: 1
 strStr: a string
+strBool: true
 bool: true
 enum: 11
-yamlStr: a string
 yamlMap:
   A: 1
   B: a string
 yamlArray:
-- A: 1
-  B: a string
-- A: 2
-  B: another string
+  - A: 1
+    B: a string
+  - A: 2
+    B: another string
+yamlStr: a string
 `
 
-	newYamlStr = `
-strInt: 3
+	newYamlStr = `strInt: 3
 bool: true
 enum: 11
 yamlStr: a string
 yamlMap:
+  X: 1
+  Y: a string
+yamlArray:
 - C: 1
   D: a string
 - C: 2
   D: another string
-yamlArray:
-  X: 1
-  Y: a string
 `
 
-	expectBaseOrigKVYaml = `
-strInt: 3
+	expectBaseOrigKVYaml = `strInt: 3
 bool: true
 enum: 11
 yamlStr: a string
 yamlMap:
-- C: 1
-  D: a string
-- C: 2
-  D: another string
-yamlArray:
   X: 1
   Y: a string
+yamlArray:
+  - C: 1
+    D: a string
+  - C: 2
+    D: another string
 `
 
 	floatKVs = []*types.ServiceVariableKV{
@@ -124,11 +126,35 @@ yamlArray:
 			Options: []string{"1.5", "2.5", "3.5"},
 		},
 	}
-	floatOrigYamlStr = `
-floatEnum: 1.5
+	floatOrigYamlStr = `floatEnum: 1.5
 `
-	floatExpectedYamlStr = `
-floatEnum: 3.5
+	floatExpectedYamlStr = `floatEnum: 3.5
+`
+
+	boolKVs = []*types.ServiceVariableKV{
+		{
+			Key:   "bool",
+			Value: true,
+			Type:  types.ServiceVariableKVTypeString,
+		},
+		{
+			Key:   "boolStr",
+			Value: "false",
+			Type:  types.ServiceVariableKVTypeBoolean,
+		},
+		{
+			Key:   "strBool",
+			Value: "true",
+			Type:  types.ServiceVariableKVTypeString,
+		},
+	}
+	boolOrigYamlStr = `bool: true
+boolStr: false
+strBool: true
+`
+	boolExpectedYamlStr = `bool: false
+boolStr: true
+strBool: false
 `
 )
 
@@ -159,6 +185,10 @@ var _ = Describe("Service", func() {
 				kvs:      floatKVs,
 				expected: floatOrigYamlStr,
 			},
+			{
+				kvs:      boolKVs,
+				expected: boolOrigYamlStr,
+			},
 		}
 
 		yamlToKVTestCases = []struct {
@@ -181,6 +211,11 @@ var _ = Describe("Service", func() {
 				origKVs:  floatKVs,
 				expected: floatExpectedYamlStr,
 			},
+			{
+				yamlStr:  boolExpectedYamlStr,
+				origKVs:  boolKVs,
+				expected: boolExpectedYamlStr,
+			},
 		}
 	})
 
@@ -189,14 +224,7 @@ var _ = Describe("Service", func() {
 			for _, testCase := range kvToYamlTestCases {
 				actual, err := types.ServiceVariableKVToYaml(testCase.kvs)
 				Expect(err).ShouldNot(HaveOccurred())
-
-				expectedMap := map[string]interface{}{}
-				err = yaml.Unmarshal([]byte(testCase.expected), &expectedMap)
-				Expect(err).ShouldNot(HaveOccurred())
-
-				expected, err := yaml.Marshal(expectedMap)
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(string(actual)).To(Equal(string(expected)))
+				Expect(string(actual)).To(Equal(testCase.expected))
 			}
 		})
 
@@ -208,15 +236,7 @@ var _ = Describe("Service", func() {
 				actualYaml, err := types.ServiceVariableKVToYaml(actual)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				actualMap := map[string]interface{}{}
-				err = yaml.Unmarshal([]byte(actualYaml), &actualMap)
-				Expect(err).ShouldNot(HaveOccurred())
-
-				expectedMap := map[string]interface{}{}
-				err = yaml.Unmarshal([]byte(testCase.expected), &expectedMap)
-				Expect(err).ShouldNot(HaveOccurred())
-
-				Expect(actualMap).To(Equal(expectedMap))
+				Expect(actualYaml).To(Equal(testCase.expected))
 			}
 		})
 	})
