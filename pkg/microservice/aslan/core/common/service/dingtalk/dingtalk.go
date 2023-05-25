@@ -33,7 +33,7 @@ type SubDepartmentAndUserIDsResponse struct {
 }
 
 type DepartmentInfo struct {
-	ID   int64  `json:"id"`
+	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
@@ -70,7 +70,7 @@ func GetDingTalkDepartment(id, departmentID string) (*SubDepartmentAndUserIDsRes
 		SubDepartmentIDs: func() (resp []*DepartmentInfo) {
 			for _, department := range subDepartments {
 				resp = append(resp, &DepartmentInfo{
-					ID:   department.ID,
+					ID:   strconv.FormatInt(department.ID, 10),
 					Name: department.Name,
 				})
 			}
