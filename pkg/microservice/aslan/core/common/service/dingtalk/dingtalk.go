@@ -29,7 +29,13 @@ import (
 
 type SubDepartmentAndUserIDsResponse struct {
 	SubDepartmentIDs []dingtalk.SubDepartmentInfo `json:"sub_department_ids"`
-	UserIDs          []string                     `json:"user_ids"`
+	Users            []*UserInfo                  `json:"users"`
+}
+
+type UserInfo struct {
+	UserID string `json:"user_id"`
+	Name   string `json:"name"`
+	Avatar string `json:"avatar"`
 }
 
 func GetDingTalkDepartment(id, departmentID string) (*SubDepartmentAndUserIDsResponse, error) {
@@ -41,17 +47,32 @@ func GetDingTalkDepartment(id, departmentID string) (*SubDepartmentAndUserIDsRes
 	if err != nil {
 		return nil, errors.Wrap(err, "parse departmentID error")
 	}
-	userIDs, err := client.GetDepartmentUserIDs(deptID)
+	userIDsResp, err := client.GetDepartmentUserIDs(deptID)
 	if err != nil {
-		return nil, errors.Wrap(err, "get department userIDs error")
+		return nil, errors.Wrap(err, "get department userIDsResp error")
 	}
+
+	userInfos, err := client.GetUserInfos(userIDsResp.UserIDList)
+	if err != nil {
+		return nil, errors.Wrap(err, "get user infos error")
+	}
+
 	subDepartments, err := client.GetSubDepartmentsInfo(deptID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get sub departments error")
 	}
 	return &SubDepartmentAndUserIDsResponse{
 		SubDepartmentIDs: subDepartments,
-		UserIDs:          userIDs.UserIDList,
+		Users: func() (resp []*UserInfo) {
+			for _, info := range userInfos {
+				resp = append(resp, &UserInfo{
+					UserID: info.UserID,
+					Name:   info.Name,
+					Avatar: info.Avatar,
+				})
+			}
+			return
+		}(),
 	}, nil
 }
 
