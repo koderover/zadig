@@ -78,9 +78,9 @@ func NewClient(key, secret string) (client *Client) {
 					return nil
 				}
 				return nil
-			}),
-		// TODO disable dump
-		//EnableDumpAll(),
+			}).
+			//TODO disable dump
+			EnableDumpAll(),
 		AppKey:    key,
 		AppSecret: secret,
 	}
