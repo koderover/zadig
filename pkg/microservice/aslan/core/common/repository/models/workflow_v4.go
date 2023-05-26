@@ -140,6 +140,10 @@ type LarkApproval struct {
 	ApprovalNodes []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
 }
 
+func (l LarkApproval) GetNodeKey() {
+
+}
+
 type LarkApprovalNode struct {
 	ApproveUsers    []*LarkApprovalUser    `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	Type            lark.ApprovalType      `bson:"type"                        yaml:"type"                       json:"type"`
