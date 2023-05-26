@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -58,7 +59,17 @@ type RepoInfo struct {
 const (
 	PERPAGE = 100
 	PAGE    = 1
+	Image
 )
+
+// ImageTagsReqStatus its a global map to store the status of the image list request
+var ImageTagsReqStatus = struct {
+	M    sync.Mutex
+	List map[string]struct{}
+}{
+	M:    sync.Mutex{},
+	List: make(map[string]struct{}),
+}
 
 // ListRegistries 为了抹掉ak和sk的数据
 func ListRegistries(log *zap.SugaredLogger) ([]*commonmodels.RegistryNamespace, error) {
@@ -244,8 +255,17 @@ func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string,
 				Namespace:   registryInfo.Namespace,
 			})
 			dbTags := make(map[string]*commonmodels.ImageTag, 0)
+			var key string
 			if err != nil {
-				logger.Errorf("find image[%s] tags from db failed, the error is: %v", repo.Name, err)
+				// if the error is not mongo.ErrNoDocuments or mongo.ErrNilDocument, we write the error to log and get image tags detail from registry directly.
+				if err == mongo.ErrNoDocuments || err == mongo.ErrNilDocument {
+					key = fmt.Sprintf("%s-%s-%s-%s", registryInfo.ID.Hex(), repo.Name, registryInfo.RegProvider, registryInfo.Namespace)
+					if !CheckReqLimit(key) {
+						return nil, fmt.Errorf("getting image list, please try again later")
+					}
+				} else {
+					logger.Errorf("find image[%s] tags from db failed, the error is: %v", repo.Name, err)
+				}
 			} else {
 				for _, imageTag := range imageTags.ImageTags {
 					dbTags[imageTag.TagName] = imageTag
@@ -254,8 +274,8 @@ func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string,
 			logger.Infof("get image[%s] %d tags from db, get image[%s] %d tags from registry", repo.Name, len(dbTags), repo.Name, len(repo.Tags))
 
 			tags := imageProcessor(repo, registryInfo, dbTags, regService, logger)
-			// update imageTags db, we don't care about the result
-			go insertNewTags2DB(tags, registryInfo, logger)
+			// update imageTags db
+			go insertNewTags2DB(tags, registryInfo, key, logger)
 
 			images = append(images, tags...)
 		}
@@ -263,11 +283,26 @@ func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string,
 		sort.Slice(images, func(i, j int) bool {
 			return images[i].Created > images[j].Created
 		})
+
 	} else {
 		err = e.ErrListImages.AddErr(err)
 	}
 
 	return images, err
+}
+
+func CheckReqLimit(key string) bool {
+	if _, ok := ImageTagsReqStatus.List[key]; !ok {
+		ImageTagsReqStatus.M.Lock()
+		defer ImageTagsReqStatus.M.Unlock()
+		if _, ok := ImageTagsReqStatus.List[key]; !ok {
+			ImageTagsReqStatus.List[key] = struct{}{}
+			return true
+		} else {
+			return false
+		}
+	}
+	return false
 }
 
 type newImages struct {
@@ -368,7 +403,7 @@ func getNewTagsFromReg(job chan *imageReqJob, wg *sync.WaitGroup, images *newIma
 	}
 }
 
-func insertNewTags2DB(images []*RepoImgResp, registryInfo *commonmodels.RegistryNamespace, logger *zap.SugaredLogger) {
+func insertNewTags2DB(images []*RepoImgResp, registryInfo *commonmodels.RegistryNamespace, key string, logger *zap.SugaredLogger) {
 	imageTag := &models.ImageTags{}
 	imageTag.ImageName = images[0].Name
 	imageTag.Namespace = images[0].Owner
@@ -386,6 +421,10 @@ func insertNewTags2DB(images []*RepoImgResp, registryInfo *commonmodels.Registry
 		logger.Errorf("failed to update or insert the image tags 2 image_tags db %s, the error is: %v", imageTag.ImageName, err)
 		return
 	}
+
+	ImageTagsReqStatus.M.Lock()
+	delete(ImageTagsReqStatus.List, key)
+	ImageTagsReqStatus.M.Unlock()
 }
 
 func GetRepoTags(registryInfo *commonmodels.RegistryNamespace, name string, log *zap.SugaredLogger) (*registry.ImagesResp, error) {
