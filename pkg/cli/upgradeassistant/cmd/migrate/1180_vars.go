@@ -17,6 +17,7 @@ limitations under the License.
 package migrate
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -636,37 +637,77 @@ func turnFlatKVToRenderKV(originKVs []*commonmodels.ServiceKeyVal) ([]*types.Ren
 	return types.ServiceToRenderVariableKVs(renderKVs), nil
 }
 
+func workflowOriginKValsToVariableConfig(kvs []*commonmodels.ServiceKeyVal) []*commonmodels.DeplopyVariableConfig {
+	ret := make([]*commonmodels.DeplopyVariableConfig, 0)
+	for _, kv := range kvs {
+		ret = append(ret, &commonmodels.DeplopyVariableConfig{
+			VariableKey:       kv.Key,
+			UseGlobalVariable: false,
+		})
+	}
+	return ret
+}
+
+func updateWorkflowKVs(wf *models.WorkflowV4) (bool, error) {
+	needUpdate := false
+	for _, stage := range wf.Stages {
+		for _, job := range stage.Jobs {
+			switch job.JobType {
+			case config.JobCustomDeploy:
+				jobSpec := &models.ZadigDeployJobSpec{}
+				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
+					return needUpdate, errors.Wrapf(err, "unmashal job spec error: %v")
+				}
+				for _, service := range jobSpec.Services {
+					if len(service.VariableConfigs) > 0 {
+						continue
+					}
+					needUpdate = true
+					service.VariableConfigs = workflowOriginKValsToVariableConfig(service.KeyVals)
+				}
+			}
+		}
+	}
+	return needUpdate
+}
+
 // handle workflow kvs
 func migrateWorkflows() error {
+	// migrate workflow configs
 	for _, project := range k8sProjects {
 		workflows, _, err := mongodb.NewWorkflowV4Coll().List(&mongodb.ListWorkflowV4Option{ProjectName: project.ProjectName}, 0, 0)
 		if err != nil {
 			return errors.Wrapf(err, "failed to list workflows, project name: %s", project.ProjectName)
 		}
 		for _, wf := range workflows {
-			for _, stage := range wf.Stages {
-				for _, job := range stage.Jobs {
-					switch job.JobType {
-					case config.JobCustomDeploy:
-						jobSpec := &models.ZadigDeployJobSpec{}
-						if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
-							return errors.Wrapf(err, "unmashal job spec error: %v")
-						}
-						for _, service := range jobSpec.Services {
-							if len(service.VariableConfigs) > 0 {
-								continue
-							}
 
-							service.VariableConfigs, err = turnFlatKVToRenderKV(service.KeyVals)
-							if err != nil {
-								return errors.Wrapf(err, "failed to turn flat kv to render kv, service: %s/%s/%s", project.ProjectName, wf.Name, service.ServiceName)
-							}
-
-						}
-					}
+			// migrate kvs in workflow config
+			if needUpdate {
+				err = mongodb.NewWorkflowV4Coll().Update(wf.ID.Hex(), wf)
+				if err != nil {
+					return errors.Wrapf(err, "failed to update workflow, %s/%s", wf.Project, wf.DisplayName)
 				}
 			}
-			wf.Stages
+
+			taskCursor, err := mongodb.NewworkflowTaskv4Coll().ListByCursor(&mongodb.ListWorkflowTaskV4Option{
+				WorkflowName: wf.Name,
+				ProjectName:  wf.Project,
+			})
+			if err != nil {
+				return errors.Wrapf(err, "failed to list workflow tasks, %s/%s", wf.Project, wf.DisplayName)
+			}
+
+			for taskCursor.Next(context.Background()) {
+				var workflowTask models.WorkflowTask
+				if err := taskCursor.Decode(&workflowTask); err != nil {
+					return errors.Wrapf(err, "failed to decode workflow task, %s/%s", wf.Project, wf.DisplayName)
+				}
+
+				if workflowTask.OriginWorkflowArgs == config.WorkflowTypeDeploy {
+
+				}
+			}
+
 		}
 	}
 
