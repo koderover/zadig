@@ -34,10 +34,54 @@ import (
 type CreateApprovalDefinitionArgs struct {
 	Name        string
 	Description string
-	Type        ApprovalType
+	Nodes       []*ApprovalNode
+}
+
+type ApprovalNode struct {
+	ApproverIDList []string
+	Type           ApprovalType
 }
 
 func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs) (string, error) {
+	i18nTextList := []*larkapproval.I18nResourceText{
+		larkapproval.NewI18nResourceTextBuilder().
+			Key(approvalNameI18NKey).
+			Value(arg.Name).
+			Build(),
+		larkapproval.NewI18nResourceTextBuilder().
+			Key(approvalDescriptionI18NKey).
+			Value(arg.Description).
+			Build(),
+		larkapproval.NewI18nResourceTextBuilder().
+			Key(approvalFormNameI18NKey).
+			Value(approvalFormNameI18NValue).
+			Build(),
+		larkapproval.NewI18nResourceTextBuilder().
+			Key(approvalFormValueI18NKey).
+			Value(defaultFormValueI18NValue).
+			Build(),
+		larkapproval.NewI18nResourceTextBuilder().
+			Key(approvalNodeApproveI18NKeyTmpl).
+			Value(approvalNodeNameValueTmpl).
+			Build(),
+	}
+	larkApprovalNodeList := make([]*larkapproval.ApprovalNode, 0)
+	larkApprovalNodeList = append(larkApprovalNodeList, larkapproval.NewApprovalNodeBuilder().Id(`START`).Build())
+	for i, node := range arg.Nodes {
+		larkApprovalNodeList = append(larkApprovalNodeList, larkapproval.NewApprovalNodeBuilder().
+			Id(approvalNodeIDKey(i)).
+			Name(approvalNodeApproveI18NKey(i)).
+			NodeType(string(node.Type)).
+			Approver([]*larkapproval.ApprovalApproverCcer{
+				larkapproval.NewApprovalApproverCcerBuilder().Type(ApproverSelectionMethodFree).Build(),
+			}).Build())
+		i18nTextList = append(i18nTextList, larkapproval.NewI18nResourceTextBuilder().
+			Key(approvalNodeApproveI18NKey(i)).
+			Value(approvalNodeNameValue(i)).
+			Build())
+	}
+	larkApprovalNodeList = append(larkApprovalNodeList, larkapproval.NewApprovalNodeBuilder().Id(`END`).Build())
+
 	req := larkapproval.NewCreateApprovalReqBuilder().
 		UserIdType(setting.LarkUserOpenID).
 		ApprovalCreate(larkapproval.NewApprovalCreateBuilder().
@@ -52,40 +96,11 @@ func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs
 			Form(larkapproval.NewApprovalFormBuilder().
 				FormContent(fmt.Sprintf(`[{"id":"1","name":"%s","type":"textarea","required":false,"value":"%s"}]`, approvalFormNameI18NKey, approvalFormValueI18NKey)).
 				Build()).
-			NodeList([]*larkapproval.ApprovalNode{
-				larkapproval.NewApprovalNodeBuilder().Id(`START`).Build(),
-				larkapproval.NewApprovalNodeBuilder().Id(`APPROVE`).Name(approvalNodeApproveI18NKey).
-					NodeType(string(arg.Type)).
-					Approver([]*larkapproval.ApprovalApproverCcer{
-						larkapproval.NewApprovalApproverCcerBuilder().Type(ApproverSelectionMethodFree).Build(),
-					}).Build(),
-				larkapproval.NewApprovalNodeBuilder().Id(`END`).Build(),
-			}).
+			NodeList(larkApprovalNodeList).
 			I18nResources([]*larkapproval.I18nResource{
 				larkapproval.NewI18nResourceBuilder().
 					Locale(`zh-CN`).
-					Texts([]*larkapproval.I18nResourceText{
-						larkapproval.NewI18nResourceTextBuilder().
-							Key(approvalNameI18NKey).
-							Value(arg.Name).
-							Build(),
-						larkapproval.NewI18nResourceTextBuilder().
-							Key(approvalDescriptionI18NKey).
-							Value(arg.Description).
-							Build(),
-						larkapproval.NewI18nResourceTextBuilder().
-							Key(approvalFormNameI18NKey).
-							Value(approvalFormNameI18NValue).
-							Build(),
-						larkapproval.NewI18nResourceTextBuilder().
-							Key(approvalFormValueI18NKey).
-							Value(defaultFormValueI18NValue).
-							Build(),
-						larkapproval.NewI18nResourceTextBuilder().
-							Key(approvalNodeApproveI18NKey).
-							Value(defaultNodeApproveValue).
-							Build(),
-					}).
+					Texts(i18nTextList).
 					IsDefault(true).
 					Build(),
 			}).
@@ -107,15 +122,27 @@ func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs
 	return *resp.Data.ApprovalCode, nil
 }
 
+func approvalNodeIDKey(id int) string {
+	return fmt.Sprintf(approvalNodeIDKeyTmpl, id)
+}
+
+func approvalNodeApproveI18NKey(id int) string {
+	return fmt.Sprintf(approvalNodeApproveI18NKeyTmpl, id)
+}
+
+func approvalNodeNameValue(id int) string {
+	return fmt.Sprintf(approvalNodeNameValueTmpl, id)
+}
+
 type CreateApprovalInstanceArgs struct {
-	ApprovalCode   string
-	UserOpenID     string
-	ApproverIDList []string
-	FormContent    string
+	ApprovalCode string
+	UserOpenID   string
+	Nodes        []*ApprovalNode
+	FormContent  string
 }
 
 func (client *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (string, error) {
-	log.Infof("create approval instance: approver id list %v", args.ApproverIDList)
+	log.Infof("create approval instance: approver node num %d", len(args.Nodes))
 	formContent, err := json.Marshal([]formData{{
 		ID:    "1",
 		Type:  "textarea",
@@ -125,17 +152,20 @@ func (client *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (
 		return "", errors.Wrap(err, "marshal form data")
 	}
 
+	nodeList := make([]*larkapproval.NodeApprover, 0)
+	for i, node := range args.Nodes {
+		nodeList = append(nodeList, larkapproval.NewNodeApproverBuilder().
+			Key(approvalNodeIDKey(i)).
+			Value(node.ApproverIDList).
+			Build())
+	}
+
 	req := larkapproval.NewCreateInstanceReqBuilder().
 		InstanceCreate(larkapproval.NewInstanceCreateBuilder().
 			ApprovalCode(args.ApprovalCode).
 			OpenId(args.UserOpenID).
 			Form(string(formContent)).
-			NodeApproverOpenIdList([]*larkapproval.NodeApprover{
-				larkapproval.NewNodeApproverBuilder().
-					Key(`APPROVE`).
-					Value(args.ApproverIDList).
-					Build(),
-			}).
+			NodeApproverOpenIdList(nodeList).
 			Build()).
 		Build()
 

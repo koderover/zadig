@@ -133,9 +133,17 @@ type DingTalkApprovalUser struct {
 }
 
 type LarkApproval struct {
-	Timeout      int                 `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
-	ApprovalID   string              `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
-	ApproveUsers []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Timeout    int    `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	ApprovalID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
+	// todo: remove this field
+	ApproveUsers  []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	ApprovalNodes []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+}
+
+type LarkApprovalNode struct {
+	ApproveUsers    []*LarkApprovalUser    `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Type            lark.ApprovalType      `bson:"type"                        yaml:"type"                       json:"type"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
 type LarkApprovalUser struct {

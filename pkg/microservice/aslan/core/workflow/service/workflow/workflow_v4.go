@@ -17,6 +17,7 @@ limitations under the License.
 package workflow
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -68,7 +69,7 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 	if err := LintWorkflowV4(workflow, logger); err != nil {
 		return err
 	}
-
+	createLarkApprovalDefinition()
 	workflow.CreatedBy = user
 	workflow.UpdatedBy = user
 	workflow.CreateTime = time.Now().Unix()
@@ -728,6 +729,17 @@ func lintApprovals(approval *commonmodels.Approval) error {
 	return nil
 }
 
+func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
+	for _, stage := range workflow.Stages {
+		if stage.Approval.LarkApproval != nil {
+			lark, err := commonrepo.NewIMAppColl().GetLarkByAppID(context.Background(), stage.Approval.LarkApproval.ApprovalID)
+			if err != nil {
+				return errors.Wrapf(err, "get lark app %s", stage.Approval.LarkApproval.ApprovalID)
+			}
+		 if lark.LarkApprovalCodeList[commonrepo.NewIMAppColl().GetLarkApprovalTypeID(stage.Approval.LarkApproval.)]
+		}
+	}
+}
 func CreateWebhookForWorkflowV4(workflowName string, input *commonmodels.WorkflowV4Hook, logger *zap.SugaredLogger) error {
 	if err := jobctl.InstantiateWorkflow(input.WorkflowArg); err != nil {
 		logger.Errorf("instantiate hook args error: %s", err)

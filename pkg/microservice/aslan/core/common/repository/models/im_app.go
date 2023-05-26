@@ -29,6 +29,8 @@ type IMApp struct {
 	AppSecret               string `json:"app_secret" bson:"app_secret"`
 	EncryptKey              string `json:"encrypt_key" bson:"encrypt_key"`
 	LarkDefaultApprovalCode string `json:"-" bson:"lark_default_approval_code"`
+	// LarkApprovalCodeList is a json string save all approval definition code
+	LarkApprovalCodeList map[string]string `json:"-" bson:"lark_approval_code_list"`
 
 	// DingTalk fields
 	DingTalkAppKey                  string `json:"dingtalk_app_key" bson:"dingtalk_app_key"`
