@@ -730,7 +730,8 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 			if err != nil {
 				return errors.Wrapf(err, "get lark app %s", stage.Approval.LarkApproval.ApprovalID)
 			}
-		 if lark.LarkApprovalCodeList[commonrepo.NewIMAppColl().GetLarkApprovalTypeID(stage.Approval.LarkApproval.)]
+			var nodeTypeList
+		 //if lark.LarkApprovalCodeList[commonrepo.NewIMAppColl().GetLarkApprovalTypeID(stage.Approval.LarkApproval.)]
 		}
 	}
 }
