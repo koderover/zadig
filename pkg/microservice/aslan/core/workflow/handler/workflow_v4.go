@@ -182,7 +182,7 @@ func CheckWorkflowV4LarkApproval(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = workflow.CheckWorkflowV4LarkApproval(c.Param("name"), ctx.UserID, ctx.Logger)
+	ctx.Err = workflow.CheckWorkflowV4ApprovalInitiator(c.Param("name"), ctx.UserID, ctx.Logger)
 }
 
 func ListWebhookForWorkflowV4(c *gin.Context) {
