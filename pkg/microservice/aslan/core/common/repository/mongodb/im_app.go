@@ -29,6 +29,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/tool/lark"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -111,6 +112,13 @@ func (c *IMAppColl) GetLarkByAppID(ctx context.Context, appID string) (*models.I
 
 	resp := new(models.IMApp)
 	return resp, c.FindOne(ctx, query).Decode(resp)
+}
+
+func (c *IMAppColl) GetLarkApprovalTypeID(list []*lark.ApprovalNode) (id string) {
+	for _, node := range list {
+		id += "-" + string(node.Type)
+	}
+	return id
 }
 
 func (c *IMAppColl) GetDingTalkByAppKey(ctx context.Context, appKey string) (*models.IMApp, error) {

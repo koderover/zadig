@@ -19,8 +19,9 @@ package lark
 type ApprovalType string
 
 const (
-	ApproveTypeAnd ApprovalType = "AND"
-	ApproveTypeOr  ApprovalType = "OR"
+	ApproveTypeAnd        ApprovalType = "AND"
+	ApproveTypeOr         ApprovalType = "OR"
+	ApproveTypeSequential ApprovalType = "SEQUENTIAL"
 
 	QueryTypeEmail  = "email"
 	QueryTypeMobile = "mobile"
@@ -31,16 +32,17 @@ const (
 	// Free means the approval sponsor can choose the approver freely
 	ApproverSelectionMethodFree = "Free"
 
-	approvalNameI18NKey        = `@i18n@approval_name`
-	approvalDescriptionI18NKey = `@i18n@description`
-	approvalNodeApproveI18NKey = `@i18n@node_approve`
-	approvalFormNameI18NKey    = `@i18n@formname`
-	approvalFormValueI18NKey   = `@i18n@formvalue`
+	approvalNameI18NKey            = `@i18n@approval_name`
+	approvalDescriptionI18NKey     = `@i18n@description`
+	approvalNodeApproveI18NKeyTmpl = `@i18n@node_approve_%d`
+	approvalNodeIDKeyTmpl          = `APPROVAL_NODE_%d`
+	approvalNodeNameValueTmpl      = `审批_%d`
+	approvalFormNameI18NKey        = `@i18n@formname`
+	approvalFormValueI18NKey       = `@i18n@formvalue`
 
 	approvalFormNameI18NValue = `详情`
 
 	defaultFormValueI18NValue = `用于 Zadig Workflow 审批`
-	defaultNodeApproveValue   = `审批`
 
 	defaultPageSize = 50
 )
