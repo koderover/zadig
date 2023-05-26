@@ -28,6 +28,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -394,6 +395,16 @@ func (c *ProductColl) UpdateOnboardingStatus(productName string, status int) err
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
 		"onboarding_status": status,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *ProductColl) UpdateGlobalVars(productName string, serviceVars []*types.ServiceVariableKV) error {
+	query := bson.M{"product_name": productName}
+	change := bson.M{"$set": bson.M{
+		"global_variables": serviceVars,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
