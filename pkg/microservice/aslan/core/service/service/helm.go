@@ -170,6 +170,38 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 	return helmService, nil
 }
 
+func ListHelmProductionServices(productName string, log *zap.SugaredLogger) (*HelmService, error) {
+	helmService := &HelmService{
+		ServiceInfos: []*commonmodels.Service{},
+		FileInfos:    []*types.FileInfo{},
+		Services:     [][]string{},
+	}
+
+	services, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(productName, setting.HelmDeployType)
+	if err != nil {
+		log.Errorf("[helmService.list] err:%v", err)
+		return nil, e.ErrListTemplate.AddErr(err)
+	}
+	helmService.ServiceInfos = services
+
+	if len(services) > 0 {
+		fis, err := loadProductionServiceFileInfos(services[0].ProductName, services[0].ServiceName, 0, "")
+		if err != nil {
+			log.Errorf("Failed to load service file info, err: %s", err)
+			return nil, e.ErrListTemplate.AddErr(err)
+		}
+		helmService.FileInfos = fis
+	}
+	project, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("Failed to find project info, err: %s", err)
+		return nil, e.ErrListTemplate.AddErr(err)
+	}
+	helmService.Services = project.Services
+
+	return helmService, nil
+}
+
 func fillServiceTemplateVariables(serviceTemplate *models.Service) error {
 	if serviceTemplate.Source != setting.SourceFromChartTemplate {
 		return nil
@@ -1711,6 +1743,62 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 	}
 
 	err = commonutil.PreLoadServiceManifests(base, svc)
+	if err != nil {
+		return nil, e.ErrFilePath.AddDesc(err.Error())
+	}
+
+	var fis []*types.FileInfo
+
+	files, err := os.ReadDir(filepath.Join(base, serviceName, dir))
+	if err != nil {
+		return nil, e.ErrFilePath.AddDesc(err.Error())
+	}
+
+	for _, file := range files {
+		info, _ := file.Info()
+		if info == nil {
+			continue
+		}
+		fi := &types.FileInfo{
+			Parent:  dir,
+			Name:    file.Name(),
+			Size:    info.Size(),
+			Mode:    file.Type(),
+			ModTime: info.ModTime().Unix(),
+			IsDir:   file.IsDir(),
+		}
+
+		fis = append(fis, fi)
+	}
+	return fis, nil
+}
+
+func loadProductionServiceFileInfos(productName, serviceName string, revision int64, dir string) ([]*types.FileInfo, error) {
+	svc, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: productName,
+		ServiceName: serviceName,
+	})
+	if err != nil {
+		return nil, e.ErrFilePath.AddDesc(err.Error())
+	}
+
+	base := config.LocalProductionServicePath(productName, serviceName)
+	if revision > 0 {
+		base = config.LocalProductionServicePathWithRevision(productName, serviceName, revision)
+		if err = commonutil.PreloadProductionServiceManifestsByRevision(base, svc); err != nil {
+			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+				svc.Revision, svc.ServiceName)
+		}
+	}
+	if err != nil || revision == 0 {
+		base = config.LocalProductionServicePath(productName, serviceName)
+		err = commonutil.PreLoadProductionServiceManifests(base, svc)
+		if err != nil {
+			return nil, e.ErrFilePath.AddDesc(err.Error())
+		}
+	}
+
+	err = commonutil.PreLoadProductionServiceManifests(base, svc)
 	if err != nil {
 		return nil, e.ErrFilePath.AddDesc(err.Error())
 	}

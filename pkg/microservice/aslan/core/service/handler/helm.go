@@ -34,6 +34,12 @@ func ListHelmServices(c *gin.Context) {
 	ctx.Resp, ctx.Err = svcservice.ListHelmServices(c.Param("productName"), ctx.Logger)
 }
 
+func ListHelmProductionServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = svcservice.ListHelmServices(c.Query("projectName"), ctx.Logger)
+}
+
 func GetHelmServiceModule(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

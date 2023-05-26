@@ -56,6 +56,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	helmProductionServices := router.Group("helm/production/services")
 	{
+		helmProductionServices.GET("", ListHelmProductionServices)
 		helmProductionServices.POST("", CreateHelmProductionService)
 		helmProductionServices.GET("/:name/serviceModule", GetProductionHelmServiceModule)
 		helmProductionServices.GET("/:name/filePath", GetProductionHelmFilePath)
