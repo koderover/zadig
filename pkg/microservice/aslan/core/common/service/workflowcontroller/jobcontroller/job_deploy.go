@@ -393,6 +393,8 @@ func (c *DeployJobCtl) updateServiceModuleImages(ctx context.Context, resources 
 	return nil
 }
 
+// 5.26 temporarily deactivate this function
+// Because these errors must exist for a short period of time in some cases
 func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []map[string]string, ownerUID string) error {
 	for _, label := range labelMaps {
 		selector := labels.Set(label).AsSelector()
