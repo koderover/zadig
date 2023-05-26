@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 
@@ -269,15 +270,23 @@ func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string,
 	return images, err
 }
 
+type newImages struct {
+	resp []*RepoImgResp
+	m    *sync.Mutex
+}
+
 func imageProcessor(repo *registry.Repo, registryInfo *commonmodels.RegistryNamespace, dbTags map[string]*models.ImageTag, regService registry.Service, logger *zap.SugaredLogger) []*RepoImgResp {
 	resultChan := make(chan *RepoImgResp, 10)
 	defer close(resultChan)
 	jobChan := make(chan *imageReqJob, len(repo.Tags))
-	images := make([]*RepoImgResp, 0)
+	images := &newImages{
+		resp: make([]*RepoImgResp, 0),
+		m:    &sync.Mutex{},
+	}
 
 	jobCount := 0
 	for _, tag := range repo.Tags {
-		if t, ok := dbTags[tag]; ok {
+		if t, ok := dbTags[tag]; ok && t.Digest != "" && t.Created != "" {
 			resp := &RepoImgResp{
 				Host:    util.TrimURLScheme(registryInfo.RegAddr),
 				Owner:   repo.Namespace,
@@ -286,7 +295,7 @@ func imageProcessor(repo *registry.Repo, registryInfo *commonmodels.RegistryName
 				Created: t.Created,
 				Digest:  t.Digest,
 			}
-			images = append(images, resp)
+			images.resp = append(images.resp, resp)
 			continue
 		}
 
@@ -305,61 +314,57 @@ func imageProcessor(repo *registry.Repo, registryInfo *commonmodels.RegistryName
 			tag:          tag,
 		}
 	}
+	close(jobChan)
 
 	// create gcount goroutines to get tags from registry
 	gcount := 50
 	if jobCount < 50 {
 		gcount = jobCount
 	}
+	wg := &sync.WaitGroup{}
 	for i := 0; i < gcount; i++ {
-		go getNewTagsFromReg(jobChan, resultChan, logger)
+		wg.Add(1)
+		go getNewTagsFromReg(jobChan, wg, images, logger)
 	}
 
-	for gcount > 0 {
-		select {
-		case resp := <-resultChan:
-			images = append(images, resp)
-			gcount--
-		}
-	}
-	// if gcount == 0, it means all jobs have been processed
-	close(jobChan)
-	return images
+	wg.Wait()
+	return images.resp
 }
 
-func getNewTagsFromReg(job chan *imageReqJob, result chan *RepoImgResp, logger *zap.SugaredLogger) {
-	for {
-		select {
-		case data, ok := <-job:
-			if !ok {
-				return
-			}
-			option := registry.GetRepoImageDetailOption{
-				Image:    data.repoImages.Name,
-				Tag:      data.tag,
-				Endpoint: data.endPoint,
-			}
-			details, err := data.regService.GetImageInfo(option, logger)
-			if err != nil {
-				// if get image detail failed, we will retry 3 times
-				if data.failedTimes < 3 {
-					data.failedTimes++
-					job <- data
-				}
-				logger.Errorf("get image[%s:%s] detail from registry failed, the error is: %v", data.repoImages.Name, data.tag, err)
+func getNewTagsFromReg(job chan *imageReqJob, wg *sync.WaitGroup, images *newImages, logger *zap.SugaredLogger) {
+	defer wg.Done()
+
+	for data := range job {
+		option := registry.GetRepoImageDetailOption{
+			Image:    data.repoImages.Name,
+			Tag:      data.tag,
+			Endpoint: data.endPoint,
+		}
+		details, err := data.regService.GetImageInfo(option, logger)
+		if err != nil {
+			// if get image detail failed, we will retry 3 times
+			if data.failedTimes < 3 {
+				data.failedTimes++
+				job <- data
 				continue
 			}
-
-			img := &RepoImgResp{
-				Host:    util.TrimURLScheme(data.registryInfo.RegAddr),
-				Owner:   data.repoImages.Namespace,
-				Name:    data.repoImages.Name,
-				Tag:     data.tag,
-				Created: details.CreationTime,
-				Digest:  details.ImageDigest,
-			}
-			result <- img
+			logger.Errorf("get image[%s:%s] detail from registry failed, the error is: %v", data.repoImages.Name, data.tag, err)
 		}
+
+		img := &RepoImgResp{
+			Host:  util.TrimURLScheme(data.registryInfo.RegAddr),
+			Owner: data.repoImages.Namespace,
+			Name:  data.repoImages.Name,
+			Tag:   data.tag,
+		}
+		if details != nil {
+			img.Created = details.CreationTime
+			img.Digest = details.ImageDigest
+		}
+
+		images.m.Lock()
+		images.resp = append(images.resp, img)
+		images.m.Unlock()
 	}
 }
 
