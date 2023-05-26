@@ -30,8 +30,9 @@ func ExportYaml(c *gin.Context) {
 	serviceName := c.Query("serviceName")
 	envName := c.Query("envName")
 	productName := c.Query("projectName")
+	source := c.Query("source")
 
-	ctx.Resp = service.ExportYaml(envName, productName, serviceName, ctx.Logger)
+	ctx.Resp = service.ExportYaml(envName, productName, serviceName, source, ctx.Logger)
 }
 
 func ExportProductionServiceYaml(c *gin.Context) {

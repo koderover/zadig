@@ -34,7 +34,8 @@ import (
 )
 
 // ExportYaml 查询使用到服务模板的服务组模板
-func ExportYaml(envName, productName, serviceName string, log *zap.SugaredLogger) []string {
+// source determines where the request comes from, can be "wd" or "nil"
+func ExportYaml(envName, productName, serviceName, source string, log *zap.SugaredLogger) []string {
 	var yamls [][]byte
 	res := make([]string, 0)
 
@@ -51,14 +52,29 @@ func ExportYaml(envName, productName, serviceName string, log *zap.SugaredLogger
 		return res
 	}
 
+	// needFetchByRenderedManifest happens when service is not deployed by zadig, or is not connected to zadig (when request comes from wd)
+	needFetchByRenderedManifest := false
+
 	if commonutil.ServiceDeployed(serviceName, env.ServiceDeployStrategy) {
 		selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
 		yamls = append(yamls, getConfigMapYaml(kubeClient, namespace, selector, log)...)
 		yamls = append(yamls, getIngressYaml(kubeClient, namespace, selector, log)...)
 		yamls = append(yamls, getServiceYaml(kubeClient, namespace, selector, log)...)
-		yamls = append(yamls, getDeploymentYaml(kubeClient, namespace, selector, log)...)
-		yamls = append(yamls, getStatefulSetYaml(kubeClient, namespace, selector, log)...)
+		deploys := getDeploymentYaml(kubeClient, namespace, selector, log)
+		yamls = append(yamls, deploys...)
+		stss := getStatefulSetYaml(kubeClient, namespace, selector, log)
+		yamls = append(yamls, stss...)
+		if len(deploys) == 0 && len(stss) == 0 {
+			if source == "wd" {
+				needFetchByRenderedManifest = true
+			}
+		}
 	} else {
+		needFetchByRenderedManifest = true
+	}
+
+	if needFetchByRenderedManifest {
+		yamls = make([][]byte, 0)
 		// for services just import not deployed, workloads can't be queried by labels
 		productService, ok := env.GetServiceMap()[serviceName]
 		if !ok {
