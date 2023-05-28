@@ -209,6 +209,11 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 		stage.Status = config.StatusFailed
 		return errors.Wrap(err, "get external approval data")
 	}
+	approvalCode := data.LarkApprovalCodeList[approval.GetNodeTypeKey()]
+	if approvalCode == "" {
+		stage.Status = config.StatusFailed
+		return errors.Errorf("failed to find approval code for node type %s", approval.GetNodeTypeKey())
+	}
 
 	client := lark.NewClient(data.AppID, data.AppSecret)
 
@@ -231,14 +236,9 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 		descForm = fmt.Sprintf("\n描述: %s", stage.Approval.Description)
 	}
 	instance, err := client.CreateApprovalInstance(&lark.CreateApprovalInstanceArgs{
-		ApprovalCode: data.LarkDefaultApprovalCode,
+		ApprovalCode: approvalCode,
 		UserOpenID:   userID,
-		ApproverIDList: func() (list []string) {
-			for _, user := range approval.ApproveUsers {
-				list = append(list, user.ID)
-			}
-			return list
-		}(),
+		Nodes:        approval.GetLarkApprovalNode(),
 		FormContent: fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n\n更多详见: %s",
 			workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL),
 	})
@@ -263,24 +263,96 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			log.Errorf("cancel approval %s error: %v", instance, err)
 		}
 	}
-	userUpdate := func(list []*commonmodels.LarkApprovalUser) []*commonmodels.LarkApprovalUser {
-		info, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
-		if err != nil {
-			log.Errorf("waitForLarkApprove: GetApprovalInstance error: %v", err)
-			return list
+	//userUpdate := func(list []*commonmodels.LarkApprovalUser) []*commonmodels.LarkApprovalUser {
+	//	info, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
+	//	if err != nil {
+	//		log.Errorf("waitForLarkApprove: GetApprovalInstance error: %v", err)
+	//		return list
+	//	}
+	//	for _, user := range list {
+	//		if user.ID == info.ApproverInfo.ID {
+	//			user.RejectOrApprove = info.ApproveOrReject
+	//			user.Comment = info.Comment
+	//			user.OperationTime = info.Time
+	//		}
+	//	}
+	//	return list
+	//}
+
+	checkNodeStatus := func(node *commonmodels.LarkApprovalNode) (config.ApproveOrReject, error) {
+		switch node.Type {
+		case "AND":
+			result := config.Approve
+			for _, user := range node.ApproveUsers {
+				if user.RejectOrApprove == "" {
+					result = ""
+				}
+				if user.RejectOrApprove == config.Reject {
+					return config.Reject, nil
+				}
+			}
+			return result, nil
+		case "OR":
+			for _, user := range node.ApproveUsers {
+				if user.RejectOrApprove != "" {
+					return user.RejectOrApprove, nil
+				}
+			}
+			return "", nil
+		case lark.ApproveTypeSequential:
+			return node.ApproveUsers[len(node.ApproveUsers)-1].RejectOrApprove, nil
+		default:
+			return "", errors.Errorf("unknown node type %s", node.Type)
 		}
-		for _, user := range list {
-			if user.ID == info.ApproverInfo.ID {
-				user.RejectOrApprove = info.ApproveOrReject
-				user.Comment = info.Comment
-				user.OperationTime = info.Time
+	}
+
+	approvalUpdate := func(larkApproval *commonmodels.LarkApproval) (done, isApprove bool, err error) {
+		userUpdated := false
+		for i, node := range larkApproval.ApprovalNodes {
+			if node.RejectOrApprove != "" {
+				continue
+			}
+			resultMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeUserApprovalResults(lark.ApprovalNodeIDKey(i))
+			instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
+			if err != nil {
+				return false, false, errors.Wrap(err, "get approval instance")
+			}
+			for _, user := range node.ApproveUsers {
+				if result, ok := resultMap[user.ID]; ok && user.RejectOrApprove == "" {
+					comment := ""
+					if nodeData, ok := instanceData.ApproverInfoWithNode[lark.ApprovalNodeIDKey(i)]; ok {
+						if userData, ok := nodeData[userID]; ok {
+							comment = userData.Comment
+						}
+					}
+					user.RejectOrApprove = result.ApproveOrReject
+					user.Comment = comment
+					userUpdated = true
+				}
+			}
+			node.RejectOrApprove, err = checkNodeStatus(node)
+			if err != nil {
+				return false, false, err
+			}
+			if node.RejectOrApprove == config.Approve {
+				ack()
+				break
+			}
+			if node.RejectOrApprove == config.Reject {
+				return true, false, nil
+			}
+			if userUpdated {
+				ack()
+				break
 			}
 		}
-		return list
+
+		finalResult := larkApproval.ApprovalNodes[len(larkApproval.ApprovalNodes)-1].RejectOrApprove
+		return finalResult != "", finalResult == config.Approve, nil
 	}
 
 	defer func() {
-		larkservice.GetLarkApprovalManager(approval.ApprovalID).RemoveInstance(instance)
+		larkservice.RemoveLarkApprovalInstanceManager(instance)
 	}()
 	timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
 	for {
@@ -295,20 +367,19 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			cancelApproval()
 			return fmt.Errorf("workflow timeout")
 		default:
-			status := larkservice.GetLarkApprovalManager(approval.ApprovalID).GetInstanceStatus(instance)
-			switch status {
-			case larkservice.ApprovalStatusApproved:
-				stage.Approval.LarkApproval.ApproveUsers = userUpdate(approval.ApproveUsers)
-				return nil
-			case larkservice.ApprovalStatusRejected:
-				stage.Status = config.StatusReject
-				stage.Approval.LarkApproval.ApproveUsers = userUpdate(approval.ApproveUsers)
-				return errors.New("Approval has been rejected")
-			case larkservice.ApprovalStatusCanceled:
+			done, isApprove, err := approvalUpdate(approval)
+			if err != nil {
 				stage.Status = config.StatusFailed
-				return errors.New("Approval has been canceled")
-			case larkservice.ApprovalStatusDeleted:
-				return errors.New("Approval has been deleted")
+				cancelApproval()
+				return errors.Wrap(err, "check approval status")
+			}
+			if done {
+				if isApprove {
+					return nil
+				} else {
+					stage.Status = config.StatusReject
+					return errors.New("Approval has been rejected")
+				}
 			}
 		}
 	}

@@ -20,8 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"time"
 
 	larkapproval "github.com/larksuite/oapi-sdk-go/v3/service/approval/v4"
 	"github.com/pkg/errors"
@@ -39,7 +37,7 @@ type CreateApprovalDefinitionArgs struct {
 
 type ApprovalNode struct {
 	ApproverIDList []string
-	Type           ApprovalType
+	Type           ApproveType
 }
 
 func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs) (string, error) {
@@ -69,7 +67,7 @@ func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs
 	larkApprovalNodeList = append(larkApprovalNodeList, larkapproval.NewApprovalNodeBuilder().Id(`START`).Build())
 	for i, node := range arg.Nodes {
 		larkApprovalNodeList = append(larkApprovalNodeList, larkapproval.NewApprovalNodeBuilder().
-			Id(approvalNodeIDKey(i)).
+			Id(ApprovalNodeIDKey(i)).
 			Name(approvalNodeApproveI18NKey(i)).
 			NodeType(string(node.Type)).
 			Approver([]*larkapproval.ApprovalApproverCcer{
@@ -122,7 +120,7 @@ func (client *Client) CreateApprovalDefinition(arg *CreateApprovalDefinitionArgs
 	return *resp.Data.ApprovalCode, nil
 }
 
-func approvalNodeIDKey(id int) string {
+func ApprovalNodeIDKey(id int) string {
 	return fmt.Sprintf(approvalNodeIDKeyTmpl, id)
 }
 
@@ -155,7 +153,7 @@ func (client *Client) CreateApprovalInstance(args *CreateApprovalInstanceArgs) (
 	nodeList := make([]*larkapproval.NodeApprover, 0)
 	for i, node := range args.Nodes {
 		nodeList = append(nodeList, larkapproval.NewNodeApproverBuilder().
-			Key(approvalNodeIDKey(i)).
+			Key(ApprovalNodeIDKey(i)).
 			Value(node.ApproverIDList).
 			Build())
 	}
@@ -188,11 +186,14 @@ type GetApprovalInstanceArgs struct {
 	InstanceID string
 }
 
+type UserApprovalResult struct {
+	Comment string
+}
+
 type ApprovalInstanceInfo struct {
-	config.ApproveOrReject
-	ApproverInfo *UserInfo
-	Comment      string
-	Time         int64
+	// key1 is node id, key2 is user open id
+	ApproverInfoWithNode map[string]map[string]*UserApprovalResult
+	ApproveOrReject      config.ApproveOrReject
 }
 
 func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*ApprovalInstanceInfo, error) {
@@ -213,28 +214,27 @@ func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*Appro
 		"PASS":   config.Approve,
 		"REJECT": config.Reject,
 	}
-
+	resultMap := make(map[string]map[string]*UserApprovalResult)
 	for _, timeline := range resp.Data.Timeline {
 		status := getStringFromPointer(timeline.Type)
 		if status == "PASS" || status == "REJECT" {
-			user, err := client.GetUserInfoByID(getStringFromPointer(timeline.OpenId))
-			if err != nil {
-				return nil, errors.Wrap(err, "get user")
+			nodeKey, userID := getStringFromPointer(timeline.NodeKey), getStringFromPointer(timeline.OpenId)
+			if nodeKey == "" {
+				log.Warn("node key is empty")
+				continue
 			}
-			ts, _ := strconv.ParseInt(getStringFromPointer(timeline.CreateTime), 10, 64)
-			ts /= 1000
-			if ts == 0 {
-				ts = time.Now().Unix()
+			if resultMap[nodeKey] == nil {
+				resultMap[nodeKey] = make(map[string]*UserApprovalResult)
 			}
-			return &ApprovalInstanceInfo{
-				ApproveOrReject: m[status],
-				ApproverInfo:    user,
-				Comment:         getStringFromPointer(timeline.Comment),
-				Time:            ts,
-			}, nil
+			resultMap[nodeKey][userID] = &UserApprovalResult{
+				Comment: getStringFromPointer(timeline.Comment),
+			}
 		}
 	}
-	return nil, errors.New("not found timeline")
+	return &ApprovalInstanceInfo{
+		ApproverInfoWithNode: resultMap,
+		ApproveOrReject:      m[getStringFromPointer(resp.Data.Status)],
+	}, nil
 }
 
 type CancelApprovalInstanceArgs struct {

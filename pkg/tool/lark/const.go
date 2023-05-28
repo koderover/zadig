@@ -16,12 +16,12 @@
 
 package lark
 
-type ApprovalType string
+type ApproveType string
 
 const (
-	ApproveTypeAnd        ApprovalType = "AND"
-	ApproveTypeOr         ApprovalType = "OR"
-	ApproveTypeSequential ApprovalType = "SEQUENTIAL"
+	ApproveTypeAnd        ApproveType = "AND"
+	ApproveTypeOr         ApproveType = "OR"
+	ApproveTypeSequential ApproveType = "SEQUENTIAL"
 
 	QueryTypeEmail  = "email"
 	QueryTypeMobile = "mobile"
