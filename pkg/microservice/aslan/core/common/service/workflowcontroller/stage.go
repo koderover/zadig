@@ -216,6 +216,12 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	}
 
 	client := lark.NewClient(data.AppID, data.AppSecret)
+	// nodeKeyMap is a map of custom node key to node key
+	nodeKeyMap, err := client.GetApprovalDefinitionNodeKeyMap(approvalCode)
+	if err != nil {
+		stage.Status = config.StatusFailed
+		return errors.Wrap(err, "get approval definition node key map")
+	}
 
 	mobile := workflowCtx.WorkflowTaskCreatorMobile
 	if mobile == "" {
@@ -310,7 +316,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			for _, user := range node.ApproveUsers {
 				if result, ok := resultMap[user.ID]; ok && user.RejectOrApprove == "" {
 					comment := ""
-					if nodeData, ok := instanceData.ApproverInfoWithNode[lark.ApprovalNodeIDKey(i)]; ok {
+					if nodeData, ok := instanceData.ApproverInfoWithNode[nodeKeyMap[lark.ApprovalNodeIDKey(i)]]; ok {
 						if userData, ok := nodeData[userID]; ok {
 							comment = userData.Comment
 						}

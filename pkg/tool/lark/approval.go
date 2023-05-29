@@ -132,6 +132,37 @@ func approvalNodeNameValue(id int) string {
 	return fmt.Sprintf(approvalNodeNameValueTmpl, id)
 }
 
+func (client *Client) GetApprovalDefinition(approvalCode string) (*larkapproval.GetApprovalRespData, error) {
+	req := larkapproval.NewGetApprovalReqBuilder().
+		ApprovalCode(approvalCode).
+		Build()
+	resp, err := client.Approval.Approval.Get(context.Background(), req)
+	if err != nil {
+		return nil, errors.Wrap(err, "lark client")
+	}
+
+	if !resp.Success() {
+		return nil, resp.CodeError
+	}
+	return resp.Data, nil
+}
+
+func (client *Client) GetApprovalDefinitionNodeKeyMap(approvalCode string) (map[string]string, error) {
+	resp, err := client.GetApprovalDefinition(approvalCode)
+	if err != nil {
+		return nil, err
+	}
+
+	nodeKeyMap := make(map[string]string)
+	for _, node := range resp.NodeList {
+		nodeKeyMap[getStringFromPointer(node.CustomNodeId)] = getStringFromPointer(node.NodeId)
+	}
+
+	//todo debug
+	log.Infof("node key map: %v", nodeKeyMap)
+	return nodeKeyMap, nil
+}
+
 type CreateApprovalInstanceArgs struct {
 	ApprovalCode string
 	UserOpenID   string
@@ -218,7 +249,7 @@ func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*Appro
 	// todo debug
 	b, _ := json.MarshalIndent(resp.Data.Timeline, "", "  ")
 	log.Infof("timeline: %s", string(b))
-	
+
 	for _, timeline := range resp.Data.Timeline {
 		status := getStringFromPointer(timeline.Type)
 		if status == "PASS" || status == "REJECT" {
