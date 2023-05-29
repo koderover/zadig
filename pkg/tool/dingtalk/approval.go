@@ -15,7 +15,11 @@
 // */
 package dingtalk
 
-import "strings"
+import (
+	"strings"
+
+	"k8s.io/apimachinery/pkg/util/rand"
+)
 
 const (
 	defaultApprovalFormName  = "Zadig 审批表单模板"
@@ -28,24 +32,6 @@ const (
 	AND  = "AND"
 	OR   = "OR"
 	NONE = "NONE"
-)
-
-var (
-	defaultApprovalFormDefinition = ApprovalFormDefinition{
-		Name:        defaultApprovalFormName,
-		Description: "用于 Zadig Workflow 审批",
-		FormComponents: []FormComponents{
-			{
-				ComponentType: "TextareaField",
-				Props: Props{
-					Label:       defaultApprovalFormLabel,
-					Placeholder: "请输入详情",
-					ComponentID: "TextareaField-1",
-					Required:    true,
-				},
-			},
-		},
-	}
 )
 
 type ApprovalFormDefinition struct {
@@ -77,13 +63,31 @@ type CreateApprovalResponse struct {
 }
 
 func (c *Client) CreateApproval() (resp *CreateApprovalResponse, err error) {
-	_, err = c.R().SetBodyJsonMarshal(defaultApprovalFormDefinition).
+	_, err = c.R().SetBodyJsonMarshal(getRandNameDefaultApprovalFormDefinition()).
 		SetSuccessResult(&resp).
 		Post("https://api.dingtalk.com/v1.0/workflow/forms")
 	if err != nil && strings.Contains(err.Error(), "已有相同名称表单") {
 		return nil, ErrApprovalFormNameExists
 	}
 	return
+}
+
+func getRandNameDefaultApprovalFormDefinition() ApprovalFormDefinition {
+	return ApprovalFormDefinition{
+		Name:        defaultApprovalFormName + "-" + rand.String(10),
+		Description: "用于 Zadig Workflow 审批",
+		FormComponents: []FormComponents{
+			{
+				ComponentType: "TextareaField",
+				Props: Props{
+					Label:       defaultApprovalFormLabel,
+					Placeholder: "请输入详情",
+					ComponentID: "TextareaField-1",
+					Required:    true,
+				},
+			},
+		},
+	}
 }
 
 type ApprovalInstance struct {

@@ -56,22 +56,17 @@ func createDingTalkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error
 		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "validate"))
 	}
 
-	oid, err := mongodb.NewIMAppColl().Create(context.Background(), args)
-	if err != nil {
-		log.Errorf("create dingtalk IM error: %v", err)
-		return e.ErrCreateIMApp.AddErr(err)
-	}
-
 	client := dingtalk.NewClient(args.DingTalkAppKey, args.DingTalkAppSecret)
 	resp, err := client.CreateApproval()
 	if err != nil {
 		return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "create approval form"))
 	}
-
 	args.DingTalkDefaultApprovalFormCode = resp.ProcessCode
-	err = mongodb.NewIMAppColl().Update(context.Background(), oid, args)
+
+	_, err = mongodb.NewIMAppColl().Create(context.Background(), args)
 	if err != nil {
-		return errors.Wrap(err, "update dingtalk info with process code")
+		log.Errorf("create dingtalk IM error: %v", err)
+		return e.ErrCreateIMApp.AddErr(err)
 	}
 	return nil
 }
@@ -123,9 +118,6 @@ func updateDingTalkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLo
 
 	resp, err := client.CreateApproval()
 	if err != nil {
-		if err == dingtalk.ErrApprovalFormNameExists {
-			return nil
-		}
 		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "create approval form"))
 	}
 
