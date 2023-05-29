@@ -18,6 +18,7 @@ package workflowcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"sync"
@@ -309,8 +310,11 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 				continue
 			}
 			resultMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeUserApprovalResults(lark.ApprovalNodeIDKey(i))
-			log.Debugf("approvalUpdate: node %d result map %v", i, resultMap)
+			b1, _ := json.MarshalIndent(resultMap, "", "  ")
+			log.Debugf("approvalUpdate: node %d result map %s", i, string(b1))
 			instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
+			b2, _ := json.MarshalIndent(instanceData, "", "  ")
+			log.Debugf("approvalUpdate: node %d instance data %s", i, string(b2))
 			if err != nil {
 				return false, false, errors.Wrap(err, "get approval instance")
 			}
