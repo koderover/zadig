@@ -279,7 +279,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 
 	// select product info and render info from db, in case of concurrent update caused data override issue
 	// those code can be optimized if MongoDB version are newer than 4.0
-	newProductInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: product.ProductName})
+	newProductInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: product.ProductName, EnvName: product.EnvName})
 	if err != nil {
 		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
 	}
