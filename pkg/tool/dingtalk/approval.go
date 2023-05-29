@@ -103,11 +103,10 @@ type ApprovalForm struct {
 }
 
 func (c *Client) GetApprovalFormDefinitionList(next int) (resp *GetAllApprovalFormDefinitionResponse, err error) {
-	query := map[string]interface{}{"maxResults": 100}
-	if next != 0 {
-		query["nextToken"] = next
-	}
-	_, err = c.R().SetQueryParamsAnyType(query).
+	_, err = c.R().SetQueryParamsAnyType(map[string]interface{}{
+		"maxResults": 100,
+		"nextToken":  next,
+	}).
 		SetSuccessResult(&resp).Get("https://api.dingtalk.com/v1.0/workflow/processes/userVisibilities/templates")
 	return
 }
