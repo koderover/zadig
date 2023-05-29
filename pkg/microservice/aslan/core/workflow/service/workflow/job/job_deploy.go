@@ -427,9 +427,6 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					jobTaskSpec.VariableYaml = service.VariableYaml
 				}
 
-				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, envName); err != nil {
-					return resp, err
-				}
 				jobTaskSpec.ImageAndModules = append(jobTaskSpec.ImageAndModules, &commonmodels.ImageAndServiceModule{
 					ServiceModule: deploy.ServiceModule,
 					Image:         deploy.Image,
