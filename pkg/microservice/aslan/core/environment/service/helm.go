@@ -24,6 +24,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -146,8 +148,8 @@ type ChartImagesResp struct {
 	ServiceImages []*ServiceImages `json:"serviceImages"`
 }
 
-func GetChartValues(projectName, envName, serviceName string) (*ValuesResp, error) {
-	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
+func GetChartValues(projectName, envName, serviceName string, production bool) (*ValuesResp, error) {
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
@@ -170,11 +172,11 @@ func GetChartValues(projectName, envName, serviceName string) (*ValuesResp, erro
 		return nil, fmt.Errorf("failed to find sercice: %s in env: %s", serviceName, envName)
 	}
 
-	revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+	revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		Revision:    prodSvc.Revision,
 		ProductName: prodSvc.ProductName,
-	})
+	}, production)
 	if err != nil {
 		return nil, err
 	}
@@ -194,9 +196,9 @@ func GetChartValues(projectName, envName, serviceName string) (*ValuesResp, erro
 	return &ValuesResp{ValuesYaml: string(currentValuesYaml)}, nil
 }
 
-func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLogger) ([]*HelmReleaseResp, error) {
+func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, log *zap.SugaredLogger) ([]*HelmReleaseResp, error) {
 	projectName, filterStr := args.ProjectName, args.Filter
-	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
@@ -258,7 +260,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 	}
 
 	// set service template data
-	serviceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(projectName)
+	serviceTmpls, err := repository.ListMaxRevisionsServices(projectName, production)
 	if err != nil {
 		return nil, errors.Errorf("failed to list service templates for project: %s", projectName)
 	}
