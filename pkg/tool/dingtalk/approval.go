@@ -122,7 +122,7 @@ func (c *Client) GetAllApprovalFormDefinitionList() (resp []ApprovalForm, err er
 		resp = append(resp, result.ProcessList...)
 		next = result.NextToken
 		if next == 0 {
-			return
+			return resp, nil
 		}
 	}
 }
