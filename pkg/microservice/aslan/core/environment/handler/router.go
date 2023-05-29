@@ -146,7 +146,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/servicesForUpdate", ListSvcsInProductionEnv)
 
 		// services related
-		production.GET("/environments/:name/services/:serviceName", GetServiceInProductionEnv)
+		production.GET("/environments/:name/services/:serviceName", GetProductionService)
 		production.GET("/environments/:name/services/:serviceName/variables", GetProductionVariables)
 		production.GET("/environments/:name/services/:serviceName/yaml", ExportProductionServiceYaml)
 
@@ -156,7 +156,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/helm/releases", ListProductionReleases)
 		production.GET("/environments/:name/helm/values", GetProductionChartValues)
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
-		production.GET("/environments/:name/services/:serviceName", GetProductionService)
 
 	}
 
