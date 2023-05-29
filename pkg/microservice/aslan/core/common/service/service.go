@@ -201,7 +201,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	estimatedVariableYamlMap, estimatedVariableKVMap := getEstimatedMergedVariables(services, productTmpl)
+	estimatedVariableYamlMap, estimatedVariableKVMap := GetEstimatedMergedVariables(services, productTmpl)
 	for _, serviceObject := range services {
 		if serviceObject.Source == setting.SourceFromGitlab {
 			if serviceObject.CodehostID == 0 {
@@ -261,7 +261,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 	return resp, nil
 }
 
-func getEstimatedMergedVariables(services []*commonmodels.Service, product *template.Product) (map[string]string, map[string][]*commontypes.ServiceVariableKV) {
+func GetEstimatedMergedVariables(services []*commonmodels.Service, product *template.Product) (map[string]string, map[string][]*commontypes.ServiceVariableKV) {
 	retYamlMap := make(map[string]string)
 	retKVMap := make(map[string][]*commontypes.ServiceVariableKV)
 	if product.IsK8sYamlProduct() {

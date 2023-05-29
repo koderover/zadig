@@ -118,7 +118,7 @@ func ListYamlTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*temp
 	resp := make([]*template.YamlListObject, 0)
 	templateList, total, err := commonrepo.NewYamlTemplateColl().List(pageNum, pageSize)
 	if err != nil {
-		logger.Errorf("list dockerfile template error: %s", err)
+		logger.Errorf("list yaml template error: %s", err)
 		return resp, 0, err
 	}
 	for _, obj := range templateList {
@@ -169,13 +169,27 @@ func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*template
 	ret := make([]*template.ServiceReference, 0)
 	referenceList, err := commonrepo.NewServiceColl().GetYamlTemplateReference(id)
 	if err != nil {
-		logger.Errorf("Failed to get build reference for dockerfile template id: %s, the error is: %s", id, err)
+		logger.Errorf("Failed to get build reference for yaml template id: %s, the error is: %s", id, err)
 		return ret, err
 	}
 	for _, reference := range referenceList {
 		ret = append(ret, &template.ServiceReference{
 			ServiceName: reference.ServiceName,
 			ProjectName: reference.ProductName,
+			Production:  false,
+		})
+	}
+
+	productionService, err := commonrepo.NewProductionServiceColl().GetYamlTemplateReference(id)
+	if err != nil {
+		logger.Errorf("Failed to get build reference for yaml template id: %s from production service, the error is: %s", id, err)
+		return ret, err
+	}
+	for _, reference := range productionService {
+		ret = append(ret, &template.ServiceReference{
+			ServiceName: reference.ServiceName,
+			ProjectName: reference.ProductName,
+			Production:  true,
 		})
 	}
 	return ret, nil

@@ -85,6 +85,41 @@ func (c *ProductionServiceColl) Delete(serviceName, productName, status string, 
 	return err
 }
 
+type ProductionServiceDeleteOption struct {
+	ServiceName string
+	ProductName string
+	Type        string
+	Status      string
+	Revision    int64
+}
+
+func (c *ProductionServiceColl) DeleteByOptions(opts ProductionServiceDeleteOption) error {
+	query := bson.M{}
+	if opts.ServiceName != "" {
+		query["service_name"] = opts.ServiceName
+	}
+	if opts.Type != "" {
+		query["type"] = opts.Type
+	}
+	if opts.ProductName != "" {
+		query["product_name"] = opts.ProductName
+	}
+	if opts.Revision != 0 {
+		query["revision"] = opts.Revision
+	}
+	if opts.Status != "" {
+		query["status"] = opts.Status
+	}
+
+	if len(query) == 0 {
+		return nil
+	}
+
+	_, err := c.DeleteMany(context.TODO(), query)
+
+	return err
+}
+
 type ProductionServiceOption struct {
 	ProductName   string
 	ExcludeStatus string
@@ -247,7 +282,9 @@ func (c *ProductionServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]
 					{"product_name", "$product_name"},
 					{"service_name", "$service_name"},
 				},
-				"service_id": bson.M{"$last": "$_id"},
+				"service_id":  bson.M{"$last": "$_id"},
+				"template_id": bson.M{"$last": "$template_id"},
+				"create_from": bson.M{"$last": "$create_from"},
 			},
 		},
 	}
@@ -288,4 +325,17 @@ func (c *ProductionServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]
 	}
 
 	return resp, nil
+}
+
+func (c *ProductionServiceColl) GetYamlTemplateReference(templateID string) ([]*models.Service, error) {
+	query := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+		"source": setting.ServiceSourceTemplate,
+	}
+
+	postMatch := bson.M{
+		"template_id": templateID,
+	}
+
+	return c.listMaxRevisions(query, postMatch)
 }
