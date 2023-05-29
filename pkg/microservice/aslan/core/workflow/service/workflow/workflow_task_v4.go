@@ -34,6 +34,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -229,7 +230,9 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 	return workflow, nil
 }
 
-func CheckWorkflowV4LarkApproval(workflowName, uid string, log *zap.SugaredLogger) error {
+// CheckWorkflowV4ApprovalInitiator check if the workflow contains lark or dingtalk approval
+// if so, check whether the IM information can be queried by the user's mobile phone number
+func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.SugaredLogger) error {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
@@ -240,15 +243,38 @@ func CheckWorkflowV4LarkApproval(workflowName, uid string, log *zap.SugaredLogge
 		return errors.New("failed to get user info by id")
 	}
 
+	larkPass, dingtalkPass := false, false
 	for _, stage := range workflow.Stages {
-		if stage.Approval != nil && stage.Approval.Enabled && stage.Approval.Type == config.LarkApproval && stage.Approval.LarkApproval != nil {
-			cli, err := lark.GetLarkClientByIMAppID(stage.Approval.LarkApproval.ApprovalID)
-			if err != nil {
-				return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ApprovalID)
-			}
-			_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
-			if err != nil {
-				return e.ErrCheckLarkApprovalCreator.AddDesc(fmt.Sprintf("failed to get lark user info. lark app id: %s, phone: %s, error: %v", stage.Approval.LarkApproval.ApprovalID, userInfo.Phone, err))
+		if stage.Approval != nil && stage.Approval.Enabled {
+			switch stage.Approval.Type {
+			case config.LarkApproval:
+				if larkPass || stage.Approval.LarkApproval == nil {
+					continue
+				}
+				cli, err := lark.GetLarkClientByIMAppID(stage.Approval.LarkApproval.ApprovalID)
+				if err != nil {
+					return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ApprovalID)
+				}
+				_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
+				if err != nil {
+					return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("lark app id: %s, phone: %s, error: %v",
+						stage.Approval.LarkApproval.ApprovalID, userInfo.Phone, err))
+				}
+				larkPass = true
+			case config.DingTalkApproval:
+				if dingtalkPass || stage.Approval.DingTalkApproval == nil {
+					continue
+				}
+				cli, err := dingtalk.GetDingTalkClientByIMAppID(stage.Approval.DingTalkApproval.ApprovalID)
+				if err != nil {
+					return errors.Errorf("failed to get dingtalk app info by id-%s", stage.Approval.DingTalkApproval.ApprovalID)
+				}
+				_, err = cli.GetUserIDByMobile(userInfo.Phone)
+				if err != nil {
+					return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("dingtalk app id: %s, phone: %s, error: %v",
+						stage.Approval.DingTalkApproval.ApprovalID, userInfo.Phone, err))
+				}
+				dingtalkPass = true
 			}
 		}
 	}
@@ -309,6 +335,14 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		}
 		workflowTask.TaskCreatorEmail = userInfo.Email
 		workflowTask.TaskCreatorPhone = userInfo.Phone
+	} else {
+		// try to get workflow creator phone as the default approval initiator
+		userInfo, err := orm.GetUserByName(workflow.CreatedBy, core.DB)
+		if err != nil {
+			log.Warnf("CreateWorkflowTaskV4: failed to get workflow creator")
+		} else {
+			workflowTask.DefaultApprovalInitiatorPhone = userInfo.Phone
+		}
 	}
 
 	// save workflow original workflow task args.

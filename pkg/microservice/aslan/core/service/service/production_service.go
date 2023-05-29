@@ -54,15 +54,19 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 		log.Errorf("Failed to list production services, err: %s", err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
-
+	estimatedVariableYamlMap, estimatedVariableKVMap := service.GetEstimatedMergedVariables(services, projectInfo)
 	for _, serviceObject := range services {
 		spmap := &service.ServiceProductMap{
-			Service:     serviceObject.ServiceName,
-			Type:        serviceObject.Type,
-			Source:      serviceObject.Source,
-			ProductName: serviceObject.ProductName,
-			Containers:  serviceObject.Containers,
-			Visibility:  serviceObject.Visibility,
+			Service:                    serviceObject.ServiceName,
+			Type:                       serviceObject.Type,
+			Source:                     serviceObject.Source,
+			ProductName:                serviceObject.ProductName,
+			Containers:                 serviceObject.Containers,
+			Visibility:                 serviceObject.Visibility,
+			CreateFrom:                 serviceObject.CreateFrom,
+			AutoSync:                   serviceObject.AutoSync,
+			EstimatedMergedVariable:    estimatedVariableYamlMap[serviceObject.ServiceName],
+			EstimatedMergedVariableKVs: estimatedVariableKVMap[serviceObject.ServiceName],
 		}
 		resp.Data = append(resp.Data, spmap)
 	}

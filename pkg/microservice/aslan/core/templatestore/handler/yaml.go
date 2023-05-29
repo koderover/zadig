@@ -34,7 +34,7 @@ import (
 // @Produce json
 // @Param 	body 	body 		template.YamlTemplate		true 	"body"
 // @Success 200
-// @Router /template/yaml [post]
+// @Router /api/aslan/template/yaml [post]
 func CreateYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -60,7 +60,7 @@ func CreateYamlTemplate(c *gin.Context) {
 // @Param 	id		path		string						true	"template id"
 // @Param 	body 	body 		template.YamlTemplate		true 	"body"
 // @Success 200
-// @Router /template/yaml/{id} [put]
+// @Router /api/aslan/template/yaml/{id} [put]
 func UpdateYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -86,7 +86,7 @@ func UpdateYamlTemplate(c *gin.Context) {
 // @Param 	id		path		string						true	"template id"
 // @Param 	body 	body 		template.YamlTemplate		true 	"body"
 // @Success 200
-// @Router /template/yaml/{id}/variable [put]
+// @Router /api/aslan/template/yaml/{id}/variable [put]
 func UpdateYamlTemplateVariable(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -144,7 +144,7 @@ func ListYamlTemplate(c *gin.Context) {
 // @Produce json
 // @Param 	id		path		string						true	"template id"
 // @Success 200 	{object} 	template.YamlDetail
-// @Router /template/yaml/{id} [get]
+// @Router /api/aslan/template/yaml/{id} [get]
 func GetYamlTemplateDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -189,7 +189,7 @@ type getYamlTemplateVariablesReq struct {
 // @Produce json
 // @Param body body getYamlTemplateVariablesReq true "body"
 // @Success 200
-// @Router /template/yaml/validateVariable [post]
+// @Router /api/aslan/template/yaml/validateVariable [post]
 func ValidateTemplateVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -117,7 +117,7 @@ func (grc *GitRepoConfig) GetNamespace() string {
 
 type CustomYaml struct {
 	YamlContent       string                          `bson:"yaml_content,omitempty"            json:"yaml_content,omitempty"`
-	RenderVaraibleKVs []*commontypes.RenderVariableKV `bson:"render_variable_kvs,omitempty"     json:"render_variable_kvs,omitempty"`
+	RenderVariableKVs []*commontypes.RenderVariableKV `bson:"render_variable_kvs,omitempty"     json:"render_variable_kvs,omitempty"`
 	Source            string                          `bson:"source"                            json:"source"`
 	AutoSync          bool                            `bson:"auto_sync"                         json:"auto_sync"`
 	SourceDetail      interface{}                     `bson:"source_detail"                     json:"source_detail"`

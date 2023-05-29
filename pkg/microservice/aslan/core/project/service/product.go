@@ -1351,6 +1351,14 @@ func UpdateGlobalVariables(productName, userName string, globalVariables []*comm
 		return fmt.Errorf("failed to find product %s, err: %w", productName, err)
 	}
 
+	keySet := sets.NewString()
+	for _, kv := range globalVariables {
+		if keySet.Has(kv.Key) {
+			return fmt.Errorf("duplicated key: %s", kv.Key)
+		}
+		keySet.Insert(kv.Key)
+	}
+
 	productInfo.UpdateBy = userName
 	productInfo.GlobalVariables = globalVariables
 

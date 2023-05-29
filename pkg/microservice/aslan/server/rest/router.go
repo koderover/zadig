@@ -81,7 +81,6 @@ func init() {
 // @contact.email contact@koderover.com
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-// @BasePath /api/aslan
 func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	// 对外公共接口

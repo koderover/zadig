@@ -182,7 +182,7 @@ func CheckWorkflowV4LarkApproval(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = workflow.CheckWorkflowV4LarkApproval(c.Param("name"), ctx.UserID, ctx.Logger)
+	ctx.Err = workflow.CheckWorkflowV4ApprovalInitiator(c.Param("name"), ctx.UserID, ctx.Logger)
 }
 
 func ListWebhookForWorkflowV4(c *gin.Context) {
@@ -554,7 +554,7 @@ func ListAllAvailableWorkflows(c *gin.Context) {
 // @Produce json
 // @Param 	body 		body 		filterDeployServiceVarsQuery	 	true 	"body"
 // @Success 200 		{array} 	commonmodels.DeployService
-// @Router /workflow/v4/filterEnv [post]
+// @Router /api/aslan/workflow/v4/filterEnv [post]
 func GetFilteredEnvServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

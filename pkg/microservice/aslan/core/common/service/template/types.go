@@ -80,6 +80,7 @@ type YamlDetail struct {
 type ServiceReference struct {
 	ProjectName string `json:"project_name"`
 	ServiceName string `json:"service_name"`
+	Production  bool   `json:"production"`
 }
 
 type BuildTemplateReference struct {

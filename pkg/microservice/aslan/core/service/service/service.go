@@ -764,6 +764,83 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 	return GetServiceOption(args, log)
 }
 
+func CreateProductionServiceTemplate(userName string, args *commonmodels.Service, force bool, log *zap.SugaredLogger) (*ServiceOption, error) {
+	opt := &commonrepo.ServiceFindOption{
+		ServiceName:   args.ServiceName,
+		Revision:      0,
+		Type:          args.Type,
+		ProductName:   args.ProductName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	}
+
+	// Check for completely duplicate items before updating the database, and if so, exit.
+	serviceTmpl, notFoundErr := commonrepo.NewProductionServiceColl().Find(opt)
+	if notFoundErr == nil && !force {
+		return nil, fmt.Errorf("production_service:%s already exists", serviceTmpl.ServiceName)
+	} else {
+		if args.Source == setting.SourceFromGerrit {
+			// create gerrit webhook
+			if err := createGerritWebhookByService(args.GerritCodeHostID, args.ServiceName, args.GerritRepoName, args.GerritBranchName); err != nil {
+				log.Errorf("createGerritWebhookByService error: %v", err)
+				return nil, err
+			}
+		}
+	}
+
+	// fill serviceVars and variableYaml and serviceVariableKVs
+	err := fillServiceVariable(args, serviceTmpl)
+	if err != nil {
+		return nil, err
+	}
+
+	// check args
+	if err := ensureServiceTmpl(userName, args, log); err != nil {
+		log.Errorf("ensureProductionServiceTmpl error: %+v", err)
+		return nil, e.ErrValidateTemplate.AddDesc(err.Error())
+	}
+
+	if err := commonrepo.NewProductionServiceColl().DeleteByOptions(commonrepo.ProductionServiceDeleteOption{
+		ServiceName: args.ServiceName,
+		Type:        args.Type,
+		ProductName: args.ProductName,
+		Revision:    args.Revision,
+		Status:      setting.ProductStatusDeleting,
+	}); err != nil {
+		log.Errorf("ProductionServiceTmpl.delete %s error: %v", args.ServiceName, err)
+	}
+
+	// create a new revision of template service
+	if err := commonrepo.NewProductionServiceColl().Create(args); err != nil {
+		log.Errorf("ProductionServiceTmpl.Create %s error: %v", args.ServiceName, err)
+		return nil, e.ErrCreateTemplate.AddDesc(err.Error())
+	}
+
+	if notFoundErr != nil {
+		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
+			// get all services in the project
+			if len(productTempl.ProductionServices) > 0 && !sets.NewString(productTempl.ProductionServices[0]...).Has(args.ServiceName) {
+				productTempl.ProductionServices[0] = append(productTempl.ProductionServices[0], args.ServiceName)
+			} else {
+				productTempl.ProductionServices = [][]string{{args.ServiceName}}
+			}
+			// update project template
+			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
+			if err != nil {
+				log.Errorf("CreateProductionServiceTemplate Update %s error: %s", args.ServiceName, err)
+				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
+			}
+		}
+	}
+	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
+
+	err = service.AutoDeployYamlServiceToEnvs(userName, "", args, log)
+	if err != nil {
+		return nil, e.ErrCreateTemplate.AddErr(err)
+	}
+
+	return GetServiceOption(args, log)
+}
+
 func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName: args.ProductName,
@@ -998,9 +1075,27 @@ func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) set
 }
 
 func getRenderedYaml(args *YamlValidatorReq) string {
-	if len(args.VariableYaml) == 0 {
+	extractVariableYaml, err := yamlutil.ExtractVariableYaml(args.Yaml)
+	if err != nil {
+		log.Errorf("failed to extract variable yaml, err: %w", err)
+		extractVariableYaml = ""
+	}
+	extractVariableKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYaml, nil)
+	if err != nil {
+		log.Errorf("failed to convert extract variable yaml to kv, err: %w", err)
+		extractVariableKVs = nil
+	}
+	argVariableKVs, err := commontypes.YamlToServiceVariableKV(args.VariableYaml, nil)
+	if err != nil {
+		log.Errorf("failed to convert arg variable yaml to kv, err: %w", err)
+		argVariableKVs = nil
+	}
+	variableYaml, _, err := commontypes.MergeServiceVariableKVs(extractVariableKVs, argVariableKVs)
+	if err != nil {
+		log.Errorf("failed to merge extractVariableKVs and argVariableKVs variable kv, err: %w", err)
 		return args.Yaml
 	}
+
 	// yaml with go template grammar, yaml should be rendered with variable yaml
 	tmpl, err := gotemplate.New(fmt.Sprintf("%v", time.Now().Unix())).Parse(args.Yaml)
 	if err != nil {
@@ -1009,7 +1104,7 @@ func getRenderedYaml(args *YamlValidatorReq) string {
 	}
 
 	variableMap := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(args.VariableYaml), &variableMap)
+	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)
 	if err != nil {
 		log.Errorf("failed to get variable map, err: %s", err)
 		return args.Yaml

@@ -103,6 +103,7 @@ func migrateSystemTheme() error {
 				ProjectItemIconColor:     "#0066ff",
 				ProjectNameColor:         "#121212",
 				TableCellBackgroundColor: "#eaeaea",
+				LinkColor:                "#0066ff",
 			},
 		}
 		err := mdb.UpdateTheme(theme)

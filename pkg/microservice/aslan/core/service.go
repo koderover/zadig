@@ -395,6 +395,7 @@ func initDatabase() {
 		commonrepo.NewJobInfoColl(),
 		commonrepo.NewStatDashboardConfigColl(),
 		commonrepo.NewProjectManagementColl(),
+		commonrepo.NewImageTagsCollColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),
