@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 
 	"github.com/pkg/errors"
@@ -170,8 +173,11 @@ func migrateVariables() error {
 		return err
 	}
 
-	// TODO migrate workflow config data
-	// TODO migrate workflow task data
+	// 8. migrate workflow config and task data
+	if err = migrateWorkflows(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -649,6 +655,9 @@ func workflowOriginKValsToVariableConfig(kvs []*commonmodels.ServiceKeyVal) []*c
 }
 
 func updateWorkflowKVs(wf *models.WorkflowV4) (bool, error) {
+	if wf == nil {
+		return false, nil
+	}
 	needUpdate := false
 	for _, stage := range wf.Stages {
 		for _, job := range stage.Jobs {
@@ -668,11 +677,16 @@ func updateWorkflowKVs(wf *models.WorkflowV4) (bool, error) {
 			}
 		}
 	}
-	return needUpdate
+	return needUpdate, nil
 }
 
 // handle workflow kvs
 func migrateWorkflows() error {
+	updater := &DataBulkUpdater{
+		Coll:           mongodb.NewworkflowTaskv4Coll().Collection,
+		WriteThreshold: 50,
+	}
+
 	// migrate workflow configs
 	for _, project := range k8sProjects {
 		workflows, _, err := mongodb.NewWorkflowV4Coll().List(&mongodb.ListWorkflowV4Option{ProjectName: project.ProjectName}, 0, 0)
@@ -680,7 +694,10 @@ func migrateWorkflows() error {
 			return errors.Wrapf(err, "failed to list workflows, project name: %s", project.ProjectName)
 		}
 		for _, wf := range workflows {
-
+			needUpdate, err := updateWorkflowKVs(wf)
+			if err != nil {
+				return errors.Wrapf(err, "failed to update workflow kvs, %s/%s", wf.Project, wf.DisplayName)
+			}
 			// migrate kvs in workflow config
 			if needUpdate {
 				err = mongodb.NewWorkflowV4Coll().Update(wf.ID.Hex(), wf)
@@ -703,12 +720,58 @@ func migrateWorkflows() error {
 					return errors.Wrapf(err, "failed to decode workflow task, %s/%s", wf.Project, wf.DisplayName)
 				}
 
-				if workflowTask.OriginWorkflowArgs == config.WorkflowTypeDeploy {
+				needUpdateOrigin, err := updateWorkflowKVs(workflowTask.OriginWorkflowArgs)
+				if err != nil {
+					return errors.Wrapf(err, "failed to update workflow task kvs, %s/%s", wf.Project, wf.DisplayName)
+				}
+				needUpdateArgs, err := updateWorkflowKVs(workflowTask.WorkflowArgs)
+				if err != nil {
+					return errors.Wrapf(err, "failed to update workflow task kvs, %s/%s", wf.Project, wf.DisplayName)
+				}
 
+				updateKVConfig := false
+				for _, stage := range workflowTask.Stages {
+					for _, job := range stage.Jobs {
+						switch job.JobType {
+						case string(config.JobZadigDeploy):
+							jobSpec := &commonmodels.JobTaskDeploySpec{}
+							if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
+								return errors.Wrapf(err, "unmashal job spec error: %v")
+							}
+							if len(jobSpec.VariableKVs) > 0 {
+								continue
+							}
+							jobSpec.VariableKVs, err = turnFlatKVToRenderKV(jobSpec.KeyVals)
+							if err != nil {
+								return errors.Wrapf(err, "failed to turn flat kv to render kv, %s/%s", wf.Project, wf.DisplayName)
+							}
+							updateKVConfig = true
+
+							jobSpec.VariableConfigs = make([]*commonmodels.DeplopyVariableConfig, 0)
+							for _, kv := range jobSpec.VariableKVs {
+								jobSpec.VariableConfigs = append(jobSpec.VariableConfigs, &commonmodels.DeplopyVariableConfig{
+									VariableKey:       kv.Key,
+									UseGlobalVariable: false,
+								})
+							}
+						}
+					}
+				}
+
+				if needUpdateOrigin || needUpdateArgs || updateKVConfig {
+					err = updater.AddModel(mongo.NewUpdateOneModel().SetFilter(bson.D{{"_id", workflowTask.ID}}).SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"origin_workflow_args", workflowTask.OriginWorkflowArgs},
+							{"workflow_args", workflowTask.WorkflowArgs},
+							{"stages", workflowTask.Stages},
+						}},
+					}))
+					if err != nil {
+						return errors.Wrapf(err, "failed to update workflow task kvs, %s/%s", wf.Project, wf.DisplayName)
+					}
 				}
 			}
-
 		}
 	}
-
+	return updater.Write()
 }

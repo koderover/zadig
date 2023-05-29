@@ -36,9 +36,16 @@ func init() {
 func V1170ToV1180() error {
 	if err := migrateJiraAuthType(); err != nil {
 		log.Errorf("migrateJiraAuthType err: %v", err)
+		return errors.Wrapf(err, "failed to execute migrateJiraAuthType")
 	}
 	if err := migrateSystemTheme(); err != nil {
 		log.Errorf("migrateSystemTheme err: %v", err)
+		return errors.Wrapf(err, "failed to execute migrateSystemTheme")
+	}
+	if err := migrateVariables(); err != nil {
+		log.Errorf("migrateVariables err: %v", err)
+		return errors.Wrapf(err, "failed to execute migrateVariables")
+		return err
 	}
 	return nil
 }
