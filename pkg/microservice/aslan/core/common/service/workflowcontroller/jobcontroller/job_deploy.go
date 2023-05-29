@@ -393,6 +393,8 @@ func (c *DeployJobCtl) updateServiceModuleImages(ctx context.Context, resources 
 	return nil
 }
 
+// 5.26 temporarily deactivate this function
+// Because these errors must exist for a short period of time in some cases
 func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []map[string]string, ownerUID string) error {
 	for _, label := range labelMaps {
 		selector := labels.Set(label).AsSelector()
@@ -517,10 +519,6 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range c.jobTaskSpec.ReplaceResources {
-				if err := workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels, resource.PodOwnerUID); err != nil {
-					logError(c.job, err.Error(), c.logger)
-					return
-				}
 				switch resource.Kind {
 				case setting.Deployment:
 					d, found, e := getter.GetDeployment(c.namespace, resource.Name, c.kubeClient)

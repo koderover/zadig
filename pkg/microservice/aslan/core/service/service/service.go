@@ -998,9 +998,27 @@ func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) set
 }
 
 func getRenderedYaml(args *YamlValidatorReq) string {
-	if len(args.VariableYaml) == 0 {
+	extractVariableYaml, err := yamlutil.ExtractVariableYaml(args.Yaml)
+	if err != nil {
+		log.Errorf("failed to extract variable yaml, err: %w", err)
+		extractVariableYaml = ""
+	}
+	extractVariableKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYaml, nil)
+	if err != nil {
+		log.Errorf("failed to convert extract variable yaml to kv, err: %w", err)
+		extractVariableKVs = nil
+	}
+	argVariableKVs, err := commontypes.YamlToServiceVariableKV(args.VariableYaml, nil)
+	if err != nil {
+		log.Errorf("failed to convert arg variable yaml to kv, err: %w", err)
+		argVariableKVs = nil
+	}
+	variableYaml, _, err := commontypes.MergeServiceVariableKVs(extractVariableKVs, argVariableKVs)
+	if err != nil {
+		log.Errorf("failed to merge extractVariableKVs and argVariableKVs variable kv, err: %w", err)
 		return args.Yaml
 	}
+
 	// yaml with go template grammar, yaml should be rendered with variable yaml
 	tmpl, err := gotemplate.New(fmt.Sprintf("%v", time.Now().Unix())).Parse(args.Yaml)
 	if err != nil {
@@ -1009,7 +1027,7 @@ func getRenderedYaml(args *YamlValidatorReq) string {
 	}
 
 	variableMap := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(args.VariableYaml), &variableMap)
+	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)
 	if err != nil {
 		log.Errorf("failed to get variable map, err: %s", err)
 		return args.Yaml
