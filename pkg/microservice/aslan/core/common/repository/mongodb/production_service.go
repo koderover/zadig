@@ -282,7 +282,9 @@ func (c *ProductionServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]
 					{"product_name", "$product_name"},
 					{"service_name", "$service_name"},
 				},
-				"service_id": bson.M{"$last": "$_id"},
+				"service_id":  bson.M{"$last": "$_id"},
+				"template_id": bson.M{"$last": "$template_id"},
+				"create_from": bson.M{"$last": "$create_from"},
 			},
 		},
 	}
@@ -326,20 +328,14 @@ func (c *ProductionServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]
 }
 
 func (c *ProductionServiceColl) GetYamlTemplateReference(templateID string) ([]*models.Service, error) {
-	services := make([]*models.Service, 0)
 	query := bson.M{
-		"status":      bson.M{"$ne": setting.ProductStatusDeleting},
-		"source":      setting.ServiceSourceTemplate,
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+		"source": setting.ServiceSourceTemplate,
+	}
+
+	postMatch := bson.M{
 		"template_id": templateID,
 	}
 
-	cursor, err := c.Collection.Find(context.Background(), query)
-	if err != nil {
-		return nil, err
-	}
-	err = cursor.All(context.TODO(), &services)
-	if err != nil {
-		return nil, err
-	}
-	return services, nil
+	return c.listMaxRevisions(query, postMatch)
 }
