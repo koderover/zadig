@@ -24,7 +24,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -50,20 +49,20 @@ func ExtractRootKeyFromFlat(flatKey string) string {
 
 // GetAffectedServices fetch affected services
 // key => services
-func GenerateEnvVariableAffectServices(productInfo *models.Product, renderset *models.RenderSet) (map[string]sets.String, map[string]interface{}, error) {
+func GenerateEnvVariableAffectServices(productInfo *models.Product, renderset *models.RenderSet) (map[string]sets.String, map[string]*types.ServiceVariableKV, error) {
 	productServiceRevisions, err := commonservice.GetProductUsedTemplateSvcs(productInfo)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find revision services, err: %s", err)
 	}
 
-	variableMap := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(renderset.DefaultValues), &variableMap)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to marshal variables for renderset: %s/%s/%d", productInfo.ProductName, renderset.Name, renderset.Revision)
+	serviceKVS, err := types.YamlToServiceVariableKV(renderset.DefaultValues, nil)
+	variableKVMap := make(map[string]*types.ServiceVariableKV)
+	for _, kv := range serviceKVS {
+		variableKVMap[kv.Key] = kv
 	}
 
 	envVariableKeys := sets.NewString()
-	for key := range variableMap {
+	for key := range variableKVMap {
 		envVariableKeys.Insert(key)
 	}
 
@@ -99,7 +98,7 @@ func GenerateEnvVariableAffectServices(productInfo *models.Product, renderset *m
 			}
 		}
 	}
-	return relation, nil, nil
+	return relation, variableKVMap, nil
 }
 
 func MaxRevision(revisionList []int64) int64 {
@@ -362,7 +361,7 @@ func migrateTestProductVariables() error {
 
 			// change global variable yaml to kvs
 			relations := make(map[string]sets.String)
-			var globalKvs map[string]interface{}
+			var globalKvs map[string]*types.ServiceVariableKV
 			if len(renderInfo.DefaultValues) > 0 {
 				// calculate variable yaml and service relations by keys
 				// fill renderset.GlobalVariables
@@ -376,7 +375,7 @@ func migrateTestProductVariables() error {
 						relatedSvcs = svcSets.List()
 					}
 					gvKV := &types.GlobalVariableKV{
-						ServiceVariableKV: types.ServiceVariableKV{Key: k, Value: globalKvs[k]},
+						ServiceVariableKV: *globalKvs[k],
 						RelatedServices:   relatedSvcs,
 					}
 					renderInfo.GlobalVariables = append(renderInfo.GlobalVariables, gvKV)
@@ -432,7 +431,7 @@ func migrateTestProductVariables() error {
 					for _, singleKV := range svcKV.OverrideYaml.RenderVariableKVs {
 						if svcSet, ok := relations[singleKV.Key]; ok && svcSet.Has(svcKV.ServiceName) {
 							singleKV.UseGlobalVariable = true
-							singleKV.Value = globalKvs[singleKV.Key]
+							singleKV.ServiceVariableKV = *globalKvs[singleKV.Key]
 						}
 					}
 				}
@@ -660,7 +659,7 @@ func updateWorkflowKVs(wf *models.WorkflowV4) (bool, error) {
 	for _, stage := range wf.Stages {
 		for _, job := range stage.Jobs {
 			switch job.JobType {
-			case config.JobCustomDeploy:
+			case config.JobZadigDeploy:
 				jobSpec := &models.ZadigDeployJobSpec{}
 				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
 					return needUpdate, errors.Wrapf(err, "unmashal job spec error: %v")

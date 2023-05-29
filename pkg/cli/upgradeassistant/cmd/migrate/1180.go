@@ -45,7 +45,6 @@ func V1170ToV1180() error {
 	if err := migrateVariables(); err != nil {
 		log.Errorf("migrateVariables err: %v", err)
 		return errors.Wrapf(err, "failed to execute migrateVariables")
-		return err
 	}
 	return nil
 }
