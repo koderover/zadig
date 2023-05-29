@@ -19,7 +19,6 @@ package mongodb
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -112,10 +111,6 @@ func (c *IMAppColl) GetLarkByAppID(ctx context.Context, appID string) (*models.I
 
 	resp := new(models.IMApp)
 	return resp, c.FindOne(ctx, query).Decode(resp)
-}
-
-func (c *IMAppColl) GetLarkApprovalTypeID(nodeTypeList []string) (id string) {
-	return strings.Join(nodeTypeList, "-")
 }
 
 func (c *IMAppColl) GetDingTalkByAppKey(ctx context.Context, appKey string) (*models.IMApp, error) {

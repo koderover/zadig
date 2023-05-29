@@ -755,9 +755,12 @@ func lintApprovals(approval *commonmodels.Approval) error {
 func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 	for _, stage := range workflow.Stages {
 		if data := stage.Approval.LarkApproval; data != nil {
-			larkInfo, err := commonrepo.NewIMAppColl().GetLarkByAppID(context.Background(), stage.Approval.LarkApproval.ApprovalID)
+			larkInfo, err := commonrepo.NewIMAppColl().GetByID(context.Background(), stage.Approval.LarkApproval.ApprovalID)
 			if err != nil {
 				return errors.Wrapf(err, "get lark app %s", stage.Approval.LarkApproval.ApprovalID)
+			}
+			if larkInfo.Type != string(config.LarkApproval) {
+				return errors.Errorf("lark app %s is not lark approval", stage.Approval.LarkApproval.ApprovalID)
 			}
 
 			// skip if this node type approval definition already created
