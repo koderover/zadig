@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
@@ -60,7 +61,6 @@ type RepoInfo struct {
 const (
 	PERPAGE = 100
 	PAGE    = 1
-	Image
 )
 
 // ImageTagsReqStatus its a global map to store the status of the image list request
@@ -225,13 +225,21 @@ type imageReqJob struct {
 	failedTimes  int
 }
 
-type writeStatus struct {
-	m      *sync.Mutex
-	status *int
+func goWithRecover(fn func(), logger *zap.SugaredLogger) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Panic("Recovered from panic: %v", r)
+			}
+		}()
+
+		fn()
+	}()
 }
 
 func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string, logger *zap.SugaredLogger) ([]*RepoImgResp, error) {
 	var regService registry.Service
+	images := make([]*RepoImgResp, 0)
 	if registryInfo.AdvancedSetting != nil {
 		regService = registry.NewV2Service(registryInfo.RegProvider, registryInfo.AdvancedSetting.TLSEnabled, registryInfo.AdvancedSetting.TLSCert)
 	} else {
@@ -249,65 +257,45 @@ func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string,
 		Endpoint: endPoint,
 		Repos:    names,
 	}, logger)
-
-	images := make([]*RepoImgResp, 0)
-	if err == nil {
-		resultChan := make(chan []*RepoImgResp, 1)
-		errChan := make(chan error, 1)
-		defer func() {
-			close(resultChan)
-			close(errChan)
-		}()
-
-		canWrite := &writeStatus{
-			status: new(int),
-			m:      &sync.Mutex{},
-		}
-		// current status: 1: can write status, 2: timeout status, resultChan and errChan will be closed.
-		*canWrite.status = 1
-		go imagesProcessor(repos, registryInfo, regService, resultChan, errChan, canWrite, logger)
-		ticker := time.NewTicker(time.Second * 5)
-
-		for {
-			select {
-			case <-ticker.C:
-				// set writeStatus to 2, which means the goroutine ImageListUpdator is timeout, and it only needs to update the image_tas db by new data.
-				canWrite.m.Lock()
-				*canWrite.status = 2
-				canWrite.m.Unlock()
-				logger.Infof("ListReposTags: timeout, only update image_tags db and return image list by old sort method")
-				// 使用原始方法对images排序
-				for _, repo := range repos.Repos {
-					for _, tag := range repo.Tags {
-						img := &RepoImgResp{
-							Host:  util.TrimURLScheme(registryInfo.RegAddr),
-							Owner: repo.Namespace,
-							Name:  repo.Name,
-							Tag:   tag,
-						}
-						images = append(images, img)
-					}
-				}
-				return images, nil
-			case images = <-resultChan:
-				// sort tags by created time
-				sort.Slice(images, func(i, j int) bool {
-					return images[i].Created > images[j].Created
-				})
-				return images, nil
-			case err := <-errChan:
-				canWrite.m.Lock()
-				*canWrite.status = 2
-				canWrite.m.Unlock()
-				return nil, err
-			}
-		}
-
-	} else {
-		err = e.ErrListImages.AddErr(err)
+	if err != nil {
+		return images, e.ErrListImages.AddErr(err)
 	}
 
-	return images, err
+	resultChan := make(chan []*RepoImgResp, 1)
+	errChan := make(chan error, 1)
+
+	goWithRecover(func() {
+		imagesProcessor(repos, registryInfo, regService, resultChan, errChan, logger)
+	}, logger)
+
+	ticker := time.NewTicker(time.Second * 5)
+	for {
+		select {
+		case <-ticker.C:
+			logger.Infof("ListReposTags: timeout, only update image_tags db and return image list by old sort method")
+			// sort tags by old method
+			for _, repo := range repos.Repos {
+				for _, tag := range repo.Tags {
+					img := &RepoImgResp{
+						Host:  util.TrimURLScheme(registryInfo.RegAddr),
+						Owner: repo.Namespace,
+						Name:  repo.Name,
+						Tag:   tag,
+					}
+					images = append(images, img)
+				}
+			}
+			return images, nil
+		case images = <-resultChan:
+			// sort tags by created time
+			sort.Slice(images, func(i, j int) bool {
+				return images[i].Created > images[j].Created
+			})
+			return images, nil
+		case err := <-errChan:
+			return nil, err
+		}
+	}
 }
 
 func CheckReqLimit(key string) bool {
@@ -326,7 +314,13 @@ func CheckReqLimit(key string) bool {
 	return false
 }
 
-func imagesProcessor(repos *registry.ReposResp, registryInfo *commonmodels.RegistryNamespace, regService registry.Service, result chan []*RepoImgResp, errChan chan error, canWrite *writeStatus, logger *zap.SugaredLogger) {
+func imagesProcessor(repos *registry.ReposResp, registryInfo *commonmodels.RegistryNamespace, regService registry.Service, result chan []*RepoImgResp, errChan chan error, logger *zap.SugaredLogger) {
+	// need to consider whether close the channel directly can cause memory leak
+	defer func() {
+		close(result)
+		close(errChan)
+	}()
+
 	images := make([]*RepoImgResp, 0)
 	for _, repo := range repos.Repos {
 		// find all tags from image tags db
@@ -343,12 +337,7 @@ func imagesProcessor(repos *registry.ReposResp, registryInfo *commonmodels.Regis
 			if err == mongo.ErrNoDocuments || err == mongo.ErrNilDocument {
 				key = fmt.Sprintf("%s-%s-%s-%s", registryInfo.ID.Hex(), repo.Name, registryInfo.RegProvider, registryInfo.Namespace)
 				if !CheckReqLimit(key) {
-					// it is used to check the main goroutine is waiting return or timeout.
-					canWrite.m.Lock()
-					if *canWrite.status == 1 {
-						errChan <- fmt.Errorf("getting image list, please try again later")
-					}
-					canWrite.m.Unlock()
+					errChan <- fmt.Errorf("getting image list, please try again later")
 					// continue to get next repo to update image tags db
 					continue
 				}
@@ -364,31 +353,24 @@ func imagesProcessor(repos *registry.ReposResp, registryInfo *commonmodels.Regis
 
 		tags := ImageListGetter(repo, registryInfo, dbTags, regService, logger)
 		// update all imageTags to db,
-		go insertNewTags2DB(tags, registryInfo, key, logger)
+		goWithRecover(func() {
+			insertNewTags2DB(tags, registryInfo, key, logger)
+		}, logger)
 
 		images = append(images, tags...)
 	}
 
-	canWrite.m.Lock()
-	if *canWrite.status == 1 {
-		result <- images
-	}
-	canWrite.m.Unlock()
-}
-
-type newImages struct {
-	resp []*RepoImgResp
-	m    *sync.Mutex
+	result <- images
 }
 
 func ImageListGetter(repo *registry.Repo, registryInfo *commonmodels.RegistryNamespace, dbTags map[string]*models.ImageTag, regService registry.Service, logger *zap.SugaredLogger) []*RepoImgResp {
-	resultChan := make(chan *RepoImgResp, 10)
-	defer close(resultChan)
 	jobChan := make(chan *imageReqJob, len(repo.Tags))
-	images := &newImages{
-		resp: make([]*RepoImgResp, 0),
-		m:    &sync.Mutex{},
-	}
+	resultChan := make(chan *RepoImgResp, 10)
+	defer func() {
+		close(jobChan)
+		close(resultChan)
+	}()
+	images := make([]*RepoImgResp, 0)
 
 	jobCount := 0
 	for _, tag := range repo.Tags {
@@ -401,7 +383,7 @@ func ImageListGetter(repo *registry.Repo, registryInfo *commonmodels.RegistryNam
 				Created: t.Created,
 				Digest:  t.Digest,
 			}
-			images.resp = append(images.resp, resp)
+			images = append(images, resp)
 			continue
 		}
 
@@ -420,8 +402,6 @@ func ImageListGetter(repo *registry.Repo, registryInfo *commonmodels.RegistryNam
 			tag:          tag,
 		}
 	}
-	// close jobChan to notify all goroutines to exit when they finish all jobs
-	close(jobChan)
 
 	if jobCount > 0 {
 		// create gcount goroutines to get tags from registry
@@ -429,21 +409,25 @@ func ImageListGetter(repo *registry.Repo, registryInfo *commonmodels.RegistryNam
 		if jobCount < 50 {
 			gcount = jobCount
 		}
-		wg := &sync.WaitGroup{}
 		for i := 0; i < gcount; i++ {
-			wg.Add(1)
-			go getNewTagsFromReg(jobChan, wg, images, logger)
+			goWithRecover(func() {
+				getNewTagsFromReg(jobChan, resultChan, logger)
+			}, logger)
 		}
 
-		wg.Wait()
+		for jobCount > 0 {
+			select {
+			case result := <-resultChan:
+				images = append(images, result)
+				jobCount--
+			}
+		}
 	}
 
-	return images.resp
+	return images
 }
 
-func getNewTagsFromReg(job chan *imageReqJob, wg *sync.WaitGroup, images *newImages, logger *zap.SugaredLogger) {
-	defer wg.Done()
-
+func getNewTagsFromReg(job chan *imageReqJob, result chan *RepoImgResp, logger *zap.SugaredLogger) {
 	for data := range job {
 		option := registry.GetRepoImageDetailOption{
 			Image:    data.repoImages.Name,
@@ -472,13 +456,24 @@ func getNewTagsFromReg(job chan *imageReqJob, wg *sync.WaitGroup, images *newIma
 			img.Digest = details.ImageDigest
 		}
 
-		images.m.Lock()
-		images.resp = append(images.resp, img)
-		images.m.Unlock()
+		result <- img
 	}
 }
 
 func insertNewTags2DB(images []*RepoImgResp, registryInfo *commonmodels.RegistryNamespace, key string, logger *zap.SugaredLogger) {
+	defer func() {
+		// update the ImageTagsReqStatus after insert or update the image tags to db
+		if key != "" {
+			ImageTagsReqStatus.M.Lock()
+			delete(ImageTagsReqStatus.List, key)
+			ImageTagsReqStatus.M.Unlock()
+		}
+	}()
+
+	if registryInfo == nil && (images == nil || len(images) == 0) {
+		return
+	}
+
 	imageTag := &models.ImageTags{}
 	imageTag.ImageName = images[0].Name
 	imageTag.Namespace = images[0].Owner
@@ -496,11 +491,6 @@ func insertNewTags2DB(images []*RepoImgResp, registryInfo *commonmodels.Registry
 		logger.Errorf("failed to update or insert the image tags 2 image_tags db %s, the error is: %v", imageTag.ImageName, err)
 		return
 	}
-
-	// update the ImageTagsReqStatus after insert or update the image tags to db
-	ImageTagsReqStatus.M.Lock()
-	delete(ImageTagsReqStatus.List, key)
-	ImageTagsReqStatus.M.Unlock()
 }
 
 func GetRepoTags(registryInfo *commonmodels.RegistryNamespace, name string, log *zap.SugaredLogger) (*registry.ImagesResp, error) {
