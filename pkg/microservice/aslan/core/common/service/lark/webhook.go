@@ -129,7 +129,7 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 	if err != nil {
 		log.Warnf("parse operate time %s failed: %v", event.OperateTime, err)
 	}
-	manager.UpdateNodeUserApprovalResult(event.CustomKey, event.UserID, &UserApprovalResult{
+	manager.UpdateNodeUserApprovalResult(event.CustomKey, event.OpenID, &UserApprovalResult{
 		Result:        event.Status,
 		OperationTime: t / 1000,
 	})
