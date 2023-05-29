@@ -167,11 +167,10 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 				return errors.Wrapf(err, "failed to clip render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
 			}
 		}
-		if svcRender.OverrideYaml == nil {
-			svcRender.OverrideYaml = &template.CustomYaml{}
+		svcRender.OverrideYaml = &template.CustomYaml{
+			YamlContent:       mergedVariableYaml,
+			RenderVariableKVs: mergedVariableKVs,
 		}
-		svcRender.OverrideYaml.YamlContent = mergedVariableYaml
-		svcRender.OverrideYaml.RenderVariableKVs = mergedVariableKVs
 
 		// update global variables
 		// curRenderset.GlobalVariables, _, err = commontypes.UpdateGlobalVariableKVs(deployInfo.ServiceName, curRenderset.GlobalVariables, svcRender.OverrideYaml.RenderVariableKVs)

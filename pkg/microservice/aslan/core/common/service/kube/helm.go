@@ -277,15 +277,49 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 		return err
 	}
 
-	// for helm services, wo should update deploy info directly
-	if err = commonrepo.NewRenderSetColl().Update(renderSet); err != nil {
-		log.Errorf("[RenderSet.update] product %s error: %s", product.ProductName, err.Error())
-		return fmt.Errorf("failed to update render set, productName %s", product.ProductName)
+	// select product info and render info from db, in case of concurrent update caused data override issue
+	// those code can be optimized if MongoDB version are newer than 4.0
+	newProductInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: product.ProductName})
+	if err != nil {
+		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
+	}
+	curRenderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		ProductTmpl: newProductInfo.ProductName,
+		Name:        newProductInfo.Render.Name,
+		EnvName:     newProductInfo.EnvName,
+		Revision:    newProductInfo.Render.Revision,
+	})
+	if err != nil {
+		return errors.Wrapf(err, "failed to find render set %s", newProductInfo.Render.Name)
+	}
+	chartMap := make(map[string]*templatemodels.ServiceRender)
+	for _, chartInfo := range curRenderInfo.ChartInfos {
+		chartMap[chartInfo.ServiceName] = chartInfo
+	}
+	chartMap[productSvc.ServiceName] = renderSet.GetChartRenderMap()[productSvc.ServiceName]
+	curRenderInfo.ChartInfos = make([]*templatemodels.ServiceRender, 0)
+	for _, chartInfo := range chartMap {
+		curRenderInfo.ChartInfos = append(curRenderInfo.ChartInfos, chartInfo)
+	}
+	err = render.CreateRenderSet(curRenderInfo, log.SugaredLogger())
+	if err != nil {
+		return errors.Wrapf(err, "failed to create render set %s", curRenderInfo.Name)
 	}
 
-	if err = commonrepo.NewProductColl().Update(product); err != nil {
-		log.Errorf("update product %s error: %s", product.ProductName, err.Error())
-		return fmt.Errorf("failed to update product info, name %s", product.ProductName)
+	newProductInfo.Render.Revision = curRenderInfo.Revision
+	productSvcMap := make(map[string]*commonmodels.ProductService)
+	for _, service := range newProductInfo.GetServiceMap() {
+		productSvcMap[service.ServiceName] = service
+	}
+	productSvcMap[productSvc.ServiceName] = product.GetServiceMap()[productSvc.ServiceName]
+	newProductInfo.Services = [][]*commonmodels.ProductService{{}}
+	for _, service := range productSvcMap {
+		newProductInfo.Services[0] = append(newProductInfo.Services[0], service)
+	}
+
+	if err = commonrepo.NewProductColl().Update(newProductInfo); err != nil {
+		log.Errorf("update product %s error: %s", newProductInfo.ProductName, err.Error())
+		return fmt.Errorf("failed to update product info, name %s", newProductInfo.ProductName)
 	}
 
 	return nil

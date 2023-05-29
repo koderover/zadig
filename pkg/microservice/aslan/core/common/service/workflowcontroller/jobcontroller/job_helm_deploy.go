@@ -153,22 +153,6 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	// update helm vars and service revision if needed
-	//err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
-	//	ProductName:           productInfo.ProductName,
-	//	EnvName:               c.jobTaskSpec.Env,
-	//	ServiceName:           c.jobTaskSpec.ServiceName,
-	//	ServiceRevision:       int(productService.Revision),
-	//	VariableYaml:          variableYaml,
-	//	Containers:            containers,
-	//	UpdateServiceRevision: updateServiceRevision,
-	//})
-	//if err != nil {
-	//	msg := fmt.Sprintf("update product service deploy info error: %v", err)
-	//	logError(c.job, msg, c.logger)
-	//	return
-	//}
-
 	c.job.Status = config.StatusPassed
 }
 

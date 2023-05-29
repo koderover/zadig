@@ -604,5 +604,5 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 		chartInfo.OverrideYaml = &template.CustomYaml{}
 	}
 	chartInfo.OverrideYaml.YamlContent = applyParam.VariableYaml
-	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, applyParam.VariableYaml, applyParam.Timeout)
+	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, chartInfo.OverrideValues, applyParam.Timeout)
 }
