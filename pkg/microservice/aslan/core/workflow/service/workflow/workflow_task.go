@@ -30,6 +30,8 @@ import (
 	gotempl "text/template"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -1380,11 +1382,11 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		if pSvc, ok := prodEnv.GetServiceMap()[deployTask.ServiceName]; ok {
 			deployTask.ServiceRevision = pSvc.Revision
 		}
-		revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ServiceName: deployTask.ServiceName,
 			Revision:    deployTask.ServiceRevision,
 			ProductName: prodEnv.ProductName,
-		})
+		}, prodEnv.Production)
 		if err != nil {
 			return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", deployTask.ServiceName, deployTask.ServiceRevision, err)
 		}

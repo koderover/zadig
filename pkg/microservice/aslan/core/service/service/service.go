@@ -1339,7 +1339,7 @@ func UpdateProductionServiceReleaseNamingRule(userName, requestID, projectName s
 	}
 
 	serviceTemplate.Revision = rev
-	err = commonrepo.NewServiceColl().Create(serviceTemplate)
+	err = commonrepo.NewProductionServiceColl().Create(serviceTemplate)
 	if err != nil {
 		return fmt.Errorf("failed to update relase naming for service: %s, err: %s", args.ServiceName, err)
 	}

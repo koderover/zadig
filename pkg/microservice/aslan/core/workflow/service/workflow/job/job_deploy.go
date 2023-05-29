@@ -397,11 +397,11 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				serviceRevision = pSvc.Revision
 			}
 
-			revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: serviceName,
 				Revision:    serviceRevision,
 				ProductName: product.ProductName,
-			})
+			}, product.Production)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, serviceRevision, err)
 			}

@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
@@ -295,6 +297,11 @@ func UninstallServiceByName(helmClient helmclient.Client, serviceName string, en
 		Revision:    revision,
 		ProductName: env.ProductName,
 	})
+	revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		Revision:    revision,
+		ProductName: env.ProductName,
+	}, env.Production)
 	if err != nil {
 		return fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, revision, err)
 	}
