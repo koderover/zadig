@@ -704,6 +704,12 @@ func lintApprovals(approval *commonmodels.Approval) error {
 			return errors.New("approval not found")
 		}
 		userIDSets := sets.NewString()
+		if len(approval.DingTalkApproval.ApprovalNodes) > 20 {
+			return errors.New("num of approval-node should not exceed 20")
+		}
+		if len(approval.DingTalkApproval.ApprovalNodes) == 0 {
+			return errors.New("num of approval-node is 0")
+		}
 		for i, node := range approval.DingTalkApproval.ApprovalNodes {
 			if len(node.ApproveUsers) == 0 {
 				return errors.Errorf("num of approval-node %d approver is 0", i)

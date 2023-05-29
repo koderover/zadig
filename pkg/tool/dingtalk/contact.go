@@ -18,19 +18,6 @@ package dingtalk
 
 import "github.com/pkg/errors"
 
-//func (c *Client) GetUserIDByMobile(phone string) (string, error) {
-//	resp, err := c.R().SetBodyJsonMarshal(map[string]string{
-//		"mobile": phone,
-//	}).Post("https://oapi.dingtalk.com/topapi/v2/user/getbymobile")
-//	if err != nil {
-//		return "", err
-//	}
-//	if resp.IsErrorState() {
-//		return "", errors.Errorf("unexpected status code %d, body: %s", resp.GetStatusCode(), resp.String())
-//	}
-//	return gjson.Get(resp.String(), "result.userid").String(), nil
-//}
-
 type UserIDResponse struct {
 	UserID string `json:"userid"`
 }

@@ -29,12 +29,6 @@ import (
 )
 
 const (
-	ApprovalInstanceStatus = "PENDING"
-	ApprovalStatusApproved = "APPROVED"
-	ApprovalStatusRejected = "REJECTED"
-	ApprovalStatusCanceled = "CANCELED"
-	ApprovalStatusDeleted  = "DELETED"
-
 	EventTaskChange     = "bpms_task_change"
 	EventInstanceChange = "bpms_instance_change"
 )
@@ -118,12 +112,6 @@ func (l *ApprovalManager) SetUserApprovalResult(userID, result, remark string, t
 		OperationTime: time / 1000,
 		Remark:        remark,
 	}
-	//parsedTime, err := time.Parse("2006-01-02T15:04Z", date)
-	//if err != nil {
-	//	log.Warnf("SetUserApprovalResult: parse time error: %v", err)
-	//} else {
-	//	l.instanceUserResultInfo[userID].OperationTime = parsedTime.Unix()
-	//}
 }
 
 type EventInstanceChangeData struct {
@@ -187,7 +175,6 @@ func EventHandler(appKey string, body []byte, signature, ts, nonce string) (*Eve
 		gjson.Get(data, "processInstanceId").String())
 
 	switch eventType {
-	//case EventInstanceChange:
 	case EventTaskChange:
 		var event EventTaskChangeData
 		if err := json.Unmarshal([]byte(data), &event); err != nil {
@@ -197,9 +184,9 @@ func EventHandler(appKey string, body []byte, signature, ts, nonce string) (*Eve
 		if event.Type != "finish" {
 			break
 		}
-		// todo debug
-		log.Infof("event data: %+v", event)
 		GetDingTalkApprovalManager(event.ProcessInstanceID).SetUserApprovalResult(event.StaffID, event.Result, event.Remark, event.FinishTime)
+		log.Infof("dingtalk event type: %s instanceID: %s userID: %s result: %s remark: %s",
+			eventType, event.ProcessInstanceID, event.StaffID, event.Result, event.Remark)
 	}
 
 	msg, err := d.GetEncryptMsg("success")
