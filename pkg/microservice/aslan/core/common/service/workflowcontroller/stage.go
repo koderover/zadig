@@ -322,7 +322,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 				if result, ok := resultMap[user.ID]; ok && user.RejectOrApprove == "" {
 					comment := ""
 					if nodeData, ok := instanceData.ApproverInfoWithNode[larkservice.GetLarkApprovalInstanceManager(instance).GetNodeKeyMap()[lark.ApprovalNodeIDKey(i)]]; ok {
-						if userData, ok := nodeData[userID]; ok {
+						if userData, ok := nodeData[user.ID]; ok {
 							comment = userData.Comment
 						}
 					}
