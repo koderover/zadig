@@ -262,7 +262,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 
 	cancelApproval := func() {
 		err := client.CancelApprovalInstance(&lark.CancelApprovalInstanceArgs{
-			ApprovalID: data.LarkDefaultApprovalCode,
+			ApprovalID: approvalCode,
 			InstanceID: instance,
 			UserID:     userID,
 		})
