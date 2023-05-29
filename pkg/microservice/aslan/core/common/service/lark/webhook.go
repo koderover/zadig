@@ -105,6 +105,8 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 		return nil, errors.Wrap(err, "unmarshal")
 	}
 
+	//todo debugu
+	log.Infof("event %s", string(callback.Event))
 	if eventType := gjson.Get(string(callback.Event), "Type").String(); eventType != "approval_task" {
 		log.Infof("get unknown callback event type %s, ignored", eventType)
 		return nil, nil
