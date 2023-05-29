@@ -309,6 +309,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 				continue
 			}
 			resultMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeUserApprovalResults(lark.ApprovalNodeIDKey(i))
+			log.Debugf("approvalUpdate: node %d result map %v", i, resultMap)
 			instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
 			if err != nil {
 				return false, false, errors.Wrap(err, "get approval instance")

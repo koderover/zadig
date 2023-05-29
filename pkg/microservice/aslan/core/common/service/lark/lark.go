@@ -227,6 +227,7 @@ func GetLarkApprovalInstanceManager(instanceID string) *ApprovalManager {
 		larkApprovalManagerMap.m[instanceID] = &ApprovalManager{
 			nodeMap:     make(NodeUserApprovalResult),
 			requestUUID: make(map[string]struct{}),
+			nodeKeyMap:  make(map[string]string),
 		}
 		return larkApprovalManagerMap.m[instanceID]
 	} else {
