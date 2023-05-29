@@ -115,7 +115,7 @@ func (l *ApprovalManager) SetUserApprovalResult(userID, result, remark string, t
 
 	l.instanceUserResultInfo[userID] = &UserApprovalResult{
 		Result:        result,
-		OperationTime: time,
+		OperationTime: time / 1000,
 		Remark:        remark,
 	}
 	//parsedTime, err := time.Parse("2006-01-02T15:04Z", date)
