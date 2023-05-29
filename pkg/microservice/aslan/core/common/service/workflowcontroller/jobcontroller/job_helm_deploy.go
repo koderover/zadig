@@ -128,16 +128,9 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	timeOut := c.timeout()
 
-	renderSet, productService, svcTemplate, errPrepare := kube.PrepareHelmServiceData(param)
-	if errPrepare != nil {
-		msg := fmt.Errorf("failed to prepare helm service data, err: %s", errPrepare)
-		logError(c.job, msg.Error(), c.logger)
-		return
-	}
-
 	done := make(chan bool)
 	go func(chan bool) {
-		if err = kube.UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, param.Images, param.VariableYaml, param.Timeout); err != nil {
+		if err = kube.CreateOrUpdateHelmResource(param, c.logger); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",
@@ -161,20 +154,20 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	// update helm vars and service revision if needed
-	err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
-		ProductName:           productInfo.ProductName,
-		EnvName:               c.jobTaskSpec.Env,
-		ServiceName:           c.jobTaskSpec.ServiceName,
-		ServiceRevision:       int(productService.Revision),
-		VariableYaml:          variableYaml,
-		Containers:            containers,
-		UpdateServiceRevision: updateServiceRevision,
-	})
-	if err != nil {
-		msg := fmt.Sprintf("update product service deploy info error: %v", err)
-		logError(c.job, msg, c.logger)
-		return
-	}
+	//err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
+	//	ProductName:           productInfo.ProductName,
+	//	EnvName:               c.jobTaskSpec.Env,
+	//	ServiceName:           c.jobTaskSpec.ServiceName,
+	//	ServiceRevision:       int(productService.Revision),
+	//	VariableYaml:          variableYaml,
+	//	Containers:            containers,
+	//	UpdateServiceRevision: updateServiceRevision,
+	//})
+	//if err != nil {
+	//	msg := fmt.Sprintf("update product service deploy info error: %v", err)
+	//	logError(c.job, msg, c.logger)
+	//	return
+	//}
 
 	c.job.Status = config.StatusPassed
 }

@@ -596,5 +596,13 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 	if err != nil {
 		return err
 	}
+	chartInfo, ok := renderSet.GetChartRenderMap()[applyParam.ServiceName]
+	if !ok {
+		return errors.Wrapf(err, "failed to find chart info in render")
+	}
+	if chartInfo.OverrideYaml == nil {
+		chartInfo.OverrideYaml = &template.CustomYaml{}
+	}
+	chartInfo.OverrideYaml.YamlContent = applyParam.VariableYaml
 	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, applyParam.VariableYaml, applyParam.Timeout)
 }
