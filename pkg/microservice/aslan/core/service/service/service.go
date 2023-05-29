@@ -773,13 +773,13 @@ func CreateProductionServiceTemplate(userName string, args *commonmodels.Service
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 
-	// 在更新数据库前检查是否有完全重复的Item，如果有，则退出。
+	// Check for completely duplicate items before updating the database, and if so, exit.
 	serviceTmpl, notFoundErr := commonrepo.NewProductionServiceColl().Find(opt)
 	if notFoundErr == nil && !force {
 		return nil, fmt.Errorf("production_service:%s already exists", serviceTmpl.ServiceName)
 	} else {
 		if args.Source == setting.SourceFromGerrit {
-			//创建gerrit webhook
+			// create gerrit webhook
 			if err := createGerritWebhookByService(args.GerritCodeHostID, args.ServiceName, args.GerritRepoName, args.GerritBranchName); err != nil {
 				log.Errorf("createGerritWebhookByService error: %v", err)
 				return nil, err
@@ -793,7 +793,7 @@ func CreateProductionServiceTemplate(userName string, args *commonmodels.Service
 		return nil, err
 	}
 
-	// 校验args
+	// check args
 	if err := ensureServiceTmpl(userName, args, log); err != nil {
 		log.Errorf("ensureProductionServiceTmpl error: %+v", err)
 		return nil, e.ErrValidateTemplate.AddDesc(err.Error())
@@ -817,13 +817,13 @@ func CreateProductionServiceTemplate(userName string, args *commonmodels.Service
 
 	if notFoundErr != nil {
 		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
-			//获取项目里面的所有服务
+			// get all services in the project
 			if len(productTempl.ProductionServices) > 0 && !sets.NewString(productTempl.ProductionServices[0]...).Has(args.ServiceName) {
 				productTempl.ProductionServices[0] = append(productTempl.ProductionServices[0], args.ServiceName)
 			} else {
 				productTempl.ProductionServices = [][]string{{args.ServiceName}}
 			}
-			//更新项目模板
+			// update project template
 			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
 			if err != nil {
 				log.Errorf("CreateProductionServiceTemplate Update %s error: %s", args.ServiceName, err)
