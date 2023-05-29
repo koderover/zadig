@@ -292,11 +292,6 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 }
 
 func UninstallServiceByName(helmClient helmclient.Client, serviceName string, env *commonmodels.Product, revision int64, force bool) error {
-	revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-		ServiceName: serviceName,
-		Revision:    revision,
-		ProductName: env.ProductName,
-	})
 	revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		Revision:    revision,
