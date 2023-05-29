@@ -215,6 +215,10 @@ func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*Appro
 		"REJECT": config.Reject,
 	}
 	resultMap := make(map[string]map[string]*UserApprovalResult)
+	// todo debug
+	b, _ := json.MarshalIndent(resp.Data.Timeline, "", "  ")
+	log.Infof("timeline: %s", string(b))
+	
 	for _, timeline := range resp.Data.Timeline {
 		status := getStringFromPointer(timeline.Type)
 		if status == "PASS" || status == "REJECT" {
