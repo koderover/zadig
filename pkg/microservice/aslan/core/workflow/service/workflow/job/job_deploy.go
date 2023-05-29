@@ -416,12 +416,15 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				ClusterID:          product.ClusterID,
 				ReleaseName:        releaseName,
 				Timeout:            timeout,
+				IsProduction:       j.spec.Production,
 			}
+
 			for _, deploy := range deploys {
 				service := serviceMap[serviceName]
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.KeyVals = service.KeyVals
+					jobTaskSpec.VariableYaml = service.VariableYaml
 				}
 
 				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, envName); err != nil {

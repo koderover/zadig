@@ -94,11 +94,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	variableYaml := ""
 	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
-		vars := []*commonmodels.VariableKV{}
-		for _, v := range c.jobTaskSpec.KeyVals {
-			vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
-		}
-		variableYaml, err = kube.GenerateYamlFromKV(vars)
+		variableYaml = c.jobTaskSpec.VariableYaml
 	}
 
 	param := &kube.ResourceApplyParam{

@@ -142,11 +142,15 @@ type Resource struct {
 }
 
 type JobTaskHelmDeploySpec struct {
-	Env                string                   `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName        string                   `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	ServiceType        string                   `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
-	DeployContents     []config.DeployContent   `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
-	KeyVals            []*ServiceKeyVal         `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
+	Env            string                 `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName    string                 `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	ServiceType    string                 `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	DeployContents []config.DeployContent `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
+	KeyVals        []*ServiceKeyVal       `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
+	// VariableYaml stores the variable YAML provided by user
+	VariableYaml string `bson:"variable_yaml"                    json:"variable_yaml"                       yaml:"variable_yaml"`
+	// IsProduction added since 1.18, indicator of production environment deployment job
+	IsProduction       bool                     `bson:"is_production" yaml:"is_production" json:"is_production"`
 	YamlContent        string                   `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
 	UpdateConfig       bool                     `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
 	SkipCheckRunStatus bool                     `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
