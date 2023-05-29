@@ -398,8 +398,9 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 		"refuse": config.Reject,
 	}
 
-	checkNodeStatus := func(_type string, users []*commonmodels.DingTalkApprovalUser) (config.ApproveOrReject, error) {
-		switch _type {
+	checkNodeStatus := func(node *commonmodels.DingTalkApprovalNode) (config.ApproveOrReject, error) {
+		users := node.ApproveUsers
+		switch node.Type {
 		case "AND":
 			result := config.Approve
 			for _, user := range users {
@@ -419,7 +420,7 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 			}
 			return "", nil
 		default:
-			return "", errors.Errorf("unknown node type %s", _type)
+			return "", errors.Errorf("unknown node type %s", node.Type)
 		}
 	}
 
@@ -435,6 +436,7 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 			return fmt.Errorf("workflow timeout")
 		default:
 			userApprovalResult := dingservice.GetDingTalkApprovalManager(instanceID).GetAllUserApprovalResults()
+			userUpdated := false
 			for _, node := range approval.ApprovalNodes {
 				if node.RejectOrApprove != "" {
 					continue
@@ -444,9 +446,10 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 						user.RejectOrApprove = resultMap[result.Result]
 						user.Comment = result.Remark
 						user.OperationTime = result.OperationTime
+						userUpdated = true
 					}
 				}
-				node.RejectOrApprove, err = checkNodeStatus(string(node.Type), node.ApproveUsers)
+				node.RejectOrApprove, err = checkNodeStatus(node)
 				if err != nil {
 					stage.Status = config.StatusFailed
 					log.Errorf("check node failed: %v", err)
@@ -458,6 +461,10 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 				case config.Reject:
 					stage.Status = config.StatusReject
 					return errors.New("Approval has been rejected")
+				default:
+					if userUpdated {
+						ack()
+					}
 				}
 				break
 			}

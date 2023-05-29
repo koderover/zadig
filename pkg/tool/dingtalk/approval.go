@@ -18,11 +18,11 @@ package dingtalk
 import (
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/rand"
+	"github.com/pkg/errors"
 )
 
 const (
-	defaultApprovalFormName  = "Zadig 审批表单模板"
+	DefaultApprovalFormName  = "Zadig 审批表单模板"
 	defaultApprovalFormLabel = "详情"
 )
 
@@ -74,7 +74,7 @@ func (c *Client) CreateApproval() (resp *CreateApprovalResponse, err error) {
 
 func getRandNameDefaultApprovalFormDefinition() ApprovalFormDefinition {
 	return ApprovalFormDefinition{
-		Name:        defaultApprovalFormName + "-" + rand.String(10),
+		Name:        DefaultApprovalFormName,
 		Description: "用于 Zadig Workflow 审批",
 		FormComponents: []FormComponents{
 			{
@@ -87,6 +87,43 @@ func getRandNameDefaultApprovalFormDefinition() ApprovalFormDefinition {
 				},
 			},
 		},
+	}
+}
+
+type GetAllApprovalFormDefinitionResponse struct {
+	ProcessList []ApprovalForm `json:"processList"`
+	NextToken   int            `json:"nextToken"`
+}
+
+type ApprovalForm struct {
+	Name        string `json:"name"`
+	URL         string `json:"url"`
+	IconURL     string `json:"iconUrl"`
+	ProcessCode string `json:"processCode"`
+}
+
+func (c *Client) GetApprovalFormDefinitionList(next int) (resp *GetAllApprovalFormDefinitionResponse, err error) {
+	query := map[string]interface{}{"maxResults": 100}
+	if next != 0 {
+		query["nextToken"] = next
+	}
+	_, err = c.R().SetQueryParamsAnyType(query).
+		SetSuccessResult(&resp).Get("https://api.dingtalk.com/v1.0/workflow/processes/userVisibilities/templates")
+	return
+}
+
+func (c *Client) GetAllApprovalFormDefinitionList() (resp []ApprovalForm, err error) {
+	next := 0
+	for {
+		result, err := c.GetApprovalFormDefinitionList(next)
+		if err != nil {
+			return nil, errors.Wrapf(err, "get %d list", next)
+		}
+		resp = append(resp, result.ProcessList...)
+		next = result.NextToken
+		if next == 0 {
+			return
+		}
 	}
 }
 

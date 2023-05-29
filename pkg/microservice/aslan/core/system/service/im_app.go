@@ -57,11 +57,25 @@ func createDingTalkIMApp(args *commonmodels.IMApp, log *zap.SugaredLogger) error
 	}
 
 	client := dingtalk.NewClient(args.DingTalkAppKey, args.DingTalkAppSecret)
-	resp, err := client.CreateApproval()
+	list, err := client.GetAllApprovalFormDefinitionList()
 	if err != nil {
-		return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "create approval form"))
+		return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "get all approval form definition list"))
 	}
-	args.DingTalkDefaultApprovalFormCode = resp.ProcessCode
+	// check dingtalk app has default approval form
+	for _, form := range list {
+		if form.Name == dingtalk.DefaultApprovalFormName {
+			args.DingTalkDefaultApprovalFormCode = form.ProcessCode
+			break
+		}
+	}
+
+	if args.DingTalkDefaultApprovalFormCode == "" {
+		resp, err := client.CreateApproval()
+		if err != nil {
+			return e.ErrCreateIMApp.AddErr(errors.Wrap(err, "create approval form"))
+		}
+		args.DingTalkDefaultApprovalFormCode = resp.ProcessCode
+	}
 
 	_, err = mongodb.NewIMAppColl().Create(context.Background(), args)
 	if err != nil {
@@ -116,12 +130,25 @@ func updateDingTalkIMApp(id string, args *commonmodels.IMApp, log *zap.SugaredLo
 
 	client := dingtalk.NewClient(args.DingTalkAppKey, args.DingTalkAppSecret)
 
-	resp, err := client.CreateApproval()
+	list, err := client.GetAllApprovalFormDefinitionList()
 	if err != nil {
-		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "create approval form"))
+		return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "get all approval form definition list"))
+	}
+	// check dingtalk app has default approval form
+	for _, form := range list {
+		if form.Name == dingtalk.DefaultApprovalFormName {
+			args.DingTalkDefaultApprovalFormCode = form.ProcessCode
+			break
+		}
+	}
+	if args.DingTalkDefaultApprovalFormCode == "" {
+		resp, err := client.CreateApproval()
+		if err != nil {
+			return e.ErrUpdateIMApp.AddErr(errors.Wrap(err, "create approval form"))
+		}
+		args.DingTalkDefaultApprovalFormCode = resp.ProcessCode
 	}
 
-	args.DingTalkDefaultApprovalFormCode = resp.ProcessCode
 	err = mongodb.NewIMAppColl().Update(context.Background(), id, args)
 	if err != nil {
 		return errors.Wrap(err, "update dingtalk info with process code")
