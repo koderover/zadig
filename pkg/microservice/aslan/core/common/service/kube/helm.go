@@ -95,7 +95,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		// use the latest version when it fails to download the specific version
 		base = config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName, param.Production)
 		if err = commonutil.PreLoadServiceManifests(base, serviceObj, param.Production); err != nil {
-			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
+			log.Errorf("failed to load chart info for service %v, production: %v", serviceObj.ServiceName, param.Production)
 			return fmt.Errorf("failed to load chart info for service %s", serviceObj.ServiceName)
 		}
 	}
@@ -245,7 +245,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 		RenderChart:  renderSet.GetChartRenderMap()[svcTemp.ServiceName],
 		ServiceObj:   svcTemp,
 		Timeout:      timeout,
-		Production:   false,
+		Production:   product.Production,
 	}
 
 	ensureUpgrade := func() error {

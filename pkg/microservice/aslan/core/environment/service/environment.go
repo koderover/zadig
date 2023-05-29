@@ -2768,6 +2768,7 @@ func dryRunInstallRelease(productResp *commonmodels.Product, renderset *commonmo
 			return errBuildParam
 		}
 		param.DryRun = true
+		param.Production = productResp.Production
 		err = kube.InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
 		return
 	}
@@ -2842,6 +2843,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmode
 			err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, productResp.Namespace, errBuildParam)
 			return
 		}
+		param.Production = productResp.Production
 		errInstall := kube.InstallOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
 		if errInstall != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, errInstall)
