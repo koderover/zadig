@@ -203,6 +203,7 @@ type ApprovalManager struct {
 	sync.RWMutex
 	// key nodeID
 	nodeMap     NodeUserApprovalResult
+	nodeKeyMap  map[string]string
 	requestUUID map[string]struct{}
 }
 
@@ -210,7 +211,6 @@ type UserApprovalResult struct {
 	Result          string
 	ApproveOrReject config.ApproveOrReject
 	OperationTime   int64
-	//Remark        string
 }
 
 func GetLarkApprovalInstanceManager(instanceID string) *ApprovalManager {
@@ -273,6 +273,22 @@ func (l *ApprovalManager) UpdateNodeUserApprovalResult(nodeID, userID string, re
 		}
 	}
 	return
+}
+
+func (l *ApprovalManager) GetNodeKeyMap() map[string]string {
+	l.RLock()
+	defer l.RUnlock()
+	m := make(map[string]string)
+	for k, v := range l.nodeKeyMap {
+		m[k] = v
+	}
+	return m
+}
+
+func (l *ApprovalManager) UpdateNodeKeyMap(nodeKey, nodeCustomKey string) {
+	l.Lock()
+	defer l.Unlock()
+	l.nodeKeyMap[nodeCustomKey] = nodeKey
 }
 
 //func (l *ApprovalManager) GetInstanceStatus(instanceID string) string {
