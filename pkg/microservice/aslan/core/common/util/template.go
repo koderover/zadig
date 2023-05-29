@@ -19,6 +19,7 @@ package util
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 	gotemplate "text/template"
 
@@ -26,6 +27,25 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"gopkg.in/yaml.v2"
 )
+
+var (
+	templateErrKeyExtractRegex = regexp.MustCompile("<\\.(\\w*)>")
+)
+
+func ImproveTemplateExecuteErrReadability(err error) error {
+	allKeyMatches := templateErrKeyExtractRegex.FindAllStringSubmatch(err.Error(), -1)
+	if allKeyMatches != nil {
+		missingKeys := []string{}
+		for _, match := range allKeyMatches {
+			if len(match) != 2 {
+				continue
+			}
+			missingKeys = append(missingKeys, match[1])
+		}
+		return fmt.Errorf("template validate err: missing keys %v", missingKeys)
+	}
+	return fmt.Errorf("template validate err: %w", err)
+}
 
 // @fixme MAY NOT support multi variableYamls, need to check
 // won't return error if template key is missing values
@@ -65,7 +85,7 @@ func renderK8sSvcYamlImpl(originYaml, productName, serviceName, templateOption s
 	buf := bytes.NewBufferString("")
 	err = tmpl.Execute(buf, variableMap)
 	if err != nil {
-		return originYaml, fmt.Errorf("template validate err: %s", err)
+		return originYaml, ImproveTemplateExecuteErrReadability(err)
 	}
 
 	originYaml = buf.String()
