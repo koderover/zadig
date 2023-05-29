@@ -154,9 +154,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/kube/pods/:podName/file", DownloadFileFromPod)
 
 		production.GET("/environments/:name/helm/releases", ListProductionReleases)
-		production.GET("/:name/helm/values", GetProductionChartValues)
-		production.GET("/:name/workloads", ListWorkloadsInEnv)
-		production.GET("/:name/services/:serviceName", GetProductionService)
+		production.GET("/environments/:name/helm/values", GetProductionChartValues)
+		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
+		production.GET("/environments/:name/services/:serviceName", GetProductionService)
 
 	}
 
