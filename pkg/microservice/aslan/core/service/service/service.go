@@ -1257,13 +1257,13 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 		return fmt.Errorf("failed to get service next revision, service %s, err: %s", args.ServiceName, err)
 	}
 
-	basePath := config.LocalServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
-	if err = commonutil.PreLoadServiceManifests(basePath, serviceTemplate); err != nil {
+	basePath := config.LocalTestServicePath(serviceTemplate.ProductName, serviceTemplate.ServiceName)
+	if err = commonutil.PreLoadServiceManifests(basePath, serviceTemplate, false); err != nil {
 		return fmt.Errorf("failed to load chart info for service %s, err: %s", serviceTemplate.ServiceName, err)
 	}
 
-	fsTree := os.DirFS(config.LocalServicePath(projectName, serviceTemplate.ServiceName))
-	s3Base := config.ObjectStorageServicePath(projectName, serviceTemplate.ServiceName)
+	fsTree := os.DirFS(config.LocalTestServicePath(projectName, serviceTemplate.ServiceName))
+	s3Base := config.ObjectStorageTestServicePath(projectName, serviceTemplate.ServiceName)
 	err = fs.ArchiveAndUploadFilesToS3(fsTree, []string{fmt.Sprintf("%s-%d", serviceTemplate.ServiceName, rev)}, s3Base, log)
 	if err != nil {
 		return fmt.Errorf("failed to upload chart info for service %s, err: %s", serviceTemplate.ServiceName, err)

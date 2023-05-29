@@ -340,13 +340,13 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 }
 
 func loadChartFilesInfo(productName, serviceName string, revision int64, dir string) ([]*types.FileInfo, error) {
-	base := config.LocalServicePathWithRevision(productName, serviceName, revision)
+	base := config.LocalTestServicePathWithRevision(productName, serviceName, revision)
 
 	var fis []*types.FileInfo
 	files, err := os.ReadDir(filepath.Join(base, serviceName, dir))
 	if err != nil {
 		log.Warnf("failed to read chart info for service %s with revision %d", serviceName, revision)
-		base = config.LocalServicePath(productName, serviceName)
+		base = config.LocalTestServicePath(productName, serviceName)
 		files, err = os.ReadDir(filepath.Join(base, serviceName, dir))
 		if err != nil {
 			return nil, err
@@ -376,12 +376,12 @@ func loadChartFilesInfo(productName, serviceName string, revision int64, dir str
 func prepareChartVersionData(prod *models.Product, serviceObj *models.Service) error {
 	productName := prod.ProductName
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
-	base := config.LocalServicePathWithRevision(productName, serviceName, revision)
-	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
+	base := config.LocalTestServicePathWithRevision(productName, serviceName, revision)
+	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj, prod.Production); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version", revision, serviceName)
 		// use the latest version when it fails to download the specific version
-		base = config.LocalServicePath(productName, serviceName)
-		if err = commonutil.PreLoadServiceManifests(base, serviceObj); err != nil {
+		base = config.LocalTestServicePath(productName, serviceName)
+		if err = commonutil.PreLoadServiceManifests(base, serviceObj, prod.Production); err != nil {
 			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
 			return err
 		}

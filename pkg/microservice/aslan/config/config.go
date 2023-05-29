@@ -230,7 +230,15 @@ func WebHookURL() string {
 	return fmt.Sprintf("%s/api/aslan/webhook", configbase.SystemAddress())
 }
 
-func ObjectStorageServicePath(project, service string) string {
+func ObjectStorageServicePath(project, service string, production bool) string {
+	if production {
+		return ObjectStorageProductionServicePath(project, service)
+	} else {
+		return ObjectStorageTestServicePath(project, service)
+	}
+}
+
+func ObjectStorageTestServicePath(project, service string) string {
 	return configbase.ObjectStorageServicePath(project, service)
 }
 
@@ -238,8 +246,16 @@ func ObjectStorageProductionServicePath(project, service string) string {
 	return configbase.ObjectStorageProductionServicePath(project, service)
 }
 
-// LocalServicePath returns the path of the normal service with the latest version
-func LocalServicePath(project, service string) string {
+func LocalServicePath(project, service string, production bool) string {
+	if production {
+		return LocalProductionServicePath(project, service)
+	} else {
+		return LocalTestServicePath(project, service)
+	}
+}
+
+// LocalTestServicePath returns the path of the normal service with the latest version
+func LocalTestServicePath(project, service string) string {
 	return configbase.LocalTestServicePathWithRevision(project, service, "latest")
 }
 
@@ -248,8 +264,16 @@ func LocalProductionServicePath(project, service string) string {
 	return configbase.LocalProductionServicePathWithRevision(project, service, "latest")
 }
 
-// LocalServicePathWithRevision returns the path of the normal service with the specific revision
-func LocalServicePathWithRevision(project, service string, revision int64) string {
+func LocalServicePathWithRevision(project, service string, revision int64, production bool) string {
+	if production {
+		return LocalProductionServicePathWithRevision(project, service, revision)
+	} else {
+		return LocalTestServicePathWithRevision(project, service, revision)
+	}
+}
+
+// LocalTestServicePathWithRevision returns the path of the normal service with the specific revision
+func LocalTestServicePathWithRevision(project, service string, revision int64) string {
 	return configbase.LocalTestServicePathWithRevision(project, service, fmt.Sprintf("%d", revision))
 }
 

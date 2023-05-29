@@ -67,6 +67,7 @@ type ReleaseInstallParam struct {
 	ServiceObj   *commonmodels.Service
 	Timeout      int
 	DryRun       bool
+	Production   bool
 }
 
 func getValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
@@ -85,13 +86,13 @@ func getValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
 
 func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
 	namespace, valuesYaml, renderChart, serviceObj := param.Namespace, param.MergedValues, param.RenderChart, param.ServiceObj
-	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
-	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
+	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision, param.Production)
+	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj, param.Production); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 			serviceObj.Revision, serviceObj.ServiceName)
 		// use the latest version when it fails to download the specific version
-		base = config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
-		if err = commonutil.PreLoadServiceManifests(base, serviceObj); err != nil {
+		base = config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName, param.Production)
+		if err = commonutil.PreLoadServiceManifests(base, serviceObj, param.Production); err != nil {
 			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
 			return fmt.Errorf("failed to load chart info for service %s", serviceObj.ServiceName)
 		}
@@ -242,6 +243,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 		RenderChart:  renderSet.GetChartRenderMap()[svcTemp.ServiceName],
 		ServiceObj:   svcTemp,
 		Timeout:      timeout,
+		Production:   false,
 	}
 
 	ensureUpgrade := func() error {

@@ -59,8 +59,8 @@ func ListHelmReposPublic() ([]*commonmodels.HelmRepo, error) {
 func SaveAndUploadService(projectName, serviceName string, copies []string, fileTree fs.FS, isProduction bool) error {
 	var localBase, s3Base string
 	if !isProduction {
-		localBase = config.LocalServicePath(projectName, serviceName)
-		s3Base = config.ObjectStorageServicePath(projectName, serviceName)
+		localBase = config.LocalTestServicePath(projectName, serviceName)
+		s3Base = config.ObjectStorageTestServicePath(projectName, serviceName)
 	} else {
 		localBase = config.LocalProductionServicePath(projectName, serviceName)
 		s3Base = config.ObjectStorageProductionServicePath(projectName, serviceName)
@@ -72,8 +72,8 @@ func SaveAndUploadService(projectName, serviceName string, copies []string, file
 func CopyAndUploadService(projectName, serviceName, currentChartPath string, copies []string, isProduction bool) error {
 	var localBase, s3Base string
 	if !isProduction {
-		localBase = config.LocalServicePath(projectName, serviceName)
-		s3Base = config.ObjectStorageServicePath(projectName, serviceName)
+		localBase = config.LocalTestServicePath(projectName, serviceName)
+		s3Base = config.ObjectStorageTestServicePath(projectName, serviceName)
 	} else {
 		localBase = config.LocalProductionServicePath(projectName, serviceName)
 		s3Base = config.ObjectStorageProductionServicePath(projectName, serviceName)

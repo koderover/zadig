@@ -86,9 +86,15 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	images := make([]string, 0)
+	containers := make([]*commonmodels.Container, 0)
 	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
 		for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
 			images = append(images, svcAndContainer.Image)
+			containers = append(containers, &commonmodels.Container{
+				Name:      svcAndContainer.ServiceModule,
+				ImageName: svcAndContainer.ServiceModule,
+				Image:     svcAndContainer.Image,
+			})
 		}
 	}
 
@@ -110,6 +116,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	yamlContent, err := kube.GeneMergedValues(param, c.logger)
 	if err != nil {
 		log.Errorf("failed to generate merged values.yaml, err: %w", err)
+		logError(c.job, fmt.Sprintf("fail to generate merged values.yaml, err: %s", err.Error()), c.logger)
 		return
 	}
 
@@ -121,9 +128,16 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	timeOut := c.timeout()
 
+	renderSet, productService, svcTemplate, errPrepare := kube.PrepareHelmServiceData(param)
+	if errPrepare != nil {
+		msg := fmt.Errorf("failed to prepare helm service data, err: %s", errPrepare)
+		logError(c.job, msg.Error(), c.logger)
+		return
+	}
+
 	done := make(chan bool)
 	go func(chan bool) {
-		if err = kube.CreateOrUpdateHelmResource(param, c.logger); err != nil {
+		if err = kube.UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, param.Images, param.VariableYaml, param.Timeout); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",
@@ -134,6 +148,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		}
 	}(done)
 
+	// we add timeout check here in case helm stuck in pending status
 	select {
 	case <-done:
 		break
@@ -142,6 +157,22 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
+		return
+	}
+
+	// update helm vars and service revision if needed
+	err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
+		ProductName:           productInfo.ProductName,
+		EnvName:               c.jobTaskSpec.Env,
+		ServiceName:           c.jobTaskSpec.ServiceName,
+		ServiceRevision:       int(productService.Revision),
+		VariableYaml:          variableYaml,
+		Containers:            containers,
+		UpdateServiceRevision: updateServiceRevision,
+	})
+	if err != nil {
+		msg := fmt.Sprintf("update product service deploy info error: %v", err)
+		logError(c.job, msg, c.logger)
 		return
 	}
 
