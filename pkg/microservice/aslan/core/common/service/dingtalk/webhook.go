@@ -197,6 +197,8 @@ func EventHandler(appKey string, body []byte, signature, ts, nonce string) (*Eve
 		if event.Type != "finish" {
 			break
 		}
+		// todo debug
+		log.Infof("event data: %+v", event)
 		GetDingTalkApprovalManager(event.ProcessInstanceID).SetUserApprovalResult(event.StaffID, event.Result, event.Remark, event.FinishTime)
 	}
 
