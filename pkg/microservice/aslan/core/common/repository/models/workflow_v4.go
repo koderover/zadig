@@ -134,22 +134,15 @@ type DingTalkApprovalUser struct {
 }
 
 type LarkApproval struct {
-	Timeout    int    `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	Timeout int `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	// ApprovalID: lark im app mongodb id
 	ApprovalID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
 	// todo: remove this field
-	ApproveUsers  []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	//ApproveUsers  []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	ApprovalNodes []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
 }
 
-// todo check workflow approval node type
-func (l LarkApproval) GetShortNodeTypeKey() string {
-	var keys []string
-	for _, node := range l.ApprovalNodes {
-		keys = append(keys, string(node.Type[0]))
-	}
-	return strings.Join(keys, "-")
-}
-
+// GetNodeTypeKey get node type key for deduplication
 func (l LarkApproval) GetNodeTypeKey() string {
 	var keys []string
 	for _, node := range l.ApprovalNodes {
@@ -158,6 +151,7 @@ func (l LarkApproval) GetNodeTypeKey() string {
 	return strings.Join(keys, "-")
 }
 
+// GetLarkApprovalNode convert approval node to lark sdk approval node
 func (l LarkApproval) GetLarkApprovalNode() (resp []*lark.ApprovalNode) {
 	for _, node := range l.ApprovalNodes {
 		resp = append(resp, &lark.ApprovalNode{
@@ -170,6 +164,7 @@ func (l LarkApproval) GetLarkApprovalNode() (resp []*lark.ApprovalNode) {
 			Type: node.Type,
 		})
 	}
+	return
 }
 
 type LarkApprovalNode struct {

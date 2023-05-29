@@ -105,17 +105,19 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 		return nil, errors.Wrap(err, "unmarshal")
 	}
 
-	if gjson.Get(string(callback.Event), "Type").String() != "approval_task" {
-		log.Infof("get unknown callback event type %s, ignored", callback.Event.Type)
+	if eventType := gjson.Get(string(callback.Event), "Type").String(); eventType != "approval_task" {
+		log.Infof("get unknown callback event type %s, ignored", eventType)
 		return nil, nil
 	}
 	event := ApprovalTaskEvent{}
-	err := json.Unmarshal(callback.Event, &event)
+	err = json.Unmarshal(callback.Event, &event)
 	if err != nil {
 		log.Errorf("unmarshal callback event failed: %v", err)
 		return nil, errors.Wrap(err, "unmarshal")
 	}
 	log.Infof("LarkEventHandler: new request approval ID %s, request UUID %s, ts: %s", larkAppInfoID, callback.UUID, callback.Ts)
+	// todo debug
+	log.Infof("Event: %+v", event)
 	manager := GetLarkApprovalInstanceManager(event.InstanceCode)
 	if !manager.CheckAndUpdateUUID(callback.UUID) {
 		log.Infof("check existed request uuid %s, ignored", callback.UUID)

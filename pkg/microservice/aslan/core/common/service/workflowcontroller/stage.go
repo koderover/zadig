@@ -217,13 +217,20 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 
 	client := lark.NewClient(data.AppID, data.AppSecret)
 
-	userID, err := client.GetUserOpenIDByEmailOrMobile(lark.QueryTypeMobile, workflowCtx.WorkflowTaskCreatorMobile)
+	mobile := workflowCtx.WorkflowTaskCreatorMobile
+	if mobile == "" {
+		if workflowCtx.DefaultApprovalInitiatorMobile == "" {
+			return errors.Errorf("failed to get approval initiator phone number")
+		}
+		mobile = workflowCtx.DefaultApprovalInitiatorMobile
+	}
+	userID, err := client.GetUserOpenIDByEmailOrMobile(lark.QueryTypeMobile, mobile)
 	if err != nil {
 		stage.Status = config.StatusFailed
 		return errors.Wrapf(err, "get user lark id by mobile-%s", workflowCtx.WorkflowTaskCreatorMobile)
 	}
 
-	log.Infof("waitForLarkApprove: ApproveUsers num %d", len(approval.ApproveUsers))
+	log.Infof("waitForLarkApprove: ApproveNodes num %d", len(approval.ApprovalNodes))
 	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
 		workflowCtx.ProjectName,
@@ -263,21 +270,6 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			log.Errorf("cancel approval %s error: %v", instance, err)
 		}
 	}
-	//userUpdate := func(list []*commonmodels.LarkApprovalUser) []*commonmodels.LarkApprovalUser {
-	//	info, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
-	//	if err != nil {
-	//		log.Errorf("waitForLarkApprove: GetApprovalInstance error: %v", err)
-	//		return list
-	//	}
-	//	for _, user := range list {
-	//		if user.ID == info.ApproverInfo.ID {
-	//			user.RejectOrApprove = info.ApproveOrReject
-	//			user.Comment = info.Comment
-	//			user.OperationTime = info.Time
-	//		}
-	//	}
-	//	return list
-	//}
 
 	checkNodeStatus := func(node *commonmodels.LarkApprovalNode) (config.ApproveOrReject, error) {
 		switch node.Type {
@@ -299,8 +291,6 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 				}
 			}
 			return "", nil
-		case lark.ApproveTypeSequential:
-			return node.ApproveUsers[len(node.ApproveUsers)-1].RejectOrApprove, nil
 		default:
 			return "", errors.Errorf("unknown node type %s", node.Type)
 		}
@@ -374,12 +364,20 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 				return errors.Wrap(err, "check approval status")
 			}
 			if done {
-				if isApprove {
+				finalInstance, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
+				if err != nil {
+					stage.Status = config.StatusFailed
+					return errors.Wrap(err, "get approval final instance")
+				}
+				if finalInstance.ApproveOrReject == config.Approve && isApprove {
 					return nil
-				} else {
+				}
+				if finalInstance.ApproveOrReject == config.Reject && !isApprove {
 					stage.Status = config.StatusReject
 					return errors.New("Approval has been rejected")
 				}
+				stage.Status = config.StatusFailed
+				return errors.New("check final approval status failed")
 			}
 		}
 	}

@@ -202,6 +202,7 @@ func ValidateIMApp(im *commonmodels.IMApp, log *zap.SugaredLogger) error {
 	}
 }
 
+// deprecated
 func createLarkDefaultApprovalDefinition(client *lark.Client) (string, error) {
 	return client.CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
 		Name:        "Zadig 工作流",
