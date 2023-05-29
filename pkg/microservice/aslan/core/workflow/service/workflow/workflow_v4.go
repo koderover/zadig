@@ -763,6 +763,9 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 				return errors.Errorf("lark app %s is not lark approval", stage.Approval.LarkApproval.ApprovalID)
 			}
 
+			if larkInfo.LarkApprovalCodeList == nil {
+				larkInfo.LarkApprovalCodeList = make(map[string]string)
+			}
 			// skip if this node type approval definition already created
 			if approvalNodeTypeID := larkInfo.LarkApprovalCodeList[data.GetNodeTypeKey()]; approvalNodeTypeID != "" {
 				continue
