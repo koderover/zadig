@@ -751,7 +751,7 @@ const (
 // Instant Message System types
 const (
 	IMLark     = "lark"
-	IMDingding = "dingding"
+	IMDingTalk = "dingtalk"
 )
 
 // lark app

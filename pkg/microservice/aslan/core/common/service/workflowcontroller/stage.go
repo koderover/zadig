@@ -24,15 +24,16 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"go.uber.org/zap"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	dingservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
 	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/pkg/tool/dingtalk"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -135,6 +136,8 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 		err = waitForNativeApprove(ctx, stage, workflowCtx, logger, ack)
 	case config.LarkApproval:
 		err = waitForLarkApprove(ctx, stage, workflowCtx, logger, ack)
+	case config.DingTalkApproval:
+		err = waitForDingTalkApprove(ctx, stage, workflowCtx, logger, ack)
 	default:
 		err = errors.New("invalid approval type")
 	}
@@ -306,6 +309,179 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 				return errors.New("Approval has been canceled")
 			case larkservice.ApprovalStatusDeleted:
 				return errors.New("Approval has been deleted")
+			}
+		}
+	}
+}
+
+func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+	log.Infof("waitForDingTalkApprove start")
+	approval := stage.Approval.DingTalkApproval
+	if approval == nil {
+		stage.Status = config.StatusFailed
+		return errors.New("waitForApprove: dingtalk approval data not found")
+	}
+	if approval.Timeout == 0 {
+		approval.Timeout = 60
+	}
+
+	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ApprovalID)
+	if err != nil {
+		stage.Status = config.StatusFailed
+		return errors.Wrap(err, "get dingtalk im data")
+	}
+
+	client := dingtalk.NewClient(data.DingTalkAppKey, data.DingTalkAppSecret)
+
+	mobile := workflowCtx.WorkflowTaskCreatorMobile
+	if mobile == "" {
+		if workflowCtx.DefaultApprovalInitiatorMobile == "" {
+			return errors.Errorf("failed to get approval initiator phone number")
+		}
+		mobile = workflowCtx.DefaultApprovalInitiatorMobile
+	}
+	userIDResp, err := client.GetUserIDByMobile(mobile)
+	if err != nil {
+		stage.Status = config.StatusFailed
+		return errors.Wrapf(err, "get user dingtalk id by mobile-%s", mobile)
+	}
+	userID := userIDResp.UserID
+
+	log.Infof("waitForDingTalkApprove: ApproveNode num %d", len(approval.ApprovalNodes))
+	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+		configbase.SystemAddress(),
+		workflowCtx.ProjectName,
+		workflowCtx.WorkflowName,
+		workflowCtx.TaskID,
+		url.QueryEscape(workflowCtx.WorkflowDisplayName),
+	)
+	descForm := ""
+	if stage.Approval.Description != "" {
+		descForm = fmt.Sprintf("\n描述: %s", stage.Approval.Description)
+	}
+	instanceResp, err := client.CreateApprovalInstance(&dingtalk.CreateApprovalInstanceArgs{
+		ProcessCode:      data.DingTalkDefaultApprovalFormCode,
+		OriginatorUserID: userID,
+		ApproverNodeList: func() (nodeList []*dingtalk.ApprovalNode) {
+			for _, node := range approval.ApprovalNodes {
+				var userIDList []string
+				for _, user := range node.ApproveUsers {
+					userIDList = append(userIDList, user.ID)
+				}
+				nodeList = append(nodeList, &dingtalk.ApprovalNode{
+					UserIDs:    userIDList,
+					ActionType: node.Type,
+				})
+			}
+			return
+		}(),
+		FormContent: fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n\n更多详见: %s",
+			workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL),
+	})
+	if err != nil {
+		log.Errorf("waitForDingTalkApprove: create instance failed: %v", err)
+		stage.Status = config.StatusFailed
+		return errors.Wrap(err, "create approval instance")
+	}
+	instanceID := instanceResp.InstanceID
+	log.Infof("waitForDingTalkApprove: create instance success, id %s", instanceID)
+
+	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+		logger.Errorf("send approve notification failed, error: %v", err)
+	}
+	defer func() {
+		dingservice.RemoveDingTalkApprovalManager(instanceID)
+	}()
+
+	resultMap := map[string]config.ApproveOrReject{
+		"agree":  config.Approve,
+		"refuse": config.Reject,
+	}
+
+	checkNodeStatus := func(node *commonmodels.DingTalkApprovalNode) (config.ApproveOrReject, error) {
+		users := node.ApproveUsers
+		switch node.Type {
+		case "AND":
+			result := config.Approve
+			for _, user := range users {
+				if user.RejectOrApprove == "" {
+					result = ""
+				}
+				if user.RejectOrApprove == config.Reject {
+					return config.Reject, nil
+				}
+			}
+			return result, nil
+		case "OR":
+			for _, user := range users {
+				if user.RejectOrApprove != "" {
+					return user.RejectOrApprove, nil
+				}
+			}
+			return "", nil
+		default:
+			return "", errors.Errorf("unknown node type %s", node.Type)
+		}
+	}
+
+	timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
+	for {
+		time.Sleep(1 * time.Second)
+		select {
+		case <-ctx.Done():
+			stage.Status = config.StatusCancelled
+			return fmt.Errorf("workflow was canceled")
+		case <-timeout:
+			stage.Status = config.StatusCancelled
+			return fmt.Errorf("workflow timeout")
+		default:
+			userApprovalResult := dingservice.GetDingTalkApprovalManager(instanceID).GetAllUserApprovalResults()
+			userUpdated := false
+			for _, node := range approval.ApprovalNodes {
+				if node.RejectOrApprove != "" {
+					continue
+				}
+				for _, user := range node.ApproveUsers {
+					if result := userApprovalResult[user.ID]; result != nil && user.RejectOrApprove == "" {
+						user.RejectOrApprove = resultMap[result.Result]
+						user.Comment = result.Remark
+						user.OperationTime = result.OperationTime
+						userUpdated = true
+					}
+				}
+				node.RejectOrApprove, err = checkNodeStatus(node)
+				if err != nil {
+					stage.Status = config.StatusFailed
+					log.Errorf("check node failed: %v", err)
+					return errors.Wrap(err, "check node")
+				}
+				switch node.RejectOrApprove {
+				case config.Approve:
+					ack()
+				case config.Reject:
+					stage.Status = config.StatusReject
+					return errors.New("Approval has been rejected")
+				default:
+					if userUpdated {
+						ack()
+					}
+				}
+				break
+			}
+			if approval.ApprovalNodes[len(approval.ApprovalNodes)-1].RejectOrApprove == config.Approve {
+				instanceInfo, err := client.GetApprovalInstance(instanceID)
+				if err != nil {
+					stage.Status = config.StatusFailed
+					log.Errorf("get instance final info failed: %v", err)
+					return errors.Wrap(err, "get instance final info")
+				}
+				if instanceInfo.Status == "COMPLETED" && instanceInfo.Result == "agree" {
+					return nil
+				} else {
+					log.Errorf("Unexpect instance final status is %s, result is %s", instanceInfo.Status, instanceInfo.Result)
+					stage.Status = config.StatusFailed
+					return errors.Wrap(err, "get unexpected instance final info")
+				}
 			}
 		}
 	}

@@ -46,6 +46,7 @@ require (
 	github.com/jasonlvhit/gocron v0.0.1
 	github.com/jinzhu/copier v0.3.5
 	github.com/jinzhu/now v1.1.5
+	github.com/juju/ratelimit v1.0.2
 	github.com/larksuite/oapi-sdk-go/v3 v3.0.10
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/mittwald/go-helm-client v0.11.3
@@ -55,6 +56,7 @@ require (
 	github.com/onsi/gomega v1.27.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/otiai10/copy v1.7.0
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.2
 	github.com/regclient/regclient v0.4.5

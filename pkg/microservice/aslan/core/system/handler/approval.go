@@ -41,12 +41,7 @@ func CreateIMApp(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	oid, err := service.CreateIMApp(&args, ctx.Logger)
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-	ctx.Resp = map[string]string{"id": oid}
+	ctx.Err = service.CreateIMApp(&args, ctx.Logger)
 }
 
 func UpdateIMApp(c *gin.Context) {

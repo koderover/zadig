@@ -222,8 +222,9 @@ const (
 type ApprovalType string
 
 const (
-	NativeApproval ApprovalType = "native"
-	LarkApproval   ApprovalType = "lark"
+	NativeApproval   ApprovalType = "native"
+	LarkApproval     ApprovalType = "lark"
+	DingTalkApproval ApprovalType = "dingtalk"
 )
 
 type ApproveOrReject string

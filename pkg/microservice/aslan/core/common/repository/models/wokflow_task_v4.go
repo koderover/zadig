@@ -55,6 +55,10 @@ type WorkflowTask struct {
 	IsDebug             bool               `bson:"is_debug"                  json:"is_debug"`
 	MultiRun            bool               `bson:"multi_run"                 json:"multi_run"`
 	ShareStorages       []*ShareStorage    `bson:"share_storages"            json:"share_storages"`
+
+	// DefaultApprovalInitiatorPhone is used for workflow tasks that are not created by users, such as webhook and timer
+	// Now we set the workflow creator as the default approval initiator
+	DefaultApprovalInitiatorPhone string `bson:"default_approval_initiator_phone" json:"default_approval_initiator_phone"`
 }
 
 func (WorkflowTask) TableName() string {
@@ -432,22 +436,23 @@ type StepTask struct {
 }
 
 type WorkflowTaskCtx struct {
-	WorkflowName                string
-	WorkflowDisplayName         string
-	ProjectName                 string
-	TaskID                      int64
-	DockerHost                  string
-	Workspace                   string
-	DistDir                     string
-	DockerMountDir              string
-	ConfigMapMountDir           string
-	WorkflowTaskCreatorUsername string
-	WorkflowTaskCreatorEmail    string
-	WorkflowTaskCreatorMobile   string
-	WorkflowKeyVals             []*KeyVal
-	GlobalContextGet            func(key string) (string, bool)
-	GlobalContextSet            func(key, value string)
-	GlobalContextEach           func(f func(k, v string) bool)
-	ClusterIDAdd                func(clusterID string)
-	SetStatus                   func(status config.Status)
+	WorkflowName                   string
+	WorkflowDisplayName            string
+	ProjectName                    string
+	TaskID                         int64
+	DockerHost                     string
+	Workspace                      string
+	DistDir                        string
+	DockerMountDir                 string
+	ConfigMapMountDir              string
+	WorkflowTaskCreatorUsername    string
+	WorkflowTaskCreatorEmail       string
+	WorkflowTaskCreatorMobile      string
+	DefaultApprovalInitiatorMobile string
+	WorkflowKeyVals                []*KeyVal
+	GlobalContextGet               func(key string) (string, bool)
+	GlobalContextSet               func(key, value string)
+	GlobalContextEach              func(f func(k, v string) bool)
+	ClusterIDAdd                   func(clusterID string)
+	SetStatus                      func(status config.Status)
 }

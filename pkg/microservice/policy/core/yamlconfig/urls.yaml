@@ -81,6 +81,9 @@ exemption_urls:
     - endpoint: api/aslan/system/lark/?*/webhook
       methods:
         - POST
+    - endpoint: api/aslan/system/dingtalk/?*/webhook
+      methods:
+        - POST
     - endpoint: api/aslan/system/project_management/jira/webhook/?*/?*
       methods:
         - POST
