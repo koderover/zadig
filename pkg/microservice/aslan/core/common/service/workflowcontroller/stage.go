@@ -330,6 +330,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 					}
 					user.RejectOrApprove = result.ApproveOrReject
 					user.Comment = comment
+					user.OperationTime = result.OperationTime
 					userUpdated = true
 				}
 			}
