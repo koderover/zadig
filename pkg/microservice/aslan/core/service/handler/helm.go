@@ -107,7 +107,7 @@ func UpdateProductionSvcFileContent(c *gin.Context) {
 	}
 
 	param.Production = true
-	ctx.Err = svcservice.EditFileContent(c.Param("serviceName"), c.Query("projectName"), ctx.UserName, ctx.RequestID, param, ctx.Logger)
+	ctx.Err = svcservice.EditFileContent(c.Param("name"), c.Query("projectName"), ctx.UserName, ctx.RequestID, param, ctx.Logger)
 }
 
 func CreateOrUpdateHelmService(c *gin.Context) {
