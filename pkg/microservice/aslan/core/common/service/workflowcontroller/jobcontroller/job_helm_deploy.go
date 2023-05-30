@@ -155,7 +155,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	done := make(chan bool)
 	go func(chan bool) {
-		if err = kube.UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, param.Images, chartInfo.OverrideValues, param.Timeout); err != nil {
+		if err = kube.UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, param.Images, "", param.Timeout); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",
