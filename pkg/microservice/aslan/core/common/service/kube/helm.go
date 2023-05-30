@@ -203,6 +203,7 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 	// handle variables
 	// turn variables into key-value format to have higher priority
 	if len(variableYaml) > 0 {
+		log.Infof("converting yaml to kv, yaml content: \n%s\n", variableYaml)
 		flatMaps, err := converter.YamlToFlatMap([]byte(variableYaml))
 		if err != nil {
 			return "", fmt.Errorf("failed to convert variable yaml, err: %s", err)
