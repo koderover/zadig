@@ -18,6 +18,8 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
@@ -43,7 +45,7 @@ func GetChartValues(c *gin.Context) {
 	projectName := c.Query("projectName")
 	serviceName := c.Query("serviceName")
 
-	ctx.Resp, ctx.Err = service.GetChartValues(projectName, envName, serviceName)
+	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, serviceName)
 }
 
 func GetChartInfos(c *gin.Context) {

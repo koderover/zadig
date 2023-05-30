@@ -81,10 +81,6 @@ type HelmChartsResp struct {
 	FileInfos  []*types.FileInfo `json:"fileInfos"`
 }
 
-type ValuesResp struct {
-	ValuesYaml string `json:"valuesYaml"`
-}
-
 type SvcDataSet struct {
 	ProdSvc    *models.ProductService
 	TmplSvc    *models.Service
@@ -144,54 +140,6 @@ type ServiceImages struct {
 
 type ChartImagesResp struct {
 	ServiceImages []*ServiceImages `json:"serviceImages"`
-}
-
-func GetChartValues(projectName, envName, serviceName string) (*ValuesResp, error) {
-	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
-	prod, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
-	}
-
-	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
-	if err != nil {
-		log.Errorf("GetRESTConfig error: %s", err)
-		return nil, fmt.Errorf("failed to get k8s rest config, err: %s", err)
-	}
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
-	if err != nil {
-		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", envName, projectName, err)
-		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
-	}
-
-	serviceMap := prod.GetServiceMap()
-	prodSvc, ok := serviceMap[serviceName]
-	if !ok {
-		return nil, fmt.Errorf("failed to find sercice: %s in env: %s", serviceName, envName)
-	}
-
-	revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-		ServiceName: serviceName,
-		Revision:    prodSvc.Revision,
-		ProductName: prodSvc.ProductName,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodSvc.ProductName, prod.Namespace, prod.EnvName, prodSvc.ServiceName)
-	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
-	if err != nil {
-		log.Errorf("failed to get values map data, err: %s", err)
-		return nil, err
-	}
-
-	currentValuesYaml, err := yaml.Marshal(valuesMap)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ValuesResp{ValuesYaml: string(currentValuesYaml)}, nil
 }
 
 func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLogger) ([]*HelmReleaseResp, error) {

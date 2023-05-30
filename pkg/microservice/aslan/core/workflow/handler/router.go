@@ -209,6 +209,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.GET("/sharestorage", CheckShareStorageEnabled)
 		workflowV4.GET("/all", ListAllAvailableWorkflows)
 		workflowV4.POST("/filterEnv", GetFilteredEnvServices)
+		workflowV4.POST("/yamlComparison", CompareHelmServiceYamlInEnv)
 	}
 
 	// ---------------------------------------------------------------------------------------

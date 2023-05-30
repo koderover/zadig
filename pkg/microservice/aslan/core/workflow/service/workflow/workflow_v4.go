@@ -19,6 +19,7 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"net/http"
 	"regexp"
 	"sort"
@@ -259,7 +260,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	if err != nil {
 		return resp, err
 	}
-	
+
 	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowTypeV4)})
 	if err != nil {
 		return resp, errors.Errorf("failed to get custom workflow favorite data, err: %v", err)
@@ -1735,6 +1736,42 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 		resp = append(resp, service)
 	}
 	return resp, nil
+}
+
+func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, isProduction, updateServiceRevision bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+	// first we get the current yaml in the current environment
+	resp, err := commonservice.GetChartValues(projectName, envName, serviceName)
+	if err != nil {
+		log.Infof("failed to get the current service[%s] values from project: %s, env: %s", serviceName, projectName, envName)
+		return nil, err
+	}
+
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
+	}
+
+	param := &kube.ResourceApplyParam{
+		ProductInfo: prod,
+		ServiceName: serviceName,
+		// no image preview available in this api
+		Images:                make([]string, 0),
+		VariableYaml:          variableYaml,
+		Uninstall:             false,
+		UpdateServiceRevision: updateServiceRevision,
+		Timeout:               setting.DeployTimeout,
+	}
+
+	yamlContent, err := kube.GeneMergedValues(param, log)
+	if err != nil {
+		log.Errorf("failed to generate merged values.yaml, err: %w", err)
+		return nil, err
+	}
+	return &GetHelmValuesDifferenceResp{
+		Current: resp.ValuesYaml,
+		Latest:  yamlContent,
+	}, nil
 }
 
 func filterServiceVars(serviceName string, deployContents []config.DeployContent, service *commonmodels.DeployService, serviceEnv *commonservice.EnvService) (*commonmodels.DeployService, error) {

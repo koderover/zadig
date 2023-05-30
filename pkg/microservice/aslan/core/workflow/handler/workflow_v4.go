@@ -46,6 +46,14 @@ type filterDeployServiceVarsQuery struct {
 	ServiceNames []string `json:"service_names"`
 }
 
+type getHelmValuesDifferenceReq struct {
+	ServiceName           string `json:"service_name"`
+	VariableYaml          string `json:"variable_yaml"`
+	EnvName               string `json:"env_name"`
+	IsProduction          bool   `json:"production"`
+	UpdateServiceRevision bool   `json:"update_service_revision"`
+}
+
 type listWorkflowV4Resp struct {
 	WorkflowList []*workflow.Workflow `json:"workflow_list"`
 	Total        int64                `json:"total"`
@@ -564,6 +572,18 @@ func GetFilteredEnvServices(c *gin.Context) {
 		return
 	}
 	ctx.Resp, ctx.Err = workflow.GetFilteredEnvServices(req.WorkflowName, req.JobName, req.EnvName, req.ServiceNames, ctx.Logger)
+}
+
+func CompareHelmServiceYamlInEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	req := new(getHelmValuesDifferenceReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	projectName := c.Query("projectName")
+	ctx.Resp, ctx.Err = workflow.CompareHelmServiceYamlInEnv(req.ServiceName, req.VariableYaml, req.EnvName, projectName, req.IsProduction, req.UpdateServiceRevision, ctx.Logger)
 }
 
 func getBody(c *gin.Context) string {
