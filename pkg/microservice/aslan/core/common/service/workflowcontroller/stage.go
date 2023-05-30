@@ -213,6 +213,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	approvalCode := data.LarkApprovalCodeList[approval.GetNodeTypeKey()]
 	if approvalCode == "" {
 		stage.Status = config.StatusFailed
+		log.Errorf("failed to find approval code for node type %s", approval.GetNodeTypeKey())
 		return errors.Errorf("failed to find approval code for node type %s", approval.GetNodeTypeKey())
 	}
 
@@ -312,14 +313,15 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			resultMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeUserApprovalResults(lark.ApprovalNodeIDKey(i))
 			b1, _ := json.MarshalIndent(resultMap, "", "  ")
 			log.Debugf("approvalUpdate: node %d result map %s", i, string(b1))
-			instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
-			b2, _ := json.MarshalIndent(instanceData, "", "  ")
-			log.Debugf("approvalUpdate: node %d instance data %s", i, string(b2))
-			if err != nil {
-				return false, false, errors.Wrap(err, "get approval instance")
-			}
 			for _, user := range node.ApproveUsers {
 				if result, ok := resultMap[user.ID]; ok && user.RejectOrApprove == "" {
+					instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
+					b2, _ := json.MarshalIndent(instanceData, "", "  ")
+					log.Debugf("approval user update: node %d instance data %s", i, string(b2))
+					if err != nil {
+						return false, false, errors.Wrap(err, "get approval instance")
+					}
+
 					comment := ""
 					if nodeData, ok := instanceData.ApproverInfoWithNode[larkservice.GetLarkApprovalInstanceManager(instance).GetNodeKeyMap()[lark.ApprovalNodeIDKey(i)]]; ok {
 						if userData, ok := nodeData[user.ID]; ok {

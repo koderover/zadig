@@ -110,11 +110,6 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	if err := LintWorkflowV4(inputWorkflow, logger); err != nil {
 		return err
 	}
-	// lark approval different node type need different approval definition
-	// check whether lark approvals in workflow need to create lark approval definition
-	if err := createLarkApprovalDefinition(workflow); err != nil {
-		return errors.Wrap(err, "create lark approval definition")
-	}
 
 	inputWorkflow.UpdatedBy = user
 	inputWorkflow.UpdateTime = time.Now().Unix()
@@ -131,6 +126,11 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 				return e.ErrUpsertWorkflow.AddErr(err)
 			}
 		}
+	}
+	// lark approval different node type need different approval definition
+	// check whether lark approvals in workflow need to create lark approval definition
+	if err := createLarkApprovalDefinition(inputWorkflow); err != nil {
+		return errors.Wrap(err, "create lark approval definition")
 	}
 
 	if err := commonrepo.NewWorkflowV4Coll().Update(
@@ -754,6 +754,9 @@ func lintApprovals(approval *commonmodels.Approval) error {
 
 func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 	for _, stage := range workflow.Stages {
+		if stage.Approval == nil {
+			continue
+		}
 		if data := stage.Approval.LarkApproval; data != nil {
 			larkInfo, err := commonrepo.NewIMAppColl().GetByID(context.Background(), stage.Approval.LarkApproval.ApprovalID)
 			if err != nil {
@@ -768,6 +771,7 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 			}
 			// skip if this node type approval definition already created
 			if approvalNodeTypeID := larkInfo.LarkApprovalCodeList[data.GetNodeTypeKey()]; approvalNodeTypeID != "" {
+				log.Infof("lark approval definition %s already created", approvalNodeTypeID)
 				continue
 			}
 

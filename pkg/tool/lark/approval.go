@@ -25,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -268,7 +269,9 @@ func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*Appro
 	}
 	return &ApprovalInstanceInfo{
 		ApproverInfoWithNode: resultMap,
-		ApproveOrReject:      m[getStringFromPointer(resp.Data.Status)],
+		ApproveOrReject: map[string]config.ApproveOrReject{
+			lark.ApprovalStatusApproved: config.Approve,
+			lark.ApprovalStatusRejected: config.Reject}[getStringFromPointer(resp.Data.Status)],
 	}, nil
 }
 
