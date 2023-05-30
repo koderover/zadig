@@ -326,7 +326,6 @@ func GetProductionServiceFileContent(serviceName, productName string, param *Get
 		}
 	}
 
-	// TODO: WTF IS THIS?
 	if forDelivery {
 		base = config.LocalProductionDeliveryChartPathWithRevision(productName, serviceName, revision)
 	}
@@ -526,15 +525,7 @@ func getNextServiceRevision(productName, serviceName string, isProductionService
 
 // make local chart info copy with revision
 func copyChartRevision(projectName, serviceName string, revision int64, isProductionChart bool) error {
-	var sourceChartPath, revisionChartLocalPath string
-	if !isProductionChart {
-		sourceChartPath = config.LocalTestServicePath(projectName, serviceName)
-		revisionChartLocalPath = config.LocalTestServicePathWithRevision(projectName, serviceName, revision)
-	} else {
-		sourceChartPath = config.LocalProductionServicePath(projectName, serviceName)
-		revisionChartLocalPath = config.LocalProductionServicePathWithRevision(projectName, serviceName, revision)
-	}
-
+	sourceChartPath, revisionChartLocalPath := config.LocalServicePath(projectName, serviceName, isProductionChart), config.LocalServicePathWithRevision(projectName, serviceName, revision, isProductionChart)
 	err := os.RemoveAll(revisionChartLocalPath)
 	if err != nil {
 		log.Errorf("failed to remove old chart revision data, projectName %s serviceName %s revision %d, err %s", projectName, serviceName, revision, err)
@@ -550,25 +541,25 @@ func copyChartRevision(projectName, serviceName string, revision int64, isProduc
 }
 
 func clearChartFiles(projectName, serviceName string, revision int64, isProduction bool, logger *zap.SugaredLogger, source ...string) {
-	clearChartFilesInS3Storage(projectName, serviceName, revision, logger)
+	clearChartFilesInS3Storage(projectName, serviceName, revision, isProduction, logger)
 	if len(source) == 0 {
-		clearLocalChartFiles(projectName, serviceName, revision, logger)
+		clearLocalChartFiles(projectName, serviceName, revision, isProduction, logger)
 	}
 }
 
 // clear chart files in s3 storage
-func clearChartFilesInS3Storage(projectName, serviceName string, revision int64, logger *zap.SugaredLogger) {
+func clearChartFilesInS3Storage(projectName, serviceName string, revision int64, production bool, logger *zap.SugaredLogger) {
 	s3FileNames := []string{serviceName, fmt.Sprintf("%s-%d", serviceName, revision)}
-	errRemoveFile := fsservice.DeleteArchivedFileFromS3(s3FileNames, config.ObjectStorageTestServicePath(projectName, serviceName), logger)
+	errRemoveFile := fsservice.DeleteArchivedFileFromS3(s3FileNames, config.ObjectStorageServicePath(projectName, serviceName, production), logger)
 	if errRemoveFile != nil {
 		logger.Errorf("Failed to remove files: %v from s3 strorage, err: %s", s3FileNames, errRemoveFile)
 	}
 }
 
 // clear local chart infos
-func clearLocalChartFiles(projectName, serviceName string, revision int64, logger *zap.SugaredLogger) {
-	latestChartPath := config.LocalTestServicePath(projectName, serviceName)
-	revisionChartLocalPath := config.LocalTestServicePathWithRevision(projectName, serviceName, revision)
+func clearLocalChartFiles(projectName, serviceName string, revision int64, production bool, logger *zap.SugaredLogger) {
+	latestChartPath := config.LocalServicePath(projectName, serviceName, production)
+	revisionChartLocalPath := config.LocalServicePathWithRevision(projectName, serviceName, revision, production)
 	for _, path := range []string{latestChartPath, revisionChartLocalPath} {
 		err := os.RemoveAll(path)
 		if err != nil {
@@ -688,13 +679,15 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 		return nil, finalErr
 	}
 
-	compareHelmVariable([]*templatemodels.ServiceRender{
-		{
-			ServiceName:  chartRepoArgs.ChartName,
-			ChartVersion: svc.HelmChart.Version,
-			ValuesYaml:   svc.HelmChart.ValuesYaml,
-		},
-	}, projectName, args.CreatedBy, log)
+	if !args.Production {
+		compareHelmVariable([]*templatemodels.ServiceRender{
+			{
+				ServiceName:  chartRepoArgs.ChartName,
+				ChartVersion: svc.HelmChart.Version,
+				ValuesYaml:   svc.HelmChart.ValuesYaml,
+			},
+		}, projectName, args.CreatedBy, log)
+	}
 
 	err = service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, svc.ProductName, []*models.Service{svc}, log)
 	if err != nil {
@@ -745,7 +738,7 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 
 	// copy template to service path and update the values.yaml
 	from := filepath.Join(localBase, base)
-	to := filepath.Join(config.LocalTestServicePath(projectName, args.Name), args.Name)
+	to := filepath.Join(config.LocalServicePath(projectName, args.Name, args.Production), args.Name)
 	// remove old files
 	if err := os.RemoveAll(to); err != nil {
 		logger.Errorf("Failed to remove dir %s, err: %s", to, err)
@@ -767,15 +760,14 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 		return nil, err
 	}
 
-	// TODO: As of 2023-05-24, the production service creation from chart template is disabled.
 	// change the parameter below if this is supported again.
-	rev, err := getNextServiceRevision(projectName, args.Name, false)
+	rev, err := getNextServiceRevision(projectName, args.Name, args.Production)
 	if err != nil {
 		logger.Errorf("Failed to get next revision for service %s, err: %s", args.Name, err)
 		return nil, errors.Wrapf(err, "Failed to get service next revision, service %s", args.Name)
 	}
 
-	err = copyChartRevision(projectName, args.Name, rev, false)
+	err = copyChartRevision(projectName, args.Name, rev, args.Production)
 	if err != nil {
 		logger.Errorf("Failed to copy file %s, err: %s", args.Name, err)
 		return nil, errors.Wrapf(err, "Failed to copy chart info, service %s", args.Name)
@@ -784,12 +776,12 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 	// clear files from both s3 and local when error occurred in next stages
 	defer func() {
 		if err != nil {
-			clearChartFiles(projectName, args.Name, rev, false, logger)
+			clearChartFiles(projectName, args.Name, rev, args.Production, logger)
 		}
 	}()
 
-	fsTree := os.DirFS(config.LocalTestServicePath(projectName, args.Name))
-	serviceS3Base := config.ObjectStorageTestServicePath(projectName, args.Name)
+	fsTree := os.DirFS(config.LocalServicePath(projectName, args.Name, args.Production))
+	serviceS3Base := config.ObjectStorageServicePath(projectName, args.Name, args.Production)
 	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{args.Name, fmt.Sprintf("%s-%d", args.Name, rev)}, serviceS3Base, logger); err != nil {
 		logger.Errorf("Failed to upload files for service %s in project %s, err: %s", args.Name, projectName, err)
 		return nil, err
@@ -814,6 +806,7 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 			ValuesSource:     args.ValuesData,
 			CreationDetail:   args.CreationDetail,
 			AutoSync:         args.AutoSync,
+			Production:       args.Production,
 		}, force,
 		logger,
 	)
@@ -824,13 +817,15 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 		return nil, err
 	}
 
-	compareHelmVariable([]*templatemodels.ServiceRender{
-		{
-			ServiceName:  args.Name,
-			ChartVersion: svc.HelmChart.Version,
-			ValuesYaml:   svc.HelmChart.ValuesYaml,
-		},
-	}, projectName, args.CreatedBy, logger)
+	if !args.Production {
+		compareHelmVariable([]*templatemodels.ServiceRender{
+			{
+				ServiceName:  args.Name,
+				ChartVersion: svc.HelmChart.Version,
+				ValuesYaml:   svc.HelmChart.ValuesYaml,
+			},
+		}, projectName, args.CreatedBy, logger)
+	}
 
 	err = service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, svc.ProductName, []*models.Service{svc}, logger)
 	if err != nil {
@@ -1028,7 +1023,9 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 
 	wg.Wait()
 
-	compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
+	if !args.Production {
+		compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
+	}
 	return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
 }
 
@@ -1180,7 +1177,9 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 
 	wg.Wait()
 
-	compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
+	if !args.Production {
+		compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
+	}
 	return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
 }
 
@@ -1193,6 +1192,7 @@ func CreateOrUpdateBulkHelmService(projectName string, args *BulkHelmServiceCrea
 	}
 }
 
+// TODO CreateOrUpdateBulkHelmServiceFromTemplate doesn't support production services
 func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	templateArgs, ok := args.CreateFrom.(*CreateFromChartTemplate)
 	if !ok {
@@ -1799,6 +1799,7 @@ func GetProductionHelmFilePath(productName, serviceName string, revision int64, 
 }
 
 // compareHelmVariable 比较helm变量是否有改动，是否需要添加新的renderSet
+// TODO consider remove default renderset since it looks not necessary at all
 func compareHelmVariable(chartInfos []*templatemodels.ServiceRender, productName, createdBy string, log *zap.SugaredLogger) {
 	// 对比上个版本的renderset，新增一个版本
 	latestChartInfos := make([]*templatemodels.ServiceRender, 0)
