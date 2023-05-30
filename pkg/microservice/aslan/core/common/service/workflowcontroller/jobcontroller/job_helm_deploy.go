@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -98,22 +100,45 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		}
 	}
 
-	variableYaml := ""
-	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
-		variableYaml = c.jobTaskSpec.VariableYaml
-	}
-
 	param := &kube.ResourceApplyParam{
 		ProductInfo:           productInfo,
 		ServiceName:           c.jobTaskSpec.ServiceName,
 		Images:                images,
-		VariableYaml:          variableYaml,
 		Uninstall:             false,
 		UpdateServiceRevision: updateServiceRevision,
 		Timeout:               c.timeout(),
 	}
 
-	yamlContent, err := kube.GeneMergedValues(param, c.logger)
+	renderSet, productService, svcTemplate, err := kube.PrepareHelmServiceData(param)
+	if err != nil {
+		msg := fmt.Sprintf("prepare helm service data error: %v", err)
+		logError(c.job, msg, c.logger)
+		return
+	}
+
+	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
+	if !ok {
+		msg := fmt.Sprintf("failed to find chart info in render")
+		logError(c.job, msg, c.logger)
+		return
+	}
+	if chartInfo.OverrideYaml == nil {
+		chartInfo.OverrideYaml = &template.CustomYaml{}
+	}
+
+	variableYaml := ""
+	// variable yaml from workflow task
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
+		variableYaml = c.jobTaskSpec.VariableYaml
+	} else {
+		// variable yaml from env config
+		variableYaml = chartInfo.OverrideYaml.YamlContent
+	}
+
+	param.VariableYaml = variableYaml
+	chartInfo.OverrideYaml.YamlContent = param.VariableYaml
+
+	yamlContent, err := kube.GeneMergedValues(productService, renderSet, param.Images, param.VariableYaml)
 	if err != nil {
 		log.Errorf("failed to generate merged values.yaml, err: %w", err)
 		logError(c.job, fmt.Sprintf("fail to generate merged values.yaml, err: %s", err.Error()), c.logger)
@@ -130,7 +155,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	done := make(chan bool)
 	go func(chan bool) {
-		if err = kube.CreateOrUpdateHelmResource(param, c.logger); err != nil {
+		if err = kube.UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, param.Images, chartInfo.OverrideValues, param.Timeout); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",

@@ -158,7 +158,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	return err
 }
 
-func geneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string, variableYaml string) (string, error) {
+func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string, variableYaml string) (string, error) {
 	serviceName := productSvc.ServiceName
 	var targetContainers []*commonmodels.Container
 	for _, image := range images {
@@ -227,7 +227,7 @@ func geneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
 	svcTemp *commonmodels.Service, images []string, variableYaml string, timeout int) error {
 
-	replacedMergedValuesYaml, err := geneMergedValues(productSvc, renderSet, images, variableYaml)
+	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images, variableYaml)
 	if err != nil {
 		return err
 	}

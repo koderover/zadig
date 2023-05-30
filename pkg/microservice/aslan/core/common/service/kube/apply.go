@@ -572,15 +572,6 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Rende
 	return renderSet, productService, svcTemplate, nil
 }
 
-// GeneMergedValues returns content of values.yaml merged with values by zadig
-func GeneMergedValues(applyParam *ResourceApplyParam, log *zap.SugaredLogger) (string, error) {
-	renderSet, productService, _, err := PrepareHelmServiceData(applyParam)
-	if err != nil {
-		return "", err
-	}
-	return geneMergedValues(productService, renderSet, applyParam.Images, applyParam.VariableYaml)
-}
-
 // CreateOrUpdateHelmResource create or patch helm services
 // if service is not deployed ever, it will be added into target environment
 // database will also be updated
