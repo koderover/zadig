@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/log"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
@@ -229,7 +228,7 @@ func goWithRecover(fn func(), logger *zap.SugaredLogger) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Panic("Recovered from panic: %v", r)
+				logger.Errorf("Recovered from panic: %v", r)
 			}
 		}()
 
