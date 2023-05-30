@@ -1451,12 +1451,30 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
 			}
 		} else if deployType == setting.HelmDeployType {
-			// TODO: helm doesn't support variables for now
+			param := &kube.ResourceApplyParam{
+				ProductInfo:           productInfo,
+				ServiceName:           serviceName,
+				Images:                make([]string, 0),
+				Uninstall:             false,
+				UpdateServiceRevision: false,
+				Timeout:               setting.DeployTimeout,
+			}
 
-			// svc.VariableYaml, svc.VariableKVs, svc.LatestVariableYaml, svc.LatestVariableKVs, err = values(serviceName)
-			// if err != nil {
-			// 	return nil, errors.Wrapf(err, "failed to get values for service %s", serviceName)
-			// }
+			renderSet, _, _, err := kube.PrepareHelmServiceData(param)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
+			}
+
+			chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
+			if !ok {
+				return nil, errors.Wrapf(err, "failed to get variables for service %s in render map", serviceName)
+			}
+
+			if chartInfo.OverrideYaml == nil {
+				chartInfo.OverrideYaml = &template.CustomYaml{}
+			}
+
+			svc.VariableYaml = chartInfo.OverrideYaml.YamlContent
 		}
 
 		ret.Services = append(ret.Services, svc)
@@ -1480,12 +1498,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			svc.LatestVariableYaml = svc.VariableYaml
 			svc.LatestVariableKVs = svc.VariableKVs
 		} else if deployType == setting.HelmDeployType {
-			// TODO: helm doesn't support variables for now
-
-			// svc.VariableYaml = templateSvc.HelmChart.ValuesYaml
-			// svc.VariableKVs, _ = kube.GeneKVFromYaml(templateSvc.HelmChart.ValuesYaml)
-			// svc.LatestVariableYaml = svc.VariableYaml
-			// svc.LatestVariableKVs = svc.VariableKVs
+			svc.VariableYaml = templateSvc.VariableYaml
 		}
 
 		ret.Services = append(ret.Services, svc)
