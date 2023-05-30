@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -805,6 +807,7 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	go func() {
 		_ = commonrepo.NewBuildColl().Delete("", productName)
 		_ = commonrepo.NewServiceColl().Delete("", "", productName, "", 0)
+		_ = commonrepo.NewProductionServiceColl().DeleteByProject(productName)
 		_ = commonservice.DeleteDeliveryInfos(productName, log)
 		_ = DeleteProductsAsync(userName, productName, requestID, isDelete, log)
 
@@ -1216,11 +1219,20 @@ func UpdateCustomMatchRules(productName, userName, requestID string, matchRules 
 	productInfo.ImageSearchingRules = imageRulesToSave
 	productInfo.UpdateBy = userName
 
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	services, err := repository.ListMaxRevisionsServices(productName, false)
+	if err != nil {
+		return errors.Wrapf(err, "fail to list services of product %s", productName)
+	}
+	err = reParseServices(userName, requestID, services, imageRulesToSave, false)
 	if err != nil {
 		return err
 	}
-	err = reParseServices(userName, requestID, services, imageRulesToSave)
+
+	productionServices, err := repository.ListMaxRevisionsServices(productName, true)
+	if err != nil {
+		return errors.Wrapf(err, "fail to list production services of product %s", productName)
+	}
+	err = reParseServices(userName, requestID, productionServices, imageRulesToSave, true)
 	if err != nil {
 		return err
 	}
@@ -1235,7 +1247,7 @@ func UpdateCustomMatchRules(productName, userName, requestID string, matchRules 
 }
 
 // reparse values.yaml for each service
-func reParseServices(userName, requestID string, serviceList []*commonmodels.Service, matchRules []*template.ImageSearchingRule) error {
+func reParseServices(userName, requestID string, serviceList []*commonmodels.Service, matchRules []*template.ImageSearchingRule, production bool) error {
 	updatedServiceTmpls := make([]*commonmodels.Service, 0)
 
 	var err error
@@ -1264,22 +1276,41 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 		}
 
 		serviceTmpl.CreateBy = userName
+
+		// TODO optimize me: use common function to generate nex service revision
 		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceTmpl.ServiceName, serviceTmpl.ProductName)
+		if production {
+			serviceTemplate = fmt.Sprintf(setting.ProductionServiceTemplateCounterName, serviceTmpl.ServiceName, serviceTmpl.ProductName)
+		}
 		rev, errRevision := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if errRevision != nil {
 			err = fmt.Errorf("get next helm service revision error: %v", errRevision)
 			break
 		}
 		serviceTmpl.Revision = rev
-		if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
-			log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
-			break
-		}
 
-		if err = commonrepo.NewServiceColl().Create(serviceTmpl); err != nil {
-			log.Errorf("helmService.update serviceName:%s error:%v", serviceTmpl.ServiceName, err)
-			err = e.ErrUpdateTemplate.AddDesc(err.Error())
-			break
+		if !production {
+			if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
+				log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
+				break
+			}
+
+			if err = commonrepo.NewServiceColl().Create(serviceTmpl); err != nil {
+				log.Errorf("helmService.update serviceName:%s error:%v", serviceTmpl.ServiceName, err)
+				err = e.ErrUpdateTemplate.AddDesc(err.Error())
+				break
+			}
+		} else {
+			if err = commonrepo.NewProductionServiceColl().Delete(serviceTmpl.ServiceName, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
+				log.Errorf("helmService.update delete production service %s error: %v", serviceTmpl.ServiceName, err)
+				break
+			}
+
+			if err = commonrepo.NewProductionServiceColl().Create(serviceTmpl); err != nil {
+				log.Errorf("helmService.update production service, serviceName:%s error:%v", serviceTmpl.ServiceName, err)
+				err = e.ErrUpdateTemplate.AddDesc(err.Error())
+				break
+			}
 		}
 
 		updatedServiceTmpls = append(updatedServiceTmpls, serviceTmpl)
@@ -1288,14 +1319,24 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 	// roll back all template services if error occurs
 	if err != nil {
 		for _, serviceTmpl := range updatedServiceTmpls {
-			if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, "", serviceTmpl.Revision); err != nil {
-				log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
-				continue
+			if !production {
+				if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, "", serviceTmpl.Revision); err != nil {
+					log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
+					continue
+				}
+			} else {
+				if err = commonrepo.NewProductionServiceColl().Delete(serviceTmpl.ServiceName, serviceTmpl.ProductName, "", serviceTmpl.Revision); err != nil {
+					log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
+					continue
+				}
 			}
 		}
 		return err
 	}
 
+	if production {
+		return nil
+	}
 	return environmentservice.AutoDeployHelmServiceToEnvs(userName, requestID, projectName, updatedServiceTmpls, log.SugaredLogger())
 }
 
