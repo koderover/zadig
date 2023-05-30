@@ -97,6 +97,7 @@ type StageTaskPreview struct {
 	Parallel  bool                   `bson:"parallel"      json:"parallel"`
 	Approval  *commonmodels.Approval `bson:"approval"      json:"approval"`
 	Jobs      []*JobTaskPreview      `bson:"jobs"          json:"jobs"`
+	Error     string                 `bson:"error" json:"error""`
 }
 
 type JobTaskPreview struct {
@@ -913,6 +914,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 			Parallel:  stage.Parallel,
 			Approval:  stage.Approval,
 			Jobs:      jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow),
+			Error:     stage.Error,
 		})
 	}
 	return resp, nil
