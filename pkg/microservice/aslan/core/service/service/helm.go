@@ -72,6 +72,7 @@ type HelmService struct {
 type HelmChartEditInfo struct {
 	FilePath    string `json:"file_path"`
 	FileContent string `json:"file_content"`
+	Production  bool
 }
 
 type HelmServiceModule struct {
@@ -340,8 +341,6 @@ func GetProductionServiceFileContent(serviceName, productName string, param *Get
 	return string(fileContent), nil
 }
 
-// @Min TODO: EditFileContent is used only for services created by chart template. since the creation of production service from template is disabled
-// all inputs will be set to false about the isProd parameter.
 func EditFileContent(serviceName, productName, createdBy, requestID string, param *HelmChartEditInfo, logger *zap.SugaredLogger) error {
 	if len(param.FilePath) == 0 {
 		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("file path can't be nil"))
@@ -350,10 +349,10 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 		return e.ErrEditHelmCharts.AddDesc(fmt.Sprintf("only values.yaml can be edited"))
 	}
 
-	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-		ProductName: productName,
+	svc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
-	})
+		ProductName: productName,
+	}, param.Production)
 	if err != nil {
 		return e.ErrEditHelmCharts.AddDesc(err.Error())
 	}
@@ -363,8 +362,8 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 	}
 
 	// preload current chart
-	base := config.LocalTestServicePath(productName, serviceName)
-	err = commonutil.PreLoadServiceManifests(base, svc, false)
+	base := config.LocalServicePath(productName, serviceName, param.Production)
+	err = commonutil.PreLoadServiceManifests(base, svc, param.Production)
 	if err != nil {
 		return e.ErrEditHelmCharts.AddErr(err)
 	}
@@ -385,13 +384,13 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 	}
 
 	var rev int64
-	rev, err = getNextServiceRevision(productName, serviceName, false)
+	rev, err = getNextServiceRevision(productName, serviceName, param.Production)
 	if err != nil {
 		logger.Errorf("Failed to get next revision for service %s, err: %s", serviceName, err)
 		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to get service next revision for service %s, err: %s", serviceName, err))
 	}
 
-	err = copyChartRevision(productName, serviceName, rev, false)
+	err = copyChartRevision(productName, serviceName, rev, param.Production)
 	if err != nil {
 		logger.Errorf("Failed to copy file %s, err: %s", serviceName, err)
 		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to copy file for service %s, err: %s", serviceName, err))
@@ -400,11 +399,11 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 	// clear files from both s3 and local when error occurred in next stages
 	defer func() {
 		if err != nil {
-			clearChartFiles(productName, serviceName, rev, false, logger)
+			clearChartFiles(productName, serviceName, rev, param.Production, logger)
 		}
 	}()
 
-	fsTree := os.DirFS(config.LocalTestServicePath(productName, serviceName))
+	fsTree := os.DirFS(config.LocalServicePath(productName, serviceName, param.Production))
 
 	// read values.yaml
 	valuesYAML, errRead := readValuesYAML(fsTree, serviceName, logger)
@@ -413,7 +412,7 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 		return e.ErrEditHelmCharts.AddErr(err)
 	}
 
-	serviceS3Base := config.ObjectStorageTestServicePath(productName, serviceName)
+	serviceS3Base := config.ObjectStorageServicePath(productName, serviceName, param.Production)
 	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, serviceS3Base, logger); err != nil {
 		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to upload files for service %s in project %s, err: %s", serviceName, productName, err))
 	}
@@ -434,6 +433,7 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 			ValuesSource:    &commonservice.ValuesDataArgs{},
 			CreationDetail:  svc.CreateFrom,
 			AutoSync:        svc.AutoSync,
+			Production:      param.Production,
 		}, true,
 		logger,
 	)
@@ -442,18 +442,20 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to create service %s in project %s, error: %s", serviceName, productName, err))
 	}
 
-	compareHelmVariable([]*templatemodels.ServiceRender{
-		{
-			ServiceName:  svc.ServiceName,
-			ChartVersion: svc.HelmChart.Version,
-			ValuesYaml:   svc.HelmChart.ValuesYaml,
-		},
-	}, productName, createdBy, logger)
-
-	err = service.AutoDeployHelmServiceToEnvs(createdBy, requestID, productName, []*models.Service{svc}, logger)
-	if err != nil {
-		return e.ErrEditHelmCharts.AddErr(err)
+	if !param.Production {
+		compareHelmVariable([]*templatemodels.ServiceRender{
+			{
+				ServiceName:  svc.ServiceName,
+				ChartVersion: svc.HelmChart.Version,
+				ValuesYaml:   svc.HelmChart.ValuesYaml,
+			},
+		}, productName, createdBy, logger)
+		err = service.AutoDeployHelmServiceToEnvs(createdBy, requestID, productName, []*models.Service{svc}, logger)
+		if err != nil {
+			return e.ErrEditHelmCharts.AddErr(err)
+		}
 	}
+
 	return nil
 }
 
@@ -687,12 +689,11 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 				ValuesYaml:   svc.HelmChart.ValuesYaml,
 			},
 		}, projectName, args.CreatedBy, log)
-	}
-
-	err = service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, svc.ProductName, []*models.Service{svc}, log)
-	if err != nil {
-		finalErr = e.ErrCreateTemplate.AddErr(err)
-		return nil, finalErr
+		err = service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, svc.ProductName, []*models.Service{svc}, log)
+		if err != nil {
+			finalErr = e.ErrCreateTemplate.AddErr(err)
+			return nil, finalErr
+		}
 	}
 
 	return &BulkHelmServiceCreationResponse{
@@ -825,11 +826,10 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 				ValuesYaml:   svc.HelmChart.ValuesYaml,
 			},
 		}, projectName, args.CreatedBy, logger)
-	}
-
-	err = service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, svc.ProductName, []*models.Service{svc}, logger)
-	if err != nil {
-		return nil, err
+		err = service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, svc.ProductName, []*models.Service{svc}, logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &BulkHelmServiceCreationResponse{
@@ -1025,8 +1025,10 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 
 	if !args.Production {
 		compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
+		return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
+	} else {
+		return response, nil
 	}
-	return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
 }
 
 func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, force bool, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
@@ -1179,8 +1181,10 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 
 	if !args.Production {
 		compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
+		return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
+	} else {
+		return response, nil
 	}
-	return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
 }
 
 func CreateOrUpdateBulkHelmService(projectName string, args *BulkHelmServiceCreationArgs, force bool, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {

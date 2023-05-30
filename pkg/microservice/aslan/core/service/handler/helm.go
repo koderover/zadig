@@ -91,6 +91,22 @@ func UpdateFileContent(c *gin.Context) {
 		return
 	}
 
+	param.Production = false
+	ctx.Err = svcservice.EditFileContent(c.Param("serviceName"), c.Query("projectName"), ctx.UserName, ctx.RequestID, param, ctx.Logger)
+}
+
+func UpdateProductionSvcFileContent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	param := new(svcservice.HelmChartEditInfo)
+	err := c.ShouldBind(param)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	param.Production = true
 	ctx.Err = svcservice.EditFileContent(c.Param("serviceName"), c.Query("projectName"), ctx.UserName, ctx.RequestID, param, ctx.Logger)
 }
 
