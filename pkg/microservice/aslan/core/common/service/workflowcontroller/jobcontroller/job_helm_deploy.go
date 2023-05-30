@@ -138,7 +138,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	param.VariableYaml = variableYaml
 	chartInfo.OverrideYaml.YamlContent = param.VariableYaml
 
-	yamlContent, err := kube.GeneMergedValues(productService, renderSet, param.Images, param.VariableYaml)
+	yamlContent, err := kube.GeneMergedValues(productService, renderSet, param.Images, "")
 	if err != nil {
 		log.Errorf("failed to generate merged values.yaml, err: %w", err)
 		logError(c.job, fmt.Sprintf("fail to generate merged values.yaml, err: %s", err.Error()), c.logger)
