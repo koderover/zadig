@@ -17,7 +17,11 @@
 package migrate
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
@@ -25,6 +29,7 @@ import (
 	aslanConfig "github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -40,6 +45,11 @@ func V1170ToV1180() error {
 	if err := migrateSystemTheme(); err != nil {
 		log.Errorf("migrateSystemTheme err: %v", err)
 	}
+	if err := migrateWorkflowV4LarkApproval(); err != nil {
+		log.Errorf("migrateWorkflowV4LarkApproval err: %v", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -112,4 +122,106 @@ func migrateSystemTheme() error {
 		}
 	}
 	return nil
+}
+
+func migrateWorkflowV4LarkApproval() error {
+	cursor, err := mongodb.NewWorkflowV4Coll().ListByCursor(&mongodb.ListWorkflowV4Option{})
+	if err != nil {
+		return err
+	}
+	var ms []mongo.WriteModel
+	for cursor.Next(context.Background()) {
+		var workflow models.WorkflowV4
+		if err := cursor.Decode(&workflow); err != nil {
+			return err
+		}
+		setLarkApprovalNodeForWorkflowV4(&workflow)
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", workflow.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"stages", workflow.Stages},
+					}},
+				}),
+		)
+		if len(ms) >= 50 {
+			log.Infof("update %d workflowV4", len(ms))
+			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
+				return fmt.Errorf("update workflowV4s error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+	if len(ms) > 0 {
+		log.Infof("update %d workflowV4s", len(ms))
+		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
+			return fmt.Errorf("udpate workflowV4s error: %s", err)
+		}
+	}
+
+	taskCursor, err := mongodb.NewworkflowTaskv4Coll().ListByCursor(&mongodb.ListWorkflowTaskV4Option{})
+	if err != nil {
+		return err
+	}
+	var mTasks []mongo.WriteModel
+	for taskCursor.Next(context.Background()) {
+		var workflowTask models.WorkflowTask
+		if err := taskCursor.Decode(&workflowTask); err != nil {
+			return err
+		}
+		setLarkApprovalNodeForWorkflowV4Task(&workflowTask)
+		setLarkApprovalNodeForWorkflowV4(workflowTask.OriginWorkflowArgs)
+		mTasks = append(mTasks,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", workflowTask.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"stages", workflowTask.Stages},
+						{"origin_workflow_args", workflowTask.OriginWorkflowArgs},
+					}},
+				}),
+		)
+		if len(mTasks) >= 50 {
+			log.Infof("update %d workflowv4 tasks", len(mTasks))
+			if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
+				return fmt.Errorf("udpate workflowV4 tasks error: %s", err)
+			}
+			mTasks = []mongo.WriteModel{}
+		}
+	}
+	if len(mTasks) > 0 {
+		log.Infof("update %d workflowv4 tasks", len(mTasks))
+		if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
+			return fmt.Errorf("udpate workflowV4 tasks error: %s", err)
+		}
+	}
+
+	return nil
+}
+
+func setLarkApprovalNodeForWorkflowV4(workflow *models.WorkflowV4) {
+	for _, stage := range workflow.Stages {
+		if stage.Approval != nil && stage.Approval.LarkApproval != nil && len(stage.Approval.LarkApproval.ApproveUsers) > 0 {
+			stage.Approval.LarkApproval.ApprovalNodes = []*models.LarkApprovalNode{
+				{
+					ApproveUsers: stage.Approval.LarkApproval.ApproveUsers,
+					Type:         lark.ApproveTypeOr,
+				},
+			}
+		}
+	}
+}
+
+func setLarkApprovalNodeForWorkflowV4Task(workflow *models.WorkflowTask) {
+	for _, stage := range workflow.Stages {
+		if stage.Approval != nil && stage.Approval.LarkApproval != nil && len(stage.Approval.LarkApproval.ApproveUsers) > 0 {
+			stage.Approval.LarkApproval.ApprovalNodes = []*models.LarkApprovalNode{
+				{
+					ApproveUsers: stage.Approval.LarkApproval.ApproveUsers,
+					Type:         lark.ApproveTypeOr,
+				},
+			}
+		}
+	}
 }

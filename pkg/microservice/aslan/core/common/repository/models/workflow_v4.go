@@ -137,7 +137,7 @@ type LarkApproval struct {
 	Timeout int `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
 	// ApprovalID: lark im app mongodb id
 	ApprovalID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
-	// Deprecated: use ApprovalNodes instead, remove in next version
+	// Deprecated: use ApprovalNodes instead
 	ApproveUsers  []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	ApprovalNodes []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
 }
