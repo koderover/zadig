@@ -148,8 +148,8 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	c.jobTaskSpec.YamlContent = yamlContent
 	c.ack()
 
-	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s, images %v variableYaml %s updateServiceRevision %v",
-		c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, c.namespace, images, variableYaml, updateServiceRevision)
+	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s, images %v variableYaml %s overrideValues: %s updateServiceRevision %v",
+		c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, c.namespace, images, variableYaml, chartInfo.OverrideValues, updateServiceRevision)
 
 	timeOut := c.timeout()
 
