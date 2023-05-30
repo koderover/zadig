@@ -59,7 +59,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		helmProductionServices.GET("", ListHelmProductionServices)
 		helmProductionServices.POST("", CreateHelmProductionService)
 		helmProductionServices.GET("/:name/serviceModule", GetProductionHelmServiceModule)
-		helmProductionServices.PUT("/:serviceName/file", UpdateProductionSvcFileContent)
+		helmProductionServices.PUT("/:name/file", UpdateProductionSvcFileContent)
 		helmProductionServices.GET("/:name/filePath", GetProductionHelmFilePath)
 		helmProductionServices.GET("/:name/fileContent", GetProductionHelmFileContent)
 		helmProductionServices.PUT("/:name/releaseNaming", UpdateProductionHelmReleaseNaming)
