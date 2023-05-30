@@ -245,10 +245,10 @@ func (l *ApprovalManager) GetNodeUserApprovalResults(nodeID string) map[string]*
 	l.RLock()
 	defer l.RUnlock()
 
+	m := make(map[string]*UserApprovalResult)
 	if re, ok := l.nodeMap[nodeID]; !ok {
-		return nil
+		return m
 	} else {
-		m := make(map[string]*UserApprovalResult)
 		for userID, result := range re {
 			m[userID] = result
 		}
