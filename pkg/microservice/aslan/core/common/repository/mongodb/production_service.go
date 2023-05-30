@@ -85,6 +85,18 @@ func (c *ProductionServiceColl) Delete(serviceName, productName, status string, 
 	return err
 }
 
+func (c *ProductionServiceColl) DeleteByProject(productName string) error {
+	query := bson.M{}
+	query["product_name"] = productName
+
+	if len(query) == 0 {
+		return nil
+	}
+
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}
+
 type ProductionServiceDeleteOption struct {
 	ServiceName string
 	ProductName string
