@@ -667,7 +667,7 @@ func updateWorkflowKVs(wf *models.WorkflowV4) (bool, error) {
 			case config.JobZadigDeploy:
 				jobSpec := &models.ZadigDeployJobSpec{}
 				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
-					return needUpdate, errors.Wrapf(err, "unmashal job spec error: %v")
+					return needUpdate, errors.Wrapf(err, "unmashal job spec error")
 				}
 				for _, service := range jobSpec.Services {
 					if len(service.VariableConfigs) > 0 {
