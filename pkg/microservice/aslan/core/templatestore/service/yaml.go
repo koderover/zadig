@@ -167,7 +167,7 @@ func SyncYamlTemplateReference(userName, id string, logger *zap.SugaredLogger) e
 
 func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*template.ServiceReference, error) {
 	ret := make([]*template.ServiceReference, 0)
-	referenceList, err := commonrepo.NewServiceColl().GetYamlTemplateReference(id)
+	referenceList, err := commonrepo.NewServiceColl().GetYamlTemplateLatestReference(id)
 	if err != nil {
 		logger.Errorf("Failed to get build reference for yaml template id: %s, the error is: %s", id, err)
 		return ret, err
@@ -180,7 +180,7 @@ func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*template
 		})
 	}
 
-	productionService, err := commonrepo.NewProductionServiceColl().GetYamlTemplateReference(id)
+	productionService, err := commonrepo.NewProductionServiceColl().GetYamlTemplateLatestReference(id)
 	if err != nil {
 		logger.Errorf("Failed to get build reference for yaml template id: %s from production service, the error is: %s", id, err)
 		return ret, err
