@@ -49,6 +49,7 @@ type HelmServiceCreationArgs struct {
 	CreateFrom     interface{}             `json:"createFrom"`
 	ValuesData     *service.ValuesDataArgs `json:"valuesData"`
 	CreationDetail interface{}             `json:"-"`
+	Production     bool                    `json:"production"`
 }
 
 type BulkHelmServiceCreationArgs struct {

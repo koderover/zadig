@@ -368,6 +368,25 @@ func (c *ProductColl) AddService(productName, serviceName string) error {
 	return err
 }
 
+// AddProductionService adds a service to services[0] if it is not there.
+func (c *ProductColl) AddProductionService(productName, serviceName string) error {
+
+	query := bson.M{"product_name": productName}
+	serviceUniqueFilter := bson.M{
+		"$elemMatch": bson.M{
+			"$elemMatch": bson.M{
+				"$eq": serviceName,
+			},
+		},
+	}
+	query["production_services"] = bson.M{"$not": serviceUniqueFilter}
+	change := bson.M{"$addToSet": bson.M{
+		"production_services.1": serviceName,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 // UpdateAll updates all projects in a bulk write.
 // Currently, only field `shared_services` is supported.
 // Note: A bulk operation can have at most 1000 operations, but the client will do it for us.

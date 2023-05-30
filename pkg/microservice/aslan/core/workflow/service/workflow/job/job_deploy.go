@@ -366,11 +366,11 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				serviceRevision = pSvc.Revision
 			}
 
-			revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: serviceName,
 				Revision:    serviceRevision,
 				ProductName: product.ProductName,
-			})
+			}, product.Production)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, serviceRevision, err)
 			}
@@ -385,17 +385,17 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				ClusterID:          product.ClusterID,
 				ReleaseName:        releaseName,
 				Timeout:            timeout,
+				IsProduction:       j.spec.Production,
 			}
+
 			for _, deploy := range deploys {
 				service := serviceMap[serviceName]
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.KeyVals = service.KeyVals
+					jobTaskSpec.VariableYaml = service.VariableYaml
 				}
 
-				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, envName); err != nil {
-					return resp, err
-				}
 				jobTaskSpec.ImageAndModules = append(jobTaskSpec.ImageAndModules, &commonmodels.ImageAndServiceModule{
 					ServiceModule: deploy.ServiceModule,
 					Image:         deploy.Image,

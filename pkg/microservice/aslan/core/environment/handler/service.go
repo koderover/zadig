@@ -72,17 +72,18 @@ func GetService(c *gin.Context) {
 	serviceName := c.Param("serviceName")
 	workLoadType := c.Query("workLoadType")
 
-	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, workLoadType, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, false, workLoadType, ctx.Logger)
 }
 
-func GetServiceInProductionEnv(c *gin.Context) {
+func GetProductionService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	envName := c.Param("name")
 	projectName := c.Query("projectName")
 	serviceName := c.Param("serviceName")
+	workLoadType := c.Query("workLoadType")
 
-	ctx.Resp, ctx.Err = service.GetServiceInProductionEnv(envName, projectName, serviceName, "", ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, true, workLoadType, ctx.Logger)
 }
 
 func RestartService(c *gin.Context) {

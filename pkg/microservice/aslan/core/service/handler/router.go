@@ -54,6 +54,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		productionservices.DELETE("/:name", DeleteProductionService)
 	}
 
+	helmProductionServices := router.Group("helm/production/services")
+	{
+		helmProductionServices.GET("", ListHelmProductionServices)
+		helmProductionServices.POST("", CreateHelmProductionService)
+		helmProductionServices.GET("/:name/serviceModule", GetProductionHelmServiceModule)
+		helmProductionServices.PUT("/:name/file", UpdateProductionSvcFileContent)
+		helmProductionServices.GET("/:name/filePath", GetProductionHelmFilePath)
+		helmProductionServices.GET("/:name/fileContent", GetProductionHelmFileContent)
+		helmProductionServices.PUT("/:name/releaseNaming", UpdateProductionHelmReleaseNaming)
+	}
+
 	k8s := router.Group("services")
 	{
 		k8s.GET("", ListServiceTemplate)

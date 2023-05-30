@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -86,48 +88,74 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	images := make([]string, 0)
+	containers := make([]*commonmodels.Container, 0)
 	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
 		for _, svcAndContainer := range c.jobTaskSpec.ImageAndModules {
 			images = append(images, svcAndContainer.Image)
+			containers = append(containers, &commonmodels.Container{
+				Name:      svcAndContainer.ServiceModule,
+				ImageName: svcAndContainer.ServiceModule,
+				Image:     svcAndContainer.Image,
+			})
 		}
-	}
-
-	variableYaml := ""
-	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
-		vars := []*commonmodels.VariableKV{}
-		for _, v := range c.jobTaskSpec.KeyVals {
-			vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
-		}
-		variableYaml, err = kube.GenerateYamlFromKV(vars)
 	}
 
 	param := &kube.ResourceApplyParam{
 		ProductInfo:           productInfo,
 		ServiceName:           c.jobTaskSpec.ServiceName,
 		Images:                images,
-		VariableYaml:          variableYaml,
 		Uninstall:             false,
 		UpdateServiceRevision: updateServiceRevision,
 		Timeout:               c.timeout(),
 	}
 
-	yamlContent, err := kube.GeneMergedValues(param, c.logger)
+	renderSet, productService, svcTemplate, err := kube.PrepareHelmServiceData(param)
+	if err != nil {
+		msg := fmt.Sprintf("prepare helm service data error: %v", err)
+		logError(c.job, msg, c.logger)
+		return
+	}
+
+	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
+	if !ok {
+		msg := fmt.Sprintf("failed to find chart info in render")
+		logError(c.job, msg, c.logger)
+		return
+	}
+	if chartInfo.OverrideYaml == nil {
+		chartInfo.OverrideYaml = &template.CustomYaml{}
+	}
+
+	variableYaml := ""
+	// variable yaml from workflow task
+	if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
+		variableYaml = c.jobTaskSpec.VariableYaml
+	} else {
+		// variable yaml from env config
+		variableYaml = chartInfo.OverrideYaml.YamlContent
+	}
+
+	param.VariableYaml = variableYaml
+	chartInfo.OverrideYaml.YamlContent = param.VariableYaml
+
+	yamlContent, err := kube.GeneMergedValues(productService, renderSet, param.Images, "")
 	if err != nil {
 		log.Errorf("failed to generate merged values.yaml, err: %w", err)
+		logError(c.job, fmt.Sprintf("fail to generate merged values.yaml, err: %s", err.Error()), c.logger)
 		return
 	}
 
 	c.jobTaskSpec.YamlContent = yamlContent
 	c.ack()
 
-	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s, images %v variableYaml %s updateServiceRevision %v",
-		c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, c.namespace, images, variableYaml, updateServiceRevision)
+	c.logger.Infof("start helm deploy, productName %s serviceName %s namespace %s, images %v variableYaml %s overrideValues: %s updateServiceRevision %v",
+		c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, c.namespace, images, variableYaml, chartInfo.OverrideValues, updateServiceRevision)
 
 	timeOut := c.timeout()
 
 	done := make(chan bool)
 	go func(chan bool) {
-		if err = kube.CreateOrUpdateHelmResource(param, c.logger); err != nil {
+		if err = kube.UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, param.Images, chartInfo.OverrideValues, param.Timeout); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",
@@ -138,6 +166,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		}
 	}(done)
 
+	// we add timeout check here in case helm stuck in pending status
 	select {
 	case <-done:
 		break

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 
 	"github.com/hashicorp/go-multierror"
@@ -148,7 +150,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return
 	}
 
-	prodSvcTemp, errFindProd := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: productSvc.Revision, ProductName: productInfo.ProductName})
+	prodSvcTemp, errFindProd := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: productSvc.Revision, ProductName: productInfo.ProductName}, productInfo.Production)
 	if errFindProd != nil {
 		err = fmt.Errorf("failed to get service: %s with revision: %d, err: %s", serviceName, productSvc.Revision, errFindProd)
 		return
@@ -169,6 +171,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, errBuildParam)
 		return
 	}
+	param.Production = productInfo.Production
 
 	err = InstallService(helmClient, param)
 	if err != nil {
@@ -212,6 +215,24 @@ func ReInstallHelmSvcInAllEnvs(productName string, templateSvc *commonmodels.Ser
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:       productName,
 		Production: util.GetBoolPointer(false),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
+	}
+	retErr := &multierror.Error{}
+	for _, product := range products {
+		err := reInstallHelmServiceInEnv(product, templateSvc)
+		if err != nil {
+			retErr = multierror.Append(retErr, fmt.Errorf("failed to update service: %s/%s, err: %s", product.EnvName, templateSvc.ServiceName, err))
+		}
+	}
+	return retErr.ErrorOrNil()
+}
+
+func ReInstallHelmProductionSvcInAllEnvs(productName string, templateSvc *commonmodels.Service) error {
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:       productName,
+		Production: util.GetBoolPointer(true),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)

@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"net/http"
 	"regexp"
 	"sort"
@@ -1845,6 +1846,61 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 		resp = append(resp, service)
 	}
 	return resp, nil
+}
+
+func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, isProduction, updateServiceRevision bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+	// first we get the current yaml in the current environment
+	currentYaml := ""
+	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, isProduction)
+	if err != nil {
+		log.Infof("failed to get the current service[%s] values from project: %s, env: %s", serviceName, projectName, envName)
+		currentYaml = ""
+	} else {
+		currentYaml = resp.ValuesYaml
+	}
+
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
+	}
+
+	param := &kube.ResourceApplyParam{
+		ProductInfo: prod,
+		ServiceName: serviceName,
+		// no image preview available in this api
+		Images:                make([]string, 0),
+		Uninstall:             false,
+		UpdateServiceRevision: updateServiceRevision,
+		Timeout:               setting.DeployTimeout,
+	}
+
+	renderSet, productService, _, err := kube.PrepareHelmServiceData(param)
+	if err != nil {
+		log.Errorf("prepare helm service data error: %v", err)
+		return nil, err
+	}
+
+	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
+	if !ok {
+		log.Errorf("failed to find chart info in render")
+		return nil, err
+	}
+	if chartInfo.OverrideYaml == nil {
+		chartInfo.OverrideYaml = &template.CustomYaml{}
+	}
+
+	param.VariableYaml = variableYaml
+
+	yamlContent, err := kube.GeneMergedValues(productService, renderSet, param.Images, param.VariableYaml)
+	if err != nil {
+		log.Errorf("failed to generate merged values.yaml, err: %w", err)
+		return nil, err
+	}
+	return &GetHelmValuesDifferenceResp{
+		Current: currentYaml,
+		Latest:  yamlContent,
+	}, nil
 }
 
 func filterServiceVars(serviceName string, deployContents []config.DeployContent, service *commonmodels.DeployService, serviceEnv *commonservice.EnvService) (*commonmodels.DeployService, error) {

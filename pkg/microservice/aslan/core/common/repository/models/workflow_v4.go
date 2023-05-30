@@ -268,6 +268,8 @@ type DeployService struct {
 	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"       yaml:"variable_kvs"    json:"variable_kvs"`
 	// LatestVariableKVs added since 1.18
 	LatestVariableKVs []*commontypes.RenderVariableKV `bson:"latest_variable_kvs"       yaml:"latest_variable_kvs"    json:"latest_variable_kvs"`
+	// VariableYaml added since 1.18, used for helm production environments
+	VariableYaml string `bson:"variable_yaml" yaml:"variable_yaml" json:"variable_yaml"`
 	// KeyVals Deprecated since 1.18
 	KeyVals []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
 	// LatestKeyVals Deprecated since 1.18

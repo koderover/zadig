@@ -604,3 +604,8 @@ func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 
 	return job, nil
 }
+
+type GetHelmValuesDifferenceResp struct {
+	Current string `json:"current"`
+	Latest  string `json:"latest"`
+}
