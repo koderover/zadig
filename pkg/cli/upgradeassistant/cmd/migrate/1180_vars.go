@@ -642,9 +642,14 @@ func turnFlatKVToRenderKV(originKVs []*commonmodels.ServiceKeyVal) ([]*types.Ren
 
 func workflowOriginKValsToVariableConfig(kvs []*commonmodels.ServiceKeyVal) []*commonmodels.DeplopyVariableConfig {
 	ret := make([]*commonmodels.DeplopyVariableConfig, 0)
+	kvSet := sets.NewString()
 	for _, kv := range kvs {
+		if kvSet.Has(ExtractRootKeyFromFlat(kv.Key)) {
+			continue
+		}
+		kvSet.Insert(ExtractRootKeyFromFlat(kv.Key))
 		ret = append(ret, &commonmodels.DeplopyVariableConfig{
-			VariableKey:       kv.Key,
+			VariableKey:       ExtractRootKeyFromFlat(kv.Key),
 			UseGlobalVariable: false,
 		})
 	}
