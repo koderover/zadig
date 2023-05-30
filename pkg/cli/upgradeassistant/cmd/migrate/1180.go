@@ -29,6 +29,7 @@ import (
 	aslanConfig "github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -124,7 +125,49 @@ func migrateSystemTheme() error {
 	return nil
 }
 
+func createDefaultLarkApprovalDefinition(larks []*models.IMApp) error {
+	for _, info := range larks {
+		if err := lark.Validate(info.AppID, info.AppSecret); err != nil {
+			log.Warnf("lark app %s validate err: %v", info.AppID, err)
+			continue
+		}
+		approvalCode, err := lark.NewClient(info.AppID, info.AppSecret).CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
+			Name:        "Zadig 工作流",
+			Description: "Zadig 工作流-OR",
+			Nodes: []*lark.ApprovalNode{
+				{
+					Type: lark.ApproveTypeOr,
+				},
+			},
+		})
+		if err != nil {
+			return errors.Wrapf(err, "create lark approval definition %s", info.AppID)
+		}
+		if info.LarkApprovalCodeList == nil {
+			info.LarkApprovalCodeList = make(map[string]string)
+		}
+		info.LarkApprovalCodeList[string(lark.ApproveTypeOr)] = approvalCode
+		if err = mongodb.NewIMAppColl().Update(context.Background(), info.ID.Hex(), info); err != nil {
+			return errors.Wrapf(err, "update lark app %s", info.AppID)
+		}
+		log.Infof("create lark approval definition %s success, code %s", info.AppID, approvalCode)
+	}
+	return nil
+}
+
 func migrateWorkflowV4LarkApproval() error {
+	log := log.SugaredLogger().With("func", "migrateWorkflowV4LarkApproval")
+	larkApps, err := mongodb.NewIMAppColl().List(context.Background(), setting.IMLark)
+	switch err {
+	case mongo.ErrNoDocuments:
+	case nil:
+		if err = createDefaultLarkApprovalDefinition(larkApps); err != nil {
+			return errors.Wrap(err, "create default lark approval definition")
+		}
+	default:
+		return errors.Wrap(err, "list lark apps")
+	}
+
 	cursor, err := mongodb.NewWorkflowV4Coll().ListByCursor(&mongodb.ListWorkflowV4Option{})
 	if err != nil {
 		return err
@@ -135,16 +178,18 @@ func migrateWorkflowV4LarkApproval() error {
 		if err := cursor.Decode(&workflow); err != nil {
 			return err
 		}
-		setLarkApprovalNodeForWorkflowV4(&workflow)
-		ms = append(ms,
-			mongo.NewUpdateOneModel().
-				SetFilter(bson.D{{"_id", workflow.ID}}).
-				SetUpdate(bson.D{{"$set",
-					bson.D{
-						{"stages", workflow.Stages},
-					}},
-				}),
-		)
+		if setLarkApprovalNodeForWorkflowV4(&workflow) {
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", workflow.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"stages", workflow.Stages},
+						}},
+					}),
+			)
+			log.Infof("add workflowV4 %s", workflow.Name)
+		}
 		if len(ms) >= 50 {
 			log.Infof("update %d workflowV4", len(ms))
 			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
@@ -170,18 +215,20 @@ func migrateWorkflowV4LarkApproval() error {
 		if err := taskCursor.Decode(&workflowTask); err != nil {
 			return err
 		}
-		setLarkApprovalNodeForWorkflowV4Task(&workflowTask)
-		setLarkApprovalNodeForWorkflowV4(workflowTask.OriginWorkflowArgs)
-		mTasks = append(mTasks,
-			mongo.NewUpdateOneModel().
-				SetFilter(bson.D{{"_id", workflowTask.ID}}).
-				SetUpdate(bson.D{{"$set",
-					bson.D{
-						{"stages", workflowTask.Stages},
-						{"origin_workflow_args", workflowTask.OriginWorkflowArgs},
-					}},
-				}),
-		)
+		if setLarkApprovalNodeForWorkflowV4Task(&workflowTask) || setLarkApprovalNodeForWorkflowV4(workflowTask.OriginWorkflowArgs) {
+			mTasks = append(mTasks,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", workflowTask.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"stages", workflowTask.Stages},
+							{"origin_workflow_args", workflowTask.OriginWorkflowArgs},
+						}},
+					}),
+			)
+			log.Infof("add workflowV4 task %s", workflowTask.WorkflowName)
+		}
+
 		if len(mTasks) >= 50 {
 			log.Infof("update %d workflowv4 tasks", len(mTasks))
 			if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
@@ -200,28 +247,44 @@ func migrateWorkflowV4LarkApproval() error {
 	return nil
 }
 
-func setLarkApprovalNodeForWorkflowV4(workflow *models.WorkflowV4) {
+func setLarkApprovalNodeForWorkflowV4(workflow *models.WorkflowV4) (updated bool) {
 	for _, stage := range workflow.Stages {
-		if stage.Approval != nil && stage.Approval.LarkApproval != nil && len(stage.Approval.LarkApproval.ApproveUsers) > 0 {
+		if stage.Approval != nil && stage.Approval.LarkApproval != nil {
+			if len(stage.Approval.LarkApproval.ApprovalNodes) > 0 {
+				continue
+			}
+			if len(stage.Approval.LarkApproval.ApproveUsers) == 0 {
+				continue
+			}
 			stage.Approval.LarkApproval.ApprovalNodes = []*models.LarkApprovalNode{
 				{
 					ApproveUsers: stage.Approval.LarkApproval.ApproveUsers,
 					Type:         lark.ApproveTypeOr,
 				},
 			}
+			updated = true
 		}
 	}
+	return updated
 }
 
-func setLarkApprovalNodeForWorkflowV4Task(workflow *models.WorkflowTask) {
+func setLarkApprovalNodeForWorkflowV4Task(workflow *models.WorkflowTask) (updated bool) {
 	for _, stage := range workflow.Stages {
 		if stage.Approval != nil && stage.Approval.LarkApproval != nil && len(stage.Approval.LarkApproval.ApproveUsers) > 0 {
+			if len(stage.Approval.LarkApproval.ApprovalNodes) > 0 {
+				continue
+			}
+			if len(stage.Approval.LarkApproval.ApproveUsers) == 0 {
+				continue
+			}
 			stage.Approval.LarkApproval.ApprovalNodes = []*models.LarkApprovalNode{
 				{
 					ApproveUsers: stage.Approval.LarkApproval.ApproveUsers,
 					Type:         lark.ApproveTypeOr,
 				},
 			}
+			updated = true
 		}
 	}
+	return updated
 }
