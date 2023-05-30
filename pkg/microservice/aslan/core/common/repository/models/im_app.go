@@ -25,10 +25,13 @@ type IMApp struct {
 	UpdateTime int64              `json:"update_time" bson:"update_time"`
 
 	// Lark fields
-	AppID                   string `json:"app_id" bson:"app_id"`
-	AppSecret               string `json:"app_secret" bson:"app_secret"`
-	EncryptKey              string `json:"encrypt_key" bson:"encrypt_key"`
+	AppID      string `json:"app_id" bson:"app_id"`
+	AppSecret  string `json:"app_secret" bson:"app_secret"`
+	EncryptKey string `json:"encrypt_key" bson:"encrypt_key"`
+	// Deprecated: use LarkApprovalCodeList instead
 	LarkDefaultApprovalCode string `json:"-" bson:"lark_default_approval_code"`
+	// LarkApprovalCodeList is a json string save all approval definition code
+	LarkApprovalCodeList map[string]string `json:"-" bson:"lark_approval_code_list"`
 
 	// DingTalk fields
 	DingTalkAppKey                  string `json:"dingtalk_app_key" bson:"dingtalk_app_key"`

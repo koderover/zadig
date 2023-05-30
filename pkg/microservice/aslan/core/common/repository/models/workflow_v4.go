@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/yaml.v3"
@@ -133,9 +134,43 @@ type DingTalkApprovalUser struct {
 }
 
 type LarkApproval struct {
-	Timeout      int                 `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
-	ApprovalID   string              `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
-	ApproveUsers []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Timeout int `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	// ApprovalID: lark im app mongodb id
+	ApprovalID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
+	// Deprecated: use ApprovalNodes instead
+	ApproveUsers  []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	ApprovalNodes []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+}
+
+// GetNodeTypeKey get node type key for deduplication
+func (l LarkApproval) GetNodeTypeKey() string {
+	var keys []string
+	for _, node := range l.ApprovalNodes {
+		keys = append(keys, string(node.Type))
+	}
+	return strings.Join(keys, "-")
+}
+
+// GetLarkApprovalNode convert approval node to lark sdk approval node
+func (l LarkApproval) GetLarkApprovalNode() (resp []*lark.ApprovalNode) {
+	for _, node := range l.ApprovalNodes {
+		resp = append(resp, &lark.ApprovalNode{
+			ApproverIDList: func() (re []string) {
+				for _, user := range node.ApproveUsers {
+					re = append(re, user.ID)
+				}
+				return
+			}(),
+			Type: node.Type,
+		})
+	}
+	return
+}
+
+type LarkApprovalNode struct {
+	ApproveUsers    []*LarkApprovalUser    `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Type            lark.ApproveType       `bson:"type"                        yaml:"type"                       json:"type"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
 type LarkApprovalUser struct {
