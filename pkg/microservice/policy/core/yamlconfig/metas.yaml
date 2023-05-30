@@ -156,6 +156,8 @@ metas:
           - method: POST
             endpoint: /api/aslan/service/template/load
           - method: POST
+            endpoint: /api/aslan/service/template/reload
+          - method: POST
             endpoint: /api/aslan/service/helm/services
           - method: PUT
             endpoint: /api/aslan/service/helm/services
@@ -215,6 +217,10 @@ metas:
         rules:
           - method: POST
             endpoint: api/aslan/service/production/services/k8s
+          - method: POST
+            endpoint: /api/aslan/service/template/production/load
+          - method: POST
+            endpoint: /api/aslan/service/template/production/reload
       - action: edit_production_service
         alias: 编辑
         description: ''

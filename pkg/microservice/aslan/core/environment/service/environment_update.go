@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 
 	"github.com/hashicorp/go-multierror"
@@ -148,7 +150,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return
 	}
 
-	prodSvcTemp, errFindProd := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: productSvc.Revision, ProductName: productInfo.ProductName})
+	prodSvcTemp, errFindProd := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: productSvc.Revision, ProductName: productInfo.ProductName}, productInfo.Production)
 	if errFindProd != nil {
 		err = fmt.Errorf("failed to get service: %s with revision: %d, err: %s", serviceName, productSvc.Revision, errFindProd)
 		return
@@ -169,6 +171,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, errBuildParam)
 		return
 	}
+	param.Production = productInfo.Production
 
 	err = InstallService(helmClient, param)
 	if err != nil {
@@ -384,13 +387,13 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			}
 		}
 
-		globalVariables, svc.OverrideYaml.RenderVaraibleKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVaraibleKVs, curSvcRender.OverrideYaml.RenderVaraibleKVs)
+		globalVariables, svc.OverrideYaml.RenderVariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
 		if err != nil {
 			log.Errorf("failed to merge global and render variables for service %s, err: %w", svc.ServiceName, err)
 			return e.ErrUpdateEnv.AddDesc("failed to merge global and render variables")
 		}
 
-		svc.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(svc.OverrideYaml.RenderVaraibleKVs)
+		svc.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(svc.OverrideYaml.RenderVariableKVs)
 		if err != nil {
 			log.Errorf("failed to convert render variable kvs to yaml, err: %w", err)
 			return e.ErrUpdateEnv.AddDesc("failed to convert render variable kvs to yaml")

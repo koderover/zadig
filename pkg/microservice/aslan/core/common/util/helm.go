@@ -43,8 +43,8 @@ var (
 	imageParseRegex = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
 )
 
-func DownloadServiceManifests(base, projectName, serviceName string) error {
-	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
+func DownloadServiceManifests(base, projectName, serviceName string, production bool) error {
+	s3Base := config.ObjectStorageServicePath(projectName, serviceName, production)
 	return fsservice.DownloadAndExtractFilesFromS3(serviceName, base, s3Base, log.SugaredLogger())
 }
 
@@ -54,30 +54,14 @@ func DownloadProductionServiceManifests(base, productName, serviceName string) e
 }
 
 func SaveAndUploadService(projectName, serviceName string, copies []string, fileTree fs.FS, isProductionService bool) error {
-	var localBase, s3Base string
-	if !isProductionService {
-		localBase = config.LocalServicePath(projectName, serviceName)
-		s3Base = config.ObjectStorageServicePath(projectName, serviceName)
-	} else {
-		localBase = config.LocalProductionServicePath(projectName, serviceName)
-		s3Base = config.ObjectStorageProductionServicePath(projectName, serviceName)
-	}
+	localBase, s3Base := config.LocalServicePath(projectName, serviceName, isProductionService), config.ObjectStorageServicePath(projectName, serviceName, isProductionService)
 	names := append([]string{serviceName}, copies...)
 	return fsservice.SaveAndUploadFiles(fileTree, names, localBase, s3Base, log.SugaredLogger())
 }
 
 func CopyAndUploadService(projectName, serviceName, currentChartPath string, copies []string, isProductionService bool) error {
-	var localBase, s3Base string
-	if !isProductionService {
-		localBase = config.LocalServicePath(projectName, serviceName)
-		s3Base = config.ObjectStorageServicePath(projectName, serviceName)
-	} else {
-		localBase = config.LocalProductionServicePath(projectName, serviceName)
-		s3Base = config.ObjectStorageProductionServicePath(projectName, serviceName)
-	}
-
+	localBase, s3Base := config.LocalServicePath(projectName, serviceName, isProductionService), config.ObjectStorageServicePath(projectName, serviceName, isProductionService)
 	names := append([]string{serviceName}, copies...)
-
 	return fsservice.CopyAndUploadFiles(names, path.Join(localBase, serviceName), s3Base, localBase, currentChartPath, log.SugaredLogger())
 }
 
@@ -95,7 +79,7 @@ func ExtractImageName(imageURI string) string {
 	return ""
 }
 
-func PreloadServiceManifestsByRevision(base string, svc *commonmodels.Service) error {
+func PreloadServiceManifestsByRevision(base string, svc *commonmodels.Service, production bool) error {
 	ok, err := fsutil.DirExists(base)
 	if err != nil {
 		log.Errorf("Failed to check if dir %s is exiting, err: %s", base, err)
@@ -107,7 +91,7 @@ func PreloadServiceManifestsByRevision(base string, svc *commonmodels.Service) e
 
 	//download chart info by revision
 	serviceNameWithRevision := config.ServiceNameWithRevision(svc.ServiceName, svc.Revision)
-	s3Base := config.ObjectStorageServicePath(svc.ProductName, svc.ServiceName)
+	s3Base := config.ObjectStorageServicePath(svc.ProductName, svc.ServiceName, production)
 	return fsservice.DownloadAndExtractFilesFromS3(serviceNameWithRevision, base, s3Base, log.SugaredLogger())
 }
 
@@ -127,7 +111,7 @@ func PreloadProductionServiceManifestsByRevision(base string, svc *commonmodels.
 	return fsservice.DownloadAndExtractFilesFromS3(serviceNameWithRevision, base, s3Base, log.SugaredLogger())
 }
 
-func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
+func PreLoadServiceManifests(base string, svc *commonmodels.Service, production bool) error {
 	ok, err := fsutil.DirExists(base)
 	if err != nil {
 		log.Errorf("Failed to check if dir %s is exiting, err: %s", base, err)
@@ -137,44 +121,23 @@ func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
 		return nil
 	}
 
-	if err = DownloadServiceManifests(base, svc.ProductName, svc.ServiceName); err == nil {
+	if err = DownloadServiceManifests(base, svc.ProductName, svc.ServiceName, production); err == nil {
 		return nil
 	}
 
 	log.Warnf("Failed to download service from s3, err: %s", err)
 	switch svc.Source {
 	case setting.SourceFromGerrit:
-		return preLoadServiceManifestsFromGerrit(svc, false)
+		return preLoadServiceManifestsFromGerrit(svc, production)
 	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
-		return preLoadServiceManifestsFromGitee(svc, false)
+		return preLoadServiceManifestsFromGitee(svc, production)
 	default:
-		return preLoadServiceManifestsFromSource(svc, false)
+		return preLoadServiceManifestsFromSource(svc, production)
 	}
 }
 
 func PreLoadProductionServiceManifests(base string, svc *commonmodels.Service) error {
-	ok, err := fsutil.DirExists(base)
-	if err != nil {
-		log.Errorf("Failed to check if dir %s is exiting, err: %s", base, err)
-		return err
-	}
-	if ok {
-		return nil
-	}
-
-	if err = DownloadProductionServiceManifests(base, svc.ProductName, svc.ServiceName); err == nil {
-		return nil
-	}
-
-	log.Warnf("Failed to download service from s3, err: %s", err)
-	switch svc.Source {
-	case setting.SourceFromGerrit:
-		return preLoadServiceManifestsFromGerrit(svc, true)
-	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
-		return preLoadServiceManifestsFromGitee(svc, true)
-	default:
-		return preLoadServiceManifestsFromSource(svc, true)
-	}
+	return PreLoadServiceManifests(base, svc, true)
 }
 
 func preLoadServiceManifestsFromGerrit(svc *commonmodels.Service, isProductionService bool) error {

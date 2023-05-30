@@ -24,6 +24,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -142,9 +144,9 @@ type ChartImagesResp struct {
 	ServiceImages []*ServiceImages `json:"serviceImages"`
 }
 
-func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLogger) ([]*HelmReleaseResp, error) {
+func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, log *zap.SugaredLogger) ([]*HelmReleaseResp, error) {
 	projectName, filterStr := args.ProjectName, args.Filter
-	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
@@ -206,7 +208,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 	}
 
 	// set service template data
-	serviceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(projectName)
+	serviceTmpls, err := repository.ListMaxRevisionsServices(projectName, production)
 	if err != nil {
 		return nil, errors.Errorf("failed to list service templates for project: %s", projectName)
 	}
@@ -286,13 +288,13 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, log *zap.SugaredLo
 }
 
 func loadChartFilesInfo(productName, serviceName string, revision int64, dir string) ([]*types.FileInfo, error) {
-	base := config.LocalServicePathWithRevision(productName, serviceName, revision)
+	base := config.LocalTestServicePathWithRevision(productName, serviceName, revision)
 
 	var fis []*types.FileInfo
 	files, err := os.ReadDir(filepath.Join(base, serviceName, dir))
 	if err != nil {
 		log.Warnf("failed to read chart info for service %s with revision %d", serviceName, revision)
-		base = config.LocalServicePath(productName, serviceName)
+		base = config.LocalTestServicePath(productName, serviceName)
 		files, err = os.ReadDir(filepath.Join(base, serviceName, dir))
 		if err != nil {
 			return nil, err
@@ -322,12 +324,12 @@ func loadChartFilesInfo(productName, serviceName string, revision int64, dir str
 func prepareChartVersionData(prod *models.Product, serviceObj *models.Service) error {
 	productName := prod.ProductName
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
-	base := config.LocalServicePathWithRevision(productName, serviceName, revision)
-	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
+	base := config.LocalTestServicePathWithRevision(productName, serviceName, revision)
+	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj, prod.Production); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version", revision, serviceName)
 		// use the latest version when it fails to download the specific version
-		base = config.LocalServicePath(productName, serviceName)
-		if err = commonutil.PreLoadServiceManifests(base, serviceObj); err != nil {
+		base = config.LocalTestServicePath(productName, serviceName)
+		if err = commonutil.PreLoadServiceManifests(base, serviceObj, prod.Production); err != nil {
 			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
 			return err
 		}

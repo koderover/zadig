@@ -291,14 +291,14 @@ type EventHandlerResponse struct {
 }
 
 func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, error) {
-	log.Infof("EventHandler: new request approval received")
-	approval, err := mongodb.NewIMAppColl().GetByAppID(context.Background(), appID)
+	log.Infof("LarkEventHandler: new request approval received")
+	approval, err := mongodb.NewIMAppColl().GetLarkByAppID(context.Background(), appID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get approval by appID")
 	}
 	key := approval.EncryptKey
 	approvalID := approval.ID.Hex()
-	log.Infof("EventHandler: new request approval ID %s", approvalID)
+	log.Infof("LarkEventHandler: new request approval ID %s", approvalID)
 
 	raw, err := larkDecrypt(gjson.Get(body, "encrypt").String(), key)
 	if err != nil {
@@ -325,7 +325,7 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 		log.Infof("get unknown callback event type %s, ignored", callback.Event.Type)
 		return nil, nil
 	}
-	log.Infof("EventHandler: new request approval ID %s, request UUID %s, event UUID %s, ts: %s", approvalID, callback.UUID, callback.Event.UUID, callback.Ts)
+	log.Infof("LarkEventHandler: new request approval ID %s, request UUID %s, event UUID %s, ts: %s", approvalID, callback.UUID, callback.Event.UUID, callback.Ts)
 	manager := GetLarkApprovalManager(approvalID)
 	if !manager.CheckAndUpdateUUID(callback.UUID) {
 		log.Infof("check existed request uuid %s, ignored", callback.UUID)

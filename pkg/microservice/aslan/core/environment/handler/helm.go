@@ -35,7 +35,21 @@ func ListReleases(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListReleases(args, envName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListReleases(args, envName, false, ctx.Logger)
+}
+
+func ListProductionReleases(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	envName := c.Param("name")
+
+	args := &service.HelmReleaseQueryArgs{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListReleases(args, envName, true, ctx.Logger)
 }
 
 func GetChartValues(c *gin.Context) {
@@ -45,7 +59,17 @@ func GetChartValues(c *gin.Context) {
 	projectName := c.Query("projectName")
 	serviceName := c.Query("serviceName")
 
-	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, serviceName)
+	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, serviceName, false)
+}
+
+func GetProductionChartValues(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
+	serviceName := c.Query("serviceName")
+
+	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, serviceName, true)
 }
 
 func GetChartInfos(c *gin.Context) {

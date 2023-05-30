@@ -330,6 +330,7 @@ func getRenderedManifests(ctx context.Context, httpClient *httpclient.Client, en
 		httpclient.SetQueryParam("projectName", productName),
 		httpclient.SetQueryParam("envName", envName),
 		httpclient.SetQueryParam("serviceName", serviceName),
+		httpclient.SetQueryParam("source", "wd"),
 		httpclient.SetQueryParam("ifPassFilter", "true"))
 	if err != nil {
 		return nil, err
@@ -368,14 +369,14 @@ func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName,
 }
 
 func fetchWorkloadsForImportedService(ctx context.Context, envName, namespace, productName, serviceName string, kubeclient client.Client, httpClient *httpclient.Client, log *zap.SugaredLogger) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
-	productInfo, err := getProductInfo(ctx, httpClient, envName, productName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find product info: %s/%s", productName, envName)
-	}
+	//productInfo, err := getProductInfo(ctx, httpClient, envName, productName)
+	//if err != nil {
+	//	return nil, nil, fmt.Errorf("failed to find product info: %s/%s", productName, envName)
+	//}
 
-	if serviceDeployed(productInfo.ServiceDeployStrategy, serviceName) {
-		return nil, nil, nil
-	}
+	//if serviceDeployed(productInfo.ServiceDeployStrategy, serviceName) {
+	//	return nil, nil, nil
+	//}
 
 	manifests, err := getRenderedManifests(ctx, httpClient, envName, productName, serviceName)
 	if err != nil {
@@ -469,11 +470,6 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range p.Task.ReplaceResources {
-				if err := workLoadDeployStat(p.kubeClient, p.Task.Namespace, p.Task.RelatedPodLabels, resource.PodOwnerUID); err != nil {
-					p.Task.TaskStatus = config.StatusFailed
-					p.Task.Error = err.Error()
-					return
-				}
 				switch resource.Kind {
 				case setting.Deployment:
 					d, found, e := getter.GetDeployment(p.Task.Namespace, resource.Name, p.kubeClient)

@@ -57,7 +57,7 @@ type getInitProductRespone struct {
 // @Param 	isBaseEnv 		query		string								true	"is base env"
 // @Param 	baseEnv 		query		string								true	"base env"
 // @Success 200 			{object} 	getInitProductRespone
-// @Router /environment/init_info/{name} [get]
+// @Router /api/aslan/environment/init_info/{name} [get]
 func GetInitProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

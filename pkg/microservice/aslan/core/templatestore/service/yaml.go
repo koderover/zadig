@@ -102,7 +102,7 @@ func UpdateYamlTemplateVariable(id string, template *template.YamlTemplate, logg
 		return fmt.Errorf("failed to find template by id: %s, err: %w", id, err)
 	}
 
-	_, err = commonutil.RenderK8sSvcYamlStrict(origin.Content, "FakeProjectName", "FakeServiceName", template.VariableYaml)
+	_, err = commonutil.RenderK8sSvcYamlStrict(origin.Content, "FakeProjectName", template.Name, template.VariableYaml)
 	if err != nil {
 		return fmt.Errorf("failed to validate variable, err: %s", err)
 	}
@@ -118,7 +118,7 @@ func ListYamlTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*temp
 	resp := make([]*template.YamlListObject, 0)
 	templateList, total, err := commonrepo.NewYamlTemplateColl().List(pageNum, pageSize)
 	if err != nil {
-		logger.Errorf("list dockerfile template error: %s", err)
+		logger.Errorf("list yaml template error: %s", err)
 		return resp, 0, err
 	}
 	for _, obj := range templateList {
@@ -169,13 +169,27 @@ func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*template
 	ret := make([]*template.ServiceReference, 0)
 	referenceList, err := commonrepo.NewServiceColl().GetYamlTemplateReference(id)
 	if err != nil {
-		logger.Errorf("Failed to get build reference for dockerfile template id: %s, the error is: %s", id, err)
+		logger.Errorf("Failed to get build reference for yaml template id: %s, the error is: %s", id, err)
 		return ret, err
 	}
 	for _, reference := range referenceList {
 		ret = append(ret, &template.ServiceReference{
 			ServiceName: reference.ServiceName,
 			ProjectName: reference.ProductName,
+			Production:  false,
+		})
+	}
+
+	productionService, err := commonrepo.NewProductionServiceColl().GetYamlTemplateReference(id)
+	if err != nil {
+		logger.Errorf("Failed to get build reference for yaml template id: %s from production service, the error is: %s", id, err)
+		return ret, err
+	}
+	for _, reference := range productionService {
+		ret = append(ret, &template.ServiceReference{
+			ServiceName: reference.ServiceName,
+			ProjectName: reference.ProductName,
+			Production:  true,
 		})
 	}
 	return ret, nil
@@ -202,7 +216,7 @@ func ValidateVariable(content, variable string) error {
 		return fmt.Errorf("failed to marshal default system variable, err: %s", err)
 	}
 
-	_, err = commonutil.RenderK8sSvcYamlStrict(content, "FakeProjectName", "FakeServiceName", variable, string(defaultSystemVariableYaml))
+	_, err = commonutil.RenderK8sSvcYamlStrict(content, "FakeProjectName", "ValidateVariable", variable, string(defaultSystemVariableYaml))
 	if err != nil {
 		return fmt.Errorf("failed to validate variable, err: %s", err)
 	}

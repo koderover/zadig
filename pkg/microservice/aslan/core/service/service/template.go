@@ -51,22 +51,24 @@ func geneCreateFromDetail(templateId string, variableYaml string) *commonmodels.
 func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadServiceFromYamlTemplateReq, force bool, logger *zap.SugaredLogger) error {
 	template, err := commonrepo.NewYamlTemplateColl().GetByName(req.TemplateName)
 	if err != nil {
-		logger.Errorf("Failed to find template of name: %s, the error is: %s", req.TemplateName, err)
+		logger.Errorf("Failed to find template of name: %s, err: %w", req.TemplateName, err)
 		return err
 	}
 
-	variableYaml, err := req.VariableYaml.FormYamlString()
+	mergedYaml, mergedKVs, err := commonutil.MergeServiceVariableKVsAndKVInput(template.ServiceVariableKVs, req.VariableYaml)
 	if err != nil {
-		logger.Errorf("Failed to form yaml string, the error is: %s", err)
-		return err
+		return fmt.Errorf("failed to merge variable yaml, err: %w", err)
 	}
+
 	loadArgs := &LoadServiceFromYamlTemplateReq{
-		ProjectName:  req.ProjectKey,
-		ServiceName:  req.ServiceName,
-		TemplateID:   template.ID.Hex(),
-		AutoSync:     req.AutoSync,
-		VariableYaml: variableYaml,
+		ProjectName:        req.ProjectKey,
+		ServiceName:        req.ServiceName,
+		TemplateID:         template.ID.Hex(),
+		AutoSync:           req.AutoSync,
+		VariableYaml:       mergedYaml,
+		ServiceVariableKVs: mergedKVs,
 	}
+
 	return LoadServiceFromYamlTemplate(username, loadArgs, force, logger)
 }
 
@@ -105,6 +107,41 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 	return err
 }
 
+func LoadProductionServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemplateReq, force bool, logger *zap.SugaredLogger) error {
+	projectName, serviceName, templateID, autoSync := req.ProjectName, req.ServiceName, req.TemplateID, req.AutoSync
+	template, err := commonrepo.NewYamlTemplateColl().GetById(templateID)
+	if err != nil {
+		logger.Errorf("Failed to find template of ID: %s, the error is: %s", templateID, err)
+		return err
+	}
+
+	renderedYaml := renderSystemVars(template.Content, projectName, serviceName)
+	fullRenderedYaml, err := commonutil.RenderK8sSvcYamlStrict(template.Content, projectName, serviceName, template.VariableYaml, req.VariableYaml)
+	if err != nil {
+		return err
+	}
+
+	service := &commonmodels.Service{
+		ServiceName:        serviceName,
+		Type:               setting.K8SDeployType,
+		ProductName:        projectName,
+		Source:             setting.ServiceSourceTemplate,
+		Yaml:               renderedYaml,
+		RenderedYaml:       fullRenderedYaml,
+		Visibility:         setting.PrivateVisibility,
+		TemplateID:         templateID,
+		AutoSync:           autoSync,
+		VariableYaml:       req.VariableYaml,
+		ServiceVariableKVs: req.ServiceVariableKVs,
+		CreateFrom:         geneCreateFromDetail(templateID, req.VariableYaml),
+	}
+	_, err = CreateProductionServiceTemplate(username, service, force, logger)
+	if err != nil {
+		logger.Errorf("Failed to create production service template from template ID: %s, the error is: %s", templateID, err)
+	}
+	return err
+}
+
 func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemplateReq, logger *zap.SugaredLogger) error {
 	projectName, serviceName, templateID, autoSync := req.ProjectName, req.ServiceName, req.TemplateID, req.AutoSync
 	service, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -130,6 +167,33 @@ func ReloadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemp
 	service.AutoSync = autoSync
 	service.TemplateID = templateID
 	return reloadServiceFromYamlTemplateImpl(username, projectName, template, service, req.VariableYaml, req.ServiceVariableKVs)
+}
+
+func ReloadProductionServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemplateReq, logger *zap.SugaredLogger) error {
+	projectName, serviceName, templateID, autoSync := req.ProjectName, req.ServiceName, req.TemplateID, req.AutoSync
+	service, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		ProductName: projectName,
+	})
+	if err != nil {
+		logger.Errorf("Cannot find production service of name [%s] from project [%s], the error is: %s", serviceName, projectName, err)
+		return err
+	}
+	if service.Source != setting.ServiceSourceTemplate {
+		return errors.New("production service is not created from template")
+	}
+	if service.TemplateID == "" {
+		return fmt.Errorf("failed to find template id for production service: %s", serviceName)
+	}
+	template, err := commonrepo.NewYamlTemplateColl().GetById(templateID)
+	if err != nil {
+		logger.Errorf("Failed to find template of ID: %s, the error is: %s", templateID, err)
+		return err
+	}
+
+	service.AutoSync = autoSync
+	service.TemplateID = templateID
+	return reloadProductionServiceFromYamlTemplateImpl(username, projectName, template, service, req.VariableYaml, req.ServiceVariableKVs)
 }
 
 func PreviewServiceFromYamlTemplate(req *LoadServiceFromYamlTemplateReq, logger *zap.SugaredLogger) (string, error) {
@@ -166,6 +230,12 @@ func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.Sugar
 	if err != nil {
 		return err
 	}
+	productionServiceList, err := commonrepo.NewProductionServiceColl().GetYamlTemplateReference(templateId)
+	if err != nil {
+		return err
+	}
+
+	// serviceList = append(serviceList, productionServiceList...)
 	servicesByProject := make(map[string][]*commonmodels.Service)
 	for _, service := range serviceList {
 		if !service.AutoSync {
@@ -173,6 +243,14 @@ func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.Sugar
 		}
 		servicesByProject[service.ProductName] = append(servicesByProject[service.ProductName], service)
 	}
+	productionServicesByProject := make(map[string][]*commonmodels.Service)
+	for _, service := range productionServiceList {
+		if !service.AutoSync {
+			continue
+		}
+		productionServicesByProject[service.ProductName] = append(productionServicesByProject[service.ProductName], service)
+	}
+
 	yamlTemplate, err := commonrepo.NewYamlTemplateColl().GetById(templateId)
 	if err != nil {
 		return fmt.Errorf("failed to find yaml template: %s, err: %s", templateId, err)
@@ -180,10 +258,22 @@ func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.Sugar
 	for _, services := range servicesByProject {
 		go func(pServices []*commonmodels.Service) {
 			for _, service := range pServices {
-				err := reloadServiceFromYamlTemplate(userName, service.ProductName, yamlTemplate, service)
+				err := reloadServiceFromYamlTemplate(userName, service.ProductName, yamlTemplate, service, false)
 				if err != nil {
 					logger.Error(err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
+					notify.SendErrorMessage(userName, title, "", err, logger)
+				}
+			}
+		}(services)
+	}
+	for _, services := range productionServicesByProject {
+		go func(pServices []*commonmodels.Service) {
+			for _, service := range pServices {
+				err := reloadServiceFromYamlTemplate(userName, service.ProductName, yamlTemplate, service, true)
+				if err != nil {
+					logger.Error(err)
+					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 生产服务失败", service.ProductName, service.ServiceName)
 					notify.SendErrorMessage(userName, title, "", err, logger)
 				}
 			}
@@ -338,12 +428,43 @@ func reloadServiceFromYamlTemplateImpl(userName, projectName string, template *c
 	return nil
 }
 
-func reloadServiceFromYamlTemplate(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service) error {
+func reloadProductionServiceFromYamlTemplateImpl(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service, variableYaml string, serviceVariableKVs []*commontypes.ServiceVariableKV) error {
+	renderedYaml := renderSystemVars(template.Content, projectName, service.ServiceName)
+	fullRenderedYaml, err := commonutil.RenderK8sSvcYamlStrict(template.Content, projectName, service.ServiceName, template.VariableYaml, variableYaml)
+	if err != nil {
+		return err
+	}
+
+	svc := &commonmodels.Service{
+		ServiceName:        service.ServiceName,
+		Type:               setting.K8SDeployType,
+		ProductName:        projectName,
+		Source:             setting.ServiceSourceTemplate,
+		Yaml:               renderedYaml,
+		RenderedYaml:       fullRenderedYaml,
+		Visibility:         setting.PrivateVisibility,
+		VariableYaml:       variableYaml,
+		ServiceVariableKVs: serviceVariableKVs,
+		TemplateID:         service.TemplateID,
+		CreateFrom:         geneCreateFromDetail(service.TemplateID, variableYaml),
+		AutoSync:           service.AutoSync,
+	}
+	_, err = CreateProductionServiceTemplate(userName, svc, true, log.SugaredLogger())
+	if err != nil {
+		return fmt.Errorf("failed to reload production service template from template ID: %s, error : %s", service.TemplateID, err)
+	}
+	return nil
+}
+
+func reloadServiceFromYamlTemplate(userName, projectName string, template *commonmodels.YamlTemplate, service *commonmodels.Service, production bool) error {
 	// merge service variable and yaml variable
 	variableYaml, kvs, err := buildYamlTemplateVariables(service, template)
 	if err != nil {
 		return err
 	}
 
+	if production {
+		return reloadProductionServiceFromYamlTemplateImpl(userName, projectName, template, service, variableYaml, kvs)
+	}
 	return reloadServiceFromYamlTemplateImpl(userName, projectName, template, service, variableYaml, kvs)
 }

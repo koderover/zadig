@@ -113,6 +113,7 @@ func CreateHelmProductionService(c *gin.Context) {
 	}
 
 	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
+	args.Production = true
 
 	bs, _ := json.Marshal(args)
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", args.Name), string(bs), ctx.Logger)

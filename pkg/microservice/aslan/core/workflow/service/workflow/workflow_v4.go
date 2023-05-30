@@ -700,8 +700,30 @@ func lintApprovals(approval *commonmodels.Approval) error {
 		if len(approval.LarkApproval.ApproveUsers) == 0 {
 			return errors.New("num of approver is 0")
 		}
+	case config.DingTalkApproval:
+		if approval.DingTalkApproval == nil {
+			return errors.New("approval not found")
+		}
+		userIDSets := sets.NewString()
+		if len(approval.DingTalkApproval.ApprovalNodes) > 20 {
+			return errors.New("num of approval-node should not exceed 20")
+		}
+		if len(approval.DingTalkApproval.ApprovalNodes) == 0 {
+			return errors.New("num of approval-node is 0")
+		}
+		for i, node := range approval.DingTalkApproval.ApprovalNodes {
+			if len(node.ApproveUsers) == 0 {
+				return errors.Errorf("num of approval-node %d approver is 0", i)
+			}
+			for _, user := range node.ApproveUsers {
+				if userIDSets.Has(user.ID) {
+					return errors.Errorf("Duplicate approvers %s should not appear in a complete approval process", user.Name)
+				}
+				userIDSets.Insert(user.ID)
+			}
+		}
 	default:
-		return errors.New("invalid approval type")
+		return errors.Errorf("invalid approval type %s", approval.Type)
 	}
 
 	return nil
@@ -1740,7 +1762,7 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 
 func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, isProduction, updateServiceRevision bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	// first we get the current yaml in the current environment
-	resp, err := commonservice.GetChartValues(projectName, envName, serviceName)
+	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, isProduction)
 	if err != nil {
 		log.Infof("failed to get the current service[%s] values from project: %s, env: %s", serviceName, projectName, envName)
 		return nil, err
@@ -1757,13 +1779,29 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		ServiceName: serviceName,
 		// no image preview available in this api
 		Images:                make([]string, 0),
-		VariableYaml:          variableYaml,
 		Uninstall:             false,
 		UpdateServiceRevision: updateServiceRevision,
 		Timeout:               setting.DeployTimeout,
 	}
 
-	yamlContent, err := kube.GeneMergedValues(param, log)
+	renderSet, productService, _, err := kube.PrepareHelmServiceData(param)
+	if err != nil {
+		log.Errorf("prepare helm service data error: %v", err)
+		return nil, err
+	}
+
+	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
+	if !ok {
+		log.Errorf("failed to find chart info in render")
+		return nil, err
+	}
+	if chartInfo.OverrideYaml == nil {
+		chartInfo.OverrideYaml = &template.CustomYaml{}
+	}
+
+	param.VariableYaml = variableYaml
+
+	yamlContent, err := kube.GeneMergedValues(productService, renderSet, param.Images, param.VariableYaml)
 	if err != nil {
 		log.Errorf("failed to generate merged values.yaml, err: %w", err)
 		return nil, err

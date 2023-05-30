@@ -29,6 +29,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 
 	"github.com/27149chen/afero"
@@ -133,19 +135,14 @@ type GetFileContentParam struct {
 	DeliveryVersion bool   `json:"deliveryVersion" form:"deliveryVersion"`
 }
 
-func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService, error) {
+func ListHelmServices(productName string, production bool, log *zap.SugaredLogger) (*HelmService, error) {
 	helmService := &HelmService{
 		ServiceInfos: []*commonmodels.Service{},
 		FileInfos:    []*types.FileInfo{},
 		Services:     [][]string{},
 	}
 
-	opt := &commonrepo.ServiceListOption{
-		ProductName: productName,
-		Type:        setting.HelmDeployType,
-	}
-
-	services, err := commonrepo.NewServiceColl().ListMaxRevisions(opt)
+	services, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
 		log.Errorf("[helmService.list] err:%v", err)
 		return nil, e.ErrListTemplate.AddErr(err)
@@ -153,7 +150,7 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 	helmService.ServiceInfos = services
 
 	if len(services) > 0 {
-		fis, err := loadServiceFileInfos(services[0].ProductName, services[0].ServiceName, 0, "")
+		fis, err := loadServiceFileInfos(services[0].ProductName, services[0].ServiceName, 0, "", production)
 		if err != nil {
 			log.Errorf("Failed to load service file info, err: %s", err)
 			return nil, e.ErrListTemplate.AddErr(err)
@@ -166,38 +163,9 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 		return nil, e.ErrListTemplate.AddErr(err)
 	}
 	helmService.Services = project.Services
-
-	return helmService, nil
-}
-
-func ListHelmProductionServices(productName string, log *zap.SugaredLogger) (*HelmService, error) {
-	helmService := &HelmService{
-		ServiceInfos: []*commonmodels.Service{},
-		FileInfos:    []*types.FileInfo{},
-		Services:     [][]string{},
+	if production {
+		helmService.Services = project.ProductionServices
 	}
-
-	services, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(productName, setting.HelmDeployType)
-	if err != nil {
-		log.Errorf("[helmService.list] err:%v", err)
-		return nil, e.ErrListTemplate.AddErr(err)
-	}
-	helmService.ServiceInfos = services
-
-	if len(services) > 0 {
-		fis, err := loadProductionServiceFileInfos(services[0].ProductName, services[0].ServiceName, 0, "")
-		if err != nil {
-			log.Errorf("Failed to load service file info, err: %s", err)
-			return nil, e.ErrListTemplate.AddErr(err)
-		}
-		helmService.FileInfos = fis
-	}
-	project, err := templaterepo.NewProductColl().Find(productName)
-	if err != nil {
-		log.Errorf("Failed to find project info, err: %s", err)
-		return nil, e.ErrListTemplate.AddErr(err)
-	}
-	helmService.Services = project.Services
 
 	return helmService, nil
 }
@@ -282,8 +250,8 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, isPro
 	return helmServiceModule, err
 }
 
-func GetFilePath(serviceName, productName string, revision int64, dir string, _ *zap.SugaredLogger) ([]*types.FileInfo, error) {
-	return loadServiceFileInfos(productName, serviceName, revision, dir)
+func GetFilePath(serviceName, productName string, revision int64, dir string, production bool, _ *zap.SugaredLogger) ([]*types.FileInfo, error) {
+	return loadServiceFileInfos(productName, serviceName, revision, dir, production)
 }
 
 func GetProductionHelmServiceFilePath(serviceName, productName string, revision int64, dir string, _ *zap.SugaredLogger) ([]*types.FileInfo, error) {
@@ -301,17 +269,17 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 		return "", e.ErrFileContent.AddDesc(err.Error())
 	}
 
-	base := config.LocalServicePath(productName, serviceName)
+	base := config.LocalTestServicePath(productName, serviceName)
 	if revision > 0 {
-		base = config.LocalServicePathWithRevision(productName, serviceName, revision)
-		if err = commonutil.PreloadServiceManifestsByRevision(base, svc); err != nil {
+		base = config.LocalTestServicePathWithRevision(productName, serviceName, revision)
+		if err = commonutil.PreloadServiceManifestsByRevision(base, svc, false); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
 		}
 	}
 	if err != nil || revision == 0 {
-		base = config.LocalServicePath(productName, serviceName)
-		err = commonutil.PreLoadServiceManifests(base, svc)
+		base = config.LocalTestServicePath(productName, serviceName)
+		err = commonutil.PreLoadServiceManifests(base, svc, false)
 		if err != nil {
 			return "", e.ErrFileContent.AddDesc(err.Error())
 		}
@@ -396,8 +364,8 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 	}
 
 	// preload current chart
-	base := config.LocalServicePath(productName, serviceName)
-	err = commonutil.PreLoadServiceManifests(base, svc)
+	base := config.LocalTestServicePath(productName, serviceName)
+	err = commonutil.PreLoadServiceManifests(base, svc, false)
 	if err != nil {
 		return e.ErrEditHelmCharts.AddErr(err)
 	}
@@ -437,7 +405,7 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 		}
 	}()
 
-	fsTree := os.DirFS(config.LocalServicePath(productName, serviceName))
+	fsTree := os.DirFS(config.LocalTestServicePath(productName, serviceName))
 
 	// read values.yaml
 	valuesYAML, errRead := readValuesYAML(fsTree, serviceName, logger)
@@ -446,7 +414,7 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 		return e.ErrEditHelmCharts.AddErr(err)
 	}
 
-	serviceS3Base := config.ObjectStorageServicePath(productName, serviceName)
+	serviceS3Base := config.ObjectStorageTestServicePath(productName, serviceName)
 	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, serviceS3Base, logger); err != nil {
 		return e.ErrEditHelmCharts.AddErr(fmt.Errorf("failed to upload files for service %s in project %s, err: %s", serviceName, productName, err))
 	}
@@ -544,8 +512,14 @@ func getNextServiceRevision(productName, serviceName string, isProductionService
 		log.Errorf("Failed to get next revision for service %s, err: %s", serviceName, err)
 		return 0, err
 	}
-	if err = commonrepo.NewServiceColl().Delete(serviceName, setting.HelmDeployType, serviceName, setting.ProductStatusDeleting, rev); err != nil {
-		log.Warnf("Failed to delete stale service %s with revision %d, err: %s", serviceName, rev, err)
+	if isProductionService {
+		if err = commonrepo.NewServiceColl().Delete(serviceName, setting.HelmDeployType, serviceName, setting.ProductStatusDeleting, rev); err != nil {
+			log.Warnf("Failed to delete stale service %s with revision %d, err: %s", serviceName, rev, err)
+		}
+	} else {
+		if err = commonrepo.NewProductionServiceColl().Delete(serviceName, serviceName, setting.ProductStatusDeleting, rev); err != nil {
+			log.Warnf("Failed to delete stale service %s with revision %d, err: %s", serviceName, rev, err)
+		}
 	}
 	return rev, err
 }
@@ -554,8 +528,8 @@ func getNextServiceRevision(productName, serviceName string, isProductionService
 func copyChartRevision(projectName, serviceName string, revision int64, isProductionChart bool) error {
 	var sourceChartPath, revisionChartLocalPath string
 	if !isProductionChart {
-		sourceChartPath = config.LocalServicePath(projectName, serviceName)
-		revisionChartLocalPath = config.LocalServicePathWithRevision(projectName, serviceName, revision)
+		sourceChartPath = config.LocalTestServicePath(projectName, serviceName)
+		revisionChartLocalPath = config.LocalTestServicePathWithRevision(projectName, serviceName, revision)
 	} else {
 		sourceChartPath = config.LocalProductionServicePath(projectName, serviceName)
 		revisionChartLocalPath = config.LocalProductionServicePathWithRevision(projectName, serviceName, revision)
@@ -585,7 +559,7 @@ func clearChartFiles(projectName, serviceName string, revision int64, isProducti
 // clear chart files in s3 storage
 func clearChartFilesInS3Storage(projectName, serviceName string, revision int64, logger *zap.SugaredLogger) {
 	s3FileNames := []string{serviceName, fmt.Sprintf("%s-%d", serviceName, revision)}
-	errRemoveFile := fsservice.DeleteArchivedFileFromS3(s3FileNames, config.ObjectStorageServicePath(projectName, serviceName), logger)
+	errRemoveFile := fsservice.DeleteArchivedFileFromS3(s3FileNames, config.ObjectStorageTestServicePath(projectName, serviceName), logger)
 	if errRemoveFile != nil {
 		logger.Errorf("Failed to remove files: %v from s3 strorage, err: %s", s3FileNames, errRemoveFile)
 	}
@@ -593,8 +567,8 @@ func clearChartFilesInS3Storage(projectName, serviceName string, revision int64,
 
 // clear local chart infos
 func clearLocalChartFiles(projectName, serviceName string, revision int64, logger *zap.SugaredLogger) {
-	latestChartPath := config.LocalServicePath(projectName, serviceName)
-	revisionChartLocalPath := config.LocalServicePathWithRevision(projectName, serviceName, revision)
+	latestChartPath := config.LocalTestServicePath(projectName, serviceName)
+	revisionChartLocalPath := config.LocalTestServicePathWithRevision(projectName, serviceName, revision)
 	for _, path := range []string{latestChartPath, revisionChartLocalPath} {
 		err := os.RemoveAll(path)
 		if err != nil {
@@ -636,12 +610,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 	}
 
 	chartRef := fmt.Sprintf("%s/%s", chartRepo.RepoName, chartRepoArgs.ChartName)
-	var localPath string
-	if !args.Production {
-		localPath = config.LocalServicePath(projectName, chartRepoArgs.ChartName)
-	} else {
-		localPath = config.LocalProductionServicePath(projectName, chartRepoArgs.ChartName)
-	}
+	localPath := config.LocalServicePath(projectName, chartRepoArgs.ChartName, args.Production)
 
 	log.Infof("downloading chart %s to %s", chartRef, localPath)
 	// remove local file to untar
@@ -677,7 +646,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 	// upload to s3 storage
 	var s3Base string
 	if !args.Production {
-		s3Base = config.ObjectStorageServicePath(projectName, serviceName)
+		s3Base = config.ObjectStorageTestServicePath(projectName, serviceName)
 	} else {
 		s3Base = config.ObjectStorageProductionServicePath(projectName, serviceName)
 	}
@@ -776,7 +745,7 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 
 	// copy template to service path and update the values.yaml
 	from := filepath.Join(localBase, base)
-	to := filepath.Join(config.LocalServicePath(projectName, args.Name), args.Name)
+	to := filepath.Join(config.LocalTestServicePath(projectName, args.Name), args.Name)
 	// remove old files
 	if err := os.RemoveAll(to); err != nil {
 		logger.Errorf("Failed to remove dir %s, err: %s", to, err)
@@ -819,8 +788,8 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 		}
 	}()
 
-	fsTree := os.DirFS(config.LocalServicePath(projectName, args.Name))
-	serviceS3Base := config.ObjectStorageServicePath(projectName, args.Name)
+	fsTree := os.DirFS(config.LocalTestServicePath(projectName, args.Name))
+	serviceS3Base := config.ObjectStorageTestServicePath(projectName, args.Name)
 	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{args.Name, fmt.Sprintf("%s-%d", args.Name, rev)}, serviceS3Base, logger); err != nil {
 		logger.Errorf("Failed to upload files for service %s in project %s, err: %s", args.Name, projectName, err)
 		return nil, err
@@ -1328,7 +1297,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
 	serviceName = strings.TrimSpace(serviceName)
 
-	to := filepath.Join(config.LocalServicePath(projectName, serviceName), serviceName)
+	to := filepath.Join(config.LocalTestServicePath(projectName, serviceName), serviceName)
 	// remove old files
 	if err = os.RemoveAll(to); err != nil {
 		logger.Errorf("Failed to remove dir %s, err: %s", to, err)
@@ -1357,8 +1326,8 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 		return nil, nil, errors.Wrapf(err, "Failed to copy chart info, service %s", serviceName)
 	}
 
-	fsTree := os.DirFS(config.LocalServicePath(projectName, serviceName))
-	serviceS3Base := config.ObjectStorageServicePath(projectName, serviceName)
+	fsTree := os.DirFS(config.LocalTestServicePath(projectName, serviceName))
+	serviceS3Base := config.ObjectStorageTestServicePath(projectName, serviceName)
 
 	// clear files from both s3 and local when error occurred in next stages
 	defer func() {
@@ -1717,88 +1686,32 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 	return serviceObj, nil
 }
 
-func loadServiceFileInfos(productName, serviceName string, revision int64, dir string) ([]*types.FileInfo, error) {
-	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+func loadServiceFileInfos(productName, serviceName string, revision int64, dir string, production bool) ([]*types.FileInfo, error) {
+	svc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ProductName: productName,
 		ServiceName: serviceName,
-	})
+	}, production)
 	if err != nil {
 		return nil, e.ErrFilePath.AddDesc(err.Error())
 	}
 
-	base := config.LocalServicePath(productName, serviceName)
+	base := config.LocalServicePath(productName, serviceName, production)
 	if revision > 0 {
-		base = config.LocalServicePathWithRevision(productName, serviceName, revision)
-		if err = commonutil.PreloadServiceManifestsByRevision(base, svc); err != nil {
+		base = config.LocalServicePathWithRevision(productName, serviceName, revision, production)
+		if err = commonutil.PreloadServiceManifestsByRevision(base, svc, production); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
 		}
 	}
 	if err != nil || revision == 0 {
-		base = config.LocalServicePath(productName, serviceName)
-		err = commonutil.PreLoadServiceManifests(base, svc)
+		base = config.LocalServicePath(productName, serviceName, production)
+		err = commonutil.PreLoadServiceManifests(base, svc, production)
 		if err != nil {
 			return nil, e.ErrFilePath.AddDesc(err.Error())
 		}
 	}
 
-	err = commonutil.PreLoadServiceManifests(base, svc)
-	if err != nil {
-		return nil, e.ErrFilePath.AddDesc(err.Error())
-	}
-
-	var fis []*types.FileInfo
-
-	files, err := os.ReadDir(filepath.Join(base, serviceName, dir))
-	if err != nil {
-		return nil, e.ErrFilePath.AddDesc(err.Error())
-	}
-
-	for _, file := range files {
-		info, _ := file.Info()
-		if info == nil {
-			continue
-		}
-		fi := &types.FileInfo{
-			Parent:  dir,
-			Name:    file.Name(),
-			Size:    info.Size(),
-			Mode:    file.Type(),
-			ModTime: info.ModTime().Unix(),
-			IsDir:   file.IsDir(),
-		}
-
-		fis = append(fis, fi)
-	}
-	return fis, nil
-}
-
-func loadProductionServiceFileInfos(productName, serviceName string, revision int64, dir string) ([]*types.FileInfo, error) {
-	svc, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
-		ProductName: productName,
-		ServiceName: serviceName,
-	})
-	if err != nil {
-		return nil, e.ErrFilePath.AddDesc(err.Error())
-	}
-
-	base := config.LocalProductionServicePath(productName, serviceName)
-	if revision > 0 {
-		base = config.LocalProductionServicePathWithRevision(productName, serviceName, revision)
-		if err = commonutil.PreloadProductionServiceManifestsByRevision(base, svc); err != nil {
-			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
-				svc.Revision, svc.ServiceName)
-		}
-	}
-	if err != nil || revision == 0 {
-		base = config.LocalProductionServicePath(productName, serviceName)
-		err = commonutil.PreLoadProductionServiceManifests(base, svc)
-		if err != nil {
-			return nil, e.ErrFilePath.AddDesc(err.Error())
-		}
-	}
-
-	err = commonutil.PreLoadProductionServiceManifests(base, svc)
+	err = commonutil.PreLoadServiceManifests(base, svc, production)
 	if err != nil {
 		return nil, e.ErrFilePath.AddDesc(err.Error())
 	}

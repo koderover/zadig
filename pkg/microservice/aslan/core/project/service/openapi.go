@@ -18,6 +18,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -28,6 +29,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	envService "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	svcService "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	policyservice "github.com/koderover/zadig/pkg/microservice/policy/core/service"
@@ -199,20 +202,21 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 		} else if service.Source == config.SourceFromTemplate {
 			template, err := commonrepo.NewYamlTemplateColl().GetByName(service.TemplateName)
 			if err != nil {
-				logger.Errorf("Failed to find template of name: %s, the error is: %s", service.TemplateName, err)
+				logger.Errorf("Failed to find template of name: %s, err: %w", service.TemplateName, err)
 				return err
 			}
-			variableYaml, err := service.VariableYaml.FormYamlString()
+
+			mergedYaml, mergedKVs, err := commonutil.MergeServiceVariableKVsAndKVInput(template.ServiceVariableKVs, service.VariableYaml)
 			if err != nil {
-				logger.Errorf("Failed to form yaml string for service: %s, the error is: %s", service.ServiceName, err)
-				return err
+				return fmt.Errorf("failed to merge variable yaml, err: %w", err)
 			}
 			loadArgs := &svcService.LoadServiceFromYamlTemplateReq{
-				ProjectName:  args.ProjectKey,
-				ServiceName:  service.ServiceName,
-				TemplateID:   template.ID.Hex(),
-				AutoSync:     service.AutoSync,
-				VariableYaml: variableYaml,
+				ProjectName:        args.ProjectKey,
+				ServiceName:        service.ServiceName,
+				TemplateID:         template.ID.Hex(),
+				AutoSync:           service.AutoSync,
+				VariableYaml:       mergedYaml,
+				ServiceVariableKVs: mergedKVs,
 			}
 
 			err = svcService.LoadServiceFromYamlTemplate(username, loadArgs, false, logger)
@@ -269,6 +273,7 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 				}
 				singleService.Containers = append(singleService.Containers, container)
 				singleService.VariableYaml = serviceMap[serviceName].VariableYaml
+				singleService.VariableKVs = commontypes.ServiceToRenderVariableKVs(serviceMap[serviceName].ServiceVariableKVs)
 			}
 			serviceGroup = append(serviceGroup, singleService)
 		}

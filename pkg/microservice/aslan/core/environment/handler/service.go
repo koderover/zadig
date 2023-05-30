@@ -36,7 +36,7 @@ import (
 // @Param 	name 			path 		string 						 	true 	"env name"
 // @Param 	projectName 	query 		string 						 	true 	"project name"
 // @Success 200 			{object} 	commonservice.EnvServices
-// @Router /environment/environments/{name}/services [get]
+// @Router /api/aslan/environment/environments/{name}/services [get]
 func ListSvcsInEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -54,7 +54,7 @@ func ListSvcsInEnv(c *gin.Context) {
 // @Param 	name 			path 		string 						 	true 	"env name"
 // @Param 	projectName 	query 		string 						 	true 	"project name"
 // @Success 200 			{object} 	commonservice.EnvServices
-// @Router /environment/production/environments/{name}/servicesForUpdate [get]
+// @Router /api/aslan/environment/production/environments/{name}/servicesForUpdate [get]
 func ListSvcsInProductionEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -72,17 +72,18 @@ func GetService(c *gin.Context) {
 	serviceName := c.Param("serviceName")
 	workLoadType := c.Query("workLoadType")
 
-	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, workLoadType, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, false, workLoadType, ctx.Logger)
 }
 
-func GetServiceInProductionEnv(c *gin.Context) {
+func GetProductionService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	envName := c.Param("name")
 	projectName := c.Query("projectName")
 	serviceName := c.Param("serviceName")
+	workLoadType := c.Query("workLoadType")
 
-	ctx.Resp, ctx.Err = service.GetServiceInProductionEnv(envName, projectName, serviceName, "", ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, true, workLoadType, ctx.Logger)
 }
 
 func RestartService(c *gin.Context) {
@@ -111,7 +112,7 @@ func RestartService(c *gin.Context) {
 // @Param 	serviceName		path		string								true	"service name"
 // @Param 	body 			body 		service.PreviewServiceArgs 			true 	"body"
 // @Success 200 			{object} 	service.SvcDiffResult
-// @Router /environment/environments/{name}/services/{serviceName}/preview [post]
+// @Router /api/aslan/environment/environments/{name}/services/{serviceName}/preview [post]
 func PreviewService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -139,7 +140,7 @@ func PreviewService(c *gin.Context) {
 // @Param 	serviceName	 	path		string								true	"service name"
 // @Param 	body 			body 		service.SvcRevision 				true 	"body"
 // @Success 200
-// @Router /environment/environments/{name}/services/{serviceName} [put]
+// @Router /api/aslan/environment/environments/{name}/services/{serviceName} [put]
 func UpdateService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

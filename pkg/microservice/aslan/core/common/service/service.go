@@ -201,7 +201,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	estimatedVariableYamlMap, estimatedVariableKVMap := getEstimatedMergedVariables(services, productTmpl)
+	estimatedVariableYamlMap, estimatedVariableKVMap := GetEstimatedMergedVariables(services, productTmpl)
 	for _, serviceObject := range services {
 		if serviceObject.Source == setting.SourceFromGitlab {
 			if serviceObject.CodehostID == 0 {
@@ -261,7 +261,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 	return resp, nil
 }
 
-func getEstimatedMergedVariables(services []*commonmodels.Service, product *template.Product) (map[string]string, map[string][]*commontypes.ServiceVariableKV) {
+func GetEstimatedMergedVariables(services []*commonmodels.Service, product *template.Product) (map[string]string, map[string][]*commontypes.ServiceVariableKV) {
 	retYamlMap := make(map[string]string)
 	retKVMap := make(map[string][]*commontypes.ServiceVariableKV)
 	if product.IsK8sYamlProduct() {
@@ -283,11 +283,19 @@ func getEstimatedMergedVariables(services []*commonmodels.Service, product *temp
 				continue
 			}
 
-			mergedYaml, mergedKVs, err := commontypes.MergeServiceVariableKVsIfNotExist(service.ServiceVariableKVs, sourceTemplate.ServiceVariableKVs)
-			if err == nil {
-				retYamlMap[service.ServiceName] = mergedYaml
-				retKVMap[service.ServiceName] = mergedKVs
+			_, mergedKVs, err := commontypes.MergeServiceVariableKVsIfNotExist(service.ServiceVariableKVs, sourceTemplate.ServiceVariableKVs)
+			if err != nil {
+				log.Errorf("Failed to merge service variable kvs if not exist, error: %s", err)
+				continue
 			}
+			mergedYaml, mergedKVs, err := commontypes.ClipServiceVariableKVs(sourceTemplate.ServiceVariableKVs, mergedKVs)
+			if err != nil {
+				log.Errorf("Failed to clip service variable kvs, error: %s", err)
+				continue
+			}
+
+			retYamlMap[service.ServiceName] = mergedYaml
+			retKVMap[service.ServiceName] = mergedKVs
 		}
 	}
 
@@ -1218,7 +1226,7 @@ func ListServicesInProductionEnv(envName, productName string, newSvcKVsMap map[s
 	return buildServiceInfoInEnv(env, latestSvcs, newSvcKVsMap, log)
 }
 
-// @todo newSvcKVsMap is old struct kv map, which are the kv are from deoply job config
+// @fixme newSvcKVsMap is old struct kv map, which are the kv are from deploy job config
 // may need to be removed, or use new kv struct
 // helm values need to be refactored
 func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*commonmodels.Service, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger) (*EnvServices, error) {
@@ -1341,12 +1349,12 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 
 			if newSvcKVsMap[svcName] == nil {
 				// config phase
-				return commontypes.MergeRenderAndServiceTemplateVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, tmplSvc.ServiceVariableKVs)
+				return commontypes.MergeRenderAndServiceTemplateVariableKVs(svcRender.OverrideYaml.RenderVariableKVs, tmplSvc.ServiceVariableKVs)
 			} else {
-				// @todo TBD 是否根据工作流配置来过滤
+				// @fixme TBD 是否根据工作流配置来过滤
 				// "exec" phase
 				// yamlContent, err = prefixOverride(tmplSvc.VariableYaml, svcRender.OverrideYaml.YamlContent, newSvcKVsMap[svcName])
-				return commontypes.MergeRenderAndServiceTemplateVariableKVs(svcRender.OverrideYaml.RenderVaraibleKVs, tmplSvc.ServiceVariableKVs)
+				return commontypes.MergeRenderAndServiceTemplateVariableKVs(svcRender.OverrideYaml.RenderVariableKVs, tmplSvc.ServiceVariableKVs)
 			}
 		}
 
@@ -1565,12 +1573,12 @@ func ConvertVaraibleKVAndYaml(args *ConvertVaraibleKVAndYamlArgs) (*ConvertVarai
 	if args.Action == ConvertVaraibleKVAndYamlActionTypeToYaml {
 		args.Yaml, err = commontypes.ServiceVariableKVToYaml(args.KVs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert service variable kv to yaml, err %w", err)
+			return nil, fmt.Errorf("failed to convert service variable kv to yaml, err: %w", err)
 		}
 	} else if args.Action == ConvertVaraibleKVAndYamlActionTypeToKV {
 		args.KVs, err = commontypes.YamlToServiceVariableKV(args.Yaml, args.KVs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert yaml to service variable kv, err %w", err)
+			return nil, fmt.Errorf("failed to convert yaml to service variable kv, err: %w", err)
 		}
 	} else {
 		return nil, fmt.Errorf("invalid action %s", args.Action)

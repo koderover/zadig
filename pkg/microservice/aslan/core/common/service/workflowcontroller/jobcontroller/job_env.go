@@ -54,7 +54,12 @@ func mergeContainers(currentContainer []*models.Container, newContainers ...[]*m
 
 	for _, containers := range newContainers {
 		for _, container := range containers {
-			containerMap[container.Name] = container
+			if curContainer, ok := containerMap[container.Name]; ok {
+				curContainer.Image = container.Image
+				curContainer.ImageName = container.ImageName
+			} else {
+				containerMap[container.Name] = container
+			}
 		}
 	}
 
@@ -151,9 +156,9 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		// merge render variables and deploy variables
 		mergedVariableYaml := deployInfo.VariableYaml
 		mergedVariableKVs := deployInfo.VariableKVs
-		if svcRender.OverrideYaml != nil {
+		if svcRender.OverrideYaml != nil && svcTemplate.Type == setting.K8SDeployType {
 			templateVarKVs := commontypes.ServiceToRenderVariableKVs(svcTemplate.ServiceVariableKVs)
-			_, mergedVariableKVs, err = commontypes.MergeRenderVariableKVs(templateVarKVs, svcRender.OverrideYaml.RenderVaraibleKVs, deployInfo.VariableKVs)
+			_, mergedVariableKVs, err = commontypes.MergeRenderVariableKVs(templateVarKVs, svcRender.OverrideYaml.RenderVariableKVs, deployInfo.VariableKVs)
 			if err != nil {
 				return errors.Wrapf(err, "failed to merge render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
 			}
@@ -164,11 +169,11 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		}
 		svcRender.OverrideYaml = &template.CustomYaml{
 			YamlContent:       mergedVariableYaml,
-			RenderVaraibleKVs: mergedVariableKVs,
+			RenderVariableKVs: mergedVariableKVs,
 		}
 
 		// update global variables
-		// curRenderset.GlobalVariables, _, err = commontypes.UpdateGlobalVariableKVs(deployInfo.ServiceName, curRenderset.GlobalVariables, svcRender.OverrideYaml.RenderVaraibleKVs)
+		// curRenderset.GlobalVariables, _, err = commontypes.UpdateGlobalVariableKVs(deployInfo.ServiceName, curRenderset.GlobalVariables, svcRender.OverrideYaml.RenderVariableKVs)
 		// if err != nil {
 		// 	return errors.Wrapf(err, "failed to update global variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
 		// }
@@ -191,7 +196,6 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		}
 	} else {
 		// uninstall service
-
 		// update render set
 		filteredRenders := make([]*template.ServiceRender, 0)
 		for _, svcRender := range curRenderset.ServiceVariables {

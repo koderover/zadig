@@ -31,13 +31,13 @@ import (
 func ListHelmServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = svcservice.ListHelmServices(c.Param("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.ListHelmServices(c.Param("productName"), false, ctx.Logger)
 }
 
 func ListHelmProductionServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = svcservice.ListHelmServices(c.Query("projectName"), ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.ListHelmServices(c.Query("projectName"), true, ctx.Logger)
 }
 
 func GetHelmServiceModule(c *gin.Context) {
@@ -63,7 +63,7 @@ func GetFilePath(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = svcservice.GetFilePath(c.Param("serviceName"), c.Param("productName"), revision, c.Query("dir"), ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.GetFilePath(c.Param("serviceName"), c.Param("productName"), revision, c.Query("dir"), false, ctx.Logger)
 }
 
 func GetFileContent(c *gin.Context) {

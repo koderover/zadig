@@ -146,12 +146,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/servicesForUpdate", ListSvcsInProductionEnv)
 
 		// services related
-		production.GET("/environments/:name/services/:serviceName", GetServiceInProductionEnv)
+		production.GET("/environments/:name/services/:serviceName", GetProductionService)
 		production.GET("/environments/:name/services/:serviceName/variables", GetProductionVariables)
 		production.GET("/environments/:name/services/:serviceName/yaml", ExportProductionServiceYaml)
 
 		production.DELETE("/environments/:name", DeleteProductionProduct)
-		kube.GET("kube/pods/:podName/file", DownloadFileFromPod)
+		production.GET("/kube/pods/:podName/file", DownloadFileFromPod)
+
+		production.GET("/environments/:name/helm/releases", ListProductionReleases)
+		production.GET("/environments/:name/helm/values", GetProductionChartValues)
+		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
 	}
 

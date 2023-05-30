@@ -58,6 +58,7 @@ func convertThemeToRsp(m *models.Theme) *types.Theme {
 			ProjectItemIconColor:     m.CustomTheme.ProjectItemIconColor,
 			ProjectNameColor:         m.CustomTheme.ProjectNameColor,
 			TableCellBackgroundColor: m.CustomTheme.TableCellBackgroundColor,
+			LinkColor:                m.CustomTheme.LinkColor,
 		},
 	}
 }

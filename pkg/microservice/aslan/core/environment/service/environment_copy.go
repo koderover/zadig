@@ -178,7 +178,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 					}
 					sv.OverrideYaml = &templatemodels.CustomYaml{
 						YamlContent:       yamlContent,
-						RenderVaraibleKVs: variableKVs,
+						RenderVariableKVs: variableKVs,
 					}
 				}
 			}

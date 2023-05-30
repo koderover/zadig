@@ -451,7 +451,6 @@ func (s *swrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 	wg.Wait()
 
 	return resp, nil
-
 }
 
 func (s *swrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (di *commonmodels.DeliveryImage, err error) {

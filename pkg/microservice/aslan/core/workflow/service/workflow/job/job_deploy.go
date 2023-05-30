@@ -319,7 +319,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			svcRenderVarMap := map[string]*commontypes.RenderVariableKV{}
 			serviceRender := usedRenderset.GetServiceRenderMap()[serviceName]
 			if serviceRender != nil {
-				for _, varKV := range serviceRender.OverrideYaml.RenderVaraibleKVs {
+				for _, varKV := range serviceRender.OverrideYaml.RenderVariableKVs {
 					svcRenderVarMap[varKV.Key] = varKV
 				}
 			}
@@ -397,11 +397,11 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				serviceRevision = pSvc.Revision
 			}
 
-			revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: serviceName,
 				Revision:    serviceRevision,
 				ProductName: product.ProductName,
-			})
+			}, product.Production)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, serviceRevision, err)
 			}
@@ -427,9 +427,6 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					jobTaskSpec.VariableYaml = service.VariableYaml
 				}
 
-				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, envName); err != nil {
-					return resp, err
-				}
 				jobTaskSpec.ImageAndModules = append(jobTaskSpec.ImageAndModules, &commonmodels.ImageAndServiceModule{
 					ServiceModule: deploy.ServiceModule,
 					Image:         deploy.Image,
