@@ -146,6 +146,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 
+	log.Infof("saving variable yaml: %s to the workflow", c.jobTaskSpec.VariableYaml)
 	c.jobTaskSpec.YamlContent = c.jobTaskSpec.VariableYaml
 	c.ack()
 
