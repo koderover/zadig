@@ -18,7 +18,6 @@ package workflowcontroller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"sync"
@@ -65,7 +64,7 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 	logger.Infof("start stage: %s,status: %s", stage.Name, stage.Status)
 	if err := waitForApprove(ctx, stage, workflowCtx, logger, ack); err != nil {
 		stage.Error = err.Error()
-		logger.Errorf("finish stage: %s,status: %s", stage.Name, stage.Status)
+		logger.Errorf("finish stage: %s,status: %s error: %s", stage.Name, stage.Status, stage.Error)
 		ack()
 		return
 	}
@@ -208,7 +207,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ApprovalID)
 	if err != nil {
 		stage.Status = config.StatusFailed
-		return errors.Wrap(err, "get external approval data")
+		return errors.Wrap(err, "get lark im app data")
 	}
 	approvalCode := data.LarkApprovalCodeList[approval.GetNodeTypeKey()]
 	if approvalCode == "" {
@@ -218,12 +217,6 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	}
 
 	client := lark.NewClient(data.AppID, data.AppSecret)
-	//// nodeKeyMap is a map of custom node key to node key
-	//nodeKeyMap, err := client.GetApprovalDefinitionNodeKeyMap(approvalCode)
-	//if err != nil {
-	//	stage.Status = config.StatusFailed
-	//	return errors.Wrap(err, "get approval definition node key map")
-	//}
 
 	mobile := workflowCtx.WorkflowTaskCreatorMobile
 	if mobile == "" {
@@ -304,32 +297,32 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 		}
 	}
 
+	// approvalUpdate is used to update the approval status
 	approvalUpdate := func(larkApproval *commonmodels.LarkApproval) (done, isApprove bool, err error) {
+		// userUpdated represents whether the user status has been updated
 		userUpdated := false
 		for i, node := range larkApproval.ApprovalNodes {
 			if node.RejectOrApprove != "" {
 				continue
 			}
 			resultMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeUserApprovalResults(lark.ApprovalNodeIDKey(i))
-			b1, _ := json.MarshalIndent(resultMap, "", "  ")
-			log.Debugf("approvalUpdate: node %d result map %s", i, string(b1))
 			for _, user := range node.ApproveUsers {
 				if result, ok := resultMap[user.ID]; ok && user.RejectOrApprove == "" {
 					instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
-					b2, _ := json.MarshalIndent(instanceData, "", "  ")
-					log.Debugf("approval user update: node %d instance data %s", i, string(b2))
 					if err != nil {
 						return false, false, errors.Wrap(err, "get approval instance")
 					}
 
 					comment := ""
-					if nodeData, ok := instanceData.ApproverInfoWithNode[larkservice.GetLarkApprovalInstanceManager(instance).GetNodeKeyMap()[lark.ApprovalNodeIDKey(i)]]; ok {
+					// nodeKeyMap is used to get the node key from the custom node key
+					nodeKeyMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeKeyMap()
+					if nodeData, ok := instanceData.ApproverInfoWithNode[nodeKeyMap[lark.ApprovalNodeIDKey(i)]]; ok {
 						if userData, ok := nodeData[user.ID]; ok {
 							comment = userData.Comment
 						}
 					}
-					user.RejectOrApprove = result.ApproveOrReject
 					user.Comment = comment
+					user.RejectOrApprove = result.ApproveOrReject
 					user.OperationTime = result.OperationTime
 					userUpdated = true
 				}
