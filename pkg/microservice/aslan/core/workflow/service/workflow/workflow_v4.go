@@ -757,7 +757,7 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 		if stage.Approval == nil {
 			continue
 		}
-		if data := stage.Approval.LarkApproval; data != nil {
+		if data := stage.Approval.LarkApproval; data != nil && data.ApprovalID != "" {
 			larkInfo, err := commonrepo.NewIMAppColl().GetByID(context.Background(), stage.Approval.LarkApproval.ApprovalID)
 			if err != nil {
 				return errors.Wrapf(err, "get lark app %s", stage.Approval.LarkApproval.ApprovalID)
