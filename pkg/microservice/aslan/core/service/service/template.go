@@ -345,9 +345,14 @@ func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate
 }
 
 func buildYamlTemplateVariables(service *commonmodels.Service, template *commonmodels.YamlTemplate) (string, []*commontypes.ServiceVariableKV, error) {
-	variableYaml, serviceVariableKVs, err := commontypes.MergeServiceVariableKVsIfNotExist(service.ServiceVariableKVs, template.ServiceVariableKVs)
+	_, serviceVariableKVs, err := commontypes.MergeServiceVariableKVsIfNotExist(service.ServiceVariableKVs, template.ServiceVariableKVs)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to merge service variable kvs")
+		return "", nil, fmt.Errorf("failed to merge service variable kvs, err: %w", err)
+	}
+
+	variableYaml, serviceVariableKVs, err := commontypes.ClipServiceVariableKVs(template.ServiceVariableKVs, serviceVariableKVs)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to clip service variable kvs, err: %w", err)
 	}
 
 	return variableYaml, serviceVariableKVs, nil
