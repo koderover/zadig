@@ -168,9 +168,6 @@ func (client *Client) GetApprovalDefinitionNodeKeyMap(approvalCode string) (map[
 	for _, node := range resp.NodeList {
 		nodeKeyMap[getStringFromPointer(node.CustomNodeId)] = getStringFromPointer(node.NodeId)
 	}
-
-	//todo debug
-	log.Infof("node key map: %v", nodeKeyMap)
 	return nodeKeyMap, nil
 }
 
@@ -253,10 +250,6 @@ func (client *Client) GetApprovalInstance(args *GetApprovalInstanceArgs) (*Appro
 	}
 
 	userCommentMap := make(map[string]map[string]*UserApprovalComment)
-	// todo debug
-	b, _ := json.MarshalIndent(resp.Data.Timeline, "", "  ")
-	log.Infof("timeline: %s", string(b))
-
 	for _, timeline := range resp.Data.Timeline {
 		status := getStringFromPointer(timeline.Type)
 		if status == "PASS" || status == "REJECT" {

@@ -292,26 +292,6 @@ func (l *ApprovalManager) UpdateNodeKeyMap(nodeKey, nodeCustomKey string) {
 	l.nodeKeyMap[nodeCustomKey] = nodeKey
 }
 
-//func (l *ApprovalManager) GetInstanceStatus(instanceID string) string {
-//	l.RLock()
-//	defer l.RUnlock()
-//	if status, ok := l.instanceNodeMap[instanceID]; !ok {
-//		return ApprovalStatusNotFound
-//	} else {
-//		return status
-//	}
-//}
-
-//func (l *ApprovalManager) UpdateInstanceStatus(instanceID, status string) {
-//	l.Lock()
-//	defer l.Unlock()
-//	switch l.instanceNodeMap[instanceID] {
-//	case ApprovalStatusApproved, ApprovalStatusRejected, ApprovalStatusCanceled, ApprovalStatusDeleted:
-//		return
-//	}
-//	l.instanceNodeMap[instanceID] = status
-//}
-
 func (l *ApprovalManager) CheckAndUpdateUUID(uuid string) bool {
 	l.Lock()
 	defer l.Unlock()
