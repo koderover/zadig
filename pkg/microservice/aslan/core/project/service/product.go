@@ -1085,7 +1085,11 @@ func DeleteProductsAsync(userName, productName, requestID string, isDelete bool,
 	}
 	errList := new(multierror.Error)
 	for _, env := range envs {
-		err = environmentservice.DeleteProduct(userName, env.EnvName, productName, requestID, isDelete, log)
+		if env.Production {
+			err = environmentservice.DeleteProductionProduct(userName, env.EnvName, productName, requestID, log)
+		} else {
+			err = environmentservice.DeleteProduct(userName, env.EnvName, productName, requestID, isDelete, log)
+		}
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}
