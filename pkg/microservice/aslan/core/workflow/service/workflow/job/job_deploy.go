@@ -231,17 +231,6 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 	}
 
-	usedRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		ProductTmpl: product.ProductName,
-		EnvName:     product.EnvName,
-		IsDefault:   false,
-		Revision:    product.Render.Revision,
-		Name:        product.Render.Name,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to find renderset for %s/%s, err: %w", product.ProductName, product.EnvName, err)
-	}
-
 	// get deploy info from previous build job
 	if j.spec.Source == config.SourceFromJob {
 		// adapt to the front end, use the direct quoted job name
@@ -285,14 +274,6 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Timeout:            timeout,
 			}
 
-			svcRenderVarMap := map[string]*commontypes.RenderVariableKV{}
-			serviceRender := usedRenderset.GetServiceRenderMap()[serviceName]
-			if serviceRender != nil {
-				for _, varKV := range serviceRender.OverrideYaml.RenderVariableKVs {
-					svcRenderVarMap[varKV.Key] = varKV
-				}
-			}
-
 			for _, deploy := range deploys {
 				// if external env, check service exists
 				if project.ProductFeature.CreateEnvType == "external" {
@@ -317,6 +298,25 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 						jobTaskSpec.VariableKVs = service.LatestVariableKVs
 					} else {
 						jobTaskSpec.VariableKVs = service.VariableKVs
+					}
+
+					usedRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+						ProductTmpl: product.ProductName,
+						EnvName:     product.EnvName,
+						IsDefault:   false,
+						Revision:    product.Render.Revision,
+						Name:        product.Render.Name,
+					})
+					if err != nil {
+						return nil, fmt.Errorf("failed to find renderset for %s/%s, err: %w", product.ProductName, product.EnvName, err)
+					}
+
+					svcRenderVarMap := map[string]*commontypes.RenderVariableKV{}
+					serviceRender := usedRenderset.GetServiceRenderMap()[serviceName]
+					if serviceRender != nil {
+						for _, varKV := range serviceRender.OverrideYaml.RenderVariableKVs {
+							svcRenderVarMap[varKV.Key] = varKV
+						}
 					}
 
 					// filter variables that used global variable
