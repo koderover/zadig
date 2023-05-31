@@ -296,32 +296,34 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 		return fmt.Errorf("failed to list helm projects, err: %s", err)
 	}
 
+	log.Info("----- found %d helm projects -----\n", len(helmProjects))
+
 	for _, helmProject := range helmProjects {
 		// sync test template services
 		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(helmProject.ProductName)
 		if err != nil {
 			return err
 		}
+		log.Info("found %d services in project %s\n", len(serviceList), helmProject.ProductName)
 		testServices := make([]*commonmodels.Service, 0)
 		for _, service := range serviceList {
-			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync {
+			log.Info("--- handle single production service: %s/%s ---\n", helmProject.ProductName, service.ServiceName)
+			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync || service.CreateFrom == nil {
 				continue
 			}
-			if service.CreateFrom != nil {
-				bs, err := json.Marshal(service.CreateFrom)
-				if err != nil {
-					log.Errorf("failed to marshal creation data: %s", err)
-					continue
-				}
-				creation := &commonmodels.CreateFromChartTemplate{}
-				err = json.Unmarshal(bs, creation)
-				if err != nil {
-					log.Errorf("failed to unmarshal creation data: %s", err)
-					continue
-				}
-				if creation.TemplateName != templateName {
-					continue
-				}
+			bs, err := json.Marshal(service.CreateFrom)
+			if err != nil {
+				log.Errorf("failed to marshal creation data: %s", err)
+				continue
+			}
+			creation := &commonmodels.CreateFromChartTemplate{}
+			err = json.Unmarshal(bs, creation)
+			if err != nil {
+				log.Errorf("failed to unmarshal creation data: %s", err)
+				continue
+			}
+			if creation.TemplateName != templateName {
+				continue
 			}
 			testServices = append(testServices, service)
 		}
@@ -342,26 +344,26 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 		if err != nil {
 			return err
 		}
+		log.Errorf("found %d production services in project %s\n", len(productionServiceList), helmProject.ProductName)
 		productionServices := make([]*commonmodels.Service, 0)
 		for _, service := range productionServiceList {
-			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync {
+			log.Info("--- handle single production service: %s/%s ---\n", helmProject.ProductName, service.ServiceName)
+			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync || service.CreateFrom == nil {
 				continue
 			}
-			if service.CreateFrom != nil {
-				bs, err := json.Marshal(service.CreateFrom)
-				if err != nil {
-					log.Errorf("failed to marshal creation data: %s", err)
-					continue
-				}
-				creation := &commonmodels.CreateFromChartTemplate{}
-				err = json.Unmarshal(bs, creation)
-				if err != nil {
-					log.Errorf("failed to unmarshal creation data: %s", err)
-					continue
-				}
-				if creation.TemplateName != templateName {
-					continue
-				}
+			bs, err := json.Marshal(service.CreateFrom)
+			if err != nil {
+				log.Errorf("failed to marshal creation data: %s", err)
+				continue
+			}
+			creation := &commonmodels.CreateFromChartTemplate{}
+			err = json.Unmarshal(bs, creation)
+			if err != nil {
+				log.Errorf("failed to unmarshal creation data: %s", err)
+				continue
+			}
+			if creation.TemplateName != templateName {
+				continue
 			}
 			productionServices = append(productionServices, service)
 		}
