@@ -56,7 +56,10 @@ func V1170ToV1180() error {
 		log.Errorf("migrateWorkflowV4LarkApproval err: %v", err)
 		return err
 	}
-
+	if err := migrateExternalProductIsExisted(); err != nil {
+		log.Errorf("migrateExternalProductIsExisted err: %v", err)
+		return err
+	}
 	return nil
 }
 
@@ -293,4 +296,10 @@ func setLarkApprovalNodeForWorkflowV4Task(workflow *models.WorkflowTask) (update
 		}
 	}
 	return updated
+}
+
+func migrateExternalProductIsExisted() error {
+	_, err := mongodb.NewProductColl().UpdateMany(context.Background(),
+		bson.M{"source": "external"}, bson.M{"$set": bson.M{"is_existed": true}})
+	return err
 }
