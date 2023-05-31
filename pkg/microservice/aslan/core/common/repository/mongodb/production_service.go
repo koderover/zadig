@@ -175,6 +175,15 @@ func (c *ProductionServiceColl) Find(opt *ServiceFindOption) (*models.Service, e
 	return service, nil
 }
 
+func (c *ProductionServiceColl) ListMaxRevisionServicesByChartTemplate(templateName string) ([]*models.Service, error) {
+	m := bson.M{
+		"create_from.template_name": templateName,
+		"status":                    bson.M{"$ne": setting.ProductStatusDeleting},
+		"source":                    setting.SourceFromChartTemplate,
+	}
+	return c.listMaxRevisions(m, nil)
+}
+
 func (c *ProductionServiceColl) ListMaxRevisions(productName, serviceType string) ([]*models.Service, error) {
 	pre := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},

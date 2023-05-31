@@ -288,6 +288,7 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 		return err
 	}
 
+	// sync test template services
 	serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionServicesByChartTemplate(templateName)
 	if err != nil {
 		return err
@@ -303,7 +304,7 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 	for _, services := range servicesByProject {
 		go func(pService []*commonmodels.Service) {
 			for _, service := range pService {
-				err := reloadServiceFromChartTemplate(service, chartTemplate)
+				err := reloadServiceFromChartTemplate(service, chartTemplate, false)
 				if err != nil {
 					logger.Errorf("failed to reload service %s/%s from chart template, err: %s", service.ProductName, service.ServiceName, err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
@@ -312,10 +313,37 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 			}
 		}(services)
 	}
+
+	// sync production template services
+	productionServiceList, err := commonrepo.NewProductionServiceColl().ListMaxRevisionServicesByChartTemplate(templateName)
+	if err != nil {
+		return err
+	}
+	productionServicesByProject := make(map[string][]*commonmodels.Service)
+	for _, service := range productionServiceList {
+		if !service.AutoSync {
+			continue
+		}
+		productionServicesByProject[service.ProductName] = append(productionServicesByProject[service.ProductName], service)
+	}
+
+	for _, services := range productionServicesByProject {
+		go func(pService []*commonmodels.Service) {
+			for _, service := range pService {
+				err := reloadServiceFromChartTemplate(service, chartTemplate, true)
+				if err != nil {
+					logger.Errorf("failed to reload service %s/%s from chart template, err: %s", service.ProductName, service.ServiceName, err)
+					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 生产服务失败", service.ProductName, service.ServiceName)
+					notify.SendErrorMessage(userName, title, "", err, logger)
+				}
+			}
+		}(services)
+	}
+
 	return nil
 }
 
-func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate *ChartTemplateData) error {
+func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate *ChartTemplateData, production bool) error {
 	variable, customYaml, err := buildChartTemplateVariables(service, chartTemplate.TemplateData)
 	if err != nil {
 		return err
@@ -333,6 +361,7 @@ func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate
 		ValuesData:     nil,
 		CreationDetail: service.CreateFrom,
 		AutoSync:       service.AutoSync,
+		Production:     production,
 	}
 	ret, err := createOrUpdateHelmServiceFromChartTemplate(templateArgs, chartTemplate, service.ProductName, args, true, log.SugaredLogger())
 	if err != nil {
