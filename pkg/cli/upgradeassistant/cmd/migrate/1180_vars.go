@@ -408,6 +408,7 @@ func migrateTestProductVariables() error {
 						return errors.Wrapf(err, "failed to convert service variable yaml to kv, service name: %s/%s/%s", product.ProductName, product.EnvName, svcKV.ServiceName)
 					}
 
+					// rootkeys declared in service variable yaml
 					svcVarKeys := sets.NewString()
 					for _, sKV := range svcKvs {
 						svcKV.OverrideYaml.RenderVariableKVs = append(svcKV.OverrideYaml.RenderVariableKVs, &types.RenderVariableKV{
@@ -440,6 +441,11 @@ func migrateTestProductVariables() error {
 							singleKV.UseGlobalVariable = true
 							singleKV.ServiceVariableKV = *globalKvs[singleKV.Key]
 						}
+					}
+
+					svcKV.OverrideYaml.YamlContent, err = types.RenderVariableKVToYaml(svcKV.OverrideYaml.RenderVariableKVs)
+					if err != nil {
+						return errors.Wrapf(err, "failed to convert service variable kv to yaml, service name: %s/%s/%s", product.ProductName, product.EnvName, svcKV.ServiceName)
 					}
 				}
 			}
