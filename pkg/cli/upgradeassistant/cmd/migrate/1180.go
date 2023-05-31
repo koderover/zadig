@@ -140,7 +140,8 @@ func createDefaultLarkApprovalDefinition(larks []*models.IMApp) error {
 			log.Warnf("lark app %s validate err: %v", info.AppID, err)
 			continue
 		}
-		approvalCode, err := lark.NewClient(info.AppID, info.AppSecret).CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
+		cli := lark.NewClient(info.AppID, info.AppSecret)
+		approvalCode, err := cli.CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
 			Name:        "Zadig 工作流",
 			Description: "Zadig 工作流-OR",
 			Nodes: []*lark.ApprovalNode{
@@ -151,6 +152,10 @@ func createDefaultLarkApprovalDefinition(larks []*models.IMApp) error {
 		})
 		if err != nil {
 			return errors.Wrapf(err, "create lark approval definition %s", info.AppID)
+		}
+		err = cli.SubscribeApprovalDefinition(&lark.SubscribeApprovalDefinitionArgs{ApprovalID: approvalCode})
+		if err != nil {
+			return errors.Wrapf(err, "subscribe lark approval definition %s", info.AppID)
 		}
 		if info.LarkApprovalCodeList == nil {
 			info.LarkApprovalCodeList = make(map[string]string)
