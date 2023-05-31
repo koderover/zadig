@@ -683,6 +683,9 @@ func updateWorkflowKVs(wf *models.WorkflowV4) (bool, error) {
 					needUpdate = true
 					service.VariableConfigs = workflowOriginKValsToVariableConfig(service.KeyVals)
 				}
+				if needUpdate {
+					job.Spec = jobSpec
+				}
 			}
 		}
 	}
@@ -763,6 +766,7 @@ func migrateWorkflows() error {
 									UseGlobalVariable: false,
 								})
 							}
+							job.Spec = jobSpec
 						}
 					}
 				}
