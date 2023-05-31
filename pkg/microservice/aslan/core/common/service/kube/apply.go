@@ -224,6 +224,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		if !commonutil.ServiceDeployed(applyParam.ServiceName, productInfo.ServiceDeployStrategy) {
 			return nil, nil
 		}
+
 		err = removeResources(curResources, resources, namespace, applyParam.KubeClient, log)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to remove old resources")
@@ -595,5 +596,5 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 		chartInfo.OverrideYaml = &template.CustomYaml{}
 	}
 	chartInfo.OverrideYaml.YamlContent = applyParam.VariableYaml
-	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, chartInfo.OverrideValues, applyParam.Timeout)
+	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, "", applyParam.Timeout)
 }
