@@ -20,13 +20,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"net/http"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
@@ -758,13 +759,13 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 		if stage.Approval == nil {
 			continue
 		}
-		if data := stage.Approval.LarkApproval; data != nil && data.ApprovalID != "" {
-			larkInfo, err := commonrepo.NewIMAppColl().GetByID(context.Background(), stage.Approval.LarkApproval.ApprovalID)
+		if data := stage.Approval.LarkApproval; data != nil && data.ID != "" {
+			larkInfo, err := commonrepo.NewIMAppColl().GetByID(context.Background(), stage.Approval.LarkApproval.ID)
 			if err != nil {
-				return errors.Wrapf(err, "get lark app %s", stage.Approval.LarkApproval.ApprovalID)
+				return errors.Wrapf(err, "get lark app %s", stage.Approval.LarkApproval.ID)
 			}
 			if larkInfo.Type != string(config.LarkApproval) {
-				return errors.Errorf("lark app %s is not lark approval", stage.Approval.LarkApproval.ApprovalID)
+				return errors.Errorf("lark app %s is not lark approval", stage.Approval.LarkApproval.ID)
 			}
 
 			if larkInfo.LarkApprovalCodeList == nil {
@@ -777,9 +778,9 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 			}
 
 			// create this node type approval definition and save to db
-			client, err := larkservice.GetLarkClientByIMAppID(data.ApprovalID)
+			client, err := larkservice.GetLarkClientByIMAppID(data.ID)
 			if err != nil {
-				return errors.Wrapf(err, "get lark client by im app id %s", data.ApprovalID)
+				return errors.Wrapf(err, "get lark client by im app id %s", data.ID)
 			}
 			nodesArgs := make([]*lark.ApprovalNode, 0)
 			for _, node := range data.ApprovalNodes {
@@ -809,7 +810,7 @@ func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
 				return errors.Wrap(err, "subscribe lark approval definition")
 			}
 			larkInfo.LarkApprovalCodeList[data.GetNodeTypeKey()] = approvalCode
-			if err := commonrepo.NewIMAppColl().Update(context.Background(), stage.Approval.LarkApproval.ApprovalID, larkInfo); err != nil {
+			if err := commonrepo.NewIMAppColl().Update(context.Background(), stage.Approval.LarkApproval.ID, larkInfo); err != nil {
 				return errors.Wrap(err, "update lark approval data")
 			}
 			log.Infof("create lark approval definition %s, key: %s", approvalCode, data.GetNodeTypeKey())
