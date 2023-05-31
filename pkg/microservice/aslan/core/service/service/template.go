@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -288,20 +291,41 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 		return err
 	}
 
-	// sync test template services
-	serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionServicesByChartTemplate(templateName)
+	helmProjects, err := template.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{DeployType: setting.K8SDeployType})
 	if err != nil {
-		return err
-	}
-	servicesByProject := make(map[string][]*commonmodels.Service)
-	for _, service := range serviceList {
-		if !service.AutoSync {
-			continue
-		}
-		servicesByProject[service.ProductName] = append(servicesByProject[service.ProductName], service)
+		return fmt.Errorf("failed to list helm projects, err: %s", err)
 	}
 
-	for _, services := range servicesByProject {
+	for _, helmProject := range helmProjects {
+		// sync test template services
+		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(helmProject.ProductName)
+		if err != nil {
+			return err
+		}
+		testServices := make([]*commonmodels.Service, 0)
+		for _, service := range serviceList {
+			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync {
+				continue
+			}
+			if service.CreateFrom != nil {
+				bs, err := json.Marshal(service.CreateFrom)
+				if err != nil {
+					log.Errorf("failed to marshal creation data: %s", err)
+					continue
+				}
+				creation := &commonmodels.CreateFromChartTemplate{}
+				err = json.Unmarshal(bs, creation)
+				if err != nil {
+					log.Errorf("failed to unmarshal creation data: %s", err)
+					continue
+				}
+				if creation.TemplateName != templateName {
+					continue
+				}
+			}
+			testServices = append(testServices, service)
+		}
+
 		go func(pService []*commonmodels.Service) {
 			for _, service := range pService {
 				err := reloadServiceFromChartTemplate(service, chartTemplate, false)
@@ -311,23 +335,37 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 					notify.SendErrorMessage(userName, title, "", err, logger)
 				}
 			}
-		}(services)
-	}
+		}(testServices)
 
-	// sync production template services
-	productionServiceList, err := commonrepo.NewProductionServiceColl().ListMaxRevisionServicesByChartTemplate(templateName)
-	if err != nil {
-		return err
-	}
-	productionServicesByProject := make(map[string][]*commonmodels.Service)
-	for _, service := range productionServiceList {
-		if !service.AutoSync {
-			continue
+		// sync production template services
+		productionServiceList, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(helmProject.ProductName, "")
+		if err != nil {
+			return err
 		}
-		productionServicesByProject[service.ProductName] = append(productionServicesByProject[service.ProductName], service)
-	}
+		productionServices := make([]*commonmodels.Service, 0)
+		for _, service := range productionServiceList {
+			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync {
+				continue
+			}
+			if service.CreateFrom != nil {
+				bs, err := json.Marshal(service.CreateFrom)
+				if err != nil {
+					log.Errorf("failed to marshal creation data: %s", err)
+					continue
+				}
+				creation := &commonmodels.CreateFromChartTemplate{}
+				err = json.Unmarshal(bs, creation)
+				if err != nil {
+					log.Errorf("failed to unmarshal creation data: %s", err)
+					continue
+				}
+				if creation.TemplateName != templateName {
+					continue
+				}
+			}
+			productionServices = append(productionServices, service)
+		}
 
-	for _, services := range productionServicesByProject {
 		go func(pService []*commonmodels.Service) {
 			for _, service := range pService {
 				err := reloadServiceFromChartTemplate(service, chartTemplate, true)
@@ -337,7 +375,7 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 					notify.SendErrorMessage(userName, title, "", err, logger)
 				}
 			}
-		}(services)
+		}(productionServices)
 	}
 
 	return nil
