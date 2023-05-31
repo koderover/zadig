@@ -78,6 +78,7 @@ type Service struct {
 	EnvName            string                           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
 	TemplateID         string                           `bson:"template_id,omitempty"          json:"template_id,omitempty"`
 	AutoSync           bool                             `bson:"auto_sync"                      json:"auto_sync"`
+	Production         bool                             `bson:"-"                              json:"-"` // check current service data is production service
 }
 
 type CreateFromRepo struct {

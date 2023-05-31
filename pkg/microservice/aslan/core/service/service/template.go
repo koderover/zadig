@@ -229,11 +229,11 @@ func SyncServiceFromTemplate(userName, source, templateId, templateName string, 
 }
 
 func syncServicesFromYamlTemplate(userName, templateId string, logger *zap.SugaredLogger) error {
-	serviceList, err := commonrepo.NewServiceColl().GetYamlTemplateReference(templateId)
+	serviceList, err := commonrepo.NewServiceColl().GetYamlTemplateLatestReference(templateId)
 	if err != nil {
 		return err
 	}
-	productionServiceList, err := commonrepo.NewProductionServiceColl().GetYamlTemplateReference(templateId)
+	productionServiceList, err := commonrepo.NewProductionServiceColl().GetYamlTemplateLatestReference(templateId)
 	if err != nil {
 		return err
 	}

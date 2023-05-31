@@ -146,7 +146,7 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.Yaml
 }
 
 func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
-	ref, err := commonrepo.NewServiceColl().GetYamlTemplateReference(id)
+	ref, err := commonrepo.NewServiceColl().GetYamlTemplateLatestReference(id)
 	if err != nil {
 		logger.Errorf("Failed to get service reference for template id: %s, the error is: %s", id, err)
 		return err
@@ -154,6 +154,15 @@ func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
 	if len(ref) > 0 {
 		return errors.New("this template is in use")
 	}
+	productionRef, err := commonrepo.NewProductionServiceColl().GetYamlTemplateLatestReference(id)
+	if err != nil {
+		logger.Errorf("Failed to get production reference for template id: %s, the error is: %s", id, err)
+		return err
+	}
+	if len(productionRef) > 0 {
+		return errors.New("this template is in use")
+	}
+
 	err = commonrepo.NewYamlTemplateColl().DeleteByID(id)
 	if err != nil {
 		logger.Errorf("Failed to delete dockerfile template of id: %s, the error is: %s", id, err)
@@ -167,7 +176,7 @@ func SyncYamlTemplateReference(userName, id string, logger *zap.SugaredLogger) e
 
 func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*template.ServiceReference, error) {
 	ret := make([]*template.ServiceReference, 0)
-	referenceList, err := commonrepo.NewServiceColl().GetYamlTemplateReference(id)
+	referenceList, err := commonrepo.NewServiceColl().GetYamlTemplateLatestReference(id)
 	if err != nil {
 		logger.Errorf("Failed to get build reference for yaml template id: %s, the error is: %s", id, err)
 		return ret, err
@@ -180,7 +189,7 @@ func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*template
 		})
 	}
 
-	productionService, err := commonrepo.NewProductionServiceColl().GetYamlTemplateReference(id)
+	productionService, err := commonrepo.NewProductionServiceColl().GetYamlTemplateLatestReference(id)
 	if err != nil {
 		logger.Errorf("Failed to get build reference for yaml template id: %s from production service, the error is: %s", id, err)
 		return ret, err

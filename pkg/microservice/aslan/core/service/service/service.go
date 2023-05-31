@@ -795,6 +795,7 @@ func CreateProductionServiceTemplate(userName string, args *commonmodels.Service
 	}
 
 	// check args
+	args.Production = true
 	if err := ensureServiceTmpl(userName, args, log); err != nil {
 		log.Errorf("ensureProductionServiceTmpl error: %+v", err)
 		return nil, e.ErrValidateTemplate.AddDesc(err.Error())
@@ -1659,7 +1660,12 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 	}
 
 	// 设置新的版本号
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
+	var serviceTemplate string
+	if args.Production {
+		serviceTemplate = fmt.Sprintf(setting.ProductionServiceTemplateCounterName, args.ServiceName, args.ProductName)
+	} else {
+		serviceTemplate = fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
+	}
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 	if err != nil {
 		return fmt.Errorf("get next service template revision error: %v", err)
