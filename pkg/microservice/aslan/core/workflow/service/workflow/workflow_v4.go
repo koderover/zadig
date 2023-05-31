@@ -1921,6 +1921,7 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 		}
 	}
 
+	service.VariableYaml = serviceEnv.VariableYaml
 	service.ServiceName = serviceName
 	service.Updatable = serviceEnv.Updatable
 	service.UpdateConfig = defaultUpdateConfig
