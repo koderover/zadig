@@ -1848,7 +1848,7 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	return resp, nil
 }
 
-func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, isProduction, updateServiceRevision bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, images []string, isProduction, updateServiceRevision bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	// first we get the current yaml in the current environment
 	currentYaml := ""
 	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, isProduction)
@@ -1869,7 +1869,7 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		ProductInfo: prod,
 		ServiceName: serviceName,
 		// no image preview available in this api
-		Images:                make([]string, 0),
+		Images:                images,
 		Uninstall:             false,
 		UpdateServiceRevision: updateServiceRevision,
 		Timeout:               setting.DeployTimeout,
