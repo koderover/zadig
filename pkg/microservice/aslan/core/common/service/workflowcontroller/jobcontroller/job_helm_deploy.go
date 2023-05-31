@@ -147,6 +147,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	c.jobTaskSpec.YamlContent = mergedValues
+	log.Infof("writting vairable yaml: %s into c.jobtaskspec.UserSuppliedValue.", c.jobTaskSpec.VariableYaml)
 	c.jobTaskSpec.UserSuppliedValue = c.jobTaskSpec.VariableYaml
 	c.ack()
 
