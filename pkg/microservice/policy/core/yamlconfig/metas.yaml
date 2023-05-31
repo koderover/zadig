@@ -206,17 +206,27 @@ metas:
         description: ''
         rules:
           - method: GET
-            endpoint: api/aslan/service/production/services
+            endpoint: /api/aslan/service/production/services
           - method: GET
-            endpoint: api/aslan/service/production/services/?*/k8s
+            endpoint: /api/aslan/service/production/services/?*/k8s
           - method: GET
-            endpoint: api/aslan/service/production/services/?*
+            endpoint: /api/aslan/service/production/services/?*
+          - method: GET
+            endpoint: /api/aslan/service/helm/production/services
+          - method: GET
+            endpoint: /api/aslan/service/helm/production/services/?*/serviceModule
+          - method: GET
+            endpoint: /api/aslan/service/helm/production/services/?*/filePath
+          - method: GET
+            endpoint: /api/aslan/service/helm/production/services/?*/fileContent
       - action: create_production_service
         alias: 新建
         description: ''
         rules:
           - method: POST
-            endpoint: api/aslan/service/production/services/k8s
+            endpoint: /api/aslan/service/helm/production/services
+          - method: POST
+            endpoint: /api/aslan/service/production/services/k8s
           - method: POST
             endpoint: /api/aslan/service/template/production/load
           - method: POST
@@ -225,6 +235,10 @@ metas:
         alias: 编辑
         description: ''
         rules:
+          - method: PUT
+            endpoint: /api/aslan/service/helm/production/services/?*/file
+          - method: PUT
+            endpoint: /api/aslan/service/helm/production/services/?*/releaseNaming
           - method: PUT
             endpoint: api/aslan/service/production/services/?*/k8s/variable
           - method: PATCH
@@ -873,6 +887,14 @@ metas:
             endpoint: "/api/aslan/environment/production/environments"
           - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/groups"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/services/?*"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/helm/releases"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/helm/values"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/workloads"
       - action: create_production_environment
         alias: 新建
         description: ""
