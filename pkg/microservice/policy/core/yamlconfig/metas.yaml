@@ -896,15 +896,21 @@ metas:
           - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/workloads"
       - action: create_production_environment
-        alias: 新建
+        alias: 创建
         description: ""
         rules:
           - method: POST
             endpoint: "/api/aslan/environment/production/environments"
           - method: GET
             endpoint: "/api/aslan/cluster/clusters"
+      - action: config_production_environment
+        alias: 配置
+        description: ""
+        rules:
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/alias'
       - action: edit_production_environment
-        alias: 更新
+        alias: 管理服务实例
         description: ""
         rules:
           - method: GET
