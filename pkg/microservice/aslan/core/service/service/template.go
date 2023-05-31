@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -288,34 +291,94 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 		return err
 	}
 
-	serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionServicesByChartTemplate(templateName)
+	helmProjects, err := template.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{DeployType: setting.HelmDeployType})
 	if err != nil {
-		return err
-	}
-	servicesByProject := make(map[string][]*commonmodels.Service)
-	for _, service := range serviceList {
-		if !service.AutoSync {
-			continue
-		}
-		servicesByProject[service.ProductName] = append(servicesByProject[service.ProductName], service)
+		return fmt.Errorf("failed to list helm projects, err: %s", err)
 	}
 
-	for _, services := range servicesByProject {
+	for _, helmProject := range helmProjects {
+		// sync test template services
+		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(helmProject.ProductName)
+		if err != nil {
+			return err
+		}
+		testServices := make([]*commonmodels.Service, 0)
+		for _, service := range serviceList {
+			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync || service.CreateFrom == nil {
+				continue
+			}
+			bs, err := json.Marshal(service.CreateFrom)
+			if err != nil {
+				log.Errorf("failed to marshal creation data: %s", err)
+				continue
+			}
+			creation := &commonmodels.CreateFromChartTemplate{}
+			err = json.Unmarshal(bs, creation)
+			if err != nil {
+				log.Errorf("failed to unmarshal creation data: %s", err)
+				continue
+			}
+			if creation.TemplateName != templateName {
+				continue
+			}
+			testServices = append(testServices, service)
+		}
+
 		go func(pService []*commonmodels.Service) {
 			for _, service := range pService {
-				err := reloadServiceFromChartTemplate(service, chartTemplate)
+				err := reloadServiceFromChartTemplate(service, chartTemplate, false)
 				if err != nil {
 					logger.Errorf("failed to reload service %s/%s from chart template, err: %s", service.ProductName, service.ServiceName, err)
 					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 服务失败", service.ProductName, service.ServiceName)
 					notify.SendErrorMessage(userName, title, "", err, logger)
 				}
 			}
-		}(services)
+		}(testServices)
+
+		// sync production template services
+		productionServiceList, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(helmProject.ProductName, "")
+		if err != nil {
+			return err
+		}
+		productionServices := make([]*commonmodels.Service, 0)
+		for _, service := range productionServiceList {
+			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync || service.CreateFrom == nil {
+				continue
+			}
+			bs, err := json.Marshal(service.CreateFrom)
+			if err != nil {
+				log.Errorf("failed to marshal creation data: %s", err)
+				continue
+			}
+			creation := &commonmodels.CreateFromChartTemplate{}
+			err = json.Unmarshal(bs, creation)
+			if err != nil {
+				log.Errorf("failed to unmarshal creation data: %s", err)
+				continue
+			}
+			log.Info("production service info: %s/%s/%s", creation.TemplateName, templateName, service.AutoSync)
+			if creation.TemplateName != templateName {
+				continue
+			}
+			productionServices = append(productionServices, service)
+		}
+
+		go func(pService []*commonmodels.Service) {
+			for _, service := range pService {
+				err := reloadServiceFromChartTemplate(service, chartTemplate, true)
+				if err != nil {
+					logger.Errorf("failed to reload service %s/%s from chart template, err: %s", service.ProductName, service.ServiceName, err)
+					title := fmt.Sprintf("从模板更新 [%s] 的 [%s] 生产服务失败", service.ProductName, service.ServiceName)
+					notify.SendErrorMessage(userName, title, "", err, logger)
+				}
+			}
+		}(productionServices)
 	}
+
 	return nil
 }
 
-func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate *ChartTemplateData) error {
+func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate *ChartTemplateData, production bool) error {
 	variable, customYaml, err := buildChartTemplateVariables(service, chartTemplate.TemplateData)
 	if err != nil {
 		return err
@@ -333,6 +396,7 @@ func reloadServiceFromChartTemplate(service *commonmodels.Service, chartTemplate
 		ValuesData:     nil,
 		CreationDetail: service.CreateFrom,
 		AutoSync:       service.AutoSync,
+		Production:     production,
 	}
 	ret, err := createOrUpdateHelmServiceFromChartTemplate(templateArgs, chartTemplate, service.ProductName, args, true, log.SugaredLogger())
 	if err != nil {
