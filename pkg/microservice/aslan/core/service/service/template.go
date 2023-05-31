@@ -296,18 +296,14 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 		return fmt.Errorf("failed to list helm projects, err: %s", err)
 	}
 
-	log.Infof("----- found %d helm projects -----\n", len(helmProjects))
-
 	for _, helmProject := range helmProjects {
 		// sync test template services
 		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(helmProject.ProductName)
 		if err != nil {
 			return err
 		}
-		log.Infof("found %d services in project %s\n", len(serviceList), helmProject.ProductName)
 		testServices := make([]*commonmodels.Service, 0)
 		for _, service := range serviceList {
-			log.Infof("--- handle single production service: %s/%s ---\n", helmProject.ProductName, service.ServiceName)
 			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync || service.CreateFrom == nil {
 				continue
 			}
@@ -344,10 +340,8 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 		if err != nil {
 			return err
 		}
-		log.Errorf("found %d production services in project %s\n", len(productionServiceList), helmProject.ProductName)
 		productionServices := make([]*commonmodels.Service, 0)
 		for _, service := range productionServiceList {
-			log.Infof("--- handle single production service: %s/%s ---\n", helmProject.ProductName, service.ServiceName)
 			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync || service.CreateFrom == nil {
 				continue
 			}
@@ -362,6 +356,7 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 				log.Errorf("failed to unmarshal creation data: %s", err)
 				continue
 			}
+			log.Info("production service info: %s/%s/%s", creation.TemplateName, templateName, service.AutoSync)
 			if creation.TemplateName != templateName {
 				continue
 			}
