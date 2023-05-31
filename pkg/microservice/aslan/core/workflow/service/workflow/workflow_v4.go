@@ -1921,6 +1921,9 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 		}
 	}
 
+	log.Infof(">>>>>>> deployservice is :\n %+v", service)
+	log.Infof(">>>>>>> envservice is :\n %+v", serviceEnv)
+
 	service.ServiceName = serviceName
 	service.Updatable = serviceEnv.Updatable
 	service.UpdateConfig = defaultUpdateConfig
