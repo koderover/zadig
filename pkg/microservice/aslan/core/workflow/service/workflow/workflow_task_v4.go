@@ -147,6 +147,8 @@ type ZadigDeployJobPreviewSpec struct {
 	SkipCheckRunStatus bool               `bson:"skip_check_run_status"        json:"skip_check_run_status"`
 	ServiceAndImages   []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
 	YamlContent        string             `bson:"yaml_content"                 json:"yaml_content"`
+	// UserSuppliedValue added since 1.18, the values that users gives.
+	UserSuppliedValue string `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
 	// VariableConfigs new since 1.18, only used for k8s
 	VariableConfigs []*commonmodels.DeplopyVariableConfig `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"`
 	// VariableKVs new since 1.18, only used for k8s
@@ -1121,6 +1123,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 			spec.Env = taskJobSpec.Env
 			spec.YamlContent = taskJobSpec.YamlContent
+			spec.UserSuppliedValue = taskJobSpec.UserSuppliedValue
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			for _, imageAndmodule := range taskJobSpec.ImageAndModules {
 				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{
