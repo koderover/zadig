@@ -65,7 +65,7 @@ func LoadProductionServiceFromYamlTemplate(c *gin.Context) {
 	bs, _ := json.Marshal(req)
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "新增", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
-	ctx.Err = svcservice.LoadProductionServiceFromYamlTemplate(ctx.UserName, req, true, ctx.Logger)
+	ctx.Err = svcservice.LoadProductionServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
 
 func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {

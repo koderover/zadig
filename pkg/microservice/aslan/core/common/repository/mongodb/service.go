@@ -736,6 +736,19 @@ func (c *ServiceColl) GetYamlTemplateReference(templateID string) ([]*models.Ser
 	return c.listMaxRevisions(query, postMatch)
 }
 
+func (c *ServiceColl) GetYamlTemplateLatestReference(templateID string) ([]*models.Service, error) {
+	query := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+
+	postMatch := bson.M{
+		"source":      setting.ServiceSourceTemplate,
+		"template_id": templateID,
+	}
+
+	return c.listMaxRevisions(query, postMatch)
+}
+
 func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {
 	var pipeResp []*grouped
 	pipeline := []bson.M{
@@ -756,6 +769,7 @@ func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Se
 				"build_name":  bson.M{"$last": "$build_name"},
 				"template_id": bson.M{"$last": "$template_id"},
 				"create_from": bson.M{"$last": "$create_from"},
+				"source":      bson.M{"$last": "$source"},
 			},
 		},
 	}
