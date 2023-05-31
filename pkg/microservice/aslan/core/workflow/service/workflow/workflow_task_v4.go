@@ -859,7 +859,11 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 		for _, stage := range workflow.Stages {
 			if stage.Approval != nil && stage.Approval.Enabled {
 				approvalStage := &commonmodels.StageTask{
-					Name:      "人工审批",
+					Name: map[config.ApprovalType]string{
+						config.NativeApproval:   "Zadig 审批",
+						config.LarkApproval:     "飞书审批",
+						config.DingTalkApproval: "钉钉审批",
+					}[stage.Approval.Type],
 					StartTime: stage.Approval.StartTime,
 					EndTime:   stage.Approval.EndTime,
 					Status:    stage.Approval.Status,
