@@ -68,8 +68,6 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 	}
 	client := jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType)
 	for _, issue := range c.jobTaskSpec.Issues {
-		issue.Link = fmt.Sprintf("%s/browse/%s", info.JiraHost, issue.Key)
-
 		list, err := client.Issue.GetTransitions(issue.Key)
 		if err != nil {
 			logError(c.job, fmt.Sprintf("GetTransitions issue %s error: %v", issue.Key, err), c.logger)
