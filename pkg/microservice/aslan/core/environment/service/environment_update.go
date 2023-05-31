@@ -21,13 +21,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -36,7 +33,9 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -378,6 +377,9 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		curSvcRenderMap[svcRender.ServiceName] = svcRender
 	}
 
+	updateRevisionSvcSet := sets.NewString(updateRevisionSvc...)
+
+	// @fixme improve update revision and filter logic
 	// merge render variable and global variable
 	for _, svc := range updatedSvcs {
 		curSvcRender, ok := curSvcRenderMap[svc.ServiceName]
@@ -387,20 +389,48 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			}
 		}
 
-		globalVariables, svc.OverrideYaml.RenderVariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
-		if err != nil {
-			log.Errorf("failed to merge global and render variables for service %s, err: %w", svc.ServiceName, err)
-			return e.ErrUpdateEnv.AddDesc("failed to merge global and render variables")
-		}
+		if updateRevisionSvcSet.Has(svc.ServiceName) {
+			svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ProductName: exitedProd.ProductName,
+				ServiceName: svc.ServiceName,
+			}, exitedProd.Production)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed to get latest service template %s, err: %v", svc.ServiceName, err)
+				log.Error(fmtErr)
+				return e.ErrUpdateEnv.AddErr(fmtErr)
+			}
 
-		svc.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(svc.OverrideYaml.RenderVariableKVs)
-		if err != nil {
-			log.Errorf("failed to convert render variable kvs to yaml, err: %w", err)
-			return e.ErrUpdateEnv.AddDesc("failed to convert render variable kvs to yaml")
+			globalVariables, svc.OverrideYaml.RenderVariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed to merge global and render variables for service %s, err: %w", svc.ServiceName, err)
+				log.Error(fmtErr)
+				return e.ErrUpdateEnv.AddErr(fmtErr)
+			}
+
+			svc.OverrideYaml.YamlContent, svc.OverrideYaml.RenderVariableKVs, err = commontypes.MergeRenderAndServiceTemplateVariableKVs(svc.OverrideYaml.RenderVariableKVs, svcTemplate.ServiceVariableKVs)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed to merge render and service template variable kv, err: %w", err)
+				log.Error(fmtErr)
+				return e.ErrUpdateEnv.AddErr(fmtErr)
+			}
+		} else {
+			globalVariables, svc.OverrideYaml.RenderVariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed to merge global and render variables for service %s, err: %w", svc.ServiceName, err)
+				log.Error(fmtErr)
+				return e.ErrUpdateEnv.AddErr(fmtErr)
+			}
+
+			svc.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(svc.OverrideYaml.RenderVariableKVs)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed to convert render variable kvs to yaml, err: %w", err)
+				log.Error(fmtErr)
+				return e.ErrUpdateEnv.AddErr(fmtErr)
+			}
 		}
 	}
 
-	// FIXME: best to render yaml before create renderset
+	// @fixme best to render yaml before create renderset
 	renderSet, err := render.CreateRenderSetByMerge(
 		&commonmodels.RenderSet{
 			Name:             exitedProd.Namespace,
