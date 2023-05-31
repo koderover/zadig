@@ -93,7 +93,9 @@ func (j *ApolloJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, err
 	}
 	j.job.Spec = j.spec
-
+	if len(j.spec.NamespaceList) == 0 {
+		return nil, errors.New("apollo issue list is empty")
+	}
 	jobTask := &commonmodels.JobTask{
 		Name: j.job.Name,
 		JobInfo: map[string]string{
@@ -121,9 +123,6 @@ func (j *ApolloJob) LintJob() error {
 	j.spec = &commonmodels.ApolloJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
-	}
-	if len(j.spec.NamespaceList) == 0 {
-		return errors.New("issue list is empty")
 	}
 	if _, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), j.spec.ApolloID); err != nil {
 		return errors.Errorf("not found apollo in mongo, err: %v", err)
