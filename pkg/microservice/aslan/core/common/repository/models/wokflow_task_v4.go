@@ -154,8 +154,10 @@ type JobTaskHelmDeploySpec struct {
 	// VariableYaml stores the variable YAML provided by user
 	VariableYaml string `bson:"variable_yaml"                    json:"variable_yaml"                       yaml:"variable_yaml"`
 	// IsProduction added since 1.18, indicator of production environment deployment job
-	IsProduction       bool                     `bson:"is_production" yaml:"is_production" json:"is_production"`
-	YamlContent        string                   `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
+	IsProduction bool   `bson:"is_production" yaml:"is_production" json:"is_production"`
+	YamlContent  string `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
+	// UserSuppliedValue added since 1.18, the values that users gives.
+	UserSuppliedValue  string                   `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
 	UpdateConfig       bool                     `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
 	SkipCheckRunStatus bool                     `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
 	ImageAndModules    []*ImageAndServiceModule `bson:"image_and_service_modules"        json:"image_and_service_modules"           yaml:"image_and_service_modules"`
