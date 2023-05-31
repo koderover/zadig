@@ -133,12 +133,19 @@ func migrateVariables() error {
 		return err
 	}
 
-	k8sProjects, err = template.NewProductColl().ListWithOption(&template.ProductListOpt{
+	allProjects, err := template.NewProductColl().ListWithOption(&template.ProductListOpt{
 		DeployType:    setting.K8SDeployType,
 		BasicFacility: setting.BasicFacilityK8S,
 	})
 	if err != nil {
 		return errors.Wrapf(err, "list k8s projects")
+	}
+
+	for _, project := range allProjects {
+		if project.IsHostProduct() {
+			continue
+		}
+		k8sProjects = append(k8sProjects, project)
 	}
 
 	allTestServiceRevisions = make(map[string]sets.Int64)
