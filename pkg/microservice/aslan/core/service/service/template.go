@@ -291,12 +291,12 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 		return err
 	}
 
-	helmProjects, err := template.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{DeployType: setting.K8SDeployType})
+	helmProjects, err := template.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{DeployType: setting.HelmDeployType})
 	if err != nil {
 		return fmt.Errorf("failed to list helm projects, err: %s", err)
 	}
 
-	log.Info("----- found %d helm projects -----\n", len(helmProjects))
+	log.Infof("----- found %d helm projects -----\n", len(helmProjects))
 
 	for _, helmProject := range helmProjects {
 		// sync test template services
@@ -304,10 +304,10 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 		if err != nil {
 			return err
 		}
-		log.Info("found %d services in project %s\n", len(serviceList), helmProject.ProductName)
+		log.Infof("found %d services in project %s\n", len(serviceList), helmProject.ProductName)
 		testServices := make([]*commonmodels.Service, 0)
 		for _, service := range serviceList {
-			log.Info("--- handle single production service: %s/%s ---\n", helmProject.ProductName, service.ServiceName)
+			log.Infof("--- handle single production service: %s/%s ---\n", helmProject.ProductName, service.ServiceName)
 			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync || service.CreateFrom == nil {
 				continue
 			}
@@ -347,7 +347,7 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 		log.Errorf("found %d production services in project %s\n", len(productionServiceList), helmProject.ProductName)
 		productionServices := make([]*commonmodels.Service, 0)
 		for _, service := range productionServiceList {
-			log.Info("--- handle single production service: %s/%s ---\n", helmProject.ProductName, service.ServiceName)
+			log.Infof("--- handle single production service: %s/%s ---\n", helmProject.ProductName, service.ServiceName)
 			if service.Source != setting.SourceFromChartTemplate || !service.AutoSync || service.CreateFrom == nil {
 				continue
 			}
