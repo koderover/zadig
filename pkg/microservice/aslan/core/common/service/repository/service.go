@@ -58,3 +58,11 @@ func GetMaxRevisionsServicesMap(productName string, production bool) (map[string
 
 	return svcMap, nil
 }
+
+func UpdateServiceVariables(args *models.Service, production bool) error {
+	if !production {
+		return mongodb.NewServiceColl().UpdateServiceVariables(args)
+	} else {
+		return mongodb.NewProductionServiceColl().UpdateServiceVariables(args)
+	}
+}
