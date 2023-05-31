@@ -283,6 +283,14 @@ func DeleteProductionServiceTemplate(serviceName, productName string, log *zap.S
 			log.Errorf("DeleteServiceTemplate Update %s error: %v", serviceName, err)
 			return e.ErrDeleteTemplate.AddDesc(err.Error())
 		}
+
+		// TODO optimze me: Do we need to delete helm charts form S3?
+		//if productTempl.IsHelmProduct() {
+		//	if err = fs.DeleteArchivedFileFromS3([]string{serviceName}, configbase.ObjectStorageProductionServicePath(productName, serviceName), log); err != nil {
+		//		log.Warnf("Failed to delete file %s, err: %s", serviceName, err)
+		//	}
+		//}
+
 	}
 	return nil
 }
