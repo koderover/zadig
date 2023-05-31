@@ -254,8 +254,8 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 		if _, ok := productServiceMap[serviceTmplName]; !ok {
 			latestSvcTmpl, ok := latestSvcTmplMap[serviceTmplName]
 			if !ok {
-				log.Errorf("service %s not found in allServiceTmpls", serviceTmplName)
-				return serviceRevs, fmt.Errorf("failed to find service: %s in allServiceTmpls", serviceTmplName)
+				log.Errorf("service exist in template_service but not in template_product.services, service: %s", serviceTmplName)
+				continue
 			}
 			serviceRev := &SvcRevision{
 				ServiceName:  latestSvcTmpl.ServiceName,
