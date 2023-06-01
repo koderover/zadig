@@ -581,9 +581,6 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 
 	// uninstall release
 	if applyParam.Uninstall {
-		if !commonutil.ServiceDeployed(applyParam.ServiceName, productInfo.ServiceDeployStrategy) {
-			return nil
-		}
 		return DeleteHelmServiceFromEnv("workflow", "", applyParam.ProductInfo, []string{applyParam.ServiceName}, log)
 	}
 
