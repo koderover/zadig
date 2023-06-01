@@ -228,6 +228,19 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 	return resp, nil
 }
 
+func ListNamespaceFromCluster(clusterID string) ([]*corev1.Namespace, error) {
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("ListNamespaces clusterID:%s err:%v", clusterID, err)
+		return nil, err
+	}
+	namespaces, err := getter.ListNamespaces(kubeClient)
+	if err != nil {
+		return nil, err
+	}
+	return namespaces, nil
+}
+
 func ListServicePods(productName, envName string, serviceName string, log *zap.SugaredLogger) ([]*resource.Pod, error) {
 	res := make([]*resource.Pod, 0)
 
