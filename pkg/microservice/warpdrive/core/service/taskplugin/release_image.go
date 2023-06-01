@@ -313,14 +313,9 @@ DistributeLoop:
 			)
 			serviceInfo, err = p.getService(ctx, distribute.DeployServiceName, distribute.DeployServiceType, p.Task.ProductName, 0)
 			if err != nil {
-				// Maybe it is a share service, the entity is not under the project
-				serviceInfo, err = p.getService(ctx, distribute.DeployServiceName, distribute.DeployServiceType, "", 0)
-				if err != nil {
-					err = errors.WithMessage(err, "failed to get service info")
-					distribute.DeployStatus = string(config.StatusFailed)
-					distribute.DeployEndTime = time.Now().Unix()
-					continue
-				}
+				err = errors.WithMessage(err, "failed to get service info")
+				distribute.DeployStatus = string(config.StatusFailed)
+				distribute.DeployEndTime = time.Now().Unix()
 			}
 			if serviceInfo.WorkloadType == "" {
 

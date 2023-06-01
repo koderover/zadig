@@ -185,19 +185,21 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 
 		build, err := commonrepo.NewBuildColl().Find(buildFindOptions)
 		if err != nil {
-			// Maybe this service is a shared service
-			buildFindOptions := &commonrepo.BuildFindOption{
-				Targets: []string{serviceModule},
-			}
-			if serviceName != "" {
-				buildFindOptions.ServiceName = serviceName
-			}
-
-			build, err = commonrepo.NewBuildColl().Find(buildFindOptions)
-			if err != nil {
-				log.Errorf("Failed to query build for service %s: %s", serviceName, err)
-				return
-			}
+			log.Errorf("Failed to query build for service %s: %s", serviceName, err)
+			return
+			//// Maybe this service is a shared service
+			//buildFindOptions := &commonrepo.BuildFindOption{
+			//	Targets: []string{serviceModule},
+			//}
+			//if serviceName != "" {
+			//	buildFindOptions.ServiceName = serviceName
+			//}
+			//
+			//build, err = commonrepo.NewBuildColl().Find(buildFindOptions)
+			//if err != nil {
+			//	log.Errorf("Failed to query build for service %s: %s", serviceName, err)
+			//	return
+			//}
 		}
 		options.ClusterID = setting.LocalClusterID
 		options.Namespace = config.Namespace()

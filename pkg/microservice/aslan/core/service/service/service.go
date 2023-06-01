@@ -26,7 +26,6 @@ import (
 	"os"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -854,25 +853,6 @@ func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 		return err
 	}
 
-	if currentService.Visibility != args.Visibility && args.Visibility == "private" {
-		projects, err := templaterepo.NewProductColl().ListWithOption(
-			&templaterepo.ProductListOpt{ContainSharedServices: []*templatemodels.ServiceInfo{{Name: args.ServiceName, Owner: args.ProductName}}},
-		)
-		if err != nil {
-			log.Errorf("Failed to list projects using service %s, err: %s", args.ServiceName, err)
-			return err
-		}
-		if len(projects) > 0 {
-			var names []string
-			for _, p := range projects {
-				names = append(names, p.ProductName)
-			}
-			log.Warnf("service %s is used by projects %s", args.ServiceName, strings.Join(names, ","))
-			errMsg := fmt.Sprintf("共享服务 [%s] 已被 [%s] 等项目服务编排中使用，请解除引用后再修改", args.ServiceName, strings.Join(names, ","))
-			return e.ErrInvalidParam.AddDesc(errMsg)
-		}
-	}
-
 	envStatuses := make([]*commonmodels.EnvStatus, 0)
 	// Remove environments and hosts that do not exist in the check status
 	for _, envStatus := range args.EnvStatuses {
@@ -931,7 +911,6 @@ func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 	updateArgs := &commonmodels.Service{
 		ProductName: args.ProductName,
 		ServiceName: args.ServiceName,
-		Visibility:  args.Visibility,
 		Revision:    args.Revision,
 		Type:        args.Type,
 		CreateBy:    args.Username,
@@ -1059,7 +1038,6 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 	updateArgs := &commonmodels.Service{
 		ProductName: args.ProductName,
 		ServiceName: args.ServiceName,
-		Visibility:  args.Visibility,
 		Revision:    args.Revision,
 		Type:        args.Type,
 		CreateBy:    args.Username,
@@ -1359,46 +1337,6 @@ func UpdateProductionServiceReleaseNamingRule(userName, requestID, projectName s
 }
 
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {
-	openEnvTemplate, _ := strconv.ParseBool(isEnvTemplate)
-	if openEnvTemplate && visibility == "public" {
-		projects, err := templaterepo.NewProductColl().ListWithOption(
-			&templaterepo.ProductListOpt{ContainSharedServices: []*templatemodels.ServiceInfo{{Name: serviceName, Owner: productName}}},
-		)
-		if err != nil {
-			log.Errorf("Failed to list projects which are using service %s, err: %s", serviceName, err)
-			return err
-		}
-		if len(projects) > 0 {
-			var names []string
-			for _, p := range projects {
-				names = append(names, p.ProductName)
-			}
-			log.Warnf("service %s is used by projects %s", serviceName, strings.Join(names, ","))
-			errMsg := fmt.Sprintf("共享服务 [%s] 已被 [%s] 等项目服务编排中使用，请解除引用后再删除", serviceName, strings.Join(names, ","))
-			return e.ErrInvalidParam.AddDesc(errMsg)
-		}
-
-		serviceEnvMap, err := distinctEnvServices(productName)
-		if err != nil {
-			errMsg := fmt.Sprintf("get distinctServiceEnv error: %v", err)
-			log.Error(errMsg)
-			return e.ErrDeleteTemplate.AddDesc(errMsg)
-		}
-
-		if _, ok := serviceEnvMap[serviceName]; ok {
-			var envNames []string
-			for _, env := range serviceEnvMap[serviceName] {
-				envNames = append(envNames, env.EnvName+"-"+env.ProductName)
-			}
-
-			log.Error(fmt.Sprintf("failed to delete service, %s already exists in %s",
-				serviceName, strings.Join(envNames, ", ")))
-
-			errMsg := fmt.Sprintf("共享服务 %s 已存在于 %s 等环境中，请对这些环境进行更新后再删除",
-				serviceName, strings.Join(envNames, ", "))
-			return e.ErrInvalidParam.AddDesc(errMsg)
-		}
-	}
 
 	// 如果服务是PM类型，删除服务更新build的target信息
 	if serviceType == setting.PMDeployType {
@@ -1538,40 +1476,6 @@ func ListServicePort(serviceName, serviceType, productName, excludeStatus string
 	}
 
 	return servicePorts, nil
-}
-
-type svcInfo struct {
-	ServiceName string `json:"service_name"`
-	ProductName string `json:"product_name"`
-}
-
-// ListAvailablePublicServices returns all public services which are not shared in the given project.
-func ListAvailablePublicServices(productName string, log *zap.SugaredLogger) ([]*svcInfo, error) {
-	project, err := templaterepo.NewProductColl().Find(productName)
-	if err != nil {
-		log.Errorf("Can not find project %s, error: %s", productName, err)
-		return nil, e.ErrListTemplate.AddDesc(err.Error())
-	}
-
-	services, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
-		Visibility: setting.PublicService, ExcludeProject: productName,
-		NotInServices: project.SharedServices,
-	})
-	if err != nil {
-		log.Errorf("Can not list services, error: %s", err)
-		return nil, e.ErrListTemplate.AddDesc(err.Error())
-	}
-
-	var res []*svcInfo
-
-	for _, s := range services {
-		res = append(res, &svcInfo{
-			ServiceName: s.ServiceName,
-			ProductName: s.ProductName,
-		})
-	}
-
-	return res, nil
 }
 
 func GetGerritServiceYaml(args *commonmodels.Service, log *zap.SugaredLogger) error {

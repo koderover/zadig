@@ -165,11 +165,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 	// TODO FIXME: the revision of the service info should be the value in product service
 	serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName, 0)
 	if err != nil {
-		// Maybe it is a share service, the entity is not under the project
-		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, "", 0)
-		if err != nil {
-			return
-		}
+		return
 	}
 	if serviceInfo.WorkloadType == "" {
 		var deployments []*appsv1.Deployment

@@ -48,7 +48,7 @@ type Service struct {
 	CreateBy           string                           `bson:"create_by"                      json:"create_by"`
 	Containers         []*Container                     `bson:"containers,omitempty"           json:"containers,omitempty"`
 	Description        string                           `bson:"description,omitempty"          json:"description,omitempty"`
-	Visibility         string                           `bson:"visibility,omitempty"           json:"visibility,omitempty"`
+	Visibility         string                           `bson:"visibility,omitempty"           json:"visibility,omitempty"` // DEPRECATED since 1.17.0
 	Status             string                           `bson:"status,omitempty"               json:"status,omitempty"`
 	GerritRepoName     string                           `bson:"gerrit_repo_name,omitempty"     json:"gerrit_repo_name,omitempty"`
 	GerritBranchName   string                           `bson:"gerrit_branch_name,omitempty"   json:"gerrit_branch_name,omitempty"`

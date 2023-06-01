@@ -28,28 +28,9 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
-
-type KVPair struct {
-	Key   string      `json:"key"`
-	Value interface{} `json:"value"`
-}
-
-func listTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, map[string]*templatemodels.ServiceInfo, error) {
-	//如果没找到对应产品，则kv为空
-	prodTmpl, err := template.NewProductColl().Find(productTmplName)
-	if err != nil {
-		errMsg := fmt.Sprintf("[ProductTmpl.Find] %s error: %v", productTmplName, err)
-		log.Warn(errMsg)
-		return nil, nil, nil
-	}
-
-	kvs, err := ListServicesRenderKeys(prodTmpl.AllServiceInfos(), log)
-	return kvs, prodTmpl.AllServiceInfoMap(), err
-}
 
 func GetRenderSet(renderName string, revision int64, isDefault bool, envName string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	// 未指定renderName返回空的renderSet

@@ -62,7 +62,6 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 			Source:                     serviceObject.Source,
 			ProductName:                serviceObject.ProductName,
 			Containers:                 serviceObject.Containers,
-			Visibility:                 serviceObject.Visibility,
 			CreateFrom:                 serviceObject.CreateFrom,
 			AutoSync:                   serviceObject.AutoSync,
 			EstimatedMergedVariable:    estimatedVariableYamlMap[serviceObject.ServiceName],

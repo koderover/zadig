@@ -231,26 +231,6 @@ func ListTemplatesHierachy(c *gin.Context) {
 	ctx.Resp, ctx.Err = projectservice.ListTemplatesHierachy(ctx.UserName, ctx.Logger)
 }
 
-func ForkProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := new(template.ForkProject)
-	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid fork project json args")
-		return
-	}
-	args.ProductName = c.Param("productName")
-	ctx.Err = projectservice.ForkProduct(ctx.UserName, ctx.UserID, ctx.RequestID, args, ctx.Logger)
-}
-
-func UnForkProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Err = projectservice.UnForkProduct(ctx.UserID, ctx.UserName, c.Param("productName"), c.Query("workflowName"), c.Query("envName"), ctx.RequestID, ctx.Logger)
-}
-
 func GetCustomMatchRules(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

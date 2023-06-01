@@ -246,9 +246,7 @@ func findBuildNameByContainerName(containerName string, serviceTmpl *commonmodel
 	opt := &commonrepo.BuildListOption{
 		ServiceName: serviceTmpl.ServiceName,
 		Targets:     []string{containerName},
-	}
-	if serviceTmpl.Visibility != setting.PublicService {
-		opt.ProductName = serviceTmpl.ProductName
+		ProductName: serviceTmpl.ProductName,
 	}
 
 	buildModules, err := commonrepo.NewBuildColl().List(opt)
@@ -265,15 +263,6 @@ func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModul
 		return nil, nil
 	}
 
-	opt := &commonrepo.ServiceFindOption{
-		ServiceName:   containerArr[1],
-		ProductName:   containerArr[0],
-		ExcludeStatus: setting.ProductStatusDeleting,
-	}
-	serviceObj, _ := commonrepo.NewServiceColl().Find(opt)
-	if serviceObj != nil && serviceObj.Visibility == setting.PublicService {
-		containerArr[0] = serviceObj.ProductName
-	}
 	for _, mo := range allModules {
 		for _, target := range mo.Targets {
 			targetStr := fmt.Sprintf("%s%s%s%s%s", target.ProductName, SplitSymbol, target.ServiceName, SplitSymbol, target.ServiceModule)
@@ -3062,13 +3051,13 @@ func getBuildModule(buildName, serviceName, serviceModule, productName string) (
 		return nil, err
 	}
 	// The service may be a shared service
-	if len(modules) == 0 {
-		opt.ProductName = ""
-		modules, err = commonrepo.NewBuildColl().List(opt)
-		if err != nil {
-			return nil, err
-		}
-	}
+	//if len(modules) == 0 {
+	//	opt.ProductName = ""
+	//	modules, err = commonrepo.NewBuildColl().List(opt)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
 	if len(modules) == 0 {
 		return nil, fmt.Errorf("no build module found for %s/%s/%s", productName, serviceName, serviceModule)
 	}

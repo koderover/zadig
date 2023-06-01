@@ -321,17 +321,17 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
-		"project_name":          strings.TrimSpace(args.ProjectName),
-		"revision":              args.Revision,
-		"services":              args.Services,
-		"production_services":   args.ProductionServices,
-		"update_time":           time.Now().Unix(),
-		"update_by":             args.UpdateBy,
-		"enabled":               args.Enabled,
-		"description":           args.Description,
-		"timeout":               args.Timeout,
-		"auto_deploy":           args.AutoDeploy,
-		"shared_services":       args.SharedServices,
+		"project_name":        strings.TrimSpace(args.ProjectName),
+		"revision":            args.Revision,
+		"services":            args.Services,
+		"production_services": args.ProductionServices,
+		"update_time":         time.Now().Unix(),
+		"update_by":           args.UpdateBy,
+		"enabled":             args.Enabled,
+		"description":         args.Description,
+		"timeout":             args.Timeout,
+		"auto_deploy":         args.AutoDeploy,
+		//"shared_services":       args.SharedServices,
 		"image_searching_rules": args.ImageSearchingRules,
 		"custom_tar_rule":       args.CustomTarRule,
 		"custom_image_rule":     args.CustomImageRule,
@@ -392,6 +392,8 @@ func (c *ProductColl) AddProductionService(productName, serviceName string) erro
 // Currently, only field `shared_services` is supported.
 // Note: A bulk operation can have at most 1000 operations, but the client will do it for us.
 // see https://stackoverflow.com/questions/24237887/what-is-mongodb-batch-operation-max-size
+// Depreated
+// This function is only used in migration of old versions, please use Update instead.
 func (c *ProductColl) UpdateAll(projects []*template.Product) error {
 	if len(projects) == 0 {
 		return nil

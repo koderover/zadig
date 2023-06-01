@@ -183,9 +183,7 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 			opt := &commonrepo.BuildListOption{
 				ServiceName: serviceTmpl.ServiceName,
 				Targets:     []string{container.Name},
-			}
-			if serviceTmpl.Visibility != setting.PublicService {
-				opt.ProductName = productName
+				ProductName: productName,
 			}
 
 			buildModules, err := commonrepo.NewBuildColl().List(opt)
