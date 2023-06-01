@@ -432,9 +432,9 @@ const (
 	ValuesYaml = "values.yaml"
 	// TemplatesDir
 	TemplatesDir = "templates"
-	// ServiceTemplateCounterName 服务模板counter name
+	// ServiceTemplateCounterName use aslan/core/common/util.GenerateServiceNextRevision() to generate service revision
 	ServiceTemplateCounterName = "service:%s&project:%s"
-	// ProductionServiceTemplateCounterName 服务模板counter name
+	// ProductionServiceTemplateCounterName use aslan/core/common/util.GenerateServiceNextRevision() to generate service revision
 	ProductionServiceTemplateCounterName = "productionservice:%s&project:%s"
 	// GerritDefaultOwner
 	GerritDefaultOwner = "dafault"

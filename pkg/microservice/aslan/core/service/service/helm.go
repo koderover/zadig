@@ -500,20 +500,12 @@ func prepareChartTemplateData(templateName string, logger *zap.SugaredLogger) (*
 }
 
 func getNextServiceRevision(productName, serviceName string, isProductionService bool) (int64, error) {
-	var serviceTemplate string
-
-	if !isProductionService {
-		serviceTemplate = fmt.Sprintf(setting.ServiceTemplateCounterName, serviceName, productName)
-	} else {
-		serviceTemplate = fmt.Sprintf(setting.ProductionServiceTemplateCounterName, serviceName, productName)
-	}
-
-	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+	rev, err := commonutil.GenerateServiceNextRevision(isProductionService, serviceName, productName)
 	if err != nil {
 		log.Errorf("Failed to get next revision for service %s, err: %s", serviceName, err)
 		return 0, err
 	}
-	if isProductionService {
+	if !isProductionService {
 		if err = commonrepo.NewServiceColl().Delete(serviceName, setting.HelmDeployType, serviceName, setting.ProductStatusDeleting, rev); err != nil {
 			log.Warnf("Failed to delete stale service %s with revision %d, err: %s", serviceName, rev, err)
 		}

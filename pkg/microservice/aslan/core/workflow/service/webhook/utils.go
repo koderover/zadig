@@ -162,8 +162,7 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
 
 		// generate new revision
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
-		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+		rev, err := commonutil.GenerateServiceNextRevision(false, args.ServiceName, args.ProductName)
 		if err != nil {
 			return fmt.Errorf("get next service template revision error: %v", err)
 		}
