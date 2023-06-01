@@ -246,38 +246,52 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 		return errors.New("failed to get user info by id")
 	}
 
-	larkPass, dingtalkPass := false, false
+	// If default approval initiator is not set, check whether the user's mobile phone number can be queried
+	// and only need to check once for each im app type
+	isMobileChecked := map[string]bool{}
 	for _, stage := range workflow.Stages {
 		if stage.Approval != nil && stage.Approval.Enabled {
 			switch stage.Approval.Type {
 			case config.LarkApproval:
-				if larkPass || stage.Approval.LarkApproval == nil {
+				if stage.Approval.LarkApproval == nil {
 					continue
 				}
-				cli, err := lark.GetLarkClientByIMAppID(stage.Approval.LarkApproval.ApprovalID)
+				cli, err := lark.GetLarkClientByIMAppID(stage.Approval.LarkApproval.ID)
 				if err != nil {
-					return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ApprovalID)
+					return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ID)
 				}
-				_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
-				if err != nil {
-					return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("lark app id: %s, phone: %s, error: %v",
-						stage.Approval.LarkApproval.ApprovalID, userInfo.Phone, err))
+
+				if initiator := stage.Approval.LarkApproval.DefaultApprovalInitiator; initiator == nil {
+					if isMobileChecked[stage.Approval.LarkApproval.ID] {
+						continue
+					}
+					_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
+					if err != nil {
+						return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("lark app id: %s, phone: %s, error: %v",
+							stage.Approval.LarkApproval.ID, userInfo.Phone, err))
+					}
+					isMobileChecked[stage.Approval.LarkApproval.ID] = true
 				}
-				larkPass = true
 			case config.DingTalkApproval:
-				if dingtalkPass || stage.Approval.DingTalkApproval == nil {
+				if stage.Approval.DingTalkApproval == nil {
 					continue
 				}
-				cli, err := dingtalk.GetDingTalkClientByIMAppID(stage.Approval.DingTalkApproval.ApprovalID)
+				cli, err := dingtalk.GetDingTalkClientByIMAppID(stage.Approval.DingTalkApproval.ID)
 				if err != nil {
-					return errors.Errorf("failed to get dingtalk app info by id-%s", stage.Approval.DingTalkApproval.ApprovalID)
+					return errors.Errorf("failed to get dingtalk app info by id-%s", stage.Approval.DingTalkApproval.ID)
 				}
-				_, err = cli.GetUserIDByMobile(userInfo.Phone)
-				if err != nil {
-					return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("dingtalk app id: %s, phone: %s, error: %v",
-						stage.Approval.DingTalkApproval.ApprovalID, userInfo.Phone, err))
+
+				if initiator := stage.Approval.DingTalkApproval.DefaultApprovalInitiator; initiator == nil {
+					if isMobileChecked[stage.Approval.DingTalkApproval.ID] {
+						continue
+					}
+					_, err = cli.GetUserIDByMobile(userInfo.Phone)
+					if err != nil {
+						return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("dingtalk app id: %s, phone: %s, error: %v",
+							stage.Approval.DingTalkApproval.ID, userInfo.Phone, err))
+					}
+					isMobileChecked[stage.Approval.DingTalkApproval.ID] = true
 				}
-				dingtalkPass = true
 			}
 		}
 	}
@@ -338,14 +352,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		}
 		workflowTask.TaskCreatorEmail = userInfo.Email
 		workflowTask.TaskCreatorPhone = userInfo.Phone
-	} else {
-		// try to get workflow creator phone as the default approval initiator
-		userInfo, err := orm.GetUserByName(workflow.CreatedBy, core.DB)
-		if err != nil {
-			log.Warnf("CreateWorkflowTaskV4: failed to get workflow creator")
-		} else {
-			workflowTask.DefaultApprovalInitiatorPhone = userInfo.Phone
-		}
 	}
 
 	// save workflow original workflow task args.
