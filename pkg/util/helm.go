@@ -20,10 +20,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/util/converter"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/helm/pkg/strvals"
+
+	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 func GeneReleaseName(namingRule, projectName, namespace, envName, service string) string {
