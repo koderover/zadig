@@ -123,6 +123,7 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 	}
 
 	svcGroupNames := prodTmpl.Services
+
 	if envType == types.ShareEnv && !isBaseEnv {
 		// At this point the request is from the environment share.
 		svcGroupNames, err = GetEnvServiceList(context.TODO(), productTmplName, baseEnvName)
@@ -170,9 +171,10 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 
 			serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
 			if err != nil {
-				errMsg := fmt.Sprintf("Can not find service with option %+v, error: %v", opt, err)
+				errMsg := fmt.Sprintf("Can not find service with option when creating init projects %+v, error: %v", opt, err)
 				log.Error(errMsg)
-				return nil, e.ErrGetProduct.AddDesc(errMsg)
+				continue
+				//return nil, e.ErrGetProduct.AddDesc(errMsg)
 			}
 
 			serviceResp := &commonmodels.ProductService{
