@@ -1027,6 +1027,7 @@ func filterProductServices(productName string, source [][]string, production boo
 	for _, svc := range curServices {
 		validSvcSet.Insert(svc.ServiceName)
 	}
+	log.Infof("valid services: %v", validSvcSet.List())
 
 	for _, svcGroup := range source {
 		validSvcs := make([]string, 0)
