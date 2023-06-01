@@ -333,6 +333,19 @@ func GetChartTemplateReference(name string, logger *zap.SugaredLogger) ([]*templ
 		ret = append(ret, &template.ServiceReference{
 			ServiceName: reference.ServiceName,
 			ProjectName: reference.ProductName,
+			Production:  false,
+		})
+	}
+
+	productionReferenceList, err := commonrepo.NewProductionServiceColl().GetChartTemplateReference(name)
+	if err != nil {
+		log.Errorf("Failed to get chart reference of production services for template name: %s, the error is: %s", name, err)
+	}
+	for _, reference := range productionReferenceList {
+		ret = append(ret, &template.ServiceReference{
+			ServiceName: reference.ServiceName,
+			ProjectName: reference.ProductName,
+			Production:  true,
 		})
 	}
 	return ret, nil

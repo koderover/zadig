@@ -46,6 +46,20 @@ type filterDeployServiceVarsQuery struct {
 	ServiceNames []string `json:"service_names"`
 }
 
+type getHelmValuesDifferenceReq struct {
+	ServiceName           string            `json:"service_name"`
+	VariableYaml          string            `json:"variable_yaml"`
+	EnvName               string            `json:"env_name"`
+	IsProduction          bool              `json:"production"`
+	UpdateServiceRevision bool              `json:"update_service_revision"`
+	ServiceModules        []*ModuleAndImage `json:"service_modules"`
+}
+
+type ModuleAndImage struct {
+	Image string `json:"image"`
+	Name  string `json:"name"`
+}
+
 type listWorkflowV4Resp struct {
 	WorkflowList []*workflow.Workflow `json:"workflow_list"`
 	Total        int64                `json:"total"`
@@ -182,7 +196,7 @@ func CheckWorkflowV4LarkApproval(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = workflow.CheckWorkflowV4LarkApproval(c.Param("name"), ctx.UserID, ctx.Logger)
+	ctx.Err = workflow.CheckWorkflowV4ApprovalInitiator(c.Param("name"), ctx.UserID, ctx.Logger)
 }
 
 func ListWebhookForWorkflowV4(c *gin.Context) {
@@ -547,6 +561,14 @@ func ListAllAvailableWorkflows(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.ListAllAvailableWorkflows(c.QueryArray("projects"), ctx.Logger)
 }
 
+// @Summary Get filtered env services
+// @Description Get filtered env services
+// @Tags 	workflow
+// @Accept 	json
+// @Produce json
+// @Param 	body 		body 		filterDeployServiceVarsQuery	 	true 	"body"
+// @Success 200 		{array} 	commonmodels.DeployService
+// @Router /api/aslan/workflow/v4/filterEnv [post]
 func GetFilteredEnvServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -556,6 +578,23 @@ func GetFilteredEnvServices(c *gin.Context) {
 		return
 	}
 	ctx.Resp, ctx.Err = workflow.GetFilteredEnvServices(req.WorkflowName, req.JobName, req.EnvName, req.ServiceNames, ctx.Logger)
+}
+
+func CompareHelmServiceYamlInEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	req := new(getHelmValuesDifferenceReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	projectName := c.Query("projectName")
+
+	images := make([]string, 0)
+	for _, imageInfos := range req.ServiceModules {
+		images = append(images, imageInfos.Image)
+	}
+	ctx.Resp, ctx.Err = workflow.CompareHelmServiceYamlInEnv(req.ServiceName, req.VariableYaml, req.EnvName, projectName, images, req.IsProduction, req.UpdateServiceRevision, ctx.Logger)
 }
 
 func getBody(c *gin.Context) string {

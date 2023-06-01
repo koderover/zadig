@@ -206,15 +206,6 @@ func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.S
 	return c.listMaxRevisions(m, nil)
 }
 
-func (c *ServiceColl) ListMaxRevisionServicesByChartTemplate(templateName string) ([]*models.Service, error) {
-	m := bson.M{
-		"create_from.template_name": templateName,
-		"status":                    bson.M{"$ne": setting.ProductStatusDeleting},
-		"source":                    setting.SourceFromChartTemplate,
-	}
-	return c.listMaxRevisions(m, nil)
-}
-
 func (c *ServiceColl) ListMaxRevisionsAllSvcByProduct(productName string) ([]*models.Service, error) {
 	m := bson.M{
 		"product_name": productName,
@@ -364,8 +355,8 @@ func (c *ServiceColl) UpdateServiceVariables(args *models.Service) error {
 
 	query := bson.M{"product_name": args.ProductName, "service_name": args.ServiceName, "revision": args.Revision}
 	changeMap := bson.M{
-		"variable_yaml": args.VariableYaml,
-		"service_vars":  args.ServiceVars,
+		"variable_yaml":        args.VariableYaml,
+		"service_variable_kvs": args.ServiceVariableKVs,
 	}
 	change := bson.M{"$set": changeMap}
 	_, err := c.UpdateOne(context.TODO(), query, change)
@@ -745,6 +736,19 @@ func (c *ServiceColl) GetYamlTemplateReference(templateID string) ([]*models.Ser
 	return c.listMaxRevisions(query, postMatch)
 }
 
+func (c *ServiceColl) GetYamlTemplateLatestReference(templateID string) ([]*models.Service, error) {
+	query := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+
+	postMatch := bson.M{
+		"source":      setting.ServiceSourceTemplate,
+		"template_id": templateID,
+	}
+
+	return c.listMaxRevisions(query, postMatch)
+}
+
 func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {
 	var pipeResp []*grouped
 	pipeline := []bson.M{
@@ -765,6 +769,7 @@ func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Se
 				"build_name":  bson.M{"$last": "$build_name"},
 				"template_id": bson.M{"$last": "$template_id"},
 				"create_from": bson.M{"$last": "$create_from"},
+				"source":      bson.M{"$last": "$source"},
 			},
 		},
 	}

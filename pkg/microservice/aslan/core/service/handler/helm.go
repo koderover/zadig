@@ -31,7 +31,13 @@ import (
 func ListHelmServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = svcservice.ListHelmServices(c.Param("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.ListHelmServices(c.Param("productName"), false, ctx.Logger)
+}
+
+func ListHelmProductionServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = svcservice.ListHelmServices(c.Query("projectName"), true, ctx.Logger)
 }
 
 func GetHelmServiceModule(c *gin.Context) {
@@ -42,7 +48,7 @@ func GetHelmServiceModule(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = svcservice.GetHelmServiceModule(c.Param("serviceName"), c.Param("productName"), revision, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.GetHelmServiceModule(c.Param("serviceName"), c.Param("productName"), revision, false, ctx.Logger)
 }
 
 func GetFilePath(c *gin.Context) {
@@ -57,7 +63,7 @@ func GetFilePath(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = svcservice.GetFilePath(c.Param("serviceName"), c.Param("productName"), revision, c.Query("dir"), ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.GetFilePath(c.Param("serviceName"), c.Param("productName"), revision, c.Query("dir"), false, ctx.Logger)
 }
 
 func GetFileContent(c *gin.Context) {
@@ -85,7 +91,23 @@ func UpdateFileContent(c *gin.Context) {
 		return
 	}
 
+	param.Production = false
 	ctx.Err = svcservice.EditFileContent(c.Param("serviceName"), c.Query("projectName"), ctx.UserName, ctx.RequestID, param, ctx.Logger)
+}
+
+func UpdateProductionSvcFileContent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	param := new(svcservice.HelmChartEditInfo)
+	err := c.ShouldBind(param)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	param.Production = true
+	ctx.Err = svcservice.EditFileContent(c.Param("name"), c.Query("projectName"), ctx.UserName, ctx.RequestID, param, ctx.Logger)
 }
 
 func CreateOrUpdateHelmService(c *gin.Context) {
@@ -131,6 +153,30 @@ func UpdateHelmService(c *gin.Context) {
 	bs, _ := json.Marshal(args)
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s", args.Name), string(bs), ctx.Logger)
 
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, true, ctx.Logger)
+}
+
+func UpdateHelmProductionService(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		return
+	}
+
+	args := new(svcservice.HelmServiceCreationArgs)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
+		return
+	}
+	args.CreatedBy, args.RequestID = ctx.UserName, ctx.RequestID
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", args.Name), string(bs), ctx.Logger)
+
+	args.Production = true
 	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, true, ctx.Logger)
 }
 

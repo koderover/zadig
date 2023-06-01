@@ -434,7 +434,7 @@ const (
 	TemplatesDir = "templates"
 	// ServiceTemplateCounterName 服务模板counter name
 	ServiceTemplateCounterName = "service:%s&project:%s"
-	// ServiceTemplateCounterName 服务模板counter name
+	// ProductionServiceTemplateCounterName 服务模板counter name
 	ProductionServiceTemplateCounterName = "productionservice:%s&project:%s"
 	// GerritDefaultOwner
 	GerritDefaultOwner = "dafault"
@@ -751,7 +751,7 @@ const (
 // Instant Message System types
 const (
 	IMLark     = "lark"
-	IMDingding = "dingding"
+	IMDingTalk = "dingtalk"
 )
 
 // lark app

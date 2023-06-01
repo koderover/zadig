@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -108,38 +110,53 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 			})
 		}
 
-		yaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
-			ProductName: c.workflowCtx.ProjectName,
-			EnvName:     c.jobTaskSpec.EnvName,
-			ServiceName: event.ServiceName,
-			UnInstall:   true,
-		})
+		projectInfo, err := template.NewProductColl().Find(c.workflowCtx.ProjectName)
 		if err != nil {
-			errHandler(fmt.Sprintf("fetch current applied yaml error: %v", err))
+			errHandler(fmt.Sprintf("failed to fetch project info %v", err))
 			continue
 		}
 
-		err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
-			ProductName: c.workflowCtx.ProjectName,
-			EnvName:     c.jobTaskSpec.EnvName,
-			ServiceName: event.ServiceName,
-			Uninstall:   true,
-		})
-		if err != nil {
-			errHandler(fmt.Sprintf("update product service deploy info error: %v", err))
-			continue
-		}
+		if projectInfo.IsHelmProduct() {
+			kube.CreateOrUpdateHelmResource(&kube.ResourceApplyParam{
+				ProductInfo: env,
+				ServiceName: event.ServiceName,
+				KubeClient:  kubeClient,
+				Uninstall:   true,
+			}, c.logger.With("caller", "OfflineServiceJobCtl.Run"))
+		} else {
+			yaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+				ProductName: c.workflowCtx.ProjectName,
+				EnvName:     c.jobTaskSpec.EnvName,
+				ServiceName: event.ServiceName,
+				UnInstall:   true,
+			})
+			if err != nil {
+				errHandler(fmt.Sprintf("fetch current applied yaml error: %v", err))
+				continue
+			}
 
-		_, err = kube.CreateOrPatchResource(&kube.ResourceApplyParam{
-			ProductInfo:         env,
-			ServiceName:         event.ServiceName,
-			CurrentResourceYaml: yaml,
-			KubeClient:          kubeClient,
-			Uninstall:           true,
-		}, c.logger.With("caller", "OfflineServiceJobCtl.Run"))
-		if err != nil {
-			errHandler(fmt.Sprintf("create or patch resource error: %v", err))
-			continue
+			err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
+				ProductName: c.workflowCtx.ProjectName,
+				EnvName:     c.jobTaskSpec.EnvName,
+				ServiceName: event.ServiceName,
+				Uninstall:   true,
+			})
+			if err != nil {
+				errHandler(fmt.Sprintf("update product service deploy info error: %v", err))
+				continue
+			}
+
+			_, err = kube.CreateOrPatchResource(&kube.ResourceApplyParam{
+				ProductInfo:         env,
+				ServiceName:         event.ServiceName,
+				CurrentResourceYaml: yaml,
+				KubeClient:          kubeClient,
+				Uninstall:           true,
+			}, c.logger.With("caller", "OfflineServiceJobCtl.Run"))
+			if err != nil {
+				errHandler(fmt.Sprintf("create or patch resource error: %v", err))
+				continue
+			}
 		}
 
 		event.Status = config.StatusPassed

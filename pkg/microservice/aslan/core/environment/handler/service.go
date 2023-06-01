@@ -21,7 +21,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -29,6 +28,15 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+// @Summary List services in env
+// @Description List services in env
+// @Tags 	environments
+// @Accept 	json
+// @Produce json
+// @Param 	name 			path 		string 						 	true 	"env name"
+// @Param 	projectName 	query 		string 						 	true 	"project name"
+// @Success 200 			{object} 	commonservice.EnvServices
+// @Router /api/aslan/environment/environments/{name}/services [get]
 func ListSvcsInEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -38,6 +46,15 @@ func ListSvcsInEnv(c *gin.Context) {
 	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, productName, nil, ctx.Logger)
 }
 
+// @Summary List services in production env
+// @Description List services in production env
+// @Tags 	environments
+// @Accept 	json
+// @Produce json
+// @Param 	name 			path 		string 						 	true 	"env name"
+// @Param 	projectName 	query 		string 						 	true 	"project name"
+// @Success 200 			{object} 	commonservice.EnvServices
+// @Router /api/aslan/environment/production/environments/{name}/servicesForUpdate [get]
 func ListSvcsInProductionEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -55,17 +72,18 @@ func GetService(c *gin.Context) {
 	serviceName := c.Param("serviceName")
 	workLoadType := c.Query("workLoadType")
 
-	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, workLoadType, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, false, workLoadType, ctx.Logger)
 }
 
-func GetServiceInProductionEnv(c *gin.Context) {
+func GetProductionService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	envName := c.Param("name")
 	projectName := c.Query("projectName")
 	serviceName := c.Param("serviceName")
+	workLoadType := c.Query("workLoadType")
 
-	ctx.Resp, ctx.Err = service.GetServiceInProductionEnv(envName, projectName, serviceName, "", ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, true, workLoadType, ctx.Logger)
 }
 
 func RestartService(c *gin.Context) {
@@ -84,6 +102,17 @@ func RestartService(c *gin.Context) {
 	ctx.Err = service.RestartService(args.EnvName, args, ctx.Logger)
 }
 
+// @Summary Preview service
+// @Description Preview service
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	name			path		string								true	"env name"
+// @Param 	serviceName		path		string								true	"service name"
+// @Param 	body 			body 		service.PreviewServiceArgs 			true 	"body"
+// @Success 200 			{object} 	service.SvcDiffResult
+// @Router /api/aslan/environment/environments/{name}/services/{serviceName}/preview [post]
 func PreviewService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -101,6 +130,17 @@ func PreviewService(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.PreviewService(args, ctx.Logger)
 }
 
+// @Summary Update service
+// @Description Update service
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	name 			path		string								true	"env name"
+// @Param 	serviceName	 	path		string								true	"service name"
+// @Param 	body 			body 		service.SvcRevision 				true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/services/{serviceName} [put]
 func UpdateService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

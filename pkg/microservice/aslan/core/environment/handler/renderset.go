@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -44,6 +45,16 @@ func GetServiceRenderCharts(c *gin.Context) {
 	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
+// @Summary Get service variables
+// @Description Get service variables
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	envName		query		string										false	"env name"
+// @Param 	serviceName	query		string										true	"service name"
+// @Success 200 		{array} 	commonservice.K8sSvcRenderArg
+// @Router /api/aslan/environment/rendersets/variables [get]
 func GetServiceVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -56,6 +67,16 @@ func GetServiceVariables(c *gin.Context) {
 	ctx.Resp, _, ctx.Err = commonservice.GetK8sSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
+// @Summary Get production service variables
+// @Description Get production service variables
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name		path		string										true	"env name"
+// @Param 	serviceName	path		string										true	"service name"
+// @Success 200 		{array} 	commonservice.K8sSvcRenderArg
+// @Router /api/aslan/environments/{name}/services/{serviceName}/variables [get]
 func GetProductionVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -111,4 +132,38 @@ func GetYamlContent(c *gin.Context) {
 
 	pathArr := strings.Split(arg.ValuesPaths, ",")
 	ctx.Resp, ctx.Err = service.GetMergedYamlContent(arg, pathArr)
+}
+
+type getGlobalVariablesRespone struct {
+	GlobalVariables []*commontypes.GlobalVariableKV `json:"global_variables"`
+	Revision        int64                           `json:"revision"`
+}
+
+// @Summary Get global variable
+// @Description Get global variable from environment, current only used for k8s project
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	envName 	query		string										true	"env name"
+// @Success 200 		{object} 	getGlobalVariablesRespone
+// @Router /api/aslan/environment/rendersets/globalVariables [get]
+func GetGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Query("projectName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	if c.Query("envName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+		return
+	}
+
+	resp := new(getGlobalVariablesRespone)
+
+	resp.GlobalVariables, resp.Revision, ctx.Err = service.GetGlobalVariables(c.Query("projectName"), c.Query("envName"), ctx.Logger)
+	ctx.Resp = resp
 }

@@ -16,15 +16,19 @@ limitations under the License.
 
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type YamlTemplate struct {
-	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Name         string             `bson:"name"          json:"name"`
-	Content      string             `bson:"content"       json:"content"`
-	Variables    []*Variable        `bson:"variables"     json:"variables"` // Deprecated since 1.16.0
-	VariableYaml string             `bson:"variable_yaml" json:"variable_yaml"`
-	ServiceVars  []string           `bson:"service_vars"  json:"service_vars"`
+	ID                 primitive.ObjectID               `bson:"_id,omitempty"        json:"id,omitempty"`
+	Name               string                           `bson:"name"                 json:"name"`
+	Content            string                           `bson:"content"              json:"content"`
+	Variables          []*Variable                      `bson:"variables"            json:"variables"` // Deprecated since 1.16.0
+	VariableYaml       string                           `bson:"variable_yaml"        json:"variable_yaml"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `bson:"service_variable_kvs" json:"service_variable_kvs"`
+	ServiceVars        []string                         `bson:"service_vars"         json:"service_vars"` // Deprecated since 1.18.0
 }
 
 type Variable struct {

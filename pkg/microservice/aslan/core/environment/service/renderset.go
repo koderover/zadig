@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -246,4 +247,39 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 		return "", errors.Wrapf(err, "failed to merge files")
 	}
 	return string(ret), nil
+}
+
+func GetGlobalVariables(productName, envName string, log *zap.SugaredLogger) ([]*commontypes.GlobalVariableKV, int64, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err == mongo.ErrNoDocuments {
+		return nil, 0, nil
+	}
+	if err != nil {
+		log.Errorf("failed to query product info, productName %s envName %s err %s", productName, envName, err)
+		return nil, 0, fmt.Errorf("failed to query product info, productName %s envName %s", productName, envName)
+	}
+
+	if productInfo.Render == nil {
+		return nil, 0, fmt.Errorf("invalid product, nil render data")
+	}
+
+	opt := &commonrepo.RenderSetFindOption{
+		Name:        productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision,
+		ProductTmpl: productName,
+		EnvName:     productInfo.EnvName,
+	}
+	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil {
+		log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
+		return nil, 0, err
+	}
+	if !existed {
+		return nil, 0, nil
+	}
+
+	return rendersetObj.GlobalVariables, rendersetObj.Revision, nil
 }

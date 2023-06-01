@@ -60,6 +60,14 @@ func OpenAPICreateProductTemplate(c *gin.Context) {
 	ctx.Err = service.CreateProjectOpenAPI(ctx.UserID, ctx.UserName, args, ctx.Logger)
 }
 
+// @Summary OpenAPI Initialize Yaml Project
+// @Description OpenAPI Initialize Yaml Project
+// @Tags 	OpenAPI
+// @Accept 	json
+// @Produce json
+// @Param 	body 			body 		service.OpenAPIInitializeProjectReq 	true 	"body"
+// @Success 200
+// @Router /openapi/projects/project/init/yaml [post]
 func OpenAPIInitializeYamlProject(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

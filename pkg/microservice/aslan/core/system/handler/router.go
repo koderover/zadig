@@ -222,6 +222,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
+	// system custom theme
+	// ---------------------------------------------------------------------------------------
+	theme := router.Group("theme")
+	{
+		theme.GET("", GetThemeInfos)
+		theme.PUT("", UpdateThemeInfo)
+	}
+
+	// ---------------------------------------------------------------------------------------
 	// external system API
 	// ---------------------------------------------------------------------------------------
 	externalSystem := router.Group("external")
@@ -278,6 +287,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		lark.POST("/:id/webhook", LarkEventHandler)
 	}
 
+	dingtalk := router.Group("dingtalk")
+	{
+		dingtalk.GET("/:id/department/:department_id", GetDingTalkDepartment)
+		dingtalk.GET("/:id/user", GetDingTalkUserID)
+		dingtalk.POST("/:ak/webhook", DingTalkEventHandler)
+	}
+
 	pm := router.Group("project_management")
 	{
 		pm.GET("", ListProjectManagement)
@@ -287,7 +303,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pm.DELETE("/:id", DeleteProjectManagement)
 		pm.GET("/jira/project", ListJiraProjects)
 		pm.GET("/jira/issue", SearchJiraIssues)
+		pm.GET("/jira/issue/jql", SearchJiraProjectIssuesWithJQL)
 		pm.GET("/jira/type", GetJiraTypes)
+		pm.GET("/jira/status", GetJiraAllStatus)
 		pm.POST("/jira/webhook/:workflowName/:hookName", HandleJiraEvent)
 		pm.POST("/meego/webhook/:workflowName/:hookName", HandleMeegoEvent)
 	}

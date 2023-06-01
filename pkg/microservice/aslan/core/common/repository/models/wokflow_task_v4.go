@@ -22,6 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -54,6 +55,10 @@ type WorkflowTask struct {
 	IsDebug             bool               `bson:"is_debug"                  json:"is_debug"`
 	MultiRun            bool               `bson:"multi_run"                 json:"multi_run"`
 	ShareStorages       []*ShareStorage    `bson:"share_storages"            json:"share_storages"`
+
+	// DefaultApprovalInitiatorPhone is used for workflow tasks that are not created by users, such as webhook and timer
+	// Now we set the workflow creator as the default approval initiator
+	DefaultApprovalInitiatorPhone string `bson:"default_approval_initiator_phone" json:"default_approval_initiator_phone"`
 }
 
 func (WorkflowTask) TableName() string {
@@ -104,21 +109,23 @@ type JobTaskCustomDeploySpec struct {
 }
 
 type JobTaskDeploySpec struct {
-	Env                string                 `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName        string                 `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	Production         bool                   `bson:"production"                       json:"production"                          yaml:"production"`
-	DeployContents     []config.DeployContent `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
-	KeyVals            []*ServiceKeyVal       `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
-	UpdateConfig       bool                   `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
-	YamlContent        string                 `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
-	ServiceAndImages   []*DeployServiceModule `bson:"service_and_images"               json:"service_and_images"                  yaml:"service_and_images"`
-	ServiceType        string                 `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
-	CreateEnvType      string                 `bson:"env_type"                         json:"env_type"                            yaml:"env_type"`
-	SkipCheckRunStatus bool                   `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
-	ClusterID          string                 `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
-	Timeout            int                    `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
-	ReplaceResources   []Resource             `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
-	RelatedPodLabels   []map[string]string    `bson:"-"                                json:"-"                                   yaml:"-"`
+	Env                string                          `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName        string                          `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	Production         bool                            `bson:"production"                       json:"production"                          yaml:"production"`
+	DeployContents     []config.DeployContent          `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
+	KeyVals            []*ServiceKeyVal                `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`         // deprecated since 1.18.0
+	VariableConfigs    []*DeplopyVariableConfig        `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"` // new since 1.18.0, only used for k8s
+	VariableKVs        []*commontypes.RenderVariableKV `bson:"variable_kvs"                     json:"variable_kvs"                        yaml:"variable_kvs"`     // new since 1.18.0, only used for k8s
+	UpdateConfig       bool                            `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
+	YamlContent        string                          `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
+	ServiceAndImages   []*DeployServiceModule          `bson:"service_and_images"               json:"service_and_images"                  yaml:"service_and_images"`
+	ServiceType        string                          `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	CreateEnvType      string                          `bson:"env_type"                         json:"env_type"                            yaml:"env_type"`
+	SkipCheckRunStatus bool                            `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	ClusterID          string                          `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	Timeout            int                             `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	ReplaceResources   []Resource                      `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
+	RelatedPodLabels   []map[string]string             `bson:"-"                                json:"-"                                   yaml:"-"`
 	// for compatibility
 	ServiceModule string `bson:"service_module"                   json:"service_module"                      yaml:"-"`
 	Image         string `bson:"image"                            json:"image"                               yaml:"-"`
@@ -139,12 +146,18 @@ type Resource struct {
 }
 
 type JobTaskHelmDeploySpec struct {
-	Env                string                   `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName        string                   `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	ServiceType        string                   `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
-	DeployContents     []config.DeployContent   `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
-	KeyVals            []*ServiceKeyVal         `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
-	YamlContent        string                   `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
+	Env            string                 `bson:"env"                              json:"env"                                 yaml:"env"`
+	ServiceName    string                 `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
+	ServiceType    string                 `bson:"service_type"                     json:"service_type"                        yaml:"service_type"`
+	DeployContents []config.DeployContent `bson:"deploy_contents"                  json:"deploy_contents"                     yaml:"deploy_contents"`
+	KeyVals        []*ServiceKeyVal       `bson:"key_vals"                         json:"key_vals"                            yaml:"key_vals"`
+	// VariableYaml stores the variable YAML provided by user
+	VariableYaml string `bson:"variable_yaml"                    json:"variable_yaml"                       yaml:"variable_yaml"`
+	// IsProduction added since 1.18, indicator of production environment deployment job
+	IsProduction bool   `bson:"is_production" yaml:"is_production" json:"is_production"`
+	YamlContent  string `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
+	// UserSuppliedValue added since 1.18, the values that users gives.
+	UserSuppliedValue  string                   `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
 	UpdateConfig       bool                     `bson:"update_config"                    json:"update_config"                       yaml:"update_config"`
 	SkipCheckRunStatus bool                     `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
 	ImageAndModules    []*ImageAndServiceModule `bson:"image_and_service_modules"        json:"image_and_service_modules"           yaml:"image_and_service_modules"`
@@ -309,8 +322,8 @@ type JobTasK8sPatchSpec struct {
 type IssueID struct {
 	Key    string `bson:"key" json:"key" yaml:"key"`
 	Name   string `bson:"name" json:"name" yaml:"name"`
-	Status string `bson:"status" json:"status" yaml:"status"`
-	Link   string `bson:"link" json:"link" yaml:"link"`
+	Status string `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
+	Link   string `bson:"link,omitempty" json:"link,omitempty" yaml:"link,omitempty"`
 }
 
 type JobTaskJiraSpec struct {
@@ -429,22 +442,23 @@ type StepTask struct {
 }
 
 type WorkflowTaskCtx struct {
-	WorkflowName                string
-	WorkflowDisplayName         string
-	ProjectName                 string
-	TaskID                      int64
-	DockerHost                  string
-	Workspace                   string
-	DistDir                     string
-	DockerMountDir              string
-	ConfigMapMountDir           string
-	WorkflowTaskCreatorUsername string
-	WorkflowTaskCreatorEmail    string
-	WorkflowTaskCreatorMobile   string
-	WorkflowKeyVals             []*KeyVal
-	GlobalContextGet            func(key string) (string, bool)
-	GlobalContextSet            func(key, value string)
-	GlobalContextEach           func(f func(k, v string) bool)
-	ClusterIDAdd                func(clusterID string)
-	SetStatus                   func(status config.Status)
+	WorkflowName                   string
+	WorkflowDisplayName            string
+	ProjectName                    string
+	TaskID                         int64
+	DockerHost                     string
+	Workspace                      string
+	DistDir                        string
+	DockerMountDir                 string
+	ConfigMapMountDir              string
+	WorkflowTaskCreatorUsername    string
+	WorkflowTaskCreatorEmail       string
+	WorkflowTaskCreatorMobile      string
+	DefaultApprovalInitiatorMobile string
+	WorkflowKeyVals                []*KeyVal
+	GlobalContextGet               func(key string) (string, bool)
+	GlobalContextSet               func(key, value string)
+	GlobalContextEach              func(f func(k, v string) bool)
+	ClusterIDAdd                   func(clusterID string)
+	SetStatus                      func(status config.Status)
 }

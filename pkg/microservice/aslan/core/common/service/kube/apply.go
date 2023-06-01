@@ -224,6 +224,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		if !commonutil.ServiceDeployed(applyParam.ServiceName, productInfo.ServiceDeployStrategy) {
 			return nil, nil
 		}
+
 		err = removeResources(curResources, resources, namespace, applyParam.KubeClient, log)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to remove old resources")
@@ -480,7 +481,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	return res, errList.ErrorOrNil()
 }
 
-func prepareData(applyParam *ResourceApplyParam) (*commonmodels.RenderSet, *commonmodels.ProductService, *commonmodels.Service, error) {
+func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.RenderSet, *commonmodels.ProductService, *commonmodels.Service, error) {
 	productInfo := applyParam.ProductInfo
 	productService := applyParam.ProductInfo.GetServiceMap()[applyParam.ServiceName]
 	if productService == nil {
@@ -572,15 +573,6 @@ func prepareData(applyParam *ResourceApplyParam) (*commonmodels.RenderSet, *comm
 	return renderSet, productService, svcTemplate, nil
 }
 
-// GeneMergedValues returns content of values.yaml merged with values by zadig
-func GeneMergedValues(applyParam *ResourceApplyParam, log *zap.SugaredLogger) (string, error) {
-	renderSet, productService, _, err := prepareData(applyParam)
-	if err != nil {
-		return "", err
-	}
-	return geneMergedValues(productService, renderSet, applyParam.Images, applyParam.VariableYaml)
-}
-
 // CreateOrUpdateHelmResource create or patch helm services
 // if service is not deployed ever, it will be added into target environment
 // database will also be updated
@@ -589,12 +581,23 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 
 	// uninstall release
 	if applyParam.Uninstall {
+		if !commonutil.ServiceDeployed(applyParam.ServiceName, productInfo.ServiceDeployStrategy) {
+			return nil
+		}
 		return DeleteHelmServiceFromEnv("workflow", "", applyParam.ProductInfo, []string{applyParam.ServiceName}, log)
 	}
 
-	renderSet, productService, svcTemplate, err := prepareData(applyParam)
+	renderSet, productService, svcTemplate, err := PrepareHelmServiceData(applyParam)
 	if err != nil {
 		return err
 	}
-	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, applyParam.VariableYaml, applyParam.Timeout)
+	chartInfo, ok := renderSet.GetChartRenderMap()[applyParam.ServiceName]
+	if !ok {
+		return errors.Wrapf(err, "failed to find chart info in render")
+	}
+	if chartInfo.OverrideYaml == nil {
+		chartInfo.OverrideYaml = &template.CustomYaml{}
+	}
+	chartInfo.OverrideYaml.YamlContent = applyParam.VariableYaml
+	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, "", applyParam.Timeout)
 }

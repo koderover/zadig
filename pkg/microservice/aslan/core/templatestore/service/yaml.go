@@ -17,21 +17,19 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	gotemplate "text/template"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/converter"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
@@ -42,11 +40,20 @@ var DefaultSystemVariable = map[string]string{
 }
 
 func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogger) error {
-	err := commonrepo.NewYamlTemplateColl().Create(&models.YamlTemplate{
-		Name:         template.Name,
-		Content:      template.Content,
-		VariableYaml: template.VariableYaml,
-		//Variables:    nil,
+	extractVariableYmal, err := yamlutil.ExtractVariableYaml(template.Content)
+	if err != nil {
+		return fmt.Errorf("failed to extract variable yaml from service yaml, err: %w", err)
+	}
+	extractServiceVariableKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYmal, nil)
+	if err != nil {
+		return fmt.Errorf("failed to convert variable yaml to service variable kv, err: %w", err)
+	}
+
+	err = commonrepo.NewYamlTemplateColl().Create(&models.YamlTemplate{
+		Name:               template.Name,
+		Content:            template.Content,
+		VariableYaml:       extractVariableYmal,
+		ServiceVariableKVs: extractServiceVariableKVs,
 	})
 	if err != nil {
 		logger.Errorf("create dockerfile template error: %s", err)
@@ -55,14 +62,32 @@ func CreateYamlTemplate(template *template.YamlTemplate, logger *zap.SugaredLogg
 }
 
 func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
-	err := commonrepo.NewYamlTemplateColl().Update(
+	extractVariableYmal, err := yamlutil.ExtractVariableYaml(template.Content)
+	if err != nil {
+		return fmt.Errorf("failed to extract variable yaml from service yaml, err: %w", err)
+	}
+	extractServiceVariableKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYmal, nil)
+	if err != nil {
+		return fmt.Errorf("failed to convert variable yaml to service variable kv, err: %w", err)
+	}
+
+	origin, err := commonrepo.NewYamlTemplateColl().GetById(id)
+	if err != nil {
+		return fmt.Errorf("failed to find template by id: %s, err: %w", id, err)
+	}
+
+	template.VariableYaml, template.ServiceVariableKVs, err = commontypes.MergeServiceVariableKVsIfNotExist(origin.ServiceVariableKVs, extractServiceVariableKVs)
+	if err != nil {
+		return fmt.Errorf("failed to merge service variables, err %w", err)
+	}
+
+	err = commonrepo.NewYamlTemplateColl().Update(
 		id,
 		&models.YamlTemplate{
-			Name:    template.Name,
-			Content: template.Content,
-			//Variables:    nil,
-			VariableYaml: template.VariableYaml,
-			ServiceVars:  template.ServiceVars,
+			Name:               template.Name,
+			Content:            template.Content,
+			VariableYaml:       template.VariableYaml,
+			ServiceVariableKVs: template.ServiceVariableKVs,
 		},
 	)
 	if err != nil {
@@ -72,9 +97,17 @@ func UpdateYamlTemplate(id string, template *template.YamlTemplate, logger *zap.
 }
 
 func UpdateYamlTemplateVariable(id string, template *template.YamlTemplate, logger *zap.SugaredLogger) error {
-	// NOTE. technically the content of variable yaml should be validated
-	// but the service is not rendered before applied to k8s, we ignore the validation on template
-	err := commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml, template.ServiceVars)
+	origin, err := commonrepo.NewYamlTemplateColl().GetById(id)
+	if err != nil {
+		return fmt.Errorf("failed to find template by id: %s, err: %w", id, err)
+	}
+
+	_, err = commonutil.RenderK8sSvcYamlStrict(origin.Content, "FakeProjectName", template.Name, template.VariableYaml)
+	if err != nil {
+		return fmt.Errorf("failed to validate variable, err: %s", err)
+	}
+
+	err = commonrepo.NewYamlTemplateColl().UpdateVariable(id, template.VariableYaml, template.ServiceVariableKVs)
 	if err != nil {
 		logger.Errorf("update yaml template variable error: %s", err)
 	}
@@ -85,7 +118,7 @@ func ListYamlTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*temp
 	resp := make([]*template.YamlListObject, 0)
 	templateList, total, err := commonrepo.NewYamlTemplateColl().List(pageNum, pageSize)
 	if err != nil {
-		logger.Errorf("list dockerfile template error: %s", err)
+		logger.Errorf("list yaml template error: %s", err)
 		return resp, 0, err
 	}
 	for _, obj := range templateList {
@@ -107,36 +140,13 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*template.Yaml
 	resp.ID = yamlTemplate.ID.Hex()
 	resp.Name = yamlTemplate.Name
 	resp.Content = yamlTemplate.Content
-	resp.ServiceVars = yamlTemplate.ServiceVars
 	resp.VariableYaml = yamlTemplate.VariableYaml
-	if len(resp.VariableYaml) > 0 {
-		flatMap, err := converter.YamlToFlatMap([]byte(resp.VariableYaml))
-		if err != nil {
-			log.Errorf("failed to get flat map of variable, err: %s", err)
-		} else {
-			allKeys := sets.NewString()
-			for k, v := range flatMap {
-				resp.VariableKVs = append(resp.VariableKVs, &models.VariableKV{
-					Key:   k,
-					Value: v,
-				})
-				allKeys.Insert(k)
-			}
-			validServiceVars := make([]string, 0)
-			for _, k := range resp.ServiceVars {
-				if allKeys.Has(k) {
-					validServiceVars = append(validServiceVars, k)
-				}
-			}
-			resp.ServiceVars = validServiceVars
-		}
-	}
-	//resp.VariableYaml, err = template.GetTemplateVariableYaml(yamlTemplate.Variables, yamlTemplate.VariableYaml)
+	resp.ServiceVariableKVs = yamlTemplate.ServiceVariableKVs
 	return resp, err
 }
 
 func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
-	ref, err := commonrepo.NewServiceColl().GetYamlTemplateReference(id)
+	ref, err := commonrepo.NewServiceColl().GetYamlTemplateLatestReference(id)
 	if err != nil {
 		logger.Errorf("Failed to get service reference for template id: %s, the error is: %s", id, err)
 		return err
@@ -144,6 +154,15 @@ func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
 	if len(ref) > 0 {
 		return errors.New("this template is in use")
 	}
+	productionRef, err := commonrepo.NewProductionServiceColl().GetYamlTemplateLatestReference(id)
+	if err != nil {
+		logger.Errorf("Failed to get production reference for template id: %s, the error is: %s", id, err)
+		return err
+	}
+	if len(productionRef) > 0 {
+		return errors.New("this template is in use")
+	}
+
 	err = commonrepo.NewYamlTemplateColl().DeleteByID(id)
 	if err != nil {
 		logger.Errorf("Failed to delete dockerfile template of id: %s, the error is: %s", id, err)
@@ -157,15 +176,29 @@ func SyncYamlTemplateReference(userName, id string, logger *zap.SugaredLogger) e
 
 func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*template.ServiceReference, error) {
 	ret := make([]*template.ServiceReference, 0)
-	referenceList, err := commonrepo.NewServiceColl().GetYamlTemplateReference(id)
+	referenceList, err := commonrepo.NewServiceColl().GetYamlTemplateLatestReference(id)
 	if err != nil {
-		logger.Errorf("Failed to get build reference for dockerfile template id: %s, the error is: %s", id, err)
+		logger.Errorf("Failed to get build reference for yaml template id: %s, the error is: %s", id, err)
 		return ret, err
 	}
 	for _, reference := range referenceList {
 		ret = append(ret, &template.ServiceReference{
 			ServiceName: reference.ServiceName,
 			ProjectName: reference.ProductName,
+			Production:  false,
+		})
+	}
+
+	productionService, err := commonrepo.NewProductionServiceColl().GetYamlTemplateLatestReference(id)
+	if err != nil {
+		logger.Errorf("Failed to get build reference for yaml template id: %s from production service, the error is: %s", id, err)
+		return ret, err
+	}
+	for _, reference := range productionService {
+		ret = append(ret, &template.ServiceReference{
+			ServiceName: reference.ServiceName,
+			ProjectName: reference.ProductName,
+			Production:  true,
 		})
 	}
 	return ret, nil
@@ -186,28 +219,17 @@ func ValidateVariable(content, variable string) error {
 	if len(content) == 0 || len(variable) == 0 {
 		return nil
 	}
-	variable, _, err := template.SafeMergeVariableYaml(variable)
+
+	defaultSystemVariableYaml, err := yaml.Marshal(DefaultSystemVariable)
 	if err != nil {
-		return err
-	}
-	valuesMap := map[string]interface{}{}
-	if err := yaml.Unmarshal([]byte(variable), &valuesMap); err != nil {
-		return fmt.Errorf("failed to unmarshal yaml: %s", err)
+		return fmt.Errorf("failed to marshal default system variable, err: %s", err)
 	}
 
-	tmpl, err := gotemplate.New("").Parse(content)
+	_, err = commonutil.RenderK8sSvcYamlStrict(content, "FakeProjectName", "ValidateVariable", variable, string(defaultSystemVariableYaml))
 	if err != nil {
-		return fmt.Errorf("failed to build template, err: %s", err)
+		return fmt.Errorf("failed to validate variable, err: %s", err)
 	}
 
-	for k := range DefaultSystemVariable {
-		valuesMap[k] = k
-	}
-	buf := bytes.NewBufferString("")
-	err = tmpl.Execute(buf, valuesMap)
-	if err != nil {
-		return fmt.Errorf("template validate err: %s", err)
-	}
 	return nil
 }
 

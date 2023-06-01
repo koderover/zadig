@@ -17,8 +17,10 @@ limitations under the License.
 package workflow
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"net/http"
 	"regexp"
 	"sort"
@@ -42,15 +44,17 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
+	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -67,6 +71,11 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 	}
 	if err := LintWorkflowV4(workflow, logger); err != nil {
 		return err
+	}
+	// lark approval different node type need different approval definition
+	// check whether lark approvals in workflow need to create lark approval definition
+	if err := createLarkApprovalDefinition(workflow); err != nil {
+		return errors.Wrap(err, "create lark approval definition")
 	}
 
 	workflow.CreatedBy = user
@@ -118,6 +127,11 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 				return e.ErrUpsertWorkflow.AddErr(err)
 			}
 		}
+	}
+	// lark approval different node type need different approval definition
+	// check whether lark approvals in workflow need to create lark approval definition
+	if err := createLarkApprovalDefinition(inputWorkflow); err != nil {
+		return errors.Wrap(err, "create lark approval definition")
 	}
 
 	if err := commonrepo.NewWorkflowV4Coll().Update(
@@ -259,7 +273,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	if err != nil {
 		return resp, err
 	}
-	
+
 	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowTypeV4)})
 	if err != nil {
 		return resp, errors.Errorf("failed to get custom workflow favorite data, err: %v", err)
@@ -696,16 +710,113 @@ func lintApprovals(approval *commonmodels.Approval) error {
 		if approval.LarkApproval == nil {
 			return errors.New("approval not found")
 		}
-		if len(approval.LarkApproval.ApproveUsers) == 0 {
-			return errors.New("num of approver is 0")
+		if len(approval.LarkApproval.ApprovalNodes) == 0 {
+			return errors.New("num of approval-node is 0")
+		}
+		for i, node := range approval.LarkApproval.ApprovalNodes {
+			if len(node.ApproveUsers) == 0 {
+				return errors.Errorf("num of approval-node %d approver is 0", i)
+			}
+			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
+				return errors.Errorf("approval-node %d type should be AND or OR", i)
+			}
+		}
+	case config.DingTalkApproval:
+		if approval.DingTalkApproval == nil {
+			return errors.New("approval not found")
+		}
+		userIDSets := sets.NewString()
+		if len(approval.DingTalkApproval.ApprovalNodes) > 20 {
+			return errors.New("num of approval-node should not exceed 20")
+		}
+		if len(approval.DingTalkApproval.ApprovalNodes) == 0 {
+			return errors.New("num of approval-node is 0")
+		}
+		for i, node := range approval.DingTalkApproval.ApprovalNodes {
+			if len(node.ApproveUsers) == 0 {
+				return errors.Errorf("num of approval-node %d approver is 0", i)
+			}
+			for _, user := range node.ApproveUsers {
+				if userIDSets.Has(user.ID) {
+					return errors.Errorf("Duplicate approvers %s should not appear in a complete approval process", user.Name)
+				}
+				userIDSets.Insert(user.ID)
+			}
+			if !lo.Contains([]string{"AND", "OR"}, string(node.Type)) {
+				return errors.Errorf("approval-node %d type should be AND or OR", i)
+			}
 		}
 	default:
-		return errors.New("invalid approval type")
+		return errors.Errorf("invalid approval type %s", approval.Type)
 	}
 
 	return nil
 }
 
+func createLarkApprovalDefinition(workflow *commonmodels.WorkflowV4) error {
+	for _, stage := range workflow.Stages {
+		if stage.Approval == nil {
+			continue
+		}
+		if data := stage.Approval.LarkApproval; data != nil && data.ApprovalID != "" {
+			larkInfo, err := commonrepo.NewIMAppColl().GetByID(context.Background(), stage.Approval.LarkApproval.ApprovalID)
+			if err != nil {
+				return errors.Wrapf(err, "get lark app %s", stage.Approval.LarkApproval.ApprovalID)
+			}
+			if larkInfo.Type != string(config.LarkApproval) {
+				return errors.Errorf("lark app %s is not lark approval", stage.Approval.LarkApproval.ApprovalID)
+			}
+
+			if larkInfo.LarkApprovalCodeList == nil {
+				larkInfo.LarkApprovalCodeList = make(map[string]string)
+			}
+			// skip if this node type approval definition already created
+			if approvalNodeTypeID := larkInfo.LarkApprovalCodeList[data.GetNodeTypeKey()]; approvalNodeTypeID != "" {
+				log.Infof("lark approval definition %s already created", approvalNodeTypeID)
+				continue
+			}
+
+			// create this node type approval definition and save to db
+			client, err := larkservice.GetLarkClientByIMAppID(data.ApprovalID)
+			if err != nil {
+				return errors.Wrapf(err, "get lark client by im app id %s", data.ApprovalID)
+			}
+			nodesArgs := make([]*lark.ApprovalNode, 0)
+			for _, node := range data.ApprovalNodes {
+				nodesArgs = append(nodesArgs, &lark.ApprovalNode{
+					Type: node.Type,
+					ApproverIDList: func() (re []string) {
+						for _, user := range node.ApproveUsers {
+							re = append(re, user.ID)
+						}
+						return
+					}(),
+				})
+			}
+
+			approvalCode, err := client.CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
+				Name:        "Zadig 工作流",
+				Description: "Zadig 工作流-" + data.GetNodeTypeKey(),
+				Nodes:       nodesArgs,
+			})
+			if err != nil {
+				return errors.Wrap(err, "create lark approval definition")
+			}
+			err = client.SubscribeApprovalDefinition(&lark.SubscribeApprovalDefinitionArgs{
+				ApprovalID: approvalCode,
+			})
+			if err != nil {
+				return errors.Wrap(err, "subscribe lark approval definition")
+			}
+			larkInfo.LarkApprovalCodeList[data.GetNodeTypeKey()] = approvalCode
+			if err := commonrepo.NewIMAppColl().Update(context.Background(), stage.Approval.LarkApproval.ApprovalID, larkInfo); err != nil {
+				return errors.Wrap(err, "update lark approval data")
+			}
+			log.Infof("create lark approval definition %s, key: %s", approvalCode, data.GetNodeTypeKey())
+		}
+	}
+	return nil
+}
 func CreateWebhookForWorkflowV4(workflowName string, input *commonmodels.WorkflowV4Hook, logger *zap.SugaredLogger) error {
 	if err := jobctl.InstantiateWorkflow(input.WorkflowArg); err != nil {
 		logger.Errorf("instantiate hook args error: %s", err)
@@ -1737,6 +1848,61 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	return resp, nil
 }
 
+func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, images []string, isProduction, updateServiceRevision bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+	// first we get the current yaml in the current environment
+	currentYaml := ""
+	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, isProduction)
+	if err != nil {
+		log.Infof("failed to get the current service[%s] values from project: %s, env: %s", serviceName, projectName, envName)
+		currentYaml = ""
+	} else {
+		currentYaml = resp.ValuesYaml
+	}
+
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
+	}
+
+	param := &kube.ResourceApplyParam{
+		ProductInfo: prod,
+		ServiceName: serviceName,
+		// no image preview available in this api
+		Images:                images,
+		Uninstall:             false,
+		UpdateServiceRevision: updateServiceRevision,
+		Timeout:               setting.DeployTimeout,
+	}
+
+	renderSet, productService, _, err := kube.PrepareHelmServiceData(param)
+	if err != nil {
+		log.Errorf("prepare helm service data error: %v", err)
+		return nil, err
+	}
+
+	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
+	if !ok {
+		log.Errorf("failed to find chart info in render")
+		return nil, err
+	}
+	if chartInfo.OverrideYaml == nil {
+		chartInfo.OverrideYaml = &template.CustomYaml{}
+	}
+
+	param.VariableYaml = variableYaml
+
+	yamlContent, err := kube.GeneMergedValues(productService, renderSet, param.Images, param.VariableYaml)
+	if err != nil {
+		log.Errorf("failed to generate merged values.yaml, err: %w", err)
+		return nil, err
+	}
+	return &GetHelmValuesDifferenceResp{
+		Current: currentYaml,
+		Latest:  yamlContent,
+	}, nil
+}
+
 func filterServiceVars(serviceName string, deployContents []config.DeployContent, service *commonmodels.DeployService, serviceEnv *commonservice.EnvService) (*commonmodels.DeployService, error) {
 	if serviceEnv == nil {
 		return service, fmt.Errorf("service: %v do not exist", serviceName)
@@ -1750,37 +1916,32 @@ func filterServiceVars(serviceName string, deployContents []config.DeployContent
 	if service == nil {
 		service = &commonmodels.DeployService{}
 	} else {
-		keySet = commonutil.KVs2Set(service.KeyVals)
+		for _, config := range service.VariableConfigs {
+			keySet = keySet.Insert(config.VariableKey)
+		}
 	}
 
+	service.VariableYaml = serviceEnv.VariableYaml
 	service.ServiceName = serviceName
 	service.Updatable = serviceEnv.Updatable
 	service.UpdateConfig = defaultUpdateConfig
 
-	service.KeyVals = []*commonmodels.ServiceKeyVal{}
-	service.LatestKeyVals = []*commonmodels.ServiceKeyVal{}
+	service.VariableKVs = []*commontypes.RenderVariableKV{}
+	service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
 
 	for _, svcVar := range serviceEnv.VariableKVs {
-		if commonutil.FilterKV(svcVar, keySet) {
-			service.KeyVals = append(service.KeyVals, &commonmodels.ServiceKeyVal{
-				Key:   svcVar.Key,
-				Value: svcVar.Value,
-				Type:  commonmodels.StringType,
-			})
+		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
+			service.VariableKVs = append(service.VariableKVs, svcVar)
 		}
 	}
 	for _, svcVar := range serviceEnv.LatestVariableKVs {
-		if commonutil.FilterKV(svcVar, keySet) {
-			service.LatestKeyVals = append(service.LatestKeyVals, &commonmodels.ServiceKeyVal{
-				Key:   svcVar.Key,
-				Value: svcVar.Value,
-				Type:  commonmodels.StringType,
-			})
+		if keySet.Has(svcVar.Key) && !svcVar.UseGlobalVariable {
+			service.LatestVariableKVs = append(service.LatestVariableKVs, svcVar)
 		}
 	}
 	if !slices.Contains(deployContents, config.DeployVars) {
-		service.KeyVals = []*commonmodels.ServiceKeyVal{}
-		service.LatestKeyVals = []*commonmodels.ServiceKeyVal{}
+		service.VariableKVs = []*commontypes.RenderVariableKV{}
+		service.LatestVariableKVs = []*commontypes.RenderVariableKV{}
 	}
 
 	return service, nil

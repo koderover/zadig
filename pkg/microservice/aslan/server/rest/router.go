@@ -81,7 +81,6 @@ func init() {
 // @contact.email contact@koderover.com
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-// @BasePath /api/aslan
 func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	// 对外公共接口
@@ -97,13 +96,14 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	}
 
 	for name, r := range map[string]injector{
-		"/openapi/statistics": new(stathandler.OpenAPIRouter),
-		"/openapi/projects":   new(projecthandler.OpenAPIRouter),
-		"/openapi/system":     new(systemhandler.OpenAPIRouter),
-		"/openapi/workflows":  new(workflowhandler.OpenAPIRouter),
-		"/openapi/quality":    new(testinghandler.QualityRouter),
-		"/openapi/build":      new(buildhandler.OpenAPIRouter),
-		"/openapi/service":    new(servicehandler.OpenAPIRouter),
+		"/openapi/statistics":   new(stathandler.OpenAPIRouter),
+		"/openapi/projects":     new(projecthandler.OpenAPIRouter),
+		"/openapi/system":       new(systemhandler.OpenAPIRouter),
+		"/openapi/workflows":    new(workflowhandler.OpenAPIRouter),
+		"/openapi/environments": new(environmenthandler.OpenAPIRouter),
+		"/openapi/quality":      new(testinghandler.QualityRouter),
+		"/openapi/build":        new(buildhandler.OpenAPIRouter),
+		"/openapi/service":      new(servicehandler.OpenAPIRouter),
 	} {
 		r.Inject(router.Group(name))
 	}

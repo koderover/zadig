@@ -54,6 +54,19 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		productionservices.DELETE("/:name", DeleteProductionService)
 	}
 
+	helmProductionServices := router.Group("helm/production/services")
+	{
+		helmProductionServices.GET("", ListHelmProductionServices)
+		helmProductionServices.POST("", CreateHelmProductionService)
+		helmProductionServices.PUT("", UpdateHelmProductionService)
+
+		helmProductionServices.GET("/:name/serviceModule", GetProductionHelmServiceModule)
+		helmProductionServices.PUT("/:name/file", UpdateProductionSvcFileContent)
+		helmProductionServices.GET("/:name/filePath", GetProductionHelmFilePath)
+		helmProductionServices.GET("/:name/fileContent", GetProductionHelmFileContent)
+		helmProductionServices.PUT("/:name/releaseNaming", UpdateProductionHelmReleaseNaming)
+	}
+
 	k8s := router.Group("services")
 	{
 		k8s.GET("", ListServiceTemplate)
@@ -101,6 +114,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	template := router.Group("template")
 	{
+		template.POST("/production/load", LoadProductionServiceFromYamlTemplate)
+		template.POST("/production/reload", ReloadProductionServiceFromYamlTemplate)
 		template.POST("/load", LoadServiceFromYamlTemplate)
 		template.POST("/reload", ReloadServiceFromYamlTemplate)
 		template.POST("/preview", PreviewServiceYamlFromYamlTemplate)
@@ -113,5 +128,13 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	template := router.Group("template")
 	{
 		template.POST("/load/yaml", LoadServiceFromYamlTemplateOpenAPI)
+	}
+
+	yaml := router.Group("yaml")
+	{
+		yaml.POST("raw", CreateRawYamlServicesOpenAPI)
+		yaml.DELETE("/:name", DeleteYamlServicesOpenAPI)
+		yaml.GET("/:name", GetYamlServiceOpenAPI)
+
 	}
 }

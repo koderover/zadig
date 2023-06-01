@@ -29,6 +29,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	svcservice "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -71,11 +72,31 @@ func GetServiceTemplateOption(c *gin.Context) {
 	ctx.Resp, ctx.Err = svcservice.GetServiceTemplateOption(c.Param("name"), c.Query("projectName"), revision, ctx.Logger)
 }
 
+type createServiceTemplateRequest struct {
+	ProductName        string                           `json:"product_name" binding:"required"`
+	ServiceName        string                           `json:"service_name" binding:"required"`
+	Source             string                           `json:"source" binding:"required"`
+	Type               string                           `json:"type" binding:"required"`
+	Visibility         string                           `json:"visibility" binding:"required"`
+	Yaml               string                           `json:"yaml" binding:"required"`
+	VariableYaml       string                           `json:"variable_yaml"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
+}
+
+// @Summary Create service template
+// @Description Create service template
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	force	query		bool							true	"is force to create service template"
+// @Param 	body 	body 		createServiceTemplateRequest 	true 	"body"
+// @Success 200 	{object} 	svcservice.ServiceOption
+// @Router /api/aslan/service/services [post]
 func CreateServiceTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(commonmodels.Service)
+	args := new(createServiceTemplateRequest)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateServiceTemplate c.GetRawData() err : %v", err)
@@ -97,9 +118,18 @@ func CreateServiceTemplate(c *gin.Context) {
 		return
 	}
 
-	args.CreateBy = ctx.UserName
+	svc := new(commonmodels.Service)
+	svc.CreateBy = ctx.UserName
+	svc.ProductName = args.ProductName
+	svc.ServiceName = args.ServiceName
+	svc.Source = args.Source
+	svc.Type = args.Type
+	svc.VariableYaml = args.VariableYaml
+	svc.ServiceVariableKVs = args.ServiceVariableKVs
+	svc.Visibility = args.Visibility
+	svc.Yaml = args.Yaml
 
-	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, args, force, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, svc, force, ctx.Logger)
 }
 
 // UpdateServiceTemplate TODO figure out in which scene this function will be used
@@ -119,20 +149,41 @@ func UpdateServiceTemplate(c *gin.Context) {
 	ctx.Err = svcservice.UpdateServiceVisibility(args)
 }
 
+type updateServiceVariableRequest struct {
+	VariableYaml       string                           `json:"variable_yaml" binding:"required"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs" binding:"required"`
+}
+
+// @Summary Update service varaible
+// @Description Update service varaible
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	name		path		string							true	"service name"
+// @Param 	projectName	query		string							true	"project name"
+// @Param 	body  		body 		updateServiceVariableRequest 	true 	"body"
+// @Success 200
+// @Router /api/aslan/service/services/{name}/variable [put]
 func UpdateServiceVariable(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(commonservice.ServiceTmplObject)
-	if err := c.ShouldBindJSON(args); err != nil {
+	req := new(updateServiceVariableRequest)
+	servceTmplObjectargs := new(commonservice.ServiceTmplObject)
+	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
 	}
-	args.ProductName = c.Query("projectName")
-	args.ServiceName = c.Param("name")
-	args.Username = ctx.UserName
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务变量", fmt.Sprintf("服务名称:%s", args.ServiceName), "", ctx.Logger)
-	ctx.Err = svcservice.UpdateServiceVariables(args)
+
+	servceTmplObjectargs.ProductName = c.Query("projectName")
+	servceTmplObjectargs.ServiceName = c.Param("name")
+	servceTmplObjectargs.Username = ctx.UserName
+	servceTmplObjectargs.VariableYaml = req.VariableYaml
+	servceTmplObjectargs.ServiceVariableKVs = req.ServiceVariableKVs
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, servceTmplObjectargs.ProductName, "更新", "项目管理-服务变量", fmt.Sprintf("服务名称:%s", servceTmplObjectargs.ServiceName), "", ctx.Logger)
+
+	ctx.Err = svcservice.UpdateServiceVariables(servceTmplObjectargs)
 }
 
 func UpdateServiceHealthCheckStatus(c *gin.Context) {
@@ -428,6 +479,75 @@ func UpdatePmServiceTemplate(c *gin.Context) {
 	ctx.Err = commonservice.UpdatePmServiceTemplate(ctx.UserName, args, ctx.Logger)
 }
 
+func CreateRawYamlServicesOpenAPI(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = fmt.Errorf("projectName cannot be empty")
+		return
+	}
+
+	req := new(svcservice.OpenAPICreateYamlServiceReq)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Logger.Errorf("CreateProductTemplate c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, req); err != nil {
+		ctx.Logger.Errorf("CreateProductTemplate json.Unmarshal err : %v", err)
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openapi)", projectKey, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(data), ctx.Logger)
+	createArgs := &commonmodels.Service{
+		ServiceName: req.ServiceName,
+		Type:        "k8s",
+		ProductName: projectKey,
+		Source:      "spock",
+		Yaml:        req.Yaml,
+		CreateBy:    ctx.UserName,
+		Visibility:  "private",
+	}
+
+	_, creationErr := svcservice.CreateServiceTemplate(ctx.UserName, createArgs, false, ctx.Logger)
+	ctx.Err = creationErr
+}
+
+func DeleteYamlServicesOpenAPI(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectKey := c.Query("projectName")
+
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openapi)", c.Query("projectName"), "删除", "项目管理-服务", c.Param("name"), "", ctx.Logger)
+
+	ctx.Err = svcservice.DeleteServiceTemplate(c.Param("name"), "k8s", projectKey, c.DefaultQuery("isEnvTemplate", "true"), "private", ctx.Logger)
+}
+
+func GetYamlServiceOpenAPI(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = fmt.Errorf("projectName cannot be empty")
+		return
+	}
+
+	resp, err := svcservice.GetServiceTemplateOption(c.Param("name"), c.Query("projectName"), 0, ctx.Logger)
+	ctx.Logger.Infof("resp: %+v", resp)
+	if err == nil {
+		ctx.Logger.Infof("yaml in resp: %s", resp.Yaml)
+	}
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = &svcservice.OpenAPIGetYamlServiceResp{
+		Yaml: resp.Service.Yaml,
+	}
+}
+
 // @Summary convert varaible kv and yaml
 // @Description convert varaible kv and yaml
 // @Tags service
@@ -435,7 +555,7 @@ func UpdatePmServiceTemplate(c *gin.Context) {
 // @Produce json
 // @Param body body commonservice.ConvertVaraibleKVAndYamlArgs true "body"
 // @Success 200 {object} commonservice.ConvertVaraibleKVAndYamlArgs
-// @Router /service/services/variable/convert [post]
+// @Router /api/aslan/service/services/variable/convert [post]
 func ConvertVaraibleKVAndYaml(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

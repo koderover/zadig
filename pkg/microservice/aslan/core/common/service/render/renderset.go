@@ -135,10 +135,6 @@ func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 	return createRenderset(args, log)
 }
 
-func ForceCreateReaderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	return createRenderset(args, log)
-}
-
 // CreateK8sHelmRenderSet creates renderset for k8s/helm projects
 func CreateK8sHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	opt := &commonrepo.RenderSetFindOption{
@@ -155,7 +151,7 @@ func CreateK8sHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger
 			return nil
 		}
 	}
-	return ForceCreateReaderSet(args, log)
+	return CreateRenderSet(args, log)
 }
 
 func CreateDefaultHelmRenderset(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
@@ -176,6 +172,7 @@ func createRenderset(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 	return nil
 }
 
+// use it in caution, it won't update revision
 func UpdateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	err := commonrepo.NewRenderSetColl().Update(args)
 	if err != nil {

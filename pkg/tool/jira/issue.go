@@ -147,7 +147,6 @@ func (s *IssueService) SearchByJQL(jql string, findAll bool) ([]*Issue, error) {
 		}
 		start = next
 	}
-	return re, nil
 }
 
 func (s *IssueService) searchByJQL(jql string, start int) ([]*Issue, int, error) {
@@ -160,7 +159,7 @@ func (s *IssueService) searchByJQL(jql string, start int) ([]*Issue, int, error)
 		return nil, 0, err
 	}
 	if resp.GetStatusCode()/100 != 2 {
-		return nil, 0, errors.Errorf("unexpected status code %d", resp.GetStatusCode())
+		return nil, 0, errors.Errorf("unexpected Jira status code %d, body: %s", resp.GetStatusCode(), resp.String())
 	}
 	type tmp struct {
 		StartAt    int      `json:"startAt"`

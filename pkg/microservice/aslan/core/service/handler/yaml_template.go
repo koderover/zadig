@@ -26,6 +26,14 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
+// @Summary Load service from yaml template
+// @Description Load service from yaml template
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	body 	body 		svcservice.LoadServiceFromYamlTemplateReq 	true 	"body"
+// @Success 200
+// @Router /api/aslan/service/template/load [post]
 func LoadServiceFromYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -43,6 +51,23 @@ func LoadServiceFromYamlTemplate(c *gin.Context) {
 	ctx.Err = svcservice.LoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
 
+func LoadProductionServiceFromYamlTemplate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(svcservice.LoadServiceFromYamlTemplateReq)
+
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	bs, _ := json.Marshal(req)
+	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "新增", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
+
+	ctx.Err = svcservice.LoadProductionServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
+}
+
 func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -53,12 +78,25 @@ func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 		return
 	}
 
+	if err := req.Validate(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	bs, _ := json.Marshal(req)
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", req.ProjectKey, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
 	ctx.Err = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
 
+// @Summary Reload service from yaml template
+// @Description Reload service from yaml template
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	body 	body 		svcservice.LoadServiceFromYamlTemplateReq 	true 	"body"
+// @Success 200
+// @Router /api/aslan/service/template/reload [post]
 func ReloadServiceFromYamlTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -73,6 +111,22 @@ func ReloadServiceFromYamlTemplate(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
 	ctx.Err = svcservice.ReloadServiceFromYamlTemplate(ctx.UserName, req, ctx.Logger)
+}
+
+func ReloadProductionServiceFromYamlTemplate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(svcservice.LoadServiceFromYamlTemplateReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	bs, _ := json.Marshal(req)
+	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "更新", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
+
+	ctx.Err = svcservice.ReloadProductionServiceFromYamlTemplate(ctx.UserName, req, ctx.Logger)
 }
 
 func PreviewServiceYamlFromYamlTemplate(c *gin.Context) {

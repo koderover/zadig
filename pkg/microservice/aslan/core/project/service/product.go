@@ -43,6 +43,8 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -371,7 +373,7 @@ func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service
 	}
 
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		Name: projectName,
+		Name:       projectName,
 		Production: util.GetBoolPointer(false),
 	})
 	if err != nil {
@@ -541,7 +543,7 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			UpdateBy:    user,
 			IsDefault:   false,
 		}
-		err = render.ForceCreateReaderSet(rendersetInfo, logger)
+		err = render.CreateRenderSet(rendersetInfo, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -804,6 +806,7 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	go func() {
 		_ = commonrepo.NewBuildColl().Delete("", productName)
 		_ = commonrepo.NewServiceColl().Delete("", "", productName, "", 0)
+		_ = commonrepo.NewProductionServiceColl().DeleteByProject(productName)
 		_ = commonservice.DeleteDeliveryInfos(productName, log)
 		_ = DeleteProductsAsync(userName, productName, requestID, isDelete, log)
 
@@ -1084,7 +1087,11 @@ func DeleteProductsAsync(userName, productName, requestID string, isDelete bool,
 	}
 	errList := new(multierror.Error)
 	for _, env := range envs {
-		err = environmentservice.DeleteProduct(userName, env.EnvName, productName, requestID, isDelete, log)
+		if env.Production {
+			err = environmentservice.DeleteProductionProduct(userName, env.EnvName, productName, requestID, log)
+		} else {
+			err = environmentservice.DeleteProduct(userName, env.EnvName, productName, requestID, isDelete, log)
+		}
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}
@@ -1211,11 +1218,20 @@ func UpdateCustomMatchRules(productName, userName, requestID string, matchRules 
 	productInfo.ImageSearchingRules = imageRulesToSave
 	productInfo.UpdateBy = userName
 
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	services, err := repository.ListMaxRevisionsServices(productName, false)
+	if err != nil {
+		return errors.Wrapf(err, "fail to list services of product %s", productName)
+	}
+	err = reParseServices(userName, requestID, services, imageRulesToSave, false)
 	if err != nil {
 		return err
 	}
-	err = reParseServices(userName, requestID, services, imageRulesToSave)
+
+	productionServices, err := repository.ListMaxRevisionsServices(productName, true)
+	if err != nil {
+		return errors.Wrapf(err, "fail to list production services of product %s", productName)
+	}
+	err = reParseServices(userName, requestID, productionServices, imageRulesToSave, true)
 	if err != nil {
 		return err
 	}
@@ -1230,7 +1246,7 @@ func UpdateCustomMatchRules(productName, userName, requestID string, matchRules 
 }
 
 // reparse values.yaml for each service
-func reParseServices(userName, requestID string, serviceList []*commonmodels.Service, matchRules []*template.ImageSearchingRule) error {
+func reParseServices(userName, requestID string, serviceList []*commonmodels.Service, matchRules []*template.ImageSearchingRule, production bool) error {
 	updatedServiceTmpls := make([]*commonmodels.Service, 0)
 
 	var err error
@@ -1259,22 +1275,41 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 		}
 
 		serviceTmpl.CreateBy = userName
+
+		// TODO optimize me: use common function to generate nex service revision
 		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceTmpl.ServiceName, serviceTmpl.ProductName)
+		if production {
+			serviceTemplate = fmt.Sprintf(setting.ProductionServiceTemplateCounterName, serviceTmpl.ServiceName, serviceTmpl.ProductName)
+		}
 		rev, errRevision := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if errRevision != nil {
 			err = fmt.Errorf("get next helm service revision error: %v", errRevision)
 			break
 		}
 		serviceTmpl.Revision = rev
-		if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
-			log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
-			break
-		}
 
-		if err = commonrepo.NewServiceColl().Create(serviceTmpl); err != nil {
-			log.Errorf("helmService.update serviceName:%s error:%v", serviceTmpl.ServiceName, err)
-			err = e.ErrUpdateTemplate.AddDesc(err.Error())
-			break
+		if !production {
+			if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
+				log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
+				break
+			}
+
+			if err = commonrepo.NewServiceColl().Create(serviceTmpl); err != nil {
+				log.Errorf("helmService.update serviceName:%s error:%v", serviceTmpl.ServiceName, err)
+				err = e.ErrUpdateTemplate.AddDesc(err.Error())
+				break
+			}
+		} else {
+			if err = commonrepo.NewProductionServiceColl().Delete(serviceTmpl.ServiceName, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
+				log.Errorf("helmService.update delete production service %s error: %v", serviceTmpl.ServiceName, err)
+				break
+			}
+
+			if err = commonrepo.NewProductionServiceColl().Create(serviceTmpl); err != nil {
+				log.Errorf("helmService.update production service, serviceName:%s error:%v", serviceTmpl.ServiceName, err)
+				err = e.ErrUpdateTemplate.AddDesc(err.Error())
+				break
+			}
 		}
 
 		updatedServiceTmpls = append(updatedServiceTmpls, serviceTmpl)
@@ -1283,14 +1318,24 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 	// roll back all template services if error occurs
 	if err != nil {
 		for _, serviceTmpl := range updatedServiceTmpls {
-			if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, "", serviceTmpl.Revision); err != nil {
-				log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
-				continue
+			if !production {
+				if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, "", serviceTmpl.Revision); err != nil {
+					log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
+					continue
+				}
+			} else {
+				if err = commonrepo.NewProductionServiceColl().Delete(serviceTmpl.ServiceName, serviceTmpl.ProductName, "", serviceTmpl.Revision); err != nil {
+					log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
+					continue
+				}
 			}
 		}
 		return err
 	}
 
+	if production {
+		return nil
+	}
 	return environmentservice.AutoDeployHelmServiceToEnvs(userName, requestID, projectName, updatedServiceTmpls, log.SugaredLogger())
 }
 
@@ -1333,4 +1378,83 @@ func DeleteLabels(productName string, log *zap.SugaredLogger) error {
 		return err
 	}
 	return nil
+}
+
+func GetGlobalVariables(productName string, log *zap.SugaredLogger) ([]*commontypes.ServiceVariableKV, error) {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find product %s, err: %w", productName, err)
+	}
+
+	return productInfo.GlobalVariables, nil
+}
+
+func UpdateGlobalVariables(productName, userName string, globalVariables []*commontypes.ServiceVariableKV) error {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return fmt.Errorf("failed to find product %s, err: %w", productName, err)
+	}
+
+	keySet := sets.NewString()
+	for _, kv := range globalVariables {
+		if keySet.Has(kv.Key) {
+			return fmt.Errorf("duplicated key: %s", kv.Key)
+		}
+		keySet.Insert(kv.Key)
+	}
+
+	productInfo.UpdateBy = userName
+	productInfo.GlobalVariables = globalVariables
+
+	err = templaterepo.NewProductColl().Update(productName, productInfo)
+	if err != nil {
+		return fmt.Errorf("failed to update product: %s, err: %w", productName, err)
+	}
+
+	return nil
+}
+
+type GetGlobalVariableCandidatesRespone struct {
+	KeyName        string   `json:"key_name"`
+	RelatedService []string `json:"related_service"`
+}
+
+func GetGlobalVariableCandidates(productName string, log *zap.SugaredLogger) ([]*GetGlobalVariableCandidatesRespone, error) {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find product %s, err: %w", productName, err)
+	}
+
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list services by product %s, err: %w", productName, err)
+	}
+
+	existedVariableSet := sets.NewString()
+	variableMap := make(map[string]*GetGlobalVariableCandidatesRespone)
+	for _, kv := range productInfo.GlobalVariables {
+		existedVariableSet.Insert(kv.Key)
+	}
+
+	ret := make([]*GetGlobalVariableCandidatesRespone, 0)
+	for _, service := range services {
+		for _, kv := range service.ServiceVariableKVs {
+			if !existedVariableSet.Has(kv.Key) {
+				if candiate, ok := variableMap[kv.Key]; ok {
+					candiate.RelatedService = append(candiate.RelatedService, service.ServiceName)
+				} else {
+					variableMap[kv.Key] = &GetGlobalVariableCandidatesRespone{
+						KeyName:        kv.Key,
+						RelatedService: []string{service.ServiceName},
+					}
+				}
+			}
+		}
+	}
+
+	for _, candiate := range variableMap {
+		ret = append(ret, candiate)
+	}
+
+	return ret, nil
 }

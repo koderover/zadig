@@ -146,12 +146,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/servicesForUpdate", ListSvcsInProductionEnv)
 
 		// services related
-		production.GET("/environments/:name/services/:serviceName", GetServiceInProductionEnv)
+		production.GET("/environments/:name/services/:serviceName", GetProductionService)
 		production.GET("/environments/:name/services/:serviceName/variables", GetProductionVariables)
 		production.GET("/environments/:name/services/:serviceName/yaml", ExportProductionServiceYaml)
 
 		production.DELETE("/environments/:name", DeleteProductionProduct)
-		kube.GET("kube/pods/:podName/file", DownloadFileFromPod)
+		production.GET("/kube/pods/:podName/file", DownloadFileFromPod)
+
+		production.GET("/environments/:name/helm/releases", ListProductionReleases)
+		production.GET("/environments/:name/helm/values", GetProductionChartValues)
+		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
 	}
 
@@ -174,6 +178,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
 		environments.PUT("/:name/helm/default-values", UpdateHelmProductDefaultValues)
 		environments.PUT("/:name/k8s/default-values", UpdateK8sProductDefaultValues)
+		environments.PUT("/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
+		environments.GET("/:name/globalVariableCandidates", GetGlobalVariableCandidates)
 		environments.PUT("/:name/helm/charts", UpdateHelmProductCharts)
 		environments.PUT("/:name/syncVariables", SyncHelmProductRenderset)
 		environments.GET("/:name/helmChartVersions", GetHelmChartVersions)
@@ -218,6 +224,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		rendersets.GET("/renderchart", GetServiceRenderCharts)
 		rendersets.GET("/default-values", GetProductDefaultValues)
+		rendersets.GET("/globalVariables", GetGlobalVariables)
 		rendersets.GET("/yamlContent", GetYamlContent)
 		rendersets.GET("/variables", GetServiceVariables)
 	}
@@ -234,5 +241,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	bundles := router.Group("bundle-resources")
 	{
 		bundles.GET("", GetBundleResources)
+	}
+}
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	common := router.Group("")
+	{
+		common.POST("/scale", OpenAPIScaleWorkloads)
+		common.POST("/service/yaml", OpenAPIApplyYamlService)
+		common.DELETE("/service/yaml", OpenAPIDeleteYamlServiceFromEnv)
 	}
 }

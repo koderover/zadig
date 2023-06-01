@@ -39,6 +39,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -94,6 +95,37 @@ func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
 	return nil
 }
 
+func OpenAPIScale(req *OpenAPIScaleServiceReq, logger *zap.SugaredLogger) error {
+	args := &ScaleArgs{
+		Type:        req.WorkloadType,
+		ProductName: req.ProjectKey,
+		EnvName:     req.EnvName,
+		Name:        req.WorkloadName,
+		Number:      req.TargetReplicas,
+	}
+
+	return Scale(args, logger)
+}
+
+func OpenAPIApplyYamlService(projectKey string, req *OpenAPIApplyYamlServiceReq, requestID string, logger *zap.SugaredLogger) ([]*EnvStatus, error) {
+	args := make([]*UpdateEnv, 0)
+	svcList := make([]*UpdateServiceArg, 0)
+
+	for _, service := range req.ServiceList {
+		// for now we hard code the deploy strategy to deploy, since only this is required for now
+		svcList = append(svcList, &UpdateServiceArg{
+			ServiceName:    service.ServiceName,
+			DeployStrategy: setting.ServiceDeployStrategyDeploy,
+		})
+	}
+	args = append(args, &UpdateEnv{
+		EnvName:  req.EnvName,
+		Services: svcList,
+	})
+
+	return UpdateMultipleK8sEnv(args, []string{req.EnvName}, projectKey, requestID, false, logger)
+}
+
 func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
@@ -137,8 +169,8 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	return nil
 }
 
-func GetService(envName, productName, serviceName string, workLoadType string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(false)}
+func GetService(envName, productName, serviceName string, production bool, workLoadType string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
@@ -283,7 +315,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 		if env.Production {
 			svcTmpl.ServiceVars = setting.ServiceVarWildCard
 		}
-		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, rs, svcTmpl.ServiceVars, svcTmpl.VariableYaml)
+		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, rs)
 		if err != nil {
 			log.Errorf("failed to render service yaml, err: %s", err)
 			return nil, err
@@ -366,7 +398,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
-	newVariable, err := kube.GenerateYamlFromKV(args.VariableKVS)
+	newVariableYaml, err := commontypes.RenderVariableKVToYaml(args.VariableKVs)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
@@ -381,16 +413,15 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		EnvName:               args.EnvName,
 		ServiceName:           args.ServiceName,
 		UpdateServiceRevision: args.UpdateServiceRevision,
-		VariableYaml:          newVariable,
 	})
 	if err != nil {
 		curYaml = ""
 		log.Errorf("failed to fetch current applied yaml, productName: %s envName: %s serviceName: %s, updateSvcRevision: %v, variableYaml: %s err: %s",
-			args.ProductName, args.EnvName, args.ServiceName, args.UpdateServiceRevision, newVariable, err)
+			args.ProductName, args.EnvName, args.ServiceName, args.UpdateServiceRevision, newVariableYaml, err)
 	}
 
 	// for situations only update images, replace images directly
-	if !args.UpdateServiceRevision && len(args.VariableKVS) == 0 {
+	if !args.UpdateServiceRevision && len(args.VariableKVs) == 0 {
 		latestYaml, _, err := kube.ReplaceWorkloadImages(curYaml, args.ServiceModules)
 		if err != nil {
 			return nil, e.ErrPreviewYaml.AddErr(err)
@@ -405,7 +436,8 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		EnvName:               args.EnvName,
 		ServiceName:           args.ServiceName,
 		UpdateServiceRevision: args.UpdateServiceRevision,
-		VariableYaml:          newVariable,
+		VariableYaml:          newVariableYaml,
+		VariableKVs:           args.VariableKVs,
 		Containers:            args.ServiceModules,
 	})
 	if err != nil {

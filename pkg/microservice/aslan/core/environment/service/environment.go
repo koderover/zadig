@@ -26,6 +26,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -52,6 +53,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -204,9 +206,9 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 var mutexAutoUpdate sync.RWMutex
 
 type UpdateServiceArg struct {
-	ServiceName    string `json:"service_name"`
-	DeployStrategy string `json:"deploy_strategy"`
-	VariableYaml   string `json:"variable_yaml"`
+	ServiceName    string                          `json:"service_name"`
+	DeployStrategy string                          `json:"deploy_strategy"`
+	VariableKVs    []*commontypes.RenderVariableKV `json:"variable_kvs"`
 }
 
 type UpdateEnv struct {
@@ -239,22 +241,9 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 	errList := &multierror.Error{}
 	for _, arg := range args {
-
 		if len(arg.EnvName) == 0 {
 			log.Warnf("UpdateMultipleK8sEnv arg.EnvName is empty, skipped")
 			continue
-		}
-
-		strategyMap := make(map[string]string)
-		updateSvcs := make([]*templatemodels.ServiceRender, 0)
-		updateRevisionSvcs := make([]string, 0)
-		for _, svc := range arg.Services {
-			strategyMap[svc.ServiceName] = svc.DeployStrategy
-			updateSvcs = append(updateSvcs, &templatemodels.ServiceRender{
-				ServiceName:  svc.ServiceName,
-				OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
-			})
-			updateRevisionSvcs = append(updateRevisionSvcs, svc.ServiceName)
 		}
 
 		opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: arg.EnvName}
@@ -269,12 +258,40 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 			errList = multierror.Append(errList, e.ErrUpdateEnv.AddDesc("production env can not be updated"))
 			continue
 		}
-
 		exitedProd.EnsureRenderInfo()
+
 		rendersetInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: exitedProd.Render.Name, Revision: exitedProd.Render.Revision, EnvName: arg.EnvName})
 		if err != nil {
 			errList = multierror.Append(errList, e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to find renderset, err: %s", err)))
 			continue
+		}
+
+		// get global variable in render
+		renderGlobalVariablesMap := map[string]*commontypes.GlobalVariableKV{}
+		for _, globalVariable := range rendersetInfo.GlobalVariables {
+			renderGlobalVariablesMap[globalVariable.Key] = globalVariable
+		}
+
+		strategyMap := make(map[string]string)
+		updateSvcs := make([]*templatemodels.ServiceRender, 0)
+		updateRevisionSvcs := make([]string, 0)
+		for _, svc := range arg.Services {
+			strategyMap[svc.ServiceName] = svc.DeployStrategy
+
+			err = commontypes.ValidateRenderVariables(rendersetInfo.GlobalVariables, svc.VariableKVs)
+			if err != nil {
+				errList = multierror.Append(errList, e.ErrUpdateEnv.AddErr(err))
+				continue
+			}
+
+			updateSvcs = append(updateSvcs, &templatemodels.ServiceRender{
+				ServiceName: svc.ServiceName,
+				OverrideYaml: &templatemodels.CustomYaml{
+					// set YamlContent later
+					RenderVariableKVs: svc.VariableKVs,
+				},
+			})
+			updateRevisionSvcs = append(updateRevisionSvcs, svc.ServiceName)
 		}
 
 		filter := func(svc *commonmodels.ProductService) bool {
@@ -283,7 +300,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 		// update env default variable, particular svcs from client are involved
 		// svc revision will not be updated
-		err = updateK8sProduct(exitedProd, setting.SystemUser, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, force, rendersetInfo.DefaultValues, log)
+		err = updateK8sProduct(exitedProd, setting.SystemUser, requestID, updateRevisionSvcs, filter, updateSvcs, strategyMap, force, rendersetInfo.GlobalVariables, log)
 		if err != nil {
 			log.Errorf("UpdateMultipleK8sEnv UpdateProductV2 err:%v", err)
 			errList = multierror.Append(errList, err)
@@ -995,7 +1012,7 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 		if err != nil {
 			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		}
-		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
+		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
 	err = validateArgs(args.ValuesData)
@@ -1074,7 +1091,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 		if err != nil {
 			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err)
 		}
-		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
+		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
 	requestValueMap := make(map[string]*commonservice.HelmSvcRenderArg)
@@ -1172,7 +1189,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		if err != nil {
 			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		}
-		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
+		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
 	updatedRCMap := make(map[string]*templatemodels.ServiceRender)
@@ -1237,7 +1254,7 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 		if err != nil {
 			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		}
-		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
+		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
 	// render charts need to be updated
@@ -1311,6 +1328,7 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 		}
 	}
 
+	// FIXME: best to render yaml before create renderset
 	if err = render.CreateK8sHelmRenderSet(
 		&commonmodels.RenderSet{
 			Name:             productResp.Namespace,
@@ -1318,6 +1336,7 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 			ProductTmpl:      productName,
 			UpdateBy:         username,
 			DefaultValues:    renderset.DefaultValues,
+			GlobalVariables:  renderset.GlobalVariables,
 			YamlData:         renderset.YamlData,
 			ChartInfos:       renderset.ChartInfos,
 			ServiceVariables: renderset.ServiceVariables,
@@ -1365,7 +1384,7 @@ func updateK8sProductVariable(productResp *commonmodels.Product, renderset *comm
 		}
 		return false
 	}
-	return updateK8sProduct(productResp, userName, requestID, nil, filter, renderset.ServiceVariables, nil, false, renderset.DefaultValues, log)
+	return updateK8sProduct(productResp, userName, requestID, nil, filter, renderset.ServiceVariables, nil, false, renderset.GlobalVariables, log)
 }
 
 func updateHelmProductVariable(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, userName, requestID string, log *zap.SugaredLogger) error {
@@ -1888,18 +1907,27 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		return err
 	}
 
+	// update variables
+	rs.GlobalVariables = commontypes.RemoveGlobalVariableRelatedService(rs.GlobalVariables, serviceNames...)
 	validServiceVars := make([]*templatemodels.ServiceRender, 0)
-	for _, sr := range rs.ServiceVariables {
-		if !util.InStringArray(sr.ServiceName, serviceNames) {
-			validServiceVars = append(validServiceVars, sr)
+	for _, svcRender := range rs.ServiceVariables {
+		if !util.InStringArray(svcRender.ServiceName, serviceNames) {
+			validServiceVars = append(validServiceVars, svcRender)
 		}
 	}
 	rs.ServiceVariables = validServiceVars
-	err = commonrepo.NewRenderSetColl().Update(rs)
+
+	err = render.CreateRenderSet(rs, log)
 	if err != nil {
-		log.Errorf("failed to update renderSet, error: %v", err)
-		return err
+		return fmt.Errorf("failed to update renderSet, error: %w", err)
 	}
+	renderInfo := &commonmodels.RenderInfo{
+		Name:        productInfo.Render.Name,
+		Revision:    rs.Revision,
+		ProductTmpl: productInfo.Render.ProductTmpl,
+		Description: productInfo.Render.Description,
+	}
+	commonrepo.NewProductColl().UpdateRender(productInfo.EnvName, productInfo.ProductName, renderInfo)
 
 	ctx := context.TODO()
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
@@ -2162,10 +2190,16 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 
 	// 获取服务模板
 	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
-
 	if err != nil {
 		log.Errorf("Failed to render service %s, error: %v", service.ServiceName, err)
 		errList = multierror.Append(errList, fmt.Errorf("service template %s error: %v", service.ServiceName, err))
+		return nil, errList
+	}
+
+	// FIXME: not really needed to replace images here
+	parsedYaml, _, err = kube.ReplaceWorkloadImages(parsedYaml, service.Containers)
+	if err != nil {
+		errList = multierror.Append(errList, fmt.Errorf("failed to replace image for service %s, error: %v", service.ServiceName, err))
 		return nil, errList
 	}
 
@@ -2312,7 +2346,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 					ProductTmpl:      args.ProductName,
 					UpdateBy:         args.UpdateBy,
 					ServiceVariables: args.ServiceRenders,
-					//KVs:         args.Vars,
 				},
 				log,
 			)
@@ -2323,8 +2356,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 			return e.ErrCreateEnv.AddDesc(e.FindProductTmplErrMsg)
 		}
 	}
-
-	//args.Vars = nil
 
 	var productTmpl *templatemodels.Product
 	// 查询产品模板
@@ -2737,6 +2768,7 @@ func dryRunInstallRelease(productResp *commonmodels.Product, renderset *commonmo
 			return errBuildParam
 		}
 		param.DryRun = true
+		param.Production = productResp.Production
 		err = kube.InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
 		return
 	}
@@ -2811,6 +2843,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmode
 			err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, productResp.Namespace, errBuildParam)
 			return
 		}
+		param.Production = productResp.Production
 		errInstall := kube.InstallOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
 		if errInstall != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, errInstall)
@@ -2856,4 +2889,183 @@ func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmode
 		}
 	}
 	return errList.ErrorOrNil()
+}
+
+func GetGlobalVariableCandidate(productName, envName string, log *zap.SugaredLogger) ([]*commontypes.ServiceVariableKV, error) {
+	templateProduct, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find template product %s, err: %w", productName, err)
+	}
+	globalVariablesDefineMap := map[string]*commontypes.ServiceVariableKV{}
+	for _, kv := range templateProduct.GlobalVariables {
+		globalVariablesDefineMap[kv.Key] = kv
+	}
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		log.Errorf("failed to query product info, productName %s envName %s err %s", productName, envName, err)
+		return nil, fmt.Errorf("failed to query product info, productName %s envName %s", productName, envName)
+	}
+
+	if productInfo.Render != nil {
+		opt := &commonrepo.RenderSetFindOption{
+			Name:        productInfo.Render.Name,
+			Revision:    productInfo.Render.Revision,
+			ProductTmpl: productName,
+			EnvName:     productInfo.EnvName,
+		}
+		rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+		if err != nil {
+			log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
+			return nil, err
+		}
+		if existed {
+			for _, kv := range rendersetObj.GlobalVariables {
+				if _, ok := globalVariablesDefineMap[kv.Key]; ok {
+					delete(globalVariablesDefineMap, kv.Key)
+				}
+			}
+		}
+	}
+
+	ret := []*commontypes.ServiceVariableKV{}
+	for _, kv := range globalVariablesDefineMap {
+		ret = append(ret, kv)
+	}
+
+	return ret, nil
+}
+
+func UpdateProductGlobalVariables(productName, envName, userName, requestID string, currentRevision int64, arg []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
+		return err
+	}
+
+	opt := &commonrepo.RenderSetFindOption{
+		Name:        product.Render.Name,
+		EnvName:     envName,
+		ProductTmpl: product.Render.ProductTmpl,
+		Revision:    product.Render.Revision,
+	}
+	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil || productRenderset == nil {
+		if err != nil {
+			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
+		}
+		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
+	}
+
+	if productRenderset.Revision != currentRevision {
+		return e.ErrUpdateEnv.AddDesc("renderset revision is not the latest, please refresh and try again")
+	}
+
+	err = UpdateProductGlobalVariablesWithRender(product, productRenderset, userName, requestID, arg, log)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
+		return err
+	}
+	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
+}
+
+func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, productRenderset *models.RenderSet, userName, requestID string, args []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
+	productYaml, err := commontypes.GlobalVariableKVToYaml(productRenderset.GlobalVariables)
+	if err != nil {
+		return fmt.Errorf("failed to convert proudct's global variables to yaml, err: %s", err)
+	}
+	argsYaml, err := commontypes.GlobalVariableKVToYaml(args)
+	if err != nil {
+		return fmt.Errorf("failed to convert args' global variables to yaml, err: %s", err)
+	}
+	equal, err := yamlutil.Equal(productYaml, argsYaml)
+	if err != nil {
+		return fmt.Errorf("failed to check if product and args global variable is equal, err: %s", err)
+	}
+	if equal {
+		return nil
+	}
+
+	argMap := make(map[string]*commontypes.GlobalVariableKV)
+	argSet := sets.NewString()
+	for _, kv := range args {
+		argMap[kv.Key] = kv
+		argSet.Insert(kv.Key)
+	}
+	productMap := make(map[string]*commontypes.GlobalVariableKV)
+	productSet := sets.NewString()
+	for _, kv := range productRenderset.GlobalVariables {
+		productMap[kv.Key] = kv
+		productSet.Insert(kv.Key)
+	}
+
+	// TODO: validate added new variable
+	deletedVariableSet := productSet.Difference(argSet)
+	for _, key := range deletedVariableSet.List() {
+		if _, ok := productMap[key]; !ok {
+			return fmt.Errorf("UNEXPECT ERROR: global variable %s not found in environment", key)
+		}
+		if len(productMap[key].RelatedServices) != 0 {
+			return fmt.Errorf("global variable %s is used by service %v, can't delete it", key, productMap[key].RelatedServices)
+		}
+	}
+
+	productRenderset.GlobalVariables = args
+	updatedSvcList := make([]*templatemodels.ServiceRender, 0)
+	for _, argKV := range argMap {
+		productKV, ok := productMap[argKV.Key]
+		if !ok {
+			// new global variable, don't need to update service
+			if len(argKV.RelatedServices) != 0 {
+				return fmt.Errorf("UNEXPECT ERROR: global variable %s is new, but RelatedServices is not empty", argKV.Key)
+			}
+			continue
+		}
+
+		if productKV.Value == argKV.Value {
+			continue
+		}
+
+		svcSet := sets.NewString()
+		for _, svc := range productKV.RelatedServices {
+			if !commonutil.ServiceDeployed(svc, product.ServiceDeployStrategy) {
+				continue
+			}
+			svcSet.Insert(svc)
+		}
+
+		svcVariableMap := make(map[string]*templatemodels.ServiceRender)
+		for _, svc := range productRenderset.ServiceVariables {
+			svcVariableMap[svc.ServiceName] = svc
+		}
+
+		for _, svc := range svcSet.List() {
+			if curVariable, ok := svcVariableMap[svc]; ok {
+				curVariable.OverrideYaml.RenderVariableKVs = commontypes.UpdateRenderVariable(args, curVariable.OverrideYaml.RenderVariableKVs)
+				curVariable.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(curVariable.OverrideYaml.RenderVariableKVs)
+				if err != nil {
+					return fmt.Errorf("failed to convert service %s's render variables to yaml, err: %s", svc, err)
+				}
+
+				updatedSvcList = append(updatedSvcList, curVariable)
+			} else {
+				log.Errorf("UNEXPECT ERROR: service %s not found in environment", svc)
+			}
+		}
+	}
+	return UpdateProductVariable(productRenderset.ProductTmpl, productRenderset.EnvName, userName, requestID, updatedSvcList, productRenderset, setting.K8SDeployType, log)
 }

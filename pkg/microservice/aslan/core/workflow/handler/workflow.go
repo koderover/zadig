@@ -173,3 +173,15 @@ func CopyWorkflow(c *gin.Context) {
 
 	ctx.Err = workflow.CopyWorkflow(c.Param("old"), c.Param("new"), c.Param("newDisplay"), ctx.UserName, ctx.Logger)
 }
+
+// @Summary [DONT USE]  ZadigDeployJobSpec
+// @Description [DONT USE] ZadigDeployJobSpec
+// @Tags 	placeholder
+// @Accept 	json
+// @Produce json
+// @Param 	deploy_job_spec 			body 		 commonmodels.ZadigDeployJobSpec	true 	"body"
+// @Success 200
+// @Router /api/aslan/placeholder/deploy_job_spec [post]
+func Placeholder(c *gin.Context) {
+
+}

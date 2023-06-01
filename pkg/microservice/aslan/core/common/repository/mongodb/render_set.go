@@ -254,6 +254,7 @@ func (c *RenderSetColl) Create(args *models.RenderSet) error {
 	return err
 }
 
+// use it in caution, it won't update revision
 func (c *RenderSetColl) Update(args *models.RenderSet) error {
 	query := bson.M{"name": args.Name, "revision": args.Revision}
 	change := bson.M{"$set": bson.M{

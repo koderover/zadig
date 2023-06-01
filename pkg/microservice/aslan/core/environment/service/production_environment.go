@@ -49,38 +49,6 @@ func ListProductionGroups(serviceName, envName, productName string, perPage, pag
 	return ListGroups(serviceName, envName, productName, perPage, page, true, log)
 }
 
-func GetServiceInProductionEnv(envName, productName, serviceName string, workLoadType string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(true)}
-	env, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find env %s/%s", productName, envName))
-	}
-
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to create kubernetes client for cluster id: %s", env.ClusterID))
-	}
-
-	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
-	if err != nil {
-		log.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", env.ClusterID, err)
-		return nil, e.ErrGetService.AddErr(err)
-	}
-
-	inf, err := informer.NewInformer(env.ClusterID, env.Namespace, clientset)
-	if err != nil {
-		log.Errorf("Failed to create informer for namespace [%s] in cluster [%s], the error is: %s", env.Namespace, env.ClusterID, err)
-		return nil, e.ErrGetService.AddErr(err)
-	}
-
-	ret, err = GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
-	}
-	ret.Workloads = nil
-	return ret, nil
-}
-
 func ExportProductionYaml(envName, productName, serviceName string, log *zap.SugaredLogger) ([]string, error) {
 	var yamls [][]byte
 	res := make([]string, 0)

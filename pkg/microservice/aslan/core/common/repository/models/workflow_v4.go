@@ -21,13 +21,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/dingtalk"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -91,14 +94,15 @@ type WorkflowStage struct {
 }
 
 type Approval struct {
-	Enabled        bool                `bson:"enabled"                     yaml:"enabled"                       json:"enabled"`
-	Status         config.Status       `bson:"status"                      yaml:"status"                        json:"status"`
-	Type           config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
-	Description    string              `bson:"description"                 yaml:"description"                   json:"description"`
-	StartTime      int64               `bson:"start_time"                  yaml:"start_time,omitempty"          json:"start_time,omitempty"`
-	EndTime        int64               `bson:"end_time"                    yaml:"end_time,omitempty"            json:"end_time,omitempty"`
-	NativeApproval *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
-	LarkApproval   *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
+	Enabled          bool                `bson:"enabled"                     yaml:"enabled"                       json:"enabled"`
+	Status           config.Status       `bson:"status"                      yaml:"status"                        json:"status"`
+	Type             config.ApprovalType `bson:"type"                        yaml:"type"                          json:"type"`
+	Description      string              `bson:"description"                 yaml:"description"                   json:"description"`
+	StartTime        int64               `bson:"start_time"                  yaml:"start_time,omitempty"          json:"start_time,omitempty"`
+	EndTime          int64               `bson:"end_time"                    yaml:"end_time,omitempty"            json:"end_time,omitempty"`
+	NativeApproval   *NativeApproval     `bson:"native_approval"             yaml:"native_approval,omitempty"     json:"native_approval,omitempty"`
+	LarkApproval     *LarkApproval       `bson:"lark_approval"               yaml:"lark_approval,omitempty"       json:"lark_approval,omitempty"`
+	DingTalkApproval *DingTalkApproval   `bson:"dingtalk_approval"           yaml:"dingtalk_approval,omitempty"   json:"dingtalk_approval,omitempty"`
 }
 
 type NativeApproval struct {
@@ -108,10 +112,65 @@ type NativeApproval struct {
 	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
+type DingTalkApproval struct {
+	Timeout       int                     `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	ApprovalID    string                  `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
+	ApprovalNodes []*DingTalkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+}
+
+type DingTalkApprovalNode struct {
+	ApproveUsers    []*DingTalkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Type            dingtalk.ApprovalAction `bson:"type"                        yaml:"type"                       json:"type"`
+	RejectOrApprove config.ApproveOrReject  `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+}
+
+type DingTalkApprovalUser struct {
+	ID              string                 `bson:"id"                          yaml:"id"                         json:"id"`
+	Name            string                 `bson:"name"                        yaml:"name"                       json:"name"`
+	Avatar          string                 `bson:"avatar"                      yaml:"avatar"                     json:"avatar"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	Comment         string                 `bson:"comment"                     yaml:"-"                          json:"comment"`
+	OperationTime   int64                  `bson:"operation_time"              yaml:"-"                          json:"operation_time"`
+}
+
 type LarkApproval struct {
-	Timeout      int                 `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
-	ApprovalID   string              `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
-	ApproveUsers []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Timeout int `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	// ApprovalID: lark im app mongodb id
+	ApprovalID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
+	// Deprecated: use ApprovalNodes instead
+	ApproveUsers  []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	ApprovalNodes []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+}
+
+// GetNodeTypeKey get node type key for deduplication
+func (l LarkApproval) GetNodeTypeKey() string {
+	var keys []string
+	for _, node := range l.ApprovalNodes {
+		keys = append(keys, string(node.Type))
+	}
+	return strings.Join(keys, "-")
+}
+
+// GetLarkApprovalNode convert approval node to lark sdk approval node
+func (l LarkApproval) GetLarkApprovalNode() (resp []*lark.ApprovalNode) {
+	for _, node := range l.ApprovalNodes {
+		resp = append(resp, &lark.ApprovalNode{
+			ApproverIDList: func() (re []string) {
+				for _, user := range node.ApproveUsers {
+					re = append(re, user.ID)
+				}
+				return
+			}(),
+			Type: node.Type,
+		})
+	}
+	return
+}
+
+type LarkApprovalNode struct {
+	ApproveUsers    []*LarkApprovalUser    `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
+	Type            lark.ApproveType       `bson:"type"                        yaml:"type"                       json:"type"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 }
 
 type LarkApprovalUser struct {
@@ -202,11 +261,26 @@ type ZadigDeployJobSpec struct {
 }
 
 type DeployService struct {
-	ServiceName   string           `bson:"service_name"        yaml:"service_name"     json:"service_name"`
-	KeyVals       []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	ServiceName string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	// VariableConfigs added since 1.18
+	VariableConfigs []*DeplopyVariableConfig `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"`
+	// VariableKVs added since 1.18
+	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"       yaml:"variable_kvs"    json:"variable_kvs"`
+	// LatestVariableKVs added since 1.18
+	LatestVariableKVs []*commontypes.RenderVariableKV `bson:"latest_variable_kvs"       yaml:"latest_variable_kvs"    json:"latest_variable_kvs"`
+	// VariableYaml added since 1.18, used for helm production environments
+	VariableYaml string `bson:"variable_yaml" yaml:"variable_yaml" json:"variable_yaml"`
+	// KeyVals Deprecated since 1.18
+	KeyVals []*ServiceKeyVal `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
+	// LatestKeyVals Deprecated since 1.18
 	LatestKeyVals []*ServiceKeyVal `bson:"latest_key_vals"     yaml:"latest_key_vals"  json:"latest_key_vals"`
 	UpdateConfig  bool             `bson:"update_config"       yaml:"update_config"    json:"update_config"`
 	Updatable     bool             `bson:"updatable"           yaml:"updatable"        json:"updatable"`
+}
+
+type DeplopyVariableConfig struct {
+	VariableKey       string `bson:"variable_key"                     json:"variable_key"                        yaml:"variable_key"`
+	UseGlobalVariable bool   `bson:"use_global_variable"              json:"use_global_variable"                 yaml:"use_global_variable"`
 }
 
 type ServiceKeyVal struct {
@@ -390,7 +464,12 @@ type GrayRollbackTarget struct {
 }
 
 type JiraJobSpec struct {
-	ProjectID    string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	ProjectID string `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	// QueryType: "" means common, "advanced" means use custom jql
+	QueryType string `bson:"query_type" json:"query_type" yaml:"query_type"`
+	// JQL: when query type is advanced, use this
+	JQL string `bson:"jql" json:"jql" yaml:"jql"`
+
 	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
 	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
 	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`

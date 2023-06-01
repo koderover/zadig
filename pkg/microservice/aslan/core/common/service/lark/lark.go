@@ -18,22 +18,14 @@ package lark
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/lark"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const (
@@ -205,13 +197,23 @@ type ApprovalManagerMap struct {
 	m map[string]*ApprovalManager
 }
 
+type NodeUserApprovalResult map[string]map[string]*UserApprovalResult
+
 type ApprovalManager struct {
 	sync.RWMutex
-	m           map[string]string
+	// key nodeID
+	nodeMap     NodeUserApprovalResult
+	nodeKeyMap  map[string]string
 	requestUUID map[string]struct{}
 }
 
-func GetLarkApprovalManager(id string) *ApprovalManager {
+type UserApprovalResult struct {
+	Result          string
+	ApproveOrReject config.ApproveOrReject
+	OperationTime   int64
+}
+
+func GetLarkApprovalInstanceManager(instanceID string) *ApprovalManager {
 	if larkApprovalManagerMap == nil {
 		once.Do(func() {
 			larkApprovalManagerMap = &ApprovalManagerMap{m: make(map[string]*ApprovalManager)}
@@ -221,41 +223,73 @@ func GetLarkApprovalManager(id string) *ApprovalManager {
 	larkApprovalManagerMap.Lock()
 	defer larkApprovalManagerMap.Unlock()
 
-	if manager, ok := larkApprovalManagerMap.m[id]; !ok {
-		larkApprovalManagerMap.m[id] = &ApprovalManager{
-			m:           make(map[string]string),
+	if manager, ok := larkApprovalManagerMap.m[instanceID]; !ok {
+		larkApprovalManagerMap.m[instanceID] = &ApprovalManager{
+			nodeMap:     make(NodeUserApprovalResult),
 			requestUUID: make(map[string]struct{}),
+			nodeKeyMap:  make(map[string]string),
 		}
-		return larkApprovalManagerMap.m[id]
+		return larkApprovalManagerMap.m[instanceID]
 	} else {
 		return manager
 	}
 }
 
-func (l *ApprovalManager) GetInstanceStatus(id string) string {
+func RemoveLarkApprovalInstanceManager(instanceID string) {
+	larkApprovalManagerMap.Lock()
+	defer larkApprovalManagerMap.Unlock()
+	delete(larkApprovalManagerMap.m, instanceID)
+}
+
+func (l *ApprovalManager) GetNodeUserApprovalResults(nodeID string) map[string]*UserApprovalResult {
 	l.RLock()
 	defer l.RUnlock()
-	if status, ok := l.m[id]; !ok {
-		return ApprovalStatusNotFound
+
+	m := make(map[string]*UserApprovalResult)
+	if re, ok := l.nodeMap[nodeID]; !ok {
+		return m
 	} else {
-		return status
+		for userID, result := range re {
+			m[userID] = result
+		}
+		return m
 	}
 }
 
-func (l *ApprovalManager) UpdateInstanceStatus(id, status string) {
+func (l *ApprovalManager) UpdateNodeUserApprovalResult(nodeID, userID string, result *UserApprovalResult) {
 	l.Lock()
 	defer l.Unlock()
-	switch l.m[id] {
-	case ApprovalStatusApproved, ApprovalStatusRejected, ApprovalStatusCanceled, ApprovalStatusDeleted:
-		return
+
+	if _, ok := l.nodeMap[nodeID]; !ok {
+		l.nodeMap[nodeID] = make(map[string]*UserApprovalResult)
 	}
-	l.m[id] = status
+	if _, ok := l.nodeMap[nodeID][userID]; !ok && result != nil {
+		switch result.Result {
+		case ApprovalStatusApproved:
+			l.nodeMap[nodeID][userID] = result
+			result.ApproveOrReject = config.Approve
+		case ApprovalStatusRejected:
+			l.nodeMap[nodeID][userID] = result
+			result.ApproveOrReject = config.Reject
+		}
+	}
+	return
 }
 
-func (l *ApprovalManager) RemoveInstance(id string) {
+func (l *ApprovalManager) GetNodeKeyMap() map[string]string {
+	l.RLock()
+	defer l.RUnlock()
+	m := make(map[string]string)
+	for k, v := range l.nodeKeyMap {
+		m[k] = v
+	}
+	return m
+}
+
+func (l *ApprovalManager) UpdateNodeKeyMap(nodeKey, nodeCustomKey string) {
 	l.Lock()
 	defer l.Unlock()
-	delete(l.m, id)
+	l.nodeKeyMap[nodeCustomKey] = nodeKey
 }
 
 func (l *ApprovalManager) CheckAndUpdateUUID(uuid string) bool {
@@ -266,119 +300,6 @@ func (l *ApprovalManager) CheckAndUpdateUUID(uuid string) bool {
 	}
 	l.requestUUID[uuid] = struct{}{}
 	return true
-}
-
-type CallbackData struct {
-	UUID  string `json:"uuid"`
-	Event struct {
-		AppID               string `json:"app_id"`
-		ApprovalCode        string `json:"approval_code"`
-		InstanceCode        string `json:"instance_code"`
-		InstanceOperateTime string `json:"instance_operate_time"`
-		OperateTime         string `json:"operate_time"`
-		Status              string `json:"status"`
-		TenantKey           string `json:"tenant_key"`
-		Type                string `json:"type"`
-		UUID                string `json:"uuid"`
-	} `json:"event"`
-	Token string `json:"token"`
-	Ts    string `json:"ts"`
-	Type  string `json:"type"`
-}
-
-type EventHandlerResponse struct {
-	Challenge string `json:"challenge"`
-}
-
-func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, error) {
-	log.Infof("EventHandler: new request approval received")
-	approval, err := mongodb.NewIMAppColl().GetByAppID(context.Background(), appID)
-	if err != nil {
-		return nil, errors.Wrap(err, "get approval by appID")
-	}
-	key := approval.EncryptKey
-	approvalID := approval.ID.Hex()
-	log.Infof("EventHandler: new request approval ID %s", approvalID)
-
-	raw, err := larkDecrypt(gjson.Get(body, "encrypt").String(), key)
-	if err != nil {
-		return nil, errors.Wrap(err, "decrypt body")
-	}
-
-	// handle lark open platform webhook URL check request, which only need reply the challenge field.
-	if sign == "" {
-		return &EventHandlerResponse{Challenge: gjson.Get(raw, "challenge").String()}, nil
-	}
-
-	if sign != larkCalculateSignature(ts, nonce, key, body) {
-		return nil, errors.New("check sign failed")
-	}
-
-	callback := &CallbackData{}
-	err = json.Unmarshal([]byte(raw), callback)
-	if err != nil {
-		log.Errorf("unmarshal callback data failed: %v", err)
-		return nil, errors.Wrap(err, "unmarshal")
-	}
-
-	if callback.Event.Type != "approval_instance" {
-		log.Infof("get unknown callback event type %s, ignored", callback.Event.Type)
-		return nil, nil
-	}
-	log.Infof("EventHandler: new request approval ID %s, request UUID %s, event UUID %s, ts: %s", approvalID, callback.UUID, callback.Event.UUID, callback.Ts)
-	manager := GetLarkApprovalManager(approvalID)
-	if !manager.CheckAndUpdateUUID(callback.UUID) {
-		log.Infof("check existed request uuid %s, ignored", callback.UUID)
-		return nil, nil
-	}
-	manager.UpdateInstanceStatus(callback.Event.InstanceCode, callback.Event.Status)
-	log.Infof("update approval id: %s, instance code: %s,event UUID %s, status: %s", approvalID, callback.Event.InstanceCode, callback.Event.UUID, callback.Event.Status)
-	return nil, nil
-}
-
-func larkDecrypt(encrypt string, key string) (string, error) {
-	buf, err := base64.StdEncoding.DecodeString(encrypt)
-	if err != nil {
-		return "", fmt.Errorf("base64StdEncode Error[%v]", err)
-	}
-	if len(buf) < aes.BlockSize {
-		return "", errors.New("cipher  too short")
-	}
-	keyBs := sha256.Sum256([]byte(key))
-	block, err := aes.NewCipher(keyBs[:sha256.Size])
-	if err != nil {
-		return "", fmt.Errorf("AESNewCipher Error[%v]", err)
-	}
-	iv := buf[:aes.BlockSize]
-	buf = buf[aes.BlockSize:]
-	// CBC mode always works in whole blocks.
-	if len(buf)%aes.BlockSize != 0 {
-		return "", errors.New("ciphertext is not a multiple of the block size")
-	}
-	mode := cipher.NewCBCDecrypter(block, iv)
-	mode.CryptBlocks(buf, buf)
-	n := strings.Index(string(buf), "{")
-	if n == -1 {
-		n = 0
-	}
-	m := strings.LastIndex(string(buf), "}")
-	if m == -1 {
-		m = len(buf) - 1
-	}
-	return string(buf[n : m+1]), nil
-}
-func larkCalculateSignature(timestamp, nonce, encryptKey, bodystring string) string {
-	var b strings.Builder
-	b.WriteString(timestamp)
-	b.WriteString(nonce)
-	b.WriteString(encryptKey)
-	b.WriteString(bodystring)
-	bs := []byte(b.String())
-	h := sha256.New()
-	h.Write(bs)
-	bs = h.Sum(nil)
-	sig := fmt.Sprintf("%x", bs)
-	return sig
 }
 
 func GetLarkClientByIMAppID(id string) (*lark.Client, error) {

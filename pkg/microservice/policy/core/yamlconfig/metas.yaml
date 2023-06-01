@@ -156,6 +156,8 @@ metas:
           - method: POST
             endpoint: /api/aslan/service/template/load
           - method: POST
+            endpoint: /api/aslan/service/template/reload
+          - method: POST
             endpoint: /api/aslan/service/helm/services
           - method: PUT
             endpoint: /api/aslan/service/helm/services
@@ -204,21 +206,39 @@ metas:
         description: ''
         rules:
           - method: GET
-            endpoint: api/aslan/service/production/services
+            endpoint: /api/aslan/service/production/services
           - method: GET
-            endpoint: api/aslan/service/production/services/?*/k8s
+            endpoint: /api/aslan/service/production/services/?*/k8s
           - method: GET
-            endpoint: api/aslan/service/production/services/?*
+            endpoint: /api/aslan/service/production/services/?*
+          - method: GET
+            endpoint: /api/aslan/service/helm/production/services
+          - method: GET
+            endpoint: /api/aslan/service/helm/production/services/?*/serviceModule
+          - method: GET
+            endpoint: /api/aslan/service/helm/production/services/?*/filePath
+          - method: GET
+            endpoint: /api/aslan/service/helm/production/services/?*/fileContent
       - action: create_production_service
         alias: 新建
         description: ''
         rules:
           - method: POST
-            endpoint: api/aslan/service/production/services/k8s
+            endpoint: /api/aslan/service/helm/production/services
+          - method: POST
+            endpoint: /api/aslan/service/production/services/k8s
+          - method: POST
+            endpoint: /api/aslan/service/template/production/load
+          - method: POST
+            endpoint: /api/aslan/service/template/production/reload
       - action: edit_production_service
         alias: 编辑
         description: ''
         rules:
+          - method: PUT
+            endpoint: /api/aslan/service/helm/production/services/?*/file
+          - method: PUT
+            endpoint: /api/aslan/service/helm/production/services/?*/releaseNaming
           - method: PUT
             endpoint: api/aslan/service/production/services/?*/k8s/variable
           - method: PATCH
@@ -597,6 +617,8 @@ metas:
             endpoint: /api/aslan/template/workflow
           - method: GET
             endpoint: /api/aslan/template/workflow/?*
+          - method: GET
+            endpoint: api/aslan/cluster/clusters
       - action: edit_workflow
         alias: 编辑
         description: ''
@@ -635,6 +657,8 @@ metas:
             endpoint: /api/aslan/system/lark/?*/user
           - method: GET
             endpoint: /api/aslan/system/im_app
+          - method: GET
+            endpoint: api/aslan/cluster/clusters
 
       - action: delete_workflow
         alias: 删除
@@ -867,16 +891,30 @@ metas:
             endpoint: "/api/aslan/environment/production/environments"
           - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/groups"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/services/?*"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/helm/releases"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/helm/values"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/workloads"
       - action: create_production_environment
-        alias: 新建
+        alias: 创建
         description: ""
         rules:
           - method: POST
             endpoint: "/api/aslan/environment/production/environments"
           - method: GET
             endpoint: "/api/aslan/cluster/clusters"
+      - action: config_production_environment
+        alias: 配置
+        description: ""
+        rules:
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/alias'
       - action: edit_production_environment
-        alias: 更新
+        alias: 管理服务实例
         description: ""
         rules:
           - method: GET

@@ -29,6 +29,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/step"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -41,6 +42,7 @@ type Job struct {
 	ActiveWorkspace  string
 	UserEnvs         map[string]string
 	OutputsJsonBytes []byte
+	ConfigMapUpdater configmap.Updater
 }
 
 const (
@@ -143,7 +145,7 @@ func (j *Job) Run(ctx context.Context) error {
 		if hasFailed && !stepInfo.Onfailure {
 			continue
 		}
-		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs); err != nil {
+		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs, j.ConfigMapUpdater); err != nil {
 			hasFailed = true
 			respErr = err
 		}

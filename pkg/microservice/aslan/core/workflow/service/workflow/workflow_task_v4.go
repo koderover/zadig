@@ -34,11 +34,13 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/user/core"
@@ -95,6 +97,7 @@ type StageTaskPreview struct {
 	Parallel  bool                   `bson:"parallel"      json:"parallel"`
 	Approval  *commonmodels.Approval `bson:"approval"      json:"approval"`
 	Jobs      []*JobTaskPreview      `bson:"jobs"          json:"jobs"`
+	Error     string                 `bson:"error" json:"error""`
 }
 
 type JobTaskPreview struct {
@@ -139,12 +142,17 @@ type ZadigScanningJobSpec struct {
 	ScanningName string              `bson:"scanning_name"   json:"scanning_name"`
 }
 
-type ZadigDeployJobSpec struct {
-	Env                string                        `bson:"env"                          json:"env"`
-	SkipCheckRunStatus bool                          `bson:"skip_check_run_status"        json:"skip_check_run_status"`
-	ServiceAndImages   []*ServiceAndImage            `bson:"service_and_images"           json:"service_and_images"`
-	YamlContent        string                        `bson:"yaml_content"                 json:"yaml_content"`
-	KeyVals            []*commonmodels.ServiceKeyVal `bson:"key_vals"                     json:"key_vals"`
+type ZadigDeployJobPreviewSpec struct {
+	Env                string             `bson:"env"                          json:"env"`
+	SkipCheckRunStatus bool               `bson:"skip_check_run_status"        json:"skip_check_run_status"`
+	ServiceAndImages   []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
+	YamlContent        string             `bson:"yaml_content"                 json:"yaml_content"`
+	// UserSuppliedValue added since 1.18, the values that users gives.
+	UserSuppliedValue string `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
+	// VariableConfigs new since 1.18, only used for k8s
+	VariableConfigs []*commonmodels.DeplopyVariableConfig `bson:"variable_configs"                 json:"variable_configs"                    yaml:"variable_configs"`
+	// VariableKVs new since 1.18, only used for k8s
+	VariableKVs []*commontypes.RenderVariableKV `bson:"variable_kvs"                 json:"variable_kvs"                    yaml:"variable_kvs"`
 }
 
 type CustomDeployJobSpec struct {
@@ -225,7 +233,9 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 	return workflow, nil
 }
 
-func CheckWorkflowV4LarkApproval(workflowName, uid string, log *zap.SugaredLogger) error {
+// CheckWorkflowV4ApprovalInitiator check if the workflow contains lark or dingtalk approval
+// if so, check whether the IM information can be queried by the user's mobile phone number
+func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.SugaredLogger) error {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName)
 	if err != nil {
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
@@ -236,15 +246,38 @@ func CheckWorkflowV4LarkApproval(workflowName, uid string, log *zap.SugaredLogge
 		return errors.New("failed to get user info by id")
 	}
 
+	larkPass, dingtalkPass := false, false
 	for _, stage := range workflow.Stages {
-		if stage.Approval != nil && stage.Approval.Enabled && stage.Approval.Type == config.LarkApproval && stage.Approval.LarkApproval != nil {
-			cli, err := lark.GetLarkClientByIMAppID(stage.Approval.LarkApproval.ApprovalID)
-			if err != nil {
-				return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ApprovalID)
-			}
-			_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
-			if err != nil {
-				return e.ErrCheckLarkApprovalCreator.AddDesc(fmt.Sprintf("failed to get lark user info. lark app id: %s, phone: %s, error: %v", stage.Approval.LarkApproval.ApprovalID, userInfo.Phone, err))
+		if stage.Approval != nil && stage.Approval.Enabled {
+			switch stage.Approval.Type {
+			case config.LarkApproval:
+				if larkPass || stage.Approval.LarkApproval == nil {
+					continue
+				}
+				cli, err := lark.GetLarkClientByIMAppID(stage.Approval.LarkApproval.ApprovalID)
+				if err != nil {
+					return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ApprovalID)
+				}
+				_, err = cli.GetUserOpenIDByEmailOrMobile(larktool.QueryTypeMobile, userInfo.Phone)
+				if err != nil {
+					return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("lark app id: %s, phone: %s, error: %v",
+						stage.Approval.LarkApproval.ApprovalID, userInfo.Phone, err))
+				}
+				larkPass = true
+			case config.DingTalkApproval:
+				if dingtalkPass || stage.Approval.DingTalkApproval == nil {
+					continue
+				}
+				cli, err := dingtalk.GetDingTalkClientByIMAppID(stage.Approval.DingTalkApproval.ApprovalID)
+				if err != nil {
+					return errors.Errorf("failed to get dingtalk app info by id-%s", stage.Approval.DingTalkApproval.ApprovalID)
+				}
+				_, err = cli.GetUserIDByMobile(userInfo.Phone)
+				if err != nil {
+					return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("dingtalk app id: %s, phone: %s, error: %v",
+						stage.Approval.DingTalkApproval.ApprovalID, userInfo.Phone, err))
+				}
+				dingtalkPass = true
 			}
 		}
 	}
@@ -305,6 +338,14 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		}
 		workflowTask.TaskCreatorEmail = userInfo.Email
 		workflowTask.TaskCreatorPhone = userInfo.Phone
+	} else {
+		// try to get workflow creator phone as the default approval initiator
+		userInfo, err := orm.GetUserByName(workflow.CreatedBy, core.DB)
+		if err != nil {
+			log.Warnf("CreateWorkflowTaskV4: failed to get workflow creator")
+		} else {
+			workflowTask.DefaultApprovalInitiatorPhone = userInfo.Phone
+		}
 	}
 
 	// save workflow original workflow task args.
@@ -515,7 +556,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			}
 		}
 	}
-	
+
 	task.Status = config.StatusCreated
 	task.StartTime = time.Now().Unix()
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(task); err != nil {
@@ -818,7 +859,11 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 		for _, stage := range workflow.Stages {
 			if stage.Approval != nil && stage.Approval.Enabled {
 				approvalStage := &commonmodels.StageTask{
-					Name:      "人工审批",
+					Name: map[config.ApprovalType]string{
+						config.NativeApproval:   "Zadig 审批",
+						config.LarkApproval:     "飞书审批",
+						config.DingTalkApproval: "钉钉审批",
+					}[stage.Approval.Type],
 					StartTime: stage.Approval.StartTime,
 					EndTime:   stage.Approval.EndTime,
 					Status:    stage.Approval.Status,
@@ -875,6 +920,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 			Parallel:  stage.Parallel,
 			Approval:  stage.Approval,
 			Jobs:      jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow),
+			Error:     stage.Error,
 		})
 	}
 	return resp, nil
@@ -1044,13 +1090,14 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 			jobPreview.Spec = spec
 		case string(config.JobZadigDeploy):
-			spec := ZadigDeployJobSpec{}
+			spec := ZadigDeployJobPreviewSpec{}
 			taskJobSpec := &commonmodels.JobTaskDeploySpec{}
 			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
 				continue
 			}
 			spec.Env = taskJobSpec.Env
-			spec.KeyVals = taskJobSpec.KeyVals
+			spec.VariableConfigs = taskJobSpec.VariableConfigs
+			spec.VariableKVs = taskJobSpec.VariableKVs
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			// for compatibility
@@ -1072,15 +1119,15 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			jobPreview.Spec = spec
 		case string(config.JobZadigHelmDeploy):
 			jobPreview.JobType = string(config.JobZadigDeploy)
-			spec := ZadigDeployJobSpec{}
+			spec := ZadigDeployJobPreviewSpec{}
 			job.JobType = string(config.JobZadigDeploy)
 			taskJobSpec := &commonmodels.JobTaskHelmDeploySpec{}
 			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
 				continue
 			}
 			spec.Env = taskJobSpec.Env
-			spec.KeyVals = taskJobSpec.KeyVals
 			spec.YamlContent = taskJobSpec.YamlContent
+			spec.UserSuppliedValue = taskJobSpec.UserSuppliedValue
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			for _, imageAndmodule := range taskJobSpec.ImageAndModules {
 				spec.ServiceAndImages = append(spec.ServiceAndImages, &ServiceAndImage{

@@ -27,6 +27,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -127,6 +128,7 @@ func (j *DeployJob) SetPreset() error {
 			return fmt.Errorf("failed to get max revision services map, productName %s, isProduction %v, err: %w", product.ProductName, product.Production, err)
 		}
 
+		// update image name
 		for _, svc := range j.spec.ServiceAndImages {
 			productSvc := product.GetServiceMap()[svc.ServiceName]
 			if productSvc == nil {
@@ -187,6 +189,7 @@ func (j *DeployJob) MergeArgs(args *commonmodels.Job) error {
 func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
+
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return resp, err
 	}
@@ -270,6 +273,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				DeployContents:     j.spec.DeployContents,
 				Timeout:            timeout,
 			}
+
 			for _, deploy := range deploys {
 				// if external env, check service exists
 				if project.ProductFeature.CreateEnvType == "external" {
@@ -289,11 +293,53 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				service := serviceMap[serviceName]
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
-					jobTaskSpec.KeyVals = service.KeyVals
+					jobTaskSpec.VariableConfigs = service.VariableConfigs
+					if service.UpdateConfig {
+						jobTaskSpec.VariableKVs = service.LatestVariableKVs
+					} else {
+						jobTaskSpec.VariableKVs = service.VariableKVs
+					}
+
+					usedRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+						ProductTmpl: product.ProductName,
+						EnvName:     product.EnvName,
+						IsDefault:   false,
+						Revision:    product.Render.Revision,
+						Name:        product.Render.Name,
+					})
+					if err != nil {
+						return nil, fmt.Errorf("failed to find renderset for %s/%s, err: %w", product.ProductName, product.EnvName, err)
+					}
+
+					svcRenderVarMap := map[string]*commontypes.RenderVariableKV{}
+					serviceRender := usedRenderset.GetServiceRenderMap()[serviceName]
+					if serviceRender != nil {
+						for _, varKV := range serviceRender.OverrideYaml.RenderVariableKVs {
+							svcRenderVarMap[varKV.Key] = varKV
+						}
+					}
+
+					// filter variables that used global variable
+					filterdKV := []*commontypes.RenderVariableKV{}
+					for _, jobKV := range jobTaskSpec.VariableKVs {
+						svcKV, ok := svcRenderVarMap[jobKV.Key]
+						if !ok {
+							// deploy new variable
+							filterdKV = append(filterdKV, jobKV)
+							continue
+						}
+						// deploy existed variable
+						if svcKV.UseGlobalVariable {
+							continue
+						}
+						filterdKV = append(filterdKV, jobKV)
+					}
+					jobTaskSpec.VariableKVs = filterdKV
 				}
 				// if only deploy images, clear keyvals
 				if onlyDeployImage(j.spec.DeployContents) {
-					jobTaskSpec.KeyVals = []*commonmodels.ServiceKeyVal{}
+					jobTaskSpec.VariableConfigs = []*commonmodels.DeplopyVariableConfig{}
+					jobTaskSpec.VariableKVs = []*commontypes.RenderVariableKV{}
 				}
 			}
 			jobTask := &commonmodels.JobTask{
@@ -320,11 +366,11 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				serviceRevision = pSvc.Revision
 			}
 
-			revisionSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: serviceName,
 				Revision:    serviceRevision,
 				ProductName: product.ProductName,
-			})
+			}, product.Production)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find service: %s with revision: %d, err: %s", serviceName, serviceRevision, err)
 			}
@@ -339,17 +385,17 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				ClusterID:          product.ClusterID,
 				ReleaseName:        releaseName,
 				Timeout:            timeout,
+				IsProduction:       j.spec.Production,
 			}
+
 			for _, deploy := range deploys {
 				service := serviceMap[serviceName]
 				if service != nil {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.KeyVals = service.KeyVals
+					jobTaskSpec.VariableYaml = service.VariableYaml
 				}
 
-				if err := checkServiceExsistsInEnv(productServiceMap, serviceName, envName); err != nil {
-					return resp, err
-				}
 				jobTaskSpec.ImageAndModules = append(jobTaskSpec.ImageAndModules, &commonmodels.ImageAndServiceModule{
 					ServiceModule: deploy.ServiceModule,
 					Image:         deploy.Image,

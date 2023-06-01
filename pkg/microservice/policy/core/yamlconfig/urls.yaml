@@ -81,6 +81,9 @@ exemption_urls:
     - endpoint: api/aslan/system/lark/?*/webhook
       methods:
         - POST
+    - endpoint: api/aslan/system/dingtalk/?*/webhook
+      methods:
+        - POST
     - endpoint: api/aslan/system/project_management/jira/webhook/?*/?*
       methods:
         - POST
@@ -192,6 +195,9 @@ exemption_urls:
       methods:
         - GET
     - endpoint: api/aslan/apidocs/?*
+      methods:
+        - GET
+    - endpoint: api/aslan/system/theme
       methods:
         - GET
   system_admin:
@@ -394,6 +400,9 @@ exemption_urls:
     - endpoint: api/aslan/workflow/plugin/enterprise
       methods:
         - POST
+    - endpoint: api/aslan/system/theme
+      methods:
+        - PUT
   project_admin:
     - endpoint: api/aslan/project/products
       methods:

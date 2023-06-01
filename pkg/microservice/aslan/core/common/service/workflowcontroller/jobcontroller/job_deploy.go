@@ -44,6 +44,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
@@ -96,14 +97,6 @@ func (c *DeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 	c.wait(ctx)
-}
-
-func (c *DeployJobCtl) getVarsYaml() (string, error) {
-	vars := []*commonmodels.VariableKV{}
-	for _, v := range c.jobTaskSpec.KeyVals {
-		vars = append(vars, &commonmodels.VariableKV{Key: v.Key, Value: v.Value})
-	}
-	return kube.GenerateYamlFromKV(vars)
 }
 
 func (c *DeployJobCtl) run(ctx context.Context) error {
@@ -161,14 +154,17 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
 			updateRevision = true
 		}
+
 		varsYaml := ""
+		varKVs := []*commontypes.RenderVariableKV{}
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployVars) {
-			varsYaml, err = c.getVarsYaml()
+			varsYaml, err = commontypes.RenderVariableKVToYaml(c.jobTaskSpec.VariableKVs)
 			if err != nil {
 				msg := fmt.Sprintf("generate vars yaml error: %v", err)
 				logError(c.job, msg, c.logger)
 				return errors.New(msg)
 			}
+			varKVs = c.jobTaskSpec.VariableKVs
 		}
 		containers := []*commonmodels.Container{}
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployImage) {
@@ -180,7 +176,16 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 				})
 			}
 		}
-		option := &kube.GeneSvcYamlOption{ProductName: env.ProductName, EnvName: c.jobTaskSpec.Env, ServiceName: c.jobTaskSpec.ServiceName, UpdateServiceRevision: updateRevision, VariableYaml: varsYaml, Containers: containers}
+
+		option := &kube.GeneSvcYamlOption{
+			ProductName:           env.ProductName,
+			EnvName:               c.jobTaskSpec.Env,
+			ServiceName:           c.jobTaskSpec.ServiceName,
+			UpdateServiceRevision: updateRevision,
+			VariableYaml:          varsYaml,
+			VariableKVs:           varKVs,
+			Containers:            containers,
+		}
 		updatedYaml, revision, resources, err := kube.GenerateRenderedYaml(option)
 		if err != nil {
 			msg := fmt.Sprintf("generate service yaml error: %v", err)
@@ -189,15 +194,17 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		}
 		c.jobTaskSpec.YamlContent = updatedYaml
 		c.ack()
+
 		currentYaml, _, err := kube.FetchCurrentAppliedYaml(option)
 		if err != nil {
 			msg := fmt.Sprintf("get current service yaml error: %v", err)
 			logError(c.job, msg, c.logger)
 			return errors.New(msg)
 		}
+
 		// if not only deploy image, we will redeploy service
 		if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
-			if err := c.updateSystemService(env, currentYaml, updatedYaml, varsYaml, revision, containers, updateRevision); err != nil {
+			if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, updateRevision); err != nil {
 				logError(c.job, err.Error(), c.logger)
 				return err
 			}
@@ -210,6 +217,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		}
 		return nil
 	}
+
 	// get servcie info
 	var (
 		serviceInfo *commonmodels.Service
@@ -247,7 +255,7 @@ func onlyDeployImage(deployContents []config.DeployContent) bool {
 	return slices.Contains(deployContents, config.DeployImage) && len(deployContents) == 1
 }
 
-func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml, varsYaml string, revision int, containers []*commonmodels.Container, updateRevision bool) error {
+func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml string, variableKVs []*commontypes.RenderVariableKV, revision int, containers []*commonmodels.Container, updateRevision bool) error {
 	addZadigLabel := !c.jobTaskSpec.Production
 	if addZadigLabel {
 		if !commonutil.ServiceDeployed(c.jobTaskSpec.ServiceName, env.ServiceDeployStrategy) && !updateRevision &&
@@ -272,12 +280,19 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		return errors.New(msg)
 	}
 
+	variableYaml, err := commontypes.RenderVariableKVToYaml(variableKVs)
+	if err != nil {
+		msg := fmt.Sprintf("convert render variable to yaml error: %v", err)
+		return errors.New(msg)
+	}
+
 	err = UpdateProductServiceDeployInfo(&ProductServiceDeployInfo{
 		ProductName:           env.ProductName,
 		EnvName:               c.jobTaskSpec.Env,
 		ServiceName:           c.jobTaskSpec.ServiceName,
 		ServiceRevision:       revision,
-		VariableYaml:          varsYaml,
+		VariableYaml:          variableYaml,
+		VariableKVs:           variableKVs,
 		Containers:            containers,
 		UpdateServiceRevision: updateRevision,
 	})
@@ -378,6 +393,8 @@ func (c *DeployJobCtl) updateServiceModuleImages(ctx context.Context, resources 
 	return nil
 }
 
+// 5.26 temporarily deactivate this function
+// Because these errors must exist for a short period of time in some cases
 func workLoadDeployStat(kubeClient client.Client, namespace string, labelMaps []map[string]string, ownerUID string) error {
 	for _, label := range labelMaps {
 		selector := labels.Set(label).AsSelector()
@@ -502,10 +519,6 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range c.jobTaskSpec.ReplaceResources {
-				if err := workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels, resource.PodOwnerUID); err != nil {
-					logError(c.job, err.Error(), c.logger)
-					return
-				}
 				switch resource.Kind {
 				case setting.Deployment:
 					d, found, e := getter.GetDeployment(c.namespace, resource.Name, c.kubeClient)

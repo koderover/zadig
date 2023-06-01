@@ -563,12 +563,12 @@ func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) 
 	}
 
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
-	basePath := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceName, revision)
-	if err := commonutil.PreloadServiceManifestsByRevision(basePath, serviceObj); err != nil {
+	basePath := config.LocalTestServicePathWithRevision(serviceObj.ProductName, serviceName, revision)
+	if err := commonutil.PreloadServiceManifestsByRevision(basePath, serviceObj, prod.Production); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version", revision, serviceName)
 		// use the latest version when it fails to download the specific version
-		basePath = config.LocalServicePath(serviceObj.ProductName, serviceName)
-		if err = commonutil.PreLoadServiceManifests(basePath, serviceObj); err != nil {
+		basePath = config.LocalTestServicePath(serviceObj.ProductName, serviceName)
+		if err = commonutil.PreLoadServiceManifests(basePath, serviceObj, prod.Production); err != nil {
 			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
 			return "", err
 		}

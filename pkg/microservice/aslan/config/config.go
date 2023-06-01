@@ -230,20 +230,65 @@ func WebHookURL() string {
 	return fmt.Sprintf("%s/api/aslan/webhook", configbase.SystemAddress())
 }
 
-func ObjectStorageServicePath(project, service string) string {
+func ObjectStorageServicePath(project, service string, production bool) string {
+	if production {
+		return ObjectStorageProductionServicePath(project, service)
+	} else {
+		return ObjectStorageTestServicePath(project, service)
+	}
+}
+
+func ObjectStorageTestServicePath(project, service string) string {
 	return configbase.ObjectStorageServicePath(project, service)
 }
 
-func LocalServicePath(project, service string) string {
-	return configbase.LocalServicePathWithRevision(project, service, "latest")
+func ObjectStorageProductionServicePath(project, service string) string {
+	return configbase.ObjectStorageProductionServicePath(project, service)
 }
 
-func LocalServicePathWithRevision(project, service string, revision int64) string {
-	return configbase.LocalServicePathWithRevision(project, service, fmt.Sprintf("%d", revision))
+func LocalServicePath(project, service string, production bool) string {
+	if production {
+		return LocalProductionServicePath(project, service)
+	} else {
+		return LocalTestServicePath(project, service)
+	}
 }
 
+// LocalTestServicePath returns the path of the normal service with the latest version
+func LocalTestServicePath(project, service string) string {
+	return configbase.LocalTestServicePathWithRevision(project, service, "latest")
+}
+
+// LocalProductionServicePath returns the path of the production service with the latest version
+func LocalProductionServicePath(project, service string) string {
+	return configbase.LocalProductionServicePathWithRevision(project, service, "latest")
+}
+
+func LocalServicePathWithRevision(project, service string, revision int64, production bool) string {
+	if production {
+		return LocalProductionServicePathWithRevision(project, service, revision)
+	} else {
+		return LocalTestServicePathWithRevision(project, service, revision)
+	}
+}
+
+// LocalTestServicePathWithRevision returns the path of the normal service with the specific revision
+func LocalTestServicePathWithRevision(project, service string, revision int64) string {
+	return configbase.LocalTestServicePathWithRevision(project, service, fmt.Sprintf("%d", revision))
+}
+
+// LocalProductionServicePathWithRevision returns the path of the normal service with the specific revision
+func LocalProductionServicePathWithRevision(project, service string, revision int64) string {
+	return configbase.LocalProductionServicePathWithRevision(project, service, fmt.Sprintf("%d", revision))
+}
+
+// LocalDeliveryChartPathWithRevision returns the path of the normal service with the specific revision
 func LocalDeliveryChartPathWithRevision(project, service string, revision int64) string {
-	return configbase.LocalServicePathWithRevision(project, service, fmt.Sprintf("delivery/%d", revision))
+	return configbase.LocalTestServicePathWithRevision(project, service, fmt.Sprintf("delivery/%d", revision))
+}
+
+func LocalProductionDeliveryChartPathWithRevision(project, service string, revision int64) string {
+	return configbase.LocalProductionServicePathWithRevision(project, service, fmt.Sprintf("delivery/%d", revision))
 }
 
 func ServiceNameWithRevision(serviceName string, revision int64) string {

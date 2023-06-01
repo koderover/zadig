@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -48,6 +49,7 @@ type HelmServiceCreationArgs struct {
 	CreateFrom     interface{}             `json:"createFrom"`
 	ValuesData     *service.ValuesDataArgs `json:"valuesData"`
 	CreationDetail interface{}             `json:"-"`
+	Production     bool                    `json:"production"`
 }
 
 type BulkHelmServiceCreationArgs struct {
@@ -149,11 +151,12 @@ func (a *BulkHelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
 }
 
 type LoadServiceFromYamlTemplateReq struct {
-	ServiceName  string `json:"service_name"`
-	ProjectName  string `json:"project_name"`
-	TemplateID   string `json:"template_id"`
-	AutoSync     bool   `json:"auto_sync"`
-	VariableYaml string `json:"variable_yaml"`
+	ServiceName        string                           `json:"service_name"`
+	ProjectName        string                           `json:"project_name"`
+	TemplateID         string                           `json:"template_id"`
+	AutoSync           bool                             `json:"auto_sync"`
+	VariableYaml       string                           `json:"variable_yaml"`
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
 }
 
 type OpenAPILoadServiceFromYamlTemplateReq struct {
@@ -162,4 +165,41 @@ type OpenAPILoadServiceFromYamlTemplateReq struct {
 	TemplateName string       `json:"template_name"`
 	AutoSync     bool         `json:"auto_sync"`
 	VariableYaml util.KVInput `json:"variable_yaml"`
+}
+
+func (req *OpenAPILoadServiceFromYamlTemplateReq) Validate() error {
+	if req.ServiceName == "" {
+		return fmt.Errorf("service name cannot be empty")
+	}
+
+	if req.ProjectKey == "" {
+		return fmt.Errorf("project key cannot be empty")
+	}
+
+	if req.TemplateName == "" {
+		return fmt.Errorf("template name cannot be empty")
+	}
+
+	return nil
+}
+
+type OpenAPICreateYamlServiceReq struct {
+	ServiceName string `json:"service_name"`
+	Yaml        string `json:"yaml"`
+}
+
+func (req *OpenAPICreateYamlServiceReq) Validate() error {
+	if req.ServiceName == "" {
+		return fmt.Errorf("service name cannot be empty")
+	}
+
+	if req.Yaml == "" {
+		return fmt.Errorf("yaml cannot be empty")
+	}
+
+	return nil
+}
+
+type OpenAPIGetYamlServiceResp struct {
+	Yaml string `json:"yaml"`
 }

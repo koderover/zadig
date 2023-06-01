@@ -22,6 +22,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
@@ -61,11 +62,13 @@ type HelmSvcRenderArg struct {
 }
 
 type K8sSvcRenderArg struct {
-	EnvName            string `json:"env_name,omitempty"`
-	ServiceName        string `json:"service_name,omitempty"`
-	VariableYaml       string `json:"variable_yaml"`
-	LatestVariableYaml string `json:"latest_variable_yaml"`
-	DeployStrategy     string `json:"deploy_strategy,omitempty"` // New since 1.16.0, used to determine if the service will be installed
+	EnvName            string                          `json:"env_name,omitempty"`
+	ServiceName        string                          `json:"service_name,omitempty"`
+	VariableYaml       string                          `json:"variable_yaml"`
+	VariableKVs        []*commontypes.RenderVariableKV `json:"variable_kvs"`
+	LatestVariableYaml string                          `json:"latest_variable_yaml"`
+	LatestVariableKVs  []*commontypes.RenderVariableKV `json:"latest_variable_kvs"`
+	DeployStrategy     string                          `json:"deploy_strategy,omitempty"` // New since 1.16.0, used to determine if the service will be installed
 }
 
 type RenderChartDiffResult string

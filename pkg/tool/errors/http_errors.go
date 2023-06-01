@@ -789,9 +789,9 @@ var (
 	ErrValidateIMApp = NewHTTPError(6935, "校验 IM 应用失败")
 
 	//-----------------------------------------------------------------------------------------------
-	// check workflow task lark approval available releated errors: 6940-6949
+	// check workflow task lark or dingtalk approval available releated errors: 6940-6949
 	//-----------------------------------------------------------------------------------------------
-	ErrCheckLarkApprovalCreator = NewHTTPError(6940, "获取飞书账号信息失败")
+	ErrCheckApprovalInitiator = NewHTTPError(6940, "获取 IM 审批发起人账号信息失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// project management releated errors: 6950-6959

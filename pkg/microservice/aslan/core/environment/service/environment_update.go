@@ -21,11 +21,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -34,7 +33,10 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -147,7 +149,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return
 	}
 
-	prodSvcTemp, errFindProd := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: productSvc.Revision, ProductName: productInfo.ProductName})
+	prodSvcTemp, errFindProd := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: productSvc.Revision, ProductName: productInfo.ProductName}, productInfo.Production)
 	if errFindProd != nil {
 		err = fmt.Errorf("failed to get service: %s with revision: %d, err: %s", serviceName, productSvc.Revision, errFindProd)
 		return
@@ -168,6 +170,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, errBuildParam)
 		return
 	}
+	param.Production = productInfo.Production
 
 	err = InstallService(helmClient, param)
 	if err != nil {
@@ -203,7 +206,7 @@ func updateK8sServiceInEnv(productInfo *commonmodels.Product, templateSvc *commo
 		}
 		return false
 	}
-	return updateK8sProduct(productInfo, "system", "", []string{svcRender.ServiceName}, filter, []*templatemodels.ServiceRender{svcRender}, nil, false, currentRenderset.DefaultValues, log.SugaredLogger())
+	return updateK8sProduct(productInfo, "system", "", []string{svcRender.ServiceName}, filter, []*templatemodels.ServiceRender{svcRender}, nil, false, currentRenderset.GlobalVariables, log.SugaredLogger())
 }
 
 // ReInstallHelmSvcInAllEnvs reinstall svc in all envs in which the svc is already installed
@@ -211,6 +214,24 @@ func ReInstallHelmSvcInAllEnvs(productName string, templateSvc *commonmodels.Ser
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:       productName,
 		Production: util.GetBoolPointer(false),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
+	}
+	retErr := &multierror.Error{}
+	for _, product := range products {
+		err := reInstallHelmServiceInEnv(product, templateSvc)
+		if err != nil {
+			retErr = multierror.Append(retErr, fmt.Errorf("failed to update service: %s/%s, err: %s", product.EnvName, templateSvc.ServiceName, err))
+		}
+	}
+	return retErr.ErrorOrNil()
+}
+
+func ReInstallHelmProductionSvcInAllEnvs(productName string, templateSvc *commonmodels.Service) error {
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:       productName,
+		Production: util.GetBoolPointer(true),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list envs for product: %s, err: %s", productName, err)
@@ -315,7 +336,7 @@ func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service
 }
 
 func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, updateRevisionSvc []string, filter svcUpgradeFilter, updatedSvcs []*templatemodels.ServiceRender, deployStrategy map[string]string,
-	force bool, variableYaml string, log *zap.SugaredLogger) error {
+	force bool, globalVariables []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
 	envName, productName := exitedProd.EnvName, exitedProd.ProductName
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
@@ -341,19 +362,82 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	}
 
 	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, map[string]string{setting.ProductLabel: productName}, exitedProd.ShareEnv.Enable, kubeClient, log)
-
 	if err != nil {
 		log.Errorf("[%s][P:%s] service.UpdateProductV2 create kubeEnv error: %v", envName, productName, err)
 		return err
 	}
 
+	curRender, err := render.GetRenderSetInfo(exitedProd.Render.Name, exitedProd.Render.Revision)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to get render set, render name: %s, revision: %d, error: %w", exitedProd.Render.Name, exitedProd.Render.Revision, err))
+	}
+
+	curSvcRenderMap := make(map[string]*templatemodels.ServiceRender)
+	for _, svcRender := range curRender.ServiceVariables {
+		curSvcRenderMap[svcRender.ServiceName] = svcRender
+	}
+
+	updateRevisionSvcSet := sets.NewString(updateRevisionSvc...)
+
+	// @fixme improve update revision and filter logic
+	// merge render variable and global variable
+	for _, svc := range updatedSvcs {
+		curSvcRender, ok := curSvcRenderMap[svc.ServiceName]
+		if !ok {
+			curSvcRender = &templatemodels.ServiceRender{
+				OverrideYaml: &templatemodels.CustomYaml{},
+			}
+		}
+
+		if updateRevisionSvcSet.Has(svc.ServiceName) {
+			svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ProductName: exitedProd.ProductName,
+				ServiceName: svc.ServiceName,
+			}, exitedProd.Production)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed to get latest service template %s, err: %v", svc.ServiceName, err)
+				log.Error(fmtErr)
+				return e.ErrUpdateEnv.AddErr(fmtErr)
+			}
+
+			globalVariables, svc.OverrideYaml.RenderVariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed to merge global and render variables for service %s, err: %w", svc.ServiceName, err)
+				log.Error(fmtErr)
+				return e.ErrUpdateEnv.AddErr(fmtErr)
+			}
+
+			svc.OverrideYaml.YamlContent, svc.OverrideYaml.RenderVariableKVs, err = commontypes.MergeRenderAndServiceTemplateVariableKVs(svc.OverrideYaml.RenderVariableKVs, svcTemplate.ServiceVariableKVs)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed to merge render and service template variable kv, err: %w", err)
+				log.Error(fmtErr)
+				return e.ErrUpdateEnv.AddErr(fmtErr)
+			}
+		} else {
+			globalVariables, svc.OverrideYaml.RenderVariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed to merge global and render variables for service %s, err: %w", svc.ServiceName, err)
+				log.Error(fmtErr)
+				return e.ErrUpdateEnv.AddErr(fmtErr)
+			}
+
+			svc.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(svc.OverrideYaml.RenderVariableKVs)
+			if err != nil {
+				fmtErr := fmt.Errorf("failed to convert render variable kvs to yaml, err: %w", err)
+				log.Error(fmtErr)
+				return e.ErrUpdateEnv.AddErr(fmtErr)
+			}
+		}
+	}
+
+	// @fixme best to render yaml before create renderset
 	renderSet, err := render.CreateRenderSetByMerge(
 		&commonmodels.RenderSet{
 			Name:             exitedProd.Namespace,
 			EnvName:          envName,
 			ProductTmpl:      productName,
 			ServiceVariables: updatedSvcs,
-			DefaultValues:    variableYaml,
+			GlobalVariables:  globalVariables,
 		},
 		log,
 	)

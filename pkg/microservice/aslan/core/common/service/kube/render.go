@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	gotemplate "text/template"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -29,7 +28,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/helm/pkg/releaseutil"
@@ -42,6 +40,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -51,7 +50,6 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
-	zadigyamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type GeneSvcYamlOption struct {
@@ -60,6 +58,7 @@ type GeneSvcYamlOption struct {
 	ServiceName           string
 	UpdateServiceRevision bool
 	VariableYaml          string
+	VariableKVs           []*commontypes.RenderVariableKV
 	UnInstall             bool
 	Containers            []*models.Container
 }
@@ -113,9 +112,7 @@ func GenerateYamlFromKV(kvs []*commonmodels.VariableKV) (string, error) {
 }
 
 // extract valid svc variable from service variable
-// keys defined in service vars are valid
-// keys not defined in service vars or default values are valid as well
-func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, serviceVars []string, serviceDefaultValues string) (string, error) {
+func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet) string {
 	serviceVariable := ""
 	for _, v := range rs.ServiceVariables {
 		if v.ServiceName != serviceName {
@@ -127,53 +124,7 @@ func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet, ser
 		break
 	}
 
-	valuesMap, err := converter.YamlToFlatMap([]byte(serviceVariable))
-	if err != nil {
-		return "", fmt.Errorf("failed to get flat map for service variable, err: %s", err)
-	}
-
-	serviceDefaultValuesMap, err := converter.YamlToFlatMap([]byte(serviceDefaultValues))
-	if err != nil {
-		return "", fmt.Errorf("failed to get flat map for service default variable, err: %s", err)
-	}
-
-	wildcard := commonutil.IsServiceVarsWildcard(serviceVars)
-
-	// keys defined in service vars
-	keysSet := sets.NewString(serviceVars...)
-	validKvMap, svcValidDefaultValueMap := make(map[string]interface{}), make(map[string]interface{})
-
-	for k, v := range valuesMap {
-		if wildcard || keysSet.Has(k) {
-			validKvMap[k] = v
-		}
-	}
-
-	for k, v := range serviceDefaultValuesMap {
-		if _, ok := validKvMap[k]; !ok {
-			svcValidDefaultValueMap[k] = v
-		}
-	}
-
-	defaultValuesMap, err := converter.YamlToFlatMap([]byte(rs.DefaultValues))
-	if err != nil {
-		return "", fmt.Errorf("failed to get flat map for default variable, err: %s", err)
-	}
-	for k := range defaultValuesMap {
-		delete(svcValidDefaultValueMap, k)
-	}
-
-	for k, v := range svcValidDefaultValueMap {
-		validKvMap[k] = v
-	}
-
-	validKvMap, err = converter.Expand(validKvMap)
-	if err != nil {
-		return "", err
-	}
-
-	bs, err := yaml.Marshal(validKvMap)
-	return string(bs), err
+	return serviceVariable
 }
 
 func resourceToYaml(obj runtime.Object) (string, error) {
@@ -329,10 +280,6 @@ func FetchCurrentServiceVariable(option *GeneSvcYamlOption) ([]*commonmodels.Var
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, productSvcRevision)
 	}
-	serviceVars := prodSvcTemplate.ServiceVars
-	if productInfo.Production {
-		serviceVars = setting.ServiceVarWildCard
-	}
 
 	var usedRenderset *commonmodels.RenderSet
 	usedRenderset, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
@@ -355,10 +302,6 @@ func FetchCurrentServiceVariable(option *GeneSvcYamlOption) ([]*commonmodels.Var
 	variableYaml, _, err := commomtemplate.SafeMergeVariableYaml(prodSvcTemplate.VariableYaml, serviceVariableYaml)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to merge variable yaml for %s/%s", option.ProductName, option.ServiceName)
-	}
-	variableYaml, err = commonutil.ClipVariableYaml(variableYaml, serviceVars)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to clip variable yaml for %s/%s", option.ProductName, option.ServiceName)
 	}
 
 	return GeneKVFromYaml(variableYaml)
@@ -399,18 +342,6 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		prodSvcTemplate.ServiceVars = setting.ServiceVarWildCard
 	}
 
-	// for situations only updating workload images, only return involved manifests of deployments and statefulsets
-	if !option.UnInstall && !option.UpdateServiceRevision && len(option.VariableYaml) == 0 {
-		manifest, _, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
-		return manifest, int(curProductSvc.Revision), err
-	}
-
-	// service not deployed by zadig, should only be updated with images
-	if !option.UnInstall && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
-		manifest, _, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
-		return manifest, int(curProductSvc.Revision), err
-	}
-
 	var usedRenderset *commonmodels.RenderSet
 	usedRenderset, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		ProductTmpl: productInfo.ProductName,
@@ -423,7 +354,7 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		return "", 0, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)
 	}
 
-	fullRenderedYaml, err := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset, prodSvcTemplate.ServiceVars, prodSvcTemplate.VariableYaml)
+	fullRenderedYaml, err := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset)
 	if err != nil {
 		return "", 0, err
 	}
@@ -433,9 +364,9 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	return fullRenderedYaml, 0, nil
 }
 
-func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service) (string, []*WorkloadResource, error) {
-	fakeRenderSet := &models.RenderSet{}
-	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, option.ProductName, option.ServiceName, fakeRenderSet, serviceTmp.ServiceVars, serviceTmp.VariableYaml)
+func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service, renderset *commonmodels.RenderSet) (string, []*WorkloadResource, error) {
+	//fakeRenderSet := &models.RenderSet{}
+	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, option.ProductName, option.ServiceName, renderset)
 	if err != nil {
 		return "", nil, err
 	}
@@ -551,21 +482,6 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		return "", 0, nil, fmt.Errorf("failed to find service template for service %s, isProduction %v", option.ServiceName, productInfo.Production)
 	}
 
-	if productInfo.Production {
-		latestSvcTemplate.ServiceVars = setting.ServiceVarWildCard
-	}
-
-	// service not deployed by zadig, should only be updated with images
-	if !option.UnInstall && !option.UpdateServiceRevision && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
-		manifest, workloads, err := fetchImportedManifests(option, productInfo, prodSvcTemplate)
-		return manifest, int(curProductSvc.Revision), workloads, err
-	}
-
-	curContainers := latestSvcTemplate.Containers
-	if curProductSvc != nil {
-		curContainers = curProductSvc.Containers
-	}
-
 	usedRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		ProductTmpl: productInfo.ProductName,
 		EnvName:     productInfo.EnvName,
@@ -576,84 +492,57 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)
 	}
-	serviceVariableYaml := ""
-	serviceRender := usedRenderset.GetServiceRenderMap()[option.ServiceName]
-	if serviceRender != nil && serviceRender.OverrideYaml != nil {
-		serviceVariableYaml = serviceRender.OverrideYaml.YamlContent
+
+	// service not deployed by zadig, should only be updated with images
+	if !option.UnInstall && !option.UpdateServiceRevision && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
+		manifest, workloads, err := fetchImportedManifests(option, productInfo, prodSvcTemplate, usedRenderset)
+		return manifest, int(curProductSvc.Revision), workloads, err
 	}
 
-	serviceVariableYaml = commonutil.ClipVariableYamlNoErr(serviceVariableYaml, latestSvcTemplate.ServiceVars)
-	mergedBs, err := zadigyamlutil.Merge([][]byte{[]byte(serviceVariableYaml), []byte(option.VariableYaml)})
+	curContainers := latestSvcTemplate.Containers
+	if curProductSvc != nil {
+		curContainers = curProductSvc.Containers
+	}
+
+	renderVariableKVs := []*commontypes.RenderVariableKV{}
+	serviceRender := usedRenderset.GetServiceRenderMap()[option.ServiceName]
+	if serviceRender != nil && serviceRender.OverrideYaml != nil {
+		renderVariableKVs = serviceRender.OverrideYaml.RenderVariableKVs
+	}
+
+	// merge service template, renderset and opton variables
+	templVariableKV := commontypes.ServiceToRenderVariableKVs(latestSvcTemplate.ServiceVariableKVs)
+	mergedYaml, _, err := commontypes.MergeRenderVariableKVs(templVariableKV, renderVariableKVs, option.VariableKVs)
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
 	}
-
 	usedRenderset.ServiceVariables = []*template.ServiceRender{{
 		ServiceName: option.ServiceName,
 		OverrideYaml: &template.CustomYaml{
-			YamlContent: string(mergedBs),
+			YamlContent: mergedYaml,
 		},
 	}}
 
-	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset, latestSvcTemplate.ServiceVars, latestSvcTemplate.VariableYaml)
+	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset)
 	if err != nil {
 		return "", 0, nil, err
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
+	log.Infof("fullRenderedYaml is: %s", fullRenderedYaml)
+
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, err
 }
 
-// RenderServiceYaml render service yaml with default values and service variable
-// serviceVars = []{*} means all variable are service vars
-func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmodels.RenderSet, serviceVars []string, serviceDefaultValues string) (string, error) {
+func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmodels.RenderSet) (string, error) {
 	if rs == nil {
 		originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
 		originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
 		return originYaml, nil
 	}
-	tmpl, err := gotemplate.New(fmt.Sprintf("%s:%s", productName, serviceName)).Parse(originYaml)
-	if err != nil {
-		return originYaml, fmt.Errorf("failed to build template, err: %s", err)
-	}
-	// tmpl.Option("missingkey=error")
-
-	serviceVariable, err := extractValidSvcVariable(serviceName, rs, serviceVars, serviceDefaultValues)
-	if err != nil {
-		return "", fmt.Errorf("failed to extract variable for service: %s, err: %s", serviceName, err)
-	}
-	variableYaml, replacedKv, err := commomtemplate.SafeMergeVariableYaml(rs.DefaultValues, serviceVariable)
-	if err != nil {
-		return originYaml, err
-	}
-
-	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableProduct, productName)
-	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableService, serviceName)
-
-	variableMap := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)
-	if err != nil {
-		return originYaml, fmt.Errorf("failed to unmarshal variable yaml, err: %s", err)
-	}
-
-	buf := bytes.NewBufferString("")
-	err = tmpl.Execute(buf, variableMap)
-	if err != nil {
-		return originYaml, fmt.Errorf("template validate err: %s", err)
-	}
-
-	originYaml = buf.String()
-
-	// replace system variables
-	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
-	originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
-
-	for rk, rv := range replacedKv {
-		originYaml = strings.ReplaceAll(originYaml, rk, rv)
-	}
-
-	return originYaml, nil
+	variableYaml := extractValidSvcVariable(serviceName, rs)
+	return commonutil.RenderK8sSvcYamlStrict(originYaml, productName, serviceName, variableYaml)
 }
 
 // RenderEnvService renders service with particular revision and service vars in environment
@@ -669,12 +558,8 @@ func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet
 		return "", err
 	}
 
-	if prod.Production {
-		svcTmpl.ServiceVars = setting.ServiceVarWildCard
-	}
-
 	// Note only the keys in TemplateService.ServiceVar can work
-	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render, svcTmpl.ServiceVars, svcTmpl.VariableYaml)
+	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render)
 	if err != nil {
 		log.Error("failed to render service yaml, err: %s", err)
 		return "", err

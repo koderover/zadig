@@ -222,8 +222,9 @@ const (
 type ApprovalType string
 
 const (
-	NativeApproval ApprovalType = "native"
-	LarkApproval   ApprovalType = "lark"
+	NativeApproval   ApprovalType = "native"
+	LarkApproval     ApprovalType = "lark"
+	DingTalkApproval ApprovalType = "dingtalk"
 )
 
 type ApproveOrReject string
@@ -473,4 +474,8 @@ const (
 	DashboardFunctionTestPassRate         = "(x**2)/80-x/4+1.25"
 	DashboardFunctionTestAverageDuration  = "90000/(x+900)"
 	DashboardFunctionReleaseFrequency     = "100-200/(x+2)"
+)
+
+const (
+	CUSTOME_THEME = "custom"
 )

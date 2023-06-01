@@ -19,6 +19,9 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"gopkg.in/yaml.v3"
 	"sort"
 	"strings"
 
@@ -40,7 +43,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -48,10 +51,8 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 	jsonutil "github.com/koderover/zadig/pkg/util/json"
-	"github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // FillProductTemplateValuesYamls 返回renderSet中的renderChart信息
@@ -132,16 +133,19 @@ func FillGitNamespace(yamlData *templatemodels.CustomYaml) error {
 	return nil
 }
 
-func latestVariableYaml(variableYaml string, serviceTemplate *models.Service) string {
+func latestVariables(variableKVs []*commontypes.RenderVariableKV, serviceTemplate *models.Service) ([]*commontypes.RenderVariableKV, string, error) {
 	if serviceTemplate == nil {
-		return variableYaml
+		yamlStr, err := commontypes.RenderVariableKVToYaml(variableKVs)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to convert render variableKVs to yaml, err: %s", err)
+		}
+		return variableKVs, yamlStr, nil
 	}
-	mergedYaml, err := yaml.CleanMerge([][]byte{[]byte(serviceTemplate.VariableYaml), []byte(variableYaml)})
+	yamlStr, mergedVariableKVs, err := commontypes.MergeRenderAndServiceTemplateVariableKVs(variableKVs, serviceTemplate.ServiceVariableKVs)
 	if err != nil {
-		log.Errorf("failed to merge variable yaml, err: %s", err)
-		return variableYaml
+		return nil, "", fmt.Errorf("failed to merge render and service variableKVs, err: %s", err)
 	}
-	return commonutil.ClipVariableYamlNoErr(string(mergedYaml), serviceTemplate.ServiceVars)
+	return mergedVariableKVs, yamlStr, nil
 }
 
 func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, error) {
@@ -194,7 +198,10 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 	}
 	if svcRender != nil && svcRender.OverrideYaml != nil {
 		prodTemplateSvc.ServiceVars = setting.ServiceVarWildCard
-		rArg.VariableYaml = latestVariableYaml(svcRender.OverrideYaml.YamlContent, prodTemplateSvc)
+		rArg.VariableKVs, rArg.VariableYaml, err = latestVariables(svcRender.OverrideYaml.RenderVariableKVs, prodTemplateSvc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get latest variables, error: %w", err)
+		}
 	}
 	ret = append(ret, rArg)
 	return ret, nil
@@ -290,12 +297,68 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 			ServiceName: svcRender.ServiceName,
 		}
 		if svcRender.OverrideYaml != nil {
-			rArg.VariableYaml = commonutil.ClipVariableYamlNoErr(svcRender.OverrideYaml.YamlContent, serviceVarsMap[svcRender.ServiceName])
-			rArg.LatestVariableYaml = latestVariableYaml(rArg.VariableYaml, templateSvcMap[svcRender.ServiceName])
+			rArg.VariableYaml = svcRender.OverrideYaml.YamlContent
+			rArg.VariableKVs = svcRender.OverrideYaml.RenderVariableKVs
+			rArg.LatestVariableKVs, rArg.LatestVariableYaml, err = latestVariables(rArg.VariableKVs, templateSvcMap[svcRender.ServiceName])
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to get latest variables, error: %w", err)
+			}
 		}
 		ret = append(ret, rArg)
 	}
 	return ret, rendersetObj, nil
+}
+
+type ValuesResp struct {
+	ValuesYaml string `json:"valuesYaml"`
+}
+
+func GetChartValues(projectName, envName, serviceName string, production bool) (*ValuesResp, error) {
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName, Production: util.GetBoolPointer(production)}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
+	}
+
+	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
+	if err != nil {
+		log.Errorf("GetRESTConfig error: %s", err)
+		return nil, fmt.Errorf("failed to get k8s rest config, err: %s", err)
+	}
+	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
+	if err != nil {
+		log.Errorf("[%s][%s] NewClientFromRestConf error: %s", envName, projectName, err)
+		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
+	}
+
+	serviceMap := prod.GetServiceMap()
+	prodSvc, ok := serviceMap[serviceName]
+	if !ok {
+		return nil, fmt.Errorf("failed to find sercice: %s in env: %s", serviceName, envName)
+	}
+
+	revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		Revision:    prodSvc.Revision,
+		ProductName: prodSvc.ProductName,
+	}, production)
+	if err != nil {
+		return nil, err
+	}
+
+	releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodSvc.ProductName, prod.Namespace, prod.EnvName, prodSvc.ServiceName)
+	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
+	if err != nil {
+		log.Errorf("failed to get values map data, err: %s", err)
+		return nil, err
+	}
+
+	currentValuesYaml, err := yaml.Marshal(valuesMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ValuesResp{ValuesYaml: string(currentValuesYaml)}, nil
 }
 
 func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
