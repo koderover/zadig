@@ -192,7 +192,7 @@ func GetWebhookForWorkflowV4Preset(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.GetWebhookForWorkflowV4Preset(c.Query("workflowName"), c.Query("triggerName"), ctx.Logger)
 }
 
-func CheckWorkflowV4LarkApproval(c *gin.Context) {
+func CheckWorkflowV4Approval(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 

@@ -204,7 +204,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 		approval.Timeout = 60
 	}
 
-	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ApprovalID)
+	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ID)
 	if err != nil {
 		stage.Status = config.StatusFailed
 		return errors.Wrap(err, "get lark im app data")
@@ -218,20 +218,6 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 
 	client := lark.NewClient(data.AppID, data.AppSecret)
 
-	mobile := workflowCtx.WorkflowTaskCreatorMobile
-	if mobile == "" {
-		if workflowCtx.DefaultApprovalInitiatorMobile == "" {
-			return errors.Errorf("failed to get approval initiator phone number")
-		}
-		mobile = workflowCtx.DefaultApprovalInitiatorMobile
-	}
-	userID, err := client.GetUserOpenIDByEmailOrMobile(lark.QueryTypeMobile, mobile)
-	if err != nil {
-		stage.Status = config.StatusFailed
-		return errors.Wrapf(err, "get user lark id by mobile-%s", workflowCtx.WorkflowTaskCreatorMobile)
-	}
-
-	log.Infof("waitForLarkApprove: ApproveNodes num %d", len(approval.ApprovalNodes))
 	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
 		workflowCtx.ProjectName,
@@ -243,12 +229,26 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 	if stage.Approval.Description != "" {
 		descForm = fmt.Sprintf("\n描述: %s", stage.Approval.Description)
 	}
+	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n\n更多详见: %s",
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL)
+
+	var userID string
+	if approval.DefaultApprovalInitiator == nil {
+		userID, err = client.GetUserOpenIDByEmailOrMobile(lark.QueryTypeMobile, workflowCtx.WorkflowTaskCreatorMobile)
+		if err != nil {
+			stage.Status = config.StatusFailed
+			return errors.Wrapf(err, "get user lark id by mobile-%s", workflowCtx.WorkflowTaskCreatorMobile)
+		}
+	} else {
+		userID = approval.DefaultApprovalInitiator.ID
+		formContent = fmt.Sprintf("审批发起人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
+	}
+	log.Infof("waitForLarkApprove: ApproveNodes num %d", len(approval.ApprovalNodes))
 	instance, err := client.CreateApprovalInstance(&lark.CreateApprovalInstanceArgs{
 		ApprovalCode: approvalCode,
 		UserOpenID:   userID,
 		Nodes:        approval.GetLarkApprovalNode(),
-		FormContent: fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n\n更多详见: %s",
-			workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL),
+		FormContent:  formContent,
 	})
 	if err != nil {
 		log.Errorf("waitForLarkApprove: create instance failed: %v", err)
@@ -401,7 +401,7 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 		approval.Timeout = 60
 	}
 
-	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ApprovalID)
+	data, err := mongodb.NewIMAppColl().GetByID(context.Background(), approval.ID)
 	if err != nil {
 		stage.Status = config.StatusFailed
 		return errors.Wrap(err, "get dingtalk im data")
@@ -409,21 +409,6 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 
 	client := dingtalk.NewClient(data.DingTalkAppKey, data.DingTalkAppSecret)
 
-	mobile := workflowCtx.WorkflowTaskCreatorMobile
-	if mobile == "" {
-		if workflowCtx.DefaultApprovalInitiatorMobile == "" {
-			return errors.Errorf("failed to get approval initiator phone number")
-		}
-		mobile = workflowCtx.DefaultApprovalInitiatorMobile
-	}
-	userIDResp, err := client.GetUserIDByMobile(mobile)
-	if err != nil {
-		stage.Status = config.StatusFailed
-		return errors.Wrapf(err, "get user dingtalk id by mobile-%s", mobile)
-	}
-	userID := userIDResp.UserID
-
-	log.Infof("waitForDingTalkApprove: ApproveNode num %d", len(approval.ApprovalNodes))
 	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
 		configbase.SystemAddress(),
 		workflowCtx.ProjectName,
@@ -435,6 +420,23 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 	if stage.Approval.Description != "" {
 		descForm = fmt.Sprintf("\n描述: %s", stage.Approval.Description)
 	}
+	formContent := fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n\n更多详见: %s",
+		workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL)
+
+	var userID string
+	if approval.DefaultApprovalInitiator == nil {
+		userIDResp, err := client.GetUserIDByMobile(workflowCtx.WorkflowTaskCreatorMobile)
+		if err != nil {
+			stage.Status = config.StatusFailed
+			return errors.Wrapf(err, "get user dingtalk id by mobile-%s", workflowCtx.WorkflowTaskCreatorMobile)
+		}
+		userID = userIDResp.UserID
+	} else {
+		userID = approval.DefaultApprovalInitiator.ID
+		formContent = fmt.Sprintf("审批发起人: %s\n%s", workflowCtx.WorkflowTaskCreatorUsername, formContent)
+	}
+
+	log.Infof("waitForDingTalkApprove: ApproveNode num %d", len(approval.ApprovalNodes))
 	instanceResp, err := client.CreateApprovalInstance(&dingtalk.CreateApprovalInstanceArgs{
 		ProcessCode:      data.DingTalkDefaultApprovalFormCode,
 		OriginatorUserID: userID,
@@ -451,8 +453,7 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 			}
 			return
 		}(),
-		FormContent: fmt.Sprintf("项目名称: %s\n工作流名称: %s\n阶段名称: %s%s\n\n更多详见: %s",
-			workflowCtx.ProjectName, workflowCtx.WorkflowDisplayName, stage.Name, descForm, detailURL),
+		FormContent: formContent,
 	})
 	if err != nil {
 		log.Errorf("waitForDingTalkApprove: create instance failed: %v", err)

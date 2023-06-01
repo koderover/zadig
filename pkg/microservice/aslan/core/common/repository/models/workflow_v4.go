@@ -113,9 +113,12 @@ type NativeApproval struct {
 }
 
 type DingTalkApproval struct {
-	Timeout       int                     `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
-	ApprovalID    string                  `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
-	ApprovalNodes []*DingTalkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+	Timeout int `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
+	// ID: dintalk im app mongodb id
+	ID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
+	// DefaultApprovalInitiator if not set, use workflow task creator as approval initiator
+	DefaultApprovalInitiator *DingTalkApprovalUser   `bson:"default_approval_initiator" yaml:"default_approval_initiator" json:"default_approval_initiator"`
+	ApprovalNodes            []*DingTalkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
 }
 
 type DingTalkApprovalNode struct {
@@ -128,15 +131,17 @@ type DingTalkApprovalUser struct {
 	ID              string                 `bson:"id"                          yaml:"id"                         json:"id"`
 	Name            string                 `bson:"name"                        yaml:"name"                       json:"name"`
 	Avatar          string                 `bson:"avatar"                      yaml:"avatar"                     json:"avatar"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
-	Comment         string                 `bson:"comment"                     yaml:"-"                          json:"comment"`
-	OperationTime   int64                  `bson:"operation_time"              yaml:"-"                          json:"operation_time"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve,omitempty"           yaml:"-"                          json:"reject_or_approve,omitempty"`
+	Comment         string                 `bson:"comment,omitempty"                     yaml:"-"                          json:"comment,omitempty"`
+	OperationTime   int64                  `bson:"operation_time,omitempty"              yaml:"-"                          json:"operation_time,omitempty"`
 }
 
 type LarkApproval struct {
 	Timeout int `bson:"timeout"                     yaml:"timeout"                    json:"timeout"`
-	// ApprovalID: lark im app mongodb id
-	ApprovalID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
+	// ID: lark im app mongodb id
+	ID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
+	// DefaultApprovalInitiator if not set, use workflow task creator as approval initiator
+	DefaultApprovalInitiator *LarkApprovalUser `bson:"default_approval_initiator" yaml:"default_approval_initiator" json:"default_approval_initiator"`
 	// Deprecated: use ApprovalNodes instead
 	ApproveUsers  []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	ApprovalNodes []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
@@ -175,9 +180,9 @@ type LarkApprovalNode struct {
 
 type LarkApprovalUser struct {
 	lark.UserInfo   `bson:",inline"  yaml:",inline"  json:",inline"`
-	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
-	Comment         string                 `bson:"comment"                     yaml:"-"                          json:"comment"`
-	OperationTime   int64                  `bson:"operation_time"              yaml:"-"                          json:"operation_time"`
+	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve,omitempty"           yaml:"-"                          json:"reject_or_approve,omitempty"`
+	Comment         string                 `bson:"comment,omitempty"                     yaml:"-"                          json:"comment,omitempty"`
+	OperationTime   int64                  `bson:"operation_time,omitempty"              yaml:"-"                          json:"operation_time,omitempty"`
 }
 
 type User struct {
