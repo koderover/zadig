@@ -249,8 +249,6 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 	// If default approval initiator is not set, check whether the user's mobile phone number can be queried
 	// and only need to check once for each im app type
 	isMobileChecked := map[string]bool{}
-	//// If default approval initiator is set, check whether the initiator can be found once for each im app id
-	//isIDChecked := map[string]bool{}
 	for _, stage := range workflow.Stages {
 		if stage.Approval != nil && stage.Approval.Enabled {
 			switch stage.Approval.Type {
@@ -263,9 +261,7 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 					return errors.Errorf("failed to get lark app info by id-%s", stage.Approval.LarkApproval.ID)
 				}
 
-				initiator := stage.Approval.LarkApproval.DefaultApprovalInitiator
-				switch initiator {
-				case nil:
+				if initiator := stage.Approval.LarkApproval.DefaultApprovalInitiator; initiator == nil {
 					if isMobileChecked[stage.Approval.LarkApproval.ID] {
 						continue
 					}
@@ -275,17 +271,7 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 							stage.Approval.LarkApproval.ID, userInfo.Phone, err))
 					}
 					isMobileChecked[stage.Approval.LarkApproval.ID] = true
-					//default:
-					//if isIDChecked[stage.Approval.LarkApproval.ID+initiator.ID] {
-					//	continue
-					//}
-					//if _, err := cli.GetUserInfoByID(initiator.ID); err != nil {
-					//	return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("stage %d: failed to find lark approval default initiator id %s, err: %v",
-					//		i, initiator.ID, err))
-					//}
-					//isIDChecked[stage.Approval.LarkApproval.ID+initiator.ID] = true
 				}
-
 			case config.DingTalkApproval:
 				if stage.Approval.DingTalkApproval == nil {
 					continue
@@ -295,9 +281,7 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 					return errors.Errorf("failed to get dingtalk app info by id-%s", stage.Approval.DingTalkApproval.ID)
 				}
 
-				initiator := stage.Approval.DingTalkApproval.DefaultApprovalInitiator
-				switch initiator {
-				case nil:
+				if initiator := stage.Approval.DingTalkApproval.DefaultApprovalInitiator; initiator == nil {
 					if isMobileChecked[stage.Approval.DingTalkApproval.ID] {
 						continue
 					}
@@ -307,15 +291,6 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 							stage.Approval.DingTalkApproval.ID, userInfo.Phone, err))
 					}
 					isMobileChecked[stage.Approval.DingTalkApproval.ID] = true
-					//default:
-					//if isIDChecked[stage.Approval.DingTalkApproval.ID+initiator.ID] {
-					//	continue
-					//}
-					//if _, err := cli.GetUserInfo(initiator.ID); err != nil {
-					//	return e.ErrCheckApprovalInitiator.AddDesc(fmt.Sprintf("stage %d: failed to find dingtalk approval default initiator id %s, err: %v",
-					//		i, initiator.ID, err))
-					//}
-					//isIDChecked[stage.Approval.DingTalkApproval.ID+initiator.ID] = true
 				}
 			}
 		}
