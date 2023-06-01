@@ -262,6 +262,9 @@ func migrateWorkflowV4LarkApproval() error {
 }
 
 func setLarkApprovalNodeForWorkflowV4(workflow *models.WorkflowV4) (updated bool) {
+	if workflow == nil {
+		return false
+	}
 	for _, stage := range workflow.Stages {
 		if stage.Approval != nil && stage.Approval.LarkApproval != nil {
 			if len(stage.Approval.LarkApproval.ApprovalNodes) > 0 {
@@ -283,6 +286,9 @@ func setLarkApprovalNodeForWorkflowV4(workflow *models.WorkflowV4) (updated bool
 }
 
 func setLarkApprovalNodeForWorkflowV4Task(workflow *models.WorkflowTask) (updated bool) {
+	if workflow == nil {
+		return false
+	}
 	for _, stage := range workflow.Stages {
 		if stage.Approval != nil && stage.Approval.LarkApproval != nil && len(stage.Approval.LarkApproval.ApproveUsers) > 0 {
 			if len(stage.Approval.LarkApproval.ApprovalNodes) > 0 {
