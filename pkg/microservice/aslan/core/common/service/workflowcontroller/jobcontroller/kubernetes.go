@@ -67,7 +67,6 @@ import (
 
 const (
 	BusyBoxImage               = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
-	ResourceImage              = ""
 	ZadigContextDir            = "/zadig/"
 	ZadigLogFile               = ZadigContextDir + "zadig.log"
 	ZadigLifeCycleFile         = ZadigContextDir + "lifecycle"

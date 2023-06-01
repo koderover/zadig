@@ -579,16 +579,6 @@ func RemoveClusterResources(hubserverAddr, clusterID string) error {
 		log.Errorf("failed to delete dind service, err: %s", err)
 	}
 
-	err = clientset.CoreV1().Services("koderover-agent").Delete(context.TODO(), "resource-server", metav1.DeleteOptions{})
-	if err != nil {
-		log.Errorf("failed to delete resource-server service, err: %s", err)
-	}
-
-	err = clientset.AppsV1().Deployments("koderover-agent").Delete(context.TODO(), "resource-server", metav1.DeleteOptions{})
-	if err != nil {
-		log.Errorf("failed to delete resource-server deployment, err: %s", err)
-	}
-
 	err = clientset.AppsV1().StatefulSets("koderover-agent").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
 	if err != nil {
 		log.Errorf("failed to delete dind statefulset, err: %s", err)
