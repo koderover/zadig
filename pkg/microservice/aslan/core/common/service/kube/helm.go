@@ -399,6 +399,15 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 		}
 	}
 
+	// services deployed by zadig
+	deployedSvcs := sets.NewString()
+	for _, svc := range serviceNames {
+		if !commonutil.ServiceDeployed(svc, productInfo.ServiceDeployStrategy) {
+			continue
+		}
+		deployedSvcs.Insert(svc)
+	}
+
 	for _, singleName := range serviceNames {
 		delete(productInfo.ServiceDeployStrategy, singleName)
 	}
@@ -439,6 +448,9 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 		failedServices := sync.Map{}
 		wg := sync.WaitGroup{}
 		for service, revision := range deletedSvcRevision {
+			if !deployedSvcs.Has(service) {
+				continue
+			}
 			wg.Add(1)
 			go func(product *models.Product, serviceName string, revision int64) {
 				defer wg.Done()
