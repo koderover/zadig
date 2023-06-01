@@ -82,9 +82,8 @@ func GetProductTemplateServices(productName string, envType types.EnvType, isBas
 		return nil, fmt.Errorf("FillProductTemplateVars err : %v", err)
 	}
 
-	if resp.Services == nil {
-		resp.Services = make([][]string, 0)
-	}
+	resp.Services = filterProductServices(productName, resp.Services, false)
+	resp.ProductionServices = filterProductServices(productName, resp.ProductionServices, true)
 
 	if envType == types.ShareEnv && !isBaseEnv {
 		// At this point the request is from the environment share.
@@ -1011,6 +1010,37 @@ func UnForkProduct(userID string, username, productName, workflowName, envName, 
 
 func FillProductTemplateVars(productTemplates []*template.Product, log *zap.SugaredLogger) error {
 	return commonservice.FillProductTemplateVars(productTemplates, log)
+}
+
+func filterProductServices(productName string, source [][]string, production bool) [][]string {
+	ret := make([][]string, 0)
+	if len(source) == 0 {
+		return ret
+	}
+	curServices, err := repository.ListMaxRevisionsServices(productName, production)
+	if err != nil {
+		log.Errorf("failed to query template services for product %s, production: %v, error: %v", productName, production, err)
+		return source
+	}
+
+	validSvcSet := sets.NewString()
+	for _, svc := range curServices {
+		validSvcSet.Insert(svc.ServiceName)
+	}
+	log.Infof("valid services: %v", validSvcSet.List())
+
+	for _, svcGroup := range source {
+		validSvcs := make([]string, 0)
+		for _, svc := range svcGroup {
+			if validSvcSet.Has(svc) {
+				validSvcs = append(validSvcs, svc)
+			}
+		}
+		if len(validSvcs) > 0 {
+			ret = append(ret, validSvcs)
+		}
+	}
+	return ret
 }
 
 // ensureProductTmpl 检查产品模板参数
