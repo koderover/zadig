@@ -55,7 +55,6 @@ type ServiceListOption struct {
 	BuildName      string
 	Type           string
 	Source         string
-	Visibility     string
 	ExcludeProject string
 	InServices     []*templatemodels.ServiceInfo
 	NotInServices  []*templatemodels.ServiceInfo
@@ -338,8 +337,6 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	//非容器部署服务在探活过程中会更新health_check相关的参数，其他的情况只会更新服务共享属性
 	if len(args.EnvStatuses) > 0 {
 		changeMap["env_statuses"] = args.EnvStatuses
-	} else {
-		changeMap["visibility"] = args.Visibility
 	}
 	change := bson.M{"$set": changeMap}
 	_, err := c.UpdateOne(context.TODO(), query, change)
@@ -640,9 +637,7 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 		if opt.BuildName != "" {
 			postMatch["build_name"] = opt.BuildName
 		}
-		if opt.Visibility != "" {
-			postMatch["visibility"] = opt.Visibility
-		}
+
 		if len(opt.NotInServices) > 0 {
 			var srs []bson.D
 			for _, s := range opt.NotInServices {

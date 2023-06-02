@@ -84,11 +84,6 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 		return resp, e.ErrGetService.AddErr(err)
 	}
 
-	if service.Visibility != setting.PublicService && service.ProductName != productName {
-		log.Errorf("Find service failed, productName:%s, serviceName:%s, serviceType:%s", productName, serviceName, serviceType)
-		return resp, e.ErrGetService
-	}
-
 	// 获取支持升级此服务的产品工作流
 	workflowOpt := &commonrepo.ListWorkflowOption{Projects: []string{productName}}
 	workflows, err := commonrepo.NewWorkflowColl().List(workflowOpt)

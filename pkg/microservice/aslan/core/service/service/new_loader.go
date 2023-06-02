@@ -25,7 +25,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	githubservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	gitlabservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
@@ -98,12 +97,6 @@ type serviceInfo struct {
 func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, repo, branch string, args *LoadServiceReq, force bool, logger *zap.SugaredLogger) error {
 	logger.Infof("Loading service from %s with owner %s, namespace %s, repo %s, branch %s and path %s", ch.Type, owner, namespace, repo, branch, args.LoadPath)
 
-	project, err := templaterepo.NewProductColl().Find(args.ProductName)
-	if err != nil {
-		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
-		return e.ErrLoadServiceTemplate.AddErr(err)
-	}
-
 	loader, err := getLoader(ch)
 	if err != nil {
 		logger.Errorf("Failed to create loader client, err: %s", err)
@@ -160,10 +153,6 @@ func loadService(username string, ch *systemconfig.CodeHost, owner, namespace, r
 		}
 
 		serviceName := getFileName(info.path)
-
-		if _, ok := project.SharedServiceInfoMap()[serviceName]; ok {
-			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("A service with same name %s is already existing", serviceName))
-		}
 
 		commit, err := loader.GetLatestRepositoryCommit(namespace, repo, info.path, branch)
 		if err != nil {

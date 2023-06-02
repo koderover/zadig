@@ -94,7 +94,6 @@ type ServiceProductMap struct {
 	Product          []string                  `json:"product"`
 	ProductName      string                    `json:"product_name"`
 	Containers       []*commonmodels.Container `json:"containers,omitempty"`
-	Visibility       string                    `json:"visibility,omitempty"`
 	CodehostID       int                       `json:"codehost_id"`
 	RepoOwner        string                    `json:"repo_owner"`
 	RepoNamespace    string                    `json:"repo_namespace"`
@@ -195,12 +194,6 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	serviceToProject, err := GetServiceInvolvedProjects(services, "")
-	if err != nil {
-		log.Errorf("Failed to get service involved projects, err: %s", err)
-		return resp, e.ErrListTemplate.AddDesc(err.Error())
-	}
-
 	estimatedVariableYamlMap, estimatedVariableKVMap := GetEstimatedMergedVariables(services, productTmpl)
 	for _, serviceObject := range services {
 		if serviceObject.Source == setting.SourceFromGitlab {
@@ -235,7 +228,6 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			ProductName:                serviceObject.ProductName,
 			Containers:                 serviceObject.Containers,
 			Product:                    []string{productName},
-			Visibility:                 serviceObject.Visibility,
 			CodehostID:                 serviceObject.CodehostID,
 			RepoOwner:                  serviceObject.RepoOwner,
 			RepoNamespace:              serviceObject.GetRepoNamespace(),
@@ -249,10 +241,6 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			AutoSync:                   serviceObject.AutoSync,
 			EstimatedMergedVariable:    estimatedVariableYamlMap[serviceObject.ServiceName],
 			EstimatedMergedVariableKVs: estimatedVariableKVMap[serviceObject.ServiceName],
-		}
-
-		if _, ok := serviceToProject[serviceObject.ServiceName]; ok {
-			spmap.Product = serviceToProject[serviceObject.ServiceName]
 		}
 
 		resp.Data = append(resp.Data, spmap)
@@ -371,47 +359,6 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 	return resp, nil
 }
 
-// GetServiceInvolvedProjects returns a map, key is a service name, value is a list of all projects which are using this service.
-// The given services must come from same project to make sure all service names are unique.
-func GetServiceInvolvedProjects(services []*commonmodels.Service, skipProject string) (map[string][]string, error) {
-	serviceMap := make(map[string]sets.String)
-	serviceToOwner := make(map[string]string)
-	var publicServiceInfos []*templatemodels.ServiceInfo
-	for _, s := range services {
-		serviceMap[s.ServiceName] = sets.NewString(s.ProductName)
-		serviceToOwner[s.ServiceName] = s.ProductName
-
-		if s.Visibility == setting.PublicService {
-			publicServiceInfos = append(publicServiceInfos, &templatemodels.ServiceInfo{
-				Name:  s.ServiceName,
-				Owner: s.ProductName,
-			})
-		}
-	}
-
-	projects, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{ContainSharedServices: publicServiceInfos})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, project := range projects {
-		for _, service := range project.SharedServices {
-			// skip service which is not in the list or the owner is different
-			if serviceToOwner[service.Name] != service.Owner {
-				continue
-			}
-			serviceMap[service.Name] = serviceMap[service.Name].Insert(project.ProductName)
-		}
-	}
-
-	res := make(map[string][]string)
-	for k, v := range serviceMap {
-		v.Delete(skipProject)
-		res[k] = v.List()
-	}
-	return res, nil
-}
-
 func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus string, revision int64, log *zap.SugaredLogger) (*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
@@ -428,17 +375,6 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		err = func() error {
 			if !commonrepo.IsErrNoDocuments(err) {
 				return err
-			}
-			templateProductInfo, errFindProject := templaterepo.NewProductColl().Find(productName)
-			if errFindProject != nil {
-				return errFindProject
-			}
-			for _, svc := range templateProductInfo.SharedServices {
-				if svc.Name == serviceName && svc.Owner != productName {
-					opt.ProductName = svc.Owner
-					resp, err = commonrepo.NewServiceColl().Find(opt)
-					break
-				}
 			}
 			return err
 		}()
@@ -538,17 +474,6 @@ func GetProductionServiceTemplate(serviceName, serviceType, productName, exclude
 		err = func() error {
 			if !commonrepo.IsErrNoDocuments(err) {
 				return err
-			}
-			templateProductInfo, errFindProject := templaterepo.NewProductColl().Find(productName)
-			if errFindProject != nil {
-				return errFindProject
-			}
-			for _, svc := range templateProductInfo.SharedServices {
-				if svc.Name == serviceName && svc.Owner != productName {
-					opt.ProductName = svc.Owner
-					resp, err = commonrepo.NewServiceColl().Find(opt)
-					break
-				}
 			}
 			return err
 		}()

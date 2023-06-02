@@ -212,7 +212,6 @@ func (p *PMService) createGroup(username string, product *commonmodels.Product, 
 					ServiceTmplObject: &commonservice.ServiceTmplObject{
 						ProductName:  serviceTempl.ProductName,
 						ServiceName:  serviceTempl.ServiceName,
-						Visibility:   serviceTempl.Visibility,
 						Revision:     serviceTempl.Revision,
 						Type:         serviceTempl.Type,
 						Username:     username,

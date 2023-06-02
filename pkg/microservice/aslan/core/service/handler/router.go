@@ -92,11 +92,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workload.PUT("", UpdateWorkloads)
 	}
 
-	name := router.Group("name")
-	{
-		name.GET("", ListAvailablePublicServices)
-	}
-
 	loader := router.Group("loader")
 	{
 		loader.GET("/preload/:codehostId", PreloadServiceTemplate)

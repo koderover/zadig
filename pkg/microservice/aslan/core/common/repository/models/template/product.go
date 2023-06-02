@@ -38,7 +38,7 @@ type Product struct {
 	Timeout             int                   `bson:"timeout,omitempty"         json:"timeout,omitempty"`
 	Services            [][]string            `bson:"services"                  json:"services"`
 	ProductionServices  [][]string            `bson:"production_services"       json:"production_services"`
-	SharedServices      []*ServiceInfo        `bson:"shared_services,omitempty" json:"shared_services,omitempty"`
+	SharedServices      []*ServiceInfo        `bson:"shared_services,omitempty" json:"shared_services,omitempty"` //Deprecated since 1.17
 	Vars                []*RenderKV           `bson:"-"                         json:"vars"`
 	EnvVars             []*EnvRenderKV        `bson:"-"                         json:"env_vars,omitempty"`
 	ChartInfos          []*ServiceRender      `bson:"-"                         json:"chart_infos,omitempty"`
@@ -199,15 +199,6 @@ func (p *Product) GetServiceInfo(name string) *ServiceInfo {
 	return p.AllServiceInfoMap()[name]
 }
 
-func (p *Product) SharedServiceInfoMap() map[string]*ServiceInfo {
-	res := make(map[string]*ServiceInfo)
-	for _, s := range p.SharedServices {
-		res[s.Name] = s
-	}
-
-	return res
-}
-
 // AllServiceInfoMap returns all services which are bound to this product, including the shared ones.
 // note that p.Services contains all services names including the shared ones, so we need to override their owner.
 func (p *Product) AllServiceInfoMap() map[string]*ServiceInfo {
@@ -219,10 +210,6 @@ func (p *Product) AllServiceInfoMap() map[string]*ServiceInfo {
 				Owner: p.ProductName,
 			}
 		}
-	}
-
-	for _, s := range p.SharedServices {
-		res[s.Name] = s
 	}
 
 	return res

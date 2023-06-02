@@ -230,18 +230,9 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 			Type:          c.jobTaskSpec.ServiceType,
 		})
 	if err != nil {
-		// Maybe it is a share service, the entity is not under the project
-		serviceInfo, err = commonrepo.NewServiceColl().Find(
-			&commonrepo.ServiceFindOption{
-				ServiceName:   c.jobTaskSpec.ServiceName,
-				ExcludeStatus: setting.ProductStatusDeleting,
-				Type:          c.jobTaskSpec.ServiceType,
-			})
-		if err != nil {
-			msg := fmt.Sprintf("find service %s error: %v", c.jobTaskSpec.ServiceName, err)
-			logError(c.job, msg, c.logger)
-			return errors.New(msg)
-		}
+		msg := fmt.Sprintf("find service %s error: %v", c.jobTaskSpec.ServiceName, err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
 	}
 
 	if err := c.updateServiceModuleImages(ctx, []*kube.WorkloadResource{{Type: serviceInfo.WorkloadType, Name: c.jobTaskSpec.ServiceName}}, env); err != nil {

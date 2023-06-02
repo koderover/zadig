@@ -126,7 +126,6 @@ func CreateServiceTemplate(c *gin.Context) {
 	svc.Type = args.Type
 	svc.VariableYaml = args.VariableYaml
 	svc.ServiceVariableKVs = args.ServiceVariableKVs
-	svc.Visibility = args.Visibility
 	svc.Yaml = args.Yaml
 
 	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, svc, force, ctx.Logger)
@@ -347,13 +346,6 @@ func CreateK8sWorkloads(c *gin.Context) {
 	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args, ctx.Logger)
 }
 
-func ListAvailablePublicServices(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = svcservice.ListAvailablePublicServices(c.Query("projectName"), ctx.Logger)
-}
-
 func GetServiceTemplateProductName(c *gin.Context) {
 	args := new(commonmodels.Service)
 	data, err := c.GetRawData()
@@ -506,7 +498,6 @@ func CreateRawYamlServicesOpenAPI(c *gin.Context) {
 		Source:      "spock",
 		Yaml:        req.Yaml,
 		CreateBy:    ctx.UserName,
-		Visibility:  "private",
 	}
 
 	_, creationErr := svcservice.CreateServiceTemplate(ctx.UserName, createArgs, false, ctx.Logger)

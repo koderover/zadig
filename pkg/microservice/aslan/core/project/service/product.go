@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
@@ -47,7 +46,6 @@ import (
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
-	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -707,23 +705,6 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 
 // DeleteProductTemplate 删除产品模板
 func DeleteProductTemplate(userName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) (err error) {
-	publicServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: productName, Visibility: setting.PublicService})
-	if err != nil {
-		log.Errorf("pre delete check failed, err: %s", err)
-		return e.ErrDeleteProduct.AddDesc(err.Error())
-	}
-
-	serviceToProject, err := commonservice.GetServiceInvolvedProjects(publicServices, productName)
-	if err != nil {
-		log.Errorf("pre delete check failed, err: %s", err)
-		return e.ErrDeleteProduct.AddDesc(err.Error())
-	}
-	for k, v := range serviceToProject {
-		if len(v) > 0 {
-			return e.ErrDeleteProduct.AddDesc(fmt.Sprintf("共享服务[%s]在项目%v中被引用，请解除引用后删除", k, v))
-		}
-	}
-
 	envs, _ := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	for _, env := range envs {
 		if err = commonrepo.NewProductColl().UpdateStatus(env.EnvName, productName, setting.ProductStatusDeleting); err != nil {
@@ -850,164 +831,6 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	return nil
 }
 
-// ForkProduct Deprecated
-func ForkProduct(username, uid, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
-
-	prodTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
-	if err != nil {
-		errMsg := fmt.Sprintf("[ProductTmpl.Find] %s error: %v", args.ProductName, err)
-		log.Error(errMsg)
-		return e.ErrForkProduct.AddDesc(errMsg)
-	}
-
-	prodTmpl.ChartInfos = args.ValuesYamls
-	// Load Service
-	var svcs [][]*commonmodels.ProductService
-	allServiceInfoMap := prodTmpl.AllServiceInfoMap()
-	for _, names := range prodTmpl.Services {
-		servicesResp := make([]*commonmodels.ProductService, 0)
-
-		for _, serviceName := range names {
-			opt := &commonrepo.ServiceFindOption{
-				ServiceName:   serviceName,
-				ProductName:   allServiceInfoMap[serviceName].Owner,
-				ExcludeStatus: setting.ProductStatusDeleting,
-			}
-
-			serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
-			if err != nil {
-				errMsg := fmt.Sprintf("[ServiceTmpl.List] %s error: %v", opt.ServiceName, err)
-				log.Error(errMsg)
-				return e.ErrForkProduct.AddDesc(errMsg)
-			}
-			serviceResp := &commonmodels.ProductService{
-				ServiceName: serviceTmpl.ServiceName,
-				ProductName: serviceTmpl.ProductName,
-				Type:        serviceTmpl.Type,
-				Revision:    serviceTmpl.Revision,
-			}
-			if serviceTmpl.Type == setting.HelmDeployType {
-				serviceResp.Containers = make([]*commonmodels.Container, 0)
-				for _, c := range serviceTmpl.Containers {
-					container := &commonmodels.Container{
-						Name:      c.Name,
-						Image:     c.Image,
-						ImagePath: c.ImagePath,
-						ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
-					}
-					serviceResp.Containers = append(serviceResp.Containers, container)
-				}
-			}
-			servicesResp = append(servicesResp, serviceResp)
-		}
-		svcs = append(svcs, servicesResp)
-	}
-
-	prod := commonmodels.Product{
-		ProductName:     prodTmpl.ProductName,
-		Revision:        prodTmpl.Revision,
-		IsPublic:        false,
-		EnvName:         args.EnvName,
-		Services:        svcs,
-		Source:          setting.HelmDeployType,
-		ServiceRenders:  prodTmpl.ChartInfos,
-		IsForkedProduct: true,
-	}
-
-	err = environmentservice.CreateProduct(username, requestID, &prod, log)
-	if err != nil {
-		_, messageMap := e.ErrorMessage(err)
-		if description, ok := messageMap["description"]; ok {
-			return e.ErrForkProduct.AddDesc(description.(string))
-		}
-		errMsg := fmt.Sprintf("Failed to create env in order to fork product, the error is: %+v", err)
-		log.Errorf(errMsg)
-		return e.ErrForkProduct.AddDesc(errMsg)
-	}
-
-	workflowPreset, err := workflowservice.PreSetWorkflow(args.ProductName, log)
-	if err != nil {
-		errMsg := fmt.Sprintf("Failed to get workflow preset info, the error is: %+v", err)
-		log.Error(errMsg)
-		return e.ErrForkProduct.AddDesc(errMsg)
-	}
-
-	buildModule := []*commonmodels.BuildModule{}
-	artifactModule := []*commonmodels.ArtifactModule{}
-	for _, i := range workflowPreset {
-		buildModuleVer := "stable"
-		if len(i.BuildModuleVers) != 0 {
-			buildModuleVer = i.BuildModuleVers[0]
-		}
-		buildModule = append(buildModule, &commonmodels.BuildModule{
-			BuildModuleVer: buildModuleVer,
-			Target:         i.Target,
-		})
-		artifactModule = append(artifactModule, &commonmodels.ArtifactModule{Target: i.Target})
-	}
-
-	workflowArgs := &commonmodels.Workflow{
-		ArtifactStage:   &commonmodels.ArtifactStage{Enabled: true, Modules: artifactModule},
-		BuildStage:      &commonmodels.BuildStage{Enabled: false, Modules: buildModule},
-		Name:            args.WorkflowName,
-		ProductTmplName: args.ProductName,
-		Enabled:         true,
-		EnvName:         args.EnvName,
-		TestStage:       &commonmodels.TestStage{Enabled: false, Tests: []*commonmodels.TestExecArgs{}},
-		SecurityStage:   &commonmodels.SecurityStage{Enabled: false},
-		DistributeStage: &commonmodels.DistributeStage{
-			Enabled:     false,
-			Distributes: []*commonmodels.ProductDistribute{},
-			Releases:    []commonmodels.RepoImage{},
-		},
-		HookCtl:   &commonmodels.WorkflowHookCtrl{Enabled: false, Items: []*commonmodels.WorkflowHook{}},
-		Schedules: &commonmodels.ScheduleCtrl{Enabled: false, Items: []*commonmodels.Schedule{}},
-		CreateBy:  username,
-		UpdateBy:  username,
-	}
-	err = policy.NewDefault().CreateOrUpdateRoleBinding(args.ProductName, &policy.RoleBinding{
-		UID:    uid,
-		Role:   string(setting.Contributor),
-		Preset: true,
-	})
-	if err != nil {
-		log.Errorf("Failed to create or update roleBinding, err: %s", err)
-		return e.ErrForkProduct
-	}
-
-	return workflowservice.CreateWorkflow(workflowArgs, log)
-}
-
-func UnForkProduct(userID string, username, productName, workflowName, envName, requestID string, log *zap.SugaredLogger) error {
-	if _, err := workflowservice.FindWorkflow(workflowName, log); err == nil {
-		err = commonservice.DeleteWorkflow(workflowName, requestID, false, log)
-		if err != nil {
-			log.Errorf("Failed to delete forked workflow: %s, the error is: %+v", workflowName, err)
-			return e.ErrUnForkProduct.AddDesc(err.Error())
-		}
-	}
-
-	policyClient := policy.NewDefault()
-	err := policyClient.DeleteRoleBinding(configbase.RoleBindingNameFromUIDAndRole(userID, setting.Contributor, ""), productName)
-	if err != nil {
-		log.Errorf("Failed to delete roleBinding, err: %s", err)
-		return e.ErrForkProduct
-	}
-	if err := environmentservice.DeleteProduct(username, envName, productName, requestID, true, log); err != nil {
-		_, messageMap := e.ErrorMessage(err)
-		if description, ok := messageMap["description"]; ok {
-			if description != "not found" {
-				return e.ErrUnForkProduct.AddDesc(description.(string))
-			}
-		} else {
-			errMsg := fmt.Sprintf("Failed to delete env %s in order to unfork product, the error is: %+v", envName, err)
-			log.Errorf(errMsg)
-			return e.ErrUnForkProduct.AddDesc(errMsg)
-		}
-	}
-	return nil
-}
-
 func FillProductTemplateVars(productTemplates []*template.Product, log *zap.SugaredLogger) error {
 	return commonservice.FillProductTemplateVars(productTemplates, log)
 }
@@ -1064,39 +887,6 @@ func ensureProductTmpl(args *template.Product) error {
 				return fmt.Errorf("duplicated service found: %s", s)
 			}
 			serviceNames.Insert(s)
-		}
-	}
-
-	// Revision为0表示是新增项目，新增项目不需要进行共享服务的判断，只在编辑项目时进行判断
-	if args.Revision != 0 {
-		//获取该项目下的所有服务
-		productTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
-		if err != nil {
-			log.Errorf("Can not find project %s, error: %s", args.ProductName, err)
-			return fmt.Errorf("project not found: %s", err)
-		}
-
-		var newSharedServices []*template.ServiceInfo
-		currentSharedServiceMap := productTmpl.SharedServiceInfoMap()
-		for _, s := range args.SharedServices {
-			if _, ok := currentSharedServiceMap[s.Name]; !ok {
-				newSharedServices = append(newSharedServices, s)
-			}
-		}
-
-		if len(newSharedServices) > 0 {
-			services, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
-				InServices: newSharedServices,
-				Visibility: setting.PublicService,
-			})
-			if err != nil {
-				log.Errorf("Failed to list services, err: %s", err)
-				return err
-			}
-
-			if len(newSharedServices) != len(services) {
-				return fmt.Errorf("新增的共享服务服务不存在或者已经不是共享服务")
-			}
 		}
 	}
 

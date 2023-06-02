@@ -56,12 +56,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.PATCH("/:name", UpdateProductionServiceOrchestration)
 	}
 
-	openSource := router.Group("opensource")
-	{
-		openSource.POST("/:productName/fork", ForkProduct)
-		openSource.DELETE("/:productName/fork", UnForkProduct)
-	}
-
 	template := router.Group("templates")
 	{
 		template.GET("/info", ListTemplatesHierachy)
