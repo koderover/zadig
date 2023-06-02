@@ -95,6 +95,15 @@ func addValueToNode(key string, data interface{}, node *yaml.Node) *yaml.Node {
 		valueNode := data.(*yaml.Node)
 		if valueNode.Kind == yaml.DocumentNode {
 			node.Content = append(node.Content, valueNode.Content...)
+		} else {
+			if valueNode.Kind != yaml.DocumentNode &&
+				valueNode.Kind != yaml.SequenceNode &&
+				valueNode.Kind != yaml.MappingNode &&
+				valueNode.Kind != yaml.ScalarNode &&
+				valueNode.Kind != yaml.AliasNode {
+				valueNode.Kind = yaml.ScalarNode
+			}
+			node.Content = append(node.Content, valueNode)
 		}
 	default:
 		valueChild := convertValueToNode(data)
