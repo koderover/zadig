@@ -52,6 +52,11 @@ var (
 			Options: []string{"11", "22", "33"},
 		},
 		{
+			Key:   "yamlEmpty",
+			Value: "",
+			Type:  types.ServiceVariableKVTypeYaml,
+		},
+		{
 			Key: "yamlMap",
 			Value: `
 A: 1
@@ -79,6 +84,7 @@ strStr: a string
 strBool: true
 bool: true
 enum: 11
+yamlEmpty:
 yamlMap:
   A: 1
   B: a string
