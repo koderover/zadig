@@ -126,7 +126,6 @@ func CreateServiceTemplate(c *gin.Context) {
 	svc.Type = args.Type
 	svc.VariableYaml = args.VariableYaml
 	svc.ServiceVariableKVs = args.ServiceVariableKVs
-	//svc.Visibility = args.Visibility
 	svc.Yaml = args.Yaml
 
 	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, svc, force, ctx.Logger)
