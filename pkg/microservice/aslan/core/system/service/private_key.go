@@ -29,7 +29,6 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/pm"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -53,18 +52,12 @@ func ListPrivateKeys(encryptedKey, projectName, keyword string, systemOnly bool,
 		}
 	}
 
-	aesKey, err := commonservice.GetAesKeyFromEncryptedKey(encryptedKey, log)
-	if err != nil {
-		return nil, err
-	}
 	for _, key := range resp {
 		if key.Probe == nil {
 			key.Probe = &types.Probe{ProbeScheme: setting.ProtocolTCP}
 		}
-		key.PrivateKey, err = crypto.AesEncryptByKey(key.PrivateKey, aesKey.PlainText)
-		if err != nil {
-			return nil, err
-		}
+		// private key will no longer be returned due to security reasons
+		key.PrivateKey = ""
 	}
 	return resp, nil
 }
@@ -89,6 +82,8 @@ func GetPrivateKey(id string, log *zap.SugaredLogger) (*commonmodels.PrivateKey,
 		log.Errorf("PrivateKey.Find %s error: %s", id, err)
 		return resp, e.ErrGetPrivateKey
 	}
+	// private key will no longer be returned due to security reasons
+	resp.PrivateKey = ""
 	return resp, nil
 }
 

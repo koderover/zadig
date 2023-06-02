@@ -47,6 +47,12 @@ func ListProjectManagement(log *zap.SugaredLogger) ([]*models.ProjectManagement,
 		log.Errorf("List project management error: %v", err)
 		return nil, e.ErrListProjectManagement.AddErr(err)
 	}
+	for _, pm := range list {
+		// remove all authorization info for security reason
+		pm.MeegoPluginSecret = ""
+		pm.JiraPersonalAccessToken = ""
+		pm.JiraToken = ""
+	}
 	return list, nil
 }
 
