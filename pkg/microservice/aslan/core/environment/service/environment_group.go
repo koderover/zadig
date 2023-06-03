@@ -17,8 +17,11 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -80,8 +83,19 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		}
 	}
 	count = len(allServices)
-	//将获取到的所有服务按照名称进行排序
+	//sort services by name
 	sort.SliceStable(allServices, func(i, j int) bool { return allServices[i].ServiceName < allServices[j].ServiceName })
+
+	// add updatable field
+	latestSvcs, err := repository.GetMaxRevisionsServicesMap(productName, production)
+	if err != nil {
+		return resp, count, e.ErrListGroups.AddDesc(fmt.Sprintf("failed to find latest services for %s/%s", productName, envName))
+	}
+	for _, svc := range allServices {
+		if latestSvc, ok := latestSvcs[svc.ServiceName]; ok {
+			svc.Updatable = latestSvc.Revision < svc.Revision
+		}
+	}
 
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {

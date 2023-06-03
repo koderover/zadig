@@ -111,6 +111,7 @@ type ProductService struct {
 	EnvConfigs   []*EnvConfig                    `bson:"-"                          json:"env_configs,omitempty"`
 	VariableYaml string                          `bson:"-"                          json:"variable_yaml,omitempty"`
 	VariableKVs  []*commontypes.RenderVariableKV `bson:"-"                          json:"variable_kvs,omitempty"`
+	Updatable    bool                            `bson:"-"                          json:"updatable"`
 }
 
 type ServiceConfig struct {

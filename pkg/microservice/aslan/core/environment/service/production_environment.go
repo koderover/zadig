@@ -44,7 +44,6 @@ func ListProductionEnvs(userId string, projectName string, envNames []string, lo
 	return ListProducts(userId, projectName, envNames, true, log)
 }
 
-// ListProductionGroups TODO we need to verify if the access to the production environment is allowed
 func ListProductionGroups(serviceName, envName, productName string, perPage, page int, log *zap.SugaredLogger) ([]*commonservice.ServiceResp, int, error) {
 	return ListGroups(serviceName, envName, productName, perPage, page, true, log)
 }

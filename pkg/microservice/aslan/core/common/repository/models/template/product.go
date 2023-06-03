@@ -72,7 +72,8 @@ type Product struct {
 	CustomImageRule            *CustomRule                      `bson:"custom_image_rule,omitempty"         json:"custom_image_rule,omitempty"`
 	CustomTarRule              *CustomRule                      `bson:"custom_tar_rule,omitempty"           json:"custom_tar_rule,omitempty"`
 	DeliveryVersionHook        *DeliveryVersionHook             `bson:"delivery_version_hook"               json:"delivery_version_hook"`
-	GlobalVariables            []*commontypes.ServiceVariableKV `bson:"global_variables,omitempty"          json:"global_variables,omitempty"`
+	GlobalVariables            []*commontypes.ServiceVariableKV `bson:"global_variables,omitempty"          json:"global_variables,omitempty"`                       // New since 1.18.0 used to store global variables for test services
+	ProductionGlobalVariables  []*commontypes.ServiceVariableKV `bson:"production_global_variables,omitempty"          json:"production_global_variables,omitempty"` // New since 1.18.0 used to store global variables for production services
 	Public                     bool                             `bson:"public,omitempty"                    json:"public"`
 }
 

@@ -244,7 +244,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		exitedProd,
 		svc,
 		currentProductSvc,
-		curRenderset, preRevision, true, inf, kubeClient, istioClient, k.log)
+		curRenderset, preRevision, !exitedProd.Production, inf, kubeClient, istioClient, k.log)
 
 	// 如果创建依赖服务组有返回错误, 停止等待
 	if err != nil {
@@ -487,7 +487,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			items, err := upsertService(prod, svc, nil, renderSet, nil, true, informer, kubeClient, istioClient, k.log)
+			items, err := upsertService(prod, svc, nil, renderSet, nil, !prod.Production, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {

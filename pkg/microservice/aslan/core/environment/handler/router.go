@@ -69,8 +69,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	productDiff := router.Group("diff")
 	{
-		// productDiff.GET("/products/:productName/services/:serviceName/configs/:configName", ConfigDiff)
 		productDiff.GET("/products/:productName/service/:serviceName", ServiceDiff)
+		productDiff.GET("/production/products/:productName/service/:serviceName", ServiceDiff)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -157,6 +157,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/helm/values", GetProductionChartValues)
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
+		production.PUT("/environments/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
+
+		production.POST("/environments/:name/services/:serviceName/restart", RestartService)
+		production.POST("/environments/:name/services/:serviceName/restartNew", RestartWorkload)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -218,7 +222,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
-	// renderset相关接口
+	// renderset apis
 	// ---------------------------------------------------------------------------------------
 	rendersets := router.Group("rendersets")
 	{

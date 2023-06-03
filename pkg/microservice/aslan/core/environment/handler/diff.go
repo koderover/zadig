@@ -23,15 +23,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-//func ConfigDiff(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//	envName := c.Query("envName")
-//
-//	ctx.Resp, ctx.Err = service.ConfigDiff(envName, c.Param("productName"), c.Param("serviceName"), c.Param("configName"), ctx.Logger)
-//	return
-//}
-
 func ServiceDiff(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -1200,16 +1200,19 @@ func DeleteLabels(productName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func GetGlobalVariables(productName string, log *zap.SugaredLogger) ([]*commontypes.ServiceVariableKV, error) {
+func GetGlobalVariables(productName string, production bool, log *zap.SugaredLogger) ([]*commontypes.ServiceVariableKV, error) {
 	productInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find product %s, err: %w", productName, err)
 	}
 
+	if production {
+		return productInfo.ProductionGlobalVariables, nil
+	}
 	return productInfo.GlobalVariables, nil
 }
 
-func UpdateGlobalVariables(productName, userName string, globalVariables []*commontypes.ServiceVariableKV) error {
+func UpdateGlobalVariables(productName, userName string, globalVariables []*commontypes.ServiceVariableKV, production bool) error {
 	productInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		return fmt.Errorf("failed to find product %s, err: %w", productName, err)
@@ -1224,7 +1227,11 @@ func UpdateGlobalVariables(productName, userName string, globalVariables []*comm
 	}
 
 	productInfo.UpdateBy = userName
-	productInfo.GlobalVariables = globalVariables
+	if production {
+		productInfo.ProductionGlobalVariables = globalVariables
+	} else {
+		productInfo.GlobalVariables = globalVariables
+	}
 
 	err = templaterepo.NewProductColl().Update(productName, productInfo)
 	if err != nil {
@@ -1239,21 +1246,27 @@ type GetGlobalVariableCandidatesRespone struct {
 	RelatedService []string `json:"related_service"`
 }
 
-func GetGlobalVariableCandidates(productName string, log *zap.SugaredLogger) ([]*GetGlobalVariableCandidatesRespone, error) {
+func GetGlobalVariableCandidates(productName string, production bool, log *zap.SugaredLogger) ([]*GetGlobalVariableCandidatesRespone, error) {
 	productInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find product %s, err: %w", productName, err)
 	}
 
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	services, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list services by product %s, err: %w", productName, err)
 	}
 
 	existedVariableSet := sets.NewString()
 	variableMap := make(map[string]*GetGlobalVariableCandidatesRespone)
-	for _, kv := range productInfo.GlobalVariables {
-		existedVariableSet.Insert(kv.Key)
+	if production {
+		for _, kv := range productInfo.ProductionGlobalVariables {
+			existedVariableSet.Insert(kv.Key)
+		}
+	} else {
+		for _, kv := range productInfo.GlobalVariables {
+			existedVariableSet.Insert(kv.Key)
+		}
 	}
 
 	ret := make([]*GetGlobalVariableCandidatesRespone, 0)

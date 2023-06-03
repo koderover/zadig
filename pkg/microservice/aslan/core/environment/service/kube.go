@@ -928,10 +928,7 @@ func getWorkloadDetail(ns, resType, name string, kc client.Client, cs *kubernete
 
 func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace := request.ClusterID, request.Namespace
-	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
-	if err != nil {
-		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
-	}
+
 	svcSet := sets.NewString()
 	for _, svc := range request.Services {
 		svcSet.Insert(svc.ServiceName)
@@ -973,6 +970,12 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		GlobalVariables: globalVariables,
 	}
 
+	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	productServices, err = commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
+	}
+
 	for _, sv := range request.Services {
 		variableYaml, err := commontypes.RenderVariableKVToYaml(sv.VariableKVs)
 		if err != nil {
@@ -995,7 +998,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 
 		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productInfo.ProductName, svc.ServiceName, fakeRenderSet)
 		if err != nil {
-			return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to render service yaml, err: %w", err))
+			return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to render service yaml, serviceName：%s, err: %w", svc.ServiceName, err))
 		}
 
 		rederedYaml = kube.ParseSysKeys(namespace, request.EnvName, productName, svc.ServiceName, rederedYaml)

@@ -555,11 +555,14 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		}
 
 		productService = serviceObj
-		serviceTmpl, err = commonservice.GetServiceTemplate(serviceObj.ServiceName, setting.K8SDeployType, serviceObj.ProductName, "", serviceObj.Revision, log)
-		if err != nil {
-			err = e.ErrRestartService.AddErr(err)
-			return
-		}
+
+		serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ProductName: serviceObj.ProductName,
+			ServiceName: serviceObj.ServiceName,
+			Revision:    serviceObj.Revision,
+			Type:        setting.K8SDeployType,
+		}, productObj.Production)
+
 		opt := &commonrepo.RenderSetFindOption{
 			Name:        oldRenderInfo.Name,
 			Revision:    oldRenderInfo.Revision,
@@ -579,7 +582,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 				productObj,
 				productService,
 				productService,
-				newRender, oldRenderInfo, true, inf, kubeClient, istioClient, log)
+				newRender, oldRenderInfo, !productObj.Production, inf, kubeClient, istioClient, log)
 		} else {
 			err = restartRelatedWorkloads(productObj, productService, newRender, kubeClient, log)
 		}

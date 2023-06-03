@@ -899,6 +899,8 @@ metas:
             endpoint: "/api/aslan/environment/production/environments/?*/helm/values"
           - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/workloads"
+          - method: GET
+            endpoint: /api/aslan/environment/diff/production/products/?*/service/?*
       - action: create_production_environment
         alias: 创建
         description: ""
@@ -925,6 +927,8 @@ metas:
             endpoint: "/api/aslan/environment/production/environments/?*/registry"
           - method: GET
             endpoint: "/api/aslan/cluster/clusters"
+          - method: POST
+            endpoint: '/api/aslan/environment/production/environments/:name/services/?*/restart'
       - action: delete_production_environment
         alias: 删除
         description: ""
