@@ -52,7 +52,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		product.GET("/:name/globalVariableCandidates", GetGlobalVariableCandidates)
 
 		product.GET("/:name/productionGlobalVariables", GetProductionGlobalVariables)
-		product.GET("/:name/productionGlobalVariables", UpdateProductionGlobalVariables)
+		product.PUT("/:name/productionGlobalVariables", UpdateProductionGlobalVariables)
 		product.GET("/:name/productionGlobalVariableCandidates", GetProductionGlobalVariableCandidates)
 	}
 
