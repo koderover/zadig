@@ -203,18 +203,16 @@ func fillServiceTemplateVariables(serviceTemplate *models.Service) error {
 }
 
 func GetHelmServiceModule(serviceName, productName string, revision int64, isProduction bool, log *zap.SugaredLogger) (*HelmServiceModule, error) {
-	var serviceTemplate *models.Service
-	var err error
-	if !isProduction {
-		serviceTemplate, err = commonservice.GetServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		serviceTemplate, err = commonservice.GetProductionServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
-		if err != nil {
-			return nil, err
-		}
+	serviceTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName:   serviceName,
+		ProductName:   productName,
+		Revision:      revision,
+		Type:          setting.HelmDeployType,
+		ExcludeStatus: setting.ProductStatusDeleting,
+		Source:        "",
+	}, isProduction)
+	if err != nil {
+		return nil, err
 	}
 
 	helmServiceModule := new(HelmServiceModule)
@@ -259,6 +257,7 @@ func GetProductionHelmServiceFilePath(serviceName, productName string, revision 
 	return GetProductionHelmFilePath(productName, serviceName, revision, dir)
 }
 
+// TODO add production parameter
 func GetFileContent(serviceName, productName string, param *GetFileContentParam, log *zap.SugaredLogger) (string, error) {
 	filePath, fileName, revision, forDelivery := param.FilePath, param.FileName, param.Revision, param.DeliveryVersion
 	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -300,6 +299,7 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 	return string(fileContent), nil
 }
 
+// TODO remove this funciton, use GetFileContent with production parameter instead
 func GetProductionServiceFileContent(serviceName, productName string, param *GetFileContentParam, log *zap.SugaredLogger) (string, error) {
 	filePath, fileName, revision, forDelivery := param.FilePath, param.FileName, param.Revision, param.DeliveryVersion
 	svc, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -1613,23 +1613,12 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 	}
 
 	log.Infof("Starting to create service %s with revision %d", args.ServiceName, args.ServiceRevision)
-	var currentSvcTmpl *commonmodels.Service
-	if !args.Production {
-		currentSvcTmpl, err = commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-			ProductName:         args.ProductName,
-			ServiceName:         args.ServiceName,
-			ExcludeStatus:       setting.ProductStatusDeleting,
-			IgnoreNoDocumentErr: true,
-		})
-	} else {
-		currentSvcTmpl, err = commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
-			ProductName:         args.ProductName,
-			ServiceName:         args.ServiceName,
-			ExcludeStatus:       setting.ProductStatusDeleting,
-			IgnoreNoDocumentErr: true,
-		})
-	}
-
+	currentSvcTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName:         args.ProductName,
+		ServiceName:         args.ServiceName,
+		ExcludeStatus:       setting.ProductStatusDeleting,
+		IgnoreNoDocumentErr: true,
+	}, args.Production)
 	if err != nil {
 		log.Errorf("Failed to find current service template %s error: %s", args.ServiceName, err)
 		return nil, err
@@ -1640,7 +1629,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 		if !force {
 			return nil, fmt.Errorf("service:%s already exists", args.ServiceName)
 		}
-		err = commonrepo.NewServiceColl().UpdateStatus(args.ServiceName, args.ProductName, setting.ProductStatusDeleting)
+		err = repository.UpdateStatus(args.ServiceName, args.ProductName, setting.ProductStatusDeleting, args.Production)
 		if err != nil {
 			log.Errorf("Failed to set status of current service templates, serviceName: %s, err: %s", args.ServiceName, err)
 			return nil, err

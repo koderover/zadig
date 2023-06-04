@@ -428,12 +428,12 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 		// download chart info with particular version
 		go func(serviceName string, revision int64) {
 			defer wg.Done()
-			serviceObj, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			serviceObj, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ProductName: productName,
 				ServiceName: serviceName,
 				Revision:    revision,
 				Type:        setting.HelmDeployType,
-			})
+			}, prod.Production)
 			if err != nil {
 				log.Errorf("failed to query services name: %s, revision: %d, error: %s", serviceName, revision, err)
 				errList = multierror.Append(errList, fmt.Errorf("failed to query service, serviceName: %s, revision: %d", serviceName, revision))

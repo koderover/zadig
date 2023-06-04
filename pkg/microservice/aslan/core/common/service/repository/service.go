@@ -66,3 +66,11 @@ func UpdateServiceVariables(args *models.Service, production bool) error {
 		return mongodb.NewProductionServiceColl().UpdateServiceVariables(args)
 	}
 }
+
+func UpdateStatus(serviceName, productName, status string, production bool) error {
+	if !production {
+		return mongodb.NewServiceColl().UpdateStatus(serviceName, productName, status)
+	} else {
+		return mongodb.NewProductionServiceColl().UpdateStatus(serviceName, productName, status)
+	}
+}

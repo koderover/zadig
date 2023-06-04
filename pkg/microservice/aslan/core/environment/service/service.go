@@ -123,7 +123,7 @@ func OpenAPIApplyYamlService(projectKey string, req *OpenAPIApplyYamlServiceReq,
 		Services: svcList,
 	})
 
-	return UpdateMultipleK8sEnv(args, []string{req.EnvName}, projectKey, requestID, false, logger)
+	return UpdateMultipleK8sEnv(args, []string{req.EnvName}, projectKey, requestID, false, false, logger)
 }
 
 func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {

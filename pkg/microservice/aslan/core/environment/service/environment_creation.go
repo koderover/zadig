@@ -224,6 +224,7 @@ func CreateHostProductionProduct(productName, userName, requestID string, args [
 	return errList.ErrorOrNil()
 }
 
+// TODO add production parameter
 func CreateHelmProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil || templateProduct == nil {
@@ -271,14 +272,11 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateSi
 }
 
 func prepareK8sProductCreation(templateProduct *templatemodels.Product, productObj *commonmodels.Product, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
-	templateChartInfoMap := templateProduct.AllServiceInfoMap()
+	validSvcMap := templateProduct.AllTestServiceInfoMap()
 	// validate the service is in product
 	for _, createdSvcGroup := range arg.Services {
 		for _, createdSvc := range createdSvcGroup {
-			if createdSvc.ProductName != templateProduct.ProductName {
-				continue
-			}
-			if _, ok := templateChartInfoMap[createdSvc.ServiceName]; !ok {
+			if _, ok := validSvcMap[createdSvc.ServiceName]; !ok {
 				return fmt.Errorf("failed to find service info in product, serviceName: %s productName: %s", createdSvc.ServiceName, templateProduct.ProjectName)
 			}
 		}
@@ -369,6 +367,7 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 	return CreateProduct(userName, requestID, productObj, log)
 }
 
+// TODO add production parameter
 func CreateYamlProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil || templateProduct == nil {

@@ -919,16 +919,24 @@ metas:
         alias: 管理服务实例
         description: ""
         rules:
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments/:name/services'
           - method: GET
             endpoint: "/api/aslan/environment/production/environmentsForUpdate"
           - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
           - method: PUT
+            endpoint: '/api/aslan/environment/production/environments/?*/services/?*'
+          - method: PUT
             endpoint: "/api/aslan/environment/production/environments/?*/registry"
           - method: GET
             endpoint: "/api/aslan/cluster/clusters"
           - method: POST
-            endpoint: '/api/aslan/environment/production/environments/:name/services/?*/restart'
+            endpoint: '/api/aslan/environment/production/environments/?*/services/?*/restart'
+          - method: DELETE
+            endpoint: '/api/aslan/environment/production/kube/?*/pods/?*'
       - action: delete_production_environment
         alias: 删除
         description: ""
@@ -940,7 +948,7 @@ metas:
         description: ''
         rules:
           - method: GET
-            endpoint: '/api/podexec/production/?*/?*/?*/?*/podExec/:name'
+            endpoint: '/api/podexec/production/?*/?*/?*/?*/podExec/?*'
           - method: GET
             endpoint: '/api/aslan/environment/production/kube/pods/?*/file'
   - resource: Scan

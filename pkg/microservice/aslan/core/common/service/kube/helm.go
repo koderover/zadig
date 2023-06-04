@@ -454,7 +454,7 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 			wg.Add(1)
 			go func(product *models.Product, serviceName string, revision int64) {
 				defer wg.Done()
-				templateSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: revision, ProductName: product.ProductName})
+				templateSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: revision, ProductName: product.ProductName}, productInfo.Production)
 				if err != nil {
 					failedServices.Store(serviceName, err.Error())
 					return

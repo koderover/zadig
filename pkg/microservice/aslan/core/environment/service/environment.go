@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -216,7 +218,7 @@ type UpdateEnv struct {
 	Services []*UpdateServiceArg `json:"services"`
 }
 
-func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, requestID string, force, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexAutoUpdate.Lock()
 	defer func() {
 		mutexAutoUpdate.Unlock()
@@ -224,7 +226,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 	envStatuses := make([]*EnvStatus, 0)
 
-	productsRevision, err := ListProductsRevision(productName, "", log)
+	productsRevision, err := ListProductsRevision(productName, "", production, log)
 	if err != nil {
 		log.Errorf("UpdateMultipleK8sEnv ListProductsRevision err:%v", err)
 		return envStatuses, err
@@ -254,10 +256,6 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 			continue
 		}
 
-		if exitedProd.Production {
-			errList = multierror.Append(errList, e.ErrUpdateEnv.AddDesc("production env can not be updated"))
-			continue
-		}
 		exitedProd.EnsureRenderInfo()
 
 		rendersetInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: exitedProd.Render.Name, Revision: exitedProd.Render.Revision, EnvName: arg.EnvName})
@@ -325,16 +323,6 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 	return envStatuses, errList.ErrorOrNil()
 }
 
-// getServicesWithMaxRevision get all services template with max revision
-func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, error) {
-	// list services with max revision defined in project
-	allServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: projectName})
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find services in project %s", projectName)
-	}
-	return allServices, nil
-}
-
 // TODO need optimize
 // cvm and k8s yaml projects should not be handled together
 func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, filter svcUpgradeFilter, log *zap.SugaredLogger) (err error) {
@@ -356,7 +344,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	var prodRevs *ProductRevision
 
 	// list services with max revision of project
-	allServices, err = getServicesWithMaxRevision(productName)
+	allServices, err = repository.ListMaxRevisionsServices(productName, existedProd.Production)
 	if err != nil {
 		log.Errorf("ListAllRevisions error: %s", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())
@@ -651,7 +639,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 	}
 
 	// create product data from product template
-	templateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
+	templateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", productResp.Production, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] GetProductTemplate error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
@@ -763,6 +751,7 @@ func genImageFromYaml(c *commonmodels.Container, valuesYaml, defaultValues, over
 	return image, nil
 }
 
+// TODO add production parameter
 func prepareEstimatedData(productName, envName, serviceName, usageScenario, defaultValues string, log *zap.SugaredLogger) (string, string, error) {
 	var err error
 	templateService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -815,12 +804,12 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 		proSvcMap := productInfo.GetServiceMap()
 		proSvc := proSvcMap[serviceName]
 		if proSvc != nil {
-			curEnvService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			curEnvService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: serviceName,
 				ProductName: productName,
 				Type:        setting.HelmDeployType,
 				Revision:    proSvc.Revision,
-			})
+			}, productInfo.Production)
 			if err != nil {
 				log.Errorf("failed to query service, name %s, Revision %d,err %s", serviceName, proSvc.Revision, err)
 				return "", "", fmt.Errorf("failed to query service, name %s,Revision %d,err %s", serviceName, proSvc.Revision, err)
@@ -1095,7 +1084,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 			EnvNames:    []string{envName},
 			ChartValues: changedCharts,
 		}
-		_, err = UpdateMultipleHelmEnv(requestID, userName, updateEnvArg, log)
+		_, err = UpdateMultipleHelmEnv(requestID, userName, updateEnvArg, false, log)
 		return err
 	}
 
@@ -1391,7 +1380,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, renderset *com
 
 var mutexUpdateMultiHelm sync.RWMutex
 
-func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProductArg, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProductArg, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexUpdateMultiHelm.Lock()
 	defer func() {
 		mutexUpdateMultiHelm.Unlock()
@@ -1400,7 +1389,7 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 	envNames, productName := args.EnvNames, args.ProductName
 
 	envStatuses := make([]*EnvStatus, 0)
-	productsRevision, err := ListProductsRevision(productName, "", log)
+	productsRevision, err := ListProductsRevision(productName, "", production, log)
 	if err != nil {
 		log.Errorf("UpdateMultiHelmProduct ListProductsRevision err:%v", err)
 		return envStatuses, err
@@ -1483,15 +1472,13 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 		return nil, e.ErrGetEnv
 	}
 
-	renderSetName := prod.Namespace
-	renderSetOpt := &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: prod.Render.Revision, ProductTmpl: productName}
+	renderSetOpt := &commonrepo.RenderSetFindOption{Name: prod.Render.Name, Revision: prod.Render.Revision, ProductTmpl: productName}
 	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
 	if err != nil {
-		log.Errorf("find helm renderset[%s] error: %v", renderSetName, err)
+		log.Errorf("find helm renderset[%s] error: %v", prod.Render.Name, err)
 		return prod, nil
 	}
 	prod.ServiceRenders = renderSet.ChartInfos
-	//prod.Vars = renderSet.KVs
 
 	return prod, nil
 }
@@ -1508,42 +1495,18 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 		return nil, e.ErrGetEnv
 	}
 
-	prodTmpl, err := templaterepo.NewProductColl().Find(productName)
-	if err != nil {
-		log.Errorf("[EnvName:%s][Product:%s] get product template error: %v", envName, productName, err)
-		return nil, e.ErrGetEnv
-	}
-
-	//当前环境的renderset
-	renderSetName := prod.Namespace
-	renderSetOpt := &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: prod.Render.Revision, ProductTmpl: prod.ProductName}
+	renderSetOpt := &commonrepo.RenderSetFindOption{Name: prod.Render.Name, Revision: prod.Render.Revision, ProductTmpl: prod.ProductName}
 	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
 	if err != nil {
-		log.Errorf("find helm renderset[%s] error: %v", renderSetName, err)
+		log.Errorf("find helm renderset[%s] error: %v", prod.Render.Name, err)
 		return helmVersions, err
 	}
 	for _, chartInfo := range renderSet.ChartInfos {
 		chartInfoMap[chartInfo.ServiceName] = chartInfo
 	}
 
-	//当前环境内的服务信息
 	prodServiceMap := prod.GetServiceMap()
-
-	// all services
-	serviceListOpt := &commonrepo.ServiceListOption{
-		ProductName: productName,
-		Type:        setting.HelmDeployType,
-	}
-	for _, serviceGroup := range prodTmpl.Services {
-		for _, serviceName := range serviceGroup {
-			serviceListOpt.InServices = append(serviceListOpt.InServices, &templatemodels.ServiceInfo{
-				Name:  serviceName,
-				Owner: productName,
-			})
-		}
-	}
-	//当前项目内最新的服务信息
-	latestServices, err := commonrepo.NewServiceColl().ListMaxRevisions(serviceListOpt)
+	latestServices, err := repository.ListMaxRevisionsServices(productName, prod.Production)
 	if err != nil {
 		log.Errorf("find service revision list error: %v", err)
 		return helmVersions, err
@@ -1921,10 +1884,34 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 			log.Errorf("Failed to delete Zadig service: %s", err)
 		}
 
-		err = commonservice.DeleteNamespacedResource(productInfo.Namespace, selector, productInfo.ClusterID, log)
+		//err = commonservice.DeleteNamespacedResource(productInfo.Namespace, selector, productInfo.ClusterID, log)
+		//if err != nil {
+		//	// Only record and do not block subsequent traversals.
+		//	log.Errorf("delete resource of service %s error:%v", name, err)
+		//}
+
+		yaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+			ProductName: productInfo.ProductName,
+			EnvName:     productInfo.EnvName,
+			ServiceName: name,
+			UnInstall:   true,
+		})
+		if err != nil {
+			log.Errorf("failed to remove k8s resources when rendering yaml for service : %s, err: %s", name, err)
+			continue
+		}
+
+		param := &kube.ResourceApplyParam{
+			ProductInfo:         productInfo,
+			ServiceName:         name,
+			KubeClient:          kclient,
+			CurrentResourceYaml: yaml,
+			Uninstall:           true,
+		}
+		_, err = kube.CreateOrPatchResource(param, log)
 		if err != nil {
 			// Only record and do not block subsequent traversals.
-			log.Errorf("delete resource of service %s error:%v", name, err)
+			log.Errorf("failed to remove k8s resources when deleting ervice: %s, err: %s", name, err)
 		}
 	}
 
@@ -1939,6 +1926,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	return nil
 }
 
+// TODO add production parameter
 func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, log *zap.SugaredLogger) ([]*commonservice.HelmSvcRenderArg, error) {
 
 	var serviceNameList []string
@@ -1949,7 +1937,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 			log.Errorf("query product: %s fail, err %s", productName, err.Error())
 			return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("query product info fail"))
 		}
-		for _, singleService := range prodTmpl.AllServiceInfos() {
+		for _, singleService := range prodTmpl.AllTestServiceInfos() {
 			serviceNameList = append(serviceNameList, singleService.Name)
 		}
 		serviceNameListStr = strings.Join(serviceNameList, ",")
@@ -2643,12 +2631,12 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 		serviceInfoCur := serviceMap[serviceName]
 		imageRelatedKey := sets.NewString()
 		if serviceInfoResp != nil && serviceInfoCur != nil {
-			curEnvService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			curEnvService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: serviceName,
 				ProductName: productName,
 				Type:        setting.HelmDeployType,
 				Revision:    serviceInfoCur.Revision,
-			})
+			}, productCur.Production)
 			if err != nil {
 				log.Errorf("failed to query service, name %s, Revision %d,err %s", serviceName, serviceInfoCur.Revision, err)
 				return nil, fmt.Errorf("failed to query service, name %s,Revision %d,err %s", serviceName, serviceInfoCur.Revision, err)
@@ -2764,7 +2752,7 @@ func dryRunInstallRelease(productResp *commonmodels.Product, renderset *commonmo
 				Revision:    service.Revision,
 				ProductName: productName,
 			}
-			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+			serviceObj, err := repository.QueryTemplateService(opt, productResp.Production)
 			if err != nil {
 				appendErr(fmt.Errorf("failed to find service %s, err %s", service.ServiceName, err.Error()))
 				continue
@@ -2838,7 +2826,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmode
 				Revision:    service.Revision,
 				ProductName: productName,
 			}
-			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+			serviceObj, err := repository.QueryTemplateService(opt, productResp.Production)
 			if err != nil {
 				log.Errorf("failed to find service %s, err %s", service.ServiceName, err.Error())
 				return err

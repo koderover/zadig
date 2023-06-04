@@ -18,7 +18,6 @@ package service
 
 import (
 	"fmt"
-	"sync"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -45,11 +44,6 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	if err != nil {
 		log.Errorf("GetProductTemplate error: %v", err)
 		return nil, e.ErrGetProduct.AddDesc(err.Error())
-	}
-
-	err = FillProductTemplateVars([]*template.Product{resp}, log)
-	if err != nil {
-		return nil, fmt.Errorf("FillProductTemplateVars err : %v", err)
 	}
 
 	var totalServices []*models.Service
@@ -135,50 +129,4 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	resp.TotalEnvTemplateServiceNum = totalEnvTemplateServiceNum
 
 	return resp, nil
-}
-
-func FillProductTemplateVars(productTemplates []*template.Product, log *zap.SugaredLogger) error {
-	var (
-		wg            sync.WaitGroup
-		maxRoutineNum = 20                            // 协程池最大协程数量
-		ch            = make(chan int, maxRoutineNum) // 控制协程数量
-		errStr        string
-	)
-
-	defer close(ch)
-
-	for _, tmpl := range productTemplates {
-		wg.Add(1)
-		ch <- 1
-
-		go func(tmpl *template.Product) {
-			defer func() {
-				<-ch
-				wg.Done()
-			}()
-			//renderSet, err := GetRenderSet(tmpl.ProductName, 0, true, "", log)
-			//if err != nil {
-			//	errStr += fmt.Sprintf("Failed to find render set for product template, productName:%s, err:%v\n", tmpl.ProductName, err)
-			//	log.Errorf("Failed to find render set for product template %s", tmpl.ProductName)
-			//	return
-			//}
-			tmpl.Vars = make([]*template.RenderKV, 0)
-			//for _, kv := range renderSet.KVs {
-			//	tmpl.Vars = append(tmpl.Vars, &template.RenderKV{
-			//		Key:      kv.Key,
-			//		Value:    kv.Value,
-			//		State:    string(kv.State),
-			//		Alias:    kv.Alias,
-			//		Services: kv.Services,
-			//	})
-			//}
-		}(tmpl)
-	}
-
-	wg.Wait()
-	if errStr != "" {
-		return e.ErrGetRenderSet.AddDesc(errStr)
-	}
-
-	return nil
 }

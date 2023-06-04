@@ -39,7 +39,7 @@ type Product struct {
 	Services            [][]string            `bson:"services"                  json:"services"`
 	ProductionServices  [][]string            `bson:"production_services"       json:"production_services"`
 	SharedServices      []*ServiceInfo        `bson:"shared_services,omitempty" json:"shared_services,omitempty"` //Deprecated since 1.17
-	Vars                []*RenderKV           `bson:"-"                         json:"vars"`
+	Vars                []*RenderKV           `bson:"-"                         json:"vars"`                      //Deprecated since 1.17
 	EnvVars             []*EnvRenderKV        `bson:"-"                         json:"env_vars,omitempty"`
 	ChartInfos          []*ServiceRender      `bson:"-"                         json:"chart_infos,omitempty"`
 	Description         string                `bson:"description,omitempty"     json:"desc,omitempty"`
@@ -186,9 +186,9 @@ func (Product) TableName() string {
 	return "template_product"
 }
 
-func (p *Product) AllServiceInfos() []*ServiceInfo {
+func (p *Product) AllTestServiceInfos() []*ServiceInfo {
 	var res []*ServiceInfo
-	ss := p.AllServiceInfoMap()
+	ss := p.AllTestServiceInfoMap()
 	for _, s := range ss {
 		res = append(res, s)
 	}
@@ -196,13 +196,9 @@ func (p *Product) AllServiceInfos() []*ServiceInfo {
 	return res
 }
 
-func (p *Product) GetServiceInfo(name string) *ServiceInfo {
-	return p.AllServiceInfoMap()[name]
-}
-
-// AllServiceInfoMap returns all services which are bound to this product, including the shared ones.
+// AllTestServiceInfoMap returns all services which are bound to this product, including the shared ones.
 // note that p.Services contains all services names including the shared ones, so we need to override their owner.
-func (p *Product) AllServiceInfoMap() map[string]*ServiceInfo {
+func (p *Product) AllTestServiceInfoMap() map[string]*ServiceInfo {
 	res := make(map[string]*ServiceInfo)
 	for _, sg := range p.Services {
 		for _, name := range sg {
@@ -212,8 +208,27 @@ func (p *Product) AllServiceInfoMap() map[string]*ServiceInfo {
 			}
 		}
 	}
-
 	return res
+}
+
+func (p *Product) AllProductionServiceInfoMap() map[string]*ServiceInfo {
+	res := make(map[string]*ServiceInfo)
+	for _, sg := range p.ProductionServices {
+		for _, name := range sg {
+			res[name] = &ServiceInfo{
+				Name:  name,
+				Owner: p.ProductName,
+			}
+		}
+	}
+	return res
+}
+
+func (p *Product) AllServiceInfoMap(production bool) map[string]*ServiceInfo {
+	if production {
+		return p.AllProductionServiceInfoMap()
+	}
+	return p.AllTestServiceInfoMap()
 }
 
 func (p *Product) IsHelmProduct() bool {

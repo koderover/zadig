@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -946,13 +948,12 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		return resourcesByType[deployStatus.Type][deployStatus.Name]
 	}
 
-	globalVariables := []*commontypes.GlobalVariableKV{}
-
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: request.EnvName,
 	})
 
+	fakeRenderSet := &models.RenderSet{}
 	if err == nil && productInfo != nil {
 		renderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
 			ProductTmpl: productName,
@@ -962,16 +963,11 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 			Name:        productInfo.Render.Name,
 		})
 		if err == nil && renderset != nil {
-			globalVariables = renderset.GlobalVariables
+			fakeRenderSet.GlobalVariables = renderset.GlobalVariables
 		}
 	}
 
-	fakeRenderSet := &models.RenderSet{
-		GlobalVariables: globalVariables,
-	}
-
-	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
-	productServices, err = commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	productServices, err := repository.ListMaxRevisionsServices(productName, productInfo.Production)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}
@@ -1078,7 +1074,11 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 
 func GetReleaseDeployStatus(productName string, request *HelmDeployStatusCheckRequest) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace, envName := request.ClusterID, request.Namespace, request.EnvName
-	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product: %s/%s, err: %s", productName, envName, err))
+	}
+	productServices, err := repository.ListMaxRevisionsServices(productName, productInfo.Production)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}

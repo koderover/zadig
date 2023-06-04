@@ -88,7 +88,7 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 		return productResp.Status, nil
 	}
 
-	productObject, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
+	productObject, err := GetInitProduct(productName, types.GeneralEnv, false, "", false, log)
 	if err != nil {
 		log.Errorf("AutoCreateProduct err:%v", err)
 		return "", err

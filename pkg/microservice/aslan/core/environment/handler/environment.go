@@ -122,7 +122,24 @@ func UpdateMultiProducts(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
-	updateMultiEnvWrapper(c, request, ctx)
+	updateMultiEnvWrapper(c, request, false, ctx)
+}
+
+func UpdateMultiProductionProducts(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	request := &service.UpdateEnvRequest{}
+	err := c.ShouldBindQuery(request)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if request.ProjectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		return
+	}
+	updateMultiEnvWrapper(c, request, true, ctx)
 }
 
 func ensureProductionNamespace(createArgs []*service.CreateSingleProductArg) error {
@@ -744,7 +761,7 @@ func UpdateHelmProductCharts(c *gin.Context) {
 	ctx.Err = service.UpdateHelmProductCharts(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
 
-func updateMultiEnvWrapper(c *gin.Context, request *service.UpdateEnvRequest, ctx *internalhandler.Context) {
+func updateMultiEnvWrapper(c *gin.Context, request *service.UpdateEnvRequest, production bool, ctx *internalhandler.Context) {
 	deployType, err := service.GetProductDeployType(request.ProjectName)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
@@ -755,13 +772,13 @@ func updateMultiEnvWrapper(c *gin.Context, request *service.UpdateEnvRequest, ct
 	case setting.PMDeployType:
 		updateMultiCvmEnv(c, request, ctx)
 	case setting.HelmDeployType:
-		updateMultiHelmEnv(c, request, ctx)
+		updateMultiHelmEnv(c, request, production, ctx)
 	case setting.K8SDeployType:
-		updateMultiK8sEnv(c, request, ctx)
+		updateMultiK8sEnv(c, request, production, ctx)
 	}
 }
 
-func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *internalhandler.Context) {
+func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, production bool, ctx *internalhandler.Context) {
 	args := make([]*service.UpdateEnv, 0)
 	data, err := c.GetRawData()
 	if err != nil {
@@ -789,10 +806,10 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
-	ctx.Resp, ctx.Err = service.UpdateMultipleK8sEnv(args, envNames, request.ProjectName, ctx.RequestID, request.Force, ctx.Logger)
+	ctx.Resp, ctx.Err = service.UpdateMultipleK8sEnv(args, envNames, request.ProjectName, ctx.RequestID, request.Force, production, ctx.Logger)
 }
 
-func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *internalhandler.Context) {
+func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, production bool, ctx *internalhandler.Context) {
 	args := new(service.UpdateMultiHelmProductArg)
 	data, err := c.GetRawData()
 	if err != nil {
@@ -816,7 +833,7 @@ func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger, args.EnvNames...)
 
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
-		ctx.RequestID, ctx.UserName, args, ctx.Logger,
+		ctx.RequestID, ctx.UserName, args, production, ctx.Logger,
 	)
 }
 

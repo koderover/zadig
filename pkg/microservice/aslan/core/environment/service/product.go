@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"time"
 
 	"go.uber.org/zap"
@@ -90,7 +91,7 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 	}
 }
 
-func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv bool, baseEnvName string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
+func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv bool, baseEnvName string, production bool, log *zap.SugaredLogger) (*commonmodels.Product, error) {
 	ret := &commonmodels.Product{}
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(productTmplName)
@@ -99,9 +100,7 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 		log.Error(errMsg)
 		return nil, e.ErrGetProduct.AddDesc(errMsg)
 	}
-	if prodTmpl.ProductFeature == nil || prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
-		err = commonservice.FillProductTemplateVars([]*templatemodels.Product{prodTmpl}, log)
-	} else if prodTmpl.ProductFeature.DeployType == setting.HelmDeployType {
+	if prodTmpl.IsHelmProduct() {
 		err = commonservice.FillProductTemplateValuesYamls(prodTmpl, log)
 	}
 	if err != nil {
@@ -110,7 +109,6 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 		return nil, e.ErrGetProduct.AddDesc(errMsg)
 	}
 
-	//返回中的ProductName即产品模板的名称
 	ret.ProductName = prodTmpl.ProductName
 	ret.Revision = prodTmpl.Revision
 	ret.Services = [][]*commonmodels.ProductService{}
@@ -118,11 +116,14 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 	ret.CreateTime = prodTmpl.CreateTime
 	ret.Render = &commonmodels.RenderInfo{Name: "", Description: ""}
 	ret.ServiceRenders = prodTmpl.ChartInfos
-	if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
+	if prodTmpl.IsCVMProduct() {
 		ret.Source = setting.PMDeployType
 	}
 
 	svcGroupNames := prodTmpl.Services
+	if production {
+		svcGroupNames = prodTmpl.ProductionServices
+	}
 
 	if envType == types.ShareEnv && !isBaseEnv {
 		// At this point the request is from the environment share.
@@ -152,29 +153,22 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 		}
 	}
 
-	allServiceInfoMap := prodTmpl.AllServiceInfoMap()
 	for _, names := range svcGroupNames {
 		servicesResp := make([]*commonmodels.ProductService, 0)
 
 		for _, serviceName := range names {
 
-			// TODO fixme: for case `envType == types.ShareEnv`, should use the service data in product service
-			if _, ok := allServiceInfoMap[serviceName]; !ok {
-				continue
-			}
-
 			opt := &commonrepo.ServiceFindOption{
 				ServiceName:   serviceName,
-				ProductName:   allServiceInfoMap[serviceName].Owner,
+				ProductName:   productTmplName,
 				ExcludeStatus: setting.ProductStatusDeleting,
 			}
 
-			serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
+			serviceTmpl, err := repository.QueryTemplateService(opt, production)
 			if err != nil {
 				errMsg := fmt.Sprintf("Can not find service with option when creating init projects %+v, error: %v", opt, err)
 				log.Error(errMsg)
 				continue
-				//return nil, e.ErrGetProduct.AddDesc(errMsg)
 			}
 
 			serviceResp := &commonmodels.ProductService{
@@ -212,13 +206,6 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 		log.Errorf("[User:%s][EnvName:%s][Product:%s] Product.FindByOwner error: %s", username, envName, productName, err)
 		return nil, e.ErrGetEnv
 	}
-
-	//if prod.Source != setting.SourceFromHelm && prod.Source != setting.SourceFromExternal {
-	//	err = FillProductVars([]*commonmodels.Product{prod}, log)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
 
 	if len(prod.RegistryID) == 0 {
 		reg, _, err := commonservice.FindDefaultRegistry(false, log)

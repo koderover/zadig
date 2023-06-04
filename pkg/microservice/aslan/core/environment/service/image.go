@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -57,7 +59,7 @@ func updateContainerForHelmChart(serviceName, image, containerName string, produ
 		ProductName: product.ProductName,
 	}
 
-	serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+	serviceObj, err := repository.QueryTemplateService(opt, product.Production)
 	if err != nil {
 		log.Errorf("failed to find template service, opt %+v, err :%s", *opt, err.Error())
 		err = fmt.Errorf("failed to find template service, opt %+v", *opt)

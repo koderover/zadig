@@ -75,11 +75,6 @@ func GetProductTemplateServices(productName string, envType types.EnvType, isBas
 		return nil, e.ErrGetProduct.AddDesc(err.Error())
 	}
 
-	err = FillProductTemplateVars([]*template.Product{resp}, log)
-	if err != nil {
-		return nil, fmt.Errorf("FillProductTemplateVars err : %v", err)
-	}
-
 	resp.Services = filterProductServices(productName, resp.Services, false)
 	resp.ProductionServices = filterProductServices(productName, resp.ProductionServices, true)
 
@@ -114,7 +109,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	// do not save vars
 	args.Vars = nil
 
-	err = render.ValidateKVs(kvs, args.AllServiceInfos(), log)
+	err = render.ValidateKVs(kvs, args.AllTestServiceInfos(), log)
 	if err != nil {
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}
@@ -237,7 +232,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 	kvs := args.Vars
 	args.Vars = nil
 
-	if err = render.ValidateKVs(kvs, args.AllServiceInfos(), log); err != nil {
+	if err = render.ValidateKVs(kvs, args.AllTestServiceInfos(), log); err != nil {
 		log.Warnf("ProductTmpl.Update ValidateKVs error: %v", err)
 	}
 
@@ -831,10 +826,6 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	return nil
 }
 
-func FillProductTemplateVars(productTemplates []*template.Product, log *zap.SugaredLogger) error {
-	return commonservice.FillProductTemplateVars(productTemplates, log)
-}
-
 func filterProductServices(productName string, source [][]string, production bool) [][]string {
 	ret := make([][]string, 0)
 	if len(source) == 0 {
@@ -956,7 +947,7 @@ func ListTemplatesHierachy(userName string, log *zap.SugaredLogger) ([]*ProductI
 
 	for _, productTmpl := range productTmpls {
 		pInfo := &ProductInfo{Value: productTmpl.ProductName, Label: productTmpl.ProductName, ServiceInfo: []*ServiceInfo{}}
-		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
 		if err != nil {
 			log.Errorf("Failed to list service for project %s, error: %s", productTmpl.ProductName, err)
 			return nil, e.ErrGetProduct.AddDesc(err.Error())

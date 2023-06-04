@@ -135,7 +135,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// production environments
 	production := router.Group("production")
 	{
-		production.POST("environments", CreateProductionProduct)
+		production.POST("/environments", CreateProductionProduct)
+
+		production.PUT("/environments", UpdateMultiProductionProducts)
+		production.PUT("/environments/:name/services", DeleteProductServices)
 
 		production.GET("/environments", ListProductionEnvs)
 		production.PUT("/environments/:name/registry", UpdateProductRegistry)
@@ -143,7 +146,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		// used for production deploy workflows
 		production.GET("/environmentsForUpdate", ListProductionEnvs)
-		production.GET("/environments/:name/servicesForUpdate", ListSvcsInProductionEnv)
+		production.GET("/environments/:name/servicesForUpdate", ListSvcsInEnv)
+
+		production.PUT("/environments/:name/services/:serviceName", UpdateService)
 
 		// services related
 		production.GET("/environments/:name/services/:serviceName", GetProductionService)
@@ -151,7 +156,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/services/:serviceName/yaml", ExportProductionServiceYaml)
 
 		production.DELETE("/environments/:name", DeleteProductionProduct)
+
 		production.GET("/kube/pods/:podName/file", DownloadFileFromPod)
+		production.DELETE("/kube/:name/pods/:podName", DeletePod)
 
 		production.GET("/environments/:name/helm/releases", ListProductionReleases)
 		production.GET("/environments/:name/helm/values", GetProductionChartValues)
@@ -161,6 +168,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		production.POST("/environments/:name/services/:serviceName/restart", RestartService)
 		production.POST("/environments/:name/services/:serviceName/restartNew", RestartWorkload)
+
+		production.GET("/rendersets/variables", GetProductionServiceVariables)
+
 	}
 
 	// ---------------------------------------------------------------------------------------

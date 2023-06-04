@@ -19,11 +19,12 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
+
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -207,7 +208,7 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 	return ret, nil
 }
 
-func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, *models.RenderSet, error) {
+func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bool, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, *models.RenderSet, error) {
 	var productInfo *models.Product
 	var err error
 	if len(envName) > 0 {
@@ -228,7 +229,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 	svcRenders := make(map[string]*templatemodels.ServiceRender)
 
 	// product template svcs
-	templateSvcs, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	templateSvcs, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find template svcs, err: %s", err)
 	}
@@ -367,9 +368,8 @@ func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.Sugared
 	renderRevision := int64(0)
 	ret := make([]*HelmSvcRenderArg, 0)
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:       productName,
-		EnvName:    envName,
-		Production: util.GetBoolPointer(false),
+		Name:    productName,
+		EnvName: envName,
 	})
 
 	if err != nil && err != mongo.ErrNoDocuments {
@@ -803,19 +803,6 @@ func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error)
 	}
 	resp := make([]*models.Service, 0)
 	for _, productSvc := range serviceMap {
-		// TODO this code should be deleted since shared-serves are not supported
-		if productSvc.ProductName != "" && productSvc.ProductName != prod.ProductName {
-			tmplSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-				ProductName: productSvc.ProductName,
-				ServiceName: productSvc.ServiceName,
-				Revision:    productSvc.Revision,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to find service: %s of product: %s, err: %s", productSvc.ServiceName, productSvc.ProductName, err)
-			}
-			resp = append(resp, tmplSvc)
-			continue
-		}
 		listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
 			ServiceName: productSvc.ServiceName,
 			Revision:    productSvc.Revision,

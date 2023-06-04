@@ -19,6 +19,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -75,21 +76,14 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 }
 
 func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLogger) (*commonmodels.Service, error) {
-	var err error
-	productTmpl, err := templaterepo.NewProductColl().Find(productName)
-	if err != nil {
-		log.Errorf("Can not find project %s, error: %s", productName, err)
-		return nil, e.ErrGetTemplate.AddDesc(err.Error())
-	}
-
-	serviceObject, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+	serviceObject, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		ProductName: productName,
 		Type:        setting.K8SDeployType,
-	})
+	}, true)
 
 	if err != nil {
-		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
+		log.Errorf("Failed to list services by %+v, err: %s", serviceName, err)
 		return nil, e.ErrGetTemplate.AddDesc(err.Error())
 	}
 	return serviceObject, nil
