@@ -21,12 +21,10 @@ import (
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type cluster struct {
@@ -112,14 +110,12 @@ func (c *Client) GetClusterInfo(clusterID string) (*ClusterDetail, error) {
 	clusterResp := &ClusterDetail{}
 	resp, err := c.Get(url, httpclient.SetResult(clusterResp))
 	if err != nil {
-		log.Debugf("Failed to get cluster, error: %s", err)
 		errorMessage := new(ErrorMessage)
 		err := json.Unmarshal(resp.Body(), errorMessage)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to get cluster, error: %s", err)
 		}
 		if errorMessage.Code == 6643 {
-			log.Debugf("Failed to get cluster 6643", err)
 			return nil, nil
 		}
 		return nil, fmt.Errorf("Failed to get cluster, error: %s", err)
