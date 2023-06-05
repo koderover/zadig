@@ -1419,8 +1419,9 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 		return envStatuses, err
 	}
 	serviceNameSet := sets.NewString()
-	for _, svcGroup := range templateProduct.Services {
-		serviceNameSet.Insert(svcGroup...)
+	allSvcMap := templateProduct.AllServiceInfoMap(production)
+	for _, svc := range allSvcMap {
+		serviceNameSet.Insert(svc.Name)
 	}
 	for _, chartValue := range args.ChartValues {
 		if !serviceNameSet.Has(chartValue.ServiceName) {
