@@ -44,6 +44,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -1097,11 +1098,7 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 		serviceTmpl.CreateBy = userName
 
 		// TODO optimize me: use common function to generate nex service revision
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceTmpl.ServiceName, serviceTmpl.ProductName)
-		if production {
-			serviceTemplate = fmt.Sprintf(setting.ProductionServiceTemplateCounterName, serviceTmpl.ServiceName, serviceTmpl.ProductName)
-		}
-		rev, errRevision := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+		rev, errRevision := commonutil.GenerateServiceNextRevision(production, serviceTmpl.ServiceName, serviceTmpl.ProductName)
 		if errRevision != nil {
 			err = fmt.Errorf("get next helm service revision error: %v", errRevision)
 			break
