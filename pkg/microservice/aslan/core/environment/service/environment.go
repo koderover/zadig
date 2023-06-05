@@ -2079,11 +2079,6 @@ func getProjectType(productName string) string {
 
 func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.ProductService,
 	renderSet *commonmodels.RenderSet, kubeClient client.Client, log *zap.SugaredLogger) error {
-	if env.Production {
-		log.Errorf("services in production environments can't be upserted")
-		return nil
-	}
-
 	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
 	if err != nil {
 		return fmt.Errorf("service template %s error: %v", service.ServiceName, err)
@@ -2117,10 +2112,6 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 func upsertService(env *commonmodels.Product, service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
 	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, addLabel bool, informer informers.SharedInformerFactory,
 	kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
-	if env.Production {
-		log.Errorf("services in production environments can't be upserted")
-		return nil, nil
-	}
 	isUpdate := prevSvc == nil
 	errList := &multierror.Error{
 		ErrorFormat: func(es []error) string {
