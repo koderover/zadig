@@ -102,6 +102,7 @@ type ServiceResp struct {
 	WorkLoadType string              `json:"workLoadType"`
 	Revision     int64               `json:"revision"`
 	EnvConfigs   []*models.EnvConfig `json:"env_configs"`
+	Updatable    bool                `json:"updatable"`
 }
 
 type IngressInfo struct {

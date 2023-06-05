@@ -341,6 +341,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				return
 			}
 
+			gp.Updatable = service.Revision < serviceTmpl.Revision
 			gp.ProductName = serviceTmpl.ProductName
 			// 查询group下所有pods信息
 			if informer != nil {
