@@ -84,7 +84,7 @@ Zadig 是 KodeRover 公司基于 Kubernetes 自主设计、研发的开源分布
 
 ### 训练营
 
-Zadig [训练营](https://github.com/koderover/zadig-bootcamp)主要是为开发者提供实践小技巧、最佳实践案例的搭建、典型应用场景的演示等，以便快速获得持续交付最佳解决方案。可以直接进入 [教程](https://www.koderover.com/tutorials) 一步步实践和尝试。
+Zadig [训练营](https://github.com/koderover/zadig-bootcamp)主要是为开发者提供实践小技巧、最佳实践案例的搭建、典型应用场景的演示等，以便快速获得持续交付最佳解决方案。可以直接进入 [教程](https://koderover.com/tutorials) 一步步实践和尝试。
 
 ### 快速开发
 
@@ -94,7 +94,7 @@ Zadig [训练营](https://github.com/koderover/zadig-bootcamp)主要是为开发
 
 ## 获取帮助
 
-- 更详细的使用说明，见 [文档站](https://docs.koderover.com/zadig)
+- 更详细的使用说明，见 [文档站](https://docs.koderover.com?type=zadig)
 - 如果发现了bug或者功能需求，[欢迎提交issue](CONTRIBUTING-zh-CN.md#贡献方式-1---提交issue)
 - 邮箱：contact@koderover.com
 - 欢迎加入 [slack channel](https://join.slack.com/t/zadig-workspace/shared_invite/zt-qedvct1t-mQUf2eyTRkoVCc_RWKKgxw)

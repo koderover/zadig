@@ -84,7 +84,7 @@ Please follow [Quick Start](https://docs.koderover.com/zadig/quick-start/try-out
 
 With many hands-on tips, case studies and demos of different application types, Zadig [bootcamp](https://github.com/koderover/zadig-bootcamp) gives developers easy to follow best practices in a cloud native CI/CD solution
 
-Just follow [Tutorials](https://www.koderover.com/tutorials) to try it step by step.
+Just follow [Tutorials](https://koderover.com/tutorials) to try it step by step.
 
 ### How to make contribution?
 
@@ -92,7 +92,7 @@ Please check out [our contributing guideline](CONTRIBUTING.md).
 
 ## Getting help
 
-- More about Zadig, see [here](https://docs.koderover.com/zadig)
+- More about Zadig, see [here](https://docs.koderover.com?type=zadig)
 - Submit bugs or feature requests following [contributing instructions](CONTRIBUTING.md#contribution-option-1---reporting-an-issue)
 - Email：contact@koderover.com
 - [Slack channel](https://join.slack.com/t/zadig-workspace/shared_invite/zt-qedvct1t-mQUf2eyTRkoVCc_RWKKgxw)
