@@ -285,6 +285,7 @@ func initResourcesForExternalClusters() {
 }
 
 func initDinD() {
+	log.Debugf("initDinD start")
 	err := systemservice.SyncDinDForRegistries()
 	if err != nil {
 		log.Fatal(err)

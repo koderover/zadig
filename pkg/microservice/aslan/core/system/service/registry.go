@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
 	registrytool "github.com/koderover/zadig/pkg/tool/registries"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -543,7 +544,14 @@ func UpdateRegistryNamespaceDefault(args *commonmodels.RegistryNamespace, log *z
 	return nil
 }
 
-func SyncDinDForRegistries() error {
+func SyncDinDForRegistries() (err error) {
+	defer func() {
+		if err != nil {
+			log.Errorf("ding: failed to update dind for registries, err: %s", err)
+		} else {
+			log.Infof("ding: update dind for registries successfully")
+		}
+	}()
 	registries, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 	if err != nil {
 		return fmt.Errorf("failed to list registry to update dind, err: %s", err)
@@ -569,5 +577,6 @@ func SyncDinDForRegistries() error {
 		return fmt.Errorf("failed to get dynamic client to update dind, err: %s", err)
 	}
 
+	log.Debugf("dind 2")
 	return registrytool.PrepareDinD(dynamicClient, config.Namespace(), regList)
 }
