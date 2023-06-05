@@ -141,6 +141,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.PUT("/environments/:name/services", DeleteProductServices)
 
 		production.GET("/environments", ListProductionEnvs)
+		production.GET("/environments/:name", GetProduct)
 		production.PUT("/environments/:name/registry", UpdateProductRegistry)
 		production.GET("/environments/:name/groups", ListProductionGroups)
 

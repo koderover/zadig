@@ -890,6 +890,8 @@ metas:
           - method: GET
             endpoint: "/api/aslan/environment/production/environments"
           - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*"
+          - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/groups"
           - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/services/?*"
