@@ -1795,9 +1795,6 @@ func DeleteProductServices(userName, requestID, envName, productName string, ser
 		log.Errorf("find product error: %v", err)
 		return err
 	}
-	if productInfo.Production {
-		return fmt.Errorf("can not delete services from production environemnts")
-	}
 	if getProjectType(productName) == setting.HelmDeployType {
 		return deleteHelmProductServices(userName, requestID, productInfo, serviceNames, log)
 	}

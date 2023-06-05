@@ -629,12 +629,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 	}
 
 	// upload to s3 storage
-	var s3Base string
-	if !args.Production {
-		s3Base = config.ObjectStorageTestServicePath(projectName, serviceName)
-	} else {
-		s3Base = config.ObjectStorageProductionServicePath(projectName, serviceName)
-	}
+	s3Base := config.ObjectStorageServicePath(projectName, serviceName, args.Production)
 
 	err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, s3Base, log)
 	if err != nil {
