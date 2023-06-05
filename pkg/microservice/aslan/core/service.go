@@ -26,6 +26,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -62,6 +63,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
+	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/tool/rsa"
@@ -212,7 +214,15 @@ func initResourcesForExternalClusters() {
 		if cluster.Local || cluster.Status != hubserverconfig.Normal {
 			continue
 		}
-		client, err := kubeclient.GetKubeClient(config.HubServerAddress(), cluster.ID.Hex())
+		var client client2.Client
+		switch cluster.Type {
+		case setting.AgentClusterType, "":
+			client, err = multicluster.GetKubeClient(config.HubServerAddress(), cluster.ID.Hex())
+		case setting.KubeConfigClusterType:
+			client, err = multicluster.GetKubeClientFromKubeConfig(cluster.ID.Hex(), cluster.KubeConfig)
+		default:
+			logger.Fatalf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
+		}
 		if err != nil {
 			logger.Fatalf("GetKubeClient id-%s err: %v", cluster.ID.Hex(), err)
 		}
