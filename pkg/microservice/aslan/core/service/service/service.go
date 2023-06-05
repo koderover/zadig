@@ -1563,14 +1563,8 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
 	}
 
-	// 设置新的版本号
-	var serviceTemplate string
-	if args.Production {
-		serviceTemplate = fmt.Sprintf(setting.ProductionServiceTemplateCounterName, args.ServiceName, args.ProductName)
-	} else {
-		serviceTemplate = fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
-	}
-	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+	// get next service revision
+	rev, err := commonutil.GenerateServiceNextRevision(args.Production, args.ServiceName, args.ProductName)
 	if err != nil {
 		return fmt.Errorf("get next service template revision error: %v", err)
 	}

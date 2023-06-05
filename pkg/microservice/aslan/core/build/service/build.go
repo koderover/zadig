@@ -357,8 +357,7 @@ func updateCvmService(currentBuild, oldBuild *commonmodels.Build) error {
 			continue
 		}
 
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, resp.ServiceName, resp.ProductName)
-		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+		rev, err := commonutil.GenerateServiceNextRevision(false, resp.ServiceName, resp.ProductName)
 		if err != nil {
 			return err
 		}
@@ -496,8 +495,7 @@ func handleServiceTargets(name, productName string, targets []*commonmodels.Serv
 	}
 
 	for _, args := range services {
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
-		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+		rev, err := commonutil.GenerateServiceNextRevision(false, args.ServiceName, args.ProductName)
 		if err != nil {
 			continue
 		}
@@ -514,8 +512,7 @@ func handleServiceTargets(name, productName string, targets []*commonmodels.Serv
 	}
 
 	for _, args := range addServices {
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
-		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+		rev, err := commonutil.GenerateServiceNextRevision(false, args.ServiceName, args.ProductName)
 		if err != nil {
 			continue
 		}

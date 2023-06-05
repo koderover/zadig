@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
@@ -241,4 +242,15 @@ func MergeServiceVariableKVsAndKVInput(serviceKVs []*commontypes.ServiceVariable
 	}
 
 	return mergedYaml, mergedKVs, nil
+}
+
+// GenerateServiceNextRevision is used to generate the next revision of the service
+func GenerateServiceNextRevision(isProductionService bool, serviceName, projectName string) (int64, error) {
+	var counterName string
+	if isProductionService {
+		counterName = fmt.Sprintf(setting.ProductionServiceTemplateCounterName, serviceName, projectName)
+	} else {
+		counterName = fmt.Sprintf(setting.ServiceTemplateCounterName, serviceName, projectName)
+	}
+	return commonrepo.NewCounterColl().GetNextSeq(counterName)
 }
