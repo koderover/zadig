@@ -1806,6 +1806,23 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 }
 
 func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
+	serviceRelatedYaml := make(map[string]string)
+	for _, service := range productInfo.GetServiceMap() {
+		if !util.InStringArray(service.ServiceName, serviceNames) {
+			yaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+				ProductName: productInfo.ProductName,
+				EnvName:     productInfo.EnvName,
+				ServiceName: service.ServiceName,
+				UnInstall:   true,
+			})
+			if err != nil {
+				log.Errorf("failed to remove k8s resources when rendering yaml for service : %s, err: %s", service.ServiceName, err)
+				return fmt.Errorf("failed to remove k8s resources when rendering yaml for service : %s, err: %s", service.ServiceName, err)
+			}
+			serviceRelatedYaml[service.ServiceName] = yaml
+		}
+	}
+
 	for serviceGroupIndex, serviceGroup := range productInfo.Services {
 		var group []*commonmodels.ProductService
 		for _, service := range serviceGroup {
@@ -1885,28 +1902,11 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 			log.Errorf("Failed to delete Zadig service: %s", err)
 		}
 
-		//err = commonservice.DeleteNamespacedResource(productInfo.Namespace, selector, productInfo.ClusterID, log)
-		//if err != nil {
-		//	// Only record and do not block subsequent traversals.
-		//	log.Errorf("delete resource of service %s error:%v", name, err)
-		//}
-
-		yaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
-			ProductName: productInfo.ProductName,
-			EnvName:     productInfo.EnvName,
-			ServiceName: name,
-			UnInstall:   true,
-		})
-		if err != nil {
-			log.Errorf("failed to remove k8s resources when rendering yaml for service : %s, err: %s", name, err)
-			continue
-		}
-
 		param := &kube.ResourceApplyParam{
 			ProductInfo:         productInfo,
 			ServiceName:         name,
 			KubeClient:          kclient,
-			CurrentResourceYaml: yaml,
+			CurrentResourceYaml: serviceRelatedYaml[name],
 			Uninstall:           true,
 		}
 		_, err = kube.CreateOrPatchResource(param, log)
@@ -1923,7 +1923,6 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 			return fmt.Errorf("failed to ensure gray env config: %s", err)
 		}
 	}
-
 	return nil
 }
 
