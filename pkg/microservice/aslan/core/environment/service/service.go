@@ -397,6 +397,18 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 	return
 }
 
+func BatchPreviewService(args []*PreviewServiceArgs, logger *zap.SugaredLogger) ([]*SvcDiffResult, error) {
+	ret := make([]*SvcDiffResult, 0)
+	for _, arg := range args {
+		previewRet, err := PreviewService(arg, logger)
+		if err != nil {
+			previewRet.Error = err.Error()
+		}
+		ret = append(ret, previewRet)
+	}
+	return ret, nil
+}
+
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
 	newVariableYaml, err := commontypes.RenderVariableKVToYaml(args.VariableKVs)
 	if err != nil {
