@@ -1808,7 +1808,7 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
 	serviceRelatedYaml := make(map[string]string)
 	for _, service := range productInfo.GetServiceMap() {
-		if !util.InStringArray(service.ServiceName, serviceNames) {
+		if util.InStringArray(service.ServiceName, serviceNames) {
 			yaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 				ProductName: productInfo.ProductName,
 				EnvName:     productInfo.EnvName,
