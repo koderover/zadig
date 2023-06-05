@@ -167,6 +167,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		production.PUT("/environments/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
 		production.PUT("/environments/:name/helm/default-values", UpdateHelmProductDefaultValues)
+		production.GET("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
 
 		production.POST("/environments/:name/services/:serviceName/restart", RestartService)
 		production.POST("/environments/:name/services/:serviceName/restartNew", RestartWorkload)

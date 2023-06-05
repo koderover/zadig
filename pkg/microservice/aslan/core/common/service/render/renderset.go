@@ -171,7 +171,7 @@ func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.Sug
 
 	serviceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(services, setting.K8SDeployType)
 	if err != nil {
-		errMsg := fmt.Sprintf("[serviceTmpl.ListMaxRevisions] error: %v", err)
+		errMsg := fmt.Sprintf("[serviceTmpl.ListMaxRevisionsByProject] error: %v", err)
 		log.Error(errMsg)
 		return resp, fmt.Errorf(errMsg)
 	}

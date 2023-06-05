@@ -299,7 +299,7 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(resp.ProductTmplName)
 	if err != nil {
-		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
+		log.Errorf("ServiceTmpl.ListMaxRevisionsByProject error: %v", err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
@@ -443,7 +443,7 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 	}
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
 	if err != nil {
-		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
+		log.Errorf("ServiceTmpl.ListMaxRevisionsByProject error: %v", err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 

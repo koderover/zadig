@@ -19,6 +19,7 @@ package service
 import (
 	"errors"
 	"fmt"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 
 	"go.uber.org/zap"
@@ -49,7 +50,7 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	services, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(productName, projectInfo.ProductFeature.DeployType)
+	services, err := commonrepo.NewProductionServiceColl().ListMaxRevisionsByProject(productName, projectInfo.ProductFeature.DeployType)
 
 	if err != nil {
 		log.Errorf("Failed to list production services, err: %s", err)

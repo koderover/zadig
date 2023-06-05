@@ -1930,8 +1930,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	return nil
 }
 
-// TODO add production parameter
-func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, log *zap.SugaredLogger) ([]*commonservice.HelmSvcRenderArg, error) {
+func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, production bool, log *zap.SugaredLogger) ([]*commonservice.HelmSvcRenderArg, error) {
 
 	var serviceNameList []string
 	// no service appointed, find all service templates
@@ -1941,7 +1940,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 			log.Errorf("query product: %s fail, err %s", productName, err.Error())
 			return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("query product info fail"))
 		}
-		for _, singleService := range prodTmpl.AllTestServiceInfos() {
+		for _, singleService := range prodTmpl.AllServiceInfoMap(production) {
 			serviceNameList = append(serviceNameList, singleService.Name)
 		}
 		serviceNameListStr = strings.Join(serviceNameList, ",")
@@ -1977,7 +1976,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 	}
 
 	if len(serviceOption.InServices) > 0 {
-		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisions(serviceOption)
+		serviceList, err := repository.ListMaxRevisions(serviceOption, production)
 		if err != nil {
 			log.Errorf("list service fail, productName %s err %s", productName, err.Error())
 			return nil, e.ErrGetRenderSet.AddDesc("failed to get service template info")

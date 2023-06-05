@@ -37,6 +37,14 @@ func ListServicesWithSRevision(option *mongodb.SvcRevisionListOption, production
 	}
 }
 
+func ListMaxRevisions(opt *mongodb.ServiceListOption, production bool) ([]*models.Service, error) {
+	if !production {
+		return mongodb.NewServiceColl().ListMaxRevisions(opt)
+	} else {
+		return mongodb.NewProductionServiceColl().ListMaxRevisions(opt)
+	}
+}
+
 func ListMaxRevisionsServices(productName string, production bool) ([]*models.Service, error) {
 	if !production {
 		return mongodb.NewServiceColl().ListMaxRevisionsByProduct(productName)

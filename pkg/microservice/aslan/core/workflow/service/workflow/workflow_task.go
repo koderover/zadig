@@ -166,7 +166,7 @@ func getProjectTargets(productName string) []string {
 	}
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
 	if err != nil {
-		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
+		log.Errorf("ServiceTmpl.ListMaxRevisionsByProject error: %v", err)
 		return targets
 	}
 
