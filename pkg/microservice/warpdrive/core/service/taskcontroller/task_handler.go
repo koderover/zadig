@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nsqio/go-nsq"
 	"github.com/google/uuid"
+	"github.com/nsqio/go-nsq"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 

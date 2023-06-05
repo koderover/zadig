@@ -268,6 +268,14 @@ func (c *Client) CompareTwoPatchset(changeID, newPatchSetID, oldPatchSetID strin
 	return false, nil
 }
 
+func (c *Client) GetChangeDetail(changeID string) (*gerrit.ChangeInfo, error) {
+	detail, _, err := c.cli.Changes.GetChangeDetail(changeID, nil)
+	if err != nil {
+		return nil, err
+	}
+	return detail, nil
+}
+
 type BasicAuthTransporter struct {
 	EncodedUserPass string
 	ProxyAddr       string

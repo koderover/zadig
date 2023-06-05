@@ -300,6 +300,7 @@ type Repository struct {
 	AuthType           types.AuthType `bson:"auth_type,omitempty"             json:"auth_type,omitempty"`
 	SSHKey             string         `bson:"ssh_key,omitempty"               json:"ssh_key,omitempty"`
 	PrivateAccessToken string         `bson:"private_access_token,omitempty"  json:"private_access_token,omitempty"`
+	SubmissionID       string         `bson:"submission_id,omitempty"         json:"submission_id,omitempty"`
 }
 
 type BuildStep struct {
