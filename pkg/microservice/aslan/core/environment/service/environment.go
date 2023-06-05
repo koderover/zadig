@@ -959,7 +959,8 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 	}
 
 	opt := &commonrepo.RenderSetFindOption{
-		Name:        product.Namespace,
+		Name:        product.Render.Name,
+		Revision:    product.Render.Revision,
 		EnvName:     envName,
 		ProductTmpl: productName,
 	}
@@ -1018,6 +1019,7 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 				}
 			}
 		} else {
+			// TODO add filter logic here
 			updatedSvcList = productRenderset.ChartInfos
 		}
 	}
@@ -1038,7 +1040,9 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 		return err
 	}
 	opt := &commonrepo.RenderSetFindOption{
-		Name:        product.Namespace,
+		Name:        product.Render.Name,
+		Revision:    product.Revision,
+		IsDefault:   false,
 		EnvName:     envName,
 		ProductTmpl: productName,
 	}
@@ -1084,7 +1088,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 			EnvNames:    []string{envName},
 			ChartValues: changedCharts,
 		}
-		_, err = UpdateMultipleHelmEnv(requestID, userName, updateEnvArg, false, log)
+		_, err = UpdateMultipleHelmEnv(requestID, userName, updateEnvArg, product.Production, log)
 		return err
 	}
 

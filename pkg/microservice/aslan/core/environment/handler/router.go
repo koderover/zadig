@@ -28,32 +28,32 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	configmaps := router.Group("configmaps")
 	{
-		configmaps.GET("/:envName", ListConfigMaps)
+		configmaps.GET("/:name", ListConfigMaps)
 		configmaps.POST("", RollBackConfigMap)
 		configmaps.GET("/migrate", MigrateHistoryConfigMaps)
 	}
 
 	secrets := router.Group("secrets")
 	{
-		secrets.GET("/:envName", ListSecrets)
+		secrets.GET("/:name", ListSecrets)
 	}
 	ingresses := router.Group("ingresses")
 	{
-		ingresses.GET("/:envName", ListIngresses)
+		ingresses.GET("/:name", ListIngresses)
 	}
 	pvcs := router.Group("pvcs")
 	{
-		pvcs.GET("/:envName", ListPvcs)
+		pvcs.GET("/:name", ListPvcs)
 	}
 
 	commonEnvCfgs := router.Group("envcfgs")
 	{
-		commonEnvCfgs.GET("/:envName/cfg/:objectName", ListCommonEnvCfgHistory)
+		commonEnvCfgs.GET("/:name/cfg/:objectName", ListCommonEnvCfgHistory)
 		commonEnvCfgs.GET("", ListLatestEnvCfg)
-		commonEnvCfgs.PUT("/:envName/:type/:objectName/sync", SyncEnvResource)
-		commonEnvCfgs.PUT("/:envName", UpdateCommonEnvCfg)
-		commonEnvCfgs.POST("/:envName", CreateCommonEnvCfg)
-		commonEnvCfgs.DELETE("/:envName/cfg/:objectName", DeleteCommonEnvCfg)
+		commonEnvCfgs.PUT("/:name/:type/:objectName/sync", SyncEnvResource)
+		commonEnvCfgs.PUT("/:name", UpdateCommonEnvCfg)
+		commonEnvCfgs.POST("/:name", CreateCommonEnvCfg)
+		commonEnvCfgs.DELETE("/:name/cfg/:objectName", DeleteCommonEnvCfg)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -149,6 +149,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/servicesForUpdate", ListSvcsInEnv)
 
 		production.PUT("/environments/:name/services/:serviceName", UpdateService)
+		production.PUT("/environments/:name/helm/charts", UpdateHelmProductCharts)
 
 		// services related
 		production.GET("/environments/:name/services/:serviceName", GetProductionService)
@@ -165,12 +166,23 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
 		production.PUT("/environments/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
+		production.PUT("/environments/:name/helm/default-values", UpdateHelmProductDefaultValues)
 
 		production.POST("/environments/:name/services/:serviceName/restart", RestartService)
 		production.POST("/environments/:name/services/:serviceName/restartNew", RestartWorkload)
 
 		production.GET("/rendersets/variables", GetProductionServiceVariables)
+		production.GET("/rendersets/renderchart", GetServiceRenderCharts)
 
+		// normal resources
+		production.GET("/configmaps/:name", ListConfigMaps)
+		production.GET("/secrets/:name", ListSecrets)
+		production.GET("/ingresses/:name", ListIngresses)
+		production.GET("/pvcs/:name", ListPvcs)
+		production.GET("/envcfgs/:name/cfg/:objectName", ListCommonEnvCfgHistory)
+		production.PUT("/envcfgs/:name", UpdateCommonEnvCfg)
+		production.POST("/envcfgs/:name", CreateCommonEnvCfg)
+		production.DELETE("/envcfgs/:name/cfg/:objectName", DeleteCommonEnvCfg)
 	}
 
 	// ---------------------------------------------------------------------------------------

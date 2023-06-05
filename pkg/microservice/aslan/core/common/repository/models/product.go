@@ -27,7 +27,6 @@ import (
 type ProductAuthType string
 type ProductPermission string
 
-// Vars不做保存，只做input参数
 type Product struct {
 	ID             primitive.ObjectID              `bson:"_id,omitempty"             json:"id,omitempty"`
 	ProductName    string                          `bson:"product_name"              json:"product_name"`

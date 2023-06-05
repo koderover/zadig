@@ -194,17 +194,15 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 	svcDatSetMap := make(map[string]*SvcDataSet)
 	svcDataList := make([]*SvcDataSet, 0)
 
-	for _, svcGroup := range prod.Services {
-		for _, prodSvc := range svcGroup {
-			serviceName := prodSvc.ServiceName
-			releaseName := releaseNameMap[serviceName]
-			svcDataSet := &SvcDataSet{
-				ProdSvc:    prodSvc,
-				SvcRelease: releaseMap[releaseName],
-			}
-			svcDatSetMap[serviceName] = svcDataSet
-			svcDataList = append(svcDataList, svcDataSet)
+	for _, prodSvc := range prod.GetServiceMap() {
+		serviceName := prodSvc.ServiceName
+		releaseName := releaseNameMap[serviceName]
+		svcDataSet := &SvcDataSet{
+			ProdSvc:    prodSvc,
+			SvcRelease: releaseMap[releaseName],
 		}
+		svcDatSetMap[serviceName] = svcDataSet
+		svcDataList = append(svcDataList, svcDataSet)
 	}
 
 	// set service template data

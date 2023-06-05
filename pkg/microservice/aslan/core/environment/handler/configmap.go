@@ -36,7 +36,7 @@ func ListConfigMaps(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := &service.ListConfigMapArgs{
-		EnvName:     c.Param("envName"),
+		EnvName:     c.Param("name"),
 		ProductName: c.Query("projectName"),
 		ServiceName: c.Query("serviceName"),
 	}

@@ -901,6 +901,16 @@ metas:
             endpoint: "/api/aslan/environment/production/environments/?*/workloads"
           - method: GET
             endpoint: /api/aslan/environment/diff/production/products/?*/service/?*
+          - method: GET
+            endpoint: '/api/aslan/environment/production/configmaps/:name'
+          - method: GET
+            endpoint: '/api/aslan/environment/production/envcfgs/:name/cfg/?*'
+          - method: GET
+            endpoint: '/api/aslan/environment/production/secrets/:name'
+          - method: GET
+            endpoint: '/api/aslan/environment/production/ingresses/:name'
+          - method: GET
+            endpoint: '/api/aslan/environment/production/pvcs/:name'
       - action: create_production_environment
         alias: 创建
         description: ""
@@ -915,6 +925,12 @@ metas:
         rules:
           - method: PUT
             endpoint: '/api/aslan/environment/environments/:name/alias'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/envcfgs/:name'
+          - method: POST
+            endpoint: '/api/aslan/environment/production/envcfgs/:name'
+          - method: DELETE
+            endpoint: '/api/aslan/environment/production/envcfgs/:name/cfg/?*'
       - action: edit_production_environment
         alias: 管理服务实例
         description: ""
@@ -929,6 +945,8 @@ metas:
             endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
           - method: PUT
             endpoint: '/api/aslan/environment/production/environments/?*/services/?*'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments/?*/helm/charts'
           - method: PUT
             endpoint: "/api/aslan/environment/production/environments/?*/registry"
           - method: GET
