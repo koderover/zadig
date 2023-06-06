@@ -926,11 +926,11 @@ func containersChanged(oldContainers []*commonmodels.Container, newContainers []
 	}
 	oldSet := sets.NewString()
 	for _, container := range oldContainers {
-		oldSet.Insert(container.Name)
+		oldSet.Insert(fmt.Sprintf("%s-%s", container.Name, container.Image))
 	}
 	newSet := sets.NewString()
 	for _, container := range newContainers {
-		newSet.Insert(container.Name)
+		newSet.Insert(fmt.Sprintf("%s-%s", container.Name, container.Image))
 	}
 	return !oldSet.Equal(newSet)
 }
@@ -967,7 +967,6 @@ func UpdateServiceVariables(args *commonservice.ServiceTmplObject) error {
 	oldContainers := currentService.Containers
 	if err := commonutil.SetCurrentContainerImages(currentService); err != nil {
 		log.Errorf("failed to ser set container images, err: %s", err)
-		//return err
 	} else if containersChanged(oldContainers, currentService.Containers) {
 		err = commonrepo.NewServiceColl().UpdateServiceContainers(currentService)
 		if err != nil {
