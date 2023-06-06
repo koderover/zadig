@@ -195,6 +195,35 @@ func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.Sug
 	return resp, nil
 }
 
+// GetLatestRenderSetFromProject returns the latest renderset created directly from service definition.
+func GetLatestRenderSetFromHelmProject(productName string, isProduction bool) (*commonmodels.RenderSet, error) {
+	var serviceList []*commonmodels.Service
+	var err error
+	if !isProduction {
+		serviceList, err = commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	} else {
+		serviceList, err = commonrepo.NewProductionServiceColl().ListMaxRevisionsByProduct(productName)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	chartInfo := make([]*templatemodels.ServiceRender, 0)
+	for _, service := range serviceList {
+		chartInfo = append(chartInfo, &templatemodels.ServiceRender{
+			ServiceName:  service.ServiceName,
+			ChartVersion: service.HelmChart.Version,
+			ValuesYaml:   service.HelmChart.ValuesYaml,
+		})
+	}
+
+	return &commonmodels.RenderSet{
+		ProductTmpl: productName,
+		ChartInfos:  chartInfo,
+	}, nil
+}
+
 func DeleteRenderSet(productName string, log *zap.SugaredLogger) error {
 	if err := commonrepo.NewRenderSetColl().Delete(productName); err != nil {
 		errMsg := fmt.Sprintf("[RenderSet.Delete] %s error: %v", productName, err)

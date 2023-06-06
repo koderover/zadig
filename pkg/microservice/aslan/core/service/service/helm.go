@@ -1799,8 +1799,7 @@ func GetProductionHelmFilePath(productName, serviceName string, revision int64, 
 func compareHelmVariable(chartInfos []*templatemodels.ServiceRender, productName, createdBy string, log *zap.SugaredLogger) {
 	// 对比上个版本的renderset，新增一个版本
 	latestChartInfos := make([]*templatemodels.ServiceRender, 0)
-	renderOpt := &commonrepo.RenderSetFindOption{Name: productName, ProductTmpl: productName, IsDefault: true}
-	if latestDefaultRenderSet, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
+	if latestDefaultRenderSet, err := render.GetLatestRenderSetFromHelmProject(productName, false); err == nil {
 		latestChartInfos = latestDefaultRenderSet.ChartInfos
 	}
 
@@ -1837,18 +1836,4 @@ func compareHelmVariable(chartInfos []*templatemodels.ServiceRender, productName
 	); err != nil {
 		log.Errorf("helmService.Create CreateK8sHelmRenderSet error: %v", err)
 	}
-
-	newRenderset := &models.RenderSet{
-		Name:        productName,
-		ProductTmpl: productName,
-		UpdateBy:    createdBy,
-		ChartInfos:  mixtureChartInfos,
-		IsDefault:   true,
-	}
-
-	if err := render.CreateDefaultHelmRenderset(newRenderset, log); err != nil {
-		log.Error(fmt.Errorf("failed to create renderset, name: %s, err: %s", newRenderset.Name, err))
-		return
-	}
-
 }

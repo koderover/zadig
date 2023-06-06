@@ -19,11 +19,12 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
+
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -55,9 +56,9 @@ import (
 	jsonutil "github.com/koderover/zadig/pkg/util/json"
 )
 
-// FillProductTemplateValuesYamls 返回renderSet中的renderChart信息
+// FillProductTemplateValuesYamls 返回renderSet中的renderChart信息, this is only used in helm chart projects
 func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.SugaredLogger) error {
-	renderSet, err := render.GetRenderSet(tmpl.ProductName, 0, true, "", log)
+	renderSet, err := render.GetLatestRenderSetFromHelmProject(tmpl.ProductName, false)
 	if err != nil {
 		log.Errorf("Failed to find render set for product template %s", tmpl.ProductName)
 		return err
