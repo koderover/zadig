@@ -132,8 +132,9 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		return resp, fmt.Errorf("target image registry: %s not found: %v", j.spec.TargetRegistryID, err)
 	}
 
-	// get distribute targets from previous build job.
-	if j.spec.Source == config.SourceFromJob {
+	switch j.spec.Source {
+	case config.SourceFromJob:
+		// get distribute targets from previous build job.
 		refJobSpec, err := getQuoteBuildJobSpec(j.spec.JobName, j.workflow)
 		if err != nil {
 			log.Error(err)
@@ -145,23 +146,33 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		}
 		newTargets := []*commonmodels.DistributeTarget{}
 		for _, svc := range refJobSpec.ServiceAndBuilds {
+			var targetTag string
+			if j.spec.EnableTargetImageNameRule {
+				targetTag = strings.ReplaceAll(j.spec.TargetImageNameRule,
+					fmt.Sprintf("{{.job.%s.imageTag}}", j.spec.JobName),
+					fmt.Sprintf("{{.job.%s.%s.%s.output.%s}}", j.spec.JobName, svc.ServiceName, svc.ServiceModule, IMAGETAGKEY))
+			} else {
+				targetTag = targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].TargetTag
+			}
 			newTargets = append(newTargets, &commonmodels.DistributeTarget{
 				ServiceName:   svc.ServiceName,
 				ServiceModule: svc.ServiceModule,
 				SourceImage:   svc.Image,
-				TargetTag:     targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].TargetTag,
+				TargetTag:     targetTag,
 				UpdateTag:     targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].UpdateTag,
 			})
 		}
 		j.spec.Tatgets = newTargets
-	}
-
-	if j.spec.Source == config.SourceRuntime {
+	case config.SourceRuntime:
 		for _, target := range j.spec.Tatgets {
 			if target.ImageName == "" {
 				target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
 			} else {
 				target.SourceImage = getImage(target.ImageName, target.SourceTag, sourceReg)
+			}
+			if j.spec.EnableTargetImageNameRule {
+				target.TargetImage = strings.ReplaceAll(j.spec.TargetImageNameRule,
+					"{{.workflow.input.imageTag}}", target.SourceImage)
 			}
 			target.UpdateTag = true
 		}

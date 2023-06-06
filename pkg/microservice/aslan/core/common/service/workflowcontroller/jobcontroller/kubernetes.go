@@ -78,6 +78,10 @@ const (
 
 	defaultRetryCount    = 3
 	defaultRetryInterval = time.Second * 3
+
+	// build job outputs key
+	IMAGEKEY    = "IMAGE"
+	IMAGETAGKEY = "imageTag"
 )
 
 func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, crClient.Reader, error) {
@@ -1028,9 +1032,27 @@ func getJobOutputFromConfigMap(namespace, containerName string, jobTask *commonm
 
 func writeOutputs(outputs []*job.JobOutput, outputKey string, workflowCtx *commonmodels.WorkflowTaskCtx) {
 	// write jobs output info to globalcontext so other job can use like this {{.job.jobKey.output.outputName}}
+	outputsMap := make(map[string]*job.JobOutput)
 	for _, output := range outputs {
+		outputsMap[output.Name] = output
+	}
+	if tag, ok := outputsMap[IMAGETAGKEY]; ok {
+		if image, ok := outputsMap[IMAGEKEY]; ok {
+			tag.Value = getTagFromImageName(image.Value)
+		}
+	}
+	for _, output := range outputsMap {
 		workflowCtx.GlobalContextSet(job.GetJobOutputKey(outputKey, output.Name), output.Value)
 	}
+}
+
+func getTagFromImageName(imageName string) string {
+	parts := strings.Split(imageName, ":")
+	if len(parts) > 1 {
+		return parts[len(parts)-1]
+	}
+
+	return "latest"
 }
 
 func saveContainerLog(namespace, clusterID, workflowName, jobName string, taskID int64, jobLabel *JobLabel, kubeClient crClient.Client) error {

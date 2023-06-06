@@ -206,28 +206,27 @@ func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string
 			if jobRankMap[job.Name] >= jobRankMap[currentJobName] {
 				return resp
 			}
-			if job.JobType == config.JobZadigBuild {
+			switch job.JobType {
+			case config.JobZadigBuild:
 				jobCtl := &BuildJob{job: job, workflow: workflow}
 				resp = append(resp, jobCtl.GetOutPuts(log)...)
-			}
-			if job.JobType == config.JobFreestyle {
+			case config.JobFreestyle:
 				jobCtl := &FreeStyleJob{job: job, workflow: workflow}
 				resp = append(resp, jobCtl.GetOutPuts(log)...)
-			}
-			if job.JobType == config.JobZadigTesting {
+			case config.JobZadigTesting:
 				jobCtl := &TestingJob{job: job, workflow: workflow}
 				resp = append(resp, jobCtl.GetOutPuts(log)...)
-			}
-			if job.JobType == config.JobZadigScanning {
+			case config.JobZadigScanning:
 				jobCtl := &ScanningJob{job: job, workflow: workflow}
 				resp = append(resp, jobCtl.GetOutPuts(log)...)
-			}
-			if job.JobType == config.JobZadigDistributeImage {
+			case config.JobZadigDistributeImage:
 				jobCtl := &ImageDistributeJob{job: job, workflow: workflow}
 				resp = append(resp, jobCtl.GetOutPuts(log)...)
-			}
-			if job.JobType == config.JobPlugin {
+			case config.JobPlugin:
 				jobCtl := &PluginJob{job: job, workflow: workflow}
+				resp = append(resp, jobCtl.GetOutPuts(log)...)
+			case config.JobZadigDeploy:
+				jobCtl := &DeployJob{job: job, workflow: workflow}
 				resp = append(resp, jobCtl.GetOutPuts(log)...)
 			}
 		}

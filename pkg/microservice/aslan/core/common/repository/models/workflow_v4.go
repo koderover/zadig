@@ -315,6 +315,9 @@ type ZadigDistributeImageJobSpec struct {
 	// unit is minute.
 	Timeout   int64  `bson:"timeout"                        json:"timeout"                       yaml:"timeout"`
 	ClusterID string `bson:"cluster_id"                     json:"cluster_id"                    yaml:"cluster_id"`
+
+	EnableTargetImageNameRule bool   `bson:"enable_target_image_name_rule"  json:"enable_target_image_name_rule" yaml:"enable_target_image_name_rule"`
+	TargetImageNameRule       string `bson:"target_image_name_rule"  json:"target_image_name_rule" yaml:"target_image_name_rule"`
 }
 
 type DistributeTarget struct {
