@@ -149,7 +149,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			var targetTag string
 			if j.spec.EnableTargetImageTagRule {
 				targetTag = strings.ReplaceAll(j.spec.TargetImageTagRule,
-					fmt.Sprintf("{{.job.%s.imageTag}}", j.spec.JobName),
+					"{{.job.preBuild.imageTag}}",
 					fmt.Sprintf("{{.job.%s.%s.%s.output.%s}}", j.spec.JobName, svc.ServiceName, svc.ServiceModule, IMAGETAGKEY))
 			} else {
 				targetTag = targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].TargetTag
