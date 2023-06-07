@@ -948,6 +948,13 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 						log.Debugf("pod %s is pending %s", pod.Name, pod.Status.Phase)
 						status2, ok := cm.Data[commontypes.JobResultKey]
 						log.Debugf("configMap status %s exist %v", status2, ok)
+
+						p, err := clientset.CoreV1().Pods(namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+						if err != nil {
+							log.Errorf("get pod %s error %v", pod.Name, err)
+						} else {
+							log.Debugf("get: pod %s status %s", pod.Name, p.Status.Phase)
+						}
 						continue
 					}
 					if ipod.Failed() {
