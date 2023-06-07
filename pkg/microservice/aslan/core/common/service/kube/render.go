@@ -338,9 +338,6 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	if err != nil {
 		return "", 0, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
 	}
-	if productInfo.Production {
-		prodSvcTemplate.ServiceVars = setting.ServiceVarWildCard
-	}
 
 	var usedRenderset *commonmodels.RenderSet
 	usedRenderset, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{

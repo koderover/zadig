@@ -95,6 +95,7 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		if latestSvc, ok := latestSvcs[svc.ServiceName]; ok {
 			svc.Updatable = latestSvc.Revision < svc.Revision
 		}
+		svc.DeployStrategy = productInfo.ServiceDeployStrategy[svc.ServiceName]
 	}
 
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)

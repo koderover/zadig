@@ -3206,7 +3206,6 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 				if err != nil {
 					return nil, fmt.Errorf("failed to convert service %s's render variables to yaml, err: %s", svc, err)
 				}
-
 				updatedSvcList = append(updatedSvcList, curVariable)
 			} else {
 				log.Errorf("UNEXPECT ERROR: service %s not found in environment", svc)
@@ -3214,9 +3213,7 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 		}
 	}
 
-	log.Infof("%d services will be updated", len(updatedSvcList))
 	retList := make([]*SvcDiffResult, 0)
-
 	productRenderset.ServiceVariables = updatedSvcList
 
 	for _, svcRender := range updatedSvcList {
