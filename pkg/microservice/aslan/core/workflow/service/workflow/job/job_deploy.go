@@ -87,7 +87,7 @@ func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.
 				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
 					return serviceAndImages, err
 				}
-				for _, distribute := range distributeSpec.Tatgets {
+				for _, distribute := range distributeSpec.Targets {
 					serviceAndImages = append(serviceAndImages, &commonmodels.ServiceAndImage{
 						ServiceName:   distribute.ServiceName,
 						ServiceModule: distribute.ServiceModule,

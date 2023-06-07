@@ -311,13 +311,13 @@ type ZadigDistributeImageJobSpec struct {
 	// not required when source is fromjob, directly obtained from upstream build job information
 	SourceRegistryID string              `bson:"source_registry_id"             json:"source_registry_id"            yaml:"source_registry_id"`
 	TargetRegistryID string              `bson:"target_registry_id"             json:"target_registry_id"            yaml:"target_registry_id"`
-	Tatgets          []*DistributeTarget `bson:"targets"                        json:"targets"                       yaml:"targets"`
+	Targets          []*DistributeTarget `bson:"targets"                        json:"targets"                       yaml:"targets"`
 	// unit is minute.
 	Timeout   int64  `bson:"timeout"                        json:"timeout"                       yaml:"timeout"`
 	ClusterID string `bson:"cluster_id"                     json:"cluster_id"                    yaml:"cluster_id"`
 
-	EnableTargetImageNameRule bool   `bson:"enable_target_image_name_rule"  json:"enable_target_image_name_rule" yaml:"enable_target_image_name_rule"`
-	TargetImageNameRule       string `bson:"target_image_name_rule"  json:"target_image_name_rule" yaml:"target_image_name_rule"`
+	EnableTargetImageTagRule bool   `bson:"enable_target_image_tag_rule" json:"enable_target_image_tag_rule" yaml:"enable_target_image_tag_rule"`
+	TargetImageTagRule       string `bson:"target_image_tag_rule"        json:"target_image_tag_rule"        yaml:"target_image_tag_rule"`
 }
 
 type DistributeTarget struct {

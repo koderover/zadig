@@ -69,14 +69,14 @@ func (j *ImageDistributeJob) SetPreset() error {
 				ServiceModule: svc.ServiceModule,
 			})
 		}
-		j.spec.Tatgets = targets
+		j.spec.Targets = targets
 	} else if j.spec.Source == config.SourceRuntime {
 		servicesMap, err := repository.GetMaxRevisionsServicesMap(j.workflow.Project, false)
 		if err != nil {
 			return fmt.Errorf("get services map error: %v", err)
 		}
 
-		for _, target := range j.spec.Tatgets {
+		for _, target := range j.spec.Targets {
 			target.ImageName = target.ServiceModule
 
 			service, ok := servicesMap[target.ServiceName]
@@ -108,7 +108,7 @@ func (j *ImageDistributeJob) MergeArgs(args *commonmodels.Job) error {
 		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
 			return err
 		}
-		j.spec.Tatgets = argsSpec.Tatgets
+		j.spec.Targets = argsSpec.Targets
 		j.job.Spec = j.spec
 	}
 	return nil
@@ -141,14 +141,14 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		}
 		j.spec.SourceRegistryID = refJobSpec.DockerRegistryID
 		targetTagMap := map[string]commonmodels.DistributeTarget{}
-		for _, target := range j.spec.Tatgets {
+		for _, target := range j.spec.Targets {
 			targetTagMap[getServiceKey(target.ServiceName, target.ServiceModule)] = *target
 		}
 		newTargets := []*commonmodels.DistributeTarget{}
 		for _, svc := range refJobSpec.ServiceAndBuilds {
 			var targetTag string
-			if j.spec.EnableTargetImageNameRule {
-				targetTag = strings.ReplaceAll(j.spec.TargetImageNameRule,
+			if j.spec.EnableTargetImageTagRule {
+				targetTag = strings.ReplaceAll(j.spec.TargetImageTagRule,
 					fmt.Sprintf("{{.job.%s.imageTag}}", j.spec.JobName),
 					fmt.Sprintf("{{.job.%s.%s.%s.output.%s}}", j.spec.JobName, svc.ServiceName, svc.ServiceModule, IMAGETAGKEY))
 			} else {
@@ -162,16 +162,16 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 				UpdateTag:     targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].UpdateTag,
 			})
 		}
-		j.spec.Tatgets = newTargets
+		j.spec.Targets = newTargets
 	case config.SourceRuntime:
-		for _, target := range j.spec.Tatgets {
+		for _, target := range j.spec.Targets {
 			if target.ImageName == "" {
 				target.SourceImage = getImage(target.ServiceModule, target.SourceTag, sourceReg)
 			} else {
 				target.SourceImage = getImage(target.ImageName, target.SourceTag, sourceReg)
 			}
-			if j.spec.EnableTargetImageNameRule {
-				target.TargetImage = strings.ReplaceAll(j.spec.TargetImageNameRule,
+			if j.spec.EnableTargetImageTagRule {
+				target.TargetTag = strings.ReplaceAll(j.spec.TargetImageTagRule,
 					"{{.workflow.input.imageTag}}", target.SourceImage)
 			}
 			target.UpdateTag = true
@@ -182,13 +182,13 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		SourceRegistry: getRegistry(sourceReg),
 		TargetRegistry: getRegistry(targetReg),
 	}
-	for _, target := range j.spec.Tatgets {
+	for _, target := range j.spec.Targets {
 		// for other job refer current latest image.
 		targetKey := strings.Join([]string{j.job.Name, target.ServiceName, target.ServiceModule}, ".")
 		target.TargetImage = job.GetJobOutputKey(targetKey, "IMAGE")
 
 		stepSpec.DistributeTarget = append(stepSpec.DistributeTarget, &step.DistributeTaskTarget{
-			SoureImage:    target.SourceImage,
+			SourceImage:   target.SourceImage,
 			ServiceName:   target.ServiceName,
 			ServiceModule: target.ServiceModule,
 			TargetTag:     target.TargetTag,
@@ -303,7 +303,7 @@ func (j *ImageDistributeJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return resp
 	}
-	for _, target := range j.spec.Tatgets {
+	for _, target := range j.spec.Targets {
 		targetKey := strings.Join([]string{j.job.Name, target.ServiceName, target.ServiceModule}, ".")
 		resp = append(resp, getOutputKey(targetKey, []*commonmodels.Output{{Name: "IMAGE"}})...)
 	}
