@@ -23,8 +23,8 @@ import (
 	"sync"
 
 	openapi_v2 "github.com/google/gnostic/openapiv2"
-	"github.com/koderover/zadig/pkg/tool/ai"
 	"github.com/koderover/zadig/pkg/tool/cache"
+	"github.com/koderover/zadig/pkg/tool/llm"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -32,7 +32,7 @@ type Analysis struct {
 	Context            context.Context
 	Filters            []string
 	Client             *Client
-	AIClient           ai.IAI
+	AIClient           llm.ILLM
 	Results            []Result
 	Errors             []string
 	Namespace          string
@@ -65,8 +65,8 @@ type JsonOutput struct {
 	Results  []Result       `json:"results"`
 }
 
-func NewAnalysis(hubserverAddr, clusterID string, aiClient ai.IAI, filters []string, namespace string, noCache bool, explain bool, maxConcurrency int, withDoc bool) (*Analysis, error) {
-	if aiClient == nil && explain {
+func NewAnalysis(hubserverAddr, clusterID string, llmClient llm.ILLM, filters []string, namespace string, noCache bool, explain bool, maxConcurrency int, withDoc bool) (*Analysis, error) {
+	if llmClient == nil && explain {
 		fmtErr := fmt.Errorf("Error: AI provider not specified in configuration")
 		log.Error(fmtErr)
 		return nil, fmtErr
@@ -83,12 +83,12 @@ func NewAnalysis(hubserverAddr, clusterID string, aiClient ai.IAI, filters []str
 		Context:            ctx,
 		Filters:            filters,
 		Client:             client,
-		AIClient:           aiClient,
+		AIClient:           llmClient,
 		Namespace:          namespace,
 		Cache:              cache.New(noCache),
 		Explain:            explain,
 		MaxConcurrency:     maxConcurrency,
-		AnalysisAIProvider: aiClient.GetName(),
+		AnalysisAIProvider: llmClient.GetName(),
 		WithDoc:            withDoc,
 	}, nil
 }

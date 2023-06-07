@@ -13,7 +13,7 @@ limitations under the License.
 
 // Some parts of this file have been modified to make it functional in Zadig
 
-package ai
+package llm
 
 import (
 	"context"
@@ -25,20 +25,20 @@ import (
 )
 
 var (
-	clients = map[string]IAI{
+	clients = map[string]ILLM{
 		"openai":      &OpenAIClient{},
 		"azureopenai": &OpenAIClient{},
 	}
 )
 
-type IAI interface {
-	Configure(config AIConfig) error
+type ILLM interface {
+	Configure(config LLMConfig) error
 	GetCompletion(ctx context.Context, prompt string, options ...ParamOption) (string, error)
 	Parse(ctx context.Context, prompt string, cache cache.ICache, options ...ParamOption) (string, error)
 	GetName() string
 }
 
-func NewClient(provider string) IAI {
+func NewClient(provider string) ILLM {
 	if c, ok := clients[provider]; !ok {
 		return &OpenAIClient{}
 	} else {
@@ -46,7 +46,7 @@ func NewClient(provider string) IAI {
 	}
 }
 
-type AIConfig struct {
+type LLMConfig struct {
 	Name    string
 	Model   string
 	Token   string
@@ -55,27 +55,27 @@ type AIConfig struct {
 	APIType string
 }
 
-func (p *AIConfig) GetName() string {
+func (p *LLMConfig) GetName() string {
 	return p.Name
 }
 
-func (p *AIConfig) GetBaseURL() string {
+func (p *LLMConfig) GetBaseURL() string {
 	return p.BaseURL
 }
 
-func (p *AIConfig) GetToken() string {
+func (p *LLMConfig) GetToken() string {
 	return p.Token
 }
 
-func (p *AIConfig) GetModel() string {
+func (p *LLMConfig) GetModel() string {
 	return p.Model
 }
 
-func (p *AIConfig) GetProxy() string {
+func (p *LLMConfig) GetProxy() string {
 	return p.Proxy
 }
 
-func (p *AIConfig) GetAPIType() string {
+func (p *LLMConfig) GetAPIType() string {
 	return p.APIType
 }
 

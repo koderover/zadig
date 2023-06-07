@@ -1,4 +1,4 @@
-package ai
+package llm
 
 // ParamOption is a function that configures a CallOptions.
 type ParamOption func(*ParamOptions)
@@ -51,9 +51,6 @@ func ValidOptions(options ParamOptions) ParamOptions {
 	}
 	if len(options.StopWords) == 0 {
 		options.StopWords = nil
-	}
-	if options.Model == "" {
-		options.Model = "gpt-3.5-turbo"
 	}
 	return options
 }

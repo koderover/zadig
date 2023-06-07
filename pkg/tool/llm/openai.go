@@ -13,7 +13,7 @@ limitations under the License.
 
 // Some parts of this file have been modified to make it functional in Zadig
 
-package ai
+package llm
 
 import (
 	"context"
@@ -31,11 +31,12 @@ import (
 
 type OpenAIClient struct {
 	name    string
+	model   string
 	client  *openai.Client
 	apiType string
 }
 
-func (c *OpenAIClient) Configure(config AIConfig) error {
+func (c *OpenAIClient) Configure(config LLMConfig) error {
 	token := config.GetToken()
 	var defaultConfig openai.ClientConfig
 	if config.GetAPIType() == "AZURE" || config.GetAPIType() == "AZURE_AD" {
@@ -73,6 +74,7 @@ func (c *OpenAIClient) Configure(config AIConfig) error {
 
 	c.client = client
 	c.name = config.GetName()
+	c.model = config.GetModel()
 	return nil
 }
 
@@ -85,9 +87,18 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	}
 	opts = ValidOptions(opts)
 
+	model := opts.Model
+	if model == "" {
+		if c.model == "" {
+			model = "gpt-3.5-turbo"
+		} else {
+			model = c.model
+		}
+	}
+
 	// Create a completion request
 	resp, err := c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: opts.Model,
+		Model: model,
 		Messages: []openai.ChatCompletionMessage{
 			{
 				Role:    "user",

@@ -19,7 +19,7 @@ import (
 	"context"
 
 	openapi_v2 "github.com/google/gnostic/openapiv2"
-	"github.com/koderover/zadig/pkg/tool/ai"
+	"github.com/koderover/zadig/pkg/tool/llm"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	appsv1 "k8s.io/api/apps/v1"
@@ -62,7 +62,7 @@ type Analyzer struct {
 	Client        *Client
 	Context       context.Context
 	Namespace     string
-	AIClient      ai.IAI
+	AIClient      llm.ILLM
 	PreAnalysis   map[string]PreAnalysis
 	Results       []Result
 	OpenapiSchema *openapi_v2.Document
