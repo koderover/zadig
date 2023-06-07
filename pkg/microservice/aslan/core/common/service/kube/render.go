@@ -563,11 +563,12 @@ func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet
 		return "", err
 	}
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
-	parsedYaml = replaceContainerImages(parsedYaml, svcTmpl.Containers, service.Containers)
-
+	//parsedYaml = replaceContainerImages(parsedYaml, svcTmpl.Containers, service.Containers)
+	parsedYaml, _, _ = ReplaceWorkloadImages(parsedYaml, service.Containers)
 	return parsedYaml, nil
 }
 
+// this function should be deleted
 func replaceContainerImages(tmpl string, ori []*commonmodels.Container, replace []*commonmodels.Container) string {
 
 	replaceMap := make(map[string]string)
