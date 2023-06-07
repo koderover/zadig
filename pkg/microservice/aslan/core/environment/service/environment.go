@@ -3117,6 +3117,41 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 	}
 
 	log.Infof("%d services will be updated", len(updatedSvcList))
-	ret := make([]*SvcDiffResult, 0)
-	return ret, nil
+	retList := make([]*SvcDiffResult, 0)
+
+	for _, svcRender := range updatedSvcList {
+		curYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+			ProductName:           product.ProductName,
+			EnvName:               product.EnvName,
+			ServiceName:           svcRender.ServiceName,
+			UpdateServiceRevision: false,
+		})
+		ret := &SvcDiffResult{
+			ServiceName: svcRender.ServiceName,
+		}
+		if err != nil {
+			curYaml = ""
+			ret.Error = fmt.Sprintf("failed to fetch current applied yaml, productName: %s envName: %s serviceName: %s, updateSvcRevision: %v, err: %s",
+				product.ProductName, product.EnvName, svcRender.ServiceName, false, err)
+			log.Errorf(ret.Error)
+		}
+		log.Infof("current applied yaml: %s", curYaml)
+
+		latestYaml, _, _, err := kube.GenerateRenderedYaml(&kube.GeneSvcYamlOption{
+			ProductName:           product.ProductName,
+			EnvName:               product.EnvName,
+			ServiceName:           svcRender.ServiceName,
+			UpdateServiceRevision: false,
+		})
+		if err != nil {
+			return nil, e.ErrPreviewYaml.AddErr(err)
+		}
+
+		ret.Current.Yaml = curYaml
+		ret.Latest.Yaml = latestYaml
+
+		retList = append(retList, ret)
+	}
+
+	return retList, nil
 }

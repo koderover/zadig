@@ -704,7 +704,7 @@ func PreviewGlobalVariables(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Err = service.PreviewProductGlobalVariables(projectName, envName, arg.GlobalVariables, ctx.Logger)
+	ctx.Resp, ctx.Err = service.PreviewProductGlobalVariables(projectName, envName, arg.GlobalVariables, ctx.Logger)
 }
 
 // @Summary Update global variables
