@@ -944,17 +944,22 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 				}
 				for _, pod := range pods {
 					ipod := wrapper.Pod(pod)
+					p, err := clientset.CoreV1().Pods(namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+					if err != nil {
+						log.Errorf("get pod %s error %v", pod.Name, err)
+					} else {
+						log.Debugf("get: pod %s status %s", pod.Name, p.Status.Phase)
+					}
+					cm2, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), jobName, metav1.GetOptions{})
+					if err != nil {
+						log.Errorf("get configMap %s error %v", jobName, err)
+					} else {
+						log.Debugf("get: configMap %s result %s", jobName, cm2.Data[commontypes.JobResultKey])
+					}
 					if ipod.Pending() {
 						log.Debugf("pod %s is pending %s", pod.Name, pod.Status.Phase)
 						status2, ok := cm.Data[commontypes.JobResultKey]
 						log.Debugf("configMap status %s exist %v", status2, ok)
-
-						p, err := clientset.CoreV1().Pods(namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-						if err != nil {
-							log.Errorf("get pod %s error %v", pod.Name, err)
-						} else {
-							log.Debugf("get: pod %s status %s", pod.Name, p.Status.Phase)
-						}
 						continue
 					}
 					if ipod.Failed() {
