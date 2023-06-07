@@ -945,7 +945,7 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 				for _, pod := range pods {
 					ipod := wrapper.Pod(pod)
 					if ipod.Pending() {
-						log.Debugf("pod %s is pending", pod.Name)
+						log.Debugf("pod %s is pending %s", pod.Name, pod.Status.Phase)
 						continue
 					}
 					if ipod.Failed() {
