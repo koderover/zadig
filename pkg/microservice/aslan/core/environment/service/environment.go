@@ -1041,7 +1041,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 	}
 	opt := &commonrepo.RenderSetFindOption{
 		Name:        product.Render.Name,
-		Revision:    product.Revision,
+		Revision:    product.Render.Revision,
 		IsDefault:   false,
 		EnvName:     envName,
 		ProductTmpl: productName,
