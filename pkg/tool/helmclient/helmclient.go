@@ -39,7 +39,6 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
-	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/plugin"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -478,8 +477,7 @@ func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec)
 		}
 	}
 
-	p := getter.All(c.Settings)
-	values, err := spec.GetValuesMap(p)
+	values, err := spec.GetValuesMap()
 	if err != nil {
 		return nil, err
 	}
@@ -514,8 +512,7 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 		}
 	}
 
-	p := getter.All(c.Settings)
-	values, err := spec.GetValuesMap(p)
+	values, err := spec.GetValuesMap()
 	if err != nil {
 		return nil, err
 	}

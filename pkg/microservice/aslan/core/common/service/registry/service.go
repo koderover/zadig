@@ -153,7 +153,7 @@ func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger)
 	}
 
 	authTransport := transport.NewTransport(base)
-	challengeManager, err := registry.PingV2Registry(endpointURL, authTransport)
+	challengeManager, _, err := registry.PingV2Registry(endpointURL, authTransport)
 
 	if err != nil {
 		if responseErr, ok := err.(registry.PingResponseError); ok {

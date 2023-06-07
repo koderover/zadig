@@ -41,8 +41,7 @@ func (c *OpenAIClient) Configure(config AIConfig) error {
 	if config.GetAPIType() == "AZURE" || config.GetAPIType() == "AZURE_AD" {
 		c.apiType = "AZURE"
 		baseURL := config.GetBaseURL()
-		engine := config.GetEngine()
-		defaultConfig = openai.DefaultAzureConfig(token, baseURL, engine)
+		defaultConfig = openai.DefaultAzureConfig(token, baseURL)
 
 		if config.GetAPIType() == "AZURE_AD" {
 			c.apiType = "AZURE_AD"

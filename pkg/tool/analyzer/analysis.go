@@ -23,16 +23,6 @@ import (
 	"sync"
 
 	openapi_v2 "github.com/google/gnostic/openapiv2"
-	"github.com/k8sgpt-ai/k8sgpt/pkg/analyzer"
-	"github.com/k8sgpt-ai/k8sgpt/pkg/common"
-	"github.com/k8sgpt-ai/k8sgpt/pkg/kubernetes"
-	"github.com/k8sgpt-ai/k8sgpt/pkg/util"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	k8s "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/kubectl/pkg/scheme"
-
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/ai"
 	"github.com/koderover/zadig/pkg/tool/cache"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -41,9 +31,9 @@ import (
 type Analysis struct {
 	Context            context.Context
 	Filters            []string
-	Client             *kubernetes.Client
+	Client             *Client
 	AIClient           ai.IAI
-	Results            []common.Result
+	Results            []Result
 	Errors             []string
 	Namespace          string
 	Cache              cache.ICache
@@ -68,43 +58,11 @@ const (
 )
 
 type JsonOutput struct {
-	Provider string          `json:"provider"`
-	Errors   AnalysisErrors  `json:"errors"`
-	Status   AnalysisStatus  `json:"status"`
-	Problems int             `json:"problems"`
-	Results  []common.Result `json:"results"`
-}
-
-func newClient(hubserverAddr, clusterID string) (*kubernetes.Client, error) {
-	config, err := kubeclient.GetRESTConfig(hubserverAddr, clusterID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rest config: %w", err)
-	}
-
-	clientSet, err := k8s.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	config.APIPath = "/api"
-	config.GroupVersion = &scheme.Scheme.PrioritizedVersionsForGroup("")[0]
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
-
-	restClient, err := rest.RESTClientFor(config)
-	if err != nil {
-		return nil, err
-	}
-
-	serverVersion, err := clientSet.ServerVersion()
-	if err != nil {
-		return nil, err
-	}
-
-	return &kubernetes.Client{
-		Client:        clientSet,
-		RestClient:    restClient,
-		Config:        config,
-		ServerVersion: serverVersion,
-	}, nil
+	Provider string         `json:"provider"`
+	Errors   AnalysisErrors `json:"errors"`
+	Status   AnalysisStatus `json:"status"`
+	Problems int            `json:"problems"`
+	Results  []Result       `json:"results"`
 }
 
 func NewAnalysis(hubserverAddr, clusterID string, aiClient ai.IAI, filters []string, namespace string, noCache bool, explain bool, maxConcurrency int, withDoc bool) (*Analysis, error) {
@@ -114,7 +72,7 @@ func NewAnalysis(hubserverAddr, clusterID string, aiClient ai.IAI, filters []str
 		return nil, fmtErr
 	}
 
-	client, err := newClient(hubserverAddr, clusterID)
+	client, err := NewClient(hubserverAddr, clusterID)
 	if err != nil {
 		log.Errorf("Error initialising kubernetes client: %v", err)
 		return nil, err
@@ -136,7 +94,7 @@ func NewAnalysis(hubserverAddr, clusterID string, aiClient ai.IAI, filters []str
 }
 
 func (a *Analysis) RunAnalysis(activeFilters []string) {
-	coreAnalyzerMap, analyzerMap := analyzer.GetAnalyzerMap()
+	coreAnalyzerMap, analyzerMap := GetAnalyzerMap()
 
 	// we get the openapi schema from the server only if required by the flag "with-doc"
 	openapiSchema := &openapi_v2.Document{}
@@ -149,10 +107,11 @@ func (a *Analysis) RunAnalysis(activeFilters []string) {
 		}
 	}
 
-	analyzerConfig := common.Analyzer{
+	analyzerConfig := Analyzer{
 		Client:        a.Client,
 		Context:       a.Context,
 		Namespace:     a.Namespace,
+		AIClient:      a.AIClient,
 		OpenapiSchema: openapiSchema,
 	}
 
@@ -164,7 +123,7 @@ func (a *Analysis) RunAnalysis(activeFilters []string) {
 		for _, analyzer := range coreAnalyzerMap {
 			wg.Add(1)
 			semaphore <- struct{}{}
-			go func(analyzer common.IAnalyzer, wg *sync.WaitGroup, semaphore chan struct{}) {
+			go func(analyzer IAnalyzer, wg *sync.WaitGroup, semaphore chan struct{}) {
 				defer wg.Done()
 				results, err := analyzer.Analyze(analyzerConfig)
 				if err != nil {
@@ -191,7 +150,7 @@ func (a *Analysis) RunAnalysis(activeFilters []string) {
 			if analyzer, ok := analyzerMap[filter]; ok {
 				semaphore <- struct{}{}
 				wg.Add(1)
-				go func(analyzer common.IAnalyzer, filter string) {
+				go func(analyzer IAnalyzer, filter string) {
 					defer wg.Done()
 					results, err := analyzer.Analyze(analyzerConfig)
 					if err != nil {
@@ -220,7 +179,7 @@ func (a *Analysis) RunAnalysis(activeFilters []string) {
 		if analyzer, ok := analyzerMap[filter]; ok {
 			semaphore <- struct{}{}
 			wg.Add(1)
-			go func(analyzer common.IAnalyzer, filter string) {
+			go func(analyzer IAnalyzer, filter string) {
 				defer wg.Done()
 				results, err := analyzer.Analyze(analyzerConfig)
 				if err != nil {
@@ -249,7 +208,7 @@ func (a *Analysis) GetAIResults(output string, anonymize bool) error {
 		for _, failure := range analysis.Error {
 			if anonymize {
 				for _, s := range failure.Sensitive {
-					failure.Text = util.ReplaceIfMatch(failure.Text, s.Unmasked, s.Masked)
+					failure.Text = ReplaceIfMatch(failure.Text, s.Unmasked, s.Masked)
 				}
 			}
 			texts = append(texts, failure.Text)

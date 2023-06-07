@@ -22,8 +22,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/k8sgpt-ai/k8sgpt/pkg/kubernetes"
-	"github.com/k8sgpt-ai/k8sgpt/pkg/common"
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
@@ -33,7 +31,7 @@ import (
 )
 
 // sub-function
-func analysis_RunAnalysisFilterTester(t *testing.T, filterFlag string, activceFilters []string) []common.Result {
+func analysis_RunAnalysisFilterTester(t *testing.T, filterFlag string, activceFilters []string) []Result {
 	clientset := fake.NewSimpleClientset(
 		&v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -81,10 +79,10 @@ func analysis_RunAnalysisFilterTester(t *testing.T, filterFlag string, activceFi
 
 	analysis := Analysis{
 		Context:        context.Background(),
-		Results:        []common.Result{},
+		Results:        []Result{},
 		Namespace:      "default",
 		MaxConcurrency: 1,
-		Client: &kubernetes.Client{
+		Client: &Client{
 			Client: clientset,
 		},
 	}
@@ -99,7 +97,7 @@ func analysis_RunAnalysisFilterTester(t *testing.T, filterFlag string, activceFi
 
 // Test: Filter logic with running different Analyzers
 func TestAnalysis_RunAnalysisWithFilter(t *testing.T) {
-	var results []common.Result
+	var results []Result
 	var filterFlag string
 
 	//1. Neither --filter flag Nor active filter is specified, only the "core analyzers"
@@ -122,7 +120,7 @@ func TestAnalysis_RunAnalysisWithFilter(t *testing.T) {
 func TestAnalysis_RunAnalysisActiveFilter(t *testing.T) {
 
 	//When the --filter flag is not specified but has actived filter in config
-	var results []common.Result
+	var results []Result
 
 	activeFilters := []string{"Ingress"}
 	results = analysis_RunAnalysisFilterTester(t, "", activeFilters)
@@ -140,14 +138,14 @@ func TestAnalysis_RunAnalysisActiveFilter(t *testing.T) {
 func TestAnalysis_NoProblemJsonOutput(t *testing.T) {
 
 	analysis := Analysis{
-		Results:   []common.Result{},
+		Results:   []Result{},
 		Namespace: "default",
 	}
 
 	expected := JsonOutput{
 		Status:   StateOK,
 		Problems: 0,
-		Results:  []common.Result{},
+		Results:  []Result{},
 	}
 
 	gotJson, err := analysis.PrintOutput("json")
@@ -170,14 +168,14 @@ func TestAnalysis_NoProblemJsonOutput(t *testing.T) {
 
 func TestAnalysis_ProblemJsonOutput(t *testing.T) {
 	analysis := Analysis{
-		Results: []common.Result{
+		Results: []Result{
 			{
 				Kind: "Deployment",
 				Name: "test-deployment",
-				Error: []common.Failure{
+				Error: []Failure{
 					{
 						Text:      "test-problem",
-						Sensitive: []common.Sensitive{},
+						Sensitive: []Sensitive{},
 					},
 				},
 				Details:      "test-solution",
@@ -189,14 +187,14 @@ func TestAnalysis_ProblemJsonOutput(t *testing.T) {
 	expected := JsonOutput{
 		Status:   StateProblemDetected,
 		Problems: 1,
-		Results: []common.Result{
+		Results: []Result{
 			{
 				Kind: "Deployment",
 				Name: "test-deployment",
-				Error: []common.Failure{
+				Error: []Failure{
 					{
 						Text:      "test-problem",
-						Sensitive: []common.Sensitive{},
+						Sensitive: []Sensitive{},
 					},
 				},
 				Details:      "test-solution",
@@ -223,18 +221,18 @@ func TestAnalysis_ProblemJsonOutput(t *testing.T) {
 
 func TestAnalysis_MultipleProblemJsonOutput(t *testing.T) {
 	analysis := Analysis{
-		Results: []common.Result{
+		Results: []Result{
 			{
 				Kind: "Deployment",
 				Name: "test-deployment",
-				Error: []common.Failure{
+				Error: []Failure{
 					{
 						Text:      "test-problem",
-						Sensitive: []common.Sensitive{},
+						Sensitive: []Sensitive{},
 					},
 					{
 						Text:      "another-test-problem",
-						Sensitive: []common.Sensitive{},
+						Sensitive: []Sensitive{},
 					},
 				},
 				Details:      "test-solution",
@@ -246,18 +244,18 @@ func TestAnalysis_MultipleProblemJsonOutput(t *testing.T) {
 	expected := JsonOutput{
 		Status:   StateProblemDetected,
 		Problems: 2,
-		Results: []common.Result{
+		Results: []Result{
 			{
 				Kind: "Deployment",
 				Name: "test-deployment",
-				Error: []common.Failure{
+				Error: []Failure{
 					{
 						Text:      "test-problem",
-						Sensitive: []common.Sensitive{},
+						Sensitive: []Sensitive{},
 					},
 					{
 						Text:      "another-test-problem",
-						Sensitive: []common.Sensitive{},
+						Sensitive: []Sensitive{},
 					},
 				},
 				Details:      "test-solution",

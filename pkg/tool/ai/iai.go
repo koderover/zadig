@@ -53,7 +53,6 @@ type AIConfig struct {
 	BaseURL string
 	Proxy   string
 	APIType string
-	Engine  string
 }
 
 func (p *AIConfig) GetName() string {
@@ -78,10 +77,6 @@ func (p *AIConfig) GetProxy() string {
 
 func (p *AIConfig) GetAPIType() string {
 	return p.APIType
-}
-
-func (p *AIConfig) GetEngine() string {
-	return p.Engine
 }
 
 func GetCacheKey(provider string, sEnc string) string {
