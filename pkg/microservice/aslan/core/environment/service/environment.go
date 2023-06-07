@@ -1019,8 +1019,19 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 				}
 			}
 		} else {
-			// TODO add filter logic here
-			updatedSvcList = productRenderset.ChartInfos
+			diffSvcs, err := PreviewHelmProductGlobalVariables(productRenderset.ProductTmpl, productRenderset.EnvName, args.DefaultValues, log)
+			if err != nil {
+				return fmt.Errorf("failed to fetch diff services, err: %s", err)
+			}
+			svcSet := sets.NewString()
+			for _, svc := range diffSvcs {
+				svcSet.Insert(svc.ServiceName)
+			}
+			for _, svcChart := range productRenderset.ChartInfos {
+				if svcSet.Has(svcChart.ServiceName) {
+					updatedSvcList = append(updatedSvcList, svcChart)
+				}
+			}
 		}
 	}
 	return UpdateProductVariable(productRenderset.ProductTmpl, productRenderset.EnvName, userName, requestID, updatedSvcList, productRenderset, args.DeployType, log)
