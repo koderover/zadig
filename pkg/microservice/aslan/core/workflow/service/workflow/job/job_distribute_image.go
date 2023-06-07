@@ -146,20 +146,24 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		}
 		newTargets := []*commonmodels.DistributeTarget{}
 		for _, svc := range refJobSpec.ServiceAndBuilds {
-			var targetTag string
+			var (
+				targetTag string
+				updateTag bool
+			)
 			if j.spec.EnableTargetImageTagRule {
-				targetTag = strings.ReplaceAll(j.spec.TargetImageTagRule,
-					"{{.job.preBuild.imageTag}}",
+				targetTag = strings.ReplaceAll(j.spec.TargetImageTagRule, "{{.job.preBuild.imageTag}}",
 					fmt.Sprintf("{{.job.%s.%s.%s.output.%s}}", j.spec.JobName, svc.ServiceName, svc.ServiceModule, IMAGETAGKEY))
+				updateTag = true
 			} else {
 				targetTag = targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].TargetTag
+				updateTag = targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].UpdateTag
 			}
 			newTargets = append(newTargets, &commonmodels.DistributeTarget{
 				ServiceName:   svc.ServiceName,
 				ServiceModule: svc.ServiceModule,
 				SourceImage:   svc.Image,
 				TargetTag:     targetTag,
-				UpdateTag:     targetTagMap[getServiceKey(svc.ServiceName, svc.ServiceModule)].UpdateTag,
+				UpdateTag:     updateTag,
 			})
 		}
 		j.spec.Targets = newTargets
