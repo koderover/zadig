@@ -908,7 +908,7 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 	podLister := informer.Core().V1().Pods().Lister().Pods(namespace)
 	jobLister := informer.Batch().V1().Jobs().Lister().Jobs(namespace)
 	cmLister := informer.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace)
-
+	log := log.SugaredLogger().With("jobName", jobName)
 	for {
 		select {
 		case <-ctx.Done():
@@ -919,6 +919,7 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 
 		default:
 			job, err := jobLister.Get(jobName)
+			log.Debugf("get job")
 			if err != nil {
 				errMsg := fmt.Sprintf("failed to get job pod job-name=%s %v", jobName, err)
 				xl.Errorf(errMsg)
@@ -926,6 +927,7 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 			}
 			// configMap name is the same as the k8s job name
 			cm, err := cmLister.Get(jobName)
+			log.Debugf("get configMap")
 			if err != nil {
 				errMsg := fmt.Sprintf("failed to get job context configMap job-name=%s %v", jobName, err)
 				xl.Errorf(errMsg)
@@ -934,6 +936,7 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 			// pod is still running
 			if job.Status.Active != 0 {
 				pods, err := podLister.List(labels.Set{"job-name": jobName}.AsSelector())
+				log.Debugf("list pods")
 				if err != nil {
 					errMsg := fmt.Sprintf("failed to find pod with label job-name=%s %v", jobName, err)
 					xl.Errorf(errMsg)
@@ -942,12 +945,14 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 				for _, pod := range pods {
 					ipod := wrapper.Pod(pod)
 					if ipod.Pending() {
+						log.Debugf("pod %s is pending", pod.Name)
 						continue
 					}
 					if ipod.Failed() {
 						return config.StatusFailed, ""
 					}
 					if !ipod.Finished() {
+						log.Debugf("pod %s is running", pod.Name)
 						// check container whether is stuck in debug stage by checking stage file, if so, update job status to debug
 						switch cm.Data[commontypes.JobDebugStatusKey] {
 						case commontypes.JobDebugStatusBefore:
