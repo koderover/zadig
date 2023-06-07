@@ -933,6 +933,18 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 				xl.Errorf(errMsg)
 				return config.StatusFailed, errMsg
 			}
+			p, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "job-name=" + jobName})
+			if err != nil {
+				log.Errorf("get pod error %v", err)
+			} else {
+				log.Debugf("get: pod %s status %s", jobName, p.Items[0].Status.Phase)
+			}
+			cm2, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), jobName, metav1.GetOptions{})
+			if err != nil {
+				log.Errorf("get configMap %s error %v", jobName, err)
+			} else {
+				log.Debugf("get: configMap %s result %s", jobName, cm2.Data[commontypes.JobResultKey])
+			}
 			// pod is still running
 			if job.Status.Active != 0 {
 				pods, err := podLister.List(labels.Set{"job-name": jobName}.AsSelector())
@@ -944,18 +956,6 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 				}
 				for _, pod := range pods {
 					ipod := wrapper.Pod(pod)
-					p, err := clientset.CoreV1().Pods(namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-					if err != nil {
-						log.Errorf("get pod %s error %v", pod.Name, err)
-					} else {
-						log.Debugf("get: pod %s status %s", pod.Name, p.Status.Phase)
-					}
-					cm2, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), jobName, metav1.GetOptions{})
-					if err != nil {
-						log.Errorf("get configMap %s error %v", jobName, err)
-					} else {
-						log.Debugf("get: configMap %s result %s", jobName, cm2.Data[commontypes.JobResultKey])
-					}
 					if ipod.Pending() {
 						log.Debugf("pod %s is pending %s", pod.Name, pod.Status.Phase)
 						status2, ok := cm.Data[commontypes.JobResultKey]
