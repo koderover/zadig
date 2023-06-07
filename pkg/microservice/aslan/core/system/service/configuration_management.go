@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/pkg/errors"
-
 	"github.com/imroc/req/v3"
+	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
@@ -25,6 +24,27 @@ func ListConfigurationManagement(_type string, log *zap.SugaredLogger) ([]*commo
 	if err != nil {
 		log.Errorf("list configuration management error: %v", err)
 		return nil, e.ErrListConfigurationManagement
+	}
+
+	// removing sensitive information
+	for _, cm := range resp {
+		var authConfig interface{}
+		switch cm.Type {
+		case setting.SourceFromApollo:
+			authConfig = &commonmodels.ApolloAuthConfig{
+				Token: "",
+			}
+		case setting.SourceFromNacos:
+			cfg, ok := cm.AuthConfig.(*commonmodels.NacosAuthConfig)
+			if !ok {
+				return nil, fmt.Errorf("failed to convert auth config into nacos auth config")
+			}
+			authConfig = &commonmodels.NacosAuthConfig{
+				UserName: cfg.UserName,
+				Password: "",
+			}
+		}
+		cm.AuthConfig = authConfig
 	}
 
 	return resp, nil
@@ -53,6 +73,25 @@ func GetConfigurationManagement(id string, log *zap.SugaredLogger) (*commonmodel
 		log.Errorf("get configuration management error: %v", err)
 		return nil, e.ErrGetConfigurationManagement.AddErr(err)
 	}
+
+	// removing sensitive information
+	var authConfig interface{}
+	switch resp.Type {
+	case setting.SourceFromApollo:
+		authConfig = &commonmodels.ApolloAuthConfig{
+			Token: "",
+		}
+	case setting.SourceFromNacos:
+		cfg, ok := resp.AuthConfig.(*commonmodels.NacosAuthConfig)
+		if !ok {
+			return nil, fmt.Errorf("failed to convert auth config into nacos auth config")
+		}
+		authConfig = &commonmodels.NacosAuthConfig{
+			UserName: cfg.UserName,
+			Password: "",
+		}
+	}
+	resp.AuthConfig = authConfig
 
 	return resp, nil
 }

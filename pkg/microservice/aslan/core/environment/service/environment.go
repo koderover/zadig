@@ -2557,8 +2557,8 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 // diffRenderSet get diff between renderset in product and product template
 // generate a new renderset and insert into db
 func diffRenderSet(username, productName, envName string, productResp *commonmodels.Product, overrideCharts []*commonservice.HelmSvcRenderArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
-	// default renderset
-	latestRenderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: productName, IsDefault: true})
+	// default renderset created directly from the service template
+	latestRenderSet, err := render.GetLatestRenderSetFromHelmProject(productName, false)
 	if err != nil {
 		log.Errorf("[RenderSet.find] err: %v", err)
 		return nil, err

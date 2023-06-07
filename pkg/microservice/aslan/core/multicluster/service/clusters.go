@@ -168,9 +168,10 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 			LastConnectionTime:     c.LastConnectionTime,
 			UpdateHubagentErrorMsg: c.UpdateHubagentErrorMsg,
 			DindCfg:                c.DindCfg,
-			KubeConfig:             c.KubeConfig,
 			Type:                   c.Type,
 			ShareStorage:           c.ShareStorage,
+			// KubeConfig will no longer be returned due to security reasons.
+			// KubeConfig:             c.KubeConfig,
 		}
 
 		// compatibility for the data before 1.14, since type is a new field since 1.14
