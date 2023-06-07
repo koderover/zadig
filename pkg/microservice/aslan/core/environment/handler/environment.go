@@ -187,8 +187,9 @@ func ensureProductionNamespace(createArgs []*service.CreateSingleProductArg) err
 			}
 		}
 
-		// 5. arg.namespace is not in valid namespace list
-		return fmt.Errorf("namespace %s does not belong to legal namespace", arg.Namespace)
+		//5. arg.namespace is not in valid namespace list
+		//return fmt.Errorf("namespace %s does not belong to legal namespace", arg.Namespace)
+		return nil
 	}
 	return nil
 }
