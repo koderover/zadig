@@ -691,16 +691,20 @@ func PreviewGlobalVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	if c.Query("projectName") == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	if c.Query("envName") == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+	arg := new(updateK8sProductGlobalVariablesRequest)
+
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-
+	ctx.Err = service.PreviewProductGlobalVariables(projectName, envName, arg.GlobalVariables, ctx.Logger)
 }
 
 // @Summary Update global variables

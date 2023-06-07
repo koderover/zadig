@@ -2888,6 +2888,32 @@ func GetGlobalVariableCandidate(productName, envName string, log *zap.SugaredLog
 	return ret, nil
 }
 
+func PreviewProductGlobalVariables(productName, envName string, arg []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
+		return nil, err
+	}
+
+	opt := &commonrepo.RenderSetFindOption{
+		Name:        product.Render.Name,
+		EnvName:     envName,
+		ProductTmpl: product.Render.ProductTmpl,
+		Revision:    product.Render.Revision,
+	}
+	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil || productRenderset == nil {
+		if err != nil {
+			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
+		}
+		return nil, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
+	}
+	return PreviewProductGlobalVariablesWithRender(product, productRenderset, arg, log)
+}
+
 func UpdateProductGlobalVariables(productName, envName, userName, requestID string, currentRevision int64, arg []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
@@ -3014,4 +3040,83 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		}
 	}
 	return UpdateProductVariable(productRenderset.ProductTmpl, productRenderset.EnvName, userName, requestID, updatedSvcList, productRenderset, setting.K8SDeployType, log)
+}
+
+func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, productRenderset *models.RenderSet, args []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
+	//productYaml, err := commontypes.GlobalVariableKVToYaml(productRenderset.GlobalVariables)
+	//if err != nil {
+	//	return fmt.Errorf("failed to convert proudct's global variables to yaml, err: %s", err)
+	//}
+
+	var err error
+	argMap := make(map[string]*commontypes.GlobalVariableKV)
+	argSet := sets.NewString()
+	for _, kv := range args {
+		argMap[kv.Key] = kv
+		argSet.Insert(kv.Key)
+	}
+	productMap := make(map[string]*commontypes.GlobalVariableKV)
+	productSet := sets.NewString()
+	for _, kv := range productRenderset.GlobalVariables {
+		productMap[kv.Key] = kv
+		productSet.Insert(kv.Key)
+	}
+
+	deletedVariableSet := productSet.Difference(argSet)
+	for _, key := range deletedVariableSet.List() {
+		if _, ok := productMap[key]; !ok {
+			return nil, fmt.Errorf("UNEXPECT ERROR: global variable %s not found in environment", key)
+		}
+		if len(productMap[key].RelatedServices) != 0 {
+			return nil, fmt.Errorf("global variable %s is used by service %v, can't delete it", key, productMap[key].RelatedServices)
+		}
+	}
+
+	productRenderset.GlobalVariables = args
+	updatedSvcList := make([]*templatemodels.ServiceRender, 0)
+	for _, argKV := range argMap {
+		productKV, ok := productMap[argKV.Key]
+		if !ok {
+			// new global variable, don't need to update service
+			if len(argKV.RelatedServices) != 0 {
+				return nil, fmt.Errorf("UNEXPECT ERROR: global variable %s is new, but RelatedServices is not empty", argKV.Key)
+			}
+			continue
+		}
+
+		if productKV.Value == argKV.Value {
+			continue
+		}
+
+		svcSet := sets.NewString()
+		for _, svc := range productKV.RelatedServices {
+			if !commonutil.ServiceDeployed(svc, product.ServiceDeployStrategy) {
+				continue
+			}
+			svcSet.Insert(svc)
+		}
+
+		svcVariableMap := make(map[string]*templatemodels.ServiceRender)
+		for _, svc := range productRenderset.ServiceVariables {
+			svcVariableMap[svc.ServiceName] = svc
+		}
+
+		for _, svc := range svcSet.List() {
+			if curVariable, ok := svcVariableMap[svc]; ok {
+				curVariable.OverrideYaml.RenderVariableKVs = commontypes.UpdateRenderVariable(args, curVariable.OverrideYaml.RenderVariableKVs)
+				curVariable.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(curVariable.OverrideYaml.RenderVariableKVs)
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert service %s's render variables to yaml, err: %s", svc, err)
+				}
+
+				updatedSvcList = append(updatedSvcList, curVariable)
+			} else {
+				log.Errorf("UNEXPECT ERROR: service %s not found in environment", svc)
+			}
+		}
+	}
+
+	log.Infof("%d services will be updated", len(updatedSvcList))
+	ret := make([]*SvcDiffResult, 0)
+	return ret, nil
 }

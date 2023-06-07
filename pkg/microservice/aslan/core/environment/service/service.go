@@ -429,9 +429,12 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 	})
 	if err != nil {
 		curYaml = ""
-		log.Errorf("failed to fetch current applied yaml, productName: %s envName: %s serviceName: %s, updateSvcRevision: %v, variableYaml: %s err: %s",
+		ret.Error = fmt.Sprintf("failed to fetch current applied yaml, productName: %s envName: %s serviceName: %s, updateSvcRevision: %v, variableYaml: %s err: %s",
 			args.ProductName, args.EnvName, args.ServiceName, args.UpdateServiceRevision, newVariableYaml, err)
+		log.Errorf(ret.Error)
 	}
+	log.Infof("current applied yaml: %s", curYaml)
+	log.Infof("param is +%v", *args)
 
 	// for situations only update images, replace images directly
 	if !args.UpdateServiceRevision && len(args.VariableKVs) == 0 {
