@@ -3043,11 +3043,6 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 }
 
 func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, productRenderset *models.RenderSet, args []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
-	//productYaml, err := commontypes.GlobalVariableKVToYaml(productRenderset.GlobalVariables)
-	//if err != nil {
-	//	return fmt.Errorf("failed to convert proudct's global variables to yaml, err: %s", err)
-	//}
-
 	var err error
 	argMap := make(map[string]*commontypes.GlobalVariableKV)
 	argSet := sets.NewString()
@@ -3119,6 +3114,8 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 	log.Infof("%d services will be updated", len(updatedSvcList))
 	retList := make([]*SvcDiffResult, 0)
 
+	productRenderset.ServiceVariables = updatedSvcList
+
 	for _, svcRender := range updatedSvcList {
 		curYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 			ProductName:           product.ProductName,
@@ -3135,21 +3132,21 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 				product.ProductName, product.EnvName, svcRender.ServiceName, false, err)
 			log.Errorf(ret.Error)
 		}
-		log.Infof("current applied yaml: %s", curYaml)
 
-		latestYaml, _, _, err := kube.GenerateRenderedYaml(&kube.GeneSvcYamlOption{
-			ProductName:           product.ProductName,
-			EnvName:               product.EnvName,
-			ServiceName:           svcRender.ServiceName,
-			UpdateServiceRevision: false,
-		})
+		prodSvc := product.GetServiceMap()[svcRender.ServiceName]
+		if prodSvc == nil {
+			ret.Error = fmt.Sprintf("service: %s not found in product", svcRender.ServiceName)
+			retList = append(retList, ret)
+			continue
+		}
+
+		ret.Latest.Yaml, err = kube.RenderEnvService(product, productRenderset, prodSvc)
 		if err != nil {
-			return nil, e.ErrPreviewYaml.AddErr(err)
+			retList = append(retList, ret)
+			continue
 		}
 
 		ret.Current.Yaml = curYaml
-		ret.Latest.Yaml = latestYaml
-
 		retList = append(retList, ret)
 	}
 

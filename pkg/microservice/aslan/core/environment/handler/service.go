@@ -125,7 +125,7 @@ func BatchPreviewServices(c *gin.Context) {
 
 	for _, arg := range args {
 		arg.ProductName = c.Query("projectName")
-		arg.EnvName = c.Query("name")
+		arg.EnvName = c.Param("name")
 	}
 
 	ctx.Resp, ctx.Err = service.BatchPreviewService(args, ctx.Logger)

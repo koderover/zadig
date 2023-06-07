@@ -433,8 +433,6 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 			args.ProductName, args.EnvName, args.ServiceName, args.UpdateServiceRevision, newVariableYaml, err)
 		log.Errorf(ret.Error)
 	}
-	log.Infof("current applied yaml: %s", curYaml)
-	log.Infof("param is +%v", *args)
 
 	// for situations only update images, replace images directly
 	if !args.UpdateServiceRevision && len(args.VariableKVs) == 0 {
