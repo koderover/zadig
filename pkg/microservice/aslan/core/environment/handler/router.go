@@ -168,6 +168,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		production.PUT("/environments/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
 		production.PUT("/environments/:name/helm/default-values", UpdateHelmProductDefaultValues)
+		production.POST("/environments/:name/helm/default-values/preview", UpdateHelmProductDefaultValues)
 		production.GET("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
 
 		production.POST("/environments/:name/services/:serviceName/restart", RestartService)
@@ -204,7 +205,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/affectedservices", AffectedServices)
 		environments.POST("/:name/estimated-values", EstimatedValues)
 		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
+
 		environments.PUT("/:name/helm/default-values", UpdateHelmProductDefaultValues)
+		environments.POST("/:name/helm/default-values/preview", UpdateHelmProductDefaultValues)
+
 		environments.PUT("/:name/k8s/default-values", UpdateK8sProductDefaultValues)
 		environments.PUT("/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
 		environments.GET("/:name/globalVariableCandidates", GetGlobalVariableCandidates)
@@ -226,7 +230,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", UpdateService)
 		environments.POST("/:name/services/:serviceName/preview", PreviewService)
-		environments.POST("/:name/services/batch/preview", BatchPreviewServices)
+		environments.POST("/:name/services/preview/batch", BatchPreviewServices)
 		environments.POST("/:name/services/:serviceName/restart", RestartService)
 		environments.POST("/:name/services/:serviceName/restartNew", RestartWorkload)
 		environments.POST("/:name/services/:serviceName/scaleNew", ScaleNewService)

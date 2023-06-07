@@ -117,7 +117,8 @@ func BatchPreviewServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := make([]*service.PreviewServiceArgs, 0)
-	if err := c.BindJSON(args); err != nil {
+	if err := c.BindJSON(&args); err != nil {
+		ctx.Logger.Errorf("faield to bind args, err: %s", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}

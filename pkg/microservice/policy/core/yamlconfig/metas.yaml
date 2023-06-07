@@ -835,6 +835,10 @@ metas:
             endpoint: '/api/aslan/environment/envcfgs/:name'
           - method: DELETE
             endpoint: '/api/aslan/environment/envcfgs/:name/cfg/?*'
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/k8s/globalVariables'
+          - method: POST
+            endpoint: 'api/aslan/environment/environments/:name/helm/default-values/preview'
       - action: manage_environment
         alias: 管理服务实例
         description: ''
@@ -933,6 +937,12 @@ metas:
             endpoint: '/api/aslan/environment/production/envcfgs/:name'
           - method: DELETE
             endpoint: '/api/aslan/environment/production/envcfgs/:name/cfg/?*'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments/:name/k8s/globalVariables'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments/:name/helm/default-values'
+          - method: POST
+            endpoint: 'api/aslan/environment/production/environments/:name/helm/default-values/preview'
       - action: edit_production_environment
         alias: 管理服务实例
         description: ""
