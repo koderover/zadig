@@ -399,6 +399,7 @@ func BatchPreviewService(args []*PreviewServiceArgs, logger *zap.SugaredLogger) 
 	for _, arg := range args {
 		previewRet, err := PreviewService(arg, logger)
 		if err != nil {
+			previewRet = &SvcDiffResult{}
 			previewRet.Error = err.Error()
 		}
 		ret = append(ret, previewRet)
