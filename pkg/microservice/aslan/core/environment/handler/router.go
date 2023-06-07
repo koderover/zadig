@@ -139,6 +139,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		production.PUT("/environments", UpdateMultiProductionProducts)
 		production.PUT("/environments/:name/services", DeleteProductServices)
+		production.POST("/environments/:name/estimated-values", ProductionEstimatedValues)
 
 		production.GET("/environments", ListProductionEnvs)
 		production.GET("/environments/:name", GetProduct)

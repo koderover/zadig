@@ -224,7 +224,7 @@ func CreateHostProductionProduct(productName, userName, requestID string, args [
 	return errList.ErrorOrNil()
 }
 
-// TODO add production parameter
+// create helm product, only works in test product
 func CreateHelmProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil || templateProduct == nil {
@@ -235,7 +235,7 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateSi
 	}
 
 	// fill all chart infos from product renderset
-	err = commonservice.FillProductTemplateValuesYamls(templateProduct, log)
+	err = commonservice.FillProductTemplateValuesYamls(templateProduct, false, log)
 	if err != nil {
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}

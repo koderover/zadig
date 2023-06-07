@@ -22,6 +22,8 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -135,11 +137,6 @@ func CreateK8sHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger
 	return CreateRenderSet(args, log)
 }
 
-func CreateDefaultHelmRenderset(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	args.IsDefault = true
-	return createRenderset(args, log)
-}
-
 func createRenderset(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	if err := ensureRenderSetArgs(args); err != nil {
 		log.Error(err)
@@ -197,14 +194,7 @@ func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.Sug
 
 // GetLatestRenderSetFromProject returns the latest renderset created directly from service definition.
 func GetLatestRenderSetFromHelmProject(productName string, isProduction bool) (*commonmodels.RenderSet, error) {
-	var serviceList []*commonmodels.Service
-	var err error
-	if !isProduction {
-		serviceList, err = commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
-	} else {
-		serviceList, err = commonrepo.NewProductionServiceColl().ListMaxRevisionsByProduct(productName)
-	}
-
+	serviceList, err := repository.ListMaxRevisionsServices(productName, isProduction)
 	if err != nil {
 		return nil, err
 	}

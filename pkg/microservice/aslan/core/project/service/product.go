@@ -139,22 +139,6 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 		log.Errorf("ProductTmpl.Create error: %v", err)
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}
-
-	// 创建一个默认的渲染集
-	err = render.CreateRenderSet(&commonmodels.RenderSet{
-		Name:        args.ProductName,
-		ProductTmpl: args.ProductName,
-		UpdateBy:    args.UpdateBy,
-		IsDefault:   true,
-		//KVs:         kvs,
-	}, log)
-
-	if err != nil {
-		log.Errorf("ProductTmpl.Create error: %v", err)
-		// 创建渲染集失败，删除产品模板
-		return e.ErrCreateProduct.AddDesc(err.Error())
-	}
-
 	return
 }
 
@@ -248,16 +232,6 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 	// 如果是helm的项目，不需要新创建renderset
 	if args.ProductFeature != nil && args.ProductFeature.DeployType == setting.HelmDeployType {
 		return
-	}
-	// 更新默认的渲染集
-	if err = render.CreateRenderSet(&commonmodels.RenderSet{
-		Name:        args.ProductName,
-		ProductTmpl: args.ProductName,
-		UpdateBy:    args.UpdateBy,
-		IsDefault:   true,
-		//KVs:         kvs,
-	}, log); err != nil {
-		log.Warnf("ProductTmpl.Update CreateRenderSet error: %v", err)
 	}
 
 	for _, envVars := range args.EnvVars {

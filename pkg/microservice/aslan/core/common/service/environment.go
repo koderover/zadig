@@ -42,7 +42,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
@@ -56,33 +55,23 @@ import (
 	jsonutil "github.com/koderover/zadig/pkg/util/json"
 )
 
-// FillProductTemplateValuesYamls 返回renderSet中的renderChart信息, this is only used in helm chart projects
-func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.SugaredLogger) error {
-	renderSet, err := render.GetLatestRenderSetFromHelmProject(tmpl.ProductName, false)
-	if err != nil {
-		log.Errorf("Failed to find render set for product template %s", tmpl.ProductName)
-		return err
-	}
-	serviceNames := sets.NewString()
-	for _, serviceGroup := range tmpl.Services {
-		for _, serviceName := range serviceGroup {
-			serviceNames.Insert(serviceName)
-		}
-	}
+func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, production bool, log *zap.SugaredLogger) error {
 	tmpl.ChartInfos = make([]*templatemodels.ServiceRender, 0)
-	for _, renderChart := range renderSet.ChartInfos {
-		if !serviceNames.Has(renderChart.ServiceName) {
+	latestSvcs, err := repository.ListMaxRevisionsServices(tmpl.ProductName, production)
+	if err != nil {
+		return fmt.Errorf("failed to list max revision services, err: %s", err)
+	}
+	for _, svc := range latestSvcs {
+		if svc.HelmChart == nil {
+			log.Errorf("helm chart of service: %s is nil", svc.ServiceName)
 			continue
 		}
 		tmpl.ChartInfos = append(tmpl.ChartInfos, &templatemodels.ServiceRender{
-			ServiceName:    renderChart.ServiceName,
-			ChartVersion:   renderChart.ChartVersion,
-			ValuesYaml:     renderChart.ValuesYaml,
-			OverrideYaml:   renderChart.OverrideYaml,
-			OverrideValues: renderChart.OverrideValues,
+			ServiceName:  svc.ServiceName,
+			ChartVersion: svc.HelmChart.Version,
+			ValuesYaml:   svc.HelmChart.ValuesYaml,
 		})
 	}
-
 	return nil
 }
 

@@ -752,14 +752,13 @@ func genImageFromYaml(c *commonmodels.Container, valuesYaml, defaultValues, over
 	return image, nil
 }
 
-// TODO add production parameter
-func prepareEstimatedData(productName, envName, serviceName, usageScenario, defaultValues string, log *zap.SugaredLogger) (string, string, error) {
+func prepareEstimatedData(productName, envName, serviceName, usageScenario, defaultValues string, production bool, log *zap.SugaredLogger) (string, string, error) {
 	var err error
-	templateService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+	templateService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		ProductName: productName,
 		Type:        setting.HelmDeployType,
-	})
+	}, production)
 	if err != nil {
 		log.Errorf("failed to query service, name %s, err %s", serviceName, err)
 		return "", "", fmt.Errorf("failed to query service, name %s", serviceName)
@@ -891,7 +890,7 @@ func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log 
 }
 
 func GeneEstimatedValues(productName, envName, serviceName, scene, format string, arg *EstimateValuesArg, log *zap.SugaredLogger) (interface{}, error) {
-	chartValues, defaultValues, err := prepareEstimatedData(productName, envName, serviceName, scene, arg.DefaultValues, log)
+	chartValues, defaultValues, err := prepareEstimatedData(productName, envName, serviceName, scene, arg.DefaultValues, arg.Production, log)
 	if err != nil {
 		return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to prepare data, err %s", err))
 	}
@@ -2558,7 +2557,7 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 // generate a new renderset and insert into db
 func diffRenderSet(username, productName, envName string, productResp *commonmodels.Product, overrideCharts []*commonservice.HelmSvcRenderArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	// default renderset created directly from the service template
-	latestRenderSet, err := render.GetLatestRenderSetFromHelmProject(productName, false)
+	latestRenderSet, err := render.GetLatestRenderSetFromHelmProject(productName, productResp.Production)
 	if err != nil {
 		log.Errorf("[RenderSet.find] err: %v", err)
 		return nil, err

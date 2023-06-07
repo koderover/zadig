@@ -102,7 +102,7 @@ func GetInitProduct(productTmplName string, envType types.EnvType, isBaseEnv boo
 		return nil, e.ErrGetProduct.AddDesc(errMsg)
 	}
 	if prodTmpl.IsHelmProduct() {
-		err = commonservice.FillProductTemplateValuesYamls(prodTmpl, log)
+		err = commonservice.FillProductTemplateValuesYamls(prodTmpl, production, log)
 	}
 	if err != nil {
 		errMsg := fmt.Sprintf("[ProductTmpl.FillProductTemplate] %s error: %v", productTmplName, err)
