@@ -3001,6 +3001,7 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 		if svcRootKeys.HasAll(globalKeySet.List()...) {
 			continue
 		}
+		ret = append(ret, svcPreview)
 	}
 	return ret, nil
 }

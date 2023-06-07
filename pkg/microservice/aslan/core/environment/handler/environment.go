@@ -686,16 +686,6 @@ func PreviewHelmProductDefaultValues(c *gin.Context) {
 	}
 
 	arg := new(service.EnvRendersetArg)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateProductDefaultValues c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateProductDefaultValues json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
 	err = c.BindJSON(arg)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
