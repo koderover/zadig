@@ -82,6 +82,7 @@ func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connecto
 			continue
 		}
 		if pw, ok := cf["bindPW"]; ok {
+			// password will not be returned for security reason
 			cf["bindPW"], err = crypto.AesEncryptByKey(pw.(string), aesKey.PlainText)
 			if err != nil {
 				logger.Errorf("ListConnectors AesEncryptByKey, err: %s", err)
@@ -116,6 +117,7 @@ func ListConnectors(encryptedKey string, logger *zap.SugaredLogger) ([]*Connecto
 }
 
 func GetConnector(id string, logger *zap.SugaredLogger) (*Connector, error) {
+	// TODO: Possibly need to take the password out of the result.
 	c, err := orm.NewConnectorColl().Get(id)
 	if err != nil {
 		logger.Errorf("Failed to get connector %s, err: %s", id, err)
