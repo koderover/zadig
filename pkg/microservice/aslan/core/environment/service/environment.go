@@ -2986,13 +2986,15 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 			svcRootKeys.Insert(kv.Key)
 		}
 
-		kvList := make([]*helmtool.KV, 0)
-		err = json.Unmarshal([]byte(chartInfo.OverrideValues), &kvList)
-		if err != nil {
-			return ret, fmt.Errorf("failed to unmarshal override values for service %s, err: %s", chartInfo.ServiceName, err)
-		}
-		for _, kv := range kvList {
-			svcRootKeys.Insert(extractRootKeyFromFlat(kv.Key))
+		if len(chartInfo.OverrideValues) > 0 {
+			kvList := make([]*helmtool.KV, 0)
+			err = json.Unmarshal([]byte(chartInfo.OverrideValues), &kvList)
+			if err != nil {
+				return ret, fmt.Errorf("failed to unmarshal override values for service %s, err: %s", chartInfo.ServiceName, err)
+			}
+			for _, kv := range kvList {
+				svcRootKeys.Insert(extractRootKeyFromFlat(kv.Key))
+			}
 		}
 
 		// service variable contains all global vars means global vars change will not affect this service
