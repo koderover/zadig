@@ -647,6 +647,36 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	ctx.Err = service.UpdateProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
 
+func PreviewHelmProductDefaultValues(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	arg := new(service.EnvRendersetArg)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateProductDefaultValues c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, arg); err != nil {
+		log.Errorf("UpdateProductDefaultValues json.Unmarshal err : %v", err)
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	arg.DeployType = setting.HelmDeployType
+	ctx.Resp, ctx.Err = service.PreviewHelmProductGlobalVariables(projectName, envName, arg.DefaultValues, ctx.Logger)
+}
+
 func UpdateK8sProductDefaultValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

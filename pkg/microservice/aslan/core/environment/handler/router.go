@@ -156,6 +156,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/services/:serviceName", GetProductionService)
 		production.GET("/environments/:name/services/:serviceName/variables", GetProductionVariables)
 		production.GET("/environments/:name/services/:serviceName/yaml", ExportProductionServiceYaml)
+		production.POST("/environments/:name/services/preview/batch", BatchPreviewServices)
 
 		production.DELETE("/environments/:name", DeleteProductionProduct)
 
@@ -170,7 +171,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.POST("/environments/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
 
 		production.PUT("/environments/:name/helm/default-values", UpdateHelmProductDefaultValues)
-		production.POST("/environments/:name/helm/default-values/preview", UpdateHelmProductDefaultValues)
+		production.POST("/environments/:name/helm/default-values/preview", PreviewHelmProductDefaultValues)
 		production.GET("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
 
 		production.POST("/environments/:name/services/:serviceName/restart", RestartService)
@@ -209,9 +210,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
 
 		environments.PUT("/:name/helm/default-values", UpdateHelmProductDefaultValues)
-		environments.POST("/:name/helm/default-values/preview", UpdateHelmProductDefaultValues)
+		environments.POST("/:name/helm/default-values/preview", PreviewHelmProductDefaultValues)
 
+		// TODO delete this api
 		environments.PUT("/:name/k8s/default-values", UpdateK8sProductDefaultValues)
+
 		environments.PUT("/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
 		environments.POST("/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
 

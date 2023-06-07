@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -2914,13 +2915,102 @@ func PreviewProductGlobalVariables(productName, envName string, arg []*commontyp
 	return PreviewProductGlobalVariablesWithRender(product, productRenderset, arg, log)
 }
 
+func extractRootKeyFromFlat(flatKey string) string {
+	splitStrs := strings.Split(flatKey, ".")
+	return strings.Split(splitStrs[0], "[")[0]
+}
+
+func PreviewHelmProductGlobalVariables(productName, envName, globalVariable string, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {
+	ret := make([]*SvcDiffResult, 0)
+	variableKvs, err := commontypes.YamlToServiceVariableKV(globalVariable, nil)
+	if err != nil {
+		return ret, fmt.Errorf("failed to parse global variable, err: %v", err)
+	}
+	globalKeySet := sets.NewString()
+	for _, kv := range variableKvs {
+		globalKeySet.Insert(kv.Key)
+	}
+
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		log.Errorf("PreviewHelmProductGlobalVariables GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
+		return nil, err
+	}
+
+	opt := &commonrepo.RenderSetFindOption{
+		Name:        product.Render.Name,
+		EnvName:     envName,
+		ProductTmpl: product.Render.ProductTmpl,
+		Revision:    product.Render.Revision,
+	}
+	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil || productRenderset == nil {
+		if err != nil {
+			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
+		}
+		return nil, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
+	}
+
+	equal, err := yamlutil.Equal(productRenderset.DefaultValues, globalVariable)
+	if err != nil {
+		return ret, fmt.Errorf("failed to check if product and args global variable is equal, err: %s", err)
+	}
+	if equal {
+		return ret, nil
+	}
+
+	for _, chartInfo := range productRenderset.ChartInfos {
+		_, ok := product.GetServiceMap()[chartInfo.ServiceName]
+		if !ok {
+			continue
+		}
+
+		svcPreview := &SvcDiffResult{
+			ServiceName: chartInfo.ServiceName,
+		}
+
+		if chartInfo.OverrideYaml == nil && len(chartInfo.OverrideValues) == 0 {
+			ret = append(ret, svcPreview)
+			continue
+		}
+
+		svcRootKeys := sets.NewString()
+
+		svcVariableKvs, err := commontypes.YamlToServiceVariableKV(chartInfo.GetOverrideYaml(), nil)
+		if err != nil {
+			return ret, fmt.Errorf("failed to gene service varaible kv for service %s, err: %s", chartInfo.ServiceName, err)
+		}
+		for _, kv := range svcVariableKvs {
+			svcRootKeys.Insert(kv.Key)
+		}
+
+		kvList := make([]*helmtool.KV, 0)
+		err = json.Unmarshal([]byte(chartInfo.OverrideValues), &kvList)
+		if err != nil {
+			return ret, fmt.Errorf("failed to unmarshal override values for service %s, err: %s", chartInfo.ServiceName, err)
+		}
+		for _, kv := range kvList {
+			svcRootKeys.Insert(extractRootKeyFromFlat(kv.Key))
+		}
+
+		// service variable contains all global vars means global vars change will not affect this service
+		if svcRootKeys.HasAll(globalKeySet.List()...) {
+			continue
+		}
+	}
+	return ret, nil
+}
+
 func UpdateProductGlobalVariables(productName, envName, userName, requestID string, currentRevision int64, arg []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,
 	})
 	if err != nil {
-		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
+		log.Errorf("UpdateProductGlobalVariables GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
 		return err
 	}
 
