@@ -56,6 +56,9 @@ func (s *distributeImageCtl) PreRun(ctx context.Context) error {
 			return fmt.Errorf("source image is empty")
 		}
 		sourceImageName := strings.Split(target.SourceImage, ":")[0]
+		if idx := strings.LastIndex(sourceImageName, "/"); idx != -1 {
+			sourceImageName = sourceImageName[idx+1:]
+		}
 		target.TargetImage = getImage(sourceImageName, target.TargetTag, s.distributeImageSpec.TargetRegistry)
 		if !target.UpdateTag {
 			target.TargetImage = getImage(sourceImageName, getImageTag(target.SourceImage), s.distributeImageSpec.TargetRegistry)
