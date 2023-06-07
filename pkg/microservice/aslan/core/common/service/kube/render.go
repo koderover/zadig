@@ -529,6 +529,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
+	log.Infof("final fullRenderedYaml is: %s", fullRenderedYaml)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, err
 }
 
@@ -561,7 +562,6 @@ func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet
 		log.Error("failed to render service yaml, err: %s", err)
 		return "", err
 	}
-	//parsedYaml := RenderValueForString(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render)
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
 	parsedYaml = replaceContainerImages(parsedYaml, svcTmpl.Containers, service.Containers)
 
