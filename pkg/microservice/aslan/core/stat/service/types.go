@@ -71,3 +71,65 @@ type StatDashboardBasicData struct {
 	DeployTotal   int64 `json:"deploy_total"`
 	DeploySuccess int64 `json:"deploy_success"`
 }
+
+// UserPromptParseInput use to parse user prompt
+type UserPromptParseInput struct {
+	ProjectList []string `json:"project_list"`
+	JobList     []string `json:"job_list"`
+	StartTime   int64    `json:"start_time"`
+	EndTime     int64    `json:"end_time"`
+}
+
+type AiAnalysisReq struct {
+	Prompt      string   `json:"prompt"`
+	ProjectList []string `json:"project_list"`
+	StartTime   int64    `json:"start_time"`
+	EndTime     int64    `json:"end_time"`
+}
+
+type AiReqData struct {
+	StartTime   int64          `json:"start_time"`
+	EndTime     int64          `json:"end_time"`
+	ProjectList []*ProjectData `json:"project_list"`
+}
+
+type ProjectData struct {
+	ProjectName                    string      `json:"project_name"`
+	ProjectDataDetail              *DataDetail `json:"project_data_detail"`
+	SystemInternalEvaluationResult string      `json:"system_internal_evaluation_result"`
+}
+
+type DataDetail struct {
+	BuildInfo   *BuildData   `json:"build_info"`
+	DeployInfo  *DeployData  `json:"deploy_info"`
+	TestInfo    *TestData    `json:"test_info"`
+	ReleaseInfo *ReleaseData `json:"release_info"`
+}
+
+type BuildData struct {
+	BuildTotal         int   `json:"build_total"`
+	BuildSuccessTotal  int   `json:"build_success_total"`
+	BuildFailureTotal  int   `json:"build_failure_total"`
+	BuildTotalDuration int64 `json:"build_total_duration"`
+}
+
+type DeployData struct {
+	DeployTotal         int   `json:"deploy_total"`
+	DeploySuccessTotal  int   `json:"deploy_success_total"`
+	DeployFailureTotal  int   `json:"deploy_failure_total"`
+	DeployTotalDuration int64 `json:"deploy_total_duration"`
+}
+
+type TestData struct {
+	TestTotal         int   `json:"test_total"`
+	TestPass          int   `json:"test_pass_total"`
+	TestFail          int   `json:"test_fail_total"`
+	TestTotalDuration int64 `json:"test_total_duration"`
+}
+
+type ReleaseData struct {
+	ReleaseTotal         int   `json:"release_total"`
+	ReleaseSuccessTotal  int   `json:"release_success_total"`
+	ReleaseFailureTotal  int   `json:"release_failure_total"`
+	ReleaseTotalDuration int64 `json:"release_total_duration"`
+}
