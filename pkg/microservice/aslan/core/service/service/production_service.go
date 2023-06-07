@@ -250,7 +250,6 @@ func UpdateProductionServiceVariables(args *commonservice.ServiceTmplObject) err
 	oldContainers := currentService.Containers
 	if err := commonutil.SetCurrentContainerImages(currentService); err != nil {
 		log.Errorf("failed to ser set container images, err: %s", err)
-		//return err
 	} else if containersChanged(oldContainers, currentService.Containers) {
 		err = commonrepo.NewProductionServiceColl().UpdateServiceContainers(currentService)
 		if err != nil {
