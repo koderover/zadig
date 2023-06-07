@@ -687,6 +687,22 @@ type updateK8sProductGlobalVariablesRequest struct {
 	GlobalVariables []*commontypes.GlobalVariableKV `json:"global_variables"`
 }
 
+func PreviewGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Query("projectName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	if c.Query("envName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+		return
+	}
+
+}
+
 // @Summary Update global variables
 // @Description Update global variables
 // @Tags 	environment

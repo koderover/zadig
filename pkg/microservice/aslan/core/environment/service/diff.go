@@ -31,9 +31,10 @@ import (
 )
 
 type SvcDiffResult struct {
-	Current TmplYaml `json:"current,omitempty"`
-	Latest  TmplYaml `json:"latest,omitempty"`
-	Error   string   `json:"error,omitempty"`
+	ServiceName string   `json:"service_name,omitempty"`
+	Current     TmplYaml `json:"current,omitempty"`
+	Latest      TmplYaml `json:"latest,omitempty"`
+	Error       string   `json:"error,omitempty"`
 }
 
 type TmplYaml struct {

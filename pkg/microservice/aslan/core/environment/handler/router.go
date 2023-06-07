@@ -167,6 +167,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
 		production.PUT("/environments/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
+		production.PUT("/environments/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
+
 		production.PUT("/environments/:name/helm/default-values", UpdateHelmProductDefaultValues)
 		production.POST("/environments/:name/helm/default-values/preview", UpdateHelmProductDefaultValues)
 		production.GET("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
@@ -211,6 +213,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.PUT("/:name/k8s/default-values", UpdateK8sProductDefaultValues)
 		environments.PUT("/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
+		environments.POST("/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
+
 		environments.GET("/:name/globalVariableCandidates", GetGlobalVariableCandidates)
 		environments.PUT("/:name/helm/charts", UpdateHelmProductCharts)
 		environments.PUT("/:name/syncVariables", SyncHelmProductRenderset)

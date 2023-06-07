@@ -399,8 +399,10 @@ func BatchPreviewService(args []*PreviewServiceArgs, logger *zap.SugaredLogger) 
 	for _, arg := range args {
 		previewRet, err := PreviewService(arg, logger)
 		if err != nil {
-			previewRet = &SvcDiffResult{}
-			previewRet.Error = err.Error()
+			previewRet = &SvcDiffResult{
+				ServiceName: arg.ServiceName,
+				Error:       err.Error(),
+			}
 		}
 		ret = append(ret, previewRet)
 	}
@@ -414,8 +416,9 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 	}
 
 	ret := &SvcDiffResult{
-		Current: TmplYaml{},
-		Latest:  TmplYaml{},
+		ServiceName: args.ServiceName,
+		Current:     TmplYaml{},
+		Latest:      TmplYaml{},
 	}
 
 	curYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
