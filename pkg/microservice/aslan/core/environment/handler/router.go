@@ -167,7 +167,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
 		production.PUT("/environments/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
-		production.PUT("/environments/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
+		production.POST("/environments/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
 
 		production.PUT("/environments/:name/helm/default-values", UpdateHelmProductDefaultValues)
 		production.POST("/environments/:name/helm/default-values/preview", UpdateHelmProductDefaultValues)
