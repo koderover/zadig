@@ -65,7 +65,7 @@ type JsonOutput struct {
 	Results  []Result       `json:"results"`
 }
 
-func NewAnalysis(hubserverAddr, clusterID string, llmClient llm.ILLM, filters []string, namespace string, noCache bool, explain bool, maxConcurrency int, withDoc bool) (*Analysis, error) {
+func NewAnalysis(ctx context.Context, hubserverAddr, clusterID string, llmClient llm.ILLM, filters []string, namespace string, noCache bool, explain bool, maxConcurrency int, withDoc bool) (*Analysis, error) {
 	if llmClient == nil && explain {
 		fmtErr := fmt.Errorf("Error: AI provider not specified in configuration")
 		log.Error(fmtErr)
@@ -78,7 +78,6 @@ func NewAnalysis(hubserverAddr, clusterID string, llmClient llm.ILLM, filters []
 		return nil, err
 	}
 
-	ctx := context.Background()
 	return &Analysis{
 		Context:            ctx,
 		Filters:            filters,
@@ -197,7 +196,7 @@ func (a *Analysis) RunAnalysis(activeFilters []string) {
 	wg.Wait()
 }
 
-func (a *Analysis) GetAIResults(output string, anonymize bool) error {
+func (a *Analysis) GetAIResults(anonymize bool) error {
 	if len(a.Results) == 0 {
 		return nil
 	}

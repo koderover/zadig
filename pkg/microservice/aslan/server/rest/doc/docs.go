@@ -199,6 +199,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}/analysis": {
+            "post": {
+                "description": "Analysis environment resources",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Analysis enviroment resources",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments/{name}/configs": {
             "get": {
                 "description": "Get environment configs",
@@ -650,6 +686,42 @@ const docTemplate = `{
                                 "$ref": "#/definitions/service.ServiceDeployStatus"
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/analysis": {
+            "post": {
+                "description": "Analysis production environment resources",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Analysis production enviroment resources",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
                     }
                 }
             }
@@ -2209,7 +2281,7 @@ const docTemplate = `{
         "models.NotificationConfig": {
             "type": "object",
             "properties": {
-                "event": {
+                "events": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.NotificationEvent"

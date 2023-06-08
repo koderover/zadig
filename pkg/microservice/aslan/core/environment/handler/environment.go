@@ -1277,3 +1277,59 @@ func UpdateProductionEnvConfigs(c *gin.Context) {
 
 	ctx.Err = service.UpdateProductionEnvConfigs(projectName, envName, arg, ctx.Logger)
 }
+
+// @Summary Analysis enviroment resources
+// @Description Analysis environment resources
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/analysis [post]
+func Analysis(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.AnalysisEnvResources(projectName, envName, boolptr.False(), ctx.Logger)
+}
+
+// @Summary Analysis production enviroment resources
+// @Description Analysis production environment resources
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/analysis [post]
+func ProductionAnalysis(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.AnalysisEnvResources(projectName, envName, boolptr.True(), ctx.Logger)
+}

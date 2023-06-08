@@ -60,7 +60,7 @@ func (a *Analysis) textOutput() ([]byte, error) {
 	var output strings.Builder
 
 	// Print the AI provider used for this analysis
-	output.WriteString(fmt.Sprintf("AI Provider: %s\n", a.AnalysisAIProvider))
+	// output.WriteString(fmt.Sprintf("AI Provider: %s\n", a.AnalysisAIProvider))
 
 	if len(a.Errors) != 0 {
 		output.WriteString("\n")

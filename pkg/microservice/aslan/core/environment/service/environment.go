@@ -3104,3 +3104,56 @@ func GetProductionEnvConfigs(projectName, envName string, logger *zap.SugaredLog
 func UpdateProductionEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, logger *zap.SugaredLogger) error {
 	return UpdateEnvConfigs(projectName, envName, arg, boolptr.True(), logger)
 }
+
+func AnalysisEnvResources(projectName, envName string, production *bool, logger *zap.SugaredLogger) (string, error) {
+	opt := &commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       projectName,
+		Production: production,
+	}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return "", e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
+	}
+
+	filters := []string{}
+	if env.AnalysisConfig != nil {
+		if len(env.AnalysisConfig.ResourceTypes) == 0 {
+			return "", nil
+		} else {
+			for _, resourceType := range env.AnalysisConfig.ResourceTypes {
+				filters = append(filters, string(resourceType))
+			}
+		}
+	}
+
+	ctx := context.TODO()
+	llmClient, err := commonservice.GetDefaultLLMClient(ctx)
+	if err != nil {
+		return "", e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get llm client, err: %w", err))
+	}
+
+	analysiser, err := analysis.NewAnalysis(
+		ctx,
+		config.HubServerAddress(), env.ClusterID,
+		llmClient,
+		filters, env.GetNamespace(),
+		false, true, 10, false,
+	)
+	if err != nil {
+		return "", e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to create analysiser, err: %w", err))
+	}
+
+	analysiser.RunAnalysis(filters)
+	err = analysiser.GetAIResults(true)
+	if err != nil {
+		return "", e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get analysis result, err: %w", err))
+	}
+
+	analysisResult, err := analysiser.PrintOutput("text")
+	if err != nil {
+		return "", e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to print analysis result, err: %w", err))
+	}
+
+	return string(analysisResult), nil
+}

@@ -96,7 +96,7 @@ const (
 type NotificationConfig struct {
 	WebHookType WebHookType         `bson:"webhook_type" json:"webhook_type"`
 	WebHookURL  string              `bson:"webhook_url"  json:"webhook_url"`
-	Event       []NotificationEvent `bson:"event"        json:"event"`
+	Events      []NotificationEvent `bson:"events"       json:"events"`
 }
 
 type ResourceType string

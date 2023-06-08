@@ -159,6 +159,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		production.GET("/environments/:name/configs", GetProductionEnvConfigs)
 		production.PUT("/environments/:name/configs", UpdateProductionEnvConfigs)
+		production.POST("/environments/:name/analysis", ProductionAnalysis)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -219,6 +220,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.GET("/:name/configs", GetEnvConfigs)
 		environments.PUT("/:name/configs", UpdateEnvConfigs)
+		environments.POST("/:name/analysis", Analysis)
 	}
 
 	// ---------------------------------------------------------------------------------------

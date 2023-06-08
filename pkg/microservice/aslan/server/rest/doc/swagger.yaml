@@ -369,7 +369,7 @@ definitions:
     type: object
   models.NotificationConfig:
     properties:
-      event:
+      events:
         items:
           $ref: '#/definitions/models.NotificationEvent'
         type: array
@@ -1533,6 +1533,30 @@ paths:
       summary: Update Multi products
       tags:
       - environment
+  /api/aslan/environment/environments/{name}/analysis:
+    post:
+      consumes:
+      - application/json
+      description: Analysis environment resources
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Analysis enviroment resources
+      tags:
+      - environment
   /api/aslan/environment/environments/{name}/configs:
     get:
       consumes:
@@ -1836,6 +1860,30 @@ paths:
               $ref: '#/definitions/service.ServiceDeployStatus'
             type: array
       summary: Get Resource Deploy Status
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/analysis:
+    post:
+      consumes:
+      - application/json
+      description: Analysis production environment resources
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Analysis production enviroment resources
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/configs:
