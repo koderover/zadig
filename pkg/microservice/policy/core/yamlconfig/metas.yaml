@@ -925,6 +925,8 @@ metas:
             endpoint: "/api/aslan/environment/production/environmentsForUpdate"
           - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
+          - method: GET
+            endpoint: /api/aslan/environment/kube/events
       - action: create_production_environment
         alias: 创建
         description: ""
@@ -955,18 +957,20 @@ metas:
             endpoint: 'api/aslan/environment/production/environments/:name/services/preview/batch'
           - method: PUT
             endpoint: '/api/aslan/environment/production/environments'
+          - method: GET
+            endpoint: /api/aslan/environment/operations
           - method: PUT
             endpoint: '/api/aslan/environment/production/environments/:name/services'
           - method: PUT
             endpoint: '/api/aslan/environment/production/environments/?*/services/?*'
           - method: PUT
             endpoint: '/api/aslan/environment/production/environments/?*/helm/charts'
+          - method: PUT
+            endpoint: "/api/aslan/environment/production/environments/?*/registry"
       - action: edit_production_environment
         alias: 管理服务实例
         description: ""
         rules:
-          - method: PUT
-            endpoint: "/api/aslan/environment/production/environments/?*/registry"
           - method: GET
             endpoint: "/api/aslan/cluster/clusters"
           - method: POST
