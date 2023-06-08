@@ -1074,11 +1074,15 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 
 func GetReleaseDeployStatus(productName string, request *HelmDeployStatusCheckRequest) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace, envName := request.ClusterID, request.Namespace, request.EnvName
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, IgnoreNotFoundErr: true})
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product: %s/%s, err: %s", productName, envName, err))
 	}
-	productServices, err := repository.ListMaxRevisionsServices(productName, productInfo.Production)
+	production := false
+	if productInfo != nil {
+		production = productInfo.Production
+	}
+	productServices, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}
