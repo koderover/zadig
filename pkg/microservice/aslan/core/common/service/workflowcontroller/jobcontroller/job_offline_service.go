@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -95,6 +96,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 	}
 
 	var fail bool
+	serviceNames := make([]string, 0)
 	for _, event := range c.jobTaskSpec.ServiceEvents {
 		logger := c.logger.With("service", event.ServiceName)
 
@@ -118,12 +120,8 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 		}
 
 		if projectInfo.IsHelmProduct() {
-			kube.CreateOrUpdateHelmResource(&kube.ResourceApplyParam{
-				ProductInfo: env,
-				ServiceName: event.ServiceName,
-				KubeClient:  kubeClient,
-				Uninstall:   true,
-			}, c.logger.With("caller", "OfflineServiceJobCtl.Run"))
+			serviceNames = append(serviceNames, event.ServiceName)
+			continue
 		} else {
 			yaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 				ProductName: c.workflowCtx.ProjectName,
@@ -169,6 +167,40 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 			Scene:       setting.OperationSceneEnv,
 			Targets:     []string{c.jobTaskSpec.EnvName},
 			Name:        fmt.Sprintf("%s:[%s]", c.jobTaskSpec.EnvName, event.ServiceName),
+			RequestBody: "",
+			Status:      http.StatusOK,
+			CreatedAt:   time.Now().Unix(),
+		})
+	}
+
+	if projectInfo.IsHelmProduct() {
+		err = kube.CreateOrUpdateHelmResource(&kube.ResourceApplyParam{
+			ProductInfo: env,
+			ServiceList: serviceNames,
+			KubeClient:  kubeClient,
+			Uninstall:   true,
+		}, c.logger.With("caller", "OfflineServiceJobCtl.Run"))
+		if err != nil {
+
+			for _, event := range c.jobTaskSpec.ServiceEvents {
+				event.Status = config.StatusFailed
+			}
+
+			c.job.Error = fmt.Sprintf("failed to offline services: %v", err)
+			c.job.Status = config.StatusFailed
+			return
+		}
+		for _, event := range c.jobTaskSpec.ServiceEvents {
+			event.Status = config.StatusPassed
+		}
+		_ = systemmongodb.NewOperationLogColl().Insert(&models.OperationLog{
+			Username:    c.workflowCtx.WorkflowTaskCreatorUsername,
+			ProductName: c.workflowCtx.ProjectName,
+			Method:      "下线",
+			Function:    "环境的服务",
+			Scene:       setting.OperationSceneEnv,
+			Targets:     []string{c.jobTaskSpec.EnvName},
+			Name:        fmt.Sprintf("%s:[%s]", c.jobTaskSpec.EnvName, strings.Join(serviceNames, ",")),
 			RequestBody: "",
 			Status:      http.StatusOK,
 			CreatedAt:   time.Now().Unix(),

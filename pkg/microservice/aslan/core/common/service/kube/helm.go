@@ -392,7 +392,6 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 	deleteServiceSet := sets.NewString(serviceNames...)
 	deletedSvcRevision := make(map[string]int64)
 
-	//svcsAfterDelete := make([][]*commonmodels.ProductService, 0)
 	for serviceGroupIndex, serviceGroup := range productInfo.Services {
 		var group []*commonmodels.ProductService
 		for _, service := range serviceGroup {
@@ -402,14 +401,12 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 				deletedSvcRevision[service.ServiceName] = service.Revision
 			}
 		}
-		//svcsAfterDelete = append(svcsAfterDelete, group)
 		err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, serviceGroupIndex, group)
 		if err != nil {
 			log.Errorf("update product error: %v", err)
 			return err
 		}
 	}
-	//productInfo.Services = svcsAfterDelete
 
 	// services deployed by zadig
 	deployedSvcs := sets.NewString()
@@ -471,7 +468,6 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 					failedServices.Store(serviceName, err.Error())
 					return
 				}
-				log.Infof("uninstall release for service: %s", serviceName)
 				if errUninstall := UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
 					errStr := fmt.Sprintf("helm uninstall service %s err: %s", serviceName, errUninstall)
 					failedServices.Store(serviceName, errStr)

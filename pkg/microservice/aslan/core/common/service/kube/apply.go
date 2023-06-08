@@ -48,6 +48,7 @@ type SharedEnvHandler func(context.Context, *commonmodels.Product, string, clien
 type ResourceApplyParam struct {
 	ProductInfo         *commonmodels.Product
 	ServiceName         string
+	ServiceList         []string // used for batch operations
 	CurrentResourceYaml string
 	UpdateResourceYaml  string
 
