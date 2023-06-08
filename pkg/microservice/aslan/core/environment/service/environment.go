@@ -3036,3 +3036,36 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 	}
 	return UpdateProductVariable(productRenderset.ProductTmpl, productRenderset.EnvName, userName, requestID, updatedSvcList, productRenderset, setting.K8SDeployType, log)
 }
+
+type EnvConfigsArgs struct {
+	AnalysisConfig     *models.AnalysisConfig     `json:"analysis_config"`
+	NotificationConfig *models.NotificationConfig `json:"notification_config"`
+}
+
+func GetEnvConfigs(projectName, envName string, logger *zap.SugaredLogger) (*EnvConfigsArgs, error) {
+	opt := &commonrepo.ProductFindOptions{EnvName: envName, Name: projectName}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, e.ErrGetEnvConfigs.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
+	}
+	configs := &EnvConfigsArgs{
+		AnalysisConfig:     env.AnalysisConfig,
+		NotificationConfig: env.NotificationConfig,
+	}
+	return configs, nil
+}
+
+func UpdateEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, logger *zap.SugaredLogger) error {
+	opt := &commonrepo.ProductFindOptions{EnvName: envName, Name: projectName}
+	_, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return e.ErrUpdateEnvConfigs.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
+	}
+
+	err = commonrepo.NewProductColl().UpdateConfigs(envName, projectName, arg.AnalysisConfig, arg.NotificationConfig)
+	if err != nil {
+		return e.ErrUpdateEnvConfigs.AddErr(fmt.Errorf("failed to update environment %s/%s, err: %w", projectName, envName, err))
+	}
+
+	return nil
+}

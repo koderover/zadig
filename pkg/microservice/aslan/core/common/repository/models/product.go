@@ -68,9 +68,34 @@ type Product struct {
 	// New Since v1.16.0, used to determine whether to install resources
 	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
 
+	// New Since v.1.19.0, env configs
+	AnalysisConfig     *AnalysisConfig     `bson:"analysis_config" 	   json:"analysis_config"`
+	NotificationConfig *NotificationConfig `bson:"notification_config" json:"notification_config"`
+
 	// For production environment
 	Production bool   `json:"production" bson:"production"`
 	Alias      string `json:"alias" bson:"alias"`
+}
+
+// @todo product notifcation config
+type NotificationEvent string
+
+const (
+	NotificationEventEnvChange        NotificationEvent = "notification_event_env_change"
+	NotificationEventAnalyzerNoraml   NotificationEvent = "notification_event_analyzer_normal"
+	NotificationEventAnalyzerAbnormal NotificationEvent = "notification_event_analyzer_abnormal"
+)
+
+type NotificationConfig struct {
+	WebHookType string              `bson:"webhook_type" json:"webhook_type"`
+	WebHookURL  string              `bson:"webhook_url"  json:"webhook_url"`
+	Event       []NotificationEvent `bson:"event"        json:"event"`
+}
+
+type AnalysisConfig struct {
+	EnableCron    bool     `bson:"enable_cron" json:"enable_cron"`
+	Cron          string   `bson:"cron" json:"cron"`
+	ResourceTypes []string `bson:"resource_types" json:"resource_types"`
 }
 
 type CreateUpdateCommonEnvCfgArgs struct {

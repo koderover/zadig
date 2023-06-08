@@ -1134,3 +1134,74 @@ func GetGlobalVariableCandidates(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.GetGlobalVariableCandidate(c.Query("projectName"), c.Param("name"), ctx.Logger)
 }
+
+// @Summary Get enviroment configs
+// @Description Get environment configs
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Success 200 		{object} 	service.EnvConfigsArgs
+// @Router /api/aslan/environment/environments/{name}/configs [get]
+func GetEnvConfigs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvConfigs(projectName, envName, ctx.Logger)
+}
+
+// @Summary Update enviroment configs
+// @Description Update environment configs
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Param 	body 		body 		service.UpdateEnvConfigs 		true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/configs [put]
+func UpdateEnvConfigs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpateEnvConfigs c.GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新环境配置", envName, string(data), ctx.Logger, envName)
+
+	arg := new(service.EnvConfigsArgs)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.UpdateEnvConfigs(projectName, envName, arg, ctx.Logger)
+}

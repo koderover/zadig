@@ -160,6 +160,10 @@ var (
 	ErrForkProduct = NewHTTPError(6060, "Fork开源项目失败")
 	// TODO: max error code reached, sharing error code with delete product
 	ErrUnForkProduct = NewHTTPError(6063, "删除Fork环境失败")
+	// TODO: max error code reached, sharing error code with get env
+	ErrGetEnvConfigs = NewHTTPError(6078, "获取环境配置失败")
+	// TODO: max error code reached, sharing error code with update env
+	ErrUpdateEnvConfigs = NewHTTPError(6076, "更新环境配置失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product Service APIs Range: 6080 - 6099 AND 6150 -6199
