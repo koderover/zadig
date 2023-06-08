@@ -966,7 +966,7 @@ metas:
         description: ""
         rules:
           - method: PUT
-            endpoint: "/api/aslan/environment/production/environments/?*/registry"≠
+            endpoint: "/api/aslan/environment/production/environments/?*/registry"
           - method: GET
             endpoint: "/api/aslan/cluster/clusters"
           - method: POST
