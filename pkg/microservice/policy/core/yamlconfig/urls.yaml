@@ -367,6 +367,9 @@ exemption_urls:
     - endpoint: api/v1/picket/users/?*
       methods:
         - DELETE
+    - endpoint: api/v1/picket/users
+      methods:
+        - GET
     - endpoint: api/v1/users
       methods:
         - POST
