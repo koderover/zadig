@@ -64,13 +64,14 @@ var projectDefinitionMap = map[string]int{
 	"Delivery":              9,
 }
 
-func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
-	policieMetas := yamlconfig.DefaultPolicyMetasConfig().Policies()
+func GetPolicyRegistrationDefinitions(scope, envType string, logger *zap.SugaredLogger) ([]*PolicyDefinition, error) {
+	policyMetas := yamlconfig.DefaultPolicyMetasConfig().Policies()
+	logger.Infof("length of generated policy meta is: %d", len(policyMetas))
 
 	systemScopeSet := sets.NewString("Project", "Template", "TestCenter", "ReleaseCenter", "DeliveryCenter", "DataCenter")
 	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build", "Service", "ProductionService", "Scan")
 	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*types.PolicyMeta{}, []*types.PolicyMeta{}, []*types.PolicyMeta{}
-	for _, v := range policieMetas {
+	for _, v := range policyMetas {
 		if systemScopeSet.Has(v.Resource) {
 			systemPolicyMetas = append(systemPolicyMetas, v)
 		} else if projectScopeSet.Has(v.Resource) {
@@ -123,7 +124,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		}
 		filteredPolicyMetas = projectPolicyMetas
 	default:
-		filteredPolicyMetas = policieMetas
+		filteredPolicyMetas = policyMetas
 	}
 	var res []*PolicyDefinition
 	for _, meta := range filteredPolicyMetas {
