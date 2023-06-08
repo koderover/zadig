@@ -665,7 +665,6 @@ metas:
             endpoint: /api/aslan/system/im_app
           - method: GET
             endpoint: api/aslan/cluster/clusters
-
       - action: delete_workflow
         alias: 删除
         description: ''
@@ -931,6 +930,8 @@ metas:
             endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
           - method: GET
             endpoint: /api/aslan/environment/kube/events
+          - method: GET
+            endpoint: /api/aslan/project/products/?*/services
       - action: create_production_environment
         alias: 创建
         description: ""
