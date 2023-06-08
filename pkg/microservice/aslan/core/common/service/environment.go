@@ -91,7 +91,7 @@ type ServiceResp struct {
 	Revision       int64               `json:"revision"`
 	EnvConfigs     []*models.EnvConfig `json:"env_configs"`
 	Updatable      bool                `json:"updatable"`
-	DeployStrategy string              `json:"deploy_Strategy"`
+	DeployStrategy string              `json:"deploy_strategy"`
 }
 
 type IngressInfo struct {

@@ -93,7 +93,7 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 	}
 	for _, svc := range allServices {
 		if latestSvc, ok := latestSvcs[svc.ServiceName]; ok {
-			svc.Updatable = latestSvc.Revision < svc.Revision
+			svc.Updatable = svc.Revision < latestSvc.Revision
 		}
 		svc.DeployStrategy = productInfo.ServiceDeployStrategy[svc.ServiceName]
 	}
