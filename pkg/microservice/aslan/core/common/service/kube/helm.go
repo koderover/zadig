@@ -356,10 +356,17 @@ func UninstallService(helmClient helmclient.Client, env *commonmodels.Product, r
 	})
 }
 
+// TODO optimize me
+var helmSvcOfflineLock sync.Mutex
+
 // DeleteHelmServiceFromEnv deletes the service from the environment
 // 1. Uninstall related resources
 // 2. Delete service info from database
 func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
+
+	helmSvcOfflineLock.Lock()
+	defer helmSvcOfflineLock.Unlock()
+
 	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		return err
@@ -460,9 +467,6 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 					return
 				}
 				log.Infof("uninstall release for service: %s", serviceName)
-				if !commonutil.ServiceDeployed(serviceName, productInfo.ServiceDeployStrategy) {
-					return
-				}
 				if errUninstall := UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
 					errStr := fmt.Sprintf("helm uninstall service %s err: %s", serviceName, errUninstall)
 					failedServices.Store(serviceName, errStr)
