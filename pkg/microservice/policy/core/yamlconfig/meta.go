@@ -62,8 +62,7 @@ type MetaConfig struct {
 }
 
 func (m *MetaConfig) Policies() []*types.PolicyMeta {
-	m.Metas = processMetas(m.Metas)
-	return m.Metas
+	return processMetas(m.Metas)
 }
 
 func newMetaConfigFromBytes(b []byte) MetaGetter {
