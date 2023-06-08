@@ -25,6 +25,7 @@ import (
 
 	"github.com/jinzhu/now"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -453,7 +454,9 @@ func GetTenDurationMeasure(startDate int64, endDate int64, productNames []string
 	for _, buidStat := range maxTenDurationBuildStats {
 		task, err := getTaskDetail(buidStat.MaxDurationPipeline.Type, buidStat.MaxDurationPipeline.PipelineName, buidStat.MaxDurationPipeline.TaskID)
 		if err != nil {
-			log.Errorf("PipelineTask Find err:%v", err)
+			if err != mongo.ErrNoDocuments {
+				log.Errorf("PipelineTask Find err:%v", err)
+			}
 			continue
 		}
 

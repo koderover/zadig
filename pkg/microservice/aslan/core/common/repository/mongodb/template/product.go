@@ -294,6 +294,19 @@ func (c *ProductColl) List() ([]*template.Product, error) {
 	return resp, nil
 }
 
+func (c *ProductColl) ListAllName() ([]string, error) {
+	projects, err := c.List()
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]string, 0, len(projects))
+	for _, project := range projects {
+		resp = append(resp, project.ProductName)
+	}
+	return resp, nil
+}
+
 type ProductListOpt struct {
 	IsOpensource          string
 	ContainSharedServices []*template.ServiceInfo

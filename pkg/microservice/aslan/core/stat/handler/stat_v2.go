@@ -17,9 +17,12 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service/ai"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -92,7 +95,7 @@ func GetStatsDashboard(c *gin.Context) {
 		return
 	}
 
-	resp, err := service.GetStatsDashboard(args.StartTime, args.EndTime, ctx.Logger)
+	resp, err := service.GetStatsDashboard(args.StartTime, args.EndTime, nil, ctx.Logger)
 
 	ctx.Resp = getStatDashboardResp{resp}
 	ctx.Err = err
@@ -109,4 +112,30 @@ func GetStatsDashboardGeneralData(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.GetStatsDashboardGeneralData(args.StartTime, args.EndTime, ctx.Logger)
+}
+
+func GetAIStatsAnalysis(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// get params prompt, projectList, duration from query
+	reqData, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	args := new(ai.AiAnalysisReq)
+	if err := json.Unmarshal(reqData, args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = ai.AnalyzeProjectStats(args, ctx.Logger)
+}
+
+func GetAIStatsAnalysisPrompts(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = ai.GetAiPrompts(ctx.Logger)
 }

@@ -129,7 +129,7 @@ func DeleteStatDashboardConfig(id string, logger *zap.SugaredLogger) error {
 	return nil
 }
 
-func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*StatDashboardByProject, error) {
+func GetStatsDashboard(startTime, endTime int64, projectList []string, logger *zap.SugaredLogger) ([]*StatDashboardByProject, error) {
 	resp := make([]*StatDashboardByProject, 0)
 
 	configs, err := commonrepo.NewStatDashboardConfigColl().List()
@@ -147,10 +147,15 @@ func GetStatsDashboard(startTime, endTime int64, logger *zap.SugaredLogger) ([]*
 		configs = createDefaultStatDashboardConfig()
 	}
 
-	projects, err := templaterepo.NewProductColl().ListNonPMProject()
-	if err != nil {
-		logger.Errorf("failed to list projects to create dashborad, error: %s", err)
-		return nil, e.ErrGetStatisticsDashboard.AddDesc(err.Error())
+	var projects []*templaterepo.ProjectInfo
+	if len(projectList) != 0 {
+		projects, err = templaterepo.NewProductColl().ListProjectBriefs(projectList)
+	} else {
+		projects, err = templaterepo.NewProductColl().ListNonPMProject()
+		if err != nil {
+			logger.Errorf("failed to list projects to create dashborad, error: %s", err)
+			return nil, e.ErrGetStatisticsDashboard.AddDesc(err.Error())
+		}
 	}
 
 	for _, project := range projects {

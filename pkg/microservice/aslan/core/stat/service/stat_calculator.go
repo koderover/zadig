@@ -93,12 +93,12 @@ func CreateCalculatorFromConfig(cfg *StatDashboardConfig) (StatCalculator, error
 			Function: cfg.Function,
 		}, nil
 	case config.DashboardDataTypeReleaseSuccessRate:
-		return &ReleaseFrequencyCalculator{
+		return &ReleaseSuccessRateCalculator{
 			Weight:   cfg.Weight,
 			Function: cfg.Function,
 		}, nil
 	case config.DashboardDataTypeReleaseAverageDuration:
-		return &ReleaseFrequencyCalculator{
+		return &ReleaseAverageDurationCalculator{
 			Weight:   cfg.Weight,
 			Function: cfg.Function,
 		}, nil

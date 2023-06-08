@@ -86,3 +86,14 @@ func GetPinyinFromChinese(han string) (string, string) {
 	}
 	return fullLetter, firstLetter
 }
+
+func RemoveExtraSpaces(input string) string {
+	// Remove spaces before and after strings
+	trimmed := strings.TrimSpace(input)
+
+	// Replace multiple consecutive spaces in the middle of a string with a single space
+	regex := regexp.MustCompile(`\s+`)
+	normalized := regex.ReplaceAllString(trimmed, " ")
+
+	return normalized
+}
