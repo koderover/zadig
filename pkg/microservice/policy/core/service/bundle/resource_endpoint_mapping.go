@@ -19,10 +19,10 @@ package bundle
 import (
 	"strings"
 
-	"github.com/koderover/zadig/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type resourceActionMappings map[string]map[string][]*Rule

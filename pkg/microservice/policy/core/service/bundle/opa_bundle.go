@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/koderover/zadig/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/config"
@@ -29,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/policy/core/yamlconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/opa"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 const (
