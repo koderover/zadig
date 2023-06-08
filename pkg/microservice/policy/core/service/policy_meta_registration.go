@@ -20,6 +20,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"github.com/koderover/zadig/pkg/microservice/policy/core/yamlconfig"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -78,6 +80,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, logger *zap.Sugared
 			projectPolicyMetas = append(projectPolicyMetas, v)
 		}
 	}
+	log.Info("length of policy meta for system scope is: ", len(projectPolicyMetas))
 
 	switch scope {
 	case string(types.SystemScope):
@@ -98,6 +101,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, logger *zap.Sugared
 	case string(types.ProjectScope):
 		tmp := []*types.PolicyMeta{}
 		for _, meta := range projectPolicyMetas {
+			log.Infof("handle single metaL: %s", meta.Resource)
 			if envType == setting.PMDeployType && (meta.Resource == "ProductionEnvironment" || meta.Resource == "Delivery") {
 				continue
 			}
@@ -119,6 +123,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, logger *zap.Sugared
 					}
 					tmpRules = append(tmpRules, rule)
 				}
+				log.Infof("rules count: %d, new rules count: %d", len(projectPolicyMetas[i].Rules), len(tmpRules))
 				projectPolicyMetas[i].Rules = tmpRules
 			}
 		}
@@ -143,6 +148,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, logger *zap.Sugared
 		}
 		res = append(res, pd)
 	}
+	log.Infof("res count is %d", len(res))
 
 	for _, v := range res {
 		if v.Resource == string(config.ResourceTypeEnvironment) {
@@ -167,6 +173,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, logger *zap.Sugared
 			break
 		}
 	}
+	log.Infof("res after production env count is %d", len(res)
 
 	switch scope {
 	case string(types.SystemScope):
