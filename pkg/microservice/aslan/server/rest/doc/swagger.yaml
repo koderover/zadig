@@ -202,6 +202,17 @@ definitions:
     - service_variable_kvs
     - variable_yaml
     type: object
+  models.AnalysisConfig:
+    properties:
+      cron:
+        type: string
+      enable_cron:
+        type: boolean
+      resource_types:
+        items:
+          type: string
+        type: array
+    type: object
   models.Commit:
     properties:
       message:
@@ -356,6 +367,27 @@ definitions:
       updated_by:
         type: string
     type: object
+  models.NotificationConfig:
+    properties:
+      event:
+        items:
+          $ref: '#/definitions/models.NotificationEvent'
+        type: array
+      webhook_type:
+        type: string
+      webhook_url:
+        type: string
+    type: object
+  models.NotificationEvent:
+    enum:
+    - notification_event_env_change
+    - notification_event_analyzer_normal
+    - notification_event_analyzer_abnormal
+    type: string
+    x-enum-varnames:
+    - NotificationEventEnvChange
+    - NotificationEventAnalyzerNoraml
+    - NotificationEventAnalyzerAbnormal
   models.ParameterSettingType:
     enum:
     - string
@@ -732,6 +764,13 @@ definitions:
         items:
           $ref: '#/definitions/service.DeployableEnv'
         type: array
+    type: object
+  service.EnvConfigsArgs:
+    properties:
+      analysis_config:
+        $ref: '#/definitions/models.AnalysisConfig'
+      notification_config:
+        $ref: '#/definitions/models.NotificationConfig'
     type: object
   service.EnvDefinition:
     properties:
@@ -1458,6 +1497,61 @@ paths:
       summary: Update Multi products
       tags:
       - environment
+  /api/aslan/environment/environments/{name}/configs:
+    get:
+      consumes:
+      - application/json
+      description: Get environment configs
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvConfigsArgs'
+      summary: Get enviroment configs
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Update environment configs
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.EnvConfigsArgs'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update enviroment configs
+      tags:
+      - environment
   /api/aslan/environment/environments/{name}/globalVariableCandidates:
     get:
       consumes:
@@ -1541,7 +1635,7 @@ paths:
             $ref: '#/definitions/service.EnvServices'
       summary: List services in env
       tags:
-      - environments
+      - environment
     put:
       consumes:
       - application/json
@@ -1708,6 +1802,61 @@ paths:
       summary: Get Resource Deploy Status
       tags:
       - environment
+  /api/aslan/environment/production/environments/{name}/configs:
+    get:
+      consumes:
+      - application/json
+      description: Get production environment configs
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvConfigsArgs'
+      summary: Get production enviroment configs
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Update production environment configs
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.EnvConfigsArgs'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update production enviroment configs
+      tags:
+      - environment
   /api/aslan/environment/production/environments/{name}/servicesForUpdate:
     get:
       consumes:
@@ -1733,7 +1882,7 @@ paths:
             $ref: '#/definitions/service.EnvServices'
       summary: List services in production env
       tags:
-      - environments
+      - environment
   /api/aslan/environment/rendersets/globalVariables:
     get:
       consumes:

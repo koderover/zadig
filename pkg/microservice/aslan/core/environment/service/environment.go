@@ -3048,9 +3048,19 @@ func GetEnvConfigs(projectName, envName string, logger *zap.SugaredLogger) (*Env
 	if err != nil {
 		return nil, e.ErrGetEnvConfigs.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
 	}
+
+	analysisConfig := &models.AnalysisConfig{}
+	if env.AnalysisConfig != nil {
+		analysisConfig = env.AnalysisConfig
+	}
+	notificationConfig := &models.NotificationConfig{}
+	if env.NotificationConfig != nil {
+		notificationConfig = env.NotificationConfig
+	}
+
 	configs := &EnvConfigsArgs{
-		AnalysisConfig:     env.AnalysisConfig,
-		NotificationConfig: env.NotificationConfig,
+		AnalysisConfig:     analysisConfig,
+		NotificationConfig: notificationConfig,
 	}
 	return configs, nil
 }
@@ -3068,4 +3078,12 @@ func UpdateEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, logger *
 	}
 
 	return nil
+}
+
+func GetProductionEnvConfigs(projectName, envName string, logger *zap.SugaredLogger) (*EnvConfigsArgs, error) {
+	return GetEnvConfigs(projectName, envName, logger)
+}
+
+func UpdateProductionEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, logger *zap.SugaredLogger) error {
+	return UpdateEnvConfigs(projectName, envName, arg, logger)
 }

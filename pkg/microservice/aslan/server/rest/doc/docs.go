@@ -199,6 +199,88 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}/configs": {
+            "get": {
+                "description": "Get environment configs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get enviroment configs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvConfigsArgs"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update environment configs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Update enviroment configs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvConfigsArgs"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments/{name}/globalVariableCandidates": {
             "get": {
                 "description": "Get global variable candidates",
@@ -296,7 +378,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "environments"
+                    "environment"
                 ],
                 "summary": "List services in env",
                 "parameters": [
@@ -572,6 +654,88 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/production/environments/{name}/configs": {
+            "get": {
+                "description": "Get production environment configs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get production enviroment configs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvConfigsArgs"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update production environment configs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Update production enviroment configs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvConfigsArgs"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/production/environments/{name}/servicesForUpdate": {
             "get": {
                 "description": "List services in production env",
@@ -582,7 +746,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "environments"
+                    "environment"
                 ],
                 "summary": "List services in production env",
                 "parameters": [
@@ -1793,6 +1957,23 @@ const docTemplate = `{
                 }
             }
         },
+        "models.AnalysisConfig": {
+            "type": "object",
+            "properties": {
+                "cron": {
+                    "type": "string"
+                },
+                "enable_cron": {
+                    "type": "boolean"
+                },
+                "resource_types": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "models.Commit": {
             "type": "object",
             "properties": {
@@ -2024,6 +2205,36 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "models.NotificationConfig": {
+            "type": "object",
+            "properties": {
+                "event": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.NotificationEvent"
+                    }
+                },
+                "webhook_type": {
+                    "type": "string"
+                },
+                "webhook_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.NotificationEvent": {
+            "type": "string",
+            "enum": [
+                "notification_event_env_change",
+                "notification_event_analyzer_normal",
+                "notification_event_analyzer_abnormal"
+            ],
+            "x-enum-varnames": [
+                "NotificationEventEnvChange",
+                "NotificationEventAnalyzerNoraml",
+                "NotificationEventAnalyzerAbnormal"
+            ]
         },
         "models.ParameterSettingType": {
             "type": "string",
@@ -2587,6 +2798,17 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/service.DeployableEnv"
                     }
+                }
+            }
+        },
+        "service.EnvConfigsArgs": {
+            "type": "object",
+            "properties": {
+                "analysis_config": {
+                    "$ref": "#/definitions/models.AnalysisConfig"
+                },
+                "notification_config": {
+                    "$ref": "#/definitions/models.NotificationConfig"
                 }
             }
         },

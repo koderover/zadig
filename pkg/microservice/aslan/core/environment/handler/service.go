@@ -30,7 +30,7 @@ import (
 
 // @Summary List services in env
 // @Description List services in env
-// @Tags 	environments
+// @Tags 	environment
 // @Accept 	json
 // @Produce json
 // @Param 	name 			path 		string 						 	true 	"env name"
@@ -48,7 +48,7 @@ func ListSvcsInEnv(c *gin.Context) {
 
 // @Summary List services in production env
 // @Description List services in production env
-// @Tags 	environments
+// @Tags 	environment
 // @Accept 	json
 // @Produce json
 // @Param 	name 			path 		string 						 	true 	"env name"

@@ -69,7 +69,7 @@ type Product struct {
 	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
 
 	// New Since v.1.19.0, env configs
-	AnalysisConfig     *AnalysisConfig     `bson:"analysis_config" 	   json:"analysis_config"`
+	AnalysisConfig     *AnalysisConfig     `bson:"analysis_config"     json:"analysis_config"`
 	NotificationConfig *NotificationConfig `bson:"notification_config" json:"notification_config"`
 
 	// For production environment
@@ -77,7 +77,6 @@ type Product struct {
 	Alias      string `json:"alias" bson:"alias"`
 }
 
-// @todo product notifcation config
 type NotificationEvent string
 
 const (

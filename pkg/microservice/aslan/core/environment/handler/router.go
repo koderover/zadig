@@ -157,8 +157,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/helm/values", GetProductionChartValues)
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
-		production.GET("/config", ConnectSshPmExec)
-		production.PUT("/config", ConnectSshPmExec)
+		production.GET("/:name/configs", GetProductionEnvConfigs)
+		production.PUT("/:name/configs", UpdateProductionEnvConfigs)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -217,8 +217,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
 		environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)
 
-		environments.GET("/:name/config", GetEnvConfigs)
-		environments.PUT("/:name/config", UpdateEnvConfigs)
+		environments.GET("/:name/configs", GetEnvConfigs)
+		environments.PUT("/:name/configs", UpdateEnvConfigs)
 	}
 
 	// ---------------------------------------------------------------------------------------
