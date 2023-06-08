@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"sort"
 
+	"github.com/koderover/zadig/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/config"
@@ -242,7 +243,7 @@ func (o policyBindings) Less(i, j int) bool {
 	return o[i].UID < o[j].UID
 }
 
-func generateOPARoles(roles []*models.Role, policyMetas []*models.PolicyMeta) *opaRoles {
+func generateOPARoles(roles []*models.Role, policyMetas []*types.PolicyMeta) *opaRoles {
 	data := &opaRoles{}
 	resourceMappings := getResourceActionMappings(false, policyMetas)
 
@@ -303,7 +304,7 @@ func generateOPARoles(roles []*models.Role, policyMetas []*models.PolicyMeta) *o
 	return data
 }
 
-func generateOPAPolicies(policies []*models.Policy, policyMetas []*models.PolicyMeta) *opaPolicies {
+func generateOPAPolicies(policies []*models.Policy, policyMetas []*types.PolicyMeta) *opaPolicies {
 	data := &opaPolicies{}
 	resourceMappings := getResourceActionMappings(true, policyMetas)
 
@@ -426,7 +427,7 @@ type ExemptionURLs struct {
 	Registered Rules `json:"registered"` // registered urls are the entire list of urls which are controlled by AuthZ, which means that if an url is not in this list, it is not controlled by AuthZ
 }
 
-func generateOPAExemptionURLs(policies []*models.PolicyMeta) *ExemptionURLs {
+func generateOPAExemptionURLs(policies []*types.PolicyMeta) *ExemptionURLs {
 	data := &ExemptionURLs{}
 
 	for _, r := range yamlconfig.GetExemptionsUrls().Public {
@@ -494,10 +495,8 @@ func GenerateOPABundle() error {
 		log.Errorf("Failed to list roleBindings, err: %s", err)
 	}
 
-	pms, err := mongodb.NewPolicyMetaColl().List()
-	if err != nil {
-		log.Errorf("Failed to list policyMetas, err: %s", err)
-	}
+	policieMetas := yamlconfig.DefaultPolicyMetasConfig().Policies()
+
 	policies, err := mongodb.NewPolicyColl().List()
 	if err != nil {
 		log.Errorf("Failed to list policies, err: %s", err)
@@ -506,10 +505,10 @@ func GenerateOPABundle() error {
 	bundle := &opa.Bundle{
 		Data: []*opa.DataSpec{
 			{Data: generateOPAPolicyRego(), Path: policyRegoPath},
-			{Data: generateOPARoles(rs, pms), Path: rolesPath},
-			{Data: generateOPAPolicies(policies, pms), Path: policiesPath},
+			{Data: generateOPARoles(rs, policieMetas), Path: rolesPath},
+			{Data: generateOPAPolicies(policies, policieMetas), Path: policiesPath},
 			{Data: generateOPABindings(bs, pbs), Path: bindingsPath},
-			{Data: generateOPAExemptionURLs(pms), Path: exemptionsPath},
+			{Data: generateOPAExemptionURLs(policieMetas), Path: exemptionsPath},
 			{Data: generateResourceBundle(), Path: resourcesPath},
 		},
 		Roots: []string{policyRoot, rolesRoot, rolebindingsRoot, exemptionsRoot, resourcesRoot, policiesRoot},

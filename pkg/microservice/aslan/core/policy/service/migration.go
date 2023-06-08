@@ -1,13 +1,9 @@
 package service
 
 import (
-	"time"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -145,12 +141,6 @@ func migratePolicyMeta() error {
 		log.Errorf("init config map roles err:%s", err)
 	}
 
-	for _, v := range yamlconfig.DefaultPolicyMetas() {
-		if err := policyservice.CreateOrUpdatePolicyRegistration(v, nil); err != nil {
-			log.DPanic(err)
-		}
-	}
-	_, err = NewClusterInformerFactory("", clientset)
 	return err
 }
 
@@ -172,52 +162,4 @@ func initConfigMap(cm *corev1.ConfigMap, client client.Client, clientset *kubern
 		}
 	}
 	return nil
-}
-
-func NewClusterInformerFactory(clusterId string, cls *kubernetes.Clientset) (informers.SharedInformerFactory, error) {
-	if clusterId == "" {
-		clusterId = setting.LocalClusterID
-	}
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(cls, time.Hour*24, informers.WithNamespace(commonconfig.Namespace()))
-	configMapsInformer := informerFactory.Core().V1().ConfigMaps().Informer()
-	configMapsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			configMap, ok := newObj.(*corev1.ConfigMap)
-			if !ok {
-				return
-			}
-			if configMap.Name == setting.PolicyMetaConfigMapName {
-				if b, ok := configMap.Data["meta.yaml"]; ok {
-					log.Infof("start to update the meta configMap")
-					for _, v := range yamlconfig.PolicyMetasFromBytes([]byte(b)) {
-						if err := policyservice.CreateOrUpdatePolicyRegistration(v, nil); err != nil {
-							log.Errorf("fail to CreateOrUpdatePolicyRegistration,err:%s", err)
-							continue
-						}
-					}
-				}
-			}
-			if configMap.Name == setting.PolicyURLConfigMapName {
-				if b, ok := configMap.Data["urls.yaml"]; ok {
-					log.Infof("start to refresh url configMap data")
-					if err := yamlconfig.RefreshConfigMapByte([]byte(b)); err != nil {
-						log.Errorf("refresh urls err:%s", err)
-					}
-				}
-			}
-			if configMap.Name == setting.PolicyRoleConfigMapName {
-				if b, ok := configMap.Data["roles.yaml"]; ok {
-					log.Infof("start to refresh role configmap data")
-					yamlconfig.RefreshRoles([]byte(b))
-					if err := migrateRole(); err != nil {
-						log.Errorf("refresh role err:%s", err)
-					}
-				}
-			}
-
-		},
-	})
-	stop := make(chan struct{})
-	informerFactory.Start(stop)
-	return informerFactory, nil
 }
