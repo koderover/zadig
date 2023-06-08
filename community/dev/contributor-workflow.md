@@ -39,65 +39,37 @@ Zadig 后端使用 Go 语言，在您贡献代码之前，本地需安装 Go 1.1
 
 请详细阅读 [代码贡献指南](../../CONTRIBUTING-zh-CN.md) 并遵循上面的流程。
 
-## 4. 调试
+## 4. 镜像构建及部署
 
-Zadig 为您提供云上测试环境 [https://os.koderover.com](https://os.koderover.com)。
+### 后端构建
+> 服务列表：aslan cron hub-server hub-agent resource-server predator-plugin ua warpdrive
+> 请确认当前构建环境有推送镜像至开发环境的远端仓库的权限
 
-第 1 步：GitHub OAuth 登录系统
+1. 执行 `export IMAGE_REPOSITOR={YOUR_IMAGE_REGISTRY_URL}`指定目标镜像仓库地址
+2. 执行 `export VERSION={YOUR_IMAGE_TAG}` 指定镜像 TAG
+3. 在 zadig 代码库根目录执行 `make {SERVICE}.push` 构建出镜像并上传至镜像仓库
 
-![Login through Github](./github_login.png)
+### 前端构建
+> 请确认当前构建环境有推送镜像至远端仓库的权限
+1. 切换至 zadig-portal 目录
+2. 执行 `export IMAGE_REPOSITOR={YOUR_IMAGE_REGISTRY_URL}`指定目标镜像仓库地址
+3. 执行 `export VERSION={YOUR_IMAGE_TAG}` 指定镜像 TAG
+4. 执行 make all 构建镜像并上传至镜像仓库
 
-第 2 步：在 Zadig 项目中获得开发者工作流和环境
+### 镜像部署
 
-步骤如下：
-1. 点击 Zadig 项目
-2. 在页面中点击 环境变量 按钮，如下图所示
+将构建出的服务镜像替换至相关 workload 资源
+服务以及 workload 对应关系如下：
 
-![Edit variable button](./edit_variable_button.png)
-3. 在弹出的窗口中，如图修改如下字段：
+| 服务名          | workload 资源              |
+|-----------------|----------------------------|
+| aslan           | deployment/aslan           |
+| cron            | deployment/corn            |
+| hub-server      | deployment/hub-server      |
+| resource-server | deployment/resource-server |
+| warpdrive       | deployment/warpdrive       |
+| zadig-portal    | deployment/zadig-portal    |
 
-   1. dex.config.issuer=http://${github_id}-dex:5556/dex
-   2. dex.config.staticClients[0].redirectURISs[0]=http://${github_id}.ko.coderover.cn/api/v1/callback
-   3. dex.fullnameOverride=${github_id}-dex
-   4. endpoint.FQDN=${github_id}.ko.coderover.cn
-   5. global.extensions.extAuth.extauthzServerRef.namespace=zadig-env-${环境名称}
 
-![Fork_varibales_1](./fork_variables_1.png)
-![Fork_varibales_2](./fork_variables_2.png)
 
-请注意，如果没有按照以上规则修改参数，可能会导致环境无法创建/创建环境后无法正常访问！
 
-Fork 完成后，您将获得一个 Zadig 测试环境。
-
-第 3 步 ：测试
-
-您可以使用两种测试方式：云上代码测试和本地代码测试。
-
-### 方式一：云上代码测试
-
-需先提交您的代码，并创建 pull request，调试过程中的 pull request 标题建议加上 WIP。然后使用 [zadig-workflow](https://os.koderover.com/v1/projects/detail/zadig/pipelines/multi/zadig-workflow) 更新您的测试环境。
-
-启动工作流任务需要
-
-1. 选择您代码变更涉及到的服务
-2. 选择您提交的 pull request
-
-工作流成功执行后，您可以进入测试环境进行调试。
-
-### 方式二：本地代码测试
-
-#### 前端本地测试
-
-请确保您的测试环境正常运行，在开始测试之前请将 `zadig-portal/config/index.js` 中的 backEndAddr 改为您测试环境的访问地址。
-
-```bash
-cd zadig-portal
-yarn install
-yarn run dev
-```
-
-访问 http://localhost:8080 进行本地调试。
-
-#### 后端本地测试
-
-使用 Zadig CLI 进行本地调试，使用方式参见 [Zadig CLI 使用指南](https://docs.koderover.com/zadig/v1.7.1/cli/kodespace-usage-for-contributor/)
