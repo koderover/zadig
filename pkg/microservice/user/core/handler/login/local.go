@@ -31,7 +31,13 @@ func LocalLogin(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = login.LocalLogin(args, ctx.Logger)
+	resp, failedCount, err := login.LocalLogin(args, ctx.Logger)
+	if failedCount >= 5 {
+		c.Header("x-require-captcha", "true")
+	} else {
+		c.Header("x-require-captcha", "false")
+	}
+	ctx.Resp, ctx.Err = resp, err
 }
 
 type LocalLogoutResp struct {
