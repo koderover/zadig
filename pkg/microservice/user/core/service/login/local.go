@@ -137,7 +137,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		if !ok {
 			failedCount = 0
 		}
-		return nil, failedCount, fmt.Errorf("password is wrong")
+		return nil, failedCount + 1, fmt.Errorf("password is wrong")
 	}
 	if err != nil {
 		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", args.Account, err)
