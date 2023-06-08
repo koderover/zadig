@@ -443,7 +443,7 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 }
 
 const (
-	StrongPasswordRegexp = `^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$`
+	StrongPasswordRegexp = `(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}`
 )
 
 func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
