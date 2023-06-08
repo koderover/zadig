@@ -225,6 +225,8 @@ metas:
         alias: 新建
         description: ''
         rules:
+          - method: GET
+            endpoint: /api/aslan/template/charts
           - method: POST
             endpoint: /api/aslan/service/helm/production/services
           - method: POST
