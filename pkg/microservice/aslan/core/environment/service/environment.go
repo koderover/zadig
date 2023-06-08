@@ -3117,9 +3117,6 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 
 		svcSet := sets.NewString()
 		for _, svc := range productKV.RelatedServices {
-			if !commonutil.ServiceDeployed(svc, product.ServiceDeployStrategy) {
-				continue
-			}
 			svcSet.Insert(svc)
 		}
 
@@ -3188,9 +3185,6 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 
 		svcSet := sets.NewString()
 		for _, svc := range productKV.RelatedServices {
-			if !commonutil.ServiceDeployed(svc, product.ServiceDeployStrategy) {
-				continue
-			}
 			svcSet.Insert(svc)
 		}
 
@@ -3217,7 +3211,6 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 	productRenderset.ServiceVariables = updatedSvcList
 
 	for _, svcRender := range updatedSvcList {
-		log.Infof("fetching current applied yaml, productName: %s envName: %s serviceName: %s, updateSvcRevision: %v", product.ProductName, product.EnvName, svcRender.ServiceName, false)
 		curYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 			ProductName:           product.ProductName,
 			EnvName:               product.EnvName,
@@ -3233,7 +3226,6 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 				product.ProductName, product.EnvName, svcRender.ServiceName, false, err)
 			log.Errorf(ret.Error)
 		}
-		log.Infof("current yaml is %s", curYaml)
 
 		prodSvc := product.GetServiceMap()[svcRender.ServiceName]
 		if prodSvc == nil {
