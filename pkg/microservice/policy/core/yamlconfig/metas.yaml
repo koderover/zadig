@@ -221,6 +221,8 @@ metas:
             endpoint: /api/aslan/service/helm/production/services/?*/fileContent
           - method: GET
             endpoint: /api/aslan/project/products/?*/services
+          - method: GET
+            endpoint: "/api/aslan/cluster/clusters"
       - action: create_production_service
         alias: 新建
         description: ''
