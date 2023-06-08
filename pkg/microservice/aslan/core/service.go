@@ -205,7 +205,8 @@ func initResourcesForExternalClusters() {
 	logger := log.SugaredLogger().With("func", "initResourcesForExternalClusters")
 	list, err := mongodb.NewK8sClusterColl().FindConnectedClusters()
 	if err != nil {
-		logger.Fatalf("FindConnectedClusters err: %v", err)
+		logger.Errorf("FindConnectedClusters err: %v", err)
+		return
 	}
 	namespace := "koderover-agent"
 
@@ -220,10 +221,12 @@ func initResourcesForExternalClusters() {
 		case setting.KubeConfigClusterType:
 			client, err = multicluster.GetKubeClientFromKubeConfig(cluster.ID.Hex(), cluster.KubeConfig)
 		default:
-			logger.Fatalf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
+			logger.Errorf("failed to create kubeclient: unknown cluster type: %s", cluster.Type)
+			return
 		}
 		if err != nil {
-			logger.Fatalf("GetKubeClient id-%s err: %v", cluster.ID.Hex(), err)
+			logger.Errorf("GetKubeClient id-%s err: %v", cluster.ID.Hex(), err)
+			return
 		}
 
 		// create role
@@ -244,7 +247,8 @@ func initResourcesForExternalClusters() {
 			if apierrors.IsAlreadyExists(err) {
 				logger.Infof("cluster %s role is already exist", cluster.Name)
 			} else {
-				logger.Fatalf("cluster %s create role err: %s", cluster.Name, err)
+				logger.Errorf("cluster %s create role err: %s", cluster.Name, err)
+				return
 			}
 		}
 
@@ -259,7 +263,8 @@ func initResourcesForExternalClusters() {
 			if apierrors.IsAlreadyExists(err) {
 				logger.Infof("cluster %s serviceAccount is already exist", cluster.Name)
 			} else {
-				logger.Fatalf("cluster %s create serviceAccount err: %s", cluster.Name, err)
+				logger.Errorf("cluster %s create serviceAccount err: %s", cluster.Name, err)
+				return
 			}
 		}
 
@@ -286,7 +291,8 @@ func initResourcesForExternalClusters() {
 			if apierrors.IsAlreadyExists(err) {
 				logger.Infof("cluster %s role binding is already exist", cluster.Name)
 			} else {
-				logger.Fatalf("cluster %s create role binding err: %s", cluster.Name, err)
+				logger.Errorf("cluster %s create role binding err: %s", cluster.Name, err)
+				return
 			}
 		}
 		logger.Infof("cluster %s done", cluster.Name)
