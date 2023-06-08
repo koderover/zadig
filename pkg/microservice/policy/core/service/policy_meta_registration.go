@@ -24,8 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
-	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/policy/core/yamlconfig"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -42,39 +41,6 @@ type PolicyRuleDefinition struct {
 	Action      string `json:"action"`
 	Alias       string `json:"alias"`
 	Description string `json:"description"`
-}
-
-func CreateOrUpdatePolicyRegistration(p *types.PolicyMeta, _ *zap.SugaredLogger) error {
-	obj := &models.PolicyMeta{
-		Resource:    p.Resource,
-		Alias:       p.Alias,
-		Description: p.Description,
-	}
-
-	for _, r := range p.Rules {
-		rule := &models.PolicyMetaRule{
-			Action:      r.Action,
-			Alias:       r.Alias,
-			Description: r.Description,
-		}
-		for _, ar := range r.Rules {
-			var as []models.Attribute
-			for _, a := range ar.MatchAttributes {
-				as = append(as, models.Attribute{Key: a.Key, Value: a.Value})
-			}
-
-			rule.Rules = append(rule.Rules, &models.ActionRule{
-				Method:          ar.Method,
-				Endpoint:        ar.Endpoint,
-				ResourceType:    ar.ResourceType,
-				IDRegex:         ar.IDRegex,
-				MatchAttributes: as,
-			})
-		}
-		obj.Rules = append(obj.Rules, rule)
-	}
-
-	return mongodb.NewPolicyMetaColl().UpdateOrCreate(obj)
 }
 
 var definitionMap = map[string]int{
@@ -98,15 +64,13 @@ var projectDefinitionMap = map[string]int{
 	"Delivery":              9,
 }
 
-func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
-	policieMetas, err := mongodb.NewPolicyMetaColl().List()
-	if err != nil {
-		return nil, err
-	}
+func GetPolicyRegistrationDefinitions(scope, envType string, logger *zap.SugaredLogger) ([]*PolicyDefinition, error) {
+	policyMetas := yamlconfig.DefaultPolicyMetasConfig().Policies()
+
 	systemScopeSet := sets.NewString("Project", "Template", "TestCenter", "ReleaseCenter", "DeliveryCenter", "DataCenter")
 	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build", "Service", "ProductionService", "Scan")
-	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*models.PolicyMeta{}, []*models.PolicyMeta{}, []*models.PolicyMeta{}
-	for _, v := range policieMetas {
+	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*types.PolicyMeta{}, []*types.PolicyMeta{}, []*types.PolicyMeta{}
+	for _, v := range policyMetas {
 		if systemScopeSet.Has(v.Resource) {
 			systemPolicyMetas = append(systemPolicyMetas, v)
 		} else if projectScopeSet.Has(v.Resource) {
@@ -118,7 +82,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 	case string(types.SystemScope):
 		for _, meta := range systemPolicyMetas {
 			if meta.Resource == "TestCenter" {
-				tmpRules := []*models.PolicyMetaRule{}
+				tmpRules := []*types.RuleMeta{}
 				for _, rule := range meta.Rules {
 					if rule.Action == "create_test" {
 						continue
@@ -131,7 +95,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		}
 		filteredPolicyMetas = systemPolicyMetas
 	case string(types.ProjectScope):
-		tmp := []*models.PolicyMeta{}
+		tmp := []*types.PolicyMeta{}
 		for _, meta := range projectPolicyMetas {
 			if envType == setting.PMDeployType && (meta.Resource == "ProductionEnvironment" || meta.Resource == "Delivery") {
 				continue
@@ -144,7 +108,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		projectPolicyMetas = tmp
 		for i, meta := range projectPolicyMetas {
 			if meta.Resource == "Environment" || meta.Resource == "ProductionEnvironment" {
-				tmpRules := []*models.PolicyMetaRule{}
+				tmpRules := []*types.RuleMeta{}
 				for _, rule := range meta.Rules {
 					if rule.Action == "debug_pod" && envType == setting.PMDeployType {
 						continue
@@ -159,7 +123,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, _ *zap.SugaredLogge
 		}
 		filteredPolicyMetas = projectPolicyMetas
 	default:
-		filteredPolicyMetas = policieMetas
+		filteredPolicyMetas = policyMetas
 	}
 	var res []*PolicyDefinition
 	for _, meta := range filteredPolicyMetas {
