@@ -367,7 +367,6 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 	return CreateProduct(userName, requestID, productObj, log)
 }
 
-// TODO add production parameter
 func CreateYamlProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil || templateProduct == nil {
@@ -375,16 +374,6 @@ func CreateYamlProduct(productName, userName, requestID string, args []*CreateSi
 			log.Errorf("failed to query product %s, err %s ", productName, err.Error())
 		}
 		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query product %s ", productName))
-	}
-
-	// prepare data
-	serviceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
-	templateServiceMap := make(map[string]*commonmodels.Service)
-	for _, svc := range serviceTmpls {
-		templateServiceMap[svc.ServiceName] = svc
 	}
 
 	errList := new(multierror.Error)

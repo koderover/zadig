@@ -75,7 +75,6 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, production boo
 	return nil
 }
 
-// 产品列表页服务Response
 type ServiceResp struct {
 	ServiceName        string       `json:"service_name"`
 	ServiceDisplayName string       `json:"service_display_name"`
@@ -86,12 +85,13 @@ type ServiceResp struct {
 	EnvName            string       `json:"env_name"`
 	Ingress            *IngressInfo `json:"ingress"`
 	//deprecated
-	Ready        string              `json:"ready"`
-	EnvStatuses  []*models.EnvStatus `json:"env_statuses,omitempty"`
-	WorkLoadType string              `json:"workLoadType"`
-	Revision     int64               `json:"revision"`
-	EnvConfigs   []*models.EnvConfig `json:"env_configs"`
-	Updatable    bool                `json:"updatable"`
+	Ready          string              `json:"ready"`
+	EnvStatuses    []*models.EnvStatus `json:"env_statuses,omitempty"`
+	WorkLoadType   string              `json:"workLoadType"`
+	Revision       int64               `json:"revision"`
+	EnvConfigs     []*models.EnvConfig `json:"env_configs"`
+	Updatable      bool                `json:"updatable"`
+	DeployStrategy string              `json:"deploy_Strategy"`
 }
 
 type IngressInfo struct {

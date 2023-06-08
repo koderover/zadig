@@ -318,24 +318,16 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		return nil
 	}
 
-	latestSvcs, err := repository.ListMaxRevisionsServices(productName, productInfo.Production)
-	if err != nil {
-		log.Errorf("list max revision services error: %v", err)
-		return nil
-	}
-	latestTemplateSvcs := make(map[string]*commonmodels.Service)
-	for _, svc := range latestSvcs {
-		latestTemplateSvcs[svc.ServiceName] = svc
-	}
-
 	for _, service := range allServices {
 		wg.Add(1)
 		go func(service *commonmodels.ProductService) {
 			defer wg.Done()
 			gp := &commonservice.ServiceResp{
-				ServiceName: service.ServiceName,
-				Type:        service.Type,
-				EnvName:     envName,
+				ServiceName:    service.ServiceName,
+				Type:           service.Type,
+				EnvName:        envName,
+				DeployStrategy: service.DeployStrategy,
+				Updatable:      service.Updatable,
 			}
 			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: service.ServiceName,
@@ -351,9 +343,6 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				return
 			}
 
-			if latestSvc, ok := latestTemplateSvcs[gp.ServiceName]; ok {
-				gp.Updatable = service.Revision < latestSvc.Revision
-			}
 			gp.ProductName = serviceTmpl.ProductName
 			// 查询group下所有pods信息
 			if informer != nil {
