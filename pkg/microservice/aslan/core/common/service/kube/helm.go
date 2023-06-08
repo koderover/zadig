@@ -367,6 +367,8 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 	helmSvcOfflineLock.Lock()
 	defer helmSvcOfflineLock.Unlock()
 
+	log.Infof("remove svc from env, svc: %v", serviceNames)
+
 	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		return err

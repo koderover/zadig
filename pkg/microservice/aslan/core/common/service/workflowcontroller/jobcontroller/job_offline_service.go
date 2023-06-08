@@ -87,6 +87,13 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 
 	c.logger = c.logger.With("func", "OfflineServiceJobCtl")
 
+	projectInfo, err := template.NewProductColl().Find(c.workflowCtx.ProjectName)
+	if err != nil {
+		c.job.Error = fmt.Sprintf("failed to fetch project info: %v", err)
+		c.job.Status = config.StatusFailed
+		return
+	}
+
 	var fail bool
 	for _, event := range c.jobTaskSpec.ServiceEvents {
 		logger := c.logger.With("service", event.ServiceName)
@@ -108,12 +115,6 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 				Status:      http.StatusInternalServerError,
 				CreatedAt:   time.Now().Unix(),
 			})
-		}
-
-		projectInfo, err := template.NewProductColl().Find(c.workflowCtx.ProjectName)
-		if err != nil {
-			errHandler(fmt.Sprintf("failed to fetch project info %v", err))
-			continue
 		}
 
 		if projectInfo.IsHelmProduct() {
