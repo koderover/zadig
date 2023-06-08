@@ -590,7 +590,11 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 		if err != nil {
 			return fmt.Errorf("failed to find product: %s/%s, err: %v", applyParam.ProductInfo.ProductName, productInfo.EnvName, err)
 		}
-		return DeleteHelmServiceFromEnv("workflow", "", productInfo, []string{applyParam.ServiceName}, log)
+		targetServices := applyParam.ServiceList
+		if len(targetServices) == 0 {
+			targetServices = []string{applyParam.ServiceName}
+		}
+		return DeleteHelmServiceFromEnv("workflow", "", productInfo, targetServices, log)
 	}
 
 	renderSet, productService, svcTemplate, err := PrepareHelmServiceData(applyParam)
