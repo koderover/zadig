@@ -345,6 +345,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		favorite.POST("/:type/:name", CreateFavorite)
 		favorite.DELETE("/:type/:name", DeleteFavorite)
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// external system API
+	// ---------------------------------------------------------------------------------------
+	llm := router.Group("llm")
+	{
+		llm.POST("/integration", CreateLLMIntegration)
+		llm.GET("/integration", ListLLMIntegration)
+		llm.GET("/integration/:id", GetLLMIntegration)
+		llm.PUT("/integration/:id", UpdateLLMIntegration)
+		llm.DELETE("/integration/:id", DeleteLLMIntegration)
+	}
 }
 
 type OpenAPIRouter struct{}

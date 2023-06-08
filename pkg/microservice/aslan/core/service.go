@@ -406,6 +406,7 @@ func initDatabase() {
 		commonrepo.NewStatDashboardConfigColl(),
 		commonrepo.NewProjectManagementColl(),
 		commonrepo.NewImageTagsCollColl(),
+		commonrepo.NewLLMIntegrationColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),
