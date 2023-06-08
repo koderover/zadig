@@ -24,8 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -56,6 +54,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"

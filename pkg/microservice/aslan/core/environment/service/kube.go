@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -52,6 +50,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/podexec/core/service"
 	"github.com/koderover/zadig/pkg/setting"

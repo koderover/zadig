@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -34,6 +32,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"

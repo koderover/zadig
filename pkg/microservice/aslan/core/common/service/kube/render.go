@@ -529,7 +529,6 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
-	log.Infof("final fullRenderedYaml is: %s", fullRenderedYaml)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, err
 }
 
