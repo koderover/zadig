@@ -60,6 +60,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		router.POST("login", login.LocalLogin)
 
+		router.GET("captcha", login.GetCaptcha)
+
 		router.GET("logout", login.LocalLogout)
 
 		router.POST("signup", user.SignUp)

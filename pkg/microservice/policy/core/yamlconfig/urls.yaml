@@ -109,6 +109,9 @@ exemption_urls:
       methods:
         - GET
         - POST
+    - endpoint: api/v1/captcha
+      methods:
+        - GET
     - endpoint: api/v1/signup
       methods:
         - GET

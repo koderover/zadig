@@ -40,6 +40,26 @@ func LocalLogin(c *gin.Context) {
 	ctx.Resp, ctx.Err = resp, err
 }
 
+type getCaptchaResp struct {
+	ID      string `json:"id"`
+	Content string `json:"content"`
+}
+
+func GetCaptcha(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	id, picBase64, err := login.GetCaptcha(ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = &getCaptchaResp{
+		ID:      id,
+		Content: picBase64,
+	}
+}
+
 type LocalLogoutResp struct {
 	EnableRedirect bool   `json:"enable_redirect"`
 	RedirectURL    string `json:"redirect_url"`
