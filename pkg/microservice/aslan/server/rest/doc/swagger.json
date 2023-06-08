@@ -1096,6 +1096,156 @@
                 }
             }
         },
+        "/api/aslan/system/llm/integration": {
+            "get": {
+                "description": "List llm integrations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List llm integrations",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LLMIntegration"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a llm integration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Create a llm integration",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.CreateLLMIntegrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/llm/integration/{id}": {
+            "get": {
+                "description": "Get a llm integration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get a llm integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.LLMIntegration"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update a llm integration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Update a llm integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.CreateLLMIntegrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a llm integration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Delete a llm integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/template/yaml": {
             "post": {
                 "description": "Create yaml template",
@@ -1331,37 +1481,6 @@
                     }
                 }
             }
-        },
-        "/openapi/service/template/load/yaml": {
-            "post": {
-                "description": "OpenAPI Load Service From Yaml Template",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "OpenAPI"
-                ],
-                "summary": "OpenAPI Load Service From Yaml Template",
-                "parameters": [
-                    {
-                        "description": "body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/service.OpenAPILoadServiceFromYamlTemplateReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
         }
     },
     "definitions": {
@@ -1463,6 +1582,23 @@
                     "type": "string"
                 },
                 "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.CreateLLMIntegrationRequest": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "enable_proxy": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "token": {
                     "type": "string"
                 }
             }
@@ -1771,6 +1907,10 @@
                     "items": {
                         "$ref": "#/definitions/types.RenderVariableKV"
                     }
+                },
+                "variable_yaml": {
+                    "description": "VariableYaml added since 1.18, used for helm production environments",
+                    "type": "string"
                 }
             }
         },
@@ -1846,6 +1986,32 @@
                     "type": "string"
                 },
                 "tag": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LLMIntegration": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "enable_proxy": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "update_time": {
+                    "type": "integer"
+                },
+                "updated_by": {
                     "type": "string"
                 }
             }
@@ -2145,6 +2311,7 @@
                     "type": "string"
                 },
                 "visibility": {
+                    "description": "DEPRECATED since 1.17.0",
                     "type": "string"
                 },
                 "workload_type": {
@@ -2608,29 +2775,6 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/service.ServiceDefinition"
-                    }
-                }
-            }
-        },
-        "service.OpenAPILoadServiceFromYamlTemplateReq": {
-            "type": "object",
-            "properties": {
-                "auto_sync": {
-                    "type": "boolean"
-                },
-                "project_key": {
-                    "type": "string"
-                },
-                "service_name": {
-                    "type": "string"
-                },
-                "template_name": {
-                    "type": "string"
-                },
-                "variable_yaml": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/util.KeyValue"
                     }
                 }
             }

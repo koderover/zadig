@@ -71,6 +71,17 @@ definitions:
       value:
         type: string
     type: object
+  handler.CreateLLMIntegrationRequest:
+    properties:
+      base_url:
+        type: string
+      enable_proxy:
+        type: boolean
+      name:
+        type: string
+      token:
+        type: string
+    type: object
   handler.DeleteProductServicesRequest:
     properties:
       service_names:
@@ -274,6 +285,9 @@ definitions:
         items:
           $ref: '#/definitions/types.RenderVariableKV'
         type: array
+      variable_yaml:
+        description: VariableYaml added since 1.18, used for helm production environments
+        type: string
     type: object
   models.EnvConfig:
     properties:
@@ -323,6 +337,23 @@ definitions:
       repo:
         type: string
       tag:
+        type: string
+    type: object
+  models.LLMIntegration:
+    properties:
+      base_url:
+        type: string
+      enable_proxy:
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+      token:
+        type: string
+      update_time:
+        type: integer
+      updated_by:
         type: string
     type: object
   models.ParameterSettingType:
@@ -524,6 +555,7 @@ definitions:
         description: New since 1.16.0, stores the variable yaml of k8s services
         type: string
       visibility:
+        description: DEPRECATED since 1.17.0
         type: string
       workload_type:
         description: WorkloadType is set in host projects
@@ -829,21 +861,6 @@ definitions:
       service_list:
         items:
           $ref: '#/definitions/service.ServiceDefinition'
-        type: array
-    type: object
-  service.OpenAPILoadServiceFromYamlTemplateReq:
-    properties:
-      auto_sync:
-        type: boolean
-      project_key:
-        type: string
-      service_name:
-        type: string
-      template_name:
-        type: string
-      variable_yaml:
-        items:
-          $ref: '#/definitions/util.KeyValue'
         type: array
     type: object
   service.PreviewServiceArgs:
@@ -2044,6 +2061,105 @@ paths:
       summary: Reload service from yaml template
       tags:
       - service
+  /api/aslan/system/llm/integration:
+    get:
+      consumes:
+      - application/json
+      description: List llm integrations
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.LLMIntegration'
+            type: array
+      summary: List llm integrations
+      tags:
+      - system
+    post:
+      consumes:
+      - application/json
+      description: Create a llm integration
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateLLMIntegrationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Create a llm integration
+      tags:
+      - system
+  /api/aslan/system/llm/integration/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a llm integration
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Delete a llm integration
+      tags:
+      - system
+    get:
+      consumes:
+      - application/json
+      description: Get a llm integration
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.LLMIntegration'
+      summary: Get a llm integration
+      tags:
+      - system
+    put:
+      consumes:
+      - application/json
+      description: Update a llm integration
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateLLMIntegrationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update a llm integration
+      tags:
+      - system
   /api/aslan/template/yaml:
     post:
       consumes:
@@ -2196,26 +2312,6 @@ paths:
         "200":
           description: OK
       summary: OpenAPI Initialize Yaml Project
-      tags:
-      - OpenAPI
-  /openapi/service/template/load/yaml:
-    post:
-      consumes:
-      - application/json
-      description: OpenAPI Load Service From Yaml Template
-      parameters:
-      - description: body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/service.OpenAPILoadServiceFromYamlTemplateReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-      summary: OpenAPI Load Service From Yaml Template
       tags:
       - OpenAPI
 swagger: "2.0"

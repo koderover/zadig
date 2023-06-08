@@ -38,11 +38,11 @@ type ILLM interface {
 	GetName() string
 }
 
-func NewClient(provider string) ILLM {
+func NewClient(provider string) (ILLM, error) {
 	if c, ok := clients[provider]; !ok {
-		return &OpenAIClient{}
+		return nil, fmt.Errorf("provider %s not supported", provider)
 	} else {
-		return c
+		return c, nil
 	}
 }
 
