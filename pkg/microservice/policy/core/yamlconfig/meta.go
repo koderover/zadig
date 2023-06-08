@@ -24,7 +24,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/util/deepcopy"
 )
 
 //go:embed metas.yaml
@@ -83,7 +82,7 @@ func newMetaConfigFromEmbed() *MetaConfig {
 }
 
 func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
-	proEnvMeta := &types.PolicyMeta{}
+	//proEnvMeta := &types.PolicyMeta{}
 
 	for _, meta := range metas {
 		if meta.Resource == "Workflow" {
@@ -114,30 +113,30 @@ func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
 			}
 		}
 		if meta.Resource == "Environment" {
-			for _, ruleMeta := range meta.Rules {
-				tmpRules := []*types.ActionRule{}
-				for _, rule := range ruleMeta.Rules {
-					if rule.ResourceType == "" {
-						rule.ResourceType = "Environment"
-					}
-					if strings.Contains(rule.Endpoint, ":name") {
-						idRegex := strings.ReplaceAll(rule.Endpoint, ":name", `([\w\W].*)`)
-						idRegex = strings.ReplaceAll(idRegex, "?*", `[\w\W].*`)
-						endpoint := strings.ReplaceAll(rule.Endpoint, ":name", "?*")
-						rule.Endpoint = endpoint
-						rule.IDRegex = idRegex
-					}
-
-					tmpRules = append(tmpRules, rule)
-				}
-				ruleMeta.Rules = tmpRules
-			}
-
-			if err := deepcopy.FromTo(meta, proEnvMeta); err != nil {
-				log.DPanic(err)
-			}
+			//for _, ruleMeta := range meta.Rules {
+			//	tmpRules := []*types.ActionRule{}
+			//	for _, rule := range ruleMeta.Rules {
+			//		if rule.ResourceType == "" {
+			//			rule.ResourceType = "Environment"
+			//		}
+			//		if strings.Contains(rule.Endpoint, ":name") {
+			//			idRegex := strings.ReplaceAll(rule.Endpoint, ":name", `([\w\W].*)`)
+			//			idRegex = strings.ReplaceAll(idRegex, "?*", `[\w\W].*`)
+			//			endpoint := strings.ReplaceAll(rule.Endpoint, ":name", "?*")
+			//			rule.Endpoint = endpoint
+			//			rule.IDRegex = idRegex
+			//		}
+			//
+			//		tmpRules = append(tmpRules, rule)
+			//	}
+			//	ruleMeta.Rules = tmpRules
+			//}
+			//
+			//if err := deepcopy.FromTo(meta, proEnvMeta); err != nil {
+			//	log.DPanic(err)
+			//}
 		}
 	}
-	metas = append(metas, proEnvMeta)
+	//metas = append(metas, proEnvMeta)
 	return metas
 }
