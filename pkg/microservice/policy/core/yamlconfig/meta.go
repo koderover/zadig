@@ -110,6 +110,25 @@ func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
 				ruleMeta.Rules = tmpRules
 			}
 		}
+		if meta.Resource == "Environment" {
+			for _, ruleMeta := range meta.Rules {
+				tmpRules := []*types.ActionRule{}
+				for _, rule := range ruleMeta.Rules {
+					if rule.ResourceType == "" {
+						rule.ResourceType = "Environment"
+					}
+					if strings.Contains(rule.Endpoint, ":name") {
+						idRegex := strings.ReplaceAll(rule.Endpoint, ":name", `([\w\W].*)`)
+						idRegex = strings.ReplaceAll(idRegex, "?*", `[\w\W].*`)
+						endpoint := strings.ReplaceAll(rule.Endpoint, ":name", "?*")
+						rule.Endpoint = endpoint
+						rule.IDRegex = idRegex
+					}
+					tmpRules = append(tmpRules, rule)
+				}
+				ruleMeta.Rules = tmpRules
+			}
+		}
 	}
 	return metas
 }
