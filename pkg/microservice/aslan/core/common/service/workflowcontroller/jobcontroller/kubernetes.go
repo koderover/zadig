@@ -919,7 +919,6 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 
 		default:
 			job, err := jobLister.Get(jobName)
-			log.Debugf("get job")
 			if err != nil {
 				errMsg := fmt.Sprintf("failed to get job pod job-name=%s %v", jobName, err)
 				xl.Errorf(errMsg)
