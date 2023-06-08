@@ -1969,7 +1969,7 @@ const docTemplate = `{
                 "resource_types": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/models.ResourceType"
                     }
                 }
             }
@@ -2216,7 +2216,7 @@ const docTemplate = `{
                     }
                 },
                 "webhook_type": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.WebHookType"
                 },
                 "webhook_url": {
                     "type": "string"
@@ -2381,6 +2381,35 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        },
+        "models.ResourceType": {
+            "type": "string",
+            "enum": [
+                "Pod",
+                "Deployment",
+                "ReplicaSet",
+                "PersistentVolumeClaim",
+                "Service",
+                "Ingress",
+                "StatefulSet",
+                "CronJob",
+                "HorizontalPodAutoScaler",
+                "PodDisruptionBudget",
+                "NetworkPolicy"
+            ],
+            "x-enum-varnames": [
+                "ResourceTypePod",
+                "ResourceTypeDeployment",
+                "ResourceTypeReplicaSet",
+                "ResourceTypePVC",
+                "ResourceTypeService",
+                "ResourceTypeIngress",
+                "ResourceTypeStatefulSet",
+                "ResourceTypeCronJob",
+                "ResourceTypeHPA",
+                "ResourceTypePDB",
+                "ResourceTypeNetworkPolicy"
+            ]
         },
         "models.Service": {
             "type": "object",
@@ -2580,6 +2609,19 @@ const docTemplate = `{
                 },
                 "value": {}
             }
+        },
+        "models.WebHookType": {
+            "type": "string",
+            "enum": [
+                "feishu",
+                "dingding",
+                "wechat"
+            ],
+            "x-enum-varnames": [
+                "WebHookTypeFeishu",
+                "WebHookTypeDingding",
+                "WebHookTypeWeChat"
+            ]
         },
         "models.ZadigDeployJobSpec": {
             "type": "object",

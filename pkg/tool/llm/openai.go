@@ -105,7 +105,6 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 				Content: prompt,
 			},
 		},
-		MaxTokens:   opts.MaxTokens,
 		Temperature: opts.Temperature,
 		Stop:        opts.StopWords,
 	})

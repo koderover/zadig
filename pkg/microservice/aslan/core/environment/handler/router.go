@@ -157,8 +157,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/helm/values", GetProductionChartValues)
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
-		production.GET("/:name/configs", GetProductionEnvConfigs)
-		production.PUT("/:name/configs", UpdateProductionEnvConfigs)
+		production.GET("/environments/:name/configs", GetProductionEnvConfigs)
+		production.PUT("/environments/:name/configs", UpdateProductionEnvConfigs)
 	}
 
 	// ---------------------------------------------------------------------------------------

@@ -40,6 +40,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util/boolptr"
 )
 
 type DeleteProductServicesRequest struct {
@@ -1160,7 +1161,7 @@ func GetEnvConfigs(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEnvConfigs(projectName, envName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetEnvConfigs(projectName, envName, boolptr.False(), ctx.Logger)
 }
 
 // @Summary Update enviroment configs
@@ -1203,7 +1204,7 @@ func UpdateEnvConfigs(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateEnvConfigs(projectName, envName, arg, ctx.Logger)
+	ctx.Err = service.UpdateEnvConfigs(projectName, envName, arg, boolptr.False(), ctx.Logger)
 }
 
 // @Summary Get production enviroment configs

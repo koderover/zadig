@@ -85,16 +85,40 @@ const (
 	NotificationEventAnalyzerAbnormal NotificationEvent = "notification_event_analyzer_abnormal"
 )
 
+type WebHookType string
+
+const (
+	WebHookTypeFeishu   WebHookType = "feishu"
+	WebHookTypeDingding WebHookType = "dingding"
+	WebHookTypeWeChat   WebHookType = "wechat"
+)
+
 type NotificationConfig struct {
-	WebHookType string              `bson:"webhook_type" json:"webhook_type"`
+	WebHookType WebHookType         `bson:"webhook_type" json:"webhook_type"`
 	WebHookURL  string              `bson:"webhook_url"  json:"webhook_url"`
 	Event       []NotificationEvent `bson:"event"        json:"event"`
 }
 
+type ResourceType string
+
+const (
+	ResourceTypePod           ResourceType = "Pod"
+	ResourceTypeDeployment    ResourceType = "Deployment"
+	ResourceTypeReplicaSet    ResourceType = "ReplicaSet"
+	ResourceTypePVC           ResourceType = "PersistentVolumeClaim"
+	ResourceTypeService       ResourceType = "Service"
+	ResourceTypeIngress       ResourceType = "Ingress"
+	ResourceTypeStatefulSet   ResourceType = "StatefulSet"
+	ResourceTypeCronJob       ResourceType = "CronJob"
+	ResourceTypeHPA           ResourceType = "HorizontalPodAutoScaler"
+	ResourceTypePDB           ResourceType = "PodDisruptionBudget"
+	ResourceTypeNetworkPolicy ResourceType = "NetworkPolicy"
+)
+
 type AnalysisConfig struct {
-	EnableCron    bool     `bson:"enable_cron" json:"enable_cron"`
-	Cron          string   `bson:"cron" json:"cron"`
-	ResourceTypes []string `bson:"resource_types" json:"resource_types"`
+	EnableCron    bool           `bson:"enable_cron" json:"enable_cron"`
+	Cron          string         `bson:"cron" json:"cron"`
+	ResourceTypes []ResourceType `bson:"resource_types" json:"resource_types"`
 }
 
 type CreateUpdateCommonEnvCfgArgs struct {

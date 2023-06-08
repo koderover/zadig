@@ -58,6 +58,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/pkg/tool/analysis"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -66,6 +67,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/boolptr"
 	"github.com/koderover/zadig/pkg/util/converter"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
@@ -3042,8 +3044,12 @@ type EnvConfigsArgs struct {
 	NotificationConfig *models.NotificationConfig `json:"notification_config"`
 }
 
-func GetEnvConfigs(projectName, envName string, logger *zap.SugaredLogger) (*EnvConfigsArgs, error) {
-	opt := &commonrepo.ProductFindOptions{EnvName: envName, Name: projectName}
+func GetEnvConfigs(projectName, envName string, production *bool, logger *zap.SugaredLogger) (*EnvConfigsArgs, error) {
+	opt := &commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       projectName,
+		Production: production,
+	}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return nil, e.ErrGetEnvConfigs.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
@@ -3065,11 +3071,22 @@ func GetEnvConfigs(projectName, envName string, logger *zap.SugaredLogger) (*Env
 	return configs, nil
 }
 
-func UpdateEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, logger *zap.SugaredLogger) error {
-	opt := &commonrepo.ProductFindOptions{EnvName: envName, Name: projectName}
+func UpdateEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, production *bool, logger *zap.SugaredLogger) error {
+	opt := &commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       projectName,
+		Production: production,
+	}
 	_, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return e.ErrUpdateEnvConfigs.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
+	}
+
+	_, analyzerMap := analysis.GetAnalyzerMap()
+	for _, resourceType := range arg.AnalysisConfig.ResourceTypes {
+		if _, ok := analyzerMap[string(resourceType)]; !ok {
+			return e.ErrUpdateEnvConfigs.AddErr(fmt.Errorf("invalid analyzer %s", resourceType))
+		}
 	}
 
 	err = commonrepo.NewProductColl().UpdateConfigs(envName, projectName, arg.AnalysisConfig, arg.NotificationConfig)
@@ -3081,9 +3098,9 @@ func UpdateEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, logger *
 }
 
 func GetProductionEnvConfigs(projectName, envName string, logger *zap.SugaredLogger) (*EnvConfigsArgs, error) {
-	return GetEnvConfigs(projectName, envName, logger)
+	return GetEnvConfigs(projectName, envName, boolptr.True(), logger)
 }
 
 func UpdateProductionEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, logger *zap.SugaredLogger) error {
-	return UpdateEnvConfigs(projectName, envName, arg, logger)
+	return UpdateEnvConfigs(projectName, envName, arg, boolptr.True(), logger)
 }

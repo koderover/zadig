@@ -210,7 +210,7 @@ definitions:
         type: boolean
       resource_types:
         items:
-          type: string
+          $ref: '#/definitions/models.ResourceType'
         type: array
     type: object
   models.Commit:
@@ -374,7 +374,7 @@ definitions:
           $ref: '#/definitions/models.NotificationEvent'
         type: array
       webhook_type:
-        type: string
+        $ref: '#/definitions/models.WebHookType'
       webhook_url:
         type: string
     type: object
@@ -485,6 +485,32 @@ definitions:
       revision:
         type: integer
     type: object
+  models.ResourceType:
+    enum:
+    - Pod
+    - Deployment
+    - ReplicaSet
+    - PersistentVolumeClaim
+    - Service
+    - Ingress
+    - StatefulSet
+    - CronJob
+    - HorizontalPodAutoScaler
+    - PodDisruptionBudget
+    - NetworkPolicy
+    type: string
+    x-enum-varnames:
+    - ResourceTypePod
+    - ResourceTypeDeployment
+    - ResourceTypeReplicaSet
+    - ResourceTypePVC
+    - ResourceTypeService
+    - ResourceTypeIngress
+    - ResourceTypeStatefulSet
+    - ResourceTypeCronJob
+    - ResourceTypeHPA
+    - ResourceTypePDB
+    - ResourceTypeNetworkPolicy
   models.Service:
     properties:
       auto_sync:
@@ -620,6 +646,16 @@ definitions:
         $ref: '#/definitions/models.ParameterSettingType'
       value: {}
     type: object
+  models.WebHookType:
+    enum:
+    - feishu
+    - dingding
+    - wechat
+    type: string
+    x-enum-varnames:
+    - WebHookTypeFeishu
+    - WebHookTypeDingding
+    - WebHookTypeWeChat
   models.ZadigDeployJobSpec:
     properties:
       deploy_contents:
