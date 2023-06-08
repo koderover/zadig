@@ -1,7 +1,7 @@
 // Forked from github.com/k8sgpt-ai/k8sgpt
 // Some parts of this file have been modified to make it functional in Zadig
 
-package analyzer
+package analysis
 
 import (
 	"encoding/json"

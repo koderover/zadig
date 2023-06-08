@@ -13,7 +13,7 @@ limitations under the License.
 
 // Some parts of this file have been modified to make it functional in Zadig
 
-package analyzer
+package analysis
 
 import (
 	"fmt"
@@ -21,48 +21,47 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type PvcAnalyzer struct{}
+type ReplicaSetAnalyzer struct{}
 
-func (PvcAnalyzer) Analyze(a Analyzer) ([]Result, error) {
+func (ReplicaSetAnalyzer) Analyze(a Analyzer) ([]Result, error) {
 
-	kind := "PersistentVolumeClaim"
+	kind := "ReplicaSet"
 
 	AnalyzerErrorsMetric.DeletePartialMatch(map[string]string{
 		"analyzer_name": kind,
 	})
 
 	// search all namespaces for pods that are not running
-	list, err := a.Client.GetClient().CoreV1().PersistentVolumeClaims(a.Namespace).List(a.Context, metav1.ListOptions{})
+	list, err := a.Client.GetClient().AppsV1().ReplicaSets(a.Namespace).List(a.Context, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
 	var preAnalysis = map[string]PreAnalysis{}
 
-	for _, pvc := range list.Items {
+	for _, rs := range list.Items {
 		var failures []Failure
 
 		// Check for empty rs
-		if pvc.Status.Phase == "Pending" {
+		if rs.Status.Replicas == 0 {
 
-			// parse the event log and append details
-			evt, err := FetchLatestEvent(a.Context, a.Client, pvc.Namespace, pvc.Name)
-			if err != nil || evt == nil {
-				continue
-			}
-			if evt.Reason == "ProvisioningFailed" && evt.Message != "" {
-				failures = append(failures, Failure{
-					Text:      evt.Message,
-					Sensitive: []Sensitive{},
-				})
+			// Check through container status to check for crashes
+			for _, rsStatus := range rs.Status.Conditions {
+				if rsStatus.Type == "ReplicaFailure" && rsStatus.Reason == "FailedCreate" {
+					failures = append(failures, Failure{
+						Text:      rsStatus.Message,
+						Sensitive: []Sensitive{},
+					})
+
+				}
 			}
 		}
 		if len(failures) > 0 {
-			preAnalysis[fmt.Sprintf("%s/%s", pvc.Namespace, pvc.Name)] = PreAnalysis{
-				PersistentVolumeClaim: pvc,
-				FailureDetails:        failures,
+			preAnalysis[fmt.Sprintf("%s/%s", rs.Namespace, rs.Name)] = PreAnalysis{
+				ReplicaSet:     rs,
+				FailureDetails: failures,
 			}
-			AnalyzerErrorsMetric.WithLabelValues(kind, pvc.Name, pvc.Namespace).Set(float64(len(failures)))
+			AnalyzerErrorsMetric.WithLabelValues(kind, rs.Name, rs.Namespace).Set(float64(len(failures)))
 		}
 	}
 
@@ -73,10 +72,9 @@ func (PvcAnalyzer) Analyze(a Analyzer) ([]Result, error) {
 			Error: value.FailureDetails,
 		}
 
-		parent, _ := GetParent(a.Client, value.PersistentVolumeClaim.ObjectMeta)
+		parent, _ := GetParent(a.Client, value.ReplicaSet.ObjectMeta)
 		currentAnalysis.ParentObject = parent
 		a.Results = append(a.Results, currentAnalysis)
 	}
-
 	return a.Results, nil
 }

@@ -13,7 +13,7 @@ limitations under the License.
 
 // Some parts of this file have been modified to make it functional in Zadig
 
-package analyzer
+package analysis
 
 import (
 	"fmt"
