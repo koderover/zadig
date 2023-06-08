@@ -63,14 +63,15 @@ type ReleaseFilter struct {
 }
 
 type HelmReleaseResp struct {
-	ReleaseName string        `json:"releaseName"`
-	ServiceName string        `json:"serviceName"`
-	Revision    int           `json:"revision"`
-	Chart       string        `json:"chart"`
-	AppVersion  string        `json:"appVersion"`
-	Status      ReleaseStatus `json:"status"`
-	Updatable   bool          `json:"updatable"`
-	Error       string        `json:"error"`
+	ReleaseName    string        `json:"releaseName"`
+	ServiceName    string        `json:"serviceName"`
+	Revision       int           `json:"revision"`
+	Chart          string        `json:"chart"`
+	AppVersion     string        `json:"appVersion"`
+	Status         ReleaseStatus `json:"status"`
+	Updatable      bool          `json:"updatable"`
+	DeployStrategy string        `json:"deploy_strategy"`
+	Error          string        `json:"error"`
 }
 
 type ChartInfo struct {
@@ -261,10 +262,11 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 		}
 
 		respObj := &HelmReleaseResp{
-			ServiceName: svcDataSet.ProdSvc.ServiceName,
-			Status:      HelmReleaseStatusNotDeployed,
-			Updatable:   updatable,
-			Error:       svcDataSet.ProdSvc.Error,
+			ServiceName:    svcDataSet.ProdSvc.ServiceName,
+			Status:         HelmReleaseStatusNotDeployed,
+			Updatable:      updatable,
+			DeployStrategy: prod.ServiceDeployStrategy[svcDataSet.ProdSvc.ServiceName],
+			Error:          svcDataSet.ProdSvc.Error,
 		}
 
 		if svcDataSet.SvcRelease != nil {
