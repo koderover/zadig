@@ -173,7 +173,7 @@ func GetPolicyRegistrationDefinitions(scope, envType string, logger *zap.Sugared
 			break
 		}
 	}
-	log.Infof("res after production env count is %d", len(res)
+	log.Infof("res after production env count is %d", len(res))
 
 	switch scope {
 	case string(types.SystemScope):
