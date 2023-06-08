@@ -927,28 +927,14 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 			}
 			// configMap name is the same as the k8s job name
 			cm, err := cmLister.Get(jobName)
-			log.Debugf("get configMap")
 			if err != nil {
 				errMsg := fmt.Sprintf("failed to get job context configMap job-name=%s %v", jobName, err)
 				xl.Errorf(errMsg)
 				return config.StatusFailed, errMsg
 			}
-			p, err := clientset.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "job-name=" + jobName})
-			if err != nil {
-				log.Errorf("get pod error %v", err)
-			} else {
-				log.Debugf("get: pod %s status %s", jobName, p.Items[0].Status.Phase)
-			}
-			cm2, err := clientset.CoreV1().ConfigMaps(namespace).Get(context.Background(), jobName, metav1.GetOptions{})
-			if err != nil {
-				log.Errorf("get configMap %s error %v", jobName, err)
-			} else {
-				log.Debugf("get: configMap %s result %s", jobName, cm2.Data[commontypes.JobResultKey])
-			}
 			// pod is still running
 			if job.Status.Active != 0 {
 				pods, err := podLister.List(labels.Set{"job-name": jobName}.AsSelector())
-				log.Debugf("list pods")
 				if err != nil {
 					errMsg := fmt.Sprintf("failed to find pod with label job-name=%s %v", jobName, err)
 					xl.Errorf(errMsg)
@@ -957,16 +943,12 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 				for _, pod := range pods {
 					ipod := wrapper.Pod(pod)
 					if ipod.Pending() {
-						log.Debugf("pod %s is pending %s", pod.Name, pod.Status.Phase)
-						status2, ok := cm.Data[commontypes.JobResultKey]
-						log.Debugf("configMap status %s exist %v", status2, ok)
 						continue
 					}
 					if ipod.Failed() {
 						return config.StatusFailed, ""
 					}
 					if !ipod.Finished() {
-						log.Debugf("pod %s is running", pod.Name)
 						// check container whether is stuck in debug stage by checking stage file, if so, update job status to debug
 						switch cm.Data[commontypes.JobDebugStatusKey] {
 						case commontypes.JobDebugStatusBefore:

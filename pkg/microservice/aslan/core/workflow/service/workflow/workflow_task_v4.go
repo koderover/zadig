@@ -17,7 +17,6 @@ limitations under the License.
 package workflow
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -398,12 +397,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.WorkflowHash = fmt.Sprintf("%x", dbWorkflow.CalculateHash())
 	// set workflow params repo info, like commitid, branch etc.
 	setZadigParamRepos(workflow, log)
-
-	b, _ := json.Marshal(workflowTask)
-	log.Debugf("workflowTask3:: %s", string(b))
-	b2, _ := json.Marshal(workflow)
-	log.Debugf("workflow:: %s", string(b2))
-
 	for _, stage := range workflow.Stages {
 		stageTask := &commonmodels.StageTask{
 			Name:     stage.Name,
@@ -462,8 +455,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			workflowTask.Stages = append(workflowTask.Stages, stageTask)
 		}
 	}
-	b, _ = json.Marshal(workflowTask)
-	log.Debugf("workflowTask2:: %s", string(b))
 	if err := jobctl.RenderStageVariables(workflow, nextTaskID, args.Name); err != nil {
 		log.Errorf("RenderStageVariables error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
@@ -483,8 +474,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(workflowTask); err != nil {
 		log.Errorf("send workflow task notification failed, error: %v", err)
 	}
-	b, _ = json.Marshal(workflowTask)
-	log.Debugf("workflowTask:: %s", string(b))
 
 	if err := workflowcontroller.CreateTask(workflowTask); err != nil {
 		log.Errorf("create workflow task error: %v", err)
