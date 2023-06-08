@@ -442,10 +442,6 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 	}, nil
 }
 
-const (
-	StrongPasswordRegexp = `(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}`
-)
-
 func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 	uid, _ := uuid.NewUUID()
 	user := &models.User{
@@ -457,7 +453,7 @@ func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 		UID:          uid.String(),
 	}
 
-	matched, err := regexp.MatchString(StrongPasswordRegexp, args.Password)
+	matched, err := isValidStrongPassword(args.Password)
 	if err != nil {
 		return nil, e.ErrCreateUser.AddErr(err)
 	}
@@ -522,7 +518,7 @@ func UpdateUserSetting(uid string, args *UserSetting) error {
 }
 
 func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
-	matched, err := regexp.MatchString(StrongPasswordRegexp, args.NewPassword)
+	matched, err := isValidStrongPassword(args.NewPassword)
 	if err != nil {
 		return e.ErrCreateUser.AddErr(err)
 	}
@@ -571,7 +567,7 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 }
 
 func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
-	matched, err := regexp.MatchString(StrongPasswordRegexp, args.Password)
+	matched, err := isValidStrongPassword(args.Password)
 	if err != nil {
 		return e.ErrCreateUser.AddErr(err)
 	}
@@ -706,4 +702,32 @@ func GetUserCount(logger *zap.SugaredLogger) (*types.UserStatistics, error) {
 		UserByType: userCountByType,
 		ActiveUser: totalActiveUser,
 	}, nil
+}
+
+const (
+	UppercaseValidator = `[A-Z]+`
+	LowercaseValidator = `[a-z]+`
+	DigitValidator     = `\d+`
+	LengthValidator    = `.{8,}`
+)
+
+func isValidStrongPassword(password string) (bool, error) {
+	hasUppercase, err := regexp.MatchString(UppercaseValidator, password)
+	if err != nil {
+		return false, err
+	}
+	hasLowercase, err := regexp.MatchString(LowercaseValidator, password)
+	if err != nil {
+		return false, err
+	}
+	hasDigit, err := regexp.MatchString(DigitValidator, password)
+	if err != nil {
+		return false, err
+	}
+	hasValidLength, err := regexp.MatchString(LengthValidator, password)
+	if err != nil {
+		return false, err
+	}
+
+	return hasUppercase && hasLowercase && hasDigit && hasValidLength, nil
 }
