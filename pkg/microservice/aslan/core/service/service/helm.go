@@ -51,7 +51,6 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -203,18 +202,16 @@ func fillServiceTemplateVariables(serviceTemplate *models.Service) error {
 }
 
 func GetHelmServiceModule(serviceName, productName string, revision int64, isProduction bool, log *zap.SugaredLogger) (*HelmServiceModule, error) {
-	var serviceTemplate *models.Service
-	var err error
-	if !isProduction {
-		serviceTemplate, err = commonservice.GetServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		serviceTemplate, err = commonservice.GetProductionServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
-		if err != nil {
-			return nil, err
-		}
+	serviceTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName:   serviceName,
+		ProductName:   productName,
+		Revision:      revision,
+		Type:          setting.HelmDeployType,
+		ExcludeStatus: setting.ProductStatusDeleting,
+		Source:        "",
+	}, isProduction)
+	if err != nil {
+		return nil, err
 	}
 
 	helmServiceModule := new(HelmServiceModule)
@@ -259,6 +256,7 @@ func GetProductionHelmServiceFilePath(serviceName, productName string, revision 
 	return GetProductionHelmFilePath(productName, serviceName, revision, dir)
 }
 
+// TODO add production parameter
 func GetFileContent(serviceName, productName string, param *GetFileContentParam, log *zap.SugaredLogger) (string, error) {
 	filePath, fileName, revision, forDelivery := param.FilePath, param.FileName, param.Revision, param.DeliveryVersion
 	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -300,6 +298,7 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 	return string(fileContent), nil
 }
 
+// TODO remove this funciton, use GetFileContent with production parameter instead
 func GetProductionServiceFileContent(serviceName, productName string, param *GetFileContentParam, log *zap.SugaredLogger) (string, error) {
 	filePath, fileName, revision, forDelivery := param.FilePath, param.FileName, param.Revision, param.DeliveryVersion
 	svc, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -443,13 +442,6 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 	}
 
 	if !param.Production {
-		compareHelmVariable([]*templatemodels.ServiceRender{
-			{
-				ServiceName:  svc.ServiceName,
-				ChartVersion: svc.HelmChart.Version,
-				ValuesYaml:   svc.HelmChart.ValuesYaml,
-			},
-		}, productName, createdBy, logger)
 		err = service.AutoDeployHelmServiceToEnvs(createdBy, requestID, productName, []*models.Service{svc}, logger)
 		if err != nil {
 			return e.ErrEditHelmCharts.AddErr(err)
@@ -629,12 +621,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 	}
 
 	// upload to s3 storage
-	var s3Base string
-	if !args.Production {
-		s3Base = config.ObjectStorageTestServicePath(projectName, serviceName)
-	} else {
-		s3Base = config.ObjectStorageProductionServicePath(projectName, serviceName)
-	}
+	s3Base := config.ObjectStorageServicePath(projectName, serviceName, args.Production)
 
 	err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, s3Base, log)
 	if err != nil {
@@ -674,13 +661,6 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 	}
 
 	if !args.Production {
-		compareHelmVariable([]*templatemodels.ServiceRender{
-			{
-				ServiceName:  chartRepoArgs.ChartName,
-				ChartVersion: svc.HelmChart.Version,
-				ValuesYaml:   svc.HelmChart.ValuesYaml,
-			},
-		}, projectName, args.CreatedBy, log)
 		err = service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, svc.ProductName, []*models.Service{svc}, log)
 		if err != nil {
 			finalErr = e.ErrCreateTemplate.AddErr(err)
@@ -811,13 +791,6 @@ func createOrUpdateHelmServiceFromChartTemplate(templateArgs *CreateFromChartTem
 	}
 
 	if !args.Production {
-		compareHelmVariable([]*templatemodels.ServiceRender{
-			{
-				ServiceName:  args.Name,
-				ChartVersion: svc.HelmChart.Version,
-				ValuesYaml:   svc.HelmChart.ValuesYaml,
-			},
-		}, projectName, args.CreatedBy, logger)
 		err = service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, svc.ProductName, []*models.Service{svc}, logger)
 		if err != nil {
 			return nil, err
@@ -1016,7 +989,6 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 	wg.Wait()
 
 	if !args.Production {
-		compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
 		return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
 	} else {
 		return response, nil
@@ -1172,7 +1144,6 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 	wg.Wait()
 
 	if !args.Production {
-		compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
 		return response, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, log)
 	} else {
 		return response, nil
@@ -1258,7 +1229,6 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 		return true
 	})
 
-	compareHelmVariable(renderChars, projectName, args.CreatedBy, logger)
 	return resp, service.AutoDeployHelmServiceToEnvs(args.CreatedBy, args.RequestID, projectName, serviceList, logger)
 }
 
@@ -1605,23 +1575,12 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 	}
 
 	log.Infof("Starting to create service %s with revision %d", args.ServiceName, args.ServiceRevision)
-	var currentSvcTmpl *commonmodels.Service
-	if !args.Production {
-		currentSvcTmpl, err = commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-			ProductName:         args.ProductName,
-			ServiceName:         args.ServiceName,
-			ExcludeStatus:       setting.ProductStatusDeleting,
-			IgnoreNoDocumentErr: true,
-		})
-	} else {
-		currentSvcTmpl, err = commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
-			ProductName:         args.ProductName,
-			ServiceName:         args.ServiceName,
-			ExcludeStatus:       setting.ProductStatusDeleting,
-			IgnoreNoDocumentErr: true,
-		})
-	}
-
+	currentSvcTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName:         args.ProductName,
+		ServiceName:         args.ServiceName,
+		ExcludeStatus:       setting.ProductStatusDeleting,
+		IgnoreNoDocumentErr: true,
+	}, args.Production)
 	if err != nil {
 		log.Errorf("Failed to find current service template %s error: %s", args.ServiceName, err)
 		return nil, err
@@ -1632,7 +1591,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 		if !force {
 			return nil, fmt.Errorf("service:%s already exists", args.ServiceName)
 		}
-		err = commonrepo.NewServiceColl().UpdateStatus(args.ServiceName, args.ProductName, setting.ProductStatusDeleting)
+		err = repository.UpdateStatus(args.ServiceName, args.ProductName, setting.ProductStatusDeleting, args.Production)
 		if err != nil {
 			log.Errorf("Failed to set status of current service templates, serviceName: %s, err: %s", args.ServiceName, err)
 			return nil, err
@@ -1792,48 +1751,4 @@ func GetProductionHelmFilePath(productName, serviceName string, revision int64, 
 		fis = append(fis, fi)
 	}
 	return fis, nil
-}
-
-// compareHelmVariable 比较helm变量是否有改动，是否需要添加新的renderSet
-// TODO consider remove default renderset since it looks not necessary at all
-func compareHelmVariable(chartInfos []*templatemodels.ServiceRender, productName, createdBy string, log *zap.SugaredLogger) {
-	// 对比上个版本的renderset，新增一个版本
-	latestChartInfos := make([]*templatemodels.ServiceRender, 0)
-	if latestDefaultRenderSet, err := render.GetLatestRenderSetFromHelmProject(productName, false); err == nil {
-		latestChartInfos = latestDefaultRenderSet.ChartInfos
-	}
-
-	currentChartInfoMap := make(map[string]*templatemodels.ServiceRender)
-	for _, chartInfo := range chartInfos {
-		currentChartInfoMap[chartInfo.ServiceName] = chartInfo
-	}
-
-	mixtureChartInfos := make([]*templatemodels.ServiceRender, 0)
-	for _, latestChartInfo := range latestChartInfos {
-		//如果新的里面存在就拿新的数据替换，不存在就还使用老的数据
-		if currentChartInfo, isExist := currentChartInfoMap[latestChartInfo.ServiceName]; isExist {
-			mixtureChartInfos = append(mixtureChartInfos, currentChartInfo)
-			delete(currentChartInfoMap, latestChartInfo.ServiceName)
-			continue
-		}
-		mixtureChartInfos = append(mixtureChartInfos, latestChartInfo)
-	}
-
-	//把新增的服务添加到新的slice里面
-	for _, chartInfo := range currentChartInfoMap {
-		mixtureChartInfos = append(mixtureChartInfos, chartInfo)
-	}
-
-	//添加renderset
-	if err := render.CreateK8sHelmRenderSet(
-		&models.RenderSet{
-			Name:        productName,
-			Revision:    0,
-			ProductTmpl: productName,
-			UpdateBy:    createdBy,
-			ChartInfos:  mixtureChartInfos,
-		}, log,
-	); err != nil {
-		log.Errorf("helmService.Create CreateK8sHelmRenderSet error: %v", err)
-	}
 }

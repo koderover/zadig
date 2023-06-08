@@ -48,6 +48,7 @@ type SharedEnvHandler func(context.Context, *commonmodels.Product, string, clien
 type ResourceApplyParam struct {
 	ProductInfo         *commonmodels.Product
 	ServiceName         string
+	ServiceList         []string // used for batch operations
 	CurrentResourceYaml string
 	UpdateResourceYaml  string
 
@@ -581,7 +582,19 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 
 	// uninstall release
 	if applyParam.Uninstall {
-		return DeleteHelmServiceFromEnv("workflow", "", applyParam.ProductInfo, []string{applyParam.ServiceName}, log)
+		// we need to find the product info from db again to ensure product latest
+		productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    applyParam.ProductInfo.ProductName,
+			EnvName: productInfo.EnvName,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to find product: %s/%s, err: %v", applyParam.ProductInfo.ProductName, productInfo.EnvName, err)
+		}
+		targetServices := applyParam.ServiceList
+		if len(targetServices) == 0 {
+			targetServices = []string{applyParam.ServiceName}
+		}
+		return DeleteHelmServiceFromEnv("workflow", "", productInfo, targetServices, log)
 	}
 
 	renderSet, productService, svcTemplate, err := PrepareHelmServiceData(applyParam)

@@ -224,6 +224,7 @@ func CreateHostProductionProduct(productName, userName, requestID string, args [
 	return errList.ErrorOrNil()
 }
 
+// create helm product, only works in test product
 func CreateHelmProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil || templateProduct == nil {
@@ -234,7 +235,7 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateSi
 	}
 
 	// fill all chart infos from product renderset
-	err = commonservice.FillProductTemplateValuesYamls(templateProduct, log)
+	err = commonservice.FillProductTemplateValuesYamls(templateProduct, false, log)
 	if err != nil {
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
@@ -271,14 +272,11 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateSi
 }
 
 func prepareK8sProductCreation(templateProduct *templatemodels.Product, productObj *commonmodels.Product, arg *CreateSingleProductArg, log *zap.SugaredLogger) error {
-	templateChartInfoMap := templateProduct.AllServiceInfoMap()
+	validSvcMap := templateProduct.AllTestServiceInfoMap()
 	// validate the service is in product
 	for _, createdSvcGroup := range arg.Services {
 		for _, createdSvc := range createdSvcGroup {
-			if createdSvc.ProductName != templateProduct.ProductName {
-				continue
-			}
-			if _, ok := templateChartInfoMap[createdSvc.ServiceName]; !ok {
+			if _, ok := validSvcMap[createdSvc.ServiceName]; !ok {
 				return fmt.Errorf("failed to find service info in product, serviceName: %s productName: %s", createdSvc.ServiceName, templateProduct.ProjectName)
 			}
 		}
@@ -376,16 +374,6 @@ func CreateYamlProduct(productName, userName, requestID string, args []*CreateSi
 			log.Errorf("failed to query product %s, err %s ", productName, err.Error())
 		}
 		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query product %s ", productName))
-	}
-
-	// prepare data
-	serviceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
-	templateServiceMap := make(map[string]*commonmodels.Service)
-	for _, svc := range serviceTmpls {
-		templateServiceMap[svc.ServiceName] = svc
 	}
 
 	errList := new(multierror.Error)

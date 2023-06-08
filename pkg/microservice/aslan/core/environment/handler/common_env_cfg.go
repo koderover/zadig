@@ -38,7 +38,7 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Param("envName")
+	envName := c.Param("name")
 	productName := c.Query("projectName")
 	commonEnvCfgType := c.Query("commonEnvCfgType")
 	objectName := c.Param("objectName")
@@ -67,7 +67,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "新建", "环境配置", fmt.Sprintf("%s:%s", args.EnvName, args.CommonEnvCfgType), string(data), ctx.Logger, c.Param("envName"))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "新建", "环境配置", fmt.Sprintf("%s:%s", args.EnvName, args.CommonEnvCfgType), string(data), ctx.Logger, c.Param("name"))
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -78,7 +78,7 @@ func CreateCommonEnvCfg(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	args.EnvName = c.Param("envName")
+	args.EnvName = c.Param("name")
 	args.ProductName = c.Query("projectName")
 	ctx.Err = service.CreateCommonEnvCfg(args, ctx.UserName, ctx.Logger)
 }
@@ -95,7 +95,7 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateCommonEnvCfg json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, c.Param("envName"))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, c.Param("name"))
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -106,7 +106,7 @@ func UpdateCommonEnvCfg(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("yaml info can't be nil")
 		return
 	}
-	args.EnvName = c.Param("envName")
+	args.EnvName = c.Param("name")
 	args.ProductName = c.Query("projectName")
 	isRollBack := false
 	if len(c.Query("rollback")) > 0 {
@@ -125,7 +125,7 @@ func ListCommonEnvCfgHistory(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(service.ListCommonEnvCfgHistoryArgs)
-	args.EnvName = c.Param("envName")
+	args.EnvName = c.Param("name")
 	args.ProjectName = c.Query("projectName")
 	args.CommonEnvCfgType = config.CommonEnvCfgType(c.Query("commonEnvCfgType"))
 	args.Name = c.Param("objectName")
@@ -150,7 +150,7 @@ func SyncEnvResource(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := &service.SyncEnvResourceArg{
-		EnvName:     c.Param("envName"),
+		EnvName:     c.Param("name"),
 		ProductName: c.Query("projectName"),
 		Name:        c.Param("objectName"),
 		Type:        c.Param("type"),

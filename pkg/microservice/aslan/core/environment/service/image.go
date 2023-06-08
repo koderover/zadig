@@ -27,6 +27,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -57,7 +58,7 @@ func updateContainerForHelmChart(serviceName, image, containerName string, produ
 		ProductName: product.ProductName,
 	}
 
-	serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+	serviceObj, err := repository.QueryTemplateService(opt, product.Production)
 	if err != nil {
 		log.Errorf("failed to find template service, opt %+v, err :%s", *opt, err.Error())
 		err = fmt.Errorf("failed to find template service, opt %+v", *opt)

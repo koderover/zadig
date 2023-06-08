@@ -83,7 +83,7 @@ func V130ToV131() error {
 	// add field `SharedServices` for all projects
 	for _, project := range allProjects {
 		var sharedServices []*templatemodels.ServiceInfo
-		services := project.AllServiceInfoMap()
+		services := project.AllTestServiceInfoMap()
 		for name := range services {
 			service := serviceMap[name]
 			if service == nil {

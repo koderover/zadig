@@ -308,7 +308,7 @@ func updateHelmSvcInAllEnvs(userName, productName string, templateSvcs []*common
 		}
 	}
 
-	_, err = UpdateMultipleHelmEnv("", userName, updateArgs, log.SugaredLogger())
+	_, err = UpdateMultipleHelmEnv("", userName, updateArgs, false, log.SugaredLogger())
 	if err != nil {
 		return err
 	}
@@ -448,11 +448,12 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, updateRevisionSvc)
 
-	updateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
+	updateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", exitedProd.Production, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] GetProductTemplate error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
+	updateProd.Production = exitedProd.Production
 
 	// build services
 	productSvcs := exitedProd.GetServiceMap()
@@ -555,7 +556,7 @@ func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, serviceNames)
 
 	// 查找产品模板
-	updateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
+	updateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", false, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] GetProductTemplate error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)

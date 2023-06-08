@@ -175,7 +175,62 @@ func (c *ProductionServiceColl) Find(opt *ServiceFindOption) (*models.Service, e
 	return service, nil
 }
 
-func (c *ProductionServiceColl) ListMaxRevisions(productName, serviceType string) ([]*models.Service, error) {
+func (c *ProductionServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Service, error) {
+	preMatch := bson.M{"status": bson.M{"$ne": setting.ProductStatusDeleting}}
+	postMatch := bson.M{}
+
+	if opt != nil {
+		if opt.ProductName != "" {
+			preMatch["product_name"] = opt.ProductName
+		}
+		if opt.ServiceName != "" {
+			preMatch["service_name"] = opt.ServiceName
+		}
+
+		if opt.Source != "" {
+			preMatch["source"] = opt.Source
+		}
+		if opt.Type != "" {
+			preMatch["type"] = opt.Type
+		}
+		if opt.ExcludeProject != "" {
+			preMatch["product_name"] = bson.M{"$ne": opt.ExcludeProject}
+		}
+
+		// post options (anything that changes over revision should be added in post options)
+		if opt.BuildName != "" {
+			postMatch["build_name"] = opt.BuildName
+		}
+
+		if len(opt.NotInServices) > 0 {
+			var srs []bson.D
+			for _, s := range opt.NotInServices {
+				// be care for the order
+				srs = append(srs, bson.D{
+					{"product_name", s.Owner},
+					{"service_name", s.Name},
+				})
+			}
+			postMatch["_id"] = bson.M{"$nin": srs}
+		}
+		if len(opt.InServices) > 0 {
+			var srs []bson.D
+			for _, s := range opt.InServices {
+				// be care for the order
+				srs = append(srs, bson.D{
+					{"product_name", s.Owner},
+					{"service_name", s.Name},
+				})
+			}
+			postMatch["_id"] = bson.M{"$in": srs}
+		}
+
+	}
+
+	return c.listMaxRevisions(preMatch, postMatch)
+}
+
+func (c *ProductionServiceColl) ListMaxRevisionsByProject(productName, serviceType string) ([]*models.Service, error) {
 	pre := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},
 	}

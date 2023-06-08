@@ -38,7 +38,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
@@ -94,6 +93,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		Type:        args.ServiceType,
 		Revision:    0,
 		Containers:  args.ServiceRev.Containers,
+		ProductName: args.ProductName,
 	}
 
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
@@ -108,27 +108,15 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service: %s in env: %s", svc.ServiceName, exitedProd.EnvName))
 	}
 
-	project, err := templaterepo.NewProductColl().Find(args.ProductName)
-	if err != nil {
-		k.log.Errorf("Can not find project %s, err: %s", args.ProductName, err)
-		return err
-	}
-	serviceInfo := project.GetServiceInfo(args.ServiceName)
-	if serviceInfo != nil {
-		svc.ProductName = serviceInfo.Owner
-	} else {
-		svc.ProductName = currentProductSvc.ProductName
-	}
-
 	svc.Containers = currentProductSvc.Containers
 
 	if !args.UpdateServiceTmpl {
 		svc.Revision = currentProductSvc.Revision
 	} else {
-		latestSvcRevision, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		latestSvcRevision, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ServiceName: svc.ServiceName,
 			ProductName: svc.ProductName,
-		})
+		}, exitedProd.Production)
 		if err != nil {
 			return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service, err: %s", err))
 		}
@@ -244,7 +232,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		exitedProd,
 		svc,
 		currentProductSvc,
-		curRenderset, preRevision, true, inf, kubeClient, istioClient, k.log)
+		curRenderset, preRevision, !exitedProd.Production, inf, kubeClient, istioClient, k.log)
 
 	// 如果创建依赖服务组有返回错误, 停止等待
 	if err != nil {
@@ -335,9 +323,11 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		go func(service *commonmodels.ProductService) {
 			defer wg.Done()
 			gp := &commonservice.ServiceResp{
-				ServiceName: service.ServiceName,
-				Type:        service.Type,
-				EnvName:     envName,
+				ServiceName:    service.ServiceName,
+				Type:           service.Type,
+				EnvName:        envName,
+				DeployStrategy: service.DeployStrategy,
+				Updatable:      service.Updatable,
 			}
 			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: service.ServiceName,
@@ -487,7 +477,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			items, err := upsertService(prod, svc, nil, renderSet, nil, true, informer, kubeClient, istioClient, k.log)
+			items, err := upsertService(prod, svc, nil, renderSet, nil, !prod.Production, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {

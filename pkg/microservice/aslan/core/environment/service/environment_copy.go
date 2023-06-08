@@ -244,6 +244,7 @@ func CopyYamlProduct(user, requestID, projectName string, args []*CreateSinglePr
 	return errList.ErrorOrNil()
 }
 
+// CopyHelmProduct copy product from source product, only works in test product
 func CopyHelmProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
 	errList := new(multierror.Error)
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
@@ -255,7 +256,7 @@ func CopyHelmProduct(productName, userName, requestID string, args []*CreateSing
 	}
 
 	// fill all chart infos from product renderset
-	err = commonservice.FillProductTemplateValuesYamls(templateProduct, log)
+	err = commonservice.FillProductTemplateValuesYamls(templateProduct, false, log)
 	if err != nil {
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}

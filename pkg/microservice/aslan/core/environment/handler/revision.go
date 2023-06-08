@@ -27,7 +27,7 @@ func ListProductsRevision(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListProductsRevision(c.Query("projectName"), c.Query("envName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProductsRevision(c.Query("projectName"), c.Query("envName"), false, ctx.Logger)
 }
 
 // ListProductsRevisionSnaps called from cron service

@@ -164,9 +164,9 @@ func getProjectTargets(productName string) []string {
 		log.Errorf("[%s] ProductTmpl.Find error: %v", productName, err)
 		return targets
 	}
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
 	if err != nil {
-		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
+		log.Errorf("ServiceTmpl.ListMaxRevisionsByProject error: %v", err)
 		return targets
 	}
 
@@ -204,7 +204,7 @@ func findModuleByContainer(productName, serviceModuleTarget string, buildStageMo
 			log.Errorf("failed to find project,err:%s", err)
 			return nil, nil
 		}
-		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
 		if err != nil {
 			log.Errorf("failed to list services,err:%s", err)
 			return nil, nil

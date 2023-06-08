@@ -28,32 +28,32 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	configmaps := router.Group("configmaps")
 	{
-		configmaps.GET("/:envName", ListConfigMaps)
+		configmaps.GET("/:name", ListConfigMaps)
 		configmaps.POST("", RollBackConfigMap)
 		configmaps.GET("/migrate", MigrateHistoryConfigMaps)
 	}
 
 	secrets := router.Group("secrets")
 	{
-		secrets.GET("/:envName", ListSecrets)
+		secrets.GET("/:name", ListSecrets)
 	}
 	ingresses := router.Group("ingresses")
 	{
-		ingresses.GET("/:envName", ListIngresses)
+		ingresses.GET("/:name", ListIngresses)
 	}
 	pvcs := router.Group("pvcs")
 	{
-		pvcs.GET("/:envName", ListPvcs)
+		pvcs.GET("/:name", ListPvcs)
 	}
 
 	commonEnvCfgs := router.Group("envcfgs")
 	{
-		commonEnvCfgs.GET("/:envName/cfg/:objectName", ListCommonEnvCfgHistory)
+		commonEnvCfgs.GET("/:name/cfg/:objectName", ListCommonEnvCfgHistory)
 		commonEnvCfgs.GET("", ListLatestEnvCfg)
-		commonEnvCfgs.PUT("/:envName/:type/:objectName/sync", SyncEnvResource)
-		commonEnvCfgs.PUT("/:envName", UpdateCommonEnvCfg)
-		commonEnvCfgs.POST("/:envName", CreateCommonEnvCfg)
-		commonEnvCfgs.DELETE("/:envName/cfg/:objectName", DeleteCommonEnvCfg)
+		commonEnvCfgs.PUT("/:name/:type/:objectName/sync", SyncEnvResource)
+		commonEnvCfgs.PUT("/:name", UpdateCommonEnvCfg)
+		commonEnvCfgs.POST("/:name", CreateCommonEnvCfg)
+		commonEnvCfgs.DELETE("/:name/cfg/:objectName", DeleteCommonEnvCfg)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -69,8 +69,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	productDiff := router.Group("diff")
 	{
-		// productDiff.GET("/products/:productName/services/:serviceName/configs/:configName", ConfigDiff)
 		productDiff.GET("/products/:productName/service/:serviceName", ServiceDiff)
+		productDiff.GET("/production/products/:productName/service/:serviceName", ServiceDiff)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -135,33 +135,69 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// production environments
 	production := router.Group("production")
 	{
-		production.POST("environments", CreateProductionProduct)
+		production.POST("/environments", CreateProductionProduct)
+
+		production.PUT("/environments", UpdateMultiProductionProducts)
+		production.PUT("/environments/:name/services", DeleteProductServices)
+		production.POST("/environments/:name/estimated-values", ProductionEstimatedValues)
 
 		production.GET("/environments", ListProductionEnvs)
+		production.GET("/environments/:name", GetProduct)
 		production.PUT("/environments/:name/registry", UpdateProductRegistry)
 		production.GET("/environments/:name/groups", ListProductionGroups)
 
 		// used for production deploy workflows
 		production.GET("/environmentsForUpdate", ListProductionEnvs)
-		production.GET("/environments/:name/servicesForUpdate", ListSvcsInProductionEnv)
+		production.GET("/environments/:name/servicesForUpdate", ListSvcsInEnv)
+
+		production.PUT("/environments/:name/services/:serviceName", UpdateService)
+		production.PUT("/environments/:name/helm/charts", UpdateHelmProductCharts)
 
 		// services related
 		production.GET("/environments/:name/services/:serviceName", GetProductionService)
 		production.GET("/environments/:name/services/:serviceName/variables", GetProductionVariables)
 		production.GET("/environments/:name/services/:serviceName/yaml", ExportProductionServiceYaml)
+		production.POST("/environments/:name/services/preview/batch", BatchPreviewServices)
 
 		production.DELETE("/environments/:name", DeleteProductionProduct)
+
 		production.GET("/kube/pods/:podName/file", DownloadFileFromPod)
+		production.DELETE("/kube/:name/pods/:podName", DeletePod)
 
 		production.GET("/environments/:name/helm/releases", ListProductionReleases)
 		production.GET("/environments/:name/helm/values", GetProductionChartValues)
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
+<<<<<<< HEAD
 		production.GET("/environments/:name/configs", GetProductionEnvConfigs)
 		production.PUT("/environments/:name/configs", UpdateProductionEnvConfigs)
 		production.POST("/environments/:name/analysis", RunProductionAnalysis)
 		production.GET("/environments/:name/analysis/cron", GetProductionEnvAnalysisCron)
 		production.PUT("/environments/:name/analysis/cron", UpsertProductionEnvAnalysisCron)
+=======
+		production.PUT("/environments/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
+		production.POST("/environments/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
+
+		production.PUT("/environments/:name/helm/default-values", UpdateHelmProductDefaultValues)
+		production.POST("/environments/:name/helm/default-values/preview", PreviewHelmProductDefaultValues)
+		production.GET("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
+
+		production.POST("/environments/:name/services/:serviceName/restart", RestartService)
+		production.POST("/environments/:name/services/:serviceName/restartNew", RestartWorkload)
+
+		production.GET("/rendersets/variables", GetProductionServiceVariables)
+		production.GET("/rendersets/renderchart", GetServiceRenderCharts)
+
+		// normal resources
+		production.GET("/configmaps/:name", ListConfigMaps)
+		production.GET("/secrets/:name", ListSecrets)
+		production.GET("/ingresses/:name", ListIngresses)
+		production.GET("/pvcs/:name", ListPvcs)
+		production.GET("/envcfgs/:name/cfg/:objectName", ListCommonEnvCfgHistory)
+		production.PUT("/envcfgs/:name", UpdateCommonEnvCfg)
+		production.POST("/envcfgs/:name", CreateCommonEnvCfg)
+		production.DELETE("/envcfgs/:name/cfg/:objectName", DeleteCommonEnvCfg)
+>>>>>>> 7b313f6e1 (add production env operation logic (#2714))
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -181,9 +217,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/affectedservices", AffectedServices)
 		environments.POST("/:name/estimated-values", EstimatedValues)
 		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
+
 		environments.PUT("/:name/helm/default-values", UpdateHelmProductDefaultValues)
+		environments.POST("/:name/helm/default-values/preview", PreviewHelmProductDefaultValues)
+
+		// TODO delete this api
 		environments.PUT("/:name/k8s/default-values", UpdateK8sProductDefaultValues)
+
 		environments.PUT("/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
+		environments.POST("/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
+
 		environments.GET("/:name/globalVariableCandidates", GetGlobalVariableCandidates)
 		environments.PUT("/:name/helm/charts", UpdateHelmProductCharts)
 		environments.PUT("/:name/syncVariables", SyncHelmProductRenderset)
@@ -203,6 +246,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", UpdateService)
 		environments.POST("/:name/services/:serviceName/preview", PreviewService)
+		environments.POST("/:name/services/preview/batch", BatchPreviewServices)
 		environments.POST("/:name/services/:serviceName/restart", RestartService)
 		environments.POST("/:name/services/:serviceName/restartNew", RestartWorkload)
 		environments.POST("/:name/services/:serviceName/scaleNew", ScaleNewService)
@@ -229,7 +273,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
-	// renderset相关接口
+	// renderset apis
 	// ---------------------------------------------------------------------------------------
 	rendersets := router.Group("rendersets")
 	{

@@ -1223,7 +1223,7 @@ func EnsureDeleteZadigService(ctx context.Context, env *commonmodels.Product, sv
 	}
 
 	if len(svcList.Items) != 1 {
-		return fmt.Errorf("Length of svc list is not expected for env %s of product %s with selector %s. Expected 1 but got %d.", env.EnvName, env.ProductName, svcSelector.String(), len(svcList.Items))
+		return fmt.Errorf("length of svc list is not expected for env %s of product %s with selector %s. Expected 1 but got %d", env.EnvName, env.ProductName, svcSelector.String(), len(svcList.Items))
 	}
 	svc := &svcList.Items[0]
 

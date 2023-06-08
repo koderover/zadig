@@ -324,7 +324,7 @@ func getServiceVariables(templateProduct *template.Product, product *commonmodel
 		return ret
 	}
 
-	args, _, err := commonservice.GetK8sSvcRenderArgs(product.ProductName, product.EnvName, "", log.SugaredLogger())
+	args, _, err := commonservice.GetK8sSvcRenderArgs(product.ProductName, product.EnvName, "", product.Production, log.SugaredLogger())
 	if err != nil {
 		log.Errorf("failed to get k8s service render args, err: %s", err)
 	}
