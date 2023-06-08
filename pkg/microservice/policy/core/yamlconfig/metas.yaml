@@ -922,6 +922,10 @@ metas:
             endpoint: '/api/aslan/environment/production/ingresses/:name'
           - method: GET
             endpoint: '/api/aslan/environment/production/pvcs/:name'
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environmentsForUpdate"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
       - action: create_production_environment
         alias: 创建
         description: ""
@@ -962,10 +966,7 @@ metas:
         alias: 管理服务实例
         description: ""
         rules:
-          - method: GET
-            endpoint: "/api/aslan/environment/production/environmentsForUpdate"
-          - method: GET
-            endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
+
           - method: PUT
             endpoint: "/api/aslan/environment/production/environments/?*/registry"≠
           - method: GET
