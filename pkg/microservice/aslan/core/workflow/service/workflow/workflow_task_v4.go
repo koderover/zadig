@@ -378,6 +378,11 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
 
+	if err := jobctl.RenderGlobalVariables(workflow, nextTaskID, args.Name); err != nil {
+		log.Errorf("RenderGlobalVariables error: %v", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
+	}
+
 	workflowTask.TaskID = nextTaskID
 	workflowTask.TaskCreator = args.Name
 	workflowTask.TaskRevoker = args.Name
@@ -393,7 +398,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.WorkflowHash = fmt.Sprintf("%x", dbWorkflow.CalculateHash())
 	// set workflow params repo info, like commitid, branch etc.
 	setZadigParamRepos(workflow, log)
-	
+
 	b, _ := json.Marshal(workflowTask)
 	log.Debugf("workflowTask3:: %s", string(b))
 	b2, _ := json.Marshal(workflow)
@@ -459,8 +464,8 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	}
 	b, _ = json.Marshal(workflowTask)
 	log.Debugf("workflowTask2:: %s", string(b))
-	if err := jobctl.RenderGlobalVariables(workflow, nextTaskID, args.Name); err != nil {
-		log.Errorf("RenderGlobalVariables error: %v", err)
+	if err := jobctl.RenderStageVariables(workflow, nextTaskID, args.Name); err != nil {
+		log.Errorf("RenderStageVariables error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
 

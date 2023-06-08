@@ -471,6 +471,19 @@ func RenderGlobalVariables(workflow *commonmodels.WorkflowV4, taskID int64, crea
 	return json.Unmarshal([]byte(replacedString), &workflow)
 }
 
+func RenderStageVariables(workflow *commonmodels.WorkflowV4, taskID int64, creator string) error {
+	b, err := json.Marshal(workflow)
+	if err != nil {
+		return fmt.Errorf("marshal workflow error: %v", err)
+	}
+	params, err := getWorkflowStageParams(workflow, taskID, creator)
+	if err != nil {
+		return fmt.Errorf("get workflow stage params error: %v", err)
+	}
+	replacedString := renderMultiLineString(string(b), setting.RenderValueTemplate, params)
+	return json.Unmarshal([]byte(replacedString), &workflow)
+}
+
 func renderString(value, template string, inputs []*commonmodels.Param) string {
 	for _, input := range inputs {
 		value = strings.ReplaceAll(value, fmt.Sprintf(template, input.Name), input.Value)
@@ -493,6 +506,15 @@ func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, c
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.id", Value: fmt.Sprintf("%d", taskID), ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.creator", Value: creator, ParamsType: "string", IsCredential: false})
 	resp = append(resp, &commonmodels.Param{Name: "workflow.task.timestamp", Value: fmt.Sprintf("%d", time.Now().Unix()), ParamsType: "string", IsCredential: false})
+	for _, param := range workflow.Params {
+		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
+		resp = append(resp, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
+	}
+	return resp, nil
+}
+
+func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, creator string) ([]*commonmodels.Param, error) {
+	resp := []*commonmodels.Param{}
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
 			switch job.JobType {
@@ -527,10 +549,6 @@ func getWorkflowDefaultParams(workflow *commonmodels.WorkflowV4, taskID int64, c
 				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.envName", job.Name), Value: deploy.Env, ParamsType: "string", IsCredential: false})
 			}
 		}
-	}
-	for _, param := range workflow.Params {
-		paramsKey := strings.Join([]string{"workflow", "params", param.Name}, ".")
-		resp = append(resp, &commonmodels.Param{Name: paramsKey, Value: param.Value, ParamsType: "string", IsCredential: false})
 	}
 	return resp, nil
 }
