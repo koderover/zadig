@@ -1820,6 +1820,9 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
 	serviceRelatedYaml := make(map[string]string)
 	for _, service := range productInfo.GetServiceMap() {
+		if !commonutil.ServiceDeployed(service.ServiceName, productInfo.ServiceDeployStrategy) {
+			continue
+		}
 		if util.InStringArray(service.ServiceName, serviceNames) {
 			yaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 				ProductName: productInfo.ProductName,
@@ -1906,6 +1909,10 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	}
 
 	for _, name := range serviceNames {
+		if !commonutil.ServiceDeployed(name, productInfo.ServiceDeployStrategy) {
+			continue
+		}
+
 		selector := labels.Set{setting.ProductLabel: productInfo.ProductName, setting.ServiceLabel: name}.AsSelector()
 
 		err = EnsureDeleteZadigService(ctx, productInfo, selector, kclient, istioClient)
