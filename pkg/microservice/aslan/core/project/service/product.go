@@ -76,11 +76,6 @@ func GetProductTemplateServices(productName string, envType types.EnvType, isBas
 		return nil, e.ErrGetProduct.AddDesc(err.Error())
 	}
 
-	err = FillProductTemplateVars([]*template.Product{resp}, log)
-	if err != nil {
-		return nil, fmt.Errorf("FillProductTemplateVars err : %v", err)
-	}
-
 	resp.Services = filterProductServices(productName, resp.Services, false)
 	resp.ProductionServices = filterProductServices(productName, resp.ProductionServices, true)
 
@@ -115,7 +110,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	// do not save vars
 	args.Vars = nil
 
-	err = render.ValidateKVs(kvs, args.AllServiceInfos(), log)
+	err = render.ValidateKVs(kvs, args.AllTestServiceInfos(), log)
 	if err != nil {
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}
@@ -144,22 +139,6 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 		log.Errorf("ProductTmpl.Create error: %v", err)
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}
-
-	// 创建一个默认的渲染集
-	err = render.CreateRenderSet(&commonmodels.RenderSet{
-		Name:        args.ProductName,
-		ProductTmpl: args.ProductName,
-		UpdateBy:    args.UpdateBy,
-		IsDefault:   true,
-		//KVs:         kvs,
-	}, log)
-
-	if err != nil {
-		log.Errorf("ProductTmpl.Create error: %v", err)
-		// 创建渲染集失败，删除产品模板
-		return e.ErrCreateProduct.AddDesc(err.Error())
-	}
-
 	return
 }
 
@@ -238,7 +217,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 	kvs := args.Vars
 	args.Vars = nil
 
-	if err = render.ValidateKVs(kvs, args.AllServiceInfos(), log); err != nil {
+	if err = render.ValidateKVs(kvs, args.AllTestServiceInfos(), log); err != nil {
 		log.Warnf("ProductTmpl.Update ValidateKVs error: %v", err)
 	}
 
@@ -253,16 +232,6 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 	// 如果是helm的项目，不需要新创建renderset
 	if args.ProductFeature != nil && args.ProductFeature.DeployType == setting.HelmDeployType {
 		return
-	}
-	// 更新默认的渲染集
-	if err = render.CreateRenderSet(&commonmodels.RenderSet{
-		Name:        args.ProductName,
-		ProductTmpl: args.ProductName,
-		UpdateBy:    args.UpdateBy,
-		IsDefault:   true,
-		//KVs:         kvs,
-	}, log); err != nil {
-		log.Warnf("ProductTmpl.Update CreateRenderSet error: %v", err)
 	}
 
 	for _, envVars := range args.EnvVars {
@@ -832,10 +801,6 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	return nil
 }
 
-func FillProductTemplateVars(productTemplates []*template.Product, log *zap.SugaredLogger) error {
-	return commonservice.FillProductTemplateVars(productTemplates, log)
-}
-
 func filterProductServices(productName string, source [][]string, production bool) [][]string {
 	ret := make([][]string, 0)
 	if len(source) == 0 {
@@ -851,7 +816,6 @@ func filterProductServices(productName string, source [][]string, production boo
 	for _, svc := range curServices {
 		validSvcSet.Insert(svc.ServiceName)
 	}
-	log.Infof("valid services: %v", validSvcSet.List())
 
 	for _, svcGroup := range source {
 		validSvcs := make([]string, 0)
@@ -957,7 +921,7 @@ func ListTemplatesHierachy(userName string, log *zap.SugaredLogger) ([]*ProductI
 
 	for _, productTmpl := range productTmpls {
 		pInfo := &ProductInfo{Value: productTmpl.ProductName, Label: productTmpl.ProductName, ServiceInfo: []*ServiceInfo{}}
-		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
 		if err != nil {
 			log.Errorf("Failed to list service for project %s, error: %s", productTmpl.ProductName, err)
 			return nil, e.ErrGetProduct.AddDesc(err.Error())
@@ -1197,16 +1161,19 @@ func DeleteLabels(productName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func GetGlobalVariables(productName string, log *zap.SugaredLogger) ([]*commontypes.ServiceVariableKV, error) {
+func GetGlobalVariables(productName string, production bool, log *zap.SugaredLogger) ([]*commontypes.ServiceVariableKV, error) {
 	productInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find product %s, err: %w", productName, err)
 	}
 
+	if production {
+		return productInfo.ProductionGlobalVariables, nil
+	}
 	return productInfo.GlobalVariables, nil
 }
 
-func UpdateGlobalVariables(productName, userName string, globalVariables []*commontypes.ServiceVariableKV) error {
+func UpdateGlobalVariables(productName, userName string, globalVariables []*commontypes.ServiceVariableKV, production bool) error {
 	productInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		return fmt.Errorf("failed to find product %s, err: %w", productName, err)
@@ -1221,7 +1188,11 @@ func UpdateGlobalVariables(productName, userName string, globalVariables []*comm
 	}
 
 	productInfo.UpdateBy = userName
-	productInfo.GlobalVariables = globalVariables
+	if production {
+		productInfo.ProductionGlobalVariables = globalVariables
+	} else {
+		productInfo.GlobalVariables = globalVariables
+	}
 
 	err = templaterepo.NewProductColl().Update(productName, productInfo)
 	if err != nil {
@@ -1236,21 +1207,27 @@ type GetGlobalVariableCandidatesRespone struct {
 	RelatedService []string `json:"related_service"`
 }
 
-func GetGlobalVariableCandidates(productName string, log *zap.SugaredLogger) ([]*GetGlobalVariableCandidatesRespone, error) {
+func GetGlobalVariableCandidates(productName string, production bool, log *zap.SugaredLogger) ([]*GetGlobalVariableCandidatesRespone, error) {
 	productInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find product %s, err: %w", productName, err)
 	}
 
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	services, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list services by product %s, err: %w", productName, err)
 	}
 
 	existedVariableSet := sets.NewString()
 	variableMap := make(map[string]*GetGlobalVariableCandidatesRespone)
-	for _, kv := range productInfo.GlobalVariables {
-		existedVariableSet.Insert(kv.Key)
+	if production {
+		for _, kv := range productInfo.ProductionGlobalVariables {
+			existedVariableSet.Insert(kv.Key)
+		}
+	} else {
+		for _, kv := range productInfo.GlobalVariables {
+			existedVariableSet.Insert(kv.Key)
+		}
 	}
 
 	ret := make([]*GetGlobalVariableCandidatesRespone, 0)

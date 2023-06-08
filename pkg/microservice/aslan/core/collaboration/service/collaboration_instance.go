@@ -1208,7 +1208,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 	}
 	if len(newProduct) > 0 && newProduct[0].DeployType == setting.K8SDeployType {
 		for _, product := range newProduct {
-			services, rendersetData, err := commonservice.GetK8sSvcRenderArgs(projectName, product.BaseName, "", logger)
+			services, rendersetData, err := commonservice.GetK8sSvcRenderArgs(projectName, product.BaseName, "", false, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find product renderset :%s, err: %s", product.BaseName, err)
 			}

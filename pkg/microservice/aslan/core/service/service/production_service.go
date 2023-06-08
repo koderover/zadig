@@ -30,6 +30,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
@@ -48,7 +49,7 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	services, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(productName, projectInfo.ProductFeature.DeployType)
+	services, err := commonrepo.NewProductionServiceColl().ListMaxRevisionsByProject(productName, projectInfo.ProductFeature.DeployType)
 
 	if err != nil {
 		log.Errorf("Failed to list production services, err: %s", err)
@@ -75,21 +76,14 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 }
 
 func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLogger) (*commonmodels.Service, error) {
-	var err error
-	productTmpl, err := templaterepo.NewProductColl().Find(productName)
-	if err != nil {
-		log.Errorf("Can not find project %s, error: %s", productName, err)
-		return nil, e.ErrGetTemplate.AddDesc(err.Error())
-	}
-
-	serviceObject, err := commonrepo.NewProductionServiceColl().Find(&commonrepo.ServiceFindOption{
+	serviceObject, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		ProductName: productName,
 		Type:        setting.K8SDeployType,
-	})
+	}, true)
 
 	if err != nil {
-		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
+		log.Errorf("Failed to list services by %+v, err: %s", serviceName, err)
 		return nil, e.ErrGetTemplate.AddDesc(err.Error())
 	}
 	return serviceObject, nil

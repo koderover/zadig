@@ -88,7 +88,7 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 		return productResp.Status, nil
 	}
 
-	productObject, err := GetInitProduct(productName, types.GeneralEnv, false, "", log)
+	productObject, err := GetInitProduct(productName, types.GeneralEnv, false, "", false, log)
 	if err != nil {
 		log.Errorf("AutoCreateProduct err:%v", err)
 		return "", err
@@ -331,7 +331,7 @@ func dryRunServices(args *commonmodels.Product, renderSet *commonmodels.RenderSe
 			if !commonutil.ServiceDeployed(svc.ServiceName, args.ServiceDeployStrategy) {
 				continue
 			}
-			_, err := upsertService(args, svc, nil, renderSet, args.Render, true, informer, kubeClient, nil, log)
+			_, err := upsertService(args, svc, nil, renderSet, args.Render, !args.Production, informer, kubeClient, nil, log)
 			if err != nil {
 				errList = multierror.Append(errList, fmt.Errorf("failed to dryRun apply service: %s, err: %s", svc.ServiceName, err))
 			}

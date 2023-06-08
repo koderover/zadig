@@ -25,18 +25,16 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type SvcDiffResult struct {
-	Current TmplYaml `json:"current,omitempty"`
-	Latest  TmplYaml `json:"latest,omitempty"`
-}
-
-type ConfigDiffResult struct {
-	Current TmplConfig `json:"current,omitempty"`
-	Latest  TmplConfig `json:"latest,omitempty"`
+	ServiceName string   `json:"service_name,omitempty"`
+	Current     TmplYaml `json:"current,omitempty"`
+	Latest      TmplYaml `json:"latest,omitempty"`
+	Error       string   `json:"error,omitempty"`
 }
 
 type TmplYaml struct {
@@ -63,26 +61,24 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 		log.Errorf("[%s][%s]find current configmaps error: %v", envName, productName, err)
 		return resp, e.ErrFindProduct.AddDesc("查找product失败")
 	}
-	var serviceInfo *commonmodels.ProductService
-	for _, serviceGroup := range productInfo.Services {
-		for _, service := range serviceGroup {
-			if service.ServiceName == serviceName {
-				serviceInfo = service
-			}
-		}
+	serviceInfo := productInfo.GetServiceMap()[serviceName]
+	if serviceInfo == nil {
+		return resp, fmt.Errorf("service %s not found in environment", serviceName)
 	}
+
 	svcOpt := &commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		ProductName: serviceInfo.ProductName,
 		Revision:    serviceInfo.Revision,
 	}
-	oldService, err := commonrepo.NewServiceColl().Find(svcOpt)
+	oldService, err := repository.QueryTemplateService(svcOpt, productInfo.Production)
 	if err != nil {
 		log.Errorf("[%s][%s][%s]find config template [%d] error: %v", envName, productName, serviceName, serviceInfo.Revision, err)
 		return resp, e.ErrGetService.AddDesc("查找service template失败")
 	}
+
 	svcOpt.Revision = 0
-	newService, err := commonrepo.NewServiceColl().Find(svcOpt)
+	newService, err := repository.QueryTemplateService(svcOpt, productInfo.Production)
 	if err != nil {
 		log.Errorf("[%s][%s][%s]find max revision config template error: %v", envName, productName, serviceName, err)
 		return resp, e.ErrGetService.AddDesc("查找service template失败")

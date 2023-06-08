@@ -338,9 +338,6 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	if err != nil {
 		return "", 0, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
 	}
-	if productInfo.Production {
-		prodSvcTemplate.ServiceVars = setting.ServiceVarWildCard
-	}
 
 	var usedRenderset *commonmodels.RenderSet
 	usedRenderset, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
@@ -564,13 +561,13 @@ func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet
 		log.Error("failed to render service yaml, err: %s", err)
 		return "", err
 	}
-	//parsedYaml := RenderValueForString(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render)
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
-	parsedYaml = replaceContainerImages(parsedYaml, svcTmpl.Containers, service.Containers)
-
+	//parsedYaml = replaceContainerImages(parsedYaml, svcTmpl.Containers, service.Containers)
+	parsedYaml, _, _ = ReplaceWorkloadImages(parsedYaml, service.Containers)
 	return parsedYaml, nil
 }
 
+// this function should be deleted
 func replaceContainerImages(tmpl string, ori []*commonmodels.Container, replace []*commonmodels.Container) string {
 
 	replaceMap := make(map[string]string)

@@ -123,7 +123,7 @@ func OpenAPIApplyYamlService(projectKey string, req *OpenAPIApplyYamlServiceReq,
 		Services: svcList,
 	})
 
-	return UpdateMultipleK8sEnv(args, []string{req.EnvName}, projectKey, requestID, false, logger)
+	return UpdateMultipleK8sEnv(args, []string{req.EnvName}, projectKey, requestID, false, false, logger)
 }
 
 func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
@@ -312,9 +312,6 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
 		}
 
-		if env.Production {
-			svcTmpl.ServiceVars = setting.ServiceVarWildCard
-		}
 		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, rs)
 		if err != nil {
 			log.Errorf("failed to render service yaml, err: %s", err)
@@ -397,6 +394,21 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 	return
 }
 
+func BatchPreviewService(args []*PreviewServiceArgs, logger *zap.SugaredLogger) ([]*SvcDiffResult, error) {
+	ret := make([]*SvcDiffResult, 0)
+	for _, arg := range args {
+		previewRet, err := PreviewService(arg, logger)
+		if err != nil {
+			previewRet = &SvcDiffResult{
+				ServiceName: arg.ServiceName,
+				Error:       err.Error(),
+			}
+		}
+		ret = append(ret, previewRet)
+	}
+	return ret, nil
+}
+
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
 	newVariableYaml, err := commontypes.RenderVariableKVToYaml(args.VariableKVs)
 	if err != nil {
@@ -404,8 +416,9 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 	}
 
 	ret := &SvcDiffResult{
-		Current: TmplYaml{},
-		Latest:  TmplYaml{},
+		ServiceName: args.ServiceName,
+		Current:     TmplYaml{},
+		Latest:      TmplYaml{},
 	}
 
 	curYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
@@ -416,8 +429,9 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 	})
 	if err != nil {
 		curYaml = ""
-		log.Errorf("failed to fetch current applied yaml, productName: %s envName: %s serviceName: %s, updateSvcRevision: %v, variableYaml: %s err: %s",
+		ret.Error = fmt.Sprintf("failed to fetch current applied yaml, productName: %s envName: %s serviceName: %s, updateSvcRevision: %v, variableYaml: %s err: %s",
 			args.ProductName, args.EnvName, args.ServiceName, args.UpdateServiceRevision, newVariableYaml, err)
+		log.Errorf(ret.Error)
 	}
 
 	// for situations only update images, replace images directly
@@ -555,11 +569,14 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		}
 
 		productService = serviceObj
-		serviceTmpl, err = commonservice.GetServiceTemplate(serviceObj.ServiceName, setting.K8SDeployType, serviceObj.ProductName, "", serviceObj.Revision, log)
-		if err != nil {
-			err = e.ErrRestartService.AddErr(err)
-			return
-		}
+
+		serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ProductName: serviceObj.ProductName,
+			ServiceName: serviceObj.ServiceName,
+			Revision:    serviceObj.Revision,
+			Type:        setting.K8SDeployType,
+		}, productObj.Production)
+
 		opt := &commonrepo.RenderSetFindOption{
 			Name:        oldRenderInfo.Name,
 			Revision:    oldRenderInfo.Revision,
@@ -579,7 +596,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 				productObj,
 				productService,
 				productService,
-				newRender, oldRenderInfo, true, inf, kubeClient, istioClient, log)
+				newRender, oldRenderInfo, !productObj.Production, inf, kubeClient, istioClient, log)
 		} else {
 			err = restartRelatedWorkloads(productObj, productService, newRender, kubeClient, log)
 		}

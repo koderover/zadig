@@ -46,24 +46,6 @@ func ListSvcsInEnv(c *gin.Context) {
 	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, productName, nil, ctx.Logger)
 }
 
-// @Summary List services in production env
-// @Description List services in production env
-// @Tags 	environments
-// @Accept 	json
-// @Produce json
-// @Param 	name 			path 		string 						 	true 	"env name"
-// @Param 	projectName 	query 		string 						 	true 	"project name"
-// @Success 200 			{object} 	commonservice.EnvServices
-// @Router /api/aslan/environment/production/environments/{name}/servicesForUpdate [get]
-func ListSvcsInProductionEnv(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	envName := c.Param("name")
-	productName := c.Query("projectName")
-
-	ctx.Resp, ctx.Err = commonservice.ListServicesInProductionEnv(envName, productName, nil, ctx.Logger)
-}
-
 func GetService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -128,6 +110,25 @@ func PreviewService(c *gin.Context) {
 	args.ServiceName = c.Param("serviceName")
 
 	ctx.Resp, ctx.Err = service.PreviewService(args, ctx.Logger)
+}
+
+func BatchPreviewServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := make([]*service.PreviewServiceArgs, 0)
+	if err := c.BindJSON(&args); err != nil {
+		ctx.Logger.Errorf("faield to bind args, err: %s", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	for _, arg := range args {
+		arg.ProductName = c.Query("projectName")
+		arg.EnvName = c.Param("name")
+	}
+
+	ctx.Resp, ctx.Err = service.BatchPreviewService(args, ctx.Logger)
 }
 
 // @Summary Update service

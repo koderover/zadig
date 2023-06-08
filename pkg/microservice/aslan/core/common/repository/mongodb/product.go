@@ -35,10 +35,11 @@ import (
 )
 
 type ProductFindOptions struct {
-	Name       string
-	EnvName    string
-	Namespace  string
-	Production *bool
+	Name              string
+	EnvName           string
+	Namespace         string
+	Production        *bool
+	IgnoreNotFoundErr bool
 }
 
 // ClusterId is a primitive.ObjectID{}.Hex()
@@ -155,6 +156,9 @@ func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 	}
 
 	err := c.FindOne(context.TODO(), query).Decode(res)
+	if err != nil && mongo.ErrNoDocuments == err && opt.IgnoreNotFoundErr {
+		return nil, nil
+	}
 	return res, err
 }
 

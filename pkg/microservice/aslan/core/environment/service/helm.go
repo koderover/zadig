@@ -63,14 +63,15 @@ type ReleaseFilter struct {
 }
 
 type HelmReleaseResp struct {
-	ReleaseName string        `json:"releaseName"`
-	ServiceName string        `json:"serviceName"`
-	Revision    int           `json:"revision"`
-	Chart       string        `json:"chart"`
-	AppVersion  string        `json:"appVersion"`
-	Status      ReleaseStatus `json:"status"`
-	Updatable   bool          `json:"updatable"`
-	Error       string        `json:"error"`
+	ReleaseName    string        `json:"releaseName"`
+	ServiceName    string        `json:"serviceName"`
+	Revision       int           `json:"revision"`
+	Chart          string        `json:"chart"`
+	AppVersion     string        `json:"appVersion"`
+	Status         ReleaseStatus `json:"status"`
+	Updatable      bool          `json:"updatable"`
+	DeployStrategy string        `json:"deploy_strategy"`
+	Error          string        `json:"error"`
 }
 
 type ChartInfo struct {
@@ -194,17 +195,15 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 	svcDatSetMap := make(map[string]*SvcDataSet)
 	svcDataList := make([]*SvcDataSet, 0)
 
-	for _, svcGroup := range prod.Services {
-		for _, prodSvc := range svcGroup {
-			serviceName := prodSvc.ServiceName
-			releaseName := releaseNameMap[serviceName]
-			svcDataSet := &SvcDataSet{
-				ProdSvc:    prodSvc,
-				SvcRelease: releaseMap[releaseName],
-			}
-			svcDatSetMap[serviceName] = svcDataSet
-			svcDataList = append(svcDataList, svcDataSet)
+	for _, prodSvc := range prod.GetServiceMap() {
+		serviceName := prodSvc.ServiceName
+		releaseName := releaseNameMap[serviceName]
+		svcDataSet := &SvcDataSet{
+			ProdSvc:    prodSvc,
+			SvcRelease: releaseMap[releaseName],
 		}
+		svcDatSetMap[serviceName] = svcDataSet
+		svcDataList = append(svcDataList, svcDataSet)
 	}
 
 	// set service template data
@@ -263,10 +262,11 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 		}
 
 		respObj := &HelmReleaseResp{
-			ServiceName: svcDataSet.ProdSvc.ServiceName,
-			Status:      HelmReleaseStatusNotDeployed,
-			Updatable:   updatable,
-			Error:       svcDataSet.ProdSvc.Error,
+			ServiceName:    svcDataSet.ProdSvc.ServiceName,
+			Status:         HelmReleaseStatusNotDeployed,
+			Updatable:      updatable,
+			DeployStrategy: prod.ServiceDeployStrategy[svcDataSet.ProdSvc.ServiceName],
+			Error:          svcDataSet.ProdSvc.Error,
 		}
 
 		if svcDataSet.SvcRelease != nil {
@@ -428,12 +428,12 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 		// download chart info with particular version
 		go func(serviceName string, revision int64) {
 			defer wg.Done()
-			serviceObj, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+			serviceObj, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ProductName: productName,
 				ServiceName: serviceName,
 				Revision:    revision,
 				Type:        setting.HelmDeployType,
-			})
+			}, prod.Production)
 			if err != nil {
 				log.Errorf("failed to query services name: %s, revision: %d, error: %s", serviceName, revision, err)
 				errList = multierror.Append(errList, fmt.Errorf("failed to query service, serviceName: %s, revision: %d", serviceName, revision))

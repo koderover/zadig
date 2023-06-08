@@ -336,7 +336,7 @@ func syncServicesFromChartTemplate(userName, templateName string, logger *zap.Su
 		}(testServices)
 
 		// sync production template services
-		productionServiceList, err := commonrepo.NewProductionServiceColl().ListMaxRevisions(helmProject.ProductName, "")
+		productionServiceList, err := commonrepo.NewProductionServiceColl().ListMaxRevisionsByProject(helmProject.ProductName, "")
 		if err != nil {
 			return err
 		}

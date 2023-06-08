@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -30,6 +31,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -80,8 +82,20 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		}
 	}
 	count = len(allServices)
-	//将获取到的所有服务按照名称进行排序
+	//sort services by name
 	sort.SliceStable(allServices, func(i, j int) bool { return allServices[i].ServiceName < allServices[j].ServiceName })
+
+	// add updatable field
+	latestSvcs, err := repository.GetMaxRevisionsServicesMap(productName, production)
+	if err != nil {
+		return resp, count, e.ErrListGroups.AddDesc(fmt.Sprintf("failed to find latest services for %s/%s", productName, envName))
+	}
+	for _, svc := range allServices {
+		if latestSvc, ok := latestSvcs[svc.ServiceName]; ok {
+			svc.Updatable = svc.Revision < latestSvc.Revision
+		}
+		svc.DeployStrategy = productInfo.ServiceDeployStrategy[svc.ServiceName]
+	}
 
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
@@ -94,7 +108,7 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	//这种针对的是获取所有数据的接口，内部调用
+	//called from inner api, return all services
 	if page == 0 && perPage == 0 {
 		resp = envHandleFunc(getProjectType(productName), log).listGroupServices(allServices, envName, productName, inf, productInfo)
 		return resp, count, nil
@@ -102,7 +116,6 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 
 	//针对获取环境状态的接口请求，这里不需要一次性获取所有的服务，先获取十条的数据，有异常的可以直接返回，不需要继续往下获取
 	if page == -1 && perPage == -1 {
-		// 获取环境的状态
 		resp = listGroupServiceStatus(allServices, envName, productName, inf, productInfo, log)
 		return resp, count, nil
 	}

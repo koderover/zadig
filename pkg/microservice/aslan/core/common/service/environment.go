@@ -42,7 +42,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
@@ -56,37 +55,26 @@ import (
 	jsonutil "github.com/koderover/zadig/pkg/util/json"
 )
 
-// FillProductTemplateValuesYamls 返回renderSet中的renderChart信息, this is only used in helm chart projects
-func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.SugaredLogger) error {
-	renderSet, err := render.GetLatestRenderSetFromHelmProject(tmpl.ProductName, false)
-	if err != nil {
-		log.Errorf("Failed to find render set for product template %s", tmpl.ProductName)
-		return err
-	}
-	serviceNames := sets.NewString()
-	for _, serviceGroup := range tmpl.Services {
-		for _, serviceName := range serviceGroup {
-			serviceNames.Insert(serviceName)
-		}
-	}
+func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, production bool, log *zap.SugaredLogger) error {
 	tmpl.ChartInfos = make([]*templatemodels.ServiceRender, 0)
-	for _, renderChart := range renderSet.ChartInfos {
-		if !serviceNames.Has(renderChart.ServiceName) {
+	latestSvcs, err := repository.ListMaxRevisionsServices(tmpl.ProductName, production)
+	if err != nil {
+		return fmt.Errorf("failed to list max revision services, err: %s", err)
+	}
+	for _, svc := range latestSvcs {
+		if svc.HelmChart == nil {
+			log.Errorf("helm chart of service: %s is nil", svc.ServiceName)
 			continue
 		}
 		tmpl.ChartInfos = append(tmpl.ChartInfos, &templatemodels.ServiceRender{
-			ServiceName:    renderChart.ServiceName,
-			ChartVersion:   renderChart.ChartVersion,
-			ValuesYaml:     renderChart.ValuesYaml,
-			OverrideYaml:   renderChart.OverrideYaml,
-			OverrideValues: renderChart.OverrideValues,
+			ServiceName:  svc.ServiceName,
+			ChartVersion: svc.HelmChart.Version,
+			ValuesYaml:   svc.HelmChart.ValuesYaml,
 		})
 	}
-
 	return nil
 }
 
-// 产品列表页服务Response
 type ServiceResp struct {
 	ServiceName        string       `json:"service_name"`
 	ServiceDisplayName string       `json:"service_display_name"`
@@ -97,11 +85,13 @@ type ServiceResp struct {
 	EnvName            string       `json:"env_name"`
 	Ingress            *IngressInfo `json:"ingress"`
 	//deprecated
-	Ready        string              `json:"ready"`
-	EnvStatuses  []*models.EnvStatus `json:"env_statuses,omitempty"`
-	WorkLoadType string              `json:"workLoadType"`
-	Revision     int64               `json:"revision"`
-	EnvConfigs   []*models.EnvConfig `json:"env_configs"`
+	Ready          string              `json:"ready"`
+	EnvStatuses    []*models.EnvStatus `json:"env_statuses,omitempty"`
+	WorkLoadType   string              `json:"workLoadType"`
+	Revision       int64               `json:"revision"`
+	EnvConfigs     []*models.EnvConfig `json:"env_configs"`
+	Updatable      bool                `json:"updatable"`
+	DeployStrategy string              `json:"deploy_strategy"`
 }
 
 type IngressInfo struct {
@@ -208,7 +198,7 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 	return ret, nil
 }
 
-func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, *models.RenderSet, error) {
+func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bool, log *zap.SugaredLogger) ([]*K8sSvcRenderArg, *models.RenderSet, error) {
 	var productInfo *models.Product
 	var err error
 	if len(envName) > 0 {
@@ -229,7 +219,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, log *zap.Suga
 	svcRenders := make(map[string]*templatemodels.ServiceRender)
 
 	// product template svcs
-	templateSvcs, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	templateSvcs, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find template svcs, err: %s", err)
 	}
@@ -363,14 +353,12 @@ func GetChartValues(projectName, envName, serviceName string, production bool) (
 }
 
 func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
-
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 	renderRevision := int64(0)
 	ret := make([]*HelmSvcRenderArg, 0)
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:       productName,
-		EnvName:    envName,
-		Production: util.GetBoolPointer(false),
+		Name:    productName,
+		EnvName: envName,
 	})
 
 	if err != nil && err != mongo.ErrNoDocuments {
@@ -804,19 +792,6 @@ func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error)
 	}
 	resp := make([]*models.Service, 0)
 	for _, productSvc := range serviceMap {
-		// TODO this code should be deleted since shared-serves are not supported
-		if productSvc.ProductName != "" && productSvc.ProductName != prod.ProductName {
-			tmplSvc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-				ProductName: productSvc.ProductName,
-				ServiceName: productSvc.ServiceName,
-				Revision:    productSvc.Revision,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to find service: %s of product: %s, err: %s", productSvc.ServiceName, productSvc.ProductName, err)
-			}
-			resp = append(resp, tmplSvc)
-			continue
-		}
 		listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
 			ServiceName: productSvc.ServiceName,
 			Revision:    productSvc.Revision,

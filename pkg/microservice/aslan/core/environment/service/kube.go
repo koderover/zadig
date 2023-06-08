@@ -50,6 +50,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/podexec/core/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -928,10 +929,7 @@ func getWorkloadDetail(ns, resType, name string, kc client.Client, cs *kubernete
 
 func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRequest, log *zap.SugaredLogger) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace := request.ClusterID, request.Namespace
-	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
-	if err != nil {
-		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
-	}
+
 	svcSet := sets.NewString()
 	for _, svc := range request.Services {
 		svcSet.Insert(svc.ServiceName)
@@ -949,13 +947,12 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		return resourcesByType[deployStatus.Type][deployStatus.Name]
 	}
 
-	globalVariables := []*commontypes.GlobalVariableKV{}
-
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: request.EnvName,
 	})
 
+	fakeRenderSet := &models.RenderSet{}
 	if err == nil && productInfo != nil {
 		renderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
 			ProductTmpl: productName,
@@ -965,12 +962,13 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 			Name:        productInfo.Render.Name,
 		})
 		if err == nil && renderset != nil {
-			globalVariables = renderset.GlobalVariables
+			fakeRenderSet.GlobalVariables = renderset.GlobalVariables
 		}
 	}
 
-	fakeRenderSet := &models.RenderSet{
-		GlobalVariables: globalVariables,
+	productServices, err := repository.ListMaxRevisionsServices(productName, productInfo.Production)
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}
 
 	for _, sv := range request.Services {
@@ -995,7 +993,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 
 		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productInfo.ProductName, svc.ServiceName, fakeRenderSet)
 		if err != nil {
-			return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to render service yaml, err: %w", err))
+			return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to render service yaml, serviceName：%s, err: %w", svc.ServiceName, err))
 		}
 
 		rederedYaml = kube.ParseSysKeys(namespace, request.EnvName, productName, svc.ServiceName, rederedYaml)
@@ -1075,7 +1073,15 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 
 func GetReleaseDeployStatus(productName string, request *HelmDeployStatusCheckRequest) ([]*ServiceDeployStatus, error) {
 	clusterID, namespace, envName := request.ClusterID, request.Namespace, request.EnvName
-	productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, IgnoreNotFoundErr: true})
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product: %s/%s, err: %s", productName, envName, err))
+	}
+	production := false
+	if productInfo != nil {
+		production = productInfo.Production
+	}
+	productServices, err := repository.ListMaxRevisionsServices(productName, production)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}

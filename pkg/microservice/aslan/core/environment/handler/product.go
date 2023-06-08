@@ -82,7 +82,7 @@ func GetInitProduct(c *gin.Context) {
 		}
 	}
 
-	product, err := service.GetInitProduct(productTemplateName, envType, isBaseEnv, baseEnvName, ctx.Logger)
+	product, err := service.GetInitProduct(productTemplateName, envType, isBaseEnv, baseEnvName, false, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return

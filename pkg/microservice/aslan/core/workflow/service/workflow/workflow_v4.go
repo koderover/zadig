@@ -1817,18 +1817,11 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 		log.Error(msg)
 		return resp, e.ErrFilterWorkflowVars.AddDesc(msg)
 	}
-	var services *commonservice.EnvServices
-	if jobSpec.Production {
-		services, err = commonservice.ListServicesInProductionEnv(envName, workflow.Project, svcKVsMap, log)
-		if err != nil {
-			return resp, e.ErrFilterWorkflowVars.AddErr(err)
-		}
-	} else {
-		services, err = commonservice.ListServicesInEnv(envName, workflow.Project, svcKVsMap, log)
-		if err != nil {
-			return resp, e.ErrFilterWorkflowVars.AddErr(err)
-		}
+	services, err := commonservice.ListServicesInEnv(envName, workflow.Project, svcKVsMap, log)
+	if err != nil {
+		return resp, e.ErrFilterWorkflowVars.AddErr(err)
 	}
+
 	serviceMap := map[string]*commonservice.EnvService{}
 	for _, service := range services.Services {
 		serviceMap[service.ServiceName] = service

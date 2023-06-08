@@ -219,10 +219,16 @@ metas:
             endpoint: /api/aslan/service/helm/production/services/?*/filePath
           - method: GET
             endpoint: /api/aslan/service/helm/production/services/?*/fileContent
+          - method: GET
+            endpoint: /api/aslan/project/products/?*/services
+          - method: GET
+            endpoint: "/api/aslan/cluster/clusters"
       - action: create_production_service
         alias: 新建
         description: ''
         rules:
+          - method: GET
+            endpoint: /api/aslan/template/charts
           - method: POST
             endpoint: /api/aslan/service/helm/production/services
           - method: POST
@@ -659,7 +665,6 @@ metas:
             endpoint: /api/aslan/system/im_app
           - method: GET
             endpoint: api/aslan/cluster/clusters
-
       - action: delete_workflow
         alias: 删除
         description: ''
@@ -835,6 +840,10 @@ metas:
             endpoint: '/api/aslan/environment/envcfgs/:name'
           - method: DELETE
             endpoint: '/api/aslan/environment/envcfgs/:name/cfg/?*'
+          - method: PUT
+            endpoint: '/api/aslan/environment/environments/:name/k8s/globalVariables'
+          - method: POST
+            endpoint: 'api/aslan/environment/environments/:name/helm/default-values/preview'
       - action: manage_environment
         alias: 管理服务实例
         description: ''
@@ -861,6 +870,8 @@ metas:
             endpoint: /api/aslan/environment/configmaps
           - method: POST
             endpoint: /api/aslan/workflow/servicetask
+          - method: POST
+            endpoint: 'api/aslan/environment/environments/:name/services/preview/batch'
       - action: delete_environment
         alias: 删除
         description: ''
@@ -890,6 +901,8 @@ metas:
           - method: GET
             endpoint: "/api/aslan/environment/production/environments"
           - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*"
+          - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/groups"
           - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/services/?*"
@@ -899,6 +912,26 @@ metas:
             endpoint: "/api/aslan/environment/production/environments/?*/helm/values"
           - method: GET
             endpoint: "/api/aslan/environment/production/environments/?*/workloads"
+          - method: GET
+            endpoint: /api/aslan/environment/diff/production/products/?*/service/?*
+          - method: GET
+            endpoint: '/api/aslan/environment/production/configmaps/:name'
+          - method: GET
+            endpoint: '/api/aslan/environment/production/envcfgs/:name/cfg/?*'
+          - method: GET
+            endpoint: '/api/aslan/environment/production/secrets/:name'
+          - method: GET
+            endpoint: '/api/aslan/environment/production/ingresses/:name'
+          - method: GET
+            endpoint: '/api/aslan/environment/production/pvcs/:name'
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environmentsForUpdate"
+          - method: GET
+            endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
+          - method: GET
+            endpoint: /api/aslan/environment/kube/events
+          - method: GET
+            endpoint: /api/aslan/project/products/?*/services
       - action: create_production_environment
         alias: 创建
         description: ""
@@ -913,18 +946,44 @@ metas:
         rules:
           - method: PUT
             endpoint: '/api/aslan/environment/environments/:name/alias'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/envcfgs/:name'
+          - method: POST
+            endpoint: '/api/aslan/environment/production/envcfgs/:name'
+          - method: DELETE
+            endpoint: '/api/aslan/environment/production/envcfgs/:name/cfg/?*'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments/:name/k8s/globalVariables'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments/:name/helm/default-values'
+          - method: POST
+            endpoint: 'api/aslan/environment/production/environments/:name/helm/default-values/preview'
+          - method: POST
+            endpoint: 'api/aslan/environment/production/environments/:name/services/preview/batch'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments'
+          - method: GET
+            endpoint: /api/aslan/environment/operations
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments/:name/services'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments/?*/services/?*'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments/?*/helm/charts'
+          - method: PUT
+            endpoint: "/api/aslan/environment/production/environments/?*/registry"
       - action: edit_production_environment
         alias: 管理服务实例
         description: ""
         rules:
           - method: GET
-            endpoint: "/api/aslan/environment/production/environmentsForUpdate"
-          - method: GET
-            endpoint: "/api/aslan/environment/production/environments/?*/servicesForUpdate"
-          - method: PUT
-            endpoint: "/api/aslan/environment/production/environments/?*/registry"
-          - method: GET
             endpoint: "/api/aslan/cluster/clusters"
+          - method: POST
+            endpoint: '/api/aslan/environment/production/environments/?*/services/?*/restart'
+          - method: DELETE
+            endpoint: '/api/aslan/environment/production/kube/?*/pods/?*'
+          - method: PUT
+            endpoint: '/api/aslan/environment/production/environments/?*/services/?*'
       - action: delete_production_environment
         alias: 删除
         description: ""
@@ -936,7 +995,7 @@ metas:
         description: ''
         rules:
           - method: GET
-            endpoint: '/api/podexec/production/?*/?*/?*/?*/podExec/:name'
+            endpoint: '/api/podexec/production/?*/?*/?*/?*/podExec/?*'
           - method: GET
             endpoint: '/api/aslan/environment/production/kube/pods/?*/file'
   - resource: Scan

@@ -107,6 +107,7 @@ type EstimateValuesArg struct {
 	DefaultValues  string                  `json:"defaultValues"`
 	OverrideYaml   string                  `json:"overrideYaml"`
 	OverrideValues []*commonservice.KVPair `json:"overrideValues,omitempty"`
+	Production     bool                    `json:"-"`
 }
 
 type EnvRenderChartArg struct {

@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -41,6 +40,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -187,10 +187,10 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
 
 	if err != nil {
-		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
+		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllTestServiceInfos(), err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
@@ -318,7 +318,7 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 	// service in template_services
 	services, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
 	if err != nil {
-		log.Errorf("Failed to list external services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
+		log.Errorf("Failed to list external services by %+v, err: %s", productTmpl.AllTestServiceInfos(), err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
@@ -1127,24 +1127,9 @@ func ListServicesInEnv(envName, productName string, newSvcKVsMap map[string][]*c
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	latestSvcs, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	latestSvcs, err := repository.ListMaxRevisionsServices(productName, env.Production)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for env %s:%s", productName, envName))
-	}
-
-	return buildServiceInfoInEnv(env, latestSvcs, newSvcKVsMap, log)
-}
-
-func ListServicesInProductionEnv(envName, productName string, newSvcKVsMap map[string][]*commonmodels.ServiceKeyVal, log *zap.SugaredLogger) (*EnvServices, error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	env, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
-	}
-
-	latestSvcs, err := commonrepo.NewProductionServiceColl().ListMaxRevisionsByProduct(productName)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find latest services for product %s:%s", productName, envName))
 	}
 
 	return buildServiceInfoInEnv(env, latestSvcs, newSvcKVsMap, log)

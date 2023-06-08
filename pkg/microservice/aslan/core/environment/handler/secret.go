@@ -27,7 +27,7 @@ func ListSecrets(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Param("envName")
+	envName := c.Param("name")
 	productName := c.Query("projectName")
 	if envName == "" || productName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("param envName or projectName is invalid")
