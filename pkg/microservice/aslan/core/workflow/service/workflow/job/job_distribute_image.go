@@ -176,7 +176,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			}
 			if j.spec.EnableTargetImageTagRule {
 				target.TargetTag = strings.ReplaceAll(j.spec.TargetImageTagRule,
-					"{{.workflow.input.imageTag}}", target.SourceImage)
+					"{{.workflow.input.imageTag}}", target.SourceTag)
 			}
 			target.UpdateTag = true
 		}
