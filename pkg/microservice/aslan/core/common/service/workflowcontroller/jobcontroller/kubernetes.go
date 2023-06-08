@@ -908,7 +908,6 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 	podLister := informer.Core().V1().Pods().Lister().Pods(namespace)
 	jobLister := informer.Batch().V1().Jobs().Lister().Jobs(namespace)
 	cmLister := informer.Core().V1().ConfigMaps().Lister().ConfigMaps(namespace)
-	log := log.SugaredLogger().With("jobName", jobName)
 	for {
 		select {
 		case <-ctx.Done():
