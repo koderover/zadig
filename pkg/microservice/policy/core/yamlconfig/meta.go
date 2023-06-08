@@ -24,7 +24,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/util/deepcopy"
 )
 
 //go:embed metas.yaml
@@ -62,8 +61,7 @@ type MetaConfig struct {
 }
 
 func (m *MetaConfig) Policies() []*types.PolicyMeta {
-	m.Metas = processMetas(m.Metas)
-	return m.Metas
+	return processMetas(m.Metas)
 }
 
 func newMetaConfigFromBytes(b []byte) MetaGetter {
@@ -84,8 +82,6 @@ func newMetaConfigFromEmbed() *MetaConfig {
 }
 
 func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
-	proEnvMeta := &types.PolicyMeta{}
-
 	for _, meta := range metas {
 		if meta.Resource == "Workflow" {
 			for _, ruleMeta := range meta.Rules {
@@ -128,17 +124,11 @@ func processMetas(metas []*types.PolicyMeta) []*types.PolicyMeta {
 						rule.Endpoint = endpoint
 						rule.IDRegex = idRegex
 					}
-
 					tmpRules = append(tmpRules, rule)
 				}
 				ruleMeta.Rules = tmpRules
 			}
-
-			if err := deepcopy.FromTo(meta, proEnvMeta); err != nil {
-				log.DPanic(err)
-			}
 		}
 	}
-	metas = append(metas, proEnvMeta)
 	return metas
 }

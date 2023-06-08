@@ -426,7 +426,6 @@ func initDatabase() {
 		// policy related db index
 		policydb.NewRoleColl(),
 		policydb.NewRoleBindingColl(),
-		policydb.NewPolicyMetaColl(),
 
 		// user related db index
 		userdb.NewUserSettingColl(),
