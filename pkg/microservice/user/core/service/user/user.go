@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/dexidp/dex/connector/ldap"
@@ -441,6 +442,10 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 	}, nil
 }
 
+const (
+	StrongPasswordRegexp = `^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$`
+)
+
 func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 	uid, _ := uuid.NewUUID()
 	user := &models.User{
@@ -451,13 +456,22 @@ func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 		Account:      args.Account,
 		UID:          uid.String(),
 	}
+
+	matched, err := regexp.MatchString(StrongPasswordRegexp, args.Password)
+	if err != nil {
+		return nil, e.ErrCreateUser.AddErr(err)
+	}
+	if !matched {
+		return nil, e.ErrCreateUser.AddDesc("密码必须包含大小写字母和数字，且长度不小于8位")
+	}
+
 	tx := core.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 		}
 	}()
-	err := orm.CreateUser(user, tx)
+	err = orm.CreateUser(user, tx)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("CreateUser CreateUser :%v error, error msg:%s", user, err.Error())
@@ -508,6 +522,14 @@ func UpdateUserSetting(uid string, args *UserSetting) error {
 }
 
 func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
+	matched, err := regexp.MatchString(StrongPasswordRegexp, args.NewPassword)
+	if err != nil {
+		return e.ErrCreateUser.AddErr(err)
+	}
+	if !matched {
+		return e.ErrCreateUser.AddDesc("密码必须包含大小写字母和数字，且长度不小于8位")
+	}
+
 	user, err := orm.GetUserByUid(args.Uid, core.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword GetUserByUid:%s error, error msg:%s", args.Uid, err.Error())
@@ -549,6 +571,14 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 }
 
 func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
+	matched, err := regexp.MatchString(StrongPasswordRegexp, args.Password)
+	if err != nil {
+		return e.ErrCreateUser.AddErr(err)
+	}
+	if !matched {
+		return e.ErrCreateUser.AddDesc("密码必须包含大小写字母和数字，且长度不小于8位")
+	}
+
 	user, err := orm.GetUserByUid(args.Uid, core.DB)
 	if err != nil {
 		logger.Errorf("Reset GetUserByUid:%s error, error msg:%s", args.Uid, err)
