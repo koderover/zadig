@@ -841,7 +841,6 @@ metas:
             endpoint: '/api/aslan/environment/environments/:name/k8s/globalVariables'
           - method: POST
             endpoint: 'api/aslan/environment/environments/:name/helm/default-values/preview'
-
       - action: manage_environment
         alias: 管理服务实例
         description: ''
@@ -966,7 +965,6 @@ metas:
         alias: 管理服务实例
         description: ""
         rules:
-
           - method: PUT
             endpoint: "/api/aslan/environment/production/environments/?*/registry"≠
           - method: GET
