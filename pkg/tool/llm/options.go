@@ -12,8 +12,12 @@ type ParamOptions struct {
 	// Temperature is the temperature for sampling, between 0 and 1.
 	Temperature float32 `json:"temperature"`
 	// StopWords is a list of words to stop on.
+<<<<<<< HEAD
 	StopWords []string       `json:"stop_words"`
 	LogitBias map[string]int `json:"logit_bias"`
+=======
+	StopWords []string `json:"stop_words"`
+>>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))
 }
 
 func WithModel(model string) ParamOption {
@@ -40,12 +44,15 @@ func WithStopWords(stopWords []string) ParamOption {
 	}
 }
 
+<<<<<<< HEAD
 func WithLogitBias(logitBias map[string]int) ParamOption {
 	return func(o *ParamOptions) {
 		o.LogitBias = logitBias
 	}
 }
 
+=======
+>>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))
 func WithOptions(options ParamOptions) ParamOption {
 	return func(o *ParamOptions) {
 		(*o) = options
@@ -53,6 +60,12 @@ func WithOptions(options ParamOptions) ParamOption {
 }
 
 func ValidOptions(options ParamOptions) ParamOptions {
+<<<<<<< HEAD
+=======
+	if options.MaxTokens == 0 {
+		options.MaxTokens = 4096
+	}
+>>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))
 	if len(options.StopWords) == 0 {
 		options.StopWords = nil
 	}

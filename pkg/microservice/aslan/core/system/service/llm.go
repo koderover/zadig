@@ -23,6 +23,10 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+<<<<<<< HEAD
+=======
+	"github.com/koderover/zadig/pkg/tool/llm"
+>>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -84,3 +88,34 @@ func DeleteLLMIntegration(ctx context.Context, ID string) error {
 	}
 	return nil
 }
+<<<<<<< HEAD
+=======
+
+func GetLLMClient(ctx context.Context, name string) (llm.ILLM, error) {
+	llmIntegration, err := commonrepo.NewLLMIntegrationColl().FindByName(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("Could find the llm integration for %s: %w", name, err)
+	}
+
+	config := llm.LLMConfig{
+		Name:    llmIntegration.Name,
+		Token:   llmIntegration.Token,
+		BaseURL: llmIntegration.BaseURL,
+	}
+	llmClient, err := llm.NewClient(name)
+	if err != nil {
+		return nil, fmt.Errorf("Could not create the llm client for %s: %w", name, err)
+	}
+
+	err = llmClient.Configure(config)
+	if err != nil {
+		return nil, fmt.Errorf("Could not configure the llm client for %s: %w", name, err)
+	}
+
+	return llmClient, nil
+}
+
+func GetDefaultLLMClient(ctx context.Context) (llm.ILLM, error) {
+	return GetLLMClient(ctx, "openai")
+}
+>>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))
