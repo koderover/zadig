@@ -1699,9 +1699,15 @@ const docTemplate = `{
                 }
             }
         },
+<<<<<<< HEAD
         "/api/aslan/system/webhook/config": {
             "get": {
                 "description": "Get webhook config",
+=======
+        "/api/aslan/system/llm/integration": {
+            "get": {
+                "description": "List llm integrations",
+>>>>>>> 2cb43dbbe (add llm and analyzer modules (#2723))
                 "consumes": [
                     "application/json"
                 ],
@@ -1711,15 +1717,153 @@ const docTemplate = `{
                 "tags": [
                     "system"
                 ],
+<<<<<<< HEAD
                 "summary": "Get webhook config",
+=======
+                "summary": "List llm integrations",
+>>>>>>> 2cb43dbbe (add llm and analyzer modules (#2723))
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
+<<<<<<< HEAD
                             "$ref": "#/definitions/service.GetWebhookConfigReponse"
                         }
                     }
                 }
+=======
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LLMIntegration"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a llm integration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Create a llm integration",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.CreateLLMIntegrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/llm/integration/{id}": {
+            "get": {
+                "description": "Get a llm integration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get a llm integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.LLMIntegration"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update a llm integration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Update a llm integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.CreateLLMIntegrationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a llm integration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Delete a llm integration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+>>>>>>> 2cb43dbbe (add llm and analyzer modules (#2723))
             }
         },
         "/api/aslan/template/yaml": {
@@ -2180,6 +2324,23 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.CreateLLMIntegrationRequest": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "enable_proxy": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.DeleteProductServicesRequest": {
             "type": "object",
             "properties": {
@@ -2606,6 +2767,32 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tag": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LLMIntegration": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "enable_proxy": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "update_time": {
+                    "type": "integer"
+                },
+                "updated_by": {
                     "type": "string"
                 }
             }

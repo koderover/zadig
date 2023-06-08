@@ -127,6 +127,17 @@ definitions:
       value:
         type: string
     type: object
+  handler.CreateLLMIntegrationRequest:
+    properties:
+      base_url:
+        type: string
+      enable_proxy:
+        type: boolean
+      name:
+        type: string
+      token:
+        type: string
+    type: object
   handler.DeleteProductServicesRequest:
     properties:
       service_names:
@@ -410,6 +421,23 @@ definitions:
       repo:
         type: string
       tag:
+        type: string
+    type: object
+  models.LLMIntegration:
+    properties:
+      base_url:
+        type: string
+      enable_proxy:
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+      token:
+        type: string
+      update_time:
+        type: integer
+      updated_by:
         type: string
     type: object
   models.ParameterSettingType:
@@ -2932,19 +2960,116 @@ paths:
       summary: Reload service from yaml template
       tags:
       - service
+<<<<<<< HEAD
   /api/aslan/system/webhook/config:
     get:
       consumes:
       - application/json
       description: Get webhook config
+=======
+  /api/aslan/system/llm/integration:
+    get:
+      consumes:
+      - application/json
+      description: List llm integrations
+>>>>>>> 2cb43dbbe (add llm and analyzer modules (#2723))
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
+<<<<<<< HEAD
             $ref: '#/definitions/service.GetWebhookConfigReponse'
       summary: Get webhook config
+=======
+            items:
+              $ref: '#/definitions/models.LLMIntegration'
+            type: array
+      summary: List llm integrations
+      tags:
+      - system
+    post:
+      consumes:
+      - application/json
+      description: Create a llm integration
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateLLMIntegrationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Create a llm integration
+      tags:
+      - system
+  /api/aslan/system/llm/integration/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a llm integration
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Delete a llm integration
+      tags:
+      - system
+    get:
+      consumes:
+      - application/json
+      description: Get a llm integration
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.LLMIntegration'
+      summary: Get a llm integration
+      tags:
+      - system
+    put:
+      consumes:
+      - application/json
+      description: Update a llm integration
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateLLMIntegrationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update a llm integration
+>>>>>>> 2cb43dbbe (add llm and analyzer modules (#2723))
       tags:
       - system
   /api/aslan/template/yaml:

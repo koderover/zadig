@@ -450,6 +450,7 @@ func initDatabase() {
 		commonrepo.NewStatDashboardConfigColl(),
 		commonrepo.NewProjectManagementColl(),
 		commonrepo.NewImageTagsCollColl(),
+		commonrepo.NewLLMIntegrationColl(),
 
 		// msg queue
 		commonrepo.NewMsgQueueCommonColl(),

@@ -844,4 +844,13 @@ var (
 	ErrUpdateStatisticsDashboardConfig = NewHTTPError(7002, "更新统计看板配置失败")
 	ErrDeleteStatisticsDashboardConfig = NewHTTPError(7003, "删除统计看板配置失败")
 	ErrGetStatisticsDashboard          = NewHTTPError(7004, "获取统计看板失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// llm integraton Error Range: 7010 - 7019
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateLLMIntegration = NewHTTPError(7010, "创建llm集成失败")
+	ErrListLLMIntegration   = NewHTTPError(7011, "获取llm集成列表失败")
+	ErrUpdateLLMIntegration = NewHTTPError(7012, "更新llm集成失败")
+	ErrDeleteLLMIntegration = NewHTTPError(7013, "删除llm集成失败")
+	ErrGetLLMIntegration    = NewHTTPError(7014, "获取llm集成详情失败")
 )
