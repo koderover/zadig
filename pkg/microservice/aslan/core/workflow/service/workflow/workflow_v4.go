@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"gopkg.in/yaml.v3"
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
@@ -1891,9 +1892,22 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		log.Errorf("failed to generate merged values.yaml, err: %w", err)
 		return nil, err
 	}
+
+	tmp := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(yamlContent), &tmp); err != nil {
+		log.Errorf("failed to unmarshal latest yaml content, err: %s", err)
+		return nil, err
+	}
+
+	// re-marshal it into string to make sure indentation is right
+	latestYamlContent, err := yaml.Marshal(tmp)
+	if err != nil {
+		log.Errorf("failed to marshal latest yaml content, err: %s", err)
+		return nil, err
+	}
 	return &GetHelmValuesDifferenceResp{
 		Current: currentYaml,
-		Latest:  yamlContent,
+		Latest:  string(latestYamlContent),
 	}, nil
 }
 
