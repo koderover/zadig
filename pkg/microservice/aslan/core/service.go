@@ -208,6 +208,7 @@ func initCron() {
 				log.Errorf("failed to update gitlab token for host: %d, error: %s", codehost.ID, err)
 			}
 		}
+		log.Infof("[CRONJOB] gitlab token updated....")
 	})
 
 	Scheduler.StartAsync()
