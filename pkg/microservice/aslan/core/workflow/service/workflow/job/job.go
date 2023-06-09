@@ -241,6 +241,7 @@ func addOutputsIfCurrentJobTypeDistributeImage(currentJobName string, job *commo
 	if job.Name == currentJobName && job.JobType == config.JobZadigDistributeImage {
 		spec := new(commonmodels.ZadigDistributeImageJobSpec)
 		if err := commonmodels.IToiYaml(job.Spec, spec); err == nil {
+			log.Debugf("spec: %+v", spec)
 			if spec.EnableTargetImageTagRule {
 				switch spec.Source {
 				case config.SourceRuntime:
