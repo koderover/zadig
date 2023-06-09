@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	newgoCron "github.com/go-co-op/gocron"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
@@ -55,12 +56,14 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/hubserver/core/repository/mongodb"
 	policydb "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	policybundle "github.com/koderover/zadig/pkg/microservice/policy/core/service/bundle"
+	mongodb2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	configmongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
 	configservice "github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/service"
 	userCore "github.com/koderover/zadig/pkg/microservice/user/core"
 	userdb "github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -175,11 +178,40 @@ func Start(ctx context.Context) {
 	// policy initialization process
 	policybundle.GenerateOPABundle()
 	policyservice.MigratePolicyData()
+
+	initCron()
 }
 
 func Stop(ctx context.Context) {
 	mongotool.Close(ctx)
 	gormtool.Close()
+}
+
+var Scheduler *newgoCron.Scheduler
+
+func initCron() {
+	Scheduler = newgoCron.NewScheduler(time.Local)
+
+	Scheduler.Every(5).Minutes().Do(func() {
+		log.Infof("[CRONJOB] updating tokens for gitlab....")
+		codehostList, err := mongodb2.NewCodehostColl().List(&mongodb2.ListArgs{
+			Source: "gitlab",
+		})
+
+		if err != nil {
+			log.Errorf("failed to list gitlab codehost err:%v", err)
+			return
+		}
+		for _, codehost := range codehostList {
+			_, err := gitlab.UpdateGitlabToken(codehost.ID, codehost.AccessToken)
+			if err != nil {
+				log.Errorf("failed to update gitlab token for host: %d, error: %s", codehost.ID, err)
+			}
+		}
+		log.Infof("[CRONJOB] gitlab token updated....")
+	})
+
+	Scheduler.StartAsync()
 }
 
 func initService() {
