@@ -24,8 +24,11 @@ import (
 	"sync"
 	"time"
 
+	newgoCron "github.com/go-co-op/gocron"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
+	mongodb2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
@@ -176,11 +179,38 @@ func Start(ctx context.Context) {
 	// policy initialization process
 	policybundle.GenerateOPABundle()
 	policyservice.MigratePolicyData()
+
+	initCron()
 }
 
 func Stop(ctx context.Context) {
 	mongotool.Close(ctx)
 	gormtool.Close()
+}
+
+var Scheduler *newgoCron.Scheduler
+
+func initCron() {
+	Scheduler = newgoCron.NewScheduler(time.Local)
+
+	Scheduler.Every(5).Minutes().Do(func() {
+		log.Infof("[CRONJOB] updating tokens for gitlab....")
+		codehostList, err := mongodb2.NewCodehostColl().List(&mongodb2.ListArgs{
+			Source: "gitlab",
+		})
+		if err != nil {
+			log.Errorf("failed to list gitlab codehost err:%v", err)
+			return
+		}
+		for _, codehost := range codehostList {
+			_, err := gitlab.UpdateGitlabToken(codehost.ID, codehost.AccessToken)
+			if err != nil {
+				log.Errorf("failed to update gitlab token for host: %d, error: %s", codehost.ID, err)
+			}
+		}
+	})
+
+	Scheduler.StartAsync()
 }
 
 func initService() {
