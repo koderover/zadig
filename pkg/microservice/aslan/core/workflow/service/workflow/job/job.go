@@ -240,7 +240,7 @@ func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string
 func addOutputsIfCurrentJobTypeDistributeImage(currentJobName string, job *commonmodels.Job, resp []string, log *zap.SugaredLogger) []string {
 	if job.Name == currentJobName && job.JobType == config.JobZadigDistributeImage {
 		spec := new(commonmodels.ZadigDistributeImageJobSpec)
-		if err := commonmodels.IToi(job.Spec, spec); err == nil {
+		if err := commonmodels.IToiYaml(job.Spec, spec); err == nil {
 			if spec.EnableTargetImageTagRule {
 				switch spec.Source {
 				case config.SourceRuntime:
