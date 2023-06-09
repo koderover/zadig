@@ -38,8 +38,9 @@ import (
 )
 
 const (
-	IMAGEKEY   = "IMAGE"
-	PKGFILEKEY = "PKG_FILE"
+	IMAGEKEY    = "IMAGE"
+	IMAGETAGKEY = "imageTag"
+	PKGFILEKEY  = "PKG_FILE"
 )
 
 type BuildJob struct {
@@ -624,6 +625,11 @@ func ensureBuildInOutputs(outputs []*commonmodels.Output) []*commonmodels.Output
 	if _, ok := keyMap[IMAGEKEY]; !ok {
 		outputs = append(outputs, &commonmodels.Output{
 			Name: IMAGEKEY,
+		})
+	}
+	if _, ok := keyMap[IMAGETAGKEY]; !ok {
+		outputs = append(outputs, &commonmodels.Output{
+			Name: IMAGETAGKEY,
 		})
 	}
 	if _, ok := keyMap[PKGFILEKEY]; !ok {

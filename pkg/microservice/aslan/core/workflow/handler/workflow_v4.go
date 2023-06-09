@@ -521,7 +521,7 @@ func GetPatchParams(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.GetPatchParams(req, ctx.Logger)
 }
 
-func GetWorkflowGlabalVars(c *gin.Context) {
+func GetWorkflowGlobalVars(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 

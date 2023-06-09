@@ -267,7 +267,7 @@ func (j *TestingJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels
 				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
 					return servicetargets, err
 				}
-				for _, distribute := range distributeSpec.Tatgets {
+				for _, distribute := range distributeSpec.Targets {
 					servicetargets = append(servicetargets, &commonmodels.ServiceTestTarget{
 						ServiceName:   distribute.ServiceName,
 						ServiceModule: distribute.ServiceModule,

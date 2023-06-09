@@ -117,7 +117,7 @@ func (j *WorkflowTriggerJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	default:
 		return nil, errors.Errorf("invalid trigger type: %s", j.spec.TriggerType)
 	}
-	
+
 	for _, event := range workflowTriggerEvents {
 		for _, param := range event.Params {
 			j.getRepoFromJob(param)
@@ -204,7 +204,7 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
 					return nil, err
 				}
-				for _, distribute := range distributeSpec.Tatgets {
+				for _, distribute := range distributeSpec.Targets {
 					if info, ok := m[commonmodels.ServiceNameAndModule{
 						ServiceName:   distribute.ServiceName,
 						ServiceModule: distribute.ServiceModule,
