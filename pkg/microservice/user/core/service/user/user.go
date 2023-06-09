@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/dexidp/dex/connector/ldap"
@@ -451,13 +452,22 @@ func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 		Account:      args.Account,
 		UID:          uid.String(),
 	}
+
+	matched, err := isValidStrongPassword(args.Password)
+	if err != nil {
+		return nil, e.ErrCreateUser.AddErr(err)
+	}
+	if !matched {
+		return nil, e.ErrCreateUser.AddDesc("密码必须包含大小写字母和数字，且长度不小于8位")
+	}
+
 	tx := core.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 		}
 	}()
-	err := orm.CreateUser(user, tx)
+	err = orm.CreateUser(user, tx)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("CreateUser CreateUser :%v error, error msg:%s", user, err.Error())
@@ -508,6 +518,14 @@ func UpdateUserSetting(uid string, args *UserSetting) error {
 }
 
 func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
+	matched, err := isValidStrongPassword(args.NewPassword)
+	if err != nil {
+		return e.ErrCreateUser.AddErr(err)
+	}
+	if !matched {
+		return e.ErrCreateUser.AddDesc("密码必须包含大小写字母和数字，且长度不小于8位")
+	}
+
 	user, err := orm.GetUserByUid(args.Uid, core.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword GetUserByUid:%s error, error msg:%s", args.Uid, err.Error())
@@ -549,6 +567,14 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 }
 
 func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
+	matched, err := isValidStrongPassword(args.Password)
+	if err != nil {
+		return e.ErrCreateUser.AddErr(err)
+	}
+	if !matched {
+		return e.ErrCreateUser.AddDesc("密码必须包含大小写字母和数字，且长度不小于8位")
+	}
+
 	user, err := orm.GetUserByUid(args.Uid, core.DB)
 	if err != nil {
 		logger.Errorf("Reset GetUserByUid:%s error, error msg:%s", args.Uid, err)
@@ -676,4 +702,32 @@ func GetUserCount(logger *zap.SugaredLogger) (*types.UserStatistics, error) {
 		UserByType: userCountByType,
 		ActiveUser: totalActiveUser,
 	}, nil
+}
+
+const (
+	UppercaseValidator = `[A-Z]+`
+	LowercaseValidator = `[a-z]+`
+	DigitValidator     = `\d+`
+	LengthValidator    = `.{8,}`
+)
+
+func isValidStrongPassword(password string) (bool, error) {
+	hasUppercase, err := regexp.MatchString(UppercaseValidator, password)
+	if err != nil {
+		return false, err
+	}
+	hasLowercase, err := regexp.MatchString(LowercaseValidator, password)
+	if err != nil {
+		return false, err
+	}
+	hasDigit, err := regexp.MatchString(DigitValidator, password)
+	if err != nil {
+		return false, err
+	}
+	hasValidLength, err := regexp.MatchString(LengthValidator, password)
+	if err != nil {
+		return false, err
+	}
+
+	return hasUppercase && hasLowercase && hasDigit && hasValidLength, nil
 }
