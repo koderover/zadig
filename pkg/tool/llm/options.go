@@ -8,7 +8,7 @@ type ParamOptions struct {
 	// Model is the model to use.
 	Model string `json:"model"`
 	// MaxTokens is the maximum number of tokens to generate.
-	// MaxTokens int `json:"max_tokens"`
+	MaxTokens int `json:"max_tokens"`
 	// Temperature is the temperature for sampling, between 0 and 1.
 	Temperature float32 `json:"temperature"`
 	// StopWords is a list of words to stop on.
@@ -21,11 +21,11 @@ func WithModel(model string) ParamOption {
 	}
 }
 
-// func WithMaxTokens(maxTokens int) ParamOption {
-// 	return func(o *ParamOptions) {
-// 		o.MaxTokens = maxTokens
-// 	}
-// }
+func WithMaxTokens(maxTokens int) ParamOption {
+	return func(o *ParamOptions) {
+		o.MaxTokens = maxTokens
+	}
+}
 
 func WithTemperature(temperature float32) ParamOption {
 	return func(o *ParamOptions) {
@@ -46,9 +46,6 @@ func WithOptions(options ParamOptions) ParamOption {
 }
 
 func ValidOptions(options ParamOptions) ParamOptions {
-	// if options.MaxTokens == 0 {
-	// 	options.MaxTokens = 4096
-	// }
 	if len(options.StopWords) == 0 {
 		options.StopWords = nil
 	}
