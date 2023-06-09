@@ -509,6 +509,9 @@ func InitializeConfigFeatureGates() error {
 //go:embed init/mysql.sql
 var mysql []byte
 
+//go:embed init/dex_database.sql
+var dexSchema []byte
+
 func InitializeUserDBAndTables() {
 	if len(mysql) == 0 {
 		return
@@ -523,6 +526,13 @@ func InitializeUserDBAndTables() {
 	defer db.Close()
 	initSql := fmt.Sprintf(string(mysql), config.MysqlUserDB(), config.MysqlUserDB())
 	_, err = db.Exec(initSql)
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	dexDatabaseSql := fmt.Sprintf(string(dexSchema), config.MysqlDexDB())
+	_, err = db.Exec(dexDatabaseSql)
 
 	if err != nil {
 		log.Panic(err)
