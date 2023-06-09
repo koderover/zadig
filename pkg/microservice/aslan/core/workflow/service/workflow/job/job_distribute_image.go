@@ -34,6 +34,12 @@ import (
 
 const (
 	DistributeTimeout int64 = 10
+
+	// WorkflowInputImageTagVariable PreBuildImageTagVariable
+	// These variables are not really workflow variables, will convert to real value or workflow variables
+	// Not return from GetWorkflowGlobalVars function, instead of frontend
+	WorkflowInputImageTagVariable = "{{.workflow.input.imageTag}}"
+	PreBuildImageTagVariable      = "{{.job.preBuild.imageTag}}"
 )
 
 type ImageDistributeJob struct {
@@ -151,7 +157,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 				updateTag bool
 			)
 			if j.spec.EnableTargetImageTagRule {
-				targetTag = strings.ReplaceAll(j.spec.TargetImageTagRule, "{{.job.preBuild.imageTag}}",
+				targetTag = strings.ReplaceAll(j.spec.TargetImageTagRule, PreBuildImageTagVariable,
 					fmt.Sprintf("{{.job.%s.%s.%s.output.%s}}", j.spec.JobName, svc.ServiceName, svc.ServiceModule, IMAGETAGKEY))
 				updateTag = true
 			} else {
@@ -176,7 +182,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			}
 			if j.spec.EnableTargetImageTagRule {
 				target.TargetTag = strings.ReplaceAll(j.spec.TargetImageTagRule,
-					"{{.workflow.input.imageTag}}", target.SourceTag)
+					WorkflowInputImageTagVariable, target.SourceTag)
 			}
 			target.UpdateTag = true
 		}

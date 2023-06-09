@@ -202,9 +202,9 @@ func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string
 	jobRankMap := getJobRankMap(workflow.Stages)
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
-			// if current job is distribute image job, we need to add outputs for it
-			// because distribute image job needs unreal variables for itself
-			resp = addOutputsIfCurrentJobTypeDistributeImage(currentJobName, job, resp, log)
+			//// if current job is distribute image job, we need to add outputs for it
+			//// because distribute image job needs unreal variables for itself
+			//resp = addOutputsIfCurrentJobTypeDistributeImage(currentJobName, job, resp, log)
 			// we only need to get the outputs from job runs before the current job
 			if jobRankMap[job.Name] >= jobRankMap[currentJobName] {
 				return resp
@@ -237,25 +237,25 @@ func GetWorkflowOutputs(workflow *commonmodels.WorkflowV4, currentJobName string
 	return resp
 }
 
-func addOutputsIfCurrentJobTypeDistributeImage(currentJobName string, job *commonmodels.Job, resp []string, log *zap.SugaredLogger) []string {
-	if job.Name == currentJobName && job.JobType == config.JobZadigDistributeImage {
-		spec := new(commonmodels.ZadigDistributeImageJobSpec)
-		if err := commonmodels.IToiYaml(job.Spec, spec); err == nil {
-			log.Debugf("spec: %+v", spec)
-			if spec.EnableTargetImageTagRule {
-				switch spec.Source {
-				case config.SourceRuntime:
-					resp = append(resp, "{{.workflow.input.imageTag}}")
-				case config.SourceFromJob:
-					resp = append(resp, "{{.job.preBuild.imageTag}}")
-				}
-			}
-		} else {
-			log.Errorf("failed to convert interface to ZadigDistributeImageJobSpec: %v", err)
-		}
-	}
-	return resp
-}
+//func addOutputsIfCurrentJobTypeDistributeImage(currentJobName string, job *commonmodels.Job, resp []string, log *zap.SugaredLogger) []string {
+//	if job.Name == currentJobName && job.JobType == config.JobZadigDistributeImage {
+//		spec := new(commonmodels.ZadigDistributeImageJobSpec)
+//		if err := commonmodels.IToiYaml(job.Spec, spec); err == nil {
+//			log.Debugf("spec: %+v", spec)
+//			if spec.EnableTargetImageTagRule {
+//				switch spec.Source {
+//				case config.SourceRuntime:
+//					resp = append(resp, "{{.workflow.input.imageTag}}")
+//				case config.SourceFromJob:
+//					resp = append(resp, "{{.job.preBuild.imageTag}}")
+//				}
+//			}
+//		} else {
+//			log.Errorf("failed to convert interface to ZadigDistributeImageJobSpec: %v", err)
+//		}
+//	}
+//	return resp
+//}
 
 type RepoIndex struct {
 	JobName       string `json:"job_name"`
