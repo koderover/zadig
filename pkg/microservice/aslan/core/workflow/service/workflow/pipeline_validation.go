@@ -42,6 +42,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/gitee"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -342,6 +343,14 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 			build.CommitMessage = commit.Message
 			build.AuthorName = commit.AuthorName
 		}
+		// get gerrit submission_id
+		if codeHostInfo.Type == systemconfig.GerritProvider {
+			build.SubmissionID, err = getSubmissionID(build.CodehostID, build.CommitID)
+			log.Infof("get gerrit submissionID %s by commitID %s", build.SubmissionID, build.CommitID)
+			if err != nil {
+				log.Errorf("getSubmissionID failed, use build %+v %s", build, err)
+			}
+		}
 	} else if codeHostInfo.Type == systemconfig.CodeHubProvider {
 		codeHubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey, codeHostInfo.Region, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
 		if build.CommitID == "" && build.Branch != "" {
@@ -464,6 +473,20 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 		}
 		return
 	}
+}
+
+func getSubmissionID(codehostID int, commitID string) (string, error) {
+	ch, err := systemconfig.New().GetCodeHost(codehostID)
+	if err != nil {
+		return "", err
+	}
+
+	cli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
+	changeInfo, err := cli.GetChangeDetail(commitID)
+	if err != nil {
+		return "", err
+	}
+	return changeInfo.SubmissionID, nil
 }
 
 func getlatestPrNum(build *types.Repository) int {

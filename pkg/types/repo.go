@@ -73,6 +73,7 @@ type Repository struct {
 	ServiceName     string     `bson:"service_name"  json:"service_name"  yaml:"service_name"`
 	ServiceModule   string     `bson:"service_module" json:"service_module" yaml:"service_module"`
 	JobRepoIndex    int        `bson:"repo_index" json:"repo_index" yaml:"repo_index"`
+	SubmissionID    string     `bson:"submission_id" json:"submission_id" yaml:"submission_id"`
 }
 
 // repo source, repo can come from params or other job

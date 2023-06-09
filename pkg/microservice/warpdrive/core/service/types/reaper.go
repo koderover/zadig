@@ -239,6 +239,7 @@ type Repo struct {
 	AuthType           types.AuthType `yaml:"auth_type,omitempty"`
 	SSHKey             string         `yaml:"ssh_key,omitempty"`
 	PrivateAccessToken string         `yaml:"private_access_token,omitempty"`
+	SubmissionID       string         `yaml:"submission_id"`
 }
 
 // PRRef returns refs format

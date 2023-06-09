@@ -290,6 +290,7 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 			AuthType:           build.AuthType,
 			SSHKey:             build.SSHKey,
 			PrivateAccessToken: build.PrivateAccessToken,
+			SubmissionID:       build.SubmissionID,
 		}
 		ctx.Repos = append(ctx.Repos, repo)
 	}
