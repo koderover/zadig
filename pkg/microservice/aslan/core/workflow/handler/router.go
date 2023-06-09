@@ -173,7 +173,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.GET("/trigger", ListWorkflowV4CanTrigger)
 		workflowV4.POST("/lint", LintWorkflowV4)
 		workflowV4.POST("/check/:name", CheckWorkflowV4Approval)
-		workflowV4.POST("/output/:jobName", GetWorkflowGlabalVars)
+		workflowV4.POST("/output/:jobName", GetWorkflowGlobalVars)
 		workflowV4.POST("/repo/:jobName", GetWorkflowRepoIndex)
 		workflowV4.GET("/name/:name", FindWorkflowV4)
 		workflowV4.PUT("/:name", UpdateWorkflowV4)

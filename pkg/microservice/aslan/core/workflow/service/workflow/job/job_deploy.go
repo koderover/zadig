@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -32,6 +33,10 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
+)
+
+const (
+	ENVNAMEKEY = "envName"
 )
 
 type DeployJob struct {
@@ -82,7 +87,7 @@ func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.
 				if err := commonmodels.IToi(job.Spec, distributeSpec); err != nil {
 					return serviceAndImages, err
 				}
-				for _, distribute := range distributeSpec.Tatgets {
+				for _, distribute := range distributeSpec.Targets {
 					serviceAndImages = append(serviceAndImages, &commonmodels.ServiceAndImage{
 						ServiceName:   distribute.ServiceName,
 						ServiceModule: distribute.ServiceModule,
@@ -444,4 +449,12 @@ func (j *DeployJob) LintJob() error {
 		return fmt.Errorf("can not quote job %s in job %s", j.spec.JobName, j.job.Name)
 	}
 	return nil
+}
+
+func (j *DeployJob) GetOutPuts(log *zap.SugaredLogger) []string {
+	return getOutputKey(j.job.Name, ensureDeployInOutputs())
+}
+
+func ensureDeployInOutputs() []*commonmodels.Output {
+	return []*commonmodels.Output{{Name: ENVNAMEKEY}}
 }

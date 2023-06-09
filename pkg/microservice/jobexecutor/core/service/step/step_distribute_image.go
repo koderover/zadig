@@ -80,9 +80,9 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 }
 
 func copyImage(target *step.DistributeTaskTarget, client *regclient.RegClient) error {
-	sourceRef, err := ref.New(target.SoureImage)
+	sourceRef, err := ref.New(target.SourceImage)
 	if err != nil {
-		errMsg := fmt.Sprintf("parse source image: %s error: %v", target.SoureImage, err)
+		errMsg := fmt.Sprintf("parse source image: %s error: %v", target.SourceImage, err)
 		return errors.New(errMsg)
 	}
 	targetRef, err := ref.New(target.TargetImage)
@@ -94,7 +94,7 @@ func copyImage(target *step.DistributeTaskTarget, client *regclient.RegClient) e
 		errMsg := fmt.Sprintf("copy image failed: %v", err)
 		return errors.New(errMsg)
 	}
-	log.Infof("copy image from [%s] to [%s] succeed", target.SoureImage, target.TargetImage)
+	log.Infof("copy image from [%s] to [%s] succeed", target.SourceImage, target.TargetImage)
 	return nil
 }
 
