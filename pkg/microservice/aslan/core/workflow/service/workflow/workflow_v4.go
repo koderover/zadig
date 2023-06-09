@@ -27,15 +27,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
+	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -45,6 +43,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
@@ -1891,9 +1890,22 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		log.Errorf("failed to generate merged values.yaml, err: %w", err)
 		return nil, err
 	}
+
+	tmp := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(yamlContent), &tmp); err != nil {
+		log.Errorf("failed to unmarshal latest yaml content, err: %s", err)
+		return nil, err
+	}
+
+	// re-marshal it into string to make sure indentation is right
+	latestYamlContent, err := yaml.Marshal(tmp)
+	if err != nil {
+		log.Errorf("failed to marshal latest yaml content, err: %s", err)
+		return nil, err
+	}
 	return &GetHelmValuesDifferenceResp{
 		Current: currentYaml,
-		Latest:  yamlContent,
+		Latest:  string(latestYamlContent),
 	}, nil
 }
 
