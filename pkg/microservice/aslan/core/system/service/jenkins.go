@@ -25,6 +25,8 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -60,8 +62,17 @@ func ListJenkinsIntegration(encryptedKey string, log *zap.SugaredLogger) ([]*com
 		return jenkinsIntegrations, nil
 	}
 
+	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		log.Errorf("ListJenkinsIntegration GetAesKeyFromEncryptedKey err:%v", err)
+		return nil, err
+	}
 	for _, integration := range jenkinsIntegrations {
-		integration.Password = ""
+		integration.Password, err = crypto.AesEncryptByKey(integration.Password, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("ListJenkinsIntegration AesEncryptByKey err:%v", err)
+			return nil, err
+		}
 	}
 	return jenkinsIntegrations, nil
 }

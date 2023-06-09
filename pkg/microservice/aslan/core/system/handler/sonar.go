@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 
@@ -97,6 +96,12 @@ func ListSonarIntegration(c *gin.Context) {
 		return
 	}
 
+	aesKey, err := commonservice.GetAesKeyFromEncryptedKey(encryptedKey, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	sonarList, _, err := service.ListSonarIntegration(ctx.Logger)
 	if err != nil {
 		ctx.Err = err
@@ -104,7 +109,12 @@ func ListSonarIntegration(c *gin.Context) {
 	}
 
 	for _, sonar := range sonarList {
-		sonar.Token = ""
+		encryptedSonarToken, err := crypto.AesEncryptByKey(sonar.Token, aesKey.PlainText)
+		if err != nil {
+			ctx.Err = fmt.Errorf("failed to encrypt sonar token, err: %s", err)
+			return
+		}
+		sonar.Token = encryptedSonarToken
 	}
 	ctx.Resp = sonarList
 }

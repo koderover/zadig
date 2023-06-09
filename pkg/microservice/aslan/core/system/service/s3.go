@@ -27,8 +27,10 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	"github.com/koderover/zadig/pkg/tool/errors"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
@@ -78,14 +80,17 @@ func ListS3Storage(encryptedKey string, logger *zap.SugaredLogger) ([]*commonmod
 	if err == nil && len(stores) == 0 {
 		stores = make([]*commonmodels.S3Storage, 0)
 	}
+	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, logger)
 	if err != nil {
-		logger.Errorf("failed to list s3 storage from db, error: %s", err)
+		logger.Errorf("ListS3Storage GetAesKeyFromEncryptedKey err:%s", err)
 		return nil, err
 	}
-
 	for _, store := range stores {
-		// sk should never be returned
-		store.Sk = ""
+		store.Sk, err = crypto.AesEncryptByKey(store.Sk, aesKey.PlainText)
+		if err != nil {
+			logger.Errorf("ListS3Storage AesEncryptByKey err:%s", err)
+			return nil, err
+		}
 	}
 	return stores, err
 }
@@ -106,9 +111,6 @@ func GetS3Storage(id string, logger *zap.SugaredLogger) (*commonmodels.S3Storage
 		logger.Errorf("can't find store by id %s", id)
 		return nil, err
 	}
-
-	// sk should not be returned
-	store.Sk = ""
 
 	return store, nil
 }

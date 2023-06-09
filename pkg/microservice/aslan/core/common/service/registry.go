@@ -142,8 +142,11 @@ func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *za
 		if len(encryptedKey) == 0 {
 			continue
 		}
-		// for security reasons, the secret key will never be returned
-		reg.SecretKey = ""
+		reg.SecretKey, err = crypto.AesEncryptByKey(reg.SecretKey, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("RegistryNamespace.List AesEncryptByKey error: %s", err)
+			return nil, err
+		}
 	}
 	return resp, nil
 }

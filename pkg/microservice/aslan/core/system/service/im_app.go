@@ -37,13 +37,6 @@ func ListIMApp(_type string, log *zap.SugaredLogger) ([]*commonmodels.IMApp, err
 		return nil, e.ErrListIMApp.AddErr(err)
 	}
 
-	for _, app := range resp {
-		app.AppSecret = ""
-		app.DingTalkAppSecret = ""
-		app.EncryptKey = ""
-		app.DingTalkAesKey = ""
-	}
-
 	return resp, nil
 }
 

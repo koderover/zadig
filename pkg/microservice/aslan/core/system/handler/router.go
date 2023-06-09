@@ -155,12 +155,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	integration := router.Group("helm")
 	{
 		integration.GET("", ListHelmRepos)
+		integration.GET("/public", ListHelmReposPublic)
 		integration.POST("", CreateHelmRepo)
 		integration.PUT("/:id", UpdateHelmRepo)
 		integration.DELETE("/:id", DeleteHelmRepo)
 		integration.GET("/:name/index", ListCharts)
-		// TODO: REMOVE THIS API permanently, it seems to be useless right now
-		// integration.GET("/public", ListHelmReposPublic)
 	}
 
 	// ---------------------------------------------------------------------------------------
