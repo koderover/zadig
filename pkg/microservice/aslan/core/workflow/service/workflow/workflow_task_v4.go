@@ -433,7 +433,14 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 					return resp, e.ErrCreateTask.AddDesc(err.Error())
 				}
 			}
+		}
 
+		if err := jobctl.RenderStageVariables(workflow, nextTaskID, args.Name); err != nil {
+			log.Errorf("RenderStageVariables error: %v", err)
+			return resp, e.ErrCreateTask.AddDesc(err.Error())
+		}
+		
+		for _, job := range stage.Jobs {
 			jobs, err := jobctl.ToJobs(job, workflow, nextTaskID)
 			if err != nil {
 				log.Errorf("cannot create workflow %s, the error is: %v", workflow.Name, err)
@@ -454,10 +461,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		if len(stageTask.Jobs) > 0 {
 			workflowTask.Stages = append(workflowTask.Stages, stageTask)
 		}
-	}
-	if err := jobctl.RenderStageVariables(workflow, nextTaskID, args.Name); err != nil {
-		log.Errorf("RenderStageVariables error: %v", err)
-		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
 
 	if err := workflowTaskLint(workflowTask, log); err != nil {
