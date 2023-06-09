@@ -439,8 +439,11 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			log.Errorf("RenderStageVariables error: %v", err)
 			return resp, e.ErrCreateTask.AddDesc(err.Error())
 		}
-		
+
 		for _, job := range stage.Jobs {
+			if jobctl.JobSkiped(job) {
+				continue
+			}
 			jobs, err := jobctl.ToJobs(job, workflow, nextTaskID)
 			if err != nil {
 				log.Errorf("cannot create workflow %s, the error is: %v", workflow.Name, err)
