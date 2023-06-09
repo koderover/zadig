@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
+	"github.com/mojocn/base64Captcha"
+	"github.com/patrickmn/go-cache"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
@@ -32,8 +34,10 @@ import (
 )
 
 type LoginArgs struct {
-	Account  string `json:"account"`
-	Password string `json:"password"`
+	Account       string `json:"account"`
+	Password      string `json:"password"`
+	CaptchaID     string `json:"captcha_id"`
+	CaptchaAnswer string `json:"captcha_answer"`
 }
 
 type User struct {
@@ -78,43 +82,80 @@ func CheckSignature(ifLoggedIn bool, logger *zap.SugaredLogger) error {
 	return nil
 }
 
-func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
+var (
+	loginCache = cache.New(time.Hour, time.Second*10)
+)
+
+func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) {
 	user, err := orm.GetUser(args.Account, config.SystemIdentityType, core.DB)
 	if err != nil {
 		logger.Errorf("InternalLogin get user account:%s error", args.Account)
-		return nil, err
+		return nil, 0, err
 	}
 	if user == nil {
-		return nil, fmt.Errorf("user not exist")
+		return nil, 0, fmt.Errorf("user not exist")
 	}
 	userLogin, err := orm.GetUserLogin(user.UID, args.Account, config.AccountLoginType, core.DB)
 	if err != nil {
 		logger.Errorf("LocalLogin get user:%s user login not exist, error msg:%s", args.Account, err.Error())
-		return nil, err
+		return nil, 0, err
 	}
 	if userLogin == nil {
 		logger.Errorf("InternalLogin user:%s user login not exist", args.Account)
-		return nil, fmt.Errorf("user login not exist")
+		return nil, 0, fmt.Errorf("user login not exist")
 	}
+
+	failedCountInterface, failedCountfound := loginCache.Get(user.UID)
+
+	if failedCountfound {
+		if failedCountInterface.(int) >= 5 {
+			// first check if a captcha answer is provided
+			if args.CaptchaAnswer == "" || args.CaptchaID == "" {
+				return nil, 5, fmt.Errorf("captcha is required")
+			}
+
+			// captcha validation
+			if passed := store.Verify(args.CaptchaID, args.CaptchaAnswer, false); !passed {
+				return nil, 5, fmt.Errorf("captcha is wrong")
+			}
+		}
+	}
+
 	password := []byte(args.Password)
 	err = bcrypt.CompareHashAndPassword([]byte(userLogin.Password), password)
 	if err == bcrypt.ErrMismatchedHashAndPassword {
-		return nil, fmt.Errorf("password is wrong")
+
+		if !failedCountfound {
+			loginCache.Set(user.UID, 1, time.Hour)
+		} else {
+			err := loginCache.Increment(user.UID, 1)
+			if err != nil {
+				logger.Errorf("failed to do login cache increment for UID: [%s], error: %s", user.UID, err)
+			}
+		}
+		failedCount, ok := failedCountInterface.(int)
+		if !ok {
+			failedCount = 0
+		}
+		return nil, failedCount + 1, fmt.Errorf("password is wrong")
 	}
 	if err != nil {
 		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", args.Account, err)
-		return nil, fmt.Errorf("check password error, error msg:%s", err)
+		return nil, 0, fmt.Errorf("check password error, error msg:%s", err)
 	}
+
 	err = CheckSignature(userLogin.LastLoginTime > 0, logger)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
+
 	userLogin.LastLoginTime = time.Now().Unix()
 	err = orm.UpdateUserLogin(userLogin.UID, userLogin, core.DB)
 	if err != nil {
 		logger.Errorf("LocalLogin user:%s update user login password error, error msg:%s", args.Account, err.Error())
-		return nil, err
+		return nil, 0, err
 	}
+
 	token, err := CreateToken(&Claims{
 		Name:              user.Name,
 		UID:               user.UID,
@@ -131,7 +172,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 	})
 	if err != nil {
 		logger.Errorf("LocalLogin user:%s create token error, error msg:%s", args.Account, err.Error())
-		return nil, err
+		return nil, 0, err
 	}
 
 	return &User{
@@ -142,7 +183,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 		Name:         user.Name,
 		Account:      user.Account,
 		IdentityType: user.IdentityType,
-	}, nil
+	}, 0, nil
 }
 
 func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error) {
@@ -171,4 +212,18 @@ func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error)
 	}
 
 	return false, "", nil
+}
+
+var store = base64Captcha.DefaultMemStore
+
+func GetCaptcha(logger *zap.SugaredLogger) (string, string, error) {
+	driver := base64Captcha.DefaultDriverDigit
+
+	c := base64Captcha.NewCaptcha(driver, store)
+	id, b64s, err := c.Generate()
+	if err != nil {
+		logger.Errorf("failed to generate captcha, error: %s", err)
+		return "", "", fmt.Errorf("captcha generate error")
+	}
+	return id, b64s, nil
 }
