@@ -198,6 +198,7 @@ func initCron() {
 		codehostList, err := mongodb2.NewCodehostColl().List(&mongodb2.ListArgs{
 			Source: "gitlab",
 		})
+		log.Infof("length of the gitlab codehost list is: %d", len(codehostList))
 		if err != nil {
 			log.Errorf("failed to list gitlab codehost err:%v", err)
 			return
