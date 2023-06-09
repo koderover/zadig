@@ -27,18 +27,27 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func ListHelmRepos(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.HelmRepo, error) {
+	aesKey, err := GetAesKeyFromEncryptedKey(encryptedKey, log)
+	if err != nil {
+		log.Errorf("ListHelmRepos GetAesKeyFromEncryptedKey err:%v", err)
+		return nil, err
+	}
 	helmRepos, err := commonrepo.NewHelmRepoColl().List()
 	if err != nil {
 		log.Errorf("ListHelmRepos err:%v", err)
 		return []*commonmodels.HelmRepo{}, nil
 	}
 	for _, helmRepo := range helmRepos {
-		// password will not be returned
-		helmRepo.Password = ""
+		helmRepo.Password, err = crypto.AesEncryptByKey(helmRepo.Password, aesKey.PlainText)
+		if err != nil {
+			log.Errorf("ListHelmRepos AesEncryptByKey err:%v", err)
+			return nil, err
+		}
 	}
 	return helmRepos, nil
 }

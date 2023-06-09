@@ -21,8 +21,11 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
 func GetEmailHost(_ *zap.SugaredLogger) (*models.EmailHost, error) {
@@ -38,6 +41,11 @@ func GetEmailHostInternal(_ *zap.SugaredLogger) (*models.EmailHost, error) {
 }
 
 func GetEncryptedEmailHost(encryptedKey string, log *zap.SugaredLogger) (*models.EmailHost, error) {
+	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
+	if err != nil {
+		log.Errorf("GetEncryptedEmailHost GetTextFromEncryptedKey error:%s", err)
+		return nil, err
+	}
 	result, err := mongodb.NewEmailHostColl().Find()
 	if err != nil {
 		log.Errorf("GetEncryptedEmailHost find email host error:%s", err)
@@ -46,8 +54,12 @@ func GetEncryptedEmailHost(encryptedKey string, log *zap.SugaredLogger) (*models
 	if result == nil {
 		return nil, nil
 	}
-	// password will not be return for security reasons
-	result.Password = ""
+	password, err := crypto.AesEncryptByKey(result.Password, aesKey.PlainText)
+	if err != nil {
+		log.Errorf("GetEncryptedEmailHost AesEncryptByKey error:%s", err)
+		return nil, err
+	}
+	result.Password = password
 	return result, nil
 }
 
