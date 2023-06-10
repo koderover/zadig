@@ -25,7 +25,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"sync"
 	"text/template"
@@ -1167,7 +1166,7 @@ func YamlViewServiceTemplate(args *YamlViewServiceTemplateReq) (string, error) {
 		cerSvc := prod.GetServiceMap()
 		svcInfo, found := cerSvc[args.ServiceName]
 		if found {
-			parsedYaml, err = replaceContainerImages(parsedYaml, svcTmpl.Containers, svcInfo.Containers)
+			parsedYaml, _, err = kube.ReplaceWorkloadImages(parsedYaml, svcInfo.Containers)
 			if err != nil {
 				return "", err
 			}
@@ -1175,26 +1174,6 @@ func YamlViewServiceTemplate(args *YamlViewServiceTemplateReq) (string, error) {
 	}
 
 	return parsedYaml, nil
-}
-
-func replaceContainerImages(tmpl string, ori []*commonmodels.Container, replace []*commonmodels.Container) (string, error) {
-	replaceMap := make(map[string]string)
-	for _, container := range replace {
-		replaceMap[container.Name] = container.Image
-	}
-
-	for _, container := range ori {
-		imageRex, err := regexp.Compile("image:\\s*" + container.Image)
-		if err != nil {
-			return "", err
-		}
-		if _, ok := replaceMap[container.Name]; !ok {
-			continue
-		}
-		tmpl = imageRex.ReplaceAllLiteralString(tmpl, fmt.Sprintf("image: %s", replaceMap[container.Name]))
-	}
-
-	return tmpl, nil
 }
 
 func UpdateReleaseNamingRule(userName, requestID, projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
