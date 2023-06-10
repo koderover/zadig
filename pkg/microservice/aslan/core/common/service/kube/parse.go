@@ -17,11 +17,8 @@ limitations under the License.
 package kube
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
-
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 )
 
 const (
@@ -53,21 +50,4 @@ func ParseSysKeys(namespace, envName, productName, serviceName, ori string) stri
 	ori = productRegex.ReplaceAllLiteralString(ori, strings.ToLower(productName))
 	ori = serviceRegex.ReplaceAllLiteralString(ori, strings.ToLower(serviceName))
 	return ori
-}
-
-func ReplaceContainerImages(tmpl string, ori []*commonmodels.Container, replace []*commonmodels.Container) string {
-	replaceMap := make(map[string]string)
-	for _, container := range replace {
-		replaceMap[container.Name] = container.Image
-	}
-
-	for _, container := range ori {
-		imageRex := regexp.MustCompile("image:\\s*" + container.Image)
-		if _, ok := replaceMap[container.Name]; !ok {
-			continue
-		}
-		tmpl = imageRex.ReplaceAllLiteralString(tmpl, fmt.Sprintf("image: %s", replaceMap[container.Name]))
-	}
-
-	return tmpl
 }
