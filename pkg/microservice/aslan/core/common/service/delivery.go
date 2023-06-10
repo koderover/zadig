@@ -488,9 +488,8 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 		// 渲染系统变量键值
 		parsedYaml = kube.ParseSysKeys(productInfo.Namespace, productInfo.EnvName, productInfo.ProductName, serviceName, parsedYaml)
 		// 替换服务模板容器镜像为用户指定镜像
-		parsedYaml = kube.ReplaceContainerImages(parsedYaml, svcTmpl.Containers, containers)
-
-		return parsedYaml, nil
+		parsedYaml, _, err = kube.ReplaceWorkloadImages(parsedYaml, containers)
+		return parsedYaml, err
 	}
 	return "", nil
 }
