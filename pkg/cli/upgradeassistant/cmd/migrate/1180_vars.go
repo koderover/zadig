@@ -612,6 +612,7 @@ func migrateProductionProductVariables() error {
 						UseGlobalVariable: false,
 					})
 				}
+				svcKV.OverrideYaml.YamlContent, err = types.RenderVariableKVToYaml(svcKV.OverrideYaml.RenderVariableKVs)
 			}
 
 			// create new render info
