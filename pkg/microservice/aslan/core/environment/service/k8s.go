@@ -244,8 +244,11 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 
 	// nothing to do if rendered service yaml is not changed
 	if previewResult.Current.Yaml == previewResult.Latest.Yaml {
+		k.log.Infof("[%s][P:%s] Service yaml is not changed", args.EnvName, args.ProductName)
 		return nil
 	}
+	log.Infof("current yaml: %s", previewResult.Current.Yaml)
+	log.Infof("latest yaml: %s", previewResult.Latest.Yaml)
 
 	_, err = upsertService(
 		exitedProd,
