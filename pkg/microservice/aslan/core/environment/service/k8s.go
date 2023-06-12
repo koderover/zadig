@@ -139,30 +139,6 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		}
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), exitedProd.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	istioClient, err := versionedclient.NewForConfig(restConfig)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
-
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), exitedProd.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-	}
-	inf, err := informer.NewInformer(exitedProd.ClusterID, exitedProd.Namespace, cls)
-	if err != nil {
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-	}
-
 	switch exitedProd.Status {
 	case setting.ProductStatusCreating, setting.ProductStatusUpdating, setting.ProductStatusDeleting:
 		k.log.Errorf("[%s][P:%s] Product is not in valid status", args.EnvName, args.ProductName)
@@ -228,21 +204,62 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	preRevision := exitedProd.Render
 	exitedProd.Render = &commonmodels.RenderInfo{Name: curRenderset.Name, Revision: curRenderset.Revision, ProductTmpl: curRenderset.ProductTmpl}
 
-	_, err = upsertService(
-		exitedProd,
-		svc,
-		currentProductSvc,
-		curRenderset, preRevision, !exitedProd.Production, inf, kubeClient, istioClient, k.log)
-
-	// 如果创建依赖服务组有返回错误, 停止等待
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
-		k.log.Error(err)
-		svc.Error = err.Error()
-		return e.ErrUpdateProduct.AddDesc(err.Error())
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), exitedProd.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), exitedProd.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddDesc(err.Error())
+	}
+	inf, err := informer.NewInformer(exitedProd.ClusterID, exitedProd.Namespace, cls)
+	if err != nil {
+		return e.ErrUpdateEnv.AddDesc(err.Error())
+	}
+
+	// resource will not be applied if service yaml is not changed
+	previewArg := &PreviewServiceArgs{
+		ProductName:           exitedProd.ProductName,
+		EnvName:               exitedProd.EnvName,
+		ServiceName:           args.ServiceName,
+		UpdateServiceRevision: args.UpdateServiceTmpl,
+		ServiceModules:        args.ServiceRev.Containers,
+		VariableKVs:           args.ServiceRev.VariableKVs,
+	}
+	previewResult, err := PreviewService(previewArg, k.log)
+	if err != nil {
+		return e.ErrUpdateEnv.AddDesc(fmt.Errorf("failed to compare service yaml, err: %s", err).Error())
+	}
+
+	// nothing to apply if rendered service yaml is not changed
+	if previewResult.Current.Yaml == previewResult.Latest.Yaml {
+		k.log.Infof("[%s][P:%s] Service yaml is not changed", args.EnvName, args.ProductName)
+	} else {
+		_, err = upsertService(
+			exitedProd,
+			svc,
+			currentProductSvc,
+			curRenderset, preRevision, !exitedProd.Production, inf, kubeClient, istioClient, k.log)
+
+		if err != nil {
+			k.log.Error(err)
+			svc.Error = err.Error()
+			return e.ErrUpdateProduct.AddDesc(err.Error())
+		}
 	}
 
 	svc.Error = ""
-	// 更新产品服务
 	for _, group := range exitedProd.Services {
 		for i, service := range group {
 			if service.ServiceName == args.ServiceName && service.Type == args.ServiceType {
