@@ -155,5 +155,6 @@ func CheckEphemeralContainers(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.CheckEphemeralContainers(c, c.Query("projectName"), c.Query("envName"))
+	ctx.Resp, ctx.Err = service.CheckEphemeralContainers(c, c.Param("id"))
 }
+
