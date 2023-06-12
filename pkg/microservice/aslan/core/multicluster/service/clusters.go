@@ -586,15 +586,8 @@ func ClusterApplyUpgrade() {
 	}
 }
 
-func CheckEphemeralContainers(ctx context.Context, projectName, envName string) (bool, error) {
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    projectName,
-		EnvName: envName,
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to find product %s: %s", projectName, err)
-	}
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
+func CheckEphemeralContainers(ctx context.Context, clusterID string) (bool, error) {
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get rest config: %s", err)
 	}
