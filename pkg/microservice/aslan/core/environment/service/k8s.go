@@ -242,24 +242,21 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddDesc(fmt.Errorf("failed to compare service yaml, err: %s", err).Error())
 	}
 
-	// nothing to do if rendered service yaml is not changed
+	// nothing to apply if rendered service yaml is not changed
 	if previewResult.Current.Yaml == previewResult.Latest.Yaml {
 		k.log.Infof("[%s][P:%s] Service yaml is not changed", args.EnvName, args.ProductName)
-		return nil
-	}
-	log.Infof("current yaml: %s", previewResult.Current.Yaml)
-	log.Infof("latest yaml: %s", previewResult.Latest.Yaml)
+	} else {
+		_, err = upsertService(
+			exitedProd,
+			svc,
+			currentProductSvc,
+			curRenderset, preRevision, !exitedProd.Production, inf, kubeClient, istioClient, k.log)
 
-	_, err = upsertService(
-		exitedProd,
-		svc,
-		currentProductSvc,
-		curRenderset, preRevision, !exitedProd.Production, inf, kubeClient, istioClient, k.log)
-
-	if err != nil {
-		k.log.Error(err)
-		svc.Error = err.Error()
-		return e.ErrUpdateProduct.AddDesc(err.Error())
+		if err != nil {
+			k.log.Error(err)
+			svc.Error = err.Error()
+			return e.ErrUpdateProduct.AddDesc(err.Error())
+		}
 	}
 
 	svc.Error = ""
