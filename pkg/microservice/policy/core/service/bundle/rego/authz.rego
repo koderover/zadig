@@ -51,7 +51,7 @@ response = r {
     policy_rule := user_matched_policy_rule
     role_rule := user_matched_role_rule
     rule := policy_rule | role_rule
-    trace("========================= debug finished =========================")
+    print("========================= debug finished =========================")
     r := {
       "allowed": true,
       "headers": {
