@@ -45,12 +45,12 @@ response = r {
     role_resource := user_role_allowed_resources
     policy_resource := user_policy_allowed_resources
     resource := role_resource | policy_resource
-    trace(["========================= role resource:", role_resource, "======================"])
-    trace(["========================= policy resource:", policy_resource, "======================"])
+#    trace(["========================= role resource:", role_resource, "======================"])
+#    trace(["========================= policy resource:", policy_resource, "======================"])
     policy_rule := user_matched_policy_rule
     role_rule := user_matched_role_rule
     rule := policy_rule | role_rule
-    trace(["========================= debug finished ========================="])
+#    trace(["========================= debug finished ========================="])
     r := {
       "allowed": true,
       "headers": {
