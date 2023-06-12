@@ -883,7 +883,7 @@ metas:
         description: ''
         rules:
           - method: GET
-            endpoint: '/api/podexec/?*/?*/?*/?*/podExec/:name'
+            endpoint: '/api/podexec/?*/?*/?*/podExec/:name'
           - method: POST
             endpoint: '/api/aslan/environment/kube/:name/pods/?*/debugcontainer'
           - method: GET
@@ -995,7 +995,7 @@ metas:
         description: ''
         rules:
           - method: GET
-            endpoint: '/api/podexec/production/?*/?*/?*/?*/podExec/?*'
+            endpoint: '/api/podexec/production/?*/?*/?*/podExec/?*'
           - method: GET
             endpoint: '/api/aslan/environment/production/kube/pods/?*/file'
   - resource: Scan
