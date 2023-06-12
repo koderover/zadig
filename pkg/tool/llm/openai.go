@@ -30,6 +30,11 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+const (
+	DefaultOpenAIModel           = "gpt-3.5-turbo"
+	DefaultOpenAIModelTokenLimit = "4096"
+)
+
 type OpenAIClient struct {
 	name    string
 	model   string
@@ -90,7 +95,7 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	model := opts.Model
 	if model == "" {
 		if c.model == "" {
-			model = "gpt-3.5-turbo"
+			model = DefaultOpenAIModel
 		} else {
 			model = c.model
 		}
@@ -207,4 +212,18 @@ func NumTokensFromMessages(messages []openai.ChatCompletionMessage, model string
 	}
 	num_tokens += 3
 	return num_tokens, nil
+}
+
+func NumTokensFromPrompt(prompt string, model string) (num_tokens int, err error) {
+	messages := []openai.ChatCompletionMessage{
+		{
+			Role:    "user",
+			Content: prompt,
+		},
+	}
+	if model == "" {
+		model = DefaultOpenAIModel
+	}
+
+	return NumTokensFromMessages(messages, model)
 }
