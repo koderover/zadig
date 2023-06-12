@@ -50,7 +50,7 @@ func ServeWs(c *gin.Context) {
 	}
 	log.Infof("exec containerName: %s, pod: %s", containerName, podName)
 
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 	envName := c.Param("envName")
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
