@@ -37,6 +37,7 @@ response = r {
 
 # response for resource filtering, all allowed resources IDs will be returned in headers
 response = r {
+    printf("========================= debug started =========================\n")
     is_authenticated
     not allow
     rule_is_matched_for_filtering
@@ -44,9 +45,12 @@ response = r {
     role_resource := user_role_allowed_resources
     policy_resource := user_policy_allowed_resources
     resource := role_resource | policy_resource
+    printf("========================= role resource: %v ======================\n", [role_resource])
+    printf("========================= policy resource: %v ======================\n", [policy_resource])
     policy_rule := user_matched_policy_rule
     role_rule := user_matched_role_rule
     rule := policy_rule | role_rule
+    printf("========================= debug finished =========================\n")
     r := {
       "allowed": true,
       "headers": {
