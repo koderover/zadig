@@ -114,7 +114,10 @@ func GetPredefinedClusterLabels(product, service, envName string) map[string]str
 	return labels
 }
 
-func ApplyUpdatedAnnotations(annotations map[string]string) map[string]string {
+func ApplyUpdatedAnnotations(annotations map[string]string, addKRAnnotation bool) map[string]string {
+	if !addKRAnnotation {
+		return annotations
+	}
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
@@ -322,10 +325,10 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				log.Errorf("get pod annotations failed err: %v", err)
 				podAnnotations = nil
 			}
-			err = unstructured.SetNestedStringMap(u.Object, ApplyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
+			err = unstructured.SetNestedStringMap(u.Object, ApplyUpdatedAnnotations(podAnnotations, applyParam.AddZadigLabel), "spec", "template", "metadata", "annotations")
 			if err != nil {
 				log.Errorf("merge annotation failed err:%s", err)
-				u.Object = SetFieldValueIsNotExist(u.Object, ApplyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
+				u.Object = SetFieldValueIsNotExist(u.Object, ApplyUpdatedAnnotations(podAnnotations, applyParam.AddZadigLabel), "spec", "template", "metadata", "annotations")
 			}
 
 			if needSelectorLabel {
