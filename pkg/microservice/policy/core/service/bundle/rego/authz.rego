@@ -37,7 +37,7 @@ response = r {
 
 # response for resource filtering, all allowed resources IDs will be returned in headers
 response = r {
-    trace(["========================= debug started ========================="】)
+    trace(["========================= debug started ========================="])
     is_authenticated
     not allow
     rule_is_matched_for_filtering
@@ -50,7 +50,7 @@ response = r {
     policy_rule := user_matched_policy_rule
     role_rule := user_matched_role_rule
     rule := policy_rule | role_rule
-    trace("========================= debug finished =========================\n")
+    trace(["========================= debug finished ========================="])
     r := {
       "allowed": true,
       "headers": {
