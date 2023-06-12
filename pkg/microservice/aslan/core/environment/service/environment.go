@@ -87,6 +87,8 @@ func GetProductDeployType(projectName string) (string, error) {
 }
 
 func ListProducts(userID, projectName string, envNames []string, production bool, log *zap.SugaredLogger) ([]*EnvResp, error) {
+	log.Infof("list products range: %v", envNames)
+	log.Infof("envRange length: %d", len(envNames))
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Name:                projectName,
 		InEnvs:              envNames,
