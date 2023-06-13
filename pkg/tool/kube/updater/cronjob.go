@@ -19,7 +19,6 @@ package updater
 import (
 	"context"
 
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -43,6 +42,6 @@ func DeleteCronJobs(namespace string, selector labels.Selector, clientset *kuber
 	return util.IgnoreNotFoundError(err)
 }
 
-func CreateOrPatchCronJob(cj *batchv1beta1.CronJob, cl client.Client) error {
+func CreateOrPatchCronJob(cj client.Object, cl client.Client) error {
 	return createOrPatchObject(cj, cl)
 }

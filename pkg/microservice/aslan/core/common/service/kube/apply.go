@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	batchv1 "k8s.io/api/batch/v1"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -427,28 +429,54 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
-			obj, err := serializer.NewDecoder().JSONToCronJob(jsonData)
-			if err != nil {
-				log.Errorf("Failed to convert JSON to CronJob, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
-				continue
-			}
+			if u.GetAPIVersion() == batchv1.SchemeGroupVersion.String() {
+				obj, err := serializer.NewDecoder().JSONToCronJob(jsonData)
+				if err != nil {
+					log.Errorf("Failed to convert JSON to CronJob, manifest is\n%v\n, error: %v", u, err)
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+					continue
+				}
 
-			obj.Namespace = namespace
-			obj.ObjectMeta.Labels = MergeLabels(labels, obj.ObjectMeta.Labels)
-			obj.Spec.JobTemplate.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
-			obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
+				obj.Namespace = namespace
+				obj.ObjectMeta.Labels = MergeLabels(labels, obj.ObjectMeta.Labels)
+				obj.Spec.JobTemplate.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
+				obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
 
-			// Inject imagePullSecrets if qn-registry-secret is not set
-			if applyParam.InjectSecrets {
-				ApplySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
-			}
+				// Inject imagePullSecrets if qn-registry-secret is not set
+				if applyParam.InjectSecrets {
+					ApplySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
+				}
 
-			err = updater.CreateOrPatchCronJob(obj, kubeClient)
-			if err != nil {
-				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
-				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
-				continue
+				err = updater.CreateOrPatchCronJob(obj, kubeClient)
+				if err != nil {
+					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+					continue
+				}
+			} else {
+				obj, err := serializer.NewDecoder().JSONToCronJobBeta(jsonData)
+				if err != nil {
+					log.Errorf("Failed to convert JSON to CronJob, manifest is\n%v\n, error: %v", u, err)
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+					continue
+				}
+
+				obj.Namespace = namespace
+				obj.ObjectMeta.Labels = MergeLabels(labels, obj.ObjectMeta.Labels)
+				obj.Spec.JobTemplate.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
+				obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
+
+				// Inject imagePullSecrets if qn-registry-secret is not set
+				if applyParam.InjectSecrets {
+					ApplySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
+				}
+
+				err = updater.CreateOrPatchCronJob(obj, kubeClient)
+				if err != nil {
+					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+					continue
+				}
 			}
 
 		case setting.ClusterRole, setting.ClusterRoleBinding:
