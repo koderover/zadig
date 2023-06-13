@@ -201,7 +201,7 @@ const docTemplate = `{
         },
         "/api/aslan/environment/environments/{name}/analysis": {
             "post": {
-                "description": "Analysis environment resources",
+                "description": "Run Enviroment Analysis",
                 "consumes": [
                     "application/json"
                 ],
@@ -211,7 +211,77 @@ const docTemplate = `{
                 "tags": [
                     "environment"
                 ],
-                "summary": "Analysis enviroment resources",
+                "summary": "Run Enviroment Analysis",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/{name}/analysis/cron": {
+            "get": {
+                "description": "Get Env Analysis Cron",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Env Analysis Cron",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "put": {
+                "description": "Upsert Env Analysis Cron",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Upsert Env Analysis Cron",
                 "parameters": [
                     {
                         "type": "string",
@@ -692,7 +762,7 @@ const docTemplate = `{
         },
         "/api/aslan/environment/production/environments/{name}/analysis": {
             "post": {
-                "description": "Analysis production environment resources",
+                "description": "Run Production Enviroment Analysis",
                 "consumes": [
                     "application/json"
                 ],
@@ -702,7 +772,77 @@ const docTemplate = `{
                 "tags": [
                     "environment"
                 ],
-                "summary": "Analysis production enviroment resources",
+                "summary": "Run Production Enviroment Analysis",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/analysis/cron": {
+            "get": {
+                "description": "Get Production Env Analysis Cron",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Production Env Analysis Cron",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "put": {
+                "description": "Upsert Production Env Analysis Cron",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Upsert Production Env Analysis Cron",
                 "parameters": [
                     {
                         "type": "string",
@@ -2032,12 +2172,6 @@ const docTemplate = `{
         "models.AnalysisConfig": {
             "type": "object",
             "properties": {
-                "cron": {
-                    "type": "string"
-                },
-                "enable_cron": {
-                    "type": "boolean"
-                },
                 "resource_types": {
                     "type": "array",
                     "items": {

@@ -116,8 +116,6 @@ const (
 )
 
 type AnalysisConfig struct {
-	EnableCron    bool           `bson:"enable_cron" json:"enable_cron"`
-	Cron          string         `bson:"cron" json:"cron"`
 	ResourceTypes []ResourceType `bson:"resource_types" json:"resource_types"`
 }
 

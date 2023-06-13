@@ -1333,3 +1333,143 @@ func ProductionAnalysis(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.AnalysisEnvResources(projectName, envName, boolptr.True(), ctx.Logger)
 }
+
+// @Summary Upsert Env Analysis Cron
+// @Description Upsert Env Analysis Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/analysis/cron [put]
+func UpsertEnvAnalysisCron(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateEnvAnalysisCron c.GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境巡检-cron", envName, string(data), ctx.Logger)
+
+	arg := new(service.EnvAnalysisCronArg)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.UpsertEnvAnalysisCron(projectName, envName, boolptr.False(), arg, ctx.Logger)
+}
+
+// @Summary Get Env Analysis Cron
+// @Description Get Env Analysis Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/analysis/cron [get]
+func GetEnvAnalysisCron(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvAnalysisCron(projectName, envName, boolptr.False(), ctx.Logger)
+}
+
+// @Summary Upsert Production Env Analysis Cron
+// @Description Upsert Production Env Analysis Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/analysis/cron [put]
+func UpsertProductionEnvAnalysisCron(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateProductionEnvAnalysisCron c.GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境巡检-cron", envName, string(data), ctx.Logger)
+
+	arg := new(service.EnvAnalysisCronArg)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.UpsertEnvAnalysisCron(projectName, envName, boolptr.True(), arg, ctx.Logger)
+}
+
+// @Summary Get Production Env Analysis Cron
+// @Description Get Production Env Analysis Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/analysis/cron [get]
+func GetProductionEnvAnalysisCron(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvAnalysisCron(projectName, envName, boolptr.True(), ctx.Logger)
+}

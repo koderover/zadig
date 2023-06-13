@@ -87,6 +87,7 @@ type Schedule struct {
 	WorkflowArgs   *WorkflowTaskArgs  `bson:"workflow_args,omitempty"       json:"workflow_args,omitempty"`
 	TestArgs       *TestTaskArgs      `bson:"test_args,omitempty"           json:"test_args,omitempty"`
 	WorkflowV4Args *WorkflowV4        `bson:"workflow_v4_args"              json:"workflow_v4_args"`
+	EnvArgs        *EnvArgs           `bson:"env_args,omitempty"            json:"env_args,omitempty"`
 	Type           ScheduleType       `bson:"type"                          json:"type"`
 	Cron           string             `bson:"cron"                          json:"cron"`
 	IsModified     bool               `bson:"-"                             json:"-"`
@@ -366,6 +367,12 @@ type TestTaskArgs struct {
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	RepoOwner      string `bson:"repo_owner"       json:"repo_owner"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
+}
+
+type EnvArgs struct {
+	ProductName string `bson:"product_name"            json:"product_name"`
+	EnvName     string `bson:"env_name"               json:"env_name"`
+	Production  bool   `bson:"production"               json:"production"`
 }
 
 type CreateBuildRequest struct {

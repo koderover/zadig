@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -52,6 +53,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -65,6 +67,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/boolptr"
@@ -3156,4 +3159,142 @@ func AnalysisEnvResources(projectName, envName string, production *bool, logger 
 	}
 
 	return string(analysisResult), nil
+}
+
+type EnvAnalysisCronArg struct {
+	Enable bool   `json:"enable"`
+	Cron   string `json:"cron"`
+}
+
+func UpsertEnvAnalysisCron(projectName, envName string, production *bool, req *EnvAnalysisCronArg, logger *zap.SugaredLogger) error {
+	opt := &commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       projectName,
+		Production: production,
+	}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
+	}
+
+	found := false
+	name := getEnvAnalysisCronName(projectName, envName)
+	cron, err := commonrepo.NewCronjobColl().GetByName(name, config.EnvAnalysisCronjob)
+	if err != nil {
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get cron job %s, err: %w", name, err))
+		}
+	} else {
+		found = true
+	}
+
+	var payload *commonservice.CronjobPayload
+	if found {
+		origEnabled := cron.Enabled
+		cron.Enabled = req.Enable
+		cron.Cron = req.Cron
+		err = commonrepo.NewCronjobColl().Upsert(cron)
+		if err != nil {
+			fmtErr := fmt.Errorf("Failed to upsert cron job, error: %w", err)
+			log.Error(fmtErr)
+			return err
+		}
+
+		if origEnabled && !req.Enable {
+			// need to disable cronjob
+			payload = &commonservice.CronjobPayload{
+				Name:       name,
+				JobType:    config.EnvAnalysisCronjob,
+				Action:     setting.TypeEnableCronjob,
+				DeleteList: []string{cron.ID.Hex()},
+			}
+		} else if !origEnabled && req.Enable || origEnabled && req.Enable {
+			payload = &commonservice.CronjobPayload{
+				Name:    name,
+				JobType: config.EnvAnalysisCronjob,
+				Action:  setting.TypeEnableCronjob,
+				JobList: []*commonmodels.Schedule{cronJobToSchedule(cron)},
+			}
+		} else {
+			// !origEnabled && !req.Enable
+			return nil
+		}
+	} else {
+		input := &commonmodels.Cronjob{
+			Name:    name,
+			Enabled: req.Enable,
+			Type:    config.EnvAnalysisCronjob,
+			Cron:    req.Cron,
+			EnvAnalysisArgs: &commonmodels.EnvAnalysisArgs{
+				ProductName: env.ProductName,
+				EnvName:     env.EnvName,
+				Production:  env.Production,
+			},
+		}
+
+		err = commonrepo.NewCronjobColl().Upsert(input)
+		if err != nil {
+			fmtErr := fmt.Errorf("Failed to upsert cron job, error: %w", err)
+			log.Error(fmtErr)
+			return err
+		}
+		if !input.Enabled {
+			return nil
+		}
+
+		payload = &commonservice.CronjobPayload{
+			Name:    name,
+			JobType: config.EnvAnalysisCronjob,
+			Action:  setting.TypeEnableCronjob,
+			JobList: []*commonmodels.Schedule{cronJobToSchedule(input)},
+		}
+	}
+
+	pl, _ := json.Marshal(payload)
+	if err := nsq.Publish(setting.TopicCronjob, pl); err != nil {
+		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+		return e.ErrUpsertCronjob.AddDesc(err.Error())
+	}
+
+	return nil
+}
+
+func getEnvAnalysisCronName(projectName, envName string) string {
+	return fmt.Sprintf("%s-%s-%s", envName, projectName, config.EnvAnalysisCronjob)
+}
+
+func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
+	return &commonmodels.Schedule{
+		ID:              input.ID,
+		Number:          input.Number,
+		Frequency:       input.Frequency,
+		Time:            input.Time,
+		MaxFailures:     input.MaxFailure,
+		EnvAnalysisArgs: input.EnvAnalysisArgs,
+		Type:            config.ScheduleType(input.JobType),
+		Cron:            input.Cron,
+		Enabled:         input.Enabled,
+	}
+}
+
+func GetEnvAnalysisCron(projectName, envName string, production *bool, logger *zap.SugaredLogger) (*EnvAnalysisCronArg, error) {
+	name := getEnvAnalysisCronName(projectName, envName)
+	crons, err := commonrepo.NewCronjobColl().List(&commonrepo.ListCronjobParam{
+		ParentName: name,
+		ParentType: config.EnvAnalysisCronjob,
+	})
+	if err != nil {
+		fmtErr := fmt.Errorf("Failed to list env analysis cron jobs, project name %s, env name: %s, error: %w", projectName, envName, err)
+		logger.Error(fmtErr)
+		return nil, e.ErrGetCronjob.AddErr(fmtErr)
+	}
+	if len(crons) == 0 {
+		return &EnvAnalysisCronArg{}, nil
+	}
+
+	resp := &EnvAnalysisCronArg{
+		Enable: crons[0].Enabled,
+		Cron:   crons[0].Cron,
+	}
+	return resp, nil
 }

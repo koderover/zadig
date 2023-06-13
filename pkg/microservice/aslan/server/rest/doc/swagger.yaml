@@ -204,10 +204,6 @@ definitions:
     type: object
   models.AnalysisConfig:
     properties:
-      cron:
-        type: string
-      enable_cron:
-        type: boolean
       resource_types:
         items:
           $ref: '#/definitions/models.ResourceType'
@@ -1537,7 +1533,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Analysis environment resources
+      description: Run Enviroment Analysis
       parameters:
       - description: env name
         in: path
@@ -1554,7 +1550,54 @@ paths:
       responses:
         "200":
           description: OK
-      summary: Analysis enviroment resources
+      summary: Run Enviroment Analysis
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/analysis/cron:
+    get:
+      consumes:
+      - application/json
+      description: Get Env Analysis Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Get Env Analysis Cron
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Upsert Env Analysis Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Upsert Env Analysis Cron
       tags:
       - environment
   /api/aslan/environment/environments/{name}/configs:
@@ -1866,7 +1909,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Analysis production environment resources
+      description: Run Production Enviroment Analysis
       parameters:
       - description: env name
         in: path
@@ -1883,7 +1926,54 @@ paths:
       responses:
         "200":
           description: OK
-      summary: Analysis production enviroment resources
+      summary: Run Production Enviroment Analysis
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/analysis/cron:
+    get:
+      consumes:
+      - application/json
+      description: Get Production Env Analysis Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Get Production Env Analysis Cron
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Upsert Production Env Analysis Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Upsert Production Env Analysis Cron
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/configs:
