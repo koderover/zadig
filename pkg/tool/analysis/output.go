@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+const (
+	NormalResultOutput string = "没有检测到问题"
+)
+
 var outputFormats = map[string]func(*Analysis) ([]byte, error){
 	"json": (*Analysis).jsonOutput,
 	"text": (*Analysis).textOutput,
@@ -64,26 +68,25 @@ func (a *Analysis) textOutput() ([]byte, error) {
 
 	if len(a.Errors) != 0 {
 		output.WriteString("\n")
-		output.WriteString("Warnings : \n")
+		output.WriteString("警告: \n")
 		for _, aerror := range a.Errors {
 			output.WriteString(fmt.Sprintf("- %s\n", aerror))
 		}
 	}
 	output.WriteString("\n")
 	if len(a.Results) == 0 {
-		output.WriteString("No problems detected\n")
+		output.WriteString(NormalResultOutput + "\n")
 		return []byte(output.String()), nil
 	}
 	for n, result := range a.Results {
-		output.WriteString(fmt.Sprintf("%s %s(%s)\n", fmt.Sprintf("%d", n),
-			result.Name, result.ParentObject))
+		output.WriteString(fmt.Sprintf("#%s %s(%s)\n", fmt.Sprintf("%d", n), result.Name, result.ParentObject))
 		for _, err := range result.Error {
-			output.WriteString(fmt.Sprintf("- %s %s\n", "Error:", err.Text))
-			if err.KubernetesDoc != "" {
-				output.WriteString(fmt.Sprintf("  %s %s\n", "Kubernetes Doc:", err.KubernetesDoc))
-			}
+			output.WriteString(fmt.Sprintf("%s %s\n\n", "原始错误:", err.Text))
+			// if err.KubernetesDoc != "" {
+			// 	output.WriteString(fmt.Sprintf("  %s %s\n", "Kubernetes Doc:", err.KubernetesDoc))
+			// }
 		}
-		output.WriteString(result.Details + "\n")
+		output.WriteString(result.Details + "\n\n")
 	}
 	return []byte(output.String()), nil
 }

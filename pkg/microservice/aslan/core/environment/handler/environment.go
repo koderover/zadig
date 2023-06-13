@@ -1278,8 +1278,8 @@ func UpdateProductionEnvConfigs(c *gin.Context) {
 	ctx.Err = service.UpdateProductionEnvConfigs(projectName, envName, arg, ctx.Logger)
 }
 
-// @Summary Analysis enviroment resources
-// @Description Analysis environment resources
+// @Summary Run Enviroment Analysis
+// @Description Run Enviroment Analysis
 // @Tags 	environment
 // @Accept 	json
 // @Produce json
@@ -1287,7 +1287,7 @@ func UpdateProductionEnvConfigs(c *gin.Context) {
 // @Param 	projectName	query		string							true	"project name"
 // @Success 200
 // @Router /api/aslan/environment/environments/{name}/analysis [post]
-func Analysis(c *gin.Context) {
+func RunAnalysis(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -1303,11 +1303,12 @@ func Analysis(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.AnalysisEnvResources(projectName, envName, boolptr.False(), ctx.Logger)
+	triggerName := c.Query("triggerName")
+	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.False(), triggerName, ctx.Logger)
 }
 
-// @Summary Analysis production enviroment resources
-// @Description Analysis production environment resources
+// @Summary Run Production Enviroment Analysis
+// @Description Run Production Enviroment Analysis
 // @Tags 	environment
 // @Accept 	json
 // @Produce json
@@ -1315,7 +1316,7 @@ func Analysis(c *gin.Context) {
 // @Param 	projectName	query		string							true	"project name"
 // @Success 200
 // @Router /api/aslan/environment/production/environments/{name}/analysis [post]
-func ProductionAnalysis(c *gin.Context) {
+func RunProductionAnalysis(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -1331,7 +1332,8 @@ func ProductionAnalysis(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.AnalysisEnvResources(projectName, envName, boolptr.True(), ctx.Logger)
+	triggerName := c.Query("triggerName")
+	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.True(), triggerName, ctx.Logger)
 }
 
 // @Summary Upsert Env Analysis Cron
@@ -1341,6 +1343,7 @@ func ProductionAnalysis(c *gin.Context) {
 // @Produce json
 // @Param 	name 		path		string							true	"env name"
 // @Param 	projectName	query		string							true	"project name"
+// @Param 	body 		body 		service.EnvAnalysisCronArg 		true 	"body"
 // @Success 200
 // @Router /api/aslan/environment/environments/{name}/analysis/cron [put]
 func UpsertEnvAnalysisCron(c *gin.Context) {
@@ -1411,6 +1414,7 @@ func GetEnvAnalysisCron(c *gin.Context) {
 // @Produce json
 // @Param 	name 		path		string							true	"env name"
 // @Param 	projectName	query		string							true	"project name"
+// @Param 	body 		body 		service.EnvAnalysisCronArg 		true 	"body"
 // @Success 200
 // @Router /api/aslan/environment/production/environments/{name}/analysis/cron [put]
 func UpsertProductionEnvAnalysisCron(c *gin.Context) {

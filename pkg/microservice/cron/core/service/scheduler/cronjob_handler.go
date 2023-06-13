@@ -462,15 +462,15 @@ func registerCronjob(job *service.Cronjob, client *client.Client, scheduler *cro
 }
 
 func (h *CronjobHandler) registerEnvAnalysisJob(name, schedule string, job *service.Schedule) error {
-	if job.EnvArgs == nil {
+	if job.EnvAnalysisArgs == nil {
 		return nil
 	}
 	scheduleJob, err := cronlib.NewJobModel(schedule, func() {
 		base := "environment/environments/"
-		if job.EnvArgs.Production {
+		if job.EnvAnalysisArgs.Production {
 			base = "environment/production/environments/"
 		}
-		url := base + fmt.Sprintf("%s/analysis?projectName=%s&triggerName=%s", job.EnvArgs.EnvName, job.EnvArgs.ProductName, setting.CronTaskCreator)
+		url := base + fmt.Sprintf("%s/analysis?projectName=%s&triggerName=%s", job.EnvAnalysisArgs.EnvName, job.EnvAnalysisArgs.ProductName, setting.CronTaskCreator)
 
 		if err := h.aslanCli.ScheduleCall(url, nil, log.SugaredLogger()); err != nil {
 			log.Errorf("[%s]RunScheduledTask err: %v", name, err)

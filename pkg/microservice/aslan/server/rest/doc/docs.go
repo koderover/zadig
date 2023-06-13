@@ -296,6 +296,15 @@ const docTemplate = `{
                         "name": "projectName",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvAnalysisCronArg"
+                        }
                     }
                 ],
                 "responses": {
@@ -857,6 +866,15 @@ const docTemplate = `{
                         "name": "projectName",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvAnalysisCronArg"
+                        }
                     }
                 ],
                 "responses": {
@@ -2432,12 +2450,10 @@ const docTemplate = `{
         "models.NotificationEvent": {
             "type": "string",
             "enum": [
-                "notification_event_env_change",
                 "notification_event_analyzer_normal",
                 "notification_event_analyzer_abnormal"
             ],
             "x-enum-varnames": [
-                "NotificationEventEnvChange",
                 "NotificationEventAnalyzerNoraml",
                 "NotificationEventAnalyzerAbnormal"
             ]
@@ -3046,6 +3062,17 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/service.DeployableEnv"
                     }
+                }
+            }
+        },
+        "service.EnvAnalysisCronArg": {
+            "type": "object",
+            "properties": {
+                "cron": {
+                    "type": "string"
+                },
+                "enable": {
+                    "type": "boolean"
                 }
             }
         },

@@ -80,7 +80,6 @@ type Product struct {
 type NotificationEvent string
 
 const (
-	NotificationEventEnvChange        NotificationEvent = "notification_event_env_change"
 	NotificationEventAnalyzerNoraml   NotificationEvent = "notification_event_analyzer_normal"
 	NotificationEventAnalyzerAbnormal NotificationEvent = "notification_event_analyzer_abnormal"
 )

@@ -52,8 +52,8 @@ const (
 
 	analysisPrompt = `Simplify the following Kubernetes error message delimited by triple dashes written in --- %s --- language; --- %s ---.
 	Provide the most possible solution in a step by step style in no more than 280 characters. Write the output in the following format:
-	Error: {Explain error here}
-	Solution: {Step by step solution here}
+	错误: {Explain error here}
+	解决方案: {Step by step solution here}
 	`
 )
 

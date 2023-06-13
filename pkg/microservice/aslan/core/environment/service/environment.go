@@ -17,15 +17,18 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -51,6 +54,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/imnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
@@ -3108,7 +3112,7 @@ func UpdateProductionEnvConfigs(projectName, envName string, arg *EnvConfigsArgs
 	return UpdateEnvConfigs(projectName, envName, arg, boolptr.True(), logger)
 }
 
-func AnalysisEnvResources(projectName, envName string, production *bool, logger *zap.SugaredLogger) (string, error) {
+func EnvAnalysis(projectName, envName string, production *bool, triggerName string, logger *zap.SugaredLogger) (string, error) {
 	opt := &commonrepo.ProductFindOptions{
 		EnvName:    envName,
 		Name:       projectName,
@@ -3156,6 +3160,19 @@ func AnalysisEnvResources(projectName, envName string, production *bool, logger 
 	analysisResult, err := analysiser.PrintOutput("text")
 	if err != nil {
 		return "", e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to print analysis result, err: %w", err))
+	}
+	log.Debugf("analysis result: %s", string(analysisResult))
+
+	if triggerName == setting.CronTaskCreator {
+		util.Go(func() {
+			err := EnvAnalysisNotification(projectName, envName, string(analysisResult), env.NotificationConfig)
+			if err != nil {
+				log.Errorf("failed to send notification, err: %w", err)
+			} else {
+				log.Infof("send notification successfully")
+			}
+			panic("send notification panic")
+		})
 	}
 
 	return string(analysisResult), nil
@@ -3297,4 +3314,150 @@ func GetEnvAnalysisCron(projectName, envName string, production *bool, logger *z
 		Cron:   crons[0].Cron,
 	}
 	return resp, nil
+}
+
+func EnvAnalysisNotification(projectName, envName, result string, config *commonmodels.NotificationConfig) error {
+	eventSet := sets.NewString()
+	for _, event := range config.Events {
+		eventSet.Insert(string(event))
+	}
+
+	status := commonmodels.NotificationEventAnalyzerNoraml
+	if result != "" {
+		status = commonmodels.NotificationEventAnalyzerAbnormal
+	}
+	if !eventSet.Has(string(status)) {
+		return nil
+	}
+
+	title, content, larkCard, err := getNotificationContent(projectName, envName, result, imnotify.IMNotifyType(config.WebHookType))
+	if err != nil {
+		return fmt.Errorf("failed to get notification content, err: %w", err)
+	}
+
+	imnotifyClient := imnotify.NewIMNotifyClient()
+
+	switch imnotify.IMNotifyType(config.WebHookType) {
+	case imnotify.IMNotifyTypeDingDing:
+		if err := imnotifyClient.SendDingDingMessage(config.WebHookURL, title, content, nil, false); err != nil {
+			return err
+		}
+	case imnotify.IMNotifyTypeLark:
+		if err := imnotifyClient.SendFeishuMessage(config.WebHookURL, larkCard); err != nil {
+			return err
+		}
+	case imnotify.IMNotifyTypeWeChat:
+		if err := imnotifyClient.SendWeChatWorkMessage(imnotify.WeChatTextTypeMarkdown, config.WebHookURL, content); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type envAnalysisNotification struct {
+	BaseURI     string                   `json:"base_uri"`
+	WebHookType imnotify.IMNotifyType    `json:"web_hook_type"`
+	Time        int64                    `json:"time"`
+	ProjectName string                   `json:"project_name"`
+	EnvName     string                   `json:"env_name"`
+	Status      envAnalysisNotifiyStatus `json:"status"`
+	Result      string                   `json:"result"`
+}
+
+type envAnalysisNotifiyStatus string
+
+const (
+	envAnalysisNotifiyStatusNormal   envAnalysisNotifiyStatus = "normal"
+	envAnalysisNotifiyStatusAbnormal envAnalysisNotifiyStatus = "abnormal"
+)
+
+func getNotificationContent(projectName, envName, result string, webHookType imnotify.IMNotifyType) (string, string, *imnotify.LarkCard, error) {
+	tplTitle := "{{if ne .WebHookType \"feishu\"}}### {{end}}{{getIcon .Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Status }}\">{{.ProjectName}}/{{.EnvName}} 环境巡检{{ getStatus .Status }}</font>{{else}} {{.ProjectName}} / {{.EnvName}} 环境巡检{{ getStatus .Status }}{{end}} \n"
+	tplContent := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**巡检时间：{{getTime}}** \n",
+		"{{.Result}} \n",
+	}
+
+	buttonContent := "点击查看更多信息"
+	envDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.ProjectName}}/envs/detail?envName={{.EnvName}}"
+	moreInformation := fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n{{end}}[%s](%s)", buttonContent, envDetailURL)
+
+	status := envAnalysisNotifiyStatusAbnormal
+	if strings.Contains(result, analysis.NormalResultOutput) {
+		status = envAnalysisNotifiyStatusNormal
+	}
+
+	envAnalysisNotifyArg := &envAnalysisNotification{
+		BaseURI:     configbase.SystemAddress(),
+		WebHookType: webHookType,
+		Time:        time.Now().Unix(),
+		ProjectName: projectName,
+		EnvName:     envName,
+		Status:      status,
+		Result:      result,
+	}
+
+	title, err := getEnvAnalysisTplExec(tplTitle, envAnalysisNotifyArg)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	if webHookType != imnotify.IMNotifyTypeLark {
+		tplContent := strings.Join(tplContent, "")
+		tplContent = fmt.Sprintf("%s%s%s", title, tplContent, moreInformation)
+		content, err := getEnvAnalysisTplExec(tplContent, envAnalysisNotifyArg)
+		if err != nil {
+			return "", "", nil, err
+		}
+		return title, content, nil, nil
+	} else {
+		lc := imnotify.NewLarkCard()
+		lc.SetConfig(true)
+		lc.SetHeader(imnotify.GetColorTemplateWithStatus(config.Status(envAnalysisNotifyArg.Status)), title, "plain_text")
+		for idx, feildContent := range tplContent {
+			feildExecContent, _ := getEnvAnalysisTplExec(feildContent, envAnalysisNotifyArg)
+			lc.AddI18NElementsZhcnFeild(feildExecContent, idx == 0)
+		}
+		envDetailURL, _ = getEnvAnalysisTplExec(envDetailURL, envAnalysisNotifyArg)
+		lc.AddI18NElementsZhcnAction(buttonContent, envDetailURL)
+		return "", "", lc, nil
+	}
+}
+
+func getEnvAnalysisTplExec(tplcontent string, args *envAnalysisNotification) (string, error) {
+	tmpl := template.Must(template.New("notify").Funcs(template.FuncMap{
+		"getColor": func(status envAnalysisNotifiyStatus) string {
+			if status == envAnalysisNotifiyStatusNormal {
+				return "info"
+			} else if status == envAnalysisNotifiyStatusAbnormal {
+				return "warning"
+			}
+			return "warning"
+		},
+		"getStatus": func(status envAnalysisNotifiyStatus) string {
+			if status == envAnalysisNotifiyStatusNormal {
+				return "正常"
+			} else if status == envAnalysisNotifiyStatusAbnormal {
+				return "异常"
+			}
+			return "异常"
+		},
+		"getIcon": func(status envAnalysisNotifiyStatus) string {
+			if status == envAnalysisNotifiyStatusNormal {
+				return "👍"
+			}
+			return "⚠️"
+		},
+		"getTime": func() string {
+			return time.Now().Format("2006-01-02 15:04:05")
+		},
+	}).Parse(tplcontent))
+
+	buffer := bytes.NewBufferString("")
+	if err := tmpl.Execute(buffer, args); err != nil {
+		log.Errorf("getTplExec Execute err:%s", err)
+		return "", fmt.Errorf("getTplExec Execute err:%s", err)
+
+	}
+	return buffer.String(), nil
 }

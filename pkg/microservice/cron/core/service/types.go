@@ -78,19 +78,19 @@ type PipelineSpec struct {
 }
 
 type Schedule struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty"                 json:"id,omitempty"`
-	Number         uint64             `bson:"number"                        json:"number"`
-	Frequency      string             `bson:"frequency"                     json:"frequency"`
-	Time           string             `bson:"time"                          json:"time"`
-	MaxFailures    int                `bson:"max_failures,omitempty"        json:"max_failures,omitempty"`
-	TaskArgs       *TaskArgs          `bson:"task_args,omitempty"           json:"task_args,omitempty"`
-	WorkflowArgs   *WorkflowTaskArgs  `bson:"workflow_args,omitempty"       json:"workflow_args,omitempty"`
-	TestArgs       *TestTaskArgs      `bson:"test_args,omitempty"           json:"test_args,omitempty"`
-	WorkflowV4Args *WorkflowV4        `bson:"workflow_v4_args"              json:"workflow_v4_args"`
-	EnvArgs        *EnvArgs           `bson:"env_args,omitempty"            json:"env_args,omitempty"`
-	Type           ScheduleType       `bson:"type"                          json:"type"`
-	Cron           string             `bson:"cron"                          json:"cron"`
-	IsModified     bool               `bson:"-"                             json:"-"`
+	ID              primitive.ObjectID `bson:"_id,omitempty"                 json:"id,omitempty"`
+	Number          uint64             `bson:"number"                        json:"number"`
+	Frequency       string             `bson:"frequency"                     json:"frequency"`
+	Time            string             `bson:"time"                          json:"time"`
+	MaxFailures     int                `bson:"max_failures,omitempty"        json:"max_failures,omitempty"`
+	TaskArgs        *TaskArgs          `bson:"task_args,omitempty"           json:"task_args,omitempty"`
+	WorkflowArgs    *WorkflowTaskArgs  `bson:"workflow_args,omitempty"       json:"workflow_args,omitempty"`
+	TestArgs        *TestTaskArgs      `bson:"test_args,omitempty"           json:"test_args,omitempty"`
+	WorkflowV4Args  *WorkflowV4        `bson:"workflow_v4_args"              json:"workflow_v4_args"`
+	EnvAnalysisArgs *EnvAnalysisArgs   `bson:"env_analysis_args,omitempty"   json:"env_analysis_args,omitempty"`
+	Type            ScheduleType       `bson:"type"                          json:"type"`
+	Cron            string             `bson:"cron"                          json:"cron"`
+	IsModified      bool               `bson:"-"                             json:"-"`
 	// 自由编排工作流的开关是放在schedule里面的
 	Enabled bool `bson:"enabled"                       json:"enabled"`
 }
@@ -369,7 +369,7 @@ type TestTaskArgs struct {
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
 }
 
-type EnvArgs struct {
+type EnvAnalysisArgs struct {
 	ProductName string `bson:"product_name"            json:"product_name"`
 	EnvName     string `bson:"env_name"               json:"env_name"`
 	Production  bool   `bson:"production"               json:"production"`
