@@ -429,6 +429,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
+			log.Infof("%s api verison is %s", u.GetName(), u.GetAPIVersion())
 			if u.GetAPIVersion() == batchv1.SchemeGroupVersion.String() {
 				obj, err := serializer.NewDecoder().JSONToCronJob(jsonData)
 				if err != nil {
@@ -456,7 +457,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			} else {
 				obj, err := serializer.NewDecoder().JSONToCronJobBeta(jsonData)
 				if err != nil {
-					log.Errorf("Failed to convert JSON to CronJob, manifest is\n%v\n, error: %v", u, err)
+					log.Errorf("Failed to convert JSON to CronJobBeta, manifest is\n%v\n, error: %v", u, err)
 					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 					continue
 				}
