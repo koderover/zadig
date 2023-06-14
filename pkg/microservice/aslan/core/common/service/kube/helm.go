@@ -157,7 +157,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	return err
 }
 
-func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string, variableYaml string) (string, error) {
+func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string) (string, error) {
 	serviceName := productSvc.ServiceName
 	var targetContainers []*commonmodels.Container
 	for _, image := range images {
@@ -212,9 +212,9 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 	//		return "", fmt.Errorf("failed to absorb kvs, err: %s", err)
 	//	}
 	//}
-	if targetChart.OverrideYaml != nil {
-		targetChart.OverrideYaml.YamlContent = variableYaml
-	}
+	//if targetChart.OverrideYaml != nil {
+	//	targetChart.OverrideYaml.YamlContent = variableYaml
+	//}
 
 	// merge override values and kvs into service's yaml
 	mergedValuesYaml, err := helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
@@ -228,9 +228,9 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 
 // UpgradeHelmRelease upgrades helm release with some specific images
 func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
-	svcTemp *commonmodels.Service, images []string, variableYaml string, timeout int) error {
+	svcTemp *commonmodels.Service, images []string, timeout int) error {
 
-	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images, variableYaml)
+	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images)
 	if err != nil {
 		return err
 	}
