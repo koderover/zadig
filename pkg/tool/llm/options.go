@@ -12,7 +12,8 @@ type ParamOptions struct {
 	// Temperature is the temperature for sampling, between 0 and 1.
 	Temperature float32 `json:"temperature"`
 	// StopWords is a list of words to stop on.
-	StopWords []string `json:"stop_words"`
+	StopWords []string       `json:"stop_words"`
+	LogitBias map[string]int `json:"logit_bias"`
 }
 
 func WithModel(model string) ParamOption {
@@ -36,6 +37,12 @@ func WithTemperature(temperature float32) ParamOption {
 func WithStopWords(stopWords []string) ParamOption {
 	return func(o *ParamOptions) {
 		o.StopWords = stopWords
+	}
+}
+
+func WithLogitBias(logitBias map[string]int) ParamOption {
+	return func(o *ParamOptions) {
+		o.LogitBias = logitBias
 	}
 }
 

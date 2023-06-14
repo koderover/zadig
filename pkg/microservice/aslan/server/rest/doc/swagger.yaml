@@ -802,6 +802,11 @@ definitions:
       enable:
         type: boolean
     type: object
+  service.EnvAnalysisRespone:
+    properties:
+      result:
+        type: string
+    type: object
   service.EnvConfigsArgs:
     properties:
       analysis_config:
@@ -1555,6 +1560,8 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/service.EnvAnalysisRespone'
       summary: Run Enviroment Analysis
       tags:
       - environment
@@ -1937,6 +1944,8 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/service.EnvAnalysisRespone'
       summary: Run Production Enviroment Analysis
       tags:
       - environment

@@ -1285,7 +1285,7 @@ func UpdateProductionEnvConfigs(c *gin.Context) {
 // @Produce json
 // @Param 	name 		path		string							true	"env name"
 // @Param 	projectName	query		string							true	"project name"
-// @Success 200
+// @Success 200 		{object}    service.EnvAnalysisRespone
 // @Router /api/aslan/environment/environments/{name}/analysis [post]
 func RunAnalysis(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -1314,7 +1314,7 @@ func RunAnalysis(c *gin.Context) {
 // @Produce json
 // @Param 	name 		path		string							true	"env name"
 // @Param 	projectName	query		string							true	"project name"
-// @Success 200
+// @Success 200 		{object}    service.EnvAnalysisRespone
 // @Router /api/aslan/environment/production/environments/{name}/analysis [post]
 func RunProductionAnalysis(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)

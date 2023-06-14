@@ -60,9 +60,9 @@ require (
 	github.com/otiai10/copy v1.7.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
-	github.com/pkoukk/tiktoken-go v0.1.2
+	github.com/pkoukk/tiktoken-go v0.1.1-0.20230418101013-cae809389480
 	github.com/prometheus/client_golang v1.15.1
-	github.com/regclient/regclient v0.4.5
+	github.com/regclient/regclient v0.4.8
 	github.com/rfyiamcool/cronlib v1.2.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/samber/lo v1.37.0

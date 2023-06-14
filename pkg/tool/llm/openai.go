@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	DefaultOpenAIModel           = "gpt-3.5-turbo"
+	DefaultOpenAIModel           = openai.GPT3Dot5Turbo
 	DefaultOpenAIModelTokenLimit = "4096"
 )
 
@@ -116,6 +116,7 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 			Messages:    messages,
 			Temperature: opts.Temperature,
 			Stop:        opts.StopWords,
+			LogitBias:   opts.LogitBias,
 		})
 	} else {
 		resp, err = c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
@@ -124,8 +125,8 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 			MaxTokens:   opts.MaxTokens,
 			Temperature: opts.Temperature,
 			Stop:        opts.StopWords,
+			LogitBias:   opts.LogitBias,
 		})
-
 	}
 
 	if err != nil {

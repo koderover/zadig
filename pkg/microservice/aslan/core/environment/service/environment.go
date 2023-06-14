@@ -3112,7 +3112,12 @@ func UpdateProductionEnvConfigs(projectName, envName string, arg *EnvConfigsArgs
 	return UpdateEnvConfigs(projectName, envName, arg, boolptr.True(), logger)
 }
 
-func EnvAnalysis(projectName, envName string, production *bool, triggerName string, logger *zap.SugaredLogger) (string, error) {
+type EnvAnalysisRespone struct {
+	Result string `json:"result"`
+}
+
+func EnvAnalysis(projectName, envName string, production *bool, triggerName string, logger *zap.SugaredLogger) (*EnvAnalysisRespone, error) {
+	resp := &EnvAnalysisRespone{}
 	opt := &commonrepo.ProductFindOptions{
 		EnvName:    envName,
 		Name:       projectName,
@@ -3120,13 +3125,13 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 	}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return "", e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
+		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
 	}
 
 	filters := []string{}
 	if env.AnalysisConfig != nil {
 		if len(env.AnalysisConfig.ResourceTypes) == 0 {
-			return "", nil
+			return resp, nil
 		} else {
 			for _, resourceType := range env.AnalysisConfig.ResourceTypes {
 				filters = append(filters, string(resourceType))
@@ -3137,7 +3142,7 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 	ctx := context.TODO()
 	llmClient, err := commonservice.GetDefaultLLMClient(ctx)
 	if err != nil {
-		return "", e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get llm client, err: %w", err))
+		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get llm client, err: %w", err))
 	}
 
 	analysiser, err := analysis.NewAnalysis(
@@ -3145,21 +3150,24 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 		config.HubServerAddress(), env.ClusterID,
 		llmClient,
 		filters, env.GetNamespace(),
-		false, true, 10, false,
+		true,  // noCache bool
+		true,  // explain bool
+		10,    // maxConcurrency int
+		false, // withDoc bool
 	)
 	if err != nil {
-		return "", e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to create analysiser, err: %w", err))
+		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to create analysiser, err: %w", err))
 	}
 
 	analysiser.RunAnalysis(filters)
 	err = analysiser.GetAIResults(true)
 	if err != nil {
-		return "", e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get analysis result, err: %w", err))
+		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get analysis result, err: %w", err))
 	}
 
 	analysisResult, err := analysiser.PrintOutput("text")
 	if err != nil {
-		return "", e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to print analysis result, err: %w", err))
+		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to print analysis result, err: %w", err))
 	}
 	log.Debugf("analysis result: %s", string(analysisResult))
 
@@ -3171,11 +3179,11 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 			} else {
 				log.Infof("send notification successfully")
 			}
-			panic("send notification panic")
 		})
 	}
 
-	return string(analysisResult), nil
+	resp.Result = string(analysisResult)
+	return resp, nil
 }
 
 type EnvAnalysisCronArg struct {

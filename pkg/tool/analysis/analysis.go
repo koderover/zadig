@@ -213,7 +213,7 @@ func (a *Analysis) GetAIResults(anonymize bool) error {
 			texts = append(texts, failure.Text)
 		}
 		prompt := fmt.Sprintf(analysisPrompt, "Chinese", strings.Join(texts, " "))
-		parsedText, err := a.AIClient.Parse(a.Context, prompt, a.Cache)
+		parsedText, err := a.AIClient.Parse(a.Context, prompt, a.Cache, llm.WithTemperature(0.3))
 		if err != nil {
 			// Check for exhaustion
 			if strings.Contains(err.Error(), "status code: 429") {

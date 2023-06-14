@@ -748,8 +748,8 @@ github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINE
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/sftp v1.10.1/go.mod h1:lYOWFsE0bwd1+KfKJaKeuokY15vzFx25BLbzYYoAxZI=
-github.com/pkoukk/tiktoken-go v0.1.2 h1:u7PCSBiWJ3nJYoTGShyM9iHXz4dNyYkurwwp+GHtyHY=
-github.com/pkoukk/tiktoken-go v0.1.2/go.mod h1:boMWvk9pQCOTx11pgu0DrIdrAKgQzzJKUP6vLXaz7Rw=
+github.com/pkoukk/tiktoken-go v0.1.1-0.20230418101013-cae809389480 h1:IFhPCcB0/HtnEN+ZoUGDT55YgFCymbFJ15kXqs3nv5w=
+github.com/pkoukk/tiktoken-go v0.1.1-0.20230418101013-cae809389480/go.mod h1:BijIqAP84FMYC4XbdJgjyMpiSjusU8x0Y0W9K2t0QtU=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndrE9hABlRI=
@@ -796,8 +796,8 @@ github.com/quic-go/qtls-go1-20 v0.1.1 h1:KbChDlg82d3IHqaj2bn6GfKRj84Per2VGf5XV3w
 github.com/quic-go/qtls-go1-20 v0.1.1/go.mod h1:JKtK6mjbAVcUTN/9jZpvLbGxvdWIKS8uT7EiStoU1SM=
 github.com/quic-go/quic-go v0.33.0 h1:ItNoTDN/Fm/zBlq769lLJc8ECe9gYaW40veHCCco7y0=
 github.com/quic-go/quic-go v0.33.0/go.mod h1:YMuhaAV9/jIu0XclDXwZPAsP/2Kgr5yMYhe9oxhhOFA=
-github.com/regclient/regclient v0.4.5 h1:IdiQOobVVrji09grcjWD+OMPc4ZHu6DKX4MDNQRzHWQ=
-github.com/regclient/regclient v0.4.5/go.mod h1:2sBh527aitrzPOW/t7fvufX9nALB/Jhht2SnOyRSltc=
+github.com/regclient/regclient v0.4.8 h1:h4uZRR4OT4oO+50qWu4bj+rzqRs/JwD3erb6lHIkYK4=
+github.com/regclient/regclient v0.4.8/go.mod h1:UC6i29I09h9KHyABGLGvsvGi7KYRY8ZKLyt7fzvW4oE=
 github.com/rfyiamcool/cronlib v1.2.1 h1:q+9lrmVN99bj65TjQOGcNG6bhQjWfpAyKXvY8yippdE=
 github.com/rfyiamcool/cronlib v1.2.1/go.mod h1:i7AVVUhM/kkNcC/Ayq0XOmyCJCcqa/FlflyYQMm5QWE=
 github.com/robfig/cron/v3 v3.0.1 h1:WdRxkvbJztn8LMz/QEvLN5sBU+xKpSqwwUO1Pjr4qDs=

@@ -230,7 +230,10 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvAnalysisRespone"
+                        }
                     }
                 }
             }
@@ -800,7 +803,10 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvAnalysisRespone"
+                        }
                     }
                 }
             }
@@ -3073,6 +3079,14 @@ const docTemplate = `{
                 },
                 "enable": {
                     "type": "boolean"
+                }
+            }
+        },
+        "service.EnvAnalysisRespone": {
+            "type": "object",
+            "properties": {
+                "result": {
+                    "type": "string"
                 }
             }
         },

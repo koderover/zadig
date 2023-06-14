@@ -12,7 +12,5 @@ type ICache interface {
 }
 
 func New(noCache bool) ICache {
-	return &MemCache{
-		noCache: noCache,
-	}
+	return NewMemCache(noCache)
 }
