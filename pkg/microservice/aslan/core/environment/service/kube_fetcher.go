@@ -384,11 +384,9 @@ func ListCronJobs(page, pageSize int, clusterID, namespace string, kc client.Cli
 			})
 		}
 		resp.Count += len(cronJobs)
-	} else {
-		cronJobV1Betas, err := getter.ListCronJobsV1Beta(namespace, nil, kc)
-		if err != nil {
-			return nil, err
-		}
+	}
+	{
+		cronJobV1Betas, _ := getter.ListCronJobsV1Beta(namespace, nil, kc)
 		for _, job := range cronJobV1Betas {
 			wrappedRes := wrapper.CronJobV1Beta(job)
 			suspend := false

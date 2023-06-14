@@ -114,6 +114,8 @@ func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kube
 			if stsExists && err == nil {
 				statefulSets = append(statefulSets, sts)
 			}
+		case setting.CronJob:
+			cronjob, cronjobExists, err := getter.GetCronJobYaml(namespace, item.Name, kubeclient)
 		}
 	}
 	return deployments, statefulSets, nil

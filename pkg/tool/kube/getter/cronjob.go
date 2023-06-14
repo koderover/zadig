@@ -30,6 +30,12 @@ var CronJobGVK = schema.GroupVersionKind{
 	Version: "v1",
 }
 
+var CronJobV1BetaGVK = schema.GroupVersionKind{
+	Group:   "batch",
+	Kind:    "CronJob",
+	Version: "v1beta1",
+}
+
 func ListCronJobs(ns string, selector labels.Selector, cl client.Client) ([]*batchv1.CronJob, error) {
 	cjs := &batchv1.CronJobList{}
 	err := ListResourceInCache(ns, selector, nil, cjs, cl)
@@ -58,6 +64,7 @@ func ListCronJobsV1Beta(ns string, selector labels.Selector, cl client.Client) (
 	return res, err
 }
 
+// GetCronJobYaml if k8s version higher than 1.21, only batch/v1 is supported, or we will fetch batch/v1beta1
 func GetCronJobYaml(ns, name string, cl client.Client, versionLessThan121 bool) ([]byte, bool, error) {
 	gvk := CronJobGVK
 	bytes, existed, err := GetResourceYamlInCache(ns, name, gvk, cl)
@@ -66,13 +73,22 @@ func GetCronJobYaml(ns, name string, cl client.Client, versionLessThan121 bool) 
 	}
 
 	if existed && err == nil {
+		return bytes, existed, nil
+	}
+
+	return GetResourceYamlInCache(ns, name, CronJobV1BetaGVK, cl)
+}
+
+func GetCronJob(ns, name string, cl client.Client, versionLessThan121 bool) ([]byte, bool, error) {
+	gvk := CronJobGVK
+	bytes, existed, err := GetResourceYamlInCache(ns, name, gvk, cl)
+	if !versionLessThan121 {
 		return bytes, existed, err
 	}
 
-	gvk = schema.GroupVersionKind{
-		Group:   "batch",
-		Kind:    "CronJob",
-		Version: "v1beta1",
+	if existed && err == nil {
+		return bytes, existed, nil
 	}
-	return GetResourceYamlInCache(ns, name, gvk, cl)
+
+	return GetResourceYamlInCache(ns, name, CronJobV1BetaGVK, cl)
 }
