@@ -1159,6 +1159,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				continue
 			}
 			spec.Env = taskJobSpec.Env
+			spec.Production = getEnvProduction(taskJobSpec.Env)
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.UserSuppliedValue = taskJobSpec.UserSuppliedValue
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
