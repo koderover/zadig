@@ -56,7 +56,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
 )
 
@@ -202,16 +201,19 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 
 	// handle variables
 	// turn variables into key-value format to have higher priority
-	if len(variableYaml) > 0 {
-		log.Infof("converting yaml to kv, yaml content: \n%s\n", variableYaml)
-		flatMaps, err := converter.YamlToFlatMap([]byte(variableYaml))
-		if err != nil {
-			return "", fmt.Errorf("failed to convert variable yaml, err: %s", err)
-		}
-		err = targetChart.AbsorbKVS(flatMaps)
-		if err != nil {
-			return "", fmt.Errorf("failed to absorb kvs, err: %s", err)
-		}
+	//if len(variableYaml) > 0 {
+	//	log.Infof("converting yaml to kv, yaml content: \n%s\n", variableYaml)
+	//	flatMaps, err := converter.YamlToFlatMap([]byte(variableYaml))
+	//	if err != nil {
+	//		return "", fmt.Errorf("failed to convert variable yaml, err: %s", err)
+	//	}
+	//	err = targetChart.AbsorbKVS(flatMaps)
+	//	if err != nil {
+	//		return "", fmt.Errorf("failed to absorb kvs, err: %s", err)
+	//	}
+	//}
+	if targetChart.OverrideYaml != nil {
+		targetChart.OverrideYaml.YamlContent = variableYaml
 	}
 
 	// merge override values and kvs into service's yaml
