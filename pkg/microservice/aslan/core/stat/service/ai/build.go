@@ -22,17 +22,17 @@ type BuildData struct {
 }
 
 type BuildDetails struct {
-	StatStartTime             int64        `json:"stat_start_time"`
-	StatEndTime               int64        `json:"stat_end_time"`
-	BuildTotal                int          `json:"build_total"`
-	BuildSuccessTotal         int          `json:"build_success_total"`
-	BuildFailureTotal         int          `json:"build_failure_total"`
-	BuildTotalDuration        int64        `json:"build_total_duration"`
-	BuildTrendData            *BuildDetail `json:"build_trend_data"`
-	BuildHealthMeasureData    *BuildDetail `json:"build_health_measure_data"`
-	BuildLatestTenMeasureData *BuildDetail `json:"build_latest_ten_measure_data"`
-	BuildDailyMeasureData     *BuildDetail `json:"build_daily_measure_data"`
-	BuildAverageMeasureData   *BuildDetail `json:"build_average_measure_data"`
+	StatStartTime          int64        `json:"stat_start_time"`
+	StatEndTime            int64        `json:"stat_end_time"`
+	BuildTotal             int          `json:"build_total"`
+	BuildSuccessTotal      int          `json:"build_success_total"`
+	BuildFailureTotal      int          `json:"build_failure_total"`
+	BuildTotalDuration     int64        `json:"build_total_duration"`
+	BuildTrendData         *BuildDetail `json:"build_trend_data"`
+	BuildHealthMeasureData *BuildDetail `json:"build_health_measure_data"`
+	//BuildLatestTenMeasureData  *BuildDetail `json:"build_latest_ten_measure_data"`
+	BuildDailyMeasureData      *BuildDetail `json:"build_daily_measure_data"`
+	DayBuildAverageMeasureData *BuildDetail `json:"day_build_average_measure_data"`
 }
 
 type BuildDetail struct {
@@ -78,15 +78,18 @@ func getBuildData(project string, startTime, endTime int64, log *zap.SugaredLogg
 	build.Details.BuildHealthMeasureData = &BuildDetail{}
 	getBuildHealthMeasure(startTime, endTime, project, build.Details.BuildHealthMeasureData, log)
 
-	build.Details.BuildLatestTenMeasureData = &BuildDetail{}
-	getBuildLatestTenMeasure(startTime, endTime, project, build.Details.BuildLatestTenMeasureData, log)
+	//build.Details.BuildLatestTenMeasureData = &BuildDetail{}
+	//getBuildLatestTenMeasure(startTime, endTime, project, build.Details.BuildLatestTenMeasureData, log)
 
 	// TODO: this data may be too large, need to be optimized
-	//build.Details.BuildDailyMeasureData = &BuildDetail{}
-	//getBuildDailyMeasure(startTime, endTime, project, build.Details.BuildDailyMeasureData, log)
+	// only get daily measure data when the time range is less than 60 days
+	if endTime-startTime <= 86400*61 {
+		build.Details.BuildDailyMeasureData = &BuildDetail{}
+		getBuildDailyMeasure(startTime, endTime, project, build.Details.BuildDailyMeasureData, log)
+	}
 
-	build.Details.BuildAverageMeasureData = &BuildDetail{}
-	getBuildAverageMeasure(startTime, endTime, project, build.Details.BuildAverageMeasureData, log)
+	build.Details.DayBuildAverageMeasureData = &BuildDetail{}
+	getDayBuildAverageMeasure(startTime, endTime, project, build.Details.DayBuildAverageMeasureData, log)
 
 	return build, nil
 }
@@ -101,7 +104,7 @@ func getBuildTrend(startTime, endTime int64, project string, detail *BuildDetail
 	if err != nil {
 		log.Errorf("Failed to marshal build trend data, the error is: %+v", err)
 	}
-	detail.Description = "构建趋势"
+	detail.Description = "构建趋势，统计每周构建成功次数，构建失败次数和构建超时次数"
 	detail.Details = string(trend)
 }
 
@@ -115,7 +118,7 @@ func getBuildHealthMeasure(startTime, endTime int64, project string, detail *Bui
 	if err != nil {
 		log.Errorf("Failed to marshal build health measure data, the error is: %+v", err)
 	}
-	detail.Description = "构建健康度"
+	detail.Description = "构建健康度，时间范围内全部构建成功次数和构建失败次数统计"
 	detail.Details = string(health)
 }
 
@@ -143,11 +146,11 @@ func getBuildDailyMeasure(startTime, endTime int64, project string, detail *Buil
 	if err != nil {
 		log.Errorf("Failed to marshal build daily measure data, the error is: %+v", err)
 	}
-	detail.Description = "构建日报"
+	detail.Description = "每日构建统计"
 	detail.Details = string(daily)
 }
 
-func getBuildAverageMeasure(startTime, endTime int64, project string, detail *BuildDetail, log *zap.SugaredLogger) {
+func getDayBuildAverageMeasure(startTime, endTime int64, project string, detail *BuildDetail, log *zap.SugaredLogger) {
 	// get build average measure data
 	buildAverageMeasureData, err := service2.GetBuildDailyAverageMeasure(startTime, endTime, []string{project}, log)
 	if err != nil {
@@ -157,6 +160,6 @@ func getBuildAverageMeasure(startTime, endTime int64, project string, detail *Bu
 	if err != nil {
 		log.Errorf("Failed to marshal build average measure data, the error is: %+v", err)
 	}
-	detail.Description = "构建平均耗时"
+	detail.Description = "每日构建平均耗时"
 	detail.Details = string(average)
 }

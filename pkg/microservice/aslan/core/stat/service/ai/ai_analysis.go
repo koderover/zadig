@@ -62,12 +62,14 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 		logger.Errorf("failed to marshal data, the error is: %+v", err)
 		return nil, err
 	}
-	prompt := fmt.Sprintf("假设你是Devops专家，%s; \n项目数据：%s;", args.Prompt, string(promptInput))
+	prompt := fmt.Sprintf("假设你是资深Devops专家，你需要根据分析要求和目标去分析三重引号分割的项目数据，分析要求和目标：%s, 你的回答需要使用text格式输出, 输出内容不要包含\"三重引号分割的项目数据\"这个名称，也不要复述分析要求中的内容; 项目数据：\"\"\"%s\"\"\";", args.Prompt, string(promptInput))
+	start := time.Now()
 	tokenNum, err := llm.NumTokensFromPrompt(prompt, "")
 	if err != nil {
 		logger.Errorf("failed to get token num from prompt, the error is: %+v", err)
 		return nil, err
 	}
+	logger.Infof("=====> Finished Request AI in AnalyzeProjectStats method for token num：%d,  Duration: %.2f seconds\n", tokenNum, time.Since(start).Seconds())
 
 	ans := &analysisAnswer{
 		answer: make(map[string]string, 0),
@@ -76,14 +78,12 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 	var overAllInput string
 	if tokenNum > 3500 {
 		wg := &sync.WaitGroup{}
-		start := time.Now()
 		// There is a problem: if each project is analyzed separately, the prompt can only be designed by oneself. The last time a user defined prompt is used, it will result in inaccurate results
 		for _, project := range data.ProjectList {
 			wg.Add(1)
 			go AnalyzeProject(args.Prompt, project, client, ans, wg, logger)
 		}
 		wg.Wait()
-		logger.Infof("finish to analyze all projects, the time cost is: %.2f seconds.", time.Since(start).Seconds())
 
 		overAllInput, err = combineAiAnswer(data.ProjectList, ans.answer, data.StartTime, data.EndTime)
 		if err != nil {
@@ -94,13 +94,15 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 
 	// the design of the prompt directly determines the quality of the answer
 	if tokenNum > 3500 {
-		prompt = fmt.Sprintf("假设你是Devops专家，%s; \n每个项目单独的评估结果数据：%s", args.Prompt, overAllInput)
+		prompt = fmt.Sprintf("假设你是Devops专家，需要你根据分析要求分析三重引号分割的项目分析结果，分析要求:%s;你的回答需要使用text格式输出,输出内容不要包含\"三重引号分割的项目数据\"这个名称,也不要复述分析要求中的内容; 项目分析结果：\"\"\"%s\"\"\"", args.Prompt, overAllInput)
 	}
+	start = time.Now()
 	answer, err := client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.2)))
 	if err != nil {
 		logger.Errorf("failed to get answer from ai: %v, the error is: %+v", client.GetName(), err)
 		return nil, err
 	}
+	logger.Infof("=====> Finished Request AI in AnalyzeProjectStats method,  Duration: %.2f seconds\n", time.Since(start).Seconds())
 
 	return &AiAnalysisResp{
 		Answer:               answer,
@@ -120,15 +122,14 @@ func AnalyzeProject(userPrompt string, project *ProjectData, client llm.ILLM, an
 		return
 	}
 
-	prompt := fmt.Sprintf("假设你是Devops专家，需要你根据后面两个要求来分析项目数据,分析时结合两个要求来做整体分析即可，结果不要超过400字，要求一：%s；要求二：%s； 项目数据：%s;", userPrompt, util.RemoveExtraSpaces(EveryProjectAnalysisPrompt), string(pData))
-	logger.Infof("start to analyze project: %s, the prompt is: %s", project.ProjectName, prompt)
+	prompt := fmt.Sprintf("假设你是资深Devops专家，我需要你根据以下分析要求来分析用三重引号分割的项目数据，最后根据你的分析来生成分析报告，分析要求：%s； 项目数据：\"\"\"%s\"\"\";你的回答不能超过400个汉字，同时回答内容要符合text格式，不要存在换行和空行;", util.RemoveExtraSpaces(EveryProjectAnalysisPrompt), string(pData))
 	start := time.Now()
 	answer, err := client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.1)))
 	if err != nil {
 		logger.Errorf("failed to get answer from ai: %v, the error is: %+v", client.GetName(), err)
 		return
 	}
-	logger.Infof("finish to analyze project: %s, the answer is: %s, the time cost is: %.2f seconds.", project.ProjectName, answer, time.Since(start).Seconds())
+	logger.Infof("=====> Finished Request AI in AnalyzeProject method,  Duration: %.2f seconds\n; the answer is: \n%s\n", time.Since(start).Seconds(), answer)
 
 	ans.m.Lock()
 	ans.answer[project.ProjectName] = answer
@@ -191,8 +192,9 @@ func parseUserPrompt(args *AiAnalysisReq, aiClient llm.ILLM, logger *zap.Sugared
 	retry := 1
 	// consider that change basic prompt to get the better parse result when the parse result is not valid
 	for retry > 0 {
+		start := time.Now()
 		resp, err := aiClient.GetCompletion(context.TODO(), prompt)
-		logger.Infof("ai parse user prompt and the response is: %s", resp)
+		logger.Infof("=====> Finished Request AI in parseUserPrompt method,  Duration: %.2f seconds\n; the response is: \n%s\n", time.Since(start).Seconds(), resp)
 		if err != nil {
 			return input, err
 		}
@@ -221,6 +223,10 @@ func parseUserPrompt(args *AiAnalysisReq, aiClient llm.ILLM, logger *zap.Sugared
 
 	if len(input.ProjectList) == 0 {
 		input.ProjectList = projectList
+	}
+	if args.StartTime > 0 && args.EndTime > 0 && args.EndTime > args.StartTime {
+		input.start = args.StartTime
+		input.end = args.EndTime
 	}
 
 	jobList := make([]string, 0)
