@@ -144,6 +144,7 @@ type ZadigScanningJobSpec struct {
 
 type ZadigDeployJobPreviewSpec struct {
 	Env                string             `bson:"env"                          json:"env"`
+	Production         bool               `bson:"-"                            json:"production"`
 	SkipCheckRunStatus bool               `bson:"skip_check_run_status"        json:"skip_check_run_status"`
 	ServiceAndImages   []*ServiceAndImage `bson:"service_and_images"           json:"service_and_images"`
 	YamlContent        string             `bson:"yaml_content"                 json:"yaml_content"`
@@ -935,7 +936,7 @@ func GetWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLog
 			EndTime:   stage.EndTime,
 			Parallel:  stage.Parallel,
 			Approval:  stage.Approval,
-			Jobs:      jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow),
+			Jobs:      jobsToJobPreviews(stage.Jobs, task.GlobalContext, timeNow, task.ProjectName),
 			Error:     stage.Error,
 		})
 	}
@@ -955,8 +956,23 @@ func ApproveStage(workflowName, stageName, userName, userID, comment string, tas
 	return nil
 }
 
-func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64) []*JobTaskPreview {
+func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, now int64, projectName string) []*JobTaskPreview {
 	resp := []*JobTaskPreview{}
+
+	envMap := make(map[string]*commonmodels.Product)
+	getEnvProduction := func(envName string) bool {
+		if env, ok := envMap[envName]; ok {
+			return env.Production
+		}
+		envInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: projectName, EnvName: envName})
+		if err != nil {
+			log.Errorf("failed to get env production %s/%s, error : %v", projectName, envName, err)
+			return false
+		}
+		envMap[envName] = envInfo
+		return envInfo.Production
+	}
+
 	for _, job := range jobs {
 		costSeconds := int64(0)
 		if job.StartTime != 0 {
@@ -1112,6 +1128,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				continue
 			}
 			spec.Env = taskJobSpec.Env
+			spec.Production = getEnvProduction(taskJobSpec.Env)
 			spec.VariableConfigs = taskJobSpec.VariableConfigs
 			spec.VariableKVs = taskJobSpec.VariableKVs
 			spec.YamlContent = taskJobSpec.YamlContent
@@ -1142,6 +1159,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				continue
 			}
 			spec.Env = taskJobSpec.Env
+			spec.Production = getEnvProduction(taskJobSpec.Env)
 			spec.YamlContent = taskJobSpec.YamlContent
 			spec.UserSuppliedValue = taskJobSpec.UserSuppliedValue
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus

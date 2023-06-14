@@ -106,6 +106,7 @@ type SvcResp struct {
 	Scales      []*internalresource.Workload `json:"scales"`
 	Ingress     []*internalresource.Ingress  `json:"ingress"`
 	Services    []*internalresource.Service  `json:"service_endpoints"`
+	Namespace   string                       `json:"namespace"`
 	EnvName     string                       `json:"env_name"`
 	ProductName string                       `json:"product_name"`
 	GroupName   string                       `json:"group_name"`
