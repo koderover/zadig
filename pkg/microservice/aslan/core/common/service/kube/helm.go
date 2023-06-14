@@ -199,23 +199,6 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 	// update values.yaml content in chart
 	targetChart.ValuesYaml = replacedValuesYaml
 
-	// handle variables
-	// turn variables into key-value format to have higher priority
-	//if len(variableYaml) > 0 {
-	//	log.Infof("converting yaml to kv, yaml content: \n%s\n", variableYaml)
-	//	flatMaps, err := converter.YamlToFlatMap([]byte(variableYaml))
-	//	if err != nil {
-	//		return "", fmt.Errorf("failed to convert variable yaml, err: %s", err)
-	//	}
-	//	err = targetChart.AbsorbKVS(flatMaps)
-	//	if err != nil {
-	//		return "", fmt.Errorf("failed to absorb kvs, err: %s", err)
-	//	}
-	//}
-	//if targetChart.OverrideYaml != nil {
-	//	targetChart.OverrideYaml.YamlContent = variableYaml
-	//}
-
 	// merge override values and kvs into service's yaml
 	mergedValuesYaml, err := helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
 	if err != nil {
@@ -286,6 +269,11 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	if err != nil {
 		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
 	}
+
+	if !commonutil.ServiceDeployed(productSvc.ServiceName, newProductInfo.ServiceDeployStrategy) {
+		newProductInfo.ServiceDeployStrategy[productSvc.ServiceName] = setting.ServiceDeployStrategyDeploy
+	}
+
 	curRenderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		ProductTmpl: newProductInfo.ProductName,
 		Name:        newProductInfo.Render.Name,
