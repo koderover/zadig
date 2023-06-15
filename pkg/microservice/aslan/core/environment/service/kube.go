@@ -43,6 +43,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -1140,7 +1141,12 @@ func setReleaseDeployStatus(namespace string, resourceMap map[string]*ResourceDe
 			log.Warnf("failed to get release values with name: %s, err: %s", releaseName, err)
 			continue
 		}
-		log.Infof("release: %s, values: %s", releaseName, customValues)
+		overrideYaml, err := yaml.Marshal(customValues)
+		if err != nil {
+			log.Warnf("failed to marshal values map when fetching release deploy status, err: %s", err)
+			continue
+		}
+		deployStatus.OverrideYaml = string(overrideYaml)
 	}
 	return nil
 }
