@@ -574,12 +574,11 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Rende
 	return renderSet, productService, svcTemplate, nil
 }
 
-// CreateOrUpdateHelmResource create or patch helm services
+// RemoveHelmResource create or patch helm services
 // if service is not deployed ever, it will be added into target environment
 // database will also be updated
-func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) error {
+func RemoveHelmResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) error {
 	productInfo := applyParam.ProductInfo
-
 	// uninstall release
 	if applyParam.Uninstall {
 		// we need to find the product info from db again to ensure product latest
@@ -596,18 +595,5 @@ func CreateOrUpdateHelmResource(applyParam *ResourceApplyParam, log *zap.Sugared
 		}
 		return DeleteHelmServiceFromEnv("workflow", "", productInfo, targetServices, log)
 	}
-
-	renderSet, productService, svcTemplate, err := PrepareHelmServiceData(applyParam)
-	if err != nil {
-		return err
-	}
-	chartInfo, ok := renderSet.GetChartRenderMap()[applyParam.ServiceName]
-	if !ok {
-		return errors.Wrapf(err, "failed to find chart info in render")
-	}
-	if chartInfo.OverrideYaml == nil {
-		chartInfo.OverrideYaml = &template.CustomYaml{}
-	}
-	chartInfo.OverrideYaml.YamlContent = applyParam.VariableYaml
-	return UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, applyParam.Images, "", applyParam.Timeout)
+	return nil
 }
