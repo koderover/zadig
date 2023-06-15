@@ -169,7 +169,6 @@ type FreestyleJobSpec struct {
 type ZadigBuildJobSpec struct {
 	DockerRegistryID string             `bson:"docker_registry_id"     yaml:"docker_registry_id"     json:"docker_registry_id"`
 	ServiceAndBuilds []*ServiceAndBuild `bson:"service_and_builds"     yaml:"service_and_builds"     json:"service_and_builds"`
-	ServiceOptions   []*ServiceAndBuild `bson:"service_options"        yaml:"service_options"        json:"service_options"`
 }
 
 type ServiceAndBuild struct {
