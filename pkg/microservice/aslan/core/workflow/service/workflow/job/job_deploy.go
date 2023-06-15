@@ -79,6 +79,7 @@ func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.
 						ServiceModule: build.ServiceModule,
 						Image:         build.Image,
 					})
+					log.Infof("build job %s, service %s, image %s", job.Name, build.ServiceName, build.Image)
 				}
 				return serviceAndImages, nil
 			}
