@@ -56,7 +56,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
 )
 
@@ -158,7 +157,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	return err
 }
 
-func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string, variableYaml string) (string, error) {
+func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string) (string, error) {
 	serviceName := productSvc.ServiceName
 	var targetContainers []*commonmodels.Container
 	for _, image := range images {
@@ -200,20 +199,6 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 	// update values.yaml content in chart
 	targetChart.ValuesYaml = replacedValuesYaml
 
-	// handle variables
-	// turn variables into key-value format to have higher priority
-	if len(variableYaml) > 0 {
-		log.Infof("converting yaml to kv, yaml content: \n%s\n", variableYaml)
-		flatMaps, err := converter.YamlToFlatMap([]byte(variableYaml))
-		if err != nil {
-			return "", fmt.Errorf("failed to convert variable yaml, err: %s", err)
-		}
-		err = targetChart.AbsorbKVS(flatMaps)
-		if err != nil {
-			return "", fmt.Errorf("failed to absorb kvs, err: %s", err)
-		}
-	}
-
 	// merge override values and kvs into service's yaml
 	mergedValuesYaml, err := helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
 	if err != nil {
@@ -226,9 +211,9 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 
 // UpgradeHelmRelease upgrades helm release with some specific images
 func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
-	svcTemp *commonmodels.Service, images []string, variableYaml string, timeout int) error {
+	svcTemp *commonmodels.Service, images []string, timeout int) error {
 
-	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images, variableYaml)
+	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images)
 	if err != nil {
 		return err
 	}
@@ -284,6 +269,11 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	if err != nil {
 		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
 	}
+
+	if !commonutil.ServiceDeployed(productSvc.ServiceName, newProductInfo.ServiceDeployStrategy) {
+		newProductInfo.ServiceDeployStrategy[productSvc.ServiceName] = setting.ServiceDeployStrategyDeploy
+	}
+
 	curRenderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		ProductTmpl: newProductInfo.ProductName,
 		Name:        newProductInfo.Render.Name,
