@@ -1135,6 +1135,12 @@ func setReleaseDeployStatus(namespace string, resourceMap map[string]*ResourceDe
 		if release != nil {
 			deployStatus.Status = StatusDeployed
 		}
+		customValues, err := helmClient.GetReleaseValues(releaseName, false)
+		if err != nil {
+			log.Warnf("failed to get release values with name: %s, err: %s", releaseName, err)
+			continue
+		}
+		log.Infof("release: %s, values: %s", releaseName, customValues)
 	}
 	return nil
 }
