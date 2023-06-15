@@ -240,7 +240,7 @@ type ServiceAndBuild struct {
 	ServiceName      string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule    string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
 	BuildName        string              `bson:"build_name"          yaml:"build_name"       json:"build_name"`
-	Image            string              `bson:"-"                   yaml:"-"                json:"image"`
+	Image            string              `bson:"image"               yaml:"-"                json:"image"`
 	ImageName        string              `bson:"image_name"                   yaml:"image_name"                json:"image_name"`
 	Package          string              `bson:"-"                   yaml:"-"                json:"package"`
 	KeyVals          []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
