@@ -236,6 +236,7 @@ func goWithRecover(fn func(), logger *zap.SugaredLogger) {
 	}()
 }
 
+// ListReposTags TODO: need to be optimized
 func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string, logger *zap.SugaredLogger) ([]*RepoImgResp, error) {
 	var regService registry.Service
 	images := make([]*RepoImgResp, 0)
@@ -323,30 +324,18 @@ func imagesProcessor(repos *registry.ReposResp, registryInfo *commonmodels.Regis
 	images := make([]*RepoImgResp, 0)
 	for _, repo := range repos.Repos {
 		// find all tags from image tags db
-		imageTags, err := commonrepo.NewImageTagsCollColl().Find(&commonrepo.ImageTagsFindOption{
+		opts := commonrepo.ImageTagsFindOption{
 			RegistryID:  registryInfo.ID.Hex(),
 			RegProvider: registryInfo.RegProvider,
 			ImageName:   repo.Name,
 			Namespace:   registryInfo.Namespace,
-		})
-		dbTags := make(map[string]*commonmodels.ImageTag, 0)
-		var key string
+		}
+		key := fmt.Sprintf("%s-%s-%s-%s", registryInfo.ID.Hex(), repo.Name, registryInfo.RegProvider, registryInfo.Namespace)
+		dbTags, err := getImageTagListFromDB(opts, key, 0, logger)
 		if err != nil {
-			// if the error is not mongo.ErrNoDocuments or mongo.ErrNilDocument, we write the error to log and get image tags detail from registry directly.
-			if err == mongo.ErrNoDocuments || err == mongo.ErrNilDocument {
-				key = fmt.Sprintf("%s-%s-%s-%s", registryInfo.ID.Hex(), repo.Name, registryInfo.RegProvider, registryInfo.Namespace)
-				if !CheckReqLimit(key) {
-					errChan <- fmt.Errorf("getting image list, please try again later")
-					// continue to get next repo to update image tags db
-					continue
-				}
-			} else {
-				logger.Errorf("find image[%s] tags from db failed, the error is: %v", repo.Name, err)
-			}
-		} else {
-			for _, imageTag := range imageTags.ImageTags {
-				dbTags[imageTag.TagName] = imageTag
-			}
+			logger.Errorf("get image[%s] tags from db error: %v", repo.Name, err)
+			errChan <- err
+			return
 		}
 		logger.Infof("get image[%s] %d tags from db, get image[%s] %d tags from registry", repo.Name, len(dbTags), repo.Name, len(repo.Tags))
 
@@ -360,6 +349,46 @@ func imagesProcessor(repos *registry.ReposResp, registryInfo *commonmodels.Regis
 	}
 
 	result <- images
+}
+
+func getImageTagListFromDB(opts commonrepo.ImageTagsFindOption, key string, repTime int, logger *zap.SugaredLogger) (map[string]*commonmodels.ImageTag, error) {
+	imageTags, err := commonrepo.NewImageTagsCollColl().Find(&opts)
+	dbTags := make(map[string]*commonmodels.ImageTag, 0)
+	if err != nil {
+		// if the error is not mongo.ErrNoDocuments or mongo.ErrNilDocument, we write the error to log and get image tags detail from registry directly.
+		if err == mongo.ErrNoDocuments || err == mongo.ErrNilDocument {
+			if !CheckReqLimit(key) {
+				if repTime > 0 {
+					return nil, fmt.Errorf("getting the image list timed out, please try again later")
+				}
+				ticker := time.NewTicker(time.Second * 20)
+				for {
+					select {
+					case <-ticker.C:
+						return nil, fmt.Errorf("getting the image list timed out, please try again later")
+					default:
+						// there is no need to get lock, because another goroutine get all image tags from registry and write to db,then delete the key from ImageTagsReqStatus.List
+						if _, ok := ImageTagsReqStatus.List[key]; !ok {
+							// go to get image tag detail
+							logger.Infof("start to get image tags detail again")
+							return getImageTagListFromDB(opts, key, repTime+1, logger)
+						} else {
+							// wait for image tag detail
+							logger.Infof("start to sleep 500ms for waitting for image tags detail")
+							time.Sleep(time.Millisecond * 500)
+						}
+					}
+				}
+			}
+		} else {
+			return nil, err
+		}
+	} else {
+		for _, imageTag := range imageTags.ImageTags {
+			dbTags[imageTag.TagName] = imageTag
+		}
+	}
+	return dbTags, nil
 }
 
 func ImageListGetter(repo *registry.Repo, registryInfo *commonmodels.RegistryNamespace, dbTags map[string]*models.ImageTag, regService registry.Service, logger *zap.SugaredLogger) []*RepoImgResp {
