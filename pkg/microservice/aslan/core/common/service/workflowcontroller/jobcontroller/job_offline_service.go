@@ -174,7 +174,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 	}
 
 	if projectInfo.IsHelmProduct() {
-		err = kube.CreateOrUpdateHelmResource(&kube.ResourceApplyParam{
+		err = kube.RemoveHelmResource(&kube.ResourceApplyParam{
 			ProductInfo: env,
 			ServiceList: serviceNames,
 			KubeClient:  kubeClient,
