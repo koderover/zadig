@@ -1141,6 +1141,9 @@ func setReleaseDeployStatus(namespace string, resourceMap map[string]*ResourceDe
 			log.Warnf("failed to get release values with name: %s, err: %s", releaseName, err)
 			continue
 		}
+		if len(customValues) == 0 {
+			continue
+		}
 		overrideYaml, err := yaml.Marshal(customValues)
 		if err != nil {
 			log.Warnf("failed to marshal values map when fetching release deploy status, err: %s", err)
