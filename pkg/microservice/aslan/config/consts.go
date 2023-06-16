@@ -211,6 +211,7 @@ const (
 	JobMeegoTransition      JobType = "meego-transition"
 	JobWorkflowTrigger      JobType = "workflow-trigger"
 	JobOfflineService       JobType = "offline-service"
+	JobMseGrayRelease       JobType = "mse-gray-release"
 )
 
 const (

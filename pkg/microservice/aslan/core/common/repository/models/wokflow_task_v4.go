@@ -389,6 +389,9 @@ type JobTaskOfflineServiceEvent struct {
 	Error       string        `bson:"error" json:"error" yaml:"error"`
 }
 
+type JobTaskMseGrayReleaseSpec struct {
+}
+
 type PatchTaskItem struct {
 	ResourceName    string   `bson:"resource_name"                json:"resource_name"               yaml:"resource_name"`
 	ResourceKind    string   `bson:"resource_kind"                json:"resource_kind"               yaml:"resource_kind"`

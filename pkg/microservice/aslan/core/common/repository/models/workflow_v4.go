@@ -546,6 +546,24 @@ type IstioJobTarget struct {
 	TargetReplica      int    `bson:"target_replica,omitempty"  json:"target_replica,omitempty"  yaml:"target_replica,omitempty"`
 }
 
+type MseGrayReleaseJobSpec struct {
+	GrayTag      string                   `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
+	BaseEnv      string                   `bson:"base_env" json:"base_env" yaml:"base_env"`
+	ReleaseEnv   string                   `bson:"release_env" json:"release_env" yaml:"release_env"`
+	GrayServices []*MseGrayReleaseService `bson:"gray_services" json:"gray_services" yaml:"gray_services"`
+}
+
+type MseGrayReleaseService struct {
+	ServiceName     string                                 `bson:"service_name" json:"service_name" yaml:"service_name"`
+	Replicas        int                                    `bson:"replicas"     json:"replicas"     yaml:"replicas"`
+	YamlContent     string                                 `bson:"yaml_content" json:"yaml_content" yaml:"yaml_content"`
+	ServiceAndImage []*MseGrayReleaseServiceModuleAndImage `bson:"service_and_image" json:"service_and_image" yaml:"service_and_image"`
+}
+
+type MseGrayReleaseServiceModuleAndImage struct {
+	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
+	Image         string `bson:"image"          json:"image"          yaml:"image"`
+}
 type NacosJobSpec struct {
 	NacosID           string               `bson:"nacos_id"            json:"nacos_id"            yaml:"nacos_id"`
 	NamespaceID       string               `bson:"namespace_id"        json:"namespace_id"        yaml:"namespace_id"`
