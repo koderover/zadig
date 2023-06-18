@@ -68,6 +68,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		v2.POST("/ai/analysis", GetAIStatsAnalysis)
 		v2.GET("/ai/analysis/prompt", GetAIStatsAnalysisPrompts)
 		v2.GET("/dashboard/general", GetStatsDashboardGeneralData)
+		// ai
+		v2.GET("/ai/overview", GetProjectsOverview)
+		v2.GET("/ai/build/trend", GetBuildTrend)
+		v2.GET("/ai/radar", GetEfficiencyRadar)
+		v2.GET("/ai/attention", GetMonthAttention)
 	}
 }
 

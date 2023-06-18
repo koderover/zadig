@@ -16,7 +16,9 @@ limitations under the License.
 
 package service
 
-import "github.com/koderover/zadig/pkg/util"
+import (
+	"github.com/koderover/zadig/pkg/util"
+)
 
 type OpenAPIStatV2 struct {
 	Total        int64        `json:"total"`
@@ -70,4 +72,35 @@ type StatDashboardBasicData struct {
 	TestSuccess   int64 `json:"test_success"`
 	DeployTotal   int64 `json:"deploy_total"`
 	DeploySuccess int64 `json:"deploy_success"`
+}
+
+type JobInfo struct {
+	//ID                  primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	//Type                string             `bson:"type" json:"type"`
+	//WorkflowName        string             `bson:"workflow_name" json:"workflow_name"`
+	//WorkflowDisplayName string             `bson:"workflow_display_name" json:"workflow_display_name"`
+	//TaskID              int64              `bson:"task_id" json:"task_id"`
+	//ProductName         string             `bson:"product_name" json:"product_name"`
+	//Status              string             `bson:"status" json:"status"`
+	//StartTime           int64              `bson:"start_time" json:"start_time"`
+	//EndTime             int64              `bson:"end_time" json:"end_time"`
+	//Duration            int64              `bson:"duration" json:"duration"`
+	//ServiceType         string             `bson:"service_type" json:"service_type"`
+	//ServiceName         string             `bson:"service_name" json:"service_name"`
+	//ServiceModule       string             `bson:"service_module" json:"service_module"`
+	//Production          bool               `bson:"production" json:"production"`
+	//TargetEnv           string             `bson:"target_env" json:"target_env"`
+	WorkflowName        string
+	WorkflowDisplayName string
+	ProductName         string
+	Production          bool
+	ServiceType         string
+	ServiceName         string
+	ServiceModule       string
+	TargetEnv           string
+	Type                string
+	StartTime           int64
+	EndTime             int64
+	Duration            int64
+	Status              string
 }

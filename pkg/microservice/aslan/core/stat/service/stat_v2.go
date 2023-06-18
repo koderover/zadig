@@ -19,6 +19,8 @@ package service
 import (
 	"context"
 	"math"
+	"sort"
+	"time"
 
 	repo "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/mongodb"
 	"go.uber.org/zap"
@@ -340,4 +342,111 @@ func createDefaultStatDashboardConfig() []*commonmodels.StatDashboardConfig {
 
 func initializeStatDashboardConfig() error {
 	return commonrepo.NewStatDashboardConfigColl().BulkCreate(context.TODO(), createDefaultStatDashboardConfig())
+}
+
+type JobInfoCoarseGrainedData struct {
+	StartTime   string            `json:"start_time"`
+	EndTime     string            `json:"end_time"`
+	MonthlyStat []*MonthlyJobInfo `json:"monthly_stat"`
+}
+
+type MonthlyJobInfo struct {
+	Month       int `bson:"month" json:"month"`
+	BuildCount  int `bson:"build_count" json:"build_count,omitempty"`
+	DeployCount int `bson:"deploy_count" json:"deploy_count,omitempty"`
+	TestCount   int `bson:"test_count" json:"test_count,omitempty"`
+}
+
+func GetProjectsOverview(start, end int64, logger *zap.SugaredLogger) (*JobInfoCoarseGrainedData, error) {
+	result, err := commonrepo.NewJobInfoColl().GetJobInfos(start, end, nil)
+	if err != nil {
+		logger.Debugf("failed to get coarse grained data from job_info collection, error: %s", err)
+		return nil, err
+	}
+
+	// because the mongodb version 3.4 does not support convert timestamp to date(no $toDate,$convert), we have to do the join in the code
+	monthlyJobInfo := make([]*MonthlyJobInfo, 12)
+	coarseGrainedData := &JobInfoCoarseGrainedData{
+		StartTime:   time.Unix(start, 0).Format("2006-01-02"),
+		EndTime:     time.Unix(end, 0).Format("2006-01-02"),
+		MonthlyStat: monthlyJobInfo,
+	}
+
+	for _, job := range result {
+		job.StartTime = int64(time.Unix(job.StartTime, 0).Month())
+		if monthlyJobInfo[job.StartTime] == nil {
+			monthlyJobInfo[job.StartTime] = &MonthlyJobInfo{
+				Month: int(job.StartTime),
+			}
+		}
+		switch job.Type {
+		case string(config.JobZadigBuild):
+			monthlyJobInfo[job.StartTime].BuildCount++
+		case string(config.JobZadigDeploy):
+			monthlyJobInfo[job.StartTime].DeployCount++
+		case string(config.JobZadigTesting):
+			monthlyJobInfo[job.StartTime].TestCount++
+		}
+	}
+	return coarseGrainedData, nil
+}
+
+type BuildTrendInfo struct {
+	StartTime   string                   `json:"start_time"`
+	EndTime     string                   `json:"end_time"`
+	MonthlyStat map[int]MonthlyBuildInfo `json:"monthly_stat"`
+}
+
+type MonthlyBuildInfo struct {
+	Month     int            ` json:"month"`
+	BuildStat map[string]int `json:"build_stat"`
+}
+
+func GetBuildTrend(startTime, endTime int64, projects []string, logger *zap.SugaredLogger) (*BuildTrendInfo, error) {
+	projectListInfo, err := commonrepo.NewJobInfoColl().GetJobBuildTrendInfos(startTime, endTime, projects)
+	if err != nil {
+		logger.Debugf("failed to get coarse grained data from job_info collection, error: %s", err)
+		return nil, err
+	}
+
+	monthlyJobInfo := make(map[int]MonthlyBuildInfo, 0)
+	build := &BuildTrendInfo{
+		StartTime:   time.Unix(startTime, 0).Format("2006-01-02"),
+		EndTime:     time.Unix(endTime, 0).Format("2006-01-02"),
+		MonthlyStat: monthlyJobInfo,
+	}
+
+	for _, projectInfo := range projectListInfo {
+		for _, document := range projectInfo.Documents {
+			month := int(time.Unix(document.StartTime, 0).Month())
+			if _, ok := build.MonthlyStat[month]; !ok {
+				build.MonthlyStat[month] = MonthlyBuildInfo{
+					Month: int(document.StartTime),
+				}
+			}
+
+			switch document.Type {
+			case string(config.JobZadigBuild):
+				build.MonthlyStat[month].BuildStat[document.ProductName]++
+			}
+		}
+	}
+
+	sort.Slice(build.MonthlyStat, func(i, j int) bool {
+		return build.MonthlyStat[i].Month < build.MonthlyStat[j].Month
+	})
+
+	checkInvalidBuildTrend(build)
+	return build, nil
+}
+
+func checkInvalidBuildTrend(build *BuildTrendInfo) {
+	month := int(time.Now().Month())
+	for i := 1; i <= month; i++ {
+		if _, ok := build.MonthlyStat[i]; !ok {
+			build.MonthlyStat[i] = MonthlyBuildInfo{
+				Month: i,
+			}
+		}
+	}
 }

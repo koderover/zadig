@@ -139,3 +139,61 @@ func GetAIStatsAnalysisPrompts(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = ai.GetAiPrompts(ctx.Logger)
 }
+
+func GetProjectsOverview(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(getStatDashboardReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetProjectsOverview(args.StartTime, args.EndTime, ctx.Logger)
+}
+
+type getBuildTrendReq struct {
+	StartTime int64    `json:"start_time"`
+	EndTime   int64    `json:"end_time"`
+	Projects  []string `json:"projects"`
+}
+
+func GetBuildTrend(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(getBuildTrendReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetBuildTrend(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+}
+
+func GetEfficiencyRadar(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(getBuildTrendReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetBuildEfficiencyRadar(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+}
+
+func GetMonthAttention(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(getBuildTrendReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetMonthAttention(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+}
