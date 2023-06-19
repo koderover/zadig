@@ -160,6 +160,10 @@ var (
 	ErrForkProduct = NewHTTPError(6060, "Fork开源项目失败")
 	// TODO: max error code reached, sharing error code with delete product
 	ErrUnForkProduct = NewHTTPError(6063, "删除Fork环境失败")
+	// TODO: max error code reached, sharing error code with get env
+	ErrGetEnvConfigs = NewHTTPError(6078, "获取环境配置失败")
+	// TODO: max error code reached, sharing error code with update env
+	ErrUpdateEnvConfigs = NewHTTPError(6076, "更新环境配置失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product Service APIs Range: 6080 - 6099 AND 6150 -6199
@@ -208,6 +212,7 @@ var (
 
 	ErrDeleteSvcHasSvcsInSubEnv = NewHTTPError(6094, "删除服务失败，待删除服务存在于子环境中")
 	ErrPreviewYaml              = NewHTTPError(6150, "预览Yaml失败")
+	ErrAnalysisEnvResource      = NewHTTPError(6151, "AI环境巡检失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// it report APIs Range: 6100 - 6149
@@ -690,6 +695,7 @@ var (
 	// Cronjob Error Range: 6810 - 6819
 	//-----------------------------------------------------------------------------------------------
 	ErrUpsertCronjob = NewHTTPError(6810, "更新定时器失败")
+	ErrGetCronjob    = NewHTTPError(6811, "获取定时器失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// dindClean Error Range: 6820 - 6829

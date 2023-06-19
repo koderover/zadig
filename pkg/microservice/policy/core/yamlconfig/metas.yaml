@@ -5,11 +5,11 @@ description: "
 metas:
   - resource: Delivery
     alias: 版本管理
-    description: ''
+    description: ""
     rules:
       - action: get_delivery
         alias: 查看
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/aslan/delivery/releases/helm/charts
@@ -17,7 +17,7 @@ metas:
             endpoint: /api/aslan/delivery/releases
       - action: create_delivery
         alias: 创建
-        description: ''
+        description: ""
         rules:
           - method: POST
             endpoint: /api/aslan/delivery/releases/helm
@@ -35,17 +35,17 @@ metas:
             endpoint: /api/aslan/delivery/releases/helm/charts/version
       - action: delete_delivery
         alias: 删除
-        description: ''
+        description: ""
         rules:
           - method: DELETE
             endpoint: /api/aslan/delivery/releases/?*
   - resource: Test
     alias: 测试
-    description: ''
+    description: ""
     rules:
       - action: get_test
         alias: 查看
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/aslan/workflow/sse/workflows/id/?*/pipelines/?*
@@ -73,25 +73,25 @@ metas:
             endpoint: /api/aslan/cluster/clusters
       - action: create_test
         alias: 新建
-        description: ''
+        description: ""
         rules:
           - method: POST
             endpoint: /api/aslan/testing/test
       - action: edit_test
         alias: 编辑
-        description: ''
+        description: ""
         rules:
           - method: PUT
             endpoint: /api/aslan/testing/test
       - action: delete_test
         alias: 删除
-        description: ''
+        description: ""
         rules:
           - method: DELETE
             endpoint: /api/aslan/testing/test/?*
       - action: run_test
         alias: 执行
-        description: ''
+        description: ""
         rules:
           - method: DELETE
             endpoint: api/aslan/testing/testtask/productName/?*/id/?*/pipelines/?*
@@ -101,11 +101,11 @@ metas:
             endpoint: /api/aslan/testing/testtask/productName/?*/id/?*/pipelines/?*/restart
   - resource: Service
     alias: 测试服务
-    description: ''
+    description: ""
     rules:
       - action: get_service
         alias: 查看
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: api/aslan/build/targets
@@ -143,7 +143,7 @@ metas:
             endpoint: /api/aslan/service/helm/?*/file
       - action: create_service
         alias: 新建
-        description: ''
+        description: ""
         rules:
           - method: POST
             endpoint: /api/aslan/service/pm/?*
@@ -169,7 +169,7 @@ metas:
             endpoint: /api/aslan/service/services/yaml
       - action: edit_service
         alias: 编辑
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/aslan/template/charts
@@ -191,7 +191,7 @@ metas:
             endpoint: /api/aslan/service/helm/services/releaseNaming
       - action: delete_service
         alias: 删除
-        description: ''
+        description: ""
         rules:
           - method: DELETE
             endpoint: /api/aslan/service/services/?*/?*
@@ -199,11 +199,11 @@ metas:
             endpoint: /api/aslan/service/services/?*/pm
   - resource: ProductionService
     alias: 生产服务
-    description: ''
+    description: ""
     rules:
       - action: get_production_service
         alias: 查看
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/aslan/service/production/services
@@ -221,7 +221,7 @@ metas:
             endpoint: /api/aslan/service/helm/production/services/?*/fileContent
       - action: create_production_service
         alias: 新建
-        description: ''
+        description: ""
         rules:
           - method: POST
             endpoint: /api/aslan/service/helm/production/services
@@ -233,7 +233,7 @@ metas:
             endpoint: /api/aslan/service/template/production/reload
       - action: edit_production_service
         alias: 编辑
-        description: ''
+        description: ""
         rules:
           - method: PUT
             endpoint: /api/aslan/service/helm/production/services/?*/file
@@ -245,17 +245,17 @@ metas:
             endpoint: api/aslan/project/production/products/?*
       - action: delete_production_service
         alias: 删除
-        description: ''
+        description: ""
         rules:
           - method: DELETE
             endpoint: api/aslan/service/production/services/?*
   - resource: Build
     alias: 构建
-    description: ''
+    description: ""
     rules:
       - action: get_build
         alias: 查看
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/aslan/build/build
@@ -267,7 +267,7 @@ metas:
             endpoint: /api/aslan/cluster/clusters
       - action: create_build
         alias: 新建
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/aslan/template/build/?*
@@ -279,7 +279,7 @@ metas:
             endpoint: /api/aslan/build/build
       - action: edit_build
         alias: 编辑
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/aslan/template/build/?*
@@ -293,27 +293,27 @@ metas:
             endpoint: /api/aslan/build/build/targets
       - action: delete_build
         alias: 删除
-        description: ''
+        description: ""
         rules:
           - method: DELETE
             endpoint: /api/aslan/build/build
   - resource: ReleaseCenter
     alias: 发布中心
-    description: ''
+    description: ""
     rules:
       - action: get_release
         alias: 查看
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/v1/policy/permission/releaseworkflow
   - resource: Project
     alias: 项目
-    description: ''
+    description: ""
     rules:
       - action: create_project
         alias: 新建
-        description: ''
+        description: ""
         rules:
           - method: POST
             endpoint: /api/v1/picket/projects
@@ -323,27 +323,27 @@ metas:
             endpoint: /api/aslan/cluster/clusters
       - action: delete_project
         alias: 删除
-        description: ''
+        description: ""
         rules:
           - method: DELETE
             endpoint: /api/v1/picket/projects/?*
   - resource: TestCenter
     alias: 测试中心
-    description: ''
+    description: ""
     rules:
       - action: get_test
         alias: 查看
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/v1/policy/permission/testing
   - resource: DataCenter
     alias: 数据视图
-    description: ''
+    description: ""
     rules:
       - action: data_over
         alias: 查看数据概览
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/v1/picket/stat/dashboard/overview
@@ -355,7 +355,7 @@ metas:
             endpoint: /api/v1/picket/stat/dashboard/build
       - action: efficiency_over
         alias: 查看效能洞察
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/aslan/stat/v2/dashboard
@@ -397,7 +397,7 @@ metas:
             endpoint: api/aslan/stat/quality/testTrend
       - action: edit_dashboard_config
         alias: 配置效能洞察
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/aslan/stat/v2/config
@@ -409,7 +409,7 @@ metas:
             endpoint: /api/aslan/stat/v2/config/?*
   - resource: Template
     alias: 模板库
-    description: ''
+    description: ""
     rules:
       - action: create_template
         alias: 新建
@@ -499,7 +499,7 @@ metas:
             endpoint: /api/aslan/template/workflow/?*
   - resource: DeliveryCenter
     alias: 交付中心
-    description: ''
+    description: ""
     rules:
       - action: release_get
         alias: 查看版本管理
@@ -517,11 +517,11 @@ metas:
             endpoint: /api/aslan/delivery/artifacts
   - resource: Workflow
     alias: 工作流
-    description: ''
+    description: ""
     rules:
       - action: get_workflow
         alias: 查看
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/aslan/workflow/workflow/preset/?*
@@ -591,7 +591,7 @@ metas:
             endpoint: /api/aslan/testing/workspace/workflowv4/?*/taskId/?*/job/?*
       - action: create_workflow
         alias: 新建
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: /api/aslan/build/build/serviceModule
@@ -621,10 +621,10 @@ metas:
             endpoint: api/aslan/cluster/clusters
       - action: edit_workflow
         alias: 编辑
-        description: ''
+        description: ""
         rules:
           - method: PUT
-            endpoint: 'api/aslan/workflow/workflow/:name'
+            endpoint: "api/aslan/workflow/workflow/:name"
           - method: GET
             endpoint: /api/aslan/environment/environments
             resourceType: Environment
@@ -662,7 +662,7 @@ metas:
 
       - action: delete_workflow
         alias: 删除
-        description: ''
+        description: ""
         rules:
           - method: DELETE
             endpoint: /api/aslan/workflow/workflow/?*
@@ -672,16 +672,16 @@ metas:
             endpoint: /api/aslan/workflow/v4/?*
       - action: run_workflow
         alias: 执行
-        description: ''
+        description: ""
         rules:
           - method: POST
-            endpoint: '/api/aslan/workflow/workflowtask/:name'
+            endpoint: "/api/aslan/workflow/workflowtask/:name"
           - method: PUT
-            endpoint: '/api/aslan/workflow/workflowtask/:name'
+            endpoint: "/api/aslan/workflow/workflowtask/:name"
           - method: POST
-            endpoint: '/api/aslan/workflow/workflowtask/id/?*/pipelines/:name/restart'
+            endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/:name/restart"
           - method: DELETE
-            endpoint: '/api/aslan/workflow/workflowtask/id/?*/pipelines/:name'
+            endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/:name"
           - method: POST
             endpoint: /api/directory/workflowTask/id/?*/pipelines/?*/restart
           - method: POST
@@ -719,22 +719,22 @@ metas:
             endpoint: /api/aslan/workflow/v4/workflowtask/debug/?*/:jobName/task/?*/?*
   - resource: Environment
     alias: 测试环境
-    description: ''
+    description: ""
     rules:
       - action: get_environment
         alias: 查看
-        description: ''
+        description: ""
         rules:
           - method: GET
-            endpoint: '/api/aslan/environment/environments/:name/helm/values'
+            endpoint: "/api/aslan/environment/environments/:name/helm/values"
           - method: GET
             endpoint: /api/aslan/environment/environments
           - method: GET
-            endpoint: '/api/aslan/environment/environments/:name'
+            endpoint: "/api/aslan/environment/environments/:name"
           - method: GET
-            endpoint: '/api/aslan/environment/environments/:name/groups'
+            endpoint: "/api/aslan/environment/environments/:name/groups"
           - method: GET
-            endpoint: '/api/aslan/environment/environments/:name/services/?*'
+            endpoint: "/api/aslan/environment/environments/:name/services/?*"
           - method: GET
             endpoint: /api/aslan/environment/kube/workloads
           - method: GET
@@ -754,28 +754,28 @@ metas:
           - method: GET
             endpoint: /api/aslan/environment/revision/products
           - method: GET
-            endpoint: '/api/aslan/environment/environments/:name/workloads'
+            endpoint: "/api/aslan/environment/environments/:name/workloads"
           - method: GET
-            endpoint: '/api/aslan/environment/environments/:name/helm/releases'
+            endpoint: "/api/aslan/environment/environments/:name/helm/releases"
           - method: GET
-            endpoint: '/api/aslan/environment/environments/:name/helm/charts'
+            endpoint: "/api/aslan/environment/environments/:name/helm/charts"
           - method: GET
-            endpoint: '/api/aslan/environment/environments/:name/helm/images'
+            endpoint: "/api/aslan/environment/environments/:name/helm/images"
           - method: GET
             endpoint: /api/aslan/environment/diff/products/?*/service/?*
           - method: GET
-            endpoint: '/api/aslan/environment/configmaps/:name'
+            endpoint: "/api/aslan/environment/configmaps/:name"
           - method: GET
-            endpoint: '/api/aslan/environment/envcfgs/:name/cfg/?*'
+            endpoint: "/api/aslan/environment/envcfgs/:name/cfg/?*"
           - method: GET
-            endpoint: '/api/aslan/environment/secrets/:name'
+            endpoint: "/api/aslan/environment/secrets/:name"
           - method: GET
-            endpoint: '/api/aslan/environment/ingresses/:name'
+            endpoint: "/api/aslan/environment/ingresses/:name"
           - method: GET
-            endpoint: '/api/aslan/environment/pvcs/:name'
+            endpoint: "/api/aslan/environment/pvcs/:name"
       - action: create_environment
         alias: 创建
-        description: ''
+        description: ""
         rules:
           - method: GET
             endpoint: api/aslan/delivery/releases
@@ -791,12 +791,12 @@ metas:
             endpoint: api/aslan/cluster/clusters
       - action: config_environment
         alias: 配置
-        description: ''
+        description: ""
         rules:
           - method: PUT
-            endpoint: '/api/aslan/environment/environments/:name/helm/default-values'
+            endpoint: "/api/aslan/environment/environments/:name/helm/default-values"
           - method: PUT
-            endpoint: '/api/aslan/environment/environments/:name/helm/charts'
+            endpoint: "/api/aslan/environment/environments/:name/helm/charts"
           - method: GET
             endpoint: /api/aslan/build/targets
           - method: GET
@@ -804,23 +804,23 @@ metas:
           - method: GET
             endpoint: /api/aslan/service/services/?*
           - method: PUT
-            endpoint: '/api/aslan/environment/environments/:name/services'
+            endpoint: "/api/aslan/environment/environments/:name/services"
           - method: POST
-            endpoint: '/api/aslan/environment/environments/:name/share/enable'
+            endpoint: "/api/aslan/environment/environments/:name/share/enable"
           - method: DELETE
-            endpoint: '/api/aslan/environment/environments/:name/share/enable'
+            endpoint: "/api/aslan/environment/environments/:name/share/enable"
           - method: PUT
             endpoint: /api/aslan/environment/environments
           - method: PUT
-            endpoint: '/api/aslan/environment/environments/:name'
+            endpoint: "/api/aslan/environment/environments/:name"
           - method: PUT
             endpoint: /api/aslan/service/pm/healthCheckUpdate
           - method: PUT
-            endpoint: '/api/aslan/environment/environments/:name/envRecycle'
+            endpoint: "/api/aslan/environment/environments/:name/envRecycle"
           - method: PUT
-            endpoint: '/api/aslan/environment/environments/:name/alias'
+            endpoint: "/api/aslan/environment/environments/:name/alias"
           - method: PUT
-            endpoint: '/api/aslan/environment/environments/:name/renderset'
+            endpoint: "/api/aslan/environment/environments/:name/renderset"
           - method: PUT
             endpoint: /api/aslan/service/workloads
           - method: GET
@@ -828,33 +828,35 @@ metas:
           - method: GET
             endpoint: /api/aslan/environment/operations
           - method: PUT
-            endpoint: '/api/aslan/environment/environments/:name/registry'
+            endpoint: "/api/aslan/environment/environments/:name/registry"
           - method: PUT
-            endpoint: '/api/aslan/environment/envcfgs/:name'
+            endpoint: "/api/aslan/environment/envcfgs/:name"
           - method: POST
-            endpoint: '/api/aslan/environment/envcfgs/:name'
+            endpoint: "/api/aslan/environment/envcfgs/:name"
           - method: DELETE
-            endpoint: '/api/aslan/environment/envcfgs/:name/cfg/?*'
+            endpoint: "/api/aslan/environment/envcfgs/:name/cfg/?*"
+          - method: PUT
+            endpoint: /api/aslan/environment/environments/:name/configs
       - action: manage_environment
         alias: 管理服务实例
-        description: ''
+        description: ""
         rules:
           - method: PUT
             endpoint: /api/aslan/environment/environments
           - method: POST
-            endpoint: '/api/aslan/environment/environments/:name/services/?*/restart'
+            endpoint: "/api/aslan/environment/environments/:name/services/?*/restart"
           - method: POST
-            endpoint: '/api/aslan/environment/environments/:name/services/?*/restartNew'
+            endpoint: "/api/aslan/environment/environments/:name/services/?*/restartNew"
           - method: POST
-            endpoint: '/api/aslan/environment/environments/:name/services/?*/scaleNew'
+            endpoint: "/api/aslan/environment/environments/:name/services/?*/scaleNew"
           - method: PUT
-            endpoint: '/api/aslan/environment/environments/:name/services/?*'
+            endpoint: "/api/aslan/environment/environments/:name/services/?*"
           - method: POST
-            endpoint: '/api/aslan/environment/image/deployment/:name'
+            endpoint: "/api/aslan/environment/image/deployment/:name"
           - method: POST
-            endpoint: '/api/aslan/environment/image/statefulset/:name'
+            endpoint: "/api/aslan/environment/image/statefulset/:name"
           - method: DELETE
-            endpoint: '/api/aslan/environment/kube/:name/pods/?*'
+            endpoint: "/api/aslan/environment/kube/:name/pods/?*"
           - method: PUT
             endpoint: /api/aslan/environment/configmaps
           - method: POST
@@ -863,26 +865,26 @@ metas:
             endpoint: /api/aslan/workflow/servicetask
       - action: delete_environment
         alias: 删除
-        description: ''
+        description: ""
         rules:
           - method: DELETE
-            endpoint: '/api/aslan/environment/environments/:name'
+            endpoint: "/api/aslan/environment/environments/:name"
       - action: debug_pod
         alias: 服务调试
-        description: ''
+        description: ""
         rules:
           - method: GET
-            endpoint: '/api/podexec/?*/?*/?*/?*/podExec/:name'
+            endpoint: "/api/podexec/?*/?*/?*/?*/podExec/:name"
           - method: POST
-            endpoint: '/api/aslan/environment/kube/:name/pods/?*/debugcontainer'
+            endpoint: "/api/aslan/environment/kube/:name/pods/?*/debugcontainer"
           - method: GET
-            endpoint: '/api/aslan/environment/kube/pods/?*/file'
+            endpoint: "/api/aslan/environment/kube/pods/?*/file"
       - action: ssh_pm
         alias: 主机登录
-        description: ''
+        description: ""
         rules:
           - method: GET
-            endpoint: '/api/aslan/environment/environments/:name/services/?*/pmexec'
+            endpoint: "/api/aslan/environment/environments/:name/services/?*/pmexec"
       - action: get_production_environment
         alias: 查看
         description: ""
@@ -912,7 +914,9 @@ metas:
         description: ""
         rules:
           - method: PUT
-            endpoint: '/api/aslan/environment/environments/:name/alias'
+            endpoint: "/api/aslan/environment/environments/:name/alias"
+          - method: PUT
+            endpoint: /api/aslan/environment/production/environments/:name/configs
       - action: edit_production_environment
         alias: 管理服务实例
         description: ""
@@ -933,12 +937,12 @@ metas:
             endpoint: "/api/aslan/environment/production/environments/?*"
       - action: production_debug_pod
         alias: 服务调试
-        description: ''
+        description: ""
         rules:
           - method: GET
-            endpoint: '/api/podexec/production/?*/?*/?*/?*/podExec/:name'
+            endpoint: "/api/podexec/production/?*/?*/?*/?*/podExec/:name"
           - method: GET
-            endpoint: '/api/aslan/environment/production/kube/pods/?*/file'
+            endpoint: "/api/aslan/environment/production/kube/pods/?*/file"
   - resource: Scan
     alias: "代码扫描"
     description: ""
@@ -971,7 +975,7 @@ metas:
             endpoint: "/api/aslan/testing/scanning/?*"
       - action: run_scan
         alias: "执行"
-        description: ''
+        description: ""
         rules:
           - method: POST
             endpoint: "/api/aslan/testing/scanning/?*/task"
