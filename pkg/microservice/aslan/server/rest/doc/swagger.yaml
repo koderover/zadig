@@ -118,6 +118,21 @@ definitions:
           $ref: '#/definitions/template.RenderKV'
         type: array
     type: object
+  github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.ServiceModule:
+    properties:
+      build_names:
+        items:
+          type: string
+        type: array
+      image:
+        type: string
+      image_name:
+        type: string
+      imagePath:
+        $ref: '#/definitions/models.ImagePathSpec'
+      name:
+        type: string
+    type: object
   github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable:
     properties:
       description:
@@ -284,6 +299,13 @@ definitions:
     - service_variable_kvs
     - variable_yaml
     type: object
+  models.AnalysisConfig:
+    properties:
+      resource_types:
+        items:
+          $ref: '#/definitions/models.ResourceType'
+        type: array
+    type: object
   models.Commit:
     properties:
       message:
@@ -440,6 +462,25 @@ definitions:
       updated_by:
         type: string
     type: object
+  models.NotificationConfig:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/models.NotificationEvent'
+        type: array
+      webhook_type:
+        $ref: '#/definitions/models.WebHookType'
+      webhook_url:
+        type: string
+    type: object
+  models.NotificationEvent:
+    enum:
+    - notification_event_analyzer_normal
+    - notification_event_analyzer_abnormal
+    type: string
+    x-enum-varnames:
+    - NotificationEventAnalyzerNoraml
+    - NotificationEventAnalyzerAbnormal
   models.ParameterSettingType:
     enum:
     - string
@@ -543,6 +584,32 @@ definitions:
       revision:
         type: integer
     type: object
+  models.ResourceType:
+    enum:
+    - Pod
+    - Deployment
+    - ReplicaSet
+    - PersistentVolumeClaim
+    - Service
+    - Ingress
+    - StatefulSet
+    - CronJob
+    - HorizontalPodAutoScaler
+    - PodDisruptionBudget
+    - NetworkPolicy
+    type: string
+    x-enum-varnames:
+    - ResourceTypePod
+    - ResourceTypeDeployment
+    - ResourceTypeReplicaSet
+    - ResourceTypePVC
+    - ResourceTypeService
+    - ResourceTypeIngress
+    - ResourceTypeStatefulSet
+    - ResourceTypeCronJob
+    - ResourceTypeHPA
+    - ResourceTypePDB
+    - ResourceTypeNetworkPolicy
   models.Service:
     properties:
       auto_sync:
@@ -678,6 +745,16 @@ definitions:
         $ref: '#/definitions/models.ParameterSettingType'
       value: {}
     type: object
+  models.WebHookType:
+    enum:
+    - feishu
+    - dingding
+    - wechat
+    type: string
+    x-enum-varnames:
+    - WebHookTypeFeishu
+    - WebHookTypeDingding
+    - WebHookTypeWeChat
   models.ZadigDeployJobSpec:
     properties:
       deploy_contents:
@@ -996,6 +1073,25 @@ definitions:
         items:
           $ref: '#/definitions/service.DeployableEnv'
         type: array
+    type: object
+  service.EnvAnalysisCronArg:
+    properties:
+      cron:
+        type: string
+      enable:
+        type: boolean
+    type: object
+  service.EnvAnalysisRespone:
+    properties:
+      result:
+        type: string
+    type: object
+  service.EnvConfigsArgs:
+    properties:
+      analysis_config:
+        $ref: '#/definitions/models.AnalysisConfig'
+      notification_config:
+        $ref: '#/definitions/models.NotificationConfig'
     type: object
   service.EnvDefinition:
     properties:
@@ -1382,6 +1478,8 @@ definitions:
         type: string
       template_name:
         type: string
+      values_yaml:
+        type: string
       variable_yaml:
         items:
           $ref: '#/definitions/util.KeyValue'
@@ -1398,28 +1496,13 @@ definitions:
       service_name:
         type: string
     type: object
-  service.ServiceModule:
-    properties:
-      build_names:
-        items:
-          type: string
-        type: array
-      image:
-        type: string
-      image_name:
-        type: string
-      imagePath:
-        $ref: '#/definitions/models.ImagePathSpec'
-      name:
-        type: string
-    type: object
   service.ServiceOption:
     properties:
       service:
         $ref: '#/definitions/models.Service'
       service_module:
         items:
-          $ref: '#/definitions/service.ServiceModule'
+          $ref: '#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.ServiceModule'
         type: array
       service_variable_kvs:
         items:
@@ -1487,8 +1570,12 @@ definitions:
     type: object
   service.SvcDiffResult:
     properties:
+      chart_name:
+        type: string
       current:
         $ref: '#/definitions/service.TmplYaml'
+      deployed_from_chart:
+        type: boolean
       error:
         type: string
       latest:
@@ -1960,6 +2047,140 @@ paths:
       summary: Update Multi products
       tags:
       - environment
+  /api/aslan/environment/environments/{name}/analysis:
+    post:
+      consumes:
+      - application/json
+      description: Run Enviroment Analysis
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvAnalysisRespone'
+      summary: Run Enviroment Analysis
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/analysis/cron:
+    get:
+      consumes:
+      - application/json
+      description: Get Env Analysis Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Get Env Analysis Cron
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Upsert Env Analysis Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.EnvAnalysisCronArg'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Upsert Env Analysis Cron
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/configs:
+    get:
+      consumes:
+      - application/json
+      description: Get environment configs
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvConfigsArgs'
+      summary: Get enviroment configs
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Update environment configs
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.EnvConfigsArgs'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update enviroment configs
+      tags:
+      - environment
   /api/aslan/environment/environments/{name}/globalVariableCandidates:
     get:
       consumes:
@@ -2043,7 +2264,7 @@ paths:
             $ref: '#/definitions/service.EnvServices'
       summary: List services in env
       tags:
-      - environments
+      - environment
     put:
       consumes:
       - application/json
@@ -2390,6 +2611,140 @@ paths:
       summary: Get Product
       tags:
       - environment
+  /api/aslan/environment/production/environments/{name}/analysis:
+    post:
+      consumes:
+      - application/json
+      description: Run Production Enviroment Analysis
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvAnalysisRespone'
+      summary: Run Production Enviroment Analysis
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/analysis/cron:
+    get:
+      consumes:
+      - application/json
+      description: Get Production Env Analysis Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Get Production Env Analysis Cron
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Upsert Production Env Analysis Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.EnvAnalysisCronArg'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Upsert Production Env Analysis Cron
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/configs:
+    get:
+      consumes:
+      - application/json
+      description: Get production environment configs
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvConfigsArgs'
+      summary: Get production enviroment configs
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Update production environment configs
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.EnvConfigsArgs'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update production enviroment configs
+      tags:
+      - environment
   /api/aslan/environment/production/environments/{name}/estimated-values:
     post:
       consumes:
@@ -2505,6 +2860,32 @@ paths:
           schema:
             $ref: '#/definitions/service.ValuesResp'
       summary: Get Production Chart Values
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/servicesForUpdate:
+    get:
+      consumes:
+      - application/json
+      description: List services in production env
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvServices'
+      summary: List services in production env
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/workloads:
@@ -2960,29 +3341,17 @@ paths:
       summary: Reload service from yaml template
       tags:
       - service
-<<<<<<< HEAD
-  /api/aslan/system/webhook/config:
-    get:
-      consumes:
-      - application/json
-      description: Get webhook config
-=======
   /api/aslan/system/llm/integration:
     get:
       consumes:
       - application/json
       description: List llm integrations
->>>>>>> 2cb43dbbe (add llm and analyzer modules (#2723))
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-<<<<<<< HEAD
-            $ref: '#/definitions/service.GetWebhookConfigReponse'
-      summary: Get webhook config
-=======
             items:
               $ref: '#/definitions/models.LLMIntegration'
             type: array
@@ -3069,7 +3438,21 @@ paths:
         "200":
           description: OK
       summary: Update a llm integration
->>>>>>> 2cb43dbbe (add llm and analyzer modules (#2723))
+      tags:
+      - system
+  /api/aslan/system/webhook/config:
+    get:
+      consumes:
+      - application/json
+      description: Get webhook config
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetWebhookConfigReponse'
+      summary: Get webhook config
       tags:
       - system
   /api/aslan/template/yaml:

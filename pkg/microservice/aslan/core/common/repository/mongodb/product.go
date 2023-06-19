@@ -552,3 +552,16 @@ func (c *ProductColl) ListProductionNamespace(clusterID string) ([]string, error
 	}
 	return resp.List(), nil
 }
+
+func (c *ProductColl) UpdateConfigs(envName, productName string, analysisConfig *models.AnalysisConfig, notificationConfig *models.NotificationConfig) error {
+	query := bson.M{"env_name": envName, "product_name": productName}
+
+	change := bson.M{"$set": bson.M{
+		"analysis_config":     analysisConfig,
+		"notification_config": notificationConfig,
+		"update_time":         time.Now().Unix(),
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+
+	return err
+}

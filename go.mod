@@ -55,13 +55,13 @@ require (
 	github.com/moby/buildkit v0.10.4
 	github.com/mojocn/base64Captcha v1.3.5
 	github.com/mozillazg/go-pinyin v0.20.0
-	github.com/nsqio/go-nsq v1.1.0
 	github.com/onsi/ginkgo/v2 v2.8.3
 	github.com/onsi/gomega v1.27.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/otiai10/copy v1.7.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
+	github.com/pkoukk/tiktoken-go v0.1.1-0.20230418101013-cae809389480
 	github.com/prometheus/client_golang v1.15.1
 	github.com/regclient/regclient v0.4.8
 	github.com/rfyiamcool/cronlib v1.2.1
@@ -71,7 +71,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.8
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.8.1
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.2
 	github.com/swaggo/files v0.0.0-20220728132757-551d4a08d97a
 	github.com/swaggo/gin-swagger v1.5.3
 	github.com/swaggo/swag v1.16.1
@@ -131,6 +131,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
+	github.com/dlclark/regexp2 v1.8.1 // indirect
 	github.com/docker/cli v20.10.17+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.6.4 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
