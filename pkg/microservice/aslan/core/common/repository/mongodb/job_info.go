@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -298,5 +299,74 @@ func (c *JobInfoColl) GetJobBuildTrendInfos(startTime, endTime int64, projectNam
 	if err != nil {
 		return nil, err
 	}
+	return resp, nil
+}
+
+func (c *JobInfoColl) GetBuildTrend(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
+	query := bson.M{
+		"start_time":   bson.M{"$gte": startTime, "$lt": endTime},
+		"product_name": bson.M{"$in": projectName},
+		"type":         config.JobZadigBuild,
+	}
+
+	resp := make([]*models.JobInfo, 0)
+	cursor, err := c.Find(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.Background(), &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(resp, func(i, j int) bool {
+		return resp[i].StartTime < resp[j].StartTime
+	})
+	return resp, nil
+}
+
+func (c *JobInfoColl) GetTestTrend(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
+	query := bson.M{
+		"start_time":   bson.M{"$gte": startTime, "$lt": endTime},
+		"product_name": bson.M{"$in": projectName},
+		"type":         config.JobZadigTesting,
+	}
+
+	resp := make([]*models.JobInfo, 0)
+	cursor, err := c.Find(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.Background(), &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(resp, func(i, j int) bool {
+		return resp[i].StartTime < resp[j].StartTime
+	})
+	return resp, nil
+}
+
+func (c *JobInfoColl) GetDeployTrend(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
+	query := bson.M{
+		"start_time":   bson.M{"$gte": startTime, "$lt": endTime},
+		"product_name": bson.M{"$in": projectName},
+		"type":         config.JobZadigDeploy,
+	}
+
+	resp := make([]*models.JobInfo, 0)
+	cursor, err := c.Find(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.Background(), &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Slice(resp, func(i, j int) bool {
+		return resp[i].StartTime < resp[j].StartTime
+	})
 	return resp, nil
 }

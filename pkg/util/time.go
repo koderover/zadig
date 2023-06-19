@@ -67,3 +67,9 @@ func GetDailyStartTimestamps(startTimestamp, endTimestamp int64) []int64 {
 
 	return dailyStartTimestamps
 }
+
+func GetMidnightTimestamp(timestamp int64) int64 {
+	t := time.Unix(timestamp, 0).UTC()
+	midnight := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+	return midnight.Unix()
+}

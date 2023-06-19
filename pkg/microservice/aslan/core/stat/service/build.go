@@ -18,9 +18,13 @@ package service
 
 import (
 	"sort"
+	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/models"
 	repo "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/mongodb"
 )
@@ -110,4 +114,160 @@ func GetBuildStats(args *models.BuildStatOption, log *zap.SugaredLogger) (*dashb
 		return nil, err
 	}
 	return dashboardBuild, nil
+}
+
+type WeeklyBuildStat struct {
+	Project         string        `json:"project"`
+	WeeklyBuildStat []*WeeklyStat `json:"weekly_build_stat"`
+}
+
+type WeeklyStat struct {
+	StartTime        int64 `json:"start_time"`
+	Success          int   `json:"success"`
+	Failure          int   `json:"failure"`
+	Timeout          int   `json:"timeout"`
+	AverageBuildTime int   `json:"average_build_time"`
+}
+
+func GetWeeklyBuildStat(start, end int64, projects []string) ([]*WeeklyBuildStat, error) {
+	result, err := commonrepo.NewJobInfoColl().GetBuildTrend(start, end, projects)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]*WeeklyBuildStat, 0)
+	for _, project := range projects {
+		buildStat := &WeeklyBuildStat{
+			Project:         project,
+			WeeklyBuildStat: make([]*WeeklyStat, 0),
+		}
+
+		for i := 0; i < len(result); i++ {
+			if result[i].ProductName != project {
+				continue
+			}
+
+			start := result[i].StartTime
+			end := time.Unix(result[i].StartTime, 0).Add(time.Hour * 24 * 7).Unix()
+			stat := &WeeklyStat{
+				StartTime: start,
+			}
+			for j := i; j < len(result); j++ {
+				if result[j].StartTime >= start && result[j].StartTime < end {
+					switch result[j].Status {
+					case string(config.StatusPassed):
+						stat.Success++
+					case string(config.StatusFailed):
+						stat.Failure++
+					case string(config.StatusTimeout):
+						stat.Timeout++
+					}
+				} else {
+					buildStat.WeeklyBuildStat = append(buildStat.WeeklyBuildStat, stat)
+					i = j
+					break
+				}
+			}
+		}
+		resp = append(resp, buildStat)
+	}
+	return resp, nil
+}
+
+type ProjectsBuildStatTotal struct {
+	ProjectName    string          `json:"project_name"`
+	BuildStatTotal *BuildStatTotal `json:"build_stat_total"`
+}
+
+type BuildStatTotal struct {
+	TotalSuccess int `json:"total_success"`
+	TotalFailure int `json:"total_failure"`
+}
+
+func GetBuildHealthMeasureV2(start, end int64, projects []string) ([]*ProjectsBuildStatTotal, error) {
+	result, err := commonrepo.NewJobInfoColl().GetBuildTrend(start, end, projects)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]*ProjectsBuildStatTotal, 0)
+	for _, project := range projects {
+		buildStat := &ProjectsBuildStatTotal{
+			ProjectName:    project,
+			BuildStatTotal: &BuildStatTotal{},
+		}
+		for _, item := range result {
+			if item.ProductName == project {
+				if item.Status == string(config.StatusPassed) {
+					buildStat.BuildStatTotal.TotalSuccess++
+				} else if item.Status == string(config.StatusFailed) {
+					buildStat.BuildStatTotal.TotalFailure++
+				}
+			}
+		}
+		resp = append(resp, buildStat)
+	}
+	return resp, nil
+}
+
+type ProjectDailyBuildStat struct {
+	Project        string            `json:"project_name"`
+	DailyBuildStat []*DailyBuildStat `json:"daily_build_stat"`
+}
+
+type DailyBuildStat struct {
+	StartTime        int64 `json:"start_time"`
+	Success          int   `json:"success"`
+	Failure          int   `json:"failure"`
+	Timeout          int   `json:"timeout"`
+	AverageBuildTime int   `json:"average_build_time"`
+}
+
+func GetDailyBuildMeasure(start, end int64, projects []string) ([]*ProjectDailyBuildStat, error) {
+	result, err := commonrepo.NewJobInfoColl().GetBuildTrend(start, end, projects)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]*ProjectDailyBuildStat, 0)
+	for _, project := range projects {
+		buildStat := &ProjectDailyBuildStat{
+			Project:        project,
+			DailyBuildStat: make([]*DailyBuildStat, 0),
+		}
+
+		for i := 0; i < len(result); i++ {
+			if result[i].ProductName != project {
+				continue
+			}
+
+			start := util.GetMidnightTimestamp(result[i].StartTime)
+			end := time.Unix(start, 0).Add(time.Hour*24 - time.Second).Unix()
+			stat := &DailyBuildStat{
+				StartTime: start,
+			}
+			count, duration := 0, 0
+			for j := i; j < len(result); j++ {
+				if result[j].StartTime >= start && result[j].StartTime < end {
+					switch result[j].Status {
+					case string(config.StatusPassed):
+						stat.Success++
+					case string(config.StatusFailed):
+						stat.Failure++
+					case string(config.StatusTimeout):
+						stat.Timeout++
+					}
+					count++
+					duration += int(result[j].Duration)
+				} else {
+					stat.AverageBuildTime = duration / count
+					buildStat.DailyBuildStat = append(buildStat.DailyBuildStat, stat)
+					i = j
+					break
+				}
+			}
+		}
+		resp = append(resp, buildStat)
+	}
+	return resp, nil
 }
