@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"time"
 
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
+
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -321,7 +323,10 @@ DistributeLoop:
 
 				var deployments []*appsv1.Deployment
 				var statefulSets []*appsv1.StatefulSet
-				deployments, statefulSets, err = fetchRelatedWorkloads(ctx, distribute.DeployEnv, distribute.DeployNamespace, p.Task.ProductName, distribute.DeployServiceName, p.kubeClient, p.httpClient, p.Log)
+				var cronJobs []*batchv1beta1.CronJob
+				var cronJobBetas []*batchv1beta1.CronJob
+				deployments, statefulSets, cronJobs, cronJobBetas, err = fetchRelatedWorkloads(ctx, distribute.DeployEnv, distribute.DeployNamespace, p.Task.ProductName,
+					distribute.DeployServiceName, p.kubeClient, p.clientset, p.httpClient, p.Log)
 				if err != nil {
 					return
 				}

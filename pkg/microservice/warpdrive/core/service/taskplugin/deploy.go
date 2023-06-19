@@ -24,6 +24,10 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/version"
+
+	"k8s.io/client-go/kubernetes"
+
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 
@@ -53,9 +57,11 @@ import (
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
 func InitializeDeployTaskPlugin(taskType config.TaskType) TaskPlugin {
+	clientSet, _ := krkubeclient.NewClientSet()
 	return &DeployTaskPlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
+		ClientSet:  clientSet,
 		restConfig: krkubeclient.RESTConfig(),
 		httpClient: httpclient.New(
 			httpclient.SetHostURL(configbase.AslanServiceAddress()),
@@ -68,6 +74,7 @@ type DeployTaskPlugin struct {
 	Name         config.TaskType
 	JobName      string
 	kubeClient   client.Client
+	ClientSet    *kubernetes.Clientset
 	restConfig   *rest.Config
 	Task         *task.Deploy
 	Log          *zap.SugaredLogger
@@ -157,6 +164,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			err = errors.WithMessage(err, "can't init k8s client")
 			return
 		}
+
+		p.ClientSet, err = kubeclient.GetKubeClientSet(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
+		if err != nil {
+			err = errors.WithMessagef(err, "failed to init k8s clientset")
+		}
 	}
 	containerName := p.Task.ContainerName
 	containerName = strings.TrimSuffix(containerName, "_"+p.Task.ServiceName)
@@ -175,7 +187,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		var statefulSets []*appsv1.StatefulSet
 		var cronJobs []*batchv1.CronJob
 		var cronJobBetas []*batchv1beta1.CronJob
-		deployments, statefulSets, cronJobs, cronJobBetas, err = fetchRelatedWorkloads(ctx, p.Task.EnvName, p.Task.Namespace, p.Task.ProductName, p.Task.ServiceName, p.kubeClient, p.httpClient, p.Log)
+		deployments, statefulSets, cronJobs, cronJobBetas, err = fetchRelatedWorkloads(ctx, p.Task.EnvName, p.Task.Namespace, p.Task.ProductName, p.Task.ServiceName, p.kubeClient, p.ClientSet, p.httpClient, p.Log)
 		if err != nil {
 			return
 		}
@@ -224,6 +236,54 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					replaced = true
 					p.Task.RelatedPodLabels = append(p.Task.RelatedPodLabels, sts.Spec.Template.Labels)
 					break Loop
+				}
+			}
+		}
+	CronLoop:
+		for _, cron := range cronJobs {
+			for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.Containers {
+				if container.Name == containerName {
+					err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, containerName, p.Task.Image, p.kubeClient, false)
+					if err != nil {
+						err = errors.WithMessagef(
+							err,
+							"failed to update container image in %s/statefulsets/%s/%s",
+							p.Task.Namespace, cron.Name, container.Name)
+						return
+					}
+					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+						Kind:      setting.CronJob,
+						Container: container.Name,
+						Origin:    container.Image,
+						Name:      cron.Name,
+					})
+					replaced = true
+					p.Task.RelatedPodLabels = append(p.Task.RelatedPodLabels, cron.Spec.JobTemplate.Spec.Template.Labels)
+					break CronLoop
+				}
+			}
+		}
+	BetaCronLoop:
+		for _, cron := range cronJobBetas {
+			for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.Containers {
+				if container.Name == containerName {
+					err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, containerName, p.Task.Image, p.kubeClient, false)
+					if err != nil {
+						err = errors.WithMessagef(
+							err,
+							"failed to update container image in %s/statefulsets/%s/%s",
+							p.Task.Namespace, cron.Name, container.Name)
+						return
+					}
+					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+						Kind:      setting.CronJob,
+						Container: container.Name,
+						Origin:    container.Image,
+						Name:      cron.Name,
+					})
+					replaced = true
+					p.Task.RelatedPodLabels = append(p.Task.RelatedPodLabels, cron.Spec.JobTemplate.Spec.Template.Labels)
+					break BetaCronLoop
 				}
 			}
 		}
@@ -349,21 +409,26 @@ func serviceDeployed(strategy map[string]string, serviceName string) bool {
 	return true
 }
 
-func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName, serviceName string, kubeclient client.Client, httpClient *httpclient.Client, log *zap.SugaredLogger) (
+func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName, serviceName string, kClient client.Client, clientSet *kubernetes.Clientset, httpClient *httpclient.Client, log *zap.SugaredLogger) (
 	[]*appsv1.Deployment, []*appsv1.StatefulSet, []*batchv1.CronJob, []*batchv1beta1.CronJob, error) {
 	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
 
-	deployments, err := getter.ListDeployments(namespace, selector, kubeclient)
+	deployments, err := getter.ListDeployments(namespace, selector, kClient)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	statefulSets, err := getter.ListStatefulSets(namespace, selector, kubeclient)
+	statefulSets, err := getter.ListStatefulSets(namespace, selector, kClient)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	cronJobs, cronJobBeta, err := getter.ListCronJobs(namespace, selector, kubeclient)
+	version, err := clientSet.Discovery().ServerVersion()
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	cronJobs, cronJobBeta, err := getter.ListCronJobs(namespace, selector, kClient, kubeclient.VersionLessThan121(version))
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -372,25 +437,16 @@ func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName,
 		return deployments, statefulSets, cronJobs, cronJobBeta, nil
 	}
 	// for services not deployed but only imported, we can't find workloads by 's-product' and 's-service'
-	return fetchWorkloadsForImportedService(ctx, envName, namespace, productName, serviceName, kubeclient, httpClient, log)
+	return fetchWorkloadsForImportedService(ctx, envName, namespace, productName, serviceName, kClient, version, httpClient, log)
 }
 
-func fetchWorkloadsForImportedService(ctx context.Context, envName, namespace, productName, serviceName string, kubeclient client.Client, httpClient *httpclient.Client, log *zap.SugaredLogger) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
-	//productInfo, err := getProductInfo(ctx, httpClient, envName, productName)
-	//if err != nil {
-	//	return nil, nil, fmt.Errorf("failed to find product info: %s/%s", productName, envName)
-	//}
-
-	//if serviceDeployed(productInfo.ServiceDeployStrategy, serviceName) {
-	//	return nil, nil, nil
-	//}
-
+func fetchWorkloadsForImportedService(ctx context.Context, envName, namespace, productName, serviceName string, kClient client.Client, version *version.Info, httpClient *httpclient.Client, log *zap.SugaredLogger) ([]*appsv1.Deployment, []*appsv1.StatefulSet, []*batchv1.CronJob, []*batchv1beta1.CronJob, error) {
 	manifests, err := getRenderedManifests(ctx, httpClient, envName, productName, serviceName)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	deploys, stss := make([]*appsv1.Deployment, 0), make([]*appsv1.StatefulSet, 0)
+	deploys, stss, crons, cronBetas := make([]*appsv1.Deployment, 0), make([]*appsv1.StatefulSet, 0), make([]*batchv1.CronJob, 0), make([]*batchv1beta1.CronJob, 0)
 	for _, manifest := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(manifest))
 		if err != nil {
@@ -398,22 +454,34 @@ func fetchWorkloadsForImportedService(ctx context.Context, envName, namespace, p
 			continue
 		}
 		if u.GetKind() == setting.Deployment {
-			deployment, exist, err := getter.GetDeployment(namespace, u.GetName(), kubeclient)
+			deployment, exist, err := getter.GetDeployment(namespace, u.GetName(), kClient)
 			if err != nil || !exist {
 				log.Errorf("failed to find deployment with name: %s", u.GetName())
 				continue
 			}
 			deploys = append(deploys, deployment)
 		} else if u.GetKind() == setting.StatefulSet {
-			sts, exist, err := getter.GetStatefulSet(namespace, u.GetName(), kubeclient)
+			sts, exist, err := getter.GetStatefulSet(namespace, u.GetName(), kClient)
 			if err != nil || !exist {
 				log.Errorf("failed to find sts with name: %s", u.GetName())
 				continue
 			}
 			stss = append(stss, sts)
+		} else if u.GetKind() == setting.CronJob {
+			cron, cronBatch, exist, err := getter.GetCronJob(namespace, u.GetName(), kClient, kubeclient.VersionLessThan121(version))
+			if err != nil || !exist {
+				log.Errorf("faile to find cronjob with name: %s", u.GetName())
+				continue
+			}
+			if cron != nil {
+				crons = append(crons, cron)
+			}
+			if cronBatch != nil {
+				cronBetas = append(cronBetas, cronBatch)
+			}
 		}
 	}
-	return deploys, stss, nil
+	return deploys, stss, crons, cronBetas, nil
 }
 
 // Wait ...

@@ -70,7 +70,7 @@ func PatchCronJob(ns, name string, patchBytes []byte, cl client.Client, versionL
 }
 
 func UpdateCronJobImage(ns, name, container, image string, cl client.Client, versionLessThan121 bool) error {
-	log.Infof("------ updating cronjob %s image to %s", name, image)
+	log.Infof("------ updating cronjob %s containerName %s image to %s, versionLessThan121", name, container, image, versionLessThan121)
 	patchBytes := []byte(fmt.Sprintf(`{"spec":{"JobTemplate":{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}}}`, container, image))
 	return PatchCronJob(ns, name, patchBytes, cl, versionLessThan121)
 }
