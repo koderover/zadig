@@ -36,7 +36,19 @@ var CronJobV1BetaGVK = schema.GroupVersionKind{
 	Version: "v1beta1",
 }
 
-func ListCronJobs(ns string, selector labels.Selector, cl client.Client) ([]*batchv1.CronJob, error) {
+func ListCronJobs(ns string, selector labels.Selector, cl client.Client, versionLessThan121 bool) ([]*batchv1.CronJob, []*batchv1beta1.CronJob, error) {
+	var cronJobs []*batchv1.CronJob
+	var cronJobsBetas []*batchv1beta1.CronJob
+	var err error
+	if !versionLessThan121 {
+		cronJobs, err = ListCronJobsV1(ns, selector, cl)
+	} else {
+		cronJobsBetas, err = ListCronJobsV1Beta(ns, selector, cl)
+	}
+	return cronJobs, cronJobsBetas, err
+}
+
+func ListCronJobsV1(ns string, selector labels.Selector, cl client.Client) ([]*batchv1.CronJob, error) {
 	cjs := &batchv1.CronJobList{}
 	err := ListResourceInCache(ns, selector, nil, cjs, cl)
 	if err != nil {
@@ -79,16 +91,18 @@ func GetCronJobYaml(ns, name string, cl client.Client, versionLessThan121 bool) 
 	return GetResourceYamlInCache(ns, name, CronJobV1BetaGVK, cl)
 }
 
-func GetCronJob(ns, name string, cl client.Client, versionLessThan121 bool) ([]byte, bool, error) {
-	gvk := CronJobGVK
-	bytes, existed, err := GetResourceYamlInCache(ns, name, gvk, cl)
+func GetCronJob(ns, name string, cl client.Client, versionLessThan121 bool) (*batchv1.CronJob, *batchv1beta1.CronJob, bool, error) {
+	cron := &batchv1.CronJob{}
+	cronBeta := &batchv1beta1.CronJob{}
+
 	if !versionLessThan121 {
-		return bytes, existed, err
+		existed, err := GetResourceInCache(ns, name, cron, cl)
+		cron.SetGroupVersionKind(CronJobGVK)
+		return cron, nil, existed, err
 	}
 
-	if existed && err == nil {
-		return bytes, existed, nil
-	}
+	existed, err := GetResourceInCache(ns, name, cronBeta, cl)
+	cronBeta.SetGroupVersionKind(CronJobGVK)
+	return nil, cronBeta, existed, err
 
-	return GetResourceYamlInCache(ns, name, CronJobV1BetaGVK, cl)
 }

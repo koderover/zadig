@@ -20,6 +20,9 @@ import (
 	"fmt"
 	"strings"
 
+	batchv1 "k8s.io/api/batch/v1"
+	"k8s.io/api/batch/v1beta1"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -234,7 +237,9 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 		Services:    make([]*internalresource.Service, 0),
 		Ingress:     make([]*internalresource.Ingress, 0),
 		Scales:      make([]*internalresource.Workload, 0),
+		CronJobs:    make([]*internalresource.CronJob, 0),
 	}
+	err = nil
 
 	namespace := env.Namespace
 	switch env.Source {
@@ -279,6 +284,17 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 					break
 				}
 			}
+		case setting.CronJob:
+			version, err := clientset.Discovery().ServerVersion()
+			if err != nil {
+				log.Warnf("Failed to determine server version, error is: %s", err)
+				return ret, nil
+			}
+			cj, cjBeta, exists, err := getter.GetCronJob(namespace, serviceName, kubeClient, kubeclient.VersionLessThan121(version))
+			if err != nil || !exists {
+				return ret, nil
+			}
+			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
 		default:
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 		}
@@ -347,6 +363,17 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 
 				ret.Scales = append(ret.Scales, getStatefulSetWorkloadResource(sts, inf, log))
 				ret.Workloads = append(ret.Workloads, toStsWorkload(sts))
+			case setting.CronJob:
+				version, err := clientset.Discovery().ServerVersion()
+				if err != nil {
+					log.Warnf("Failed to determine server version, error is: %s", err)
+					continue
+				}
+				cj, cjBeta, exists, err := getter.GetCronJob(namespace, u.GetName(), kubeClient, kubeclient.VersionLessThan121(version))
+				if err != nil || !exists {
+					continue
+				}
+				ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
 			case setting.Ingress:
 
 				version, err := clientset.Discovery().ServerVersion()
@@ -733,4 +760,8 @@ func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.
 	}
 
 	return wrapper.StatefulSet(sts).WorkloadResource(pods)
+}
+
+func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, log *zap.SugaredLogger) *internalresource.CronJob {
+	return wrapper.CronJob(cornJob, cronJobBeta).CronJobResource()
 }

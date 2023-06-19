@@ -20,29 +20,116 @@ import (
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
+	"k8s.io/api/batch/v1beta1"
 	"k8s.io/apimachinery/pkg/util/duration"
+
+	"github.com/koderover/zadig/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type cronJob struct {
 	*batchv1.CronJob
+	CronJobBeta *v1beta1.CronJob
 }
 
-func CronJob(cj *batchv1.CronJob) *cronJob {
-	if cj == nil {
+func CronJob(cj *batchv1.CronJob, cjBeta *v1beta1.CronJob) *cronJob {
+	if cj == nil && cjBeta == nil {
 		return nil
 	}
 	return &cronJob{
-		CronJob: cj,
+		CronJob:     cj,
+		CronJobBeta: cjBeta,
 	}
 }
 
-func (cj *cronJob) ImageInfos() (images []string) {
-	for _, v := range cj.Spec.JobTemplate.Spec.Template.Spec.Containers {
-		images = append(images, v.Image)
+func (cj *cronJob) CronJobResource() *resource.CronJob {
+	if cj.CronJob != nil {
+		return &resource.CronJob{
+			Name:         cj.Name,
+			Labels:       cj.Labels,
+			CreateTime:   cj.CreationTimestamp.Unix(),
+			Suspend:      util.GetBoolFromPointer(cj.Spec.Suspend),
+			Active:       len(cj.Status.Active),
+			Schedule:     cj.Spec.Schedule,
+			LastSchedule: cj.Status.LastScheduleTime.String(),
+		}
 	}
+	return &resource.CronJob{
+		Name:         cj.CronJobBeta.Name,
+		Labels:       cj.CronJobBeta.Labels,
+		CreateTime:   cj.CronJobBeta.CreationTimestamp.Unix(),
+		Suspend:      util.GetBoolFromPointer(cj.CronJobBeta.Spec.Suspend),
+		Active:       len(cj.CronJobBeta.Status.Active),
+		Schedule:     cj.CronJobBeta.Spec.Schedule,
+		LastSchedule: cj.CronJobBeta.Status.LastScheduleTime.String(),
+	}
+}
+
+func (cj *cronJob) GetName() string {
+	if cj.CronJob != nil {
+		return cj.Name
+	}
+	return cj.CronJobBeta.Name
+}
+
+func (cj *cronJob) ImageInfos() (images []string) {
+	if cj.CronJob != nil {
+		for _, v := range cj.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			images = append(images, v.Image)
+		}
+	} else {
+		for _, v := range cj.CronJobBeta.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			images = append(images, v.Image)
+		}
+	}
+
 	return
 }
 
 func (cj *cronJob) GetAge() string {
-	return duration.HumanDuration(time.Now().Sub(cj.CreationTimestamp.Time))
+	if cj.CronJob != nil {
+		return duration.HumanDuration(time.Now().Sub(cj.CreationTimestamp.Time))
+	} else {
+		return duration.HumanDuration(time.Now().Sub(cj.CronJobBeta.CreationTimestamp.Time))
+	}
+}
+
+func (cj *cronJob) GetSchedule() string {
+	if cj.CronJob != nil {
+		return cj.Spec.Schedule
+	}
+	return cj.CronJobBeta.Spec.Schedule
+}
+
+func (cj *cronJob) GetSuspend() bool {
+	if cj.CronJob != nil {
+		return util.GetBoolFromPointer(cj.Spec.Suspend)
+	}
+	return util.GetBoolFromPointer(cj.CronJobBeta.Spec.Suspend)
+}
+
+func (cj *cronJob) GetActive() int {
+	if cj.CronJob != nil {
+		return len(cj.Status.Active)
+	}
+	return len(cj.CronJobBeta.Status.Active)
+}
+
+func (cj *cronJob) GetLastSchedule() string {
+	if cj.CronJob != nil {
+		if cj.Status.LastSuccessfulTime != nil {
+			return cj.Status.LastScheduleTime.String()
+		}
+	}
+	if cj.CronJobBeta.Status.LastSuccessfulTime != nil {
+		return cj.CronJobBeta.Status.LastScheduleTime.String()
+	}
+	return ""
+}
+
+func (cj *cronJob) GetCreationTime() time.Time {
+	if cj.CronJob != nil {
+		return cj.CreationTimestamp.Time
+	}
+	return cj.CronJobBeta.CreationTimestamp.Time
 }

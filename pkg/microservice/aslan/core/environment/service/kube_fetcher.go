@@ -30,7 +30,6 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/version"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/informers"
@@ -105,6 +104,16 @@ type WorkloadCronJob struct {
 type WorkloadItem interface {
 	GetName() string
 	ImageInfos() []string
+}
+
+type CronJobItem interface {
+	WorkloadItem
+	GetSchedule() string
+	GetSuspend() bool
+	GetActive() int
+	GetLastSchedule() string
+	GetAge() string
+	GetCreationTime() time.Time
 }
 
 type ResourceService struct {
@@ -359,56 +368,30 @@ func ListCronJobs(page, pageSize int, clusterID, namespace string, kc client.Cli
 		Workloads: make([]interface{}, 0),
 	}
 
-	if !VersionLessThan121(k8sServerVersion) {
-		cronJobs, err := getter.ListCronJobs(namespace, nil, kc)
-		if err != nil {
-			return nil, err
-		}
-		for _, job := range cronJobs {
-			wrappedRes := wrapper.CronJob(job)
-			suspend := false
-			if job.Spec.Suspend != nil {
-				suspend = *job.Spec.Suspend
-			}
-			lastSchedule := ""
-			if job.Status.LastScheduleTime != nil {
-				lastSchedule = duration.HumanDuration(time.Now().Sub(job.Status.LastScheduleTime.Time))
-			}
-			resp.Workloads = append(resp.Workloads, &WorkloadCronJob{
-				ResourceCommon: getWorkloadCommonInfo(wrappedRes, setting.CronJob, job.CreationTimestamp.Time),
-				Schedule:       job.Spec.Schedule,
-				Suspend:        suspend,
-				Active:         len(job.Status.Active),
-				LastSchedule:   lastSchedule,
-				Age:            wrappedRes.GetAge(),
-			})
-		}
-		resp.Count += len(cronJobs)
+	cronJobs, cronJobList, err := getter.ListCronJobs(namespace, nil, kc, VersionLessThan121(k8sServerVersion))
+	if err != nil {
+		return nil, err
 	}
-	{
-		cronJobV1Betas, _ := getter.ListCronJobsV1Beta(namespace, nil, kc)
-		for _, job := range cronJobV1Betas {
-			wrappedRes := wrapper.CronJobV1Beta(job)
-			suspend := false
-			if job.Spec.Suspend != nil {
-				suspend = *job.Spec.Suspend
-			}
-			lastSchedule := ""
-			if job.Status.LastScheduleTime != nil {
-				lastSchedule = duration.HumanDuration(time.Now().Sub(job.Status.LastScheduleTime.Time))
-			}
-			resp.Workloads = append(resp.Workloads, &WorkloadCronJob{
-				ResourceCommon: getWorkloadCommonInfo(wrappedRes, setting.CronJob, job.CreationTimestamp.Time),
-				Schedule:       job.Spec.Schedule,
-				Suspend:        suspend,
-				Active:         len(job.Status.Active),
-				LastSchedule:   lastSchedule,
-				Age:            wrappedRes.GetAge(),
-			})
-		}
-		resp.Count += len(cronJobV1Betas)
+	wrappedCronJobs := make([]CronJobItem, 0)
+	for _, job := range cronJobs {
+		wrappedRes := wrapper.CronJob(job, nil)
+		wrappedCronJobs = append(wrappedCronJobs, wrappedRes)
 	}
-
+	for _, job := range cronJobList {
+		wrappedRes := wrapper.CronJob(nil, job)
+		wrappedCronJobs = append(wrappedCronJobs, wrappedRes)
+	}
+	for _, res := range wrappedCronJobs {
+		resp.Workloads = append(resp.Workloads, &WorkloadCronJob{
+			ResourceCommon: getWorkloadCommonInfo(res, setting.CronJob, res.GetCreationTime()),
+			Schedule:       res.GetSchedule(),
+			Suspend:        res.GetSuspend(),
+			Active:         res.GetActive(),
+			LastSchedule:   res.GetLastSchedule(),
+			Age:            res.GetSchedule(),
+		})
+	}
+	resp.Count += len(wrappedCronJobs)
 	return resp.handlePageFilter(page, pageSize), nil
 }
 

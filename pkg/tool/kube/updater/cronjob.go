@@ -18,6 +18,7 @@ package updater
 
 import (
 	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -44,4 +45,10 @@ func DeleteCronJobs(namespace string, selector labels.Selector, clientset *kuber
 
 func CreateOrPatchCronJob(cj client.Object, cl client.Client) error {
 	return createOrPatchObject(cj, cl)
+}
+
+func UpdateCronJobImage(ns, name, container, image string, cl client.Client) error {
+	patchBytes := []byte(fmt.Sprintf(`{"spec":{"JobTemplate":{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}}}`, container, image))
+
+	return PatchStatefulSet(ns, name, patchBytes, cl)
 }

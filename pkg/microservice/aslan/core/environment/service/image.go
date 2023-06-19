@@ -138,6 +138,11 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 				log.Errorf("[%s] UpdateStatefulsetImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
 			}
+		case setting.CronJob:
+			if err := updater.UpdateCronJobImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
+				log.Errorf("[%s] UpdateCronJobImageByName error: %s", namespace, err.Error())
+				return e.ErrUpdateConainterImage.AddDesc("更新 CronJob 容器镜像失败")
+			}
 		default:
 			return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("不支持的资源类型: %s", args.Type))
 		}

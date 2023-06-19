@@ -19,6 +19,13 @@ package kube
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/shared/kube/client"
+
+	"k8s.io/client-go/kubernetes"
+
+	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
+
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -99,9 +106,18 @@ func FetchRelatedWorkloads(namespace, serviceName string,
 	return deploys, stss, nil
 }
 
-func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kubeclient crClient.Client) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
-	deployments := []*appsv1.Deployment{}
-	statefulSets := []*appsv1.StatefulSet{}
+func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kubeclient crClient.Client, clientSet *kubernetes.Clientset) ([]*appsv1.Deployment, []*appsv1.StatefulSet,
+	[]*batchv1.CronJob, []*batchv1beta1.CronJob, error) {
+	var deployments []*appsv1.Deployment
+	var statefulSets []*appsv1.StatefulSet
+	var cronJobs []*batchv1.CronJob
+	var betaCronJobs []*batchv1beta1.CronJob
+
+	k8sServerVersion, err := clientSet.Discovery().ServerVersion()
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
 	for _, item := range Resource {
 		switch item.Type {
 		case setting.Deployment:
@@ -109,14 +125,29 @@ func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kube
 			if deployExists && err == nil {
 				deployments = append(deployments, deploy)
 			}
+			if err != nil {
+				log.Errorf("failed to fetch deployment %s, error: %v", item.Name, err)
+			}
 		case setting.StatefulSet:
 			sts, stsExists, err := getter.GetStatefulSet(namespace, item.Name, kubeclient)
 			if stsExists && err == nil {
 				statefulSets = append(statefulSets, sts)
 			}
+			if err != nil {
+				log.Errorf("failed to fetch statefulset %s, error: %v", item.Name, err)
+			}
 		case setting.CronJob:
-			cronjob, cronjobExists, err := getter.GetCronJobYaml(namespace, item.Name, kubeclient)
+			cronjob, cronjobBeta, cronjobExists, err := getter.GetCronJob(namespace, item.Name, kubeclient, client.VersionLessThan121(k8sServerVersion))
+			if err != nil {
+				log.Errorf("failed to fetch cronjob %s, error: %v", item.Name, err)
+			}
+			if cronjob != nil && cronjobExists {
+				cronJobs = append(cronJobs, cronjob)
+			}
+			if cronjobBeta != nil && cronjobExists {
+				betaCronJobs = append(betaCronJobs, cronjobBeta)
+			}
 		}
 	}
-	return deployments, statefulSets, nil
+	return deployments, statefulSets, cronJobs, betaCronJobs, nil
 }

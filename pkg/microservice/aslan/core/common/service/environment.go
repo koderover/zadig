@@ -478,7 +478,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 	}
 
 	// for helm service, only show deploys/stss created by zadig
-	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.DeployType == setting.HelmDeployType {
+	if projectInfo.IsHelmProduct() {
 		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
 			releaseNameMap, err := GetReleaseNameToServiceNameMap(productInfo)
 			if err != nil {
@@ -664,7 +664,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		log.Warnf("failed to set service name for workloads, error: %s", err)
 	}
 
-	// 对于workload过滤
 	for _, f := range filter {
 		workLoads = f(workLoads)
 	}
@@ -674,7 +673,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	//将获取到的所有服务按照名称进行排序
 	sort.SliceStable(workLoads, func(i, j int) bool { return workLoads[i].Name < workLoads[j].Name })
 
-	// 分页
 	if page > 0 && perPage > 0 {
 		start := (page - 1) * perPage
 		if start >= count {
@@ -835,7 +833,7 @@ func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, er
 }
 
 // GetHelmServiceName get service name from annotations of resources deployed by helm
-// resType currently only support Deployment and StatefulSet
+// resType currently only support Deployment, StatefulSet and CronJob
 // this function needs to be optimized
 func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClient client.Client) (string, error) {
 	res := &unstructured.Unstructured{}
