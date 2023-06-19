@@ -371,6 +371,7 @@ func ListCronJobs(page, pageSize int, clusterID, namespace string, kc client.Cli
 		wrappedRes := wrapper.CronJob(nil, job)
 		wrappedCronJobs = append(wrappedCronJobs, wrappedRes)
 	}
+
 	for _, res := range wrappedCronJobs {
 		resp.Workloads = append(resp.Workloads, &WorkloadCronJob{
 			ResourceCommon: getWorkloadCommonInfo(res, setting.CronJob, res.GetCreationTime()),

@@ -677,13 +677,20 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	for _, v := range coronBeta {
 		wrappedCronJobs = append(wrappedCronJobs, wrapper.CronJob(nil, v))
 	}
+	getSuspendStr := func(suspend bool) string {
+		if suspend {
+			return "True"
+		} else {
+			return "False"
+		}
+	}
 	for _, cronJob := range wrappedCronJobs {
 		workLoads = append(workLoads, &Workload{
 			Name:       cronJob.GetName(),
 			Type:       setting.CronJob,
 			Images:     cronJob.ImageInfos(),
 			Annotation: cronJob.GetAnnotations(),
-			Status:     fmt.Sprintf("SUSPEND: %v", cronJob.GetSuspend()),
+			Status:     fmt.Sprintf("SUSPEND: %s", getSuspendStr(cronJob.GetSuspend())),
 		})
 	}
 
