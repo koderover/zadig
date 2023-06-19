@@ -18,6 +18,7 @@ package handler
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -150,49 +151,71 @@ func GetProjectsOverview(c *gin.Context) {
 		return
 	}
 
+	if args.StartTime == 0 && args.EndTime == 0 {
+		now := time.Now()
+		args.StartTime = now.AddDate(0, 0, -30).Unix()
+		args.EndTime = now.Unix()
+	}
+
 	ctx.Resp, ctx.Err = service.GetProjectsOverview(args.StartTime, args.EndTime, ctx.Logger)
 }
 
-type getBuildTrendReq struct {
-	StartTime int64    `json:"start_time"`
-	EndTime   int64    `json:"end_time"`
+type aiStatReq struct {
+	StartTime int64    `form:"start_time,default=0"`
+	EndTime   int64    `form:"end_time,default=0"`
 	Projects  []string `json:"projects"`
 }
 
-func GetBuildTrend(c *gin.Context) {
+func GetCurrently30DayBuildTrend(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(getBuildTrendReq)
+	args := new(aiStatReq)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetBuildTrend(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+	if args.StartTime == 0 && args.EndTime == 0 {
+		now := time.Now()
+		args.StartTime = now.AddDate(0, 0, -30).Unix()
+		args.EndTime = now.Unix()
+	}
+
+	ctx.Resp, ctx.Err = service.GetCurrently30DayBuildTrend(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
 }
 
 func GetEfficiencyRadar(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(getBuildTrendReq)
+	args := new(aiStatReq)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+	if args.StartTime == 0 && args.EndTime == 0 {
+		now := time.Now()
+		args.StartTime = now.AddDate(0, 0, -30).Unix()
+		args.EndTime = now.Unix()
+	}
 
-	ctx.Resp, ctx.Err = service.GetBuildEfficiencyRadar(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetEfficiencyRadar(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
 }
 
 func GetMonthAttention(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(getBuildTrendReq)
+	args := new(aiStatReq)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+	if args.StartTime == 0 && args.EndTime == 0 {
+		now := time.Now()
+		args.StartTime = now.AddDate(0, 0, -30).Unix()
+		args.EndTime = now.Unix()
 	}
 
 	ctx.Resp, ctx.Err = service.GetMonthAttention(args.StartTime, args.EndTime, args.Projects, ctx.Logger)

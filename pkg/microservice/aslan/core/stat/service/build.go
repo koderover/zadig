@@ -271,3 +271,32 @@ func GetDailyBuildMeasure(start, end int64, projects []string) ([]*ProjectDailyB
 	}
 	return resp, nil
 }
+
+type BuildStat struct {
+	ProjectName string `json:"project_name"`
+	Success     int    `json:"success"`
+	Failure     int    `json:"failure"`
+	Timeout     int    `json:"timeout"`
+	Total       int    `json:"total"`
+}
+
+func getBuildStat(start, end int64, project string) (BuildStat, error) {
+	result, err := commonrepo.NewJobInfoColl().GetBuildTrend(start, end, []string{project})
+	if err != nil {
+		return BuildStat{}, err
+	}
+
+	resp := BuildStat{
+		ProjectName: project,
+	}
+	for _, job := range result {
+		switch job.Status {
+		case string(config.StatusPassed):
+			resp.Success++
+		case string(config.StatusFailed):
+			resp.Failure++
+		}
+	}
+	resp.Total = len(result)
+	return resp, nil
+}

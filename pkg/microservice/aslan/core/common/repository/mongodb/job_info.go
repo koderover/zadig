@@ -304,9 +304,11 @@ func (c *JobInfoColl) GetJobBuildTrendInfos(startTime, endTime int64, projectNam
 
 func (c *JobInfoColl) GetBuildTrend(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
 	query := bson.M{
-		"start_time":   bson.M{"$gte": startTime, "$lt": endTime},
-		"product_name": bson.M{"$in": projectName},
-		"type":         config.JobZadigBuild,
+		"start_time": bson.M{"$gte": startTime, "$lt": endTime},
+		"type":       config.JobZadigBuild,
+	}
+	if projectName != nil && len(projectName) != 0 {
+		query["product_name"] = bson.M{"$in": projectName}
 	}
 
 	resp := make([]*models.JobInfo, 0)
@@ -322,6 +324,32 @@ func (c *JobInfoColl) GetBuildTrend(startTime, endTime int64, projectName []stri
 	sort.Slice(resp, func(i, j int) bool {
 		return resp[i].StartTime < resp[j].StartTime
 	})
+	return resp, nil
+}
+
+func (c *JobInfoColl) GetAllProjectNameByTypeName(startTime, endTime int64, typeName string) ([]string, error) {
+	query := bson.M{}
+	if startTime != 0 && endTime != 0 {
+		query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
+	}
+	if typeName != "" {
+		query["type"] = typeName
+	}
+
+	distinct, err := c.Distinct(context.Background(), "product_name", query)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]string, 0)
+	for _, v := range distinct {
+		if name, ok := v.(string); ok {
+			if name == "" {
+				continue
+			}
+			resp = append(resp, name)
+		}
+	}
 	return resp, nil
 }
 

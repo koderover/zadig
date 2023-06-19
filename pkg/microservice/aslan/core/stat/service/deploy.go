@@ -222,3 +222,32 @@ func GetProjectsDeployWeeklyStat(start, end int64, projects []string) ([]*Projec
 	}
 	return stat, nil
 }
+
+type DeployStat struct {
+	ProjectName string `json:"project_name"`
+	Success     int    `json:"success"`
+	Failure     int    `json:"failure"`
+	Timeout     int    `json:"timeout"`
+	Total       int    `json:"total"`
+}
+
+func getDeployStat(start, end int64, project string) (DeployStat, error) {
+	result, err := commonrepo.NewJobInfoColl().GetDeployJobs(start, end, project)
+	if err != nil {
+		return DeployStat{}, err
+	}
+
+	resp := DeployStat{
+		ProjectName: project,
+	}
+	for _, job := range result {
+		switch job.Status {
+		case string(config.StatusPassed):
+			resp.Success++
+		case string(config.StatusFailed):
+			resp.Failure++
+		}
+	}
+	resp.Total = len(result)
+	return resp, nil
+}

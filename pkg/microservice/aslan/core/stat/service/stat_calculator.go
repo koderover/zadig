@@ -450,3 +450,33 @@ func calculateWeightedScore(fact float64, function string, weight int64) (float6
 	}
 	return scoreWithoutWeight * float64(weight) / 100, nil
 }
+
+// GetRequirementDevelopmentLeadTime get requirement development lead time
+func GetRequirementDevelopmentLeadTime(startTime, endTime int64, project string) (float64, error) {
+	boardConfig, err := commonrepo.NewStatDashboardConfigColl().FindByOptions(&commonrepo.ConfigOption{
+		Type:    "schedule",
+		ItemKey: "requirement_development_lead_time",
+	})
+	if err != nil {
+		return 0.0, err
+	}
+	externalSystem, err := commonrepo.NewExternalSystemColl().GetByID(boardConfig.APIConfig.ExternalSystemId)
+	if err != nil {
+		return 0.0, err
+	}
+	caculator := &GeneralCalculator{
+		Host:     boardConfig.APIConfig.ExternalSystemId,
+		Path:     boardConfig.APIConfig.ApiPath,
+		Queries:  boardConfig.APIConfig.Queries,
+		Headers:  externalSystem.Headers,
+		Weight:   boardConfig.Weight,
+		Function: boardConfig.Function,
+	}
+
+	// get requirement_development_lead_time
+	fact, _, err := caculator.GetFact(startTime, endTime, project)
+	if err != nil {
+		return 0.0, err
+	}
+	return fact, nil
+}

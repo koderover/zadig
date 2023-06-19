@@ -83,3 +83,32 @@ func CalculateReleaseStatsFromJobList(jobList []*commonmodels.JobInfo) *OpenAPIS
 	resp.DailyStat = dailyStat
 	return resp
 }
+
+type ReleaseStat struct {
+	ProjectName string `json:"project_name"`
+	Success     int    `json:"success"`
+	Failure     int    `json:"failure"`
+	Timeout     int    `json:"timeout"`
+	Total       int    `json:"total"`
+}
+
+func getReleaseStat(start, end int64, project string) (ReleaseStat, error) {
+	result, err := commonrepo.NewJobInfoColl().GetProductionDeployJobs(start, end, project)
+	if err != nil {
+		return ReleaseStat{}, err
+	}
+
+	resp := ReleaseStat{
+		ProjectName: project,
+	}
+	for _, job := range result {
+		switch job.Status {
+		case string(config.StatusPassed):
+			resp.Success++
+		case string(config.StatusFailed):
+			resp.Failure++
+		}
+	}
+	resp.Total = len(result)
+	return resp, nil
+}

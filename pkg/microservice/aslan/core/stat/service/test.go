@@ -237,3 +237,32 @@ func GetDailyTestStatus(start, end int64, projects []string) ([]*ProjectsDailyTe
 	}
 	return stats, nil
 }
+
+type TestStat struct {
+	ProjectName string `json:"project_name"`
+	Success     int    `json:"success"`
+	Failure     int    `json:"failure"`
+	Timeout     int    `json:"timeout"`
+	Total       int    `json:"total"`
+}
+
+func getTestStat(start, end int64, project string) (TestStat, error) {
+	result, err := commonrepo.NewJobInfoColl().GetTestJobs(start, end, project)
+	if err != nil {
+		return TestStat{}, err
+	}
+
+	resp := TestStat{
+		ProjectName: project,
+	}
+	for _, job := range result {
+		switch job.Status {
+		case string(config.StatusPassed):
+			resp.Success++
+		case string(config.StatusFailed):
+			resp.Failure++
+		}
+	}
+	resp.Total = len(result)
+	return resp, nil
+}

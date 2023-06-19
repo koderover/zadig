@@ -70,7 +70,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		v2.GET("/dashboard/general", GetStatsDashboardGeneralData)
 		// ai
 		v2.GET("/ai/overview", GetProjectsOverview)
-		v2.GET("/ai/build/trend", GetBuildTrend)
+		v2.GET("/ai/build/trend", GetCurrently30DayBuildTrend)
 		v2.GET("/ai/radar", GetEfficiencyRadar)
 		v2.GET("/ai/attention", GetMonthAttention)
 	}
