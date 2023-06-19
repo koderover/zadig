@@ -655,6 +655,13 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 	resp.Ingress = svcResp.Ingress
 	resp.Workloads = svcResp.Workloads
 
+	suspendCronJobCount := 0
+	for _, cronJob := range svcResp.CronJobs {
+		if cronJob.Suspend {
+			suspendCronJobCount++
+		}
+	}
+
 	pods := make([]*resource.Pod, 0)
 	for _, svc := range svcResp.Scales {
 		pods = append(pods, svc.Pods...)
@@ -674,6 +681,17 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 	resp.Images = imageSet.List()
 
 	ready := setting.PodReady
+
+	if len(svcResp.Workloads) == 0 && len(svcResp.CronJobs) > 0 {
+		if len(svcResp.CronJobs) == suspendCronJobCount {
+			resp.PodStatus = setting.ServiceStatusAllSuspended
+		} else if suspendCronJobCount == 0 {
+			resp.PodStatus = setting.ServiceStatusNoSuspended
+		} else {
+			resp.PodStatus = setting.ServiceStatusPartSuspended
+		}
+		return resp
+	}
 
 	succeededPods := 0
 	for _, pod := range pods {

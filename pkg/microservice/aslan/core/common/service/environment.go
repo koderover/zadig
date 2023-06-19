@@ -445,7 +445,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 
 	filterArray := []FilterFunc{
 		func(workloads []*Workload) []*Workload {
-			if projectInfo.ProductFeature == nil || projectInfo.ProductFeature.CreateEnvType != setting.SourceFromExternal {
+			if !projectInfo.IsHostProduct() {
 				return workloads
 			}
 
@@ -489,7 +489,6 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 			log.Infof("origin workload count is %d", len(workloads))
 			var res []*Workload
 			for _, workload := range workloads {
-				log.Infof("workload %s annotation is %v", workload.Name, workload.Annotation)
 				if len(workload.Annotation) == 0 {
 					continue
 				}
@@ -583,6 +582,7 @@ type Workload struct {
 	Images      []string               `json:"-"`
 	Ready       bool                   `json:"ready"`
 	Annotation  map[string]string      `json:"-"`
+	Status      string                 `json:"-"`
 	ServiceName string                 `json:"service_name"` //serviceName refers to the service defines in zadig
 }
 
@@ -615,7 +615,6 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
-
 	var resp = make([]*ServiceResp, 0)
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
 	if err != nil {
@@ -684,9 +683,9 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			Type:       setting.CronJob,
 			Images:     cronJob.ImageInfos(),
 			Annotation: cronJob.GetAnnotations(),
+			Status:     fmt.Sprintf("SUSPEND: %v", cronJob.GetSuspend()),
 		})
 	}
-	log.Infof("found %d cronjobs", len(wrappedCronJobs))
 
 	err = fillServiceName(envName, productName, workLoads)
 	// err of getting service name should not block the return of workloads
@@ -758,15 +757,17 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			Status:       setting.PodRunning,
 		}
 
-		selector := labels.SelectorFromSet(workload.Spec.Labels)
-		// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
-		// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
-		productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
-
-		productRespInfo.Ingress = &IngressInfo{
-			HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
+		if workload.Type == setting.Deployment || workload.Type == setting.StatefulSet {
+			selector := labels.SelectorFromSet(workload.Spec.Labels)
+			// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
+			// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
+			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
+			productRespInfo.Ingress = &IngressInfo{
+				HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
+			}
+		} else if workload.Type == setting.CronJob {
+			productRespInfo.Status = workload.Status
 		}
-
 		resp = append(resp, productRespInfo)
 	}
 
