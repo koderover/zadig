@@ -63,7 +63,7 @@ func (cj *cronJob) GetName() string {
 
 func (cj *cronJob) GetLabels() map[string]string {
 	if cj.CronJob != nil {
-		return cj.GetLabels()
+		return cj.CronJob.GetLabels()
 	}
 	return cj.CronJobBeta.GetLabels()
 }
