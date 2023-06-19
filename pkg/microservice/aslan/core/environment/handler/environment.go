@@ -1435,7 +1435,12 @@ func RunAnalysis(c *gin.Context) {
 		return
 	}
 
+<<<<<<< HEAD
 	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.False(), c.Query("triggerName"), ctx.UserName, ctx.Logger)
+=======
+	triggerName := c.Query("triggerName")
+	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.False(), triggerName, ctx.Logger)
+>>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))
 }
 
 // @Summary Run Production Enviroment Analysis
@@ -1463,7 +1468,12 @@ func RunProductionAnalysis(c *gin.Context) {
 		return
 	}
 
+<<<<<<< HEAD
 	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.True(), c.Query("triggerName"), ctx.UserName, ctx.Logger)
+=======
+	triggerName := c.Query("triggerName")
+	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.True(), triggerName, ctx.Logger)
+>>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))
 }
 
 // @Summary Upsert Env Analysis Cron
@@ -1607,6 +1617,7 @@ func GetProductionEnvAnalysisCron(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.GetEnvAnalysisCron(projectName, envName, boolptr.True(), ctx.Logger)
 }
+<<<<<<< HEAD
 
 type EnvAnalysisHistoryReq struct {
 	ProjectName string `json:"projectName" form:"projectName"`
@@ -1639,3 +1650,5 @@ func GetEnvAnalysisHistory(c *gin.Context) {
 	}
 	ctx.Err = err
 }
+=======
+>>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))

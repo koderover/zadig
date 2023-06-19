@@ -24,9 +24,12 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 	"github.com/koderover/zadig/pkg/tool/llm"
 >>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))
+=======
+>>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -89,6 +92,7 @@ func DeleteLLMIntegration(ctx context.Context, ID string) error {
 	return nil
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 func GetLLMClient(ctx context.Context, name string) (llm.ILLM, error) {
@@ -119,3 +123,5 @@ func GetDefaultLLMClient(ctx context.Context) (llm.ILLM, error) {
 	return GetLLMClient(ctx, "openai")
 }
 >>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))
+=======
+>>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))

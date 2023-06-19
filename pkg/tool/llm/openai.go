@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"net/url"
 
-<<<<<<< HEAD
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/sashabaranov/go-openai"
 
@@ -34,12 +33,6 @@ import (
 const (
 	DefaultOpenAIModel           = openai.GPT3Dot5Turbo
 	DefaultOpenAIModelTokenLimit = "4096"
-=======
-	"github.com/koderover/zadig/pkg/tool/cache"
-	"github.com/koderover/zadig/pkg/tool/log"
-
-	"github.com/sashabaranov/go-openai"
->>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))
 )
 
 type OpenAIClient struct {
@@ -91,10 +84,6 @@ func (c *OpenAIClient) Configure(config LLMConfig) error {
 	return nil
 }
 
-<<<<<<< HEAD
-=======
-// @todo add ability to set temperature, top_p, frequency_penalty, presence_penalty, stop
->>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))
 // @todo add ability to supply multiple messages
 func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options ...ParamOption) (string, error) {
 	opts := ParamOptions{}
@@ -106,17 +95,12 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	model := opts.Model
 	if model == "" {
 		if c.model == "" {
-<<<<<<< HEAD
 			model = DefaultOpenAIModel
-=======
-			model = "gpt-3.5-turbo"
->>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))
 		} else {
 			model = c.model
 		}
 	}
 
-<<<<<<< HEAD
 	messages := []openai.ChatCompletionMessage{
 		{
 			Role:    "user",
@@ -149,24 +133,6 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 		return "", fmt.Errorf("create chat completion failed: %v", err)
 	}
 
-=======
-	// Create a completion request
-	resp, err := c.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: model,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role:    "user",
-				Content: prompt,
-			},
-		},
-		MaxTokens:   opts.MaxTokens,
-		Temperature: opts.Temperature,
-		Stop:        opts.StopWords,
-	})
-	if err != nil {
-		return "", err
-	}
->>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))
 	return resp.Choices[0].Message.Content, nil
 }
 
@@ -214,7 +180,6 @@ func (a *OpenAIClient) GetName() string {
 	}
 	return a.name
 }
-<<<<<<< HEAD
 
 func NumTokensFromMessages(messages []openai.ChatCompletionMessage, model string) (num_tokens int, err error) {
 	tkm, err := tiktoken.EncodingForModel(model)
@@ -263,5 +228,3 @@ func NumTokensFromPrompt(prompt string, model string) (num_tokens int, err error
 
 	return NumTokensFromMessages(messages, model)
 }
-=======
->>>>>>> 3bdd9f0e1 (add llm and analyzer modules (#2723))

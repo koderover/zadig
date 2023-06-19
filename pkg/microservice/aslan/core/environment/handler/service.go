@@ -47,6 +47,10 @@ func ListSvcsInEnv(c *gin.Context) {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))
 // @Summary List services in production env
 // @Description List services in production env
 // @Tags 	environment
@@ -65,8 +69,12 @@ func ListSvcsInProductionEnv(c *gin.Context) {
 	ctx.Resp, ctx.Err = commonservice.ListServicesInProductionEnv(envName, productName, nil, ctx.Logger)
 }
 
+<<<<<<< HEAD
 =======
 >>>>>>> 7b313f6e1 (add production env operation logic (#2714))
+=======
+>>>>>>> dddbadf2e (add enviroment analysis function (#2729))
+>>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))
 func GetService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -170,12 +170,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 		production.GET("/environments/:name/configs", GetProductionEnvConfigs)
 		production.PUT("/environments/:name/configs", UpdateProductionEnvConfigs)
 		production.POST("/environments/:name/analysis", RunProductionAnalysis)
 		production.GET("/environments/:name/analysis/cron", GetProductionEnvAnalysisCron)
 		production.PUT("/environments/:name/analysis/cron", UpsertProductionEnvAnalysisCron)
 =======
+=======
+>>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))
 		production.PUT("/environments/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
 		production.POST("/environments/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
 
@@ -198,7 +201,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.PUT("/envcfgs/:name", UpdateCommonEnvCfg)
 		production.POST("/envcfgs/:name", CreateCommonEnvCfg)
 		production.DELETE("/envcfgs/:name/cfg/:objectName", DeleteCommonEnvCfg)
+<<<<<<< HEAD
 >>>>>>> 7b313f6e1 (add production env operation logic (#2714))
+=======
+=======
+		production.GET("/environments/:name/configs", GetProductionEnvConfigs)
+		production.PUT("/environments/:name/configs", UpdateProductionEnvConfigs)
+		production.POST("/environments/:name/analysis", RunProductionAnalysis)
+		production.GET("/environments/:name/analysis/cron", GetProductionEnvAnalysisCron)
+		production.PUT("/environments/:name/analysis/cron", UpsertProductionEnvAnalysisCron)
+>>>>>>> dddbadf2e (add enviroment analysis function (#2729))
+>>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -270,7 +283,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/analysis", RunAnalysis)
 		environments.GET("/:name/analysis/cron", GetEnvAnalysisCron)
 		environments.PUT("/:name/analysis/cron", UpsertEnvAnalysisCron)
+<<<<<<< HEAD
 		environments.GET("/analysis/history", GetEnvAnalysisHistory)
+=======
+>>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))
 	}
 
 	// ---------------------------------------------------------------------------------------
