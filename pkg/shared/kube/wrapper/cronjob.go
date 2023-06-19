@@ -58,6 +58,7 @@ func (cj *cronJob) CronJobResource() *resource.CronJob {
 	return &resource.CronJob{
 		Name:         cj.GetName(),
 		Labels:       cj.GetLabels(),
+		Images:       cj.ImageInfos(),
 		CreateTime:   cj.GetCreationTime().Unix(),
 		Suspend:      cj.GetSuspend(),
 		Active:       cj.GetActive(),

@@ -19,6 +19,7 @@ package resource
 type CronJob struct {
 	Name         string            `json:"name"`
 	Labels       map[string]string `json:"labels"`
+	Images       []string          `json:"images"`
 	CreateTime   int64             `json:"create_time,omitempty"`
 	Suspend      bool              `json:"suspend"`
 	Schedule     string            `json:"schedule,omitempty"`

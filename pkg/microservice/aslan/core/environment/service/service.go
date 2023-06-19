@@ -667,7 +667,7 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 		pods = append(pods, svc.Pods...)
 	}
 
-	if len(pods) == 0 {
+	if len(pods) == 0 && len(svcResp.CronJobs) == 0 {
 		resp.PodStatus, resp.Ready = setting.PodNonStarted, setting.PodNotReady
 		return resp
 	}
@@ -678,6 +678,11 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 			imageSet.Insert(container.Image)
 		}
 	}
+
+	for _, cronJob := range svcResp.CronJobs {
+		imageSet.Insert(cronJob.Images...)
+	}
+
 	resp.Images = imageSet.List()
 
 	ready := setting.PodReady
