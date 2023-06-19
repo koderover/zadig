@@ -357,7 +357,7 @@ CronLoop:
 	for _, cron := range cronJobs {
 		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.Containers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient)
+				err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient, false)
 				if err != nil {
 					return fmt.Errorf("failed to update container image in %s/cronJob/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
 				}
@@ -377,7 +377,7 @@ BetaCronLoop:
 	for _, cron := range betaCronJobs {
 		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.Containers {
 			if container.Name == serviceModule.ServiceModule {
-				err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient)
+				err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient, true)
 				if err != nil {
 					return fmt.Errorf("failed to update container image in %s/cronJobBeta/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
 				}

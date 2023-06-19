@@ -94,6 +94,16 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 	if err != nil {
 		return e.ErrUpdateConainterImage.AddErr(err)
 	}
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		return e.ErrUpdateConainterImage.AddErr(err)
+	}
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		return e.ErrUpdateConainterImage.AddErr(err)
+	}
+
 	// aws secrets needs to be refreshed
 	regs, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
@@ -139,7 +149,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 				return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
 			}
 		case setting.CronJob:
-			if err := updater.UpdateCronJobImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
+			if err := updater.UpdateCronJobImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient, VersionLessThan121(version)); err != nil {
 				log.Errorf("[%s] UpdateCronJobImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 CronJob 容器镜像失败")
 			}

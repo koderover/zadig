@@ -24,6 +24,9 @@ import (
 	"strings"
 	"time"
 
+	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -170,7 +173,9 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 	if serviceInfo.WorkloadType == "" {
 		var deployments []*appsv1.Deployment
 		var statefulSets []*appsv1.StatefulSet
-		deployments, statefulSets, err = fetchRelatedWorkloads(ctx, p.Task.EnvName, p.Task.Namespace, p.Task.ProductName, p.Task.ServiceName, p.kubeClient, p.httpClient, p.Log)
+		var cronJobs []*batchv1.CronJob
+		var cronJobBetas []*batchv1beta1.CronJob
+		deployments, statefulSets, cronJobs, cronJobBetas, err = fetchRelatedWorkloads(ctx, p.Task.EnvName, p.Task.Namespace, p.Task.ProductName, p.Task.ServiceName, p.kubeClient, p.httpClient, p.Log)
 		if err != nil {
 			return
 		}
@@ -344,21 +349,27 @@ func serviceDeployed(strategy map[string]string, serviceName string) bool {
 	return true
 }
 
-func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName, serviceName string, kubeclient client.Client, httpClient *httpclient.Client, log *zap.SugaredLogger) ([]*appsv1.Deployment, []*appsv1.StatefulSet, error) {
+func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName, serviceName string, kubeclient client.Client, httpClient *httpclient.Client, log *zap.SugaredLogger) (
+	[]*appsv1.Deployment, []*appsv1.StatefulSet, []*batchv1.CronJob, []*batchv1beta1.CronJob, error) {
 	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
 
 	deployments, err := getter.ListDeployments(namespace, selector, kubeclient)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	statefulSets, err := getter.ListStatefulSets(namespace, selector, kubeclient)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
-	if len(deployments) > 0 || len(statefulSets) > 0 {
-		return deployments, statefulSets, nil
+	cronJobs, cronJobBeta, err := getter.ListCronJobs(namespace, selector, kubeclient)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	if len(deployments) > 0 || len(statefulSets) > 0 || len(cronJobs) > 0 || len(cronJobBeta) > 0 {
+		return deployments, statefulSets, cronJobs, cronJobBeta, nil
 	}
 	// for services not deployed but only imported, we can't find workloads by 's-product' and 's-service'
 	return fetchWorkloadsForImportedService(ctx, envName, namespace, productName, serviceName, kubeclient, httpClient, log)
