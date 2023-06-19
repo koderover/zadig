@@ -36,6 +36,7 @@ type CronJobItem interface {
 	GetLastSchedule() string
 	GetAge() string
 	GetCreationTime() time.Time
+	GetAnnotations() map[string]string
 }
 
 type cronJob struct {
@@ -77,6 +78,13 @@ func (cj *cronJob) GetLabels() map[string]string {
 		return cj.CronJob.GetLabels()
 	}
 	return cj.CronJobBeta.GetLabels()
+}
+
+func (cj *cronJob) GetAnnotations() map[string]string {
+	if cj.CronJob != nil {
+		return cj.CronJob.GetAnnotations()
+	}
+	return cj.CronJobBeta.GetAnnotations()
 }
 
 func (cj *cronJob) ImageInfos() (images []string) {

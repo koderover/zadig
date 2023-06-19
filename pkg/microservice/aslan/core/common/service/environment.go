@@ -486,6 +486,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 				return workloads
 			}
 
+			log.Infof("origin workload count is %d", len(workloads))
 			var res []*Workload
 			for _, workload := range workloads {
 				if len(workload.Annotation) == 0 {
@@ -678,9 +679,10 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 	for _, cronJob := range wrappedCronJobs {
 		workLoads = append(workLoads, &Workload{
-			Name:   cronJob.GetName(),
-			Type:   setting.CronJob,
-			Images: cronJob.ImageInfos(),
+			Name:       cronJob.GetName(),
+			Type:       setting.CronJob,
+			Images:     cronJob.ImageInfos(),
+			Annotation: cronJob.GetAnnotations(),
 		})
 	}
 
