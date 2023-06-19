@@ -489,6 +489,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 			log.Infof("origin workload count is %d", len(workloads))
 			var res []*Workload
 			for _, workload := range workloads {
+				log.Infof("workload %s annotation is %v", workload.Name, workload.Annotation)
 				if len(workload.Annotation) == 0 {
 					continue
 				}
@@ -685,6 +686,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			Annotation: cronJob.GetAnnotations(),
 		})
 	}
+	log.Infof("found %d cronjobs", len(wrappedCronJobs))
 
 	err = fillServiceName(envName, productName, workLoads)
 	// err of getting service name should not block the return of workloads
@@ -756,7 +758,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			Status:       setting.PodRunning,
 		}
 
-		selector := labels.SelectorFromSet(labels.Set(workload.Spec.Labels))
+		selector := labels.SelectorFromSet(workload.Spec.Labels)
 		// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
 		// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
 		productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
