@@ -106,16 +106,6 @@ type WorkloadItem interface {
 	ImageInfos() []string
 }
 
-type CronJobItem interface {
-	WorkloadItem
-	GetSchedule() string
-	GetSuspend() bool
-	GetActive() int
-	GetLastSchedule() string
-	GetAge() string
-	GetCreationTime() time.Time
-}
-
 type ResourceService struct {
 	*ResourceCommon
 	ServiceType string `json:"service_type"`
@@ -353,7 +343,7 @@ func ListJobs(page, pageSize int, namespace string, kc client.Client) (*K8sResou
 	return resp.handlePageFilter(page, pageSize), nil
 }
 
-func ListCronJobs(page, pageSize int, clusterID, namespace string, kc client.Client) (*K8sResourceResp, error) {
+func ListCronJobs(page, pageSize int, clusterID, namespace string, kc client.Client, informer informers.SharedInformerFactory) (*K8sResourceResp, error) {
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
 	if err != nil {
 		return nil, err
@@ -368,11 +358,11 @@ func ListCronJobs(page, pageSize int, clusterID, namespace string, kc client.Cli
 		Workloads: make([]interface{}, 0),
 	}
 
-	cronJobs, cronJobList, err := getter.ListCronJobs(namespace, nil, kc, VersionLessThan121(k8sServerVersion))
+	cronJobs, cronJobList, err := getter.ListCronJobsWithCache(nil, informer, VersionLessThan121(k8sServerVersion))
 	if err != nil {
 		return nil, err
 	}
-	wrappedCronJobs := make([]CronJobItem, 0)
+	wrappedCronJobs := make([]wrapper.CronJobItem, 0)
 	for _, job := range cronJobs {
 		wrappedRes := wrapper.CronJob(job, nil)
 		wrappedCronJobs = append(wrappedCronJobs, wrappedRes)

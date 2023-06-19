@@ -658,6 +658,32 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		})
 	}
 
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", clusterID, err)
+		return 0, nil, err
+	}
+
+	cronJobs, coronBeta, err := getter.ListCronJobsWithCache(nil, informer, kubeclient.VersionLessThan121(version))
+	if err != nil {
+		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+	}
+	wrappedCronJobs := make([]wrapper.CronJobItem, 0)
+	for _, v := range cronJobs {
+		wrappedCronJobs = append(wrappedCronJobs, wrapper.CronJob(v, nil))
+	}
+	for _, v := range coronBeta {
+		wrappedCronJobs = append(wrappedCronJobs, wrapper.CronJob(nil, v))
+	}
+	for _, cronJob := range wrappedCronJobs {
+		workLoads = append(workLoads, &Workload{
+			Name:   cronJob.GetName(),
+			Type:   setting.CronJob,
+			Images: cronJob.ImageInfos(),
+		})
+	}
+
 	err = fillServiceName(envName, productName, workLoads)
 	// err of getting service name should not block the return of workloads
 	if err != nil {
@@ -685,11 +711,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	hostInfos := make([]resource.HostInfo, 0)
-	version, err := cls.Discovery().ServerVersion()
-	if err != nil {
-		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", clusterID, err)
-		return 0, nil, err
-	}
+
 	if kubeclient.VersionLessThan122(version) {
 		ingresses, err := getter.ListExtensionsV1Beta1Ingresses(nil, informer)
 		if err == nil {

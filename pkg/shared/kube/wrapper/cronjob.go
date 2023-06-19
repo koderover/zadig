@@ -27,6 +27,17 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
+type CronJobItem interface {
+	GetName() string
+	ImageInfos() []string
+	GetSchedule() string
+	GetSuspend() bool
+	GetActive() int
+	GetLastSchedule() string
+	GetAge() string
+	GetCreationTime() time.Time
+}
+
 type cronJob struct {
 	*batchv1.CronJob
 	CronJobBeta *v1beta1.CronJob

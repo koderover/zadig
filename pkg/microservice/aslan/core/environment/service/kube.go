@@ -804,7 +804,7 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sRe
 	case "jobs":
 		return ListJobs(page, pageSize, namespace, kubeClient)
 	case "cronjobs":
-		return ListCronJobs(page, pageSize, productInfo.ClusterID, namespace, kubeClient)
+		return ListCronJobs(page, pageSize, productInfo.ClusterID, namespace, kubeClient, inf)
 	case "services":
 		return ListServices(page, pageSize, namespace, kubeClient, inf)
 	case "ingresses":

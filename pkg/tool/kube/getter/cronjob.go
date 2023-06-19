@@ -21,6 +21,7 @@ import (
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -34,6 +35,21 @@ var CronJobV1BetaGVK = schema.GroupVersionKind{
 	Group:   "batch",
 	Kind:    "CronJob",
 	Version: "v1beta1",
+}
+
+func ListCronJobsWithCache(selector labels.Selector, lister informers.SharedInformerFactory, versionLessThan121 bool) ([]*batchv1.CronJob, []*batchv1beta1.CronJob, error) {
+	if selector == nil {
+		selector = labels.NewSelector()
+	}
+	var cronJobs []*batchv1.CronJob
+	var cronJobsBetas []*batchv1beta1.CronJob
+	var err error
+	if !versionLessThan121 {
+		cronJobs, err = lister.Batch().V1().CronJobs().Lister().List(selector)
+	} else {
+		cronJobsBetas, err = lister.Batch().V1beta1().CronJobs().Lister().List(selector)
+	}
+	return cronJobs, cronJobsBetas, err
 }
 
 func ListCronJobs(ns string, selector labels.Selector, cl client.Client, versionLessThan121 bool) ([]*batchv1.CronJob, []*batchv1beta1.CronJob, error) {
