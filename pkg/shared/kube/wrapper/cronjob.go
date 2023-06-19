@@ -43,25 +43,14 @@ func CronJob(cj *batchv1.CronJob, cjBeta *v1beta1.CronJob) *cronJob {
 }
 
 func (cj *cronJob) CronJobResource() *resource.CronJob {
-	if cj.CronJob != nil {
-		return &resource.CronJob{
-			Name:         cj.Name,
-			Labels:       cj.Labels,
-			CreateTime:   cj.CreationTimestamp.Unix(),
-			Suspend:      util.GetBoolFromPointer(cj.Spec.Suspend),
-			Active:       len(cj.Status.Active),
-			Schedule:     cj.Spec.Schedule,
-			LastSchedule: cj.Status.LastScheduleTime.String(),
-		}
-	}
 	return &resource.CronJob{
-		Name:         cj.CronJobBeta.Name,
-		Labels:       cj.CronJobBeta.Labels,
-		CreateTime:   cj.CronJobBeta.CreationTimestamp.Unix(),
-		Suspend:      util.GetBoolFromPointer(cj.CronJobBeta.Spec.Suspend),
-		Active:       len(cj.CronJobBeta.Status.Active),
-		Schedule:     cj.CronJobBeta.Spec.Schedule,
-		LastSchedule: cj.CronJobBeta.Status.LastScheduleTime.String(),
+		Name:         cj.GetName(),
+		Labels:       cj.GetLabels(),
+		CreateTime:   cj.GetCreationTime().Unix(),
+		Suspend:      cj.GetSuspend(),
+		Active:       cj.GetActive(),
+		Schedule:     cj.GetSchedule(),
+		LastSchedule: cj.GetLastSchedule(),
 	}
 }
 
@@ -70,6 +59,13 @@ func (cj *cronJob) GetName() string {
 		return cj.Name
 	}
 	return cj.CronJobBeta.Name
+}
+
+func (cj *cronJob) GetLabels() map[string]string {
+	if cj.CronJob != nil {
+		return cj.GetLabels()
+	}
+	return cj.CronJobBeta.GetLabels()
 }
 
 func (cj *cronJob) ImageInfos() (images []string) {
