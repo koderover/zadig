@@ -147,12 +147,12 @@ func (cj *cronJob) GetActive() int {
 func (cj *cronJob) GetLastSchedule() string {
 	if cj.CronJob != nil {
 		if cj.CronJob.Status.LastScheduleTime != nil {
-			return cj.CronJob.Status.LastScheduleTime.String()
+			return util.Age(cj.CronJob.Status.LastScheduleTime.Unix())
 		}
 		return ""
 	}
 	if cj.CronJobBeta.Status.LastScheduleTime != nil {
-		return cj.CronJobBeta.Status.LastScheduleTime.String()
+		return util.Age(cj.CronJobBeta.Status.LastScheduleTime.Unix())
 	}
 	return ""
 }
