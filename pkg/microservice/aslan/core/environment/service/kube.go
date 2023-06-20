@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/version"
-
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -1040,14 +1038,6 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 	return ret, err
 }
 
-// in kubernetes 1.21+, CronJobV1BetaGVK is deprecated, so we should use CronJobGVK instead
-func getValidGVK(gvk schema.GroupVersionKind, version *version.Info) schema.GroupVersionKind {
-	if gvk == getter.CronJobV1BetaGVK && !VersionLessThan121(version) {
-		return getter.CronJobGVK
-	}
-	return gvk
-}
-
 func setResourceDeployStatus(namespace string, resourceMap map[string]map[string]*ResourceDeployStatus, kubeClient client.Client, clientset *kubernetes.Clientset) error {
 	_, exist, _ := getter.GetNamespace(namespace, kubeClient)
 	if !exist {
@@ -1062,14 +1052,17 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 	relatedGvks := make(map[schema.GroupVersionKind]schema.GroupVersionKind)
 	for _, resList := range resourceMap {
 		for _, res := range resList {
-			gvk := getValidGVK(res.GVK, version)
+			gvk := kube.GetValidGVK(res.GVK, version)
 			relatedGvks[gvk] = gvk
 		}
 	}
 
+	log.Infof("relatedGvks: %v", relatedGvks)
+
 	for kind, gvk := range relatedGvks {
 		u := &unstructured.UnstructuredList{}
 		u.SetGroupVersionKind(gvk)
+		log.Info("gvk: ", gvk)
 		err := getter.ListResourceInCache(namespace, nil, nil, u, kubeClient)
 		if err != nil {
 			log.Warnf("failed to get resources with gvk: %s, err: %s", gvk, err)

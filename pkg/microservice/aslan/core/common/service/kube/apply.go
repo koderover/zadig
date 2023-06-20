@@ -21,6 +21,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"k8s.io/apimachinery/pkg/version"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+
 	batchv1 "k8s.io/api/batch/v1"
 
 	"github.com/hashicorp/go-multierror"
@@ -154,8 +162,16 @@ func SetFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fiel
 	return obj
 }
 
+// in kubernetes 1.21+, CronJobV1BetaGVK is deprecated, so we should use CronJobGVK instead
+func GetValidGVK(gvk schema.GroupVersionKind, version *version.Info) schema.GroupVersionKind {
+	if gvk == getter.CronJobV1BetaGVK && !kubeclient.VersionLessThan121(version) {
+		return getter.CronJobGVK
+	}
+	return gvk
+}
+
 // removeResources removes resources currently deployed in k8s that are not in the new resource list
-func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, kubeClient client.Client, log *zap.SugaredLogger) error {
+func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, kubeClient client.Client, version *version.Info, log *zap.SugaredLogger) error {
 	itemsMap := make(map[string]*unstructured.Unstructured)
 	errList := &multierror.Error{}
 	for _, u := range newItems {
@@ -174,10 +190,11 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 			continue
 		}
 		if err := updater.DeleteUnstructured(item, kubeClient); err != nil {
+			item.SetGroupVersionKind(GetValidGVK(item.GroupVersionKind(), version))
 			errList = multierror.Append(errList, errors.Wrapf(err, "failed to remove old item %s/%s from %s", item.GetName(), item.GetKind(), namespace))
 			continue
 		}
-		log.Infof("succeed to remove old item %s/%s from %s", item.GetName(), item.GetKind(), namespace)
+		log.Infof("succeed to remove old item %s/%v from %s", item.GetName(), item.GroupVersionKind(), namespace)
 	}
 
 	return errList.ErrorOrNil()
@@ -223,19 +240,30 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		return nil, err
 	}
 
+	clientSet, errGetClientSet := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if errGetClientSet != nil {
+		err = errors.WithMessagef(errGetClientSet, "failed to init k8s clientset")
+		return nil, err
+	}
+	versionInfo, errGetVersion := clientSet.ServerVersion()
+	if errGetVersion != nil {
+		err = errors.WithMessagef(errGetVersion, "failed to get k8s server version")
+		return nil, err
+	}
+
 	if applyParam.Uninstall {
 		if !commonutil.ServiceDeployed(applyParam.ServiceName, productInfo.ServiceDeployStrategy) {
 			return nil, nil
 		}
 
-		err = removeResources(curResources, resources, namespace, applyParam.KubeClient, log)
+		err = removeResources(curResources, resources, namespace, applyParam.KubeClient, versionInfo, log)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to remove old resources")
 		}
 		return nil, nil
 	}
 
-	err = removeResources(curResources, resources, namespace, applyParam.KubeClient, log)
+	err = removeResources(curResources, resources, namespace, applyParam.KubeClient, versionInfo, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
 	}
