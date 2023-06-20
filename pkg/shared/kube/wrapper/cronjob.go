@@ -149,6 +149,7 @@ func (cj *cronJob) GetLastSchedule() string {
 		if cj.CronJob.Status.LastScheduleTime != nil {
 			return cj.CronJob.Status.LastScheduleTime.String()
 		}
+		return ""
 	}
 	if cj.CronJobBeta.Status.LastScheduleTime != nil {
 		return cj.CronJobBeta.Status.LastScheduleTime.String()
