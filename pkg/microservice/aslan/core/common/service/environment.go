@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/version"
+
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"gopkg.in/yaml.v3"
@@ -32,7 +34,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -868,7 +869,7 @@ func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, er
 // GetHelmServiceName get service name from annotations of resources deployed by helm
 // resType currently only support Deployment, StatefulSet and CronJob
 // this function needs to be optimized
-func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClient client.Client) (string, error) {
+func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClient client.Client, version *version.Info) (string, error) {
 	res := &unstructured.Unstructured{}
 	namespace := prod.Namespace
 
@@ -877,11 +878,21 @@ func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClien
 		return "", err
 	}
 
-	res.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "apps",
-		Version: "v1",
-		Kind:    resType,
-	})
+	switch resType {
+	case setting.Deployment:
+		res.SetGroupVersionKind(getter.DeploymentGVK)
+	case setting.StatefulSet:
+		res.SetGroupVersionKind(getter.StatefulSetGVK)
+	case setting.CronJob:
+		if !kubeclient.VersionLessThan121(version) {
+			res.SetGroupVersionKind(getter.CronJobGVK)
+		} else {
+			res.SetGroupVersionKind(getter.CronJobV1BetaGVK)
+		}
+	default:
+		return "", fmt.Errorf("unsupported resource type %s", resType)
+	}
+
 	found, err := getter.GetResourceInCache(namespace, resName, res, kubeClient)
 	if err != nil {
 		return "", fmt.Errorf("failed to find resource %s, type %s, err %s", resName, resType, err.Error())

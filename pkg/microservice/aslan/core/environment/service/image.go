@@ -128,7 +128,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 
 	// update service in helm way
 	if product.Source == setting.HelmDeployType {
-		serviceName, err := commonservice.GetHelmServiceName(product, args.Type, args.Name, kubeClient)
+		serviceName, err := commonservice.GetHelmServiceName(product, args.Type, args.Name, kubeClient, version)
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}

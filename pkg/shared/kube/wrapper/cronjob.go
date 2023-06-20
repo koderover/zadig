@@ -149,12 +149,12 @@ func (cj *cronJob) GetLastSchedule() string {
 		if cj.CronJob.Status.LastScheduleTime != nil {
 			return util.Age(cj.CronJob.Status.LastScheduleTime.Unix())
 		}
-		return ""
+		return "N/A"
 	}
 	if cj.CronJobBeta.Status.LastScheduleTime != nil {
 		return util.Age(cj.CronJobBeta.Status.LastScheduleTime.Unix())
 	}
-	return ""
+	return "N/A"
 }
 
 func (cj *cronJob) GetCreationTime() time.Time {
