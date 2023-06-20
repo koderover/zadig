@@ -1050,10 +1050,11 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 	}
 
 	relatedGvks := make(map[schema.GroupVersionKind]schema.GroupVersionKind)
-	for _, resList := range resourceMap {
+	for resType, resList := range resourceMap {
 		for _, res := range resList {
 			gvk := kube.GetValidGVK(res.GVK, version)
 			relatedGvks[gvk] = gvk
+			log.Info("resType: %s, name: %s", resType, res.Name)
 		}
 	}
 
@@ -1062,17 +1063,18 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 	for kind, gvk := range relatedGvks {
 		u := &unstructured.UnstructuredList{}
 		u.SetGroupVersionKind(gvk)
-		log.Info("gvk: ", gvk)
 		err := getter.ListResourceInCache(namespace, nil, nil, u, kubeClient)
 		if err != nil {
 			log.Warnf("failed to get resources with gvk: %s, err: %s", gvk, err)
 			continue
 		}
+		log.Infof("kind: %s, items: %d", kind.Kind, len(u.Items))
 		resources, ok := resourceMap[kind.Kind]
 		if !ok {
 			continue
 		}
 		for _, item := range u.Items {
+			log.Infof("item: %s", item.GetName())
 			if deployStatus, ok := resources[item.GetName()]; ok && deployStatus.Status == StatusUnDeployed {
 				deployStatus.Status = StatusDeployed
 			}
