@@ -65,10 +65,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		v2.PUT("/config/:id", UpdateStatDashboardConfig)
 		v2.DELETE("/config/:id", DeleteStatDashboardConfig)
 		v2.GET("/dashboard", GetStatsDashboard)
+		v2.GET("/dashboard/general", GetStatsDashboardGeneralData)
+		// ai api TODO: consider api call auth
 		v2.POST("/ai/analysis", GetAIStatsAnalysis)
 		v2.GET("/ai/analysis/prompt", GetAIStatsAnalysisPrompts)
-		v2.GET("/dashboard/general", GetStatsDashboardGeneralData)
-		// ai
 		v2.GET("/ai/overview", GetProjectsOverview)
 		v2.GET("/ai/build/trend", GetCurrently30DayBuildTrend)
 		v2.GET("/ai/radar", GetEfficiencyRadar)

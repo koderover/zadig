@@ -578,7 +578,7 @@ func GetEfficiencyRadar(startTime, endTime int64, projects []string, logger *zap
 			Name: project,
 		}
 		// test pass rate
-		testStat, err := getTestStat(startTime, endTime, project)
+		testStat, err := GetProjectTestStat(startTime, endTime, project)
 		if err != nil {
 			logger.Errorf("failed to get test stat, error: %s", err)
 			return nil, err
@@ -588,7 +588,7 @@ func GetEfficiencyRadar(startTime, endTime int64, projects []string, logger *zap
 		}
 
 		// release success rate
-		releaseStat, err := getReleaseStat(startTime, endTime, project)
+		releaseStat, err := GetProjectReleaseStat(startTime, endTime, project)
 		if err != nil {
 			logger.Errorf("failed to get release stat, error: %s", err)
 			return nil, err
@@ -651,12 +651,12 @@ func GetMonthAttention(startTime, endTime int64, projects []string, logger *zap.
 			Facts: []*MonthAttentionData{},
 		}
 		// get build_success_rate
-		currentBuild, err := getBuildStat(startTime, endTime, project)
+		currentBuild, err := GetProjectBuildStat(startTime, endTime, project)
 		if err != nil {
 			logger.Errorf("failed to get build stat, error: %s", err)
 			return nil, err
 		}
-		LastBuild, err := getBuildStat(LastMonthStart, LastMonthEnd, project)
+		LastBuild, err := GetProjectBuildStat(LastMonthStart, LastMonthEnd, project)
 		if err != nil {
 			logger.Errorf("failed to get build stat, error: %s", err)
 			return nil, err
@@ -676,12 +676,12 @@ func GetMonthAttention(startTime, endTime int64, projects []string, logger *zap.
 		monthAttention.Facts = append(monthAttention.Facts, buildSuccessRate)
 
 		// get test_success_rate
-		currentTest, err := getTestStat(startTime, endTime, project)
+		currentTest, err := GetProjectTestStat(startTime, endTime, project)
 		if err != nil {
 			logger.Errorf("failed to get test stat, error: %s", err)
 			return nil, err
 		}
-		LastTest, err := getTestStat(LastMonthStart, LastMonthEnd, project)
+		LastTest, err := GetProjectTestStat(LastMonthStart, LastMonthEnd, project)
 		if err != nil {
 			logger.Errorf("failed to get test stat, error: %s", err)
 			return nil, err
@@ -701,12 +701,12 @@ func GetMonthAttention(startTime, endTime int64, projects []string, logger *zap.
 		monthAttention.Facts = append(monthAttention.Facts, testSuccessRate)
 
 		// get deploy_success_rate
-		currentDeploy, err := getDeployStat(startTime, endTime, project)
+		currentDeploy, err := GetProjectDeployStat(startTime, endTime, project)
 		if err != nil {
 			logger.Errorf("failed to get deploy stat, error: %s", err)
 			return nil, err
 		}
-		LastDeploy, err := getDeployStat(LastMonthStart, LastMonthEnd, project)
+		LastDeploy, err := GetProjectDeployStat(LastMonthStart, LastMonthEnd, project)
 		if err != nil {
 			logger.Errorf("failed to get deploy stat, error: %s", err)
 			return nil, err
@@ -726,12 +726,12 @@ func GetMonthAttention(startTime, endTime int64, projects []string, logger *zap.
 		monthAttention.Facts = append(monthAttention.Facts, deploySuccessRate)
 
 		// get release_success_rate
-		currentRelease, err := getReleaseStat(startTime, endTime, project)
+		currentRelease, err := GetProjectReleaseStat(startTime, endTime, project)
 		if err != nil {
 			logger.Errorf("failed to get release stat, error: %s", err)
 			return nil, err
 		}
-		LastRelease, err := getReleaseStat(LastMonthStart, LastMonthEnd, project)
+		LastRelease, err := GetProjectReleaseStat(LastMonthStart, LastMonthEnd, project)
 		if err != nil {
 			logger.Errorf("failed to get release stat, error: %s", err)
 			return nil, err

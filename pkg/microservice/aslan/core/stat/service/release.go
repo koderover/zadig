@@ -90,9 +90,10 @@ type ReleaseStat struct {
 	Failure     int    `json:"failure"`
 	Timeout     int    `json:"timeout"`
 	Total       int    `json:"total"`
+	Duration    int    `json:"duration"`
 }
 
-func getReleaseStat(start, end int64, project string) (ReleaseStat, error) {
+func GetProjectReleaseStat(start, end int64, project string) (ReleaseStat, error) {
 	result, err := commonrepo.NewJobInfoColl().GetProductionDeployJobs(start, end, project)
 	if err != nil {
 		return ReleaseStat{}, err
@@ -107,7 +108,10 @@ func getReleaseStat(start, end int64, project string) (ReleaseStat, error) {
 			resp.Success++
 		case string(config.StatusFailed):
 			resp.Failure++
+		case string(config.StatusTimeout):
+			resp.Timeout++
 		}
+		resp.Duration += int(job.Duration)
 	}
 	resp.Total = len(result)
 	return resp, nil

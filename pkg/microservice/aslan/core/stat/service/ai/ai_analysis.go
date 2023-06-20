@@ -8,12 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
@@ -62,7 +61,9 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 		logger.Errorf("failed to marshal data, the error is: %+v", err)
 		return nil, err
 	}
-	prompt := fmt.Sprintf("假设你是资深Devops专家，你需要根据分析要求和目标去分析三重引号分割的项目数据，分析要求和目标：%s, 你的回答需要使用text格式输出, 输出内容不要包含\"三重引号分割的项目数据\"这个名称，也不要复述分析要求中的内容; 项目数据：\"\"\"%s\"\"\";", args.Prompt, string(promptInput))
+	prompt := fmt.Sprintf("假设你是资深Devops专家，你需要根据分析要求和目标去分析三重引号分割的项目数据，分析要求和目标：%s;"+
+		"你要在理解所有项目数据的前提下进行分析，每个项目的各个数据你可以通过\"data_description\"字段来理解数据内容；如果存在多个项目，"+
+		"你需要在分析时候你要尽可能的全面，从构建、测试、部署、发布几个角度来进行对比并深度分析；你的回答需要使用text格式输出, 输出内容不要包含\"三重引号分割的项目数据\"这个名称，也不要复述分析要求中的内容; 项目数据：\"\"\"%s\"\"\";", args.Prompt, string(promptInput))
 	start := time.Now()
 	tokenNum, err := llm.NumTokensFromPrompt(prompt, "")
 	if err != nil {
@@ -76,7 +77,7 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 		m:      &sync.Mutex{},
 	}
 	var overAllInput string
-	if tokenNum > 3500 {
+	if tokenNum > 14000 {
 		wg := &sync.WaitGroup{}
 		// There is a problem: if each project is analyzed separately, the prompt can only be designed by oneself. The last time a user defined prompt is used, it will result in inaccurate results
 		for _, project := range data.ProjectList {
@@ -93,7 +94,7 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 	}
 
 	// the design of the prompt directly determines the quality of the answer
-	if tokenNum > 3500 {
+	if tokenNum > 14000 {
 		prompt = fmt.Sprintf("假设你是Devops专家，需要你根据分析要求分析三重引号分割的项目分析结果，分析要求:%s;你的回答需要使用text格式输出,输出内容不要包含\"三重引号分割的项目数据\"这个名称,也不要复述分析要求中的内容; 项目分析结果：\"\"\"%s\"\"\"", args.Prompt, overAllInput)
 	}
 	start = time.Now()
@@ -318,36 +319,29 @@ func GetStatsAnalysisData(args *UserPromptParseInput, logger *zap.SugaredLogger)
 }
 
 func getReleaseData(project string, startTime, endTime int64) (*ReleaseData, error) {
+	log.Info("=====> Start to get release data from mongo")
 	// get release data from mongo
-	releaseJobList, err := commonrepo.NewJobInfoColl().GetProductionDeployJobs(startTime, endTime, project)
+	releaseJobList, err := service2.GetProjectReleaseStat(startTime, endTime, project)
 	if err != nil {
-		return &ReleaseData{}, err
-	}
-	totalCounter := len(releaseJobList)
-	if totalCounter == 0 {
-		return &ReleaseData{}, err
-	}
-	passCounter := 0
-	for _, job := range releaseJobList {
-		if job.Status == string(config.StatusPassed) {
-			passCounter++
-		}
-	}
-	var totalTimesTaken int64 = 0
-	for _, job := range releaseJobList {
-		totalTimesTaken += job.Duration
+		return nil, err
 	}
 
 	detail := &ReleaseDetails{
-		ReleaseTotal:         totalCounter,
-		ReleaseSuccessTotal:  passCounter,
-		ReleaseFailureTotal:  totalCounter - passCounter,
-		ReleaseTotalDuration: totalTimesTaken / int64(totalCounter),
+		ReleaseTotal:         releaseJobList.Total,
+		ReleaseSuccessTotal:  releaseJobList.Success,
+		ReleaseFailureTotal:  releaseJobList.Failure,
+		ReleaseTotalDuration: int64(releaseJobList.Duration),
 	}
 	return &ReleaseData{
-		Description: "部署数据",
+		Description: fmt.Sprintf("%s项目在%s-%s期间发布相关数据，包括发布总次数，发布成功次数，发布失败次数, 发布周趋势数据，发布每日数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
 		Details:     detail,
 	}, nil
+}
+
+type SystemEvaluation struct {
+	ProjectName      string `json:"project_name"`
+	EvaluationResult string `json:"evaluation_result"`
+	Description      string `json:"data_description"`
 }
 
 func getSystemEvaluationData(project string, startTime, endTime int64, logger *zap.SugaredLogger) (string, error) {
@@ -359,7 +353,17 @@ func getSystemEvaluationData(project string, startTime, endTime int64, logger *z
 	if err != nil {
 		return "", err
 	}
-	return string(jsonResult), nil
+
+	data := &SystemEvaluation{
+		ProjectName:      project,
+		EvaluationResult: string(jsonResult),
+		Description:      fmt.Sprintf("%s项目在%s-%s期间系统评估结果,此评估结果由第三方api产生的数据和zadig系统内部的数据利用管理员设置的数学模型来计算获取的。", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
+	}
+	jsonStr, err := json.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+	return string(jsonStr), nil
 }
 
 type ExamplePrompt struct {

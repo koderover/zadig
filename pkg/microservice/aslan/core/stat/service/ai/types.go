@@ -31,8 +31,8 @@ type ProjectData struct {
 }
 
 type ReleaseData struct {
-	Description string          `json:"description"`
-	Details     *ReleaseDetails `json:"release_details"`
+	Description string          `json:"data_description"`
+	Details     *ReleaseDetails `json:"data_details"`
 }
 
 type ReleaseDetails struct {

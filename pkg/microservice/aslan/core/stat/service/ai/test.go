@@ -2,11 +2,12 @@ package ai
 
 import (
 	"encoding/json"
+	"fmt"
+	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
 	"go.uber.org/zap"
+
+	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
 )
 
 type TestData struct {
@@ -19,7 +20,8 @@ type TestDetails struct {
 	TestPass               int         `json:"test_pass_total"`
 	TestFail               int         `json:"test_fail_total"`
 	TestTotalDuration      int64       `json:"test_total_duration"`
-	TestTrendData          *TestDetail `json:"test_trend_data"`
+	TestWeeklyTrendData    *TestDetail `json:"test_weekly_trend_data"`
+	TestDailyMeasureData   *TestDetail `json:"test_daily_measure_data"`
 	TestHealthMeasureData  *TestDetail `json:"test_health_measure_data"`
 	TestCaseMeasureData    *TestDetail `json:"test_case_measure_data"`
 	TestAverageMeasureData *TestDetail `json:"test_average_measure_data"`
@@ -27,62 +29,45 @@ type TestDetails struct {
 }
 
 type TestDetail struct {
-	Description string `json:"description"`
-	Details     string `json:"details"`
+	Description string `json:"data_description"`
+	Details     string `json:"data_details"`
 }
 
 func getTestData(project string, startTime, endTime int64, log *zap.SugaredLogger) (*TestData, error) {
+	log.Infof("=====> Start to get test data for project %s", project)
 	test := &TestData{
-		Description: "测试数据",
+		Description: fmt.Sprintf("%s项目在%s-%s期间测试相关数据，包括测试总次数，测试通过次数，测试失败次数, 测试周趋势数据，测试每日数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
 		Details:     &TestDetails{},
 	}
 	// get test data from mongo
-	testJobList, err := commonrepo.NewJobInfoColl().GetTestJobs(startTime, endTime, project)
+	testJobList, err := service2.GetProjectTestStat(startTime, endTime, project)
 	if err != nil {
-		return test, err
+		log.Errorf("GetProjectTestStat error: %v", err)
+		return nil, err
 	}
-	totalCounter := len(testJobList)
-	if totalCounter == 0 {
-		return test, err
-	}
-	passCounter := 0
-	for _, job := range testJobList {
-		if job.Status == string(config.StatusPassed) {
-			passCounter++
-		}
-	}
-	var totalTimesTaken int64 = 0
-	for _, job := range testJobList {
-		totalTimesTaken += job.Duration
-	}
+	test.Details.TestTotal = testJobList.Total
+	test.Details.TestPass = testJobList.Success
+	test.Details.TestFail = testJobList.Failure
+	test.Details.TestTotalDuration = int64(testJobList.Duration)
 
-	test.Details.TestTotal = totalCounter
-	test.Details.TestPass = passCounter
-	test.Details.TestFail = totalCounter - passCounter
-	test.Details.TestTotalDuration = totalTimesTaken / int64(totalCounter)
+	test.Details.TestWeeklyTrendData = &TestDetail{}
+	getTestTrendMeasure(project, startTime, endTime, test.Details.TestWeeklyTrendData, log)
 
-	test.Details.TestTrendData = &TestDetail{}
-	getTestTrendMeasure(project, startTime, endTime, test.Details.TestTrendData, log)
+	test.Details.TestDailyMeasureData = &TestDetail{}
+	getTestDailyMeasure(project, startTime, endTime, test.Details.TestDailyMeasureData, log)
 
-	test.Details.TestHealthMeasureData = &TestDetail{}
-	getTestHealthMeasure(project, startTime, endTime, test.Details.TestHealthMeasureData, log)
-
-	test.Details.TestCaseMeasureData = &TestDetail{}
-	getTestCaseMeasure(project, startTime, endTime, test.Details.TestCaseMeasureData, log)
-
-	// TODO: this data may be too large, need to be optimized
-	//test.TestAverageMeasureData = &TestDetail{}
-	//getTestAverageMeasure(project, startTime, endTime, test.TestAverageMeasureData, log)
-
-	test.Details.TestDeliveryDeployData = &TestDetail{}
-	getTestDeliveryDeploy(project, startTime, endTime, test.Details.TestDeliveryDeployData, log)
+	//test.Details.TestCaseMeasureData = &TestDetail{}
+	//getTestCaseMeasure(project, startTime, endTime, test.Details.TestCaseMeasureData, log)
+	//
+	//test.Details.TestDeliveryDeployData = &TestDetail{}
+	//getTestDeliveryDeploy(project, startTime, endTime, test.Details.TestDeliveryDeployData, log)
 
 	return test, nil
 }
 
 func getTestTrendMeasure(project string, startTime, endTime int64, testTrendData *TestDetail, log *zap.SugaredLogger) {
 	// get test trend data
-	testTrendMeasure, err := service2.GetTestTrendMeasure(startTime, endTime, []string{project}, log)
+	testTrendMeasure, err := service2.GetWeeklyTestStatus(startTime, endTime, []string{project})
 	if err != nil {
 		log.Errorf("failed to get test trend measure, the error is: %+v", err)
 	}
@@ -92,8 +77,25 @@ func getTestTrendMeasure(project string, startTime, endTime int64, testTrendData
 		log.Errorf("failed to marshal test trend measure, the error is: %+v", err)
 	}
 
-	testTrendData.Description = "测试趋势（周）"
+	testTrendData.Description = fmt.Sprintf("%s项目在%s-%s期间测试周趋势数据, 主要是统计每周内总的测试次数，测试成功次数，测试失败次数，测试平均耗时", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
+	log.Infof("%s: \n%s", testTrendData.Description, string(trend))
 	testTrendData.Details = string(trend)
+}
+
+func getTestDailyMeasure(project string, startTime, endTime int64, testDailyMeasureData *TestDetail, log *zap.SugaredLogger) {
+	dailyTestData, err := service2.GetDailyTestStatus(startTime, endTime, []string{project})
+	if err != nil {
+		log.Errorf("failed to get daily test status, the error is: %+v", err)
+	}
+
+	daily, err := json.Marshal(dailyTestData)
+	if err != nil {
+		log.Errorf("failed to marshal daily test status, the error is: %+v", err)
+	}
+
+	testDailyMeasureData.Description = fmt.Sprintf("%s项目在%s-%s期间测试每日数据, 主要是统计每日内总的测试次数，测试成功次数，测试失败次数，测试平均耗时", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
+	log.Infof("%s: \n%s", testDailyMeasureData.Description, string(daily))
+	testDailyMeasureData.Details = string(daily)
 }
 
 func getTestHealthMeasure(project string, startTime, endTime int64, testHealthMeasureData *TestDetail, log *zap.SugaredLogger) {

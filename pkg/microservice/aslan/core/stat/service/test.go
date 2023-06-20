@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -132,11 +131,11 @@ type ProjectsWeeklyTestStat struct {
 }
 
 type WeeklyTestStat struct {
-	StartTime        string `json:"start_time"`
-	Success          int    `json:"success"`
-	Failure          int    `json:"failure"`
-	Timeout          int    `json:"timeout"`
-	AverageBuildTime int    `json:"average_test_time"`
+	WeekStartDay    string `json:"week_start_day"`
+	Success         int    `json:"success_total"`
+	Failure         int    `json:"failure_total"`
+	Timeout         int    `json:"timeout_total"`
+	AverageTestTime int    `json:"average_test_time"`
 }
 
 func GetWeeklyTestStatus(start, end int64, projects []string) ([]*ProjectsWeeklyTestStat, error) {
@@ -145,41 +144,70 @@ func GetWeeklyTestStatus(start, end int64, projects []string) ([]*ProjectsWeekly
 		return nil, err
 	}
 
-	stats := make([]*ProjectsWeeklyTestStat, 0)
+	resp := make([]*ProjectsWeeklyTestStat, 0)
 	for _, project := range projects {
 		weeklyTestStat := &ProjectsWeeklyTestStat{
 			Project:        project,
 			WeeklyTestStat: make([]*WeeklyTestStat, 0),
 		}
+
+		var end int64
+		var start int64
+		var stat *WeeklyTestStat
+		total, duration := 0, 0
 		for i := 0; i < len(result); i++ {
-			start := util.GetMidnightTimestamp(result[i].StartTime)
-			end := time.Unix(start, 0).Add(time.Hour*24*7 - time.Second).Unix()
-			weekStat := &WeeklyTestStat{StartTime: time.Unix(start, 0).Format("2006-01-02")}
-			duration, count := 0, 0
-			for j := 0; j < len(result); j++ {
-				if result[i].ProductName == project && result[i].StartTime >= start && result[i].StartTime < end {
-					switch result[i].Status {
-					case string(config.StatusPassed):
-						weekStat.Success++
-					case string(config.StatusFailed):
-						weekStat.Failure++
-					case string(config.StatusTimeout):
-						weekStat.Timeout++
+			if result[i].ProductName != project {
+				if result[i].StartTime >= end {
+					if stat != nil {
+						if total > 0 {
+							stat.AverageTestTime = duration / total
+						}
+						weeklyTestStat.WeeklyTestStat = append(weeklyTestStat.WeeklyTestStat, stat)
+						stat, total, duration = nil, 0, 0
 					}
-					duration += int(result[j].Duration)
-					count++
-				} else {
-					weekStat.AverageBuildTime = duration / count
-					weeklyTestStat.WeeklyTestStat = append(weeklyTestStat.WeeklyTestStat, weekStat)
-					i = j
-					break
+				}
+				continue
+			}
+
+			if start == 0 {
+				start = result[i].StartTime
+				end = time.Unix(start, 0).AddDate(0, 0, 7).Unix()
+				stat = &WeeklyTestStat{
+					WeekStartDay: time.Unix(start, 0).Format("2006-01-02"),
+				}
+			} else {
+				if result[i].StartTime >= end {
+					if stat != nil {
+						if total > 0 {
+							stat.AverageTestTime = duration / total
+						}
+						weeklyTestStat.WeeklyTestStat = append(weeklyTestStat.WeeklyTestStat, stat)
+						stat, total, duration = nil, 0, 0
+					}
+					start = end
+					stat = &WeeklyTestStat{
+						WeekStartDay: time.Unix(start, 0).Format("2006-01-02"),
+					}
+					end = time.Unix(start, 0).AddDate(0, 0, 7).Unix()
 				}
 			}
 
+			if result[i].StartTime >= start && result[i].StartTime < end {
+				switch result[i].Status {
+				case string(config.StatusPassed):
+					stat.Success++
+				case string(config.StatusFailed):
+					stat.Failure++
+				case string(config.StatusTimeout):
+					stat.Timeout++
+				}
+				total++
+				duration += int(result[i].Duration)
+			}
 		}
-		stats = append(stats, weeklyTestStat)
+		resp = append(resp, weeklyTestStat)
 	}
-	return stats, nil
+	return resp, nil
 }
 
 type ProjectsDailyTestStat struct {
@@ -188,11 +216,11 @@ type ProjectsDailyTestStat struct {
 }
 
 type DailyTestStat struct {
-	StartTime        string `json:"start_time"`
-	Success          int    `json:"success"`
-	Failure          int    `json:"failure"`
-	Timeout          int    `json:"timeout"`
-	AverageBuildTime int    `json:"average_test_time"`
+	DayStartTime    string `json:"day_start_time"`
+	Success         int    `json:"test_success_total"`
+	Failure         int    `json:"test_failure_total"`
+	Timeout         int    `json:"test_timeout_total"`
+	AverageTestTime int    `json:"average_test_time"`
 }
 
 func GetDailyTestStatus(start, end int64, projects []string) ([]*ProjectsDailyTestStat, error) {
@@ -201,41 +229,69 @@ func GetDailyTestStatus(start, end int64, projects []string) ([]*ProjectsDailyTe
 		return nil, err
 	}
 
-	stats := make([]*ProjectsDailyTestStat, 0)
+	resp := make([]*ProjectsDailyTestStat, 0)
 	for _, project := range projects {
 		dailyTestStat := &ProjectsDailyTestStat{
 			Project:       project,
 			DailyTestStat: make([]*DailyTestStat, 0),
 		}
+		var end int64
+		var start int64
+		var stat *DailyTestStat
+		total, duration := 0, 0
 		for i := 0; i < len(result); i++ {
-			start := util.GetMidnightTimestamp(result[i].StartTime)
-			end := time.Unix(start, 0).Add(time.Hour*24 - time.Second).Unix()
-			dailyStat := &DailyTestStat{StartTime: time.Unix(start, 0).Format("2006-01-02")}
-			duration, count := 0, 0
-			for j := 0; j < len(result); j++ {
-				if result[i].ProductName == project && result[i].StartTime >= start && result[i].StartTime < end {
-					switch result[i].Status {
-					case string(config.StatusPassed):
-						dailyStat.Success++
-					case string(config.StatusFailed):
-						dailyStat.Failure++
-					case string(config.StatusTimeout):
-						dailyStat.Timeout++
+			if result[i].ProductName != project {
+				if result[i].StartTime >= end {
+					if stat != nil {
+						if total > 0 {
+							stat.AverageTestTime = duration / total
+						}
+						dailyTestStat.DailyTestStat = append(dailyTestStat.DailyTestStat, stat)
+						stat, total, duration = nil, 0, 0
 					}
-					duration += int(result[j].Duration)
-					count++
-				} else {
-					dailyStat.AverageBuildTime = duration / count
-					dailyTestStat.DailyTestStat = append(dailyTestStat.DailyTestStat, dailyStat)
-					i = j
-					break
+				}
+				continue
+			}
+
+			if start == 0 {
+				start = result[i].StartTime
+				end = time.Unix(start, 0).AddDate(0, 0, 1).Unix()
+				stat = &DailyTestStat{
+					DayStartTime: time.Unix(start, 0).Format("2006-01-02"),
+				}
+			} else {
+				if result[i].StartTime >= end {
+					if stat != nil {
+						if total > 0 {
+							stat.AverageTestTime = duration / total
+						}
+						dailyTestStat.DailyTestStat = append(dailyTestStat.DailyTestStat, stat)
+						stat, total, duration = nil, 0, 0
+					}
+					start = end
+					stat = &DailyTestStat{
+						DayStartTime: time.Unix(start, 0).Format("2006-01-02"),
+					}
+					end = time.Unix(start, 0).AddDate(0, 0, 1).Unix()
 				}
 			}
 
+			if result[i].StartTime >= start && result[i].StartTime < end {
+				switch result[i].Status {
+				case string(config.StatusPassed):
+					stat.Success++
+				case string(config.StatusFailed):
+					stat.Failure++
+				case string(config.StatusTimeout):
+					stat.Timeout++
+				}
+				total++
+				duration += int(result[i].Duration)
+			}
 		}
-		stats = append(stats, dailyTestStat)
+		resp = append(resp, dailyTestStat)
 	}
-	return stats, nil
+	return resp, nil
 }
 
 type TestStat struct {
@@ -244,9 +300,10 @@ type TestStat struct {
 	Failure     int    `json:"failure"`
 	Timeout     int    `json:"timeout"`
 	Total       int    `json:"total"`
+	Duration    int    `json:"duration"`
 }
 
-func getTestStat(start, end int64, project string) (TestStat, error) {
+func GetProjectTestStat(start, end int64, project string) (TestStat, error) {
 	result, err := commonrepo.NewJobInfoColl().GetTestJobs(start, end, project)
 	if err != nil {
 		return TestStat{}, err
@@ -261,7 +318,10 @@ func getTestStat(start, end int64, project string) (TestStat, error) {
 			resp.Success++
 		case string(config.StatusFailed):
 			resp.Failure++
+		case string(config.StatusTimeout):
+			resp.Timeout++
 		}
+		resp.Duration += int(job.Duration)
 	}
 	resp.Total = len(result)
 	return resp, nil
