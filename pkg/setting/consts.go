@@ -195,9 +195,9 @@ const (
 	PodPending                 = "Pending"
 	PodNonStarted              = "Unstart"
 	PodCompleted               = "Completed"
-	ServiceStatusAllSuspended  = "AllSuspended"
-	ServiceStatusPartSuspended = "PartSuspended"
-	ServiceStatusNoSuspended   = "NoSuspended"
+	ServiceStatusAllSuspended  = "AllSuspend"
+	ServiceStatusPartSuspended = "PartSuspend"
+	ServiceStatusNoSuspended   = "NoSuspend"
 
 	// cluster status
 	ClusterUnknown      = "Unknown"
