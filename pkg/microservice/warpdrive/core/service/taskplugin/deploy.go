@@ -57,11 +57,10 @@ import (
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
 func InitializeDeployTaskPlugin(taskType config.TaskType) TaskPlugin {
-	clientSet, _ := krkubeclient.NewClientSet()
 	return &DeployTaskPlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
-		ClientSet:  clientSet,
+		ClientSet:  krkubeclient.Clientset(),
 		restConfig: krkubeclient.RESTConfig(),
 		httpClient: httpclient.New(
 			httpclient.SetHostURL(configbase.AslanServiceAddress()),
@@ -74,7 +73,7 @@ type DeployTaskPlugin struct {
 	Name         config.TaskType
 	JobName      string
 	kubeClient   client.Client
-	ClientSet    *kubernetes.Clientset
+	ClientSet    kubernetes.Interface
 	restConfig   *rest.Config
 	Task         *task.Deploy
 	Log          *zap.SugaredLogger
@@ -187,7 +186,12 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		var statefulSets []*appsv1.StatefulSet
 		var cronJobs []*batchv1.CronJob
 		var cronJobBetas []*batchv1beta1.CronJob
-		deployments, statefulSets, cronJobs, cronJobBetas, err = fetchRelatedWorkloads(ctx, p.Task.EnvName, p.Task.Namespace, p.Task.ProductName, p.Task.ServiceName, p.kubeClient, p.ClientSet, p.httpClient, p.Log)
+		version, errGetVersion := p.ClientSet.Discovery().ServerVersion()
+		if errGetVersion != nil {
+			err = errors.WithMessage(errGetVersion, "failed to get kubernetes server version")
+			return
+		}
+		deployments, statefulSets, cronJobs, cronJobBetas, err = fetchRelatedWorkloads(ctx, p.Task.EnvName, p.Task.Namespace, p.Task.ProductName, p.Task.ServiceName, p.kubeClient, version, p.httpClient, p.Log)
 		if err != nil {
 			return
 		}
@@ -409,7 +413,7 @@ func serviceDeployed(strategy map[string]string, serviceName string) bool {
 	return true
 }
 
-func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName, serviceName string, kClient client.Client, clientSet *kubernetes.Clientset, httpClient *httpclient.Client, log *zap.SugaredLogger) (
+func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName, serviceName string, kClient client.Client, version *version.Info, httpClient *httpclient.Client, log *zap.SugaredLogger) (
 	[]*appsv1.Deployment, []*appsv1.StatefulSet, []*batchv1.CronJob, []*batchv1beta1.CronJob, error) {
 	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
 
@@ -419,11 +423,6 @@ func fetchRelatedWorkloads(ctx context.Context, envName, namespace, productName,
 	}
 
 	statefulSets, err := getter.ListStatefulSets(namespace, selector, kClient)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	version, err := clientSet.Discovery().ServerVersion()
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

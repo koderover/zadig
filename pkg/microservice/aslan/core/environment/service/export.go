@@ -51,6 +51,17 @@ func ExportYaml(envName, productName, serviceName, source string, log *zap.Sugar
 		return res
 	}
 
+	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), env.ClusterID)
+	if err != nil {
+		log.Errorf("failed to get clientset for cluster %s", env.ClusterID)
+		return res
+	}
+	cclusterVersion, err := clientSet.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("failed to get cluster version for cluster %s", env.ClusterID)
+		return res
+	}
+
 	// needFetchByRenderedManifest happens when service is not deployed by zadig, or is not connected to zadig (when request comes from wd)
 	needFetchByRenderedManifest := false
 
@@ -63,7 +74,9 @@ func ExportYaml(envName, productName, serviceName, source string, log *zap.Sugar
 		yamls = append(yamls, deploys...)
 		stss := getStatefulSetYaml(kubeClient, namespace, selector, log)
 		yamls = append(yamls, stss...)
-		if len(deploys) == 0 && len(stss) == 0 {
+		cronJobs := getCronJobYaml(kubeClient, namespace, selector, VersionLessThan121(cclusterVersion), log)
+		yamls = append(yamls, cronJobs...)
+		if len(deploys) == 0 && len(stss) == 0 && len(cronJobs) == 0 {
 			if source == "wd" {
 				needFetchByRenderedManifest = true
 			}
@@ -105,7 +118,7 @@ func ExportYaml(envName, productName, serviceName, source string, log *zap.Sugar
 				continue
 			}
 			switch u.GetKind() {
-			case setting.Deployment, setting.StatefulSet, setting.ConfigMap, setting.Service, setting.Ingress:
+			case setting.Deployment, setting.StatefulSet, setting.ConfigMap, setting.Service, setting.Ingress, setting.CronJob:
 				resource, exists, err := getter.GetResourceYamlInCache(namespace, u.GetName(), u.GroupVersionKind(), kubeClient)
 				if err != nil {
 					log.Errorf("failed to get resource yaml, err: %s", err)
@@ -160,7 +173,6 @@ func getServiceYaml(kubeClient client.Client, namespace string, selector labels.
 		log.Errorf("ListServices error: %v", err)
 		return nil
 	}
-
 	return resources
 }
 
@@ -170,7 +182,6 @@ func getDeploymentYaml(kubeClient client.Client, namespace string, selector labe
 		log.Errorf("ListDeployments error: %v", err)
 		return nil
 	}
-
 	return resources
 }
 
@@ -180,6 +191,14 @@ func getStatefulSetYaml(kubeClient client.Client, namespace string, selector lab
 		log.Errorf("ListStatefulSets error: %v", err)
 		return nil
 	}
+	return resources
+}
 
+func getCronJobYaml(kubeClient client.Client, namespace string, selector labels.Selector, lessThanVersion121 bool, log *zap.SugaredLogger) [][]byte {
+	resources, err := getter.ListCronJobsYaml(namespace, selector, kubeClient, lessThanVersion121)
+	if err != nil {
+		log.Errorf("ListCronJobs error: %v", err)
+		return nil
+	}
 	return resources
 }

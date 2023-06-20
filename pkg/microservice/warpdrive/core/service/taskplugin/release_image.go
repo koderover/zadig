@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"time"
 
+	batchv1 "k8s.io/api/batch/v1"
+
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 
 	helmclient "github.com/mittwald/go-helm-client"
@@ -323,10 +325,15 @@ DistributeLoop:
 
 				var deployments []*appsv1.Deployment
 				var statefulSets []*appsv1.StatefulSet
-				var cronJobs []*batchv1beta1.CronJob
+				var cronJobs []*batchv1.CronJob
 				var cronJobBetas []*batchv1beta1.CronJob
+				versionInfo, errGetVersion := p.clientset.Discovery().ServerVersion()
+				if errGetVersion != nil {
+					err = fmt.Errorf("failed to get kubernetes version: %v", errGetVersion)
+					return
+				}
 				deployments, statefulSets, cronJobs, cronJobBetas, err = fetchRelatedWorkloads(ctx, distribute.DeployEnv, distribute.DeployNamespace, p.Task.ProductName,
-					distribute.DeployServiceName, p.kubeClient, p.clientset, p.httpClient, p.Log)
+					distribute.DeployServiceName, p.kubeClient, versionInfo, p.httpClient, p.Log)
 				if err != nil {
 					return
 				}
@@ -386,6 +393,46 @@ DistributeLoop:
 							}
 							replaced = true
 							break StatefulSetLoop
+						}
+					}
+				}
+			CronLoop:
+				for _, sts := range cronJobs {
+					for _, container := range sts.Spec.JobTemplate.Spec.Template.Spec.Containers {
+						if container.Name == distribute.DeployContainerName {
+							err = updater.UpdateCronJobImage(sts.Namespace, sts.Name, distribute.DeployContainerName, distribute.Image, p.kubeClient, kubeclient.VersionLessThan121(versionInfo))
+							if err != nil {
+								err = errors.WithMessagef(
+									err,
+									"failed to update container image in %s/cornJob/%s/%s",
+									distribute.DeployNamespace, sts.Name, container.Name)
+								distribute.DeployEndTime = time.Now().Unix()
+								distribute.DeployStatus = string(config.StatusFailed)
+								p.SetStatus(config.StatusFailed)
+								continue DistributeLoop
+							}
+							replaced = true
+							break CronLoop
+						}
+					}
+				}
+			CronBetaLoop:
+				for _, sts := range cronJobBetas {
+					for _, container := range sts.Spec.JobTemplate.Spec.Template.Spec.Containers {
+						if container.Name == distribute.DeployContainerName {
+							err = updater.UpdateCronJobImage(sts.Namespace, sts.Name, distribute.DeployContainerName, distribute.Image, p.kubeClient, kubeclient.VersionLessThan121(versionInfo))
+							if err != nil {
+								err = errors.WithMessagef(
+									err,
+									"failed to update container image in %s/cornJobBeta/%s/%s",
+									distribute.DeployNamespace, sts.Name, container.Name)
+								distribute.DeployEndTime = time.Now().Unix()
+								distribute.DeployStatus = string(config.StatusFailed)
+								p.SetStatus(config.StatusFailed)
+								continue DistributeLoop
+							}
+							replaced = true
+							break CronBetaLoop
 						}
 					}
 				}

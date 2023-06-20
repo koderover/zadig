@@ -52,6 +52,14 @@ func ListCronJobsWithCache(selector labels.Selector, lister informers.SharedInfo
 	return cronJobs, cronJobsBetas, err
 }
 
+func ListCronJobsYaml(ns string, selector labels.Selector, cl client.Client, versionLessThan121 bool) ([][]byte, error) {
+	if versionLessThan121 {
+		return ListResourceYamlInCache(ns, selector, nil, CronJobV1BetaGVK, cl)
+	} else {
+		return ListResourceYamlInCache(ns, selector, nil, StatefulSetGVK, cl)
+	}
+}
+
 func ListCronJobs(ns string, selector labels.Selector, cl client.Client, versionLessThan121 bool) ([]*batchv1.CronJob, []*batchv1beta1.CronJob, error) {
 	var cronJobs []*batchv1.CronJob
 	var cronJobsBetas []*batchv1beta1.CronJob
@@ -120,5 +128,4 @@ func GetCronJob(ns, name string, cl client.Client, versionLessThan121 bool) (*ba
 	existed, err := GetResourceInCache(ns, name, cronBeta, cl)
 	cronBeta.SetGroupVersionKind(CronJobGVK)
 	return nil, cronBeta, existed, err
-
 }

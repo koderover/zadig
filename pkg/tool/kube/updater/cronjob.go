@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 
@@ -70,7 +68,6 @@ func PatchCronJob(ns, name string, patchBytes []byte, cl client.Client, versionL
 }
 
 func UpdateCronJobImage(ns, name, container, image string, cl client.Client, versionLessThan121 bool) error {
-	log.Infof("------ updating cronjob %s containerName %s image to %s, versionLessThan121 %v", name, container, image, versionLessThan121)
 	patchBytes := []byte(fmt.Sprintf(`{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}}}`, container, image))
 	return PatchCronJob(ns, name, patchBytes, cl, versionLessThan121)
 }
