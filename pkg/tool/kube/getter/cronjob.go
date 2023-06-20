@@ -56,7 +56,7 @@ func ListCronJobsYaml(ns string, selector labels.Selector, cl client.Client, ver
 	if versionLessThan121 {
 		return ListResourceYamlInCache(ns, selector, nil, CronJobV1BetaGVK, cl)
 	} else {
-		return ListResourceYamlInCache(ns, selector, nil, StatefulSetGVK, cl)
+		return ListResourceYamlInCache(ns, selector, nil, CronJobGVK, cl)
 	}
 }
 
