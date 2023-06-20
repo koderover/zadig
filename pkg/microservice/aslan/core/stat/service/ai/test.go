@@ -36,7 +36,7 @@ type TestDetail struct {
 func getTestData(project string, startTime, endTime int64, log *zap.SugaredLogger) (*TestData, error) {
 	log.Infof("=====> Start to get test data for project %s", project)
 	test := &TestData{
-		Description: fmt.Sprintf("%s项目在%s-%s期间测试相关数据，包括测试总次数，测试通过次数，测试失败次数, 测试周趋势数据，测试每日数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
+		Description: fmt.Sprintf("%s项目在%s到%s期间测试相关数据，包括测试总次数，测试通过次数，测试失败次数, 测试周趋势数据，测试每日数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
 		Details:     &TestDetails{},
 	}
 	// get test data from mongo
@@ -77,7 +77,7 @@ func getTestTrendMeasure(project string, startTime, endTime int64, testTrendData
 		log.Errorf("failed to marshal test trend measure, the error is: %+v", err)
 	}
 
-	testTrendData.Description = fmt.Sprintf("%s项目在%s-%s期间测试周趋势数据, 主要是统计每周内总的测试次数，测试成功次数，测试失败次数，测试平均耗时", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
+	testTrendData.Description = fmt.Sprintf("%s项目在%s到%s期间测试周趋势数据, 主要是统计每周内总的测试次数，测试成功次数，测试失败次数，测试平均耗时", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
 	log.Infof("%s: \n%s", testTrendData.Description, string(trend))
 	testTrendData.Details = string(trend)
 }
@@ -93,7 +93,7 @@ func getTestDailyMeasure(project string, startTime, endTime int64, testDailyMeas
 		log.Errorf("failed to marshal daily test status, the error is: %+v", err)
 	}
 
-	testDailyMeasureData.Description = fmt.Sprintf("%s项目在%s-%s期间测试每日数据, 主要是统计每日内总的测试次数，测试成功次数，测试失败次数，测试平均耗时", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
+	testDailyMeasureData.Description = fmt.Sprintf("%s项目在%s到%s期间测试每日数据, 主要是统计每日内总的测试次数，测试成功次数，测试失败次数，测试平均耗时", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
 	log.Infof("%s: \n%s", testDailyMeasureData.Description, string(daily))
 	testDailyMeasureData.Details = string(daily)
 }

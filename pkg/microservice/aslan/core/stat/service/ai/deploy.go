@@ -33,7 +33,7 @@ type DeployDetail struct {
 func getDeployData(project string, startTime, endTime int64, log *zap.SugaredLogger) (*DeployData, error) {
 	log.Infof("=====> Start to get deploy data for project %s", project)
 	deploy := &DeployData{
-		Description: fmt.Sprintf("%s项目在%s-%s期间部署相关数据，包括部署总次数，部署通过次数，部署失败次数, 部署周趋势数据，部署每日数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
+		Description: fmt.Sprintf("%s项目在%s到%s期间部署相关数据，包括部署总次数，部署通过次数，部署失败次数, 部署周趋势数据，部署每日数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
 		Details:     &DeployDetails{},
 	}
 	// get deploy data from mongo
@@ -87,7 +87,7 @@ func getDeployWeeklyMeasure(project string, startTime, endTime int64, detail *De
 	if err != nil {
 		log.Errorf("Failed to marshal deploy weekly measure data, the error is: %+v", err)
 	}
-	detail.Description = fmt.Sprintf("%s项目在%s-%s期间的部署趋势数据，统计一周内总的部署次数，部署成功次数，部署失败次数，部署平均耗时等数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
+	detail.Description = fmt.Sprintf("%s项目在%s到%s期间的部署趋势数据，统计一周内总的部署次数，部署成功次数，部署失败次数，部署平均耗时等数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
 	log.Infof("%s:\n%s", detail.Description, string(weekly))
 	detail.Details = string(weekly)
 }
@@ -103,7 +103,7 @@ func getDeployTopFiveHigherMeasure(project string, startTime, endTime int64, det
 	if err != nil {
 		log.Errorf("Failed to marshal deploy top five higher measure data, the error is: %+v", err)
 	}
-	detail.Description = fmt.Sprintf("%s项目在%s-%s期间的部署耗时Top5数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
+	detail.Description = fmt.Sprintf("%s项目在%s到%s期间的部署耗时Top5数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
 	log.Infof("%s:\n%s", detail.Description, string(higher))
 	detail.Details = string(higher)
 }

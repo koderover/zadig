@@ -39,7 +39,7 @@ type BuildDetail struct {
 func getBuildData(project string, startTime, endTime int64, log *zap.SugaredLogger) (*BuildData, error) {
 	log.Infof("=====> Start to get build data for project %s", project)
 	build := &BuildData{
-		Description: fmt.Sprintf("%s项目在%s-%s期间构建相关数据，包括构建总次数，构建成功次数，构建失败次数,构建周趋势数据，构建每日数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
+		Description: fmt.Sprintf("%s项目在%s到%s期间构建相关数据，包括构建总次数，构建成功次数，构建失败次数,构建周趋势数据，构建每日数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
 		Details:     &BuildDetails{},
 	}
 	// get build data from mongo
@@ -76,7 +76,7 @@ func getBuildTrend(startTime, endTime int64, project string, detail *BuildDetail
 	if err != nil {
 		log.Errorf("Failed to marshal build trend data, the error is: %+v", err)
 	}
-	detail.Description = fmt.Sprintf("%s项目在%s-%s期间的构建趋势数据，统计一周内总的构建次数，构建成功次数，构建失败次数，构建平均耗时等数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
+	detail.Description = fmt.Sprintf("%s项目在%s到%s期间的构建趋势数据，统计一周内总的构建次数，构建成功次数，构建失败次数，构建平均耗时等数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
 	log.Infof("%s: \n%s", detail.Description, string(trend))
 	detail.Details = string(trend)
 }
@@ -91,7 +91,7 @@ func getBuildDailyMeasure(startTime, endTime int64, project string, detail *Buil
 	if err != nil {
 		log.Errorf("Failed to marshal build daily measure data, the error is: %+v", err)
 	}
-	detail.Description = fmt.Sprintf("%s项目在%s-%s期间的构建相关数据，统计每日总次数，构建成功次数，构建失败次数，平均构建耗时", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
+	detail.Description = fmt.Sprintf("%s项目在%s到%s期间的构建相关数据，统计每日总次数，构建成功次数，构建失败次数，平均构建耗时", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02"))
 	log.Infof("%s: \n%s", detail.Description, string(daily))
 	detail.Details = string(daily)
 }

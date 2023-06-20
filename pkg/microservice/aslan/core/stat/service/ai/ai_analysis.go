@@ -333,7 +333,7 @@ func getReleaseData(project string, startTime, endTime int64) (*ReleaseData, err
 		ReleaseTotalDuration: int64(releaseJobList.Duration),
 	}
 	return &ReleaseData{
-		Description: fmt.Sprintf("%s项目在%s-%s期间发布相关数据，包括发布总次数，发布成功次数，发布失败次数, 发布周趋势数据，发布每日数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
+		Description: fmt.Sprintf("%s项目在%s到%s期间发布相关数据，包括发布总次数，发布成功次数，发布失败次数, 发布周趋势数据，发布每日数据", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
 		Details:     detail,
 	}, nil
 }
@@ -357,7 +357,7 @@ func getSystemEvaluationData(project string, startTime, endTime int64, logger *z
 	data := &SystemEvaluation{
 		ProjectName:      project,
 		EvaluationResult: string(jsonResult),
-		Description:      fmt.Sprintf("%s项目在%s-%s期间系统评估结果,此评估结果由第三方api产生的数据和zadig系统内部的数据利用管理员设置的数学模型来计算获取的。", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
+		Description:      fmt.Sprintf("%s项目在%s到%s期间系统评估结果,此评估结果由第三方api产生的数据和zadig系统内部的数据利用管理员设置的数学模型来计算获取的。", project, time.Unix(startTime, 0).Format("2006-01-02"), time.Unix(endTime, 0).Format("2006-01-02")),
 	}
 	jsonStr, err := json.Marshal(data)
 	if err != nil {
