@@ -117,7 +117,7 @@ func (cj *cronJob) GetContainers() []*resource.ContainerImage {
 
 func (cj *cronJob) GetAge() string {
 	if cj.CronJob != nil {
-		return duration.HumanDuration(time.Now().Sub(cj.CreationTimestamp.Time))
+		return duration.HumanDuration(time.Now().Sub(cj.CronJob.CreationTimestamp.Time))
 	} else {
 		return duration.HumanDuration(time.Now().Sub(cj.CronJobBeta.CreationTimestamp.Time))
 	}
@@ -125,21 +125,21 @@ func (cj *cronJob) GetAge() string {
 
 func (cj *cronJob) GetSchedule() string {
 	if cj.CronJob != nil {
-		return cj.Spec.Schedule
+		return cj.CronJob.Spec.Schedule
 	}
 	return cj.CronJobBeta.Spec.Schedule
 }
 
 func (cj *cronJob) GetSuspend() bool {
 	if cj.CronJob != nil {
-		return util.GetBoolFromPointer(cj.Spec.Suspend)
+		return util.GetBoolFromPointer(cj.CronJob.Spec.Suspend)
 	}
 	return util.GetBoolFromPointer(cj.CronJobBeta.Spec.Suspend)
 }
 
 func (cj *cronJob) GetActive() int {
 	if cj.CronJob != nil {
-		return len(cj.Status.Active)
+		return len(cj.CronJob.Status.Active)
 	}
 	return len(cj.CronJobBeta.Status.Active)
 }
@@ -147,9 +147,10 @@ func (cj *cronJob) GetActive() int {
 func (cj *cronJob) GetLastSchedule() string {
 	if cj.CronJob != nil {
 		if cj.CronJob.Status.LastScheduleTime != nil {
-			return cj.Status.LastScheduleTime.String()
+			return cj.CronJob.Status.LastScheduleTime.String()
 		}
-	} else if cj.CronJobBeta.Status.LastScheduleTime != nil {
+	}
+	if cj.CronJobBeta.Status.LastScheduleTime != nil {
 		return cj.CronJobBeta.Status.LastScheduleTime.String()
 	}
 	return ""
@@ -157,7 +158,7 @@ func (cj *cronJob) GetLastSchedule() string {
 
 func (cj *cronJob) GetCreationTime() time.Time {
 	if cj.CronJob != nil {
-		return cj.CreationTimestamp.Time
+		return cj.CronJob.CreationTimestamp.Time
 	}
 	return cj.CronJobBeta.CreationTimestamp.Time
 }
