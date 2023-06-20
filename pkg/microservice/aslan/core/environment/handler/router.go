@@ -88,7 +88,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		image.POST("/deployment/:envName", UpdateDeploymentContainerImage)
 		image.POST("/statefulset/:envName", UpdateStatefulSetContainerImage)
-		image.POST("/cronJob/:envName", UpdateCronJobContainerImage)
+		image.POST("/cronjob/:envName", UpdateCronJobContainerImage)
 	}
 
 	// 查询环境创建时的服务和变量信息
