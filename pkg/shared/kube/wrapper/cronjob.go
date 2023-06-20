@@ -105,11 +105,11 @@ func (cj *cronJob) GetContainers() []*resource.ContainerImage {
 	containers := make([]*resource.ContainerImage, 0)
 	if cj.CronJob != nil {
 		for _, c := range cj.CronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
-			containers = append(containers, &resource.ContainerImage{Name: c.Name, Image: c.Image})
+			containers = append(containers, &resource.ContainerImage{Name: c.Name, Image: c.Image, ImageName: util.ExtractImageName(c.Image)})
 		}
 	} else {
 		for _, c := range cj.CronJobBeta.Spec.JobTemplate.Spec.Template.Spec.Containers {
-			containers = append(containers, &resource.ContainerImage{Name: c.Name, Image: c.Image})
+			containers = append(containers, &resource.ContainerImage{Name: c.Name, Image: c.Image, ImageName: util.ExtractImageName(c.Image)})
 		}
 	}
 	return containers
