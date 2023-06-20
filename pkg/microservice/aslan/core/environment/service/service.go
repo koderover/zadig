@@ -680,7 +680,9 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 	}
 
 	for _, cronJob := range svcResp.CronJobs {
-		imageSet.Insert(cronJob.Images...)
+		for _, image := range cronJob.Images {
+			imageSet.Insert(image.Image)
+		}
 	}
 
 	resp.Images = imageSet.List()

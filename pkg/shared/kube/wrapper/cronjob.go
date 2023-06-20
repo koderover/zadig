@@ -58,7 +58,7 @@ func (cj *cronJob) CronJobResource() *resource.CronJob {
 	return &resource.CronJob{
 		Name:         cj.GetName(),
 		Labels:       cj.GetLabels(),
-		Images:       cj.ImageInfos(),
+		Images:       cj.GetContainers(),
 		CreateTime:   cj.GetCreationTime().Unix(),
 		Suspend:      cj.GetSuspend(),
 		Active:       cj.GetActive(),
@@ -90,7 +90,7 @@ func (cj *cronJob) GetAnnotations() map[string]string {
 
 func (cj *cronJob) ImageInfos() (images []string) {
 	if cj.CronJob != nil {
-		for _, v := range cj.Spec.JobTemplate.Spec.Template.Spec.Containers {
+		for _, v := range cj.CronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
 			images = append(images, v.Image)
 		}
 	} else {
@@ -98,8 +98,21 @@ func (cj *cronJob) ImageInfos() (images []string) {
 			images = append(images, v.Image)
 		}
 	}
-
 	return
+}
+
+func (cj *cronJob) GetContainers() []*resource.ContainerImage {
+	containers := make([]*resource.ContainerImage, 0)
+	if cj.CronJob != nil {
+		for _, c := range cj.CronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			containers = append(containers, &resource.ContainerImage{Name: c.Name, Image: c.Image})
+		}
+	} else {
+		for _, c := range cj.CronJobBeta.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			containers = append(containers, &resource.ContainerImage{Name: c.Name, Image: c.Image})
+		}
+	}
+	return containers
 }
 
 func (cj *cronJob) GetAge() string {
@@ -133,11 +146,10 @@ func (cj *cronJob) GetActive() int {
 
 func (cj *cronJob) GetLastSchedule() string {
 	if cj.CronJob != nil {
-		if cj.Status.LastSuccessfulTime != nil {
+		if cj.CronJob.Status.LastScheduleTime != nil {
 			return cj.Status.LastScheduleTime.String()
 		}
-	}
-	if cj.CronJobBeta.Status.LastSuccessfulTime != nil {
+	} else if cj.CronJobBeta.Status.LastScheduleTime != nil {
 		return cj.CronJobBeta.Status.LastScheduleTime.String()
 	}
 	return ""
