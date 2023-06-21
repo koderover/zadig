@@ -1,5 +1,11 @@
 package ai
 
+import "errors"
+
+var (
+	ReturnAnswerWrongFormat = errors.New("AI return wrong answer format")
+)
+
 // UserPromptParseInput use to parse user prompt
 type UserPromptParseInput struct {
 	ProjectList []string `json:"project_list"`

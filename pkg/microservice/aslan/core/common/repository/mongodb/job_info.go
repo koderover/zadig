@@ -23,8 +23,8 @@ type JobInfoColl struct {
 
 func NewJobInfoColl() *JobInfoColl {
 	// it is used to test and delete after testing
-	name := "new_job_info"
-	// name := models.JobInfo{}.TableName()
+	// name := "new_job_info"
+	name := models.JobInfo{}.TableName()
 	return &JobInfoColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,

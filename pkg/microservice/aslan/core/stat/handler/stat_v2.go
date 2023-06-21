@@ -203,6 +203,11 @@ func GetEfficiencyRadar(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetEfficiencyRadar(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
 }
 
+type AIMonthAttentionResp struct {
+	AIAnswer     *ai.AIAttentionResp       `json:"ai_answer"`
+	SystemAnswer []*service.MonthAttention `json:"system_answer"`
+}
+
 func GetMonthAttention(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -214,9 +219,26 @@ func GetMonthAttention(c *gin.Context) {
 	}
 	if args.StartTime == 0 && args.EndTime == 0 {
 		now := time.Now()
-		args.StartTime = now.AddDate(0, 0, -30).Unix()
+		args.StartTime = now.AddDate(0, -1, 0).Unix()
 		args.EndTime = now.Unix()
 	}
 
-	ctx.Resp, ctx.Err = service.GetMonthAttention(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+	data, err := service.GetMonthAttention(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	// AI analyze data to get the attention of the month
+	resp, err := ai.AnalyzeMonthAttention(args.StartTime, args.EndTime, data, ctx.Logger)
+	if err != nil {
+		if err != ai.ReturnAnswerWrongFormat {
+			ctx.Err = err
+			return
+		}
+	}
+	ctx.Resp = AIMonthAttentionResp{
+		AIAnswer:     resp,
+		SystemAnswer: data,
+	}
 }

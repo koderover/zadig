@@ -636,7 +636,7 @@ func GetMonthAttention(startTime, endTime int64, projects []string, logger *zap.
 	CurrentMonthStart := startTime
 	CurrentMonthEnd := endTime
 	LastMonthStart := time.Unix(CurrentMonthStart, 0).AddDate(0, -1, 0).Unix()
-	LastMonthEnd := time.Unix(CurrentMonthEnd, 0).AddDate(0, -1, 0).Unix()
+	LastMonthEnd := CurrentMonthStart - 1
 
 	projects, err := commonrepo.NewJobInfoColl().GetAllProjectNameByTypeName(startTime, endTime, "")
 	if err != nil {
@@ -651,7 +651,7 @@ func GetMonthAttention(startTime, endTime int64, projects []string, logger *zap.
 			Facts: []*MonthAttentionData{},
 		}
 		// get build_success_rate
-		currentBuild, err := GetProjectBuildStat(startTime, endTime, project)
+		currentBuild, err := GetProjectBuildStat(CurrentMonthStart, CurrentMonthEnd, project)
 		if err != nil {
 			logger.Errorf("failed to get build stat, error: %s", err)
 			return nil, err

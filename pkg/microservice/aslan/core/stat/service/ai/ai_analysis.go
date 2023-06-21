@@ -377,3 +377,48 @@ func GetAiPrompts(logger *zap.SugaredLogger) (*ExamplePrompt, error) {
 		Prompts: PromptExamples,
 	}, nil
 }
+
+type AIAttentionResp struct {
+	Answer []AttentionAnswer `json:"answer"`
+}
+
+type AttentionAnswer struct {
+	Project      string `json:"project"`
+	Result       string `json:"result"`
+	Name         string `json:"name"`
+	CurrentMonth string `json:"current_month"`
+	LastMonth    string `json:"last_month"`
+}
+
+func AnalyzeMonthAttention(start, end int64, data []*service2.MonthAttention, logger *zap.SugaredLogger) (*AIAttentionResp, error) {
+	client, err := service.GetDefaultLLMClient(context.TODO())
+	if err != nil {
+		logger.Errorf("failed to get llm client, the error is: %+v", err)
+		return nil, err
+	}
+
+	jsonStr, err := json.Marshal(data)
+	if err != nil {
+		log.Errorf("failed to marshal MonthAttentionData, the error is: %+v", err)
+		return nil, err
+	}
+	input := string(jsonStr)
+
+	prompt := fmt.Sprintf("你是DevOps专家，你需要根据三重引号分割的输入数据，该数据分别包括了%d月和%d月每个月各自的构建成功率，测试成功率，部署成功率，发布成功率，发布频次，"+
+		"以及需求研发周期等数据;%s;输入数据\"\"\"%s\"\"\"", time.Now().AddDate(0, -1, 0).Month(), time.Now().Month(), AttentionPrompt, input)
+	logger.Infof("the prompt is: \n%s", prompt)
+	answer, err := client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.2)))
+	if err != nil {
+		logger.Errorf("failed to get completion analyze answer, the error is: %+v", err)
+		return nil, err
+	}
+	logger.Infof("the answer is: \n%s", answer)
+
+	resp := &AIAttentionResp{}
+	err = json.Unmarshal([]byte(answer), resp)
+	if err != nil {
+		logger.Errorf("failed to unmarshal answer, ai may return the  the error is wrong: %+v", err)
+		return nil, ReturnAnswerWrongFormat
+	}
+	return resp, nil
+}
