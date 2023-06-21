@@ -43,6 +43,7 @@ var StopChanMap sync.Map
 // - Ingress (extentions/v1beta1) <- as of version 1.9.0, this is the resource we watch
 // - ConfigMap
 // - Job
+// - CronJob (batch/v1beta1)
 func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) (informers.SharedInformerFactory, error) {
 	// this is a stupid compatibility code
 	if clusterID == "" {
@@ -71,6 +72,12 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) (inform
 	} else {
 		// otherwise above resource is deprecated, we watch for the k8s.networking.io/v1 ingress
 		informerFactory.Networking().V1().Ingresses().Lister()
+	}
+
+	if kubeclient.VersionLessThan121(versionInfo) {
+		informerFactory.Batch().V1beta1().CronJobs().Lister()
+	} else {
+		informerFactory.Batch().V1().CronJobs().Lister()
 	}
 
 	// stop channel will be stored for future stop

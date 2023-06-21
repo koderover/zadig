@@ -25,32 +25,32 @@ import (
 
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
-	"helm.sh/helm/v3/pkg/releaseutil"
-	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/labels"
-
-	configbase "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/label"
-	s3tool "github.com/koderover/zadig/pkg/tool/s3"
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
-
 	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v3"
+	"helm.sh/helm/v3/pkg/releaseutil"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
 // InitializeReleaseImagePlugin ...
@@ -321,7 +321,15 @@ DistributeLoop:
 
 				var deployments []*appsv1.Deployment
 				var statefulSets []*appsv1.StatefulSet
-				deployments, statefulSets, err = fetchRelatedWorkloads(ctx, distribute.DeployEnv, distribute.DeployNamespace, p.Task.ProductName, distribute.DeployServiceName, p.kubeClient, p.httpClient, p.Log)
+				var cronJobs []*batchv1.CronJob
+				var cronJobBetas []*batchv1beta1.CronJob
+				versionInfo, errGetVersion := p.clientset.Discovery().ServerVersion()
+				if errGetVersion != nil {
+					err = fmt.Errorf("failed to get kubernetes version: %v", errGetVersion)
+					return
+				}
+				deployments, statefulSets, cronJobs, cronJobBetas, err = fetchRelatedWorkloads(ctx, distribute.DeployEnv, distribute.DeployNamespace, p.Task.ProductName,
+					distribute.DeployServiceName, p.kubeClient, versionInfo, p.httpClient, p.Log)
 				if err != nil {
 					return
 				}
@@ -381,6 +389,46 @@ DistributeLoop:
 							}
 							replaced = true
 							break StatefulSetLoop
+						}
+					}
+				}
+			CronLoop:
+				for _, sts := range cronJobs {
+					for _, container := range sts.Spec.JobTemplate.Spec.Template.Spec.Containers {
+						if container.Name == distribute.DeployContainerName {
+							err = updater.UpdateCronJobImage(sts.Namespace, sts.Name, distribute.DeployContainerName, distribute.Image, p.kubeClient, kubeclient.VersionLessThan121(versionInfo))
+							if err != nil {
+								err = errors.WithMessagef(
+									err,
+									"failed to update container image in %s/cornJob/%s/%s",
+									distribute.DeployNamespace, sts.Name, container.Name)
+								distribute.DeployEndTime = time.Now().Unix()
+								distribute.DeployStatus = string(config.StatusFailed)
+								p.SetStatus(config.StatusFailed)
+								continue DistributeLoop
+							}
+							replaced = true
+							break CronLoop
+						}
+					}
+				}
+			CronBetaLoop:
+				for _, sts := range cronJobBetas {
+					for _, container := range sts.Spec.JobTemplate.Spec.Template.Spec.Containers {
+						if container.Name == distribute.DeployContainerName {
+							err = updater.UpdateCronJobImage(sts.Namespace, sts.Name, distribute.DeployContainerName, distribute.Image, p.kubeClient, kubeclient.VersionLessThan121(versionInfo))
+							if err != nil {
+								err = errors.WithMessagef(
+									err,
+									"failed to update container image in %s/cornJobBeta/%s/%s",
+									distribute.DeployNamespace, sts.Name, container.Name)
+								distribute.DeployEndTime = time.Now().Unix()
+								distribute.DeployStatus = string(config.StatusFailed)
+								p.SetStatus(config.StatusFailed)
+								continue DistributeLoop
+							}
+							replaced = true
+							break CronBetaLoop
 						}
 					}
 				}

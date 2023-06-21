@@ -94,6 +94,16 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 	if err != nil {
 		return e.ErrUpdateConainterImage.AddErr(err)
 	}
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		return e.ErrUpdateConainterImage.AddErr(err)
+	}
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		return e.ErrUpdateConainterImage.AddErr(err)
+	}
+
 	// aws secrets needs to be refreshed
 	regs, err := commonservice.ListRegistryNamespaces("", true, log)
 	if err != nil {
@@ -118,7 +128,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 
 	// update service in helm way
 	if product.Source == setting.HelmDeployType {
-		serviceName, err := commonservice.GetHelmServiceName(product, args.Type, args.Name, kubeClient)
+		serviceName, err := commonservice.GetHelmServiceName(product, args.Type, args.Name, kubeClient, version)
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}
@@ -137,6 +147,11 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 			if err := updater.UpdateStatefulSetImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
 				log.Errorf("[%s] UpdateStatefulsetImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
+			}
+		case setting.CronJob:
+			if err := updater.UpdateCronJobImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient, VersionLessThan121(version)); err != nil {
+				log.Errorf("[%s] UpdateCronJobImageByName error: %s", namespace, err.Error())
+				return e.ErrUpdateConainterImage.AddDesc("更新 CronJob 容器镜像失败")
 			}
 		default:
 			return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("不支持的资源类型: %s", args.Type))
