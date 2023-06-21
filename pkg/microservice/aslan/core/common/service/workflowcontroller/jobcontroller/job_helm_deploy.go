@@ -170,7 +170,11 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	// we add timeout check here in case helm stuck in pending status
 	select {
-	case <-done:
+	case result := <-done:
+		if !result {
+			logError(c.job, err.Error(), c.logger)
+			return
+		}
 		break
 	case <-time.After(time.Second*time.Duration(timeOut) + time.Minute):
 		err = fmt.Errorf("failed to upgrade relase for service: %s, timeout", c.jobTaskSpec.ServiceName)

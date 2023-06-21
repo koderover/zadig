@@ -94,3 +94,34 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 
 	ctx.Err = service.UpdateContainerImage(ctx.RequestID, args, ctx.Logger)
 }
+
+func UpdateCronJobContainerImage(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.UpdateContainerImageArgs)
+	args.Type = setting.CronJob
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateDeploymentContainerImage c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("UpdateDeploymentContainerImage json.Unmarshal err : %v", err)
+	}
+
+	internalhandler.InsertDetailedOperationLog(
+		c, ctx.UserName, args.ProductName, setting.OperationSceneEnv,
+		"更新", "环境-服务镜像",
+		fmt.Sprintf("环境名称:%s,服务名称:%s,CronJob:%s", args.EnvName, args.ServiceName, args.Name),
+		string(data), ctx.Logger, args.EnvName)
+
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Err = service.UpdateContainerImage(ctx.RequestID, args, ctx.Logger)
+}
