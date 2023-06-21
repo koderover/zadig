@@ -25,7 +25,6 @@ import (
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/printers"
@@ -211,8 +210,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 				return "", nil, err
 			}
 		case setting.CronJob:
-			// TODO support new cronjob type
-			cronJob := &batchv1beta1.CronJob{}
+			cronJob := &batchv1.CronJob{}
 			if err := decoder.Decode(cronJob); err != nil {
 				return "", nil, fmt.Errorf("unmarshal CronJob error: %v", err)
 			}
@@ -527,12 +525,13 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	log.Infof("fullRenderedYaml is: %s", fullRenderedYaml)
 
 	// service may not be deployed in environment, we need to extract containers again, since image related variables may be changed
+	latestSvcTemplate.KubeYamls = util.SplitYaml(latestSvcTemplate.RenderedYaml)
 	commonutil.SetCurrentContainerImages(latestSvcTemplate)
-	log.Info("container count: %v %v %v %v", len(curContainers), len(latestSvcTemplate.Containers), len(svcContainersInProduct), len(option.Containers))
+	log.Infof("container count: %v %v %v %v", len(curContainers), len(latestSvcTemplate.Containers), len(svcContainersInProduct), len(option.Containers))
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	for _, container := range mergedContainers {
-		log.Info("---------- container name: %s image: %s", container.Name, container.Image)
+		log.Infof("---------- container name: %s image: %s", container.Name, container.Image)
 	}
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, err
