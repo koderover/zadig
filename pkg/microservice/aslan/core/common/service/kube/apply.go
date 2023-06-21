@@ -26,19 +26,25 @@ import (
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/informers"
 	"k8s.io/helm/pkg/releaseutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
@@ -152,8 +158,16 @@ func SetFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fiel
 	return obj
 }
 
+// in kubernetes 1.21+, CronJobV1BetaGVK is deprecated, so we should use CronJobGVK instead
+func GetValidGVK(gvk schema.GroupVersionKind, version *version.Info) schema.GroupVersionKind {
+	if gvk == getter.CronJobV1BetaGVK && !kubeclient.VersionLessThan121(version) {
+		return getter.CronJobGVK
+	}
+	return gvk
+}
+
 // removeResources removes resources currently deployed in k8s that are not in the new resource list
-func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, kubeClient client.Client, log *zap.SugaredLogger) error {
+func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, kubeClient client.Client, version *version.Info, log *zap.SugaredLogger) error {
 	itemsMap := make(map[string]*unstructured.Unstructured)
 	errList := &multierror.Error{}
 	for _, u := range newItems {
@@ -172,10 +186,11 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 			continue
 		}
 		if err := updater.DeleteUnstructured(item, kubeClient); err != nil {
+			item.SetGroupVersionKind(GetValidGVK(item.GroupVersionKind(), version))
 			errList = multierror.Append(errList, errors.Wrapf(err, "failed to remove old item %s/%s from %s", item.GetName(), item.GetKind(), namespace))
 			continue
 		}
-		log.Infof("succeed to remove old item %s/%s from %s", item.GetName(), item.GetKind(), namespace)
+		log.Infof("succeed to remove old item %s/%v from %s", item.GetName(), item.GroupVersionKind(), namespace)
 	}
 
 	return errList.ErrorOrNil()
@@ -221,19 +236,30 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		return nil, err
 	}
 
+	clientSet, errGetClientSet := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if errGetClientSet != nil {
+		err = errors.WithMessagef(errGetClientSet, "failed to init k8s clientset")
+		return nil, err
+	}
+	versionInfo, errGetVersion := clientSet.ServerVersion()
+	if errGetVersion != nil {
+		err = errors.WithMessagef(errGetVersion, "failed to get k8s server version")
+		return nil, err
+	}
+
 	if applyParam.Uninstall {
 		if !commonutil.ServiceDeployed(applyParam.ServiceName, productInfo.ServiceDeployStrategy) {
 			return nil, nil
 		}
 
-		err = removeResources(curResources, resources, namespace, applyParam.KubeClient, log)
+		err = removeResources(curResources, resources, namespace, applyParam.KubeClient, versionInfo, log)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to remove old resources")
 		}
 		return nil, nil
 	}
 
-	err = removeResources(curResources, resources, namespace, applyParam.KubeClient, log)
+	err = removeResources(curResources, resources, namespace, applyParam.KubeClient, versionInfo, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
 	}
@@ -427,28 +453,55 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
-			obj, err := serializer.NewDecoder().JSONToCronJob(jsonData)
-			if err != nil {
-				log.Errorf("Failed to convert JSON to CronJob, manifest is\n%v\n, error: %v", u, err)
-				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
-				continue
-			}
+			log.Infof("%s api verison is %s", u.GetName(), u.GetAPIVersion())
+			if u.GetAPIVersion() == batchv1.SchemeGroupVersion.String() {
+				obj, err := serializer.NewDecoder().JSONToCronJob(jsonData)
+				if err != nil {
+					log.Errorf("Failed to convert JSON to CronJob, manifest is\n%v\n, error: %v", u, err)
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+					continue
+				}
 
-			obj.Namespace = namespace
-			obj.ObjectMeta.Labels = MergeLabels(labels, obj.ObjectMeta.Labels)
-			obj.Spec.JobTemplate.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
-			obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
+				obj.Namespace = namespace
+				obj.ObjectMeta.Labels = MergeLabels(labels, obj.ObjectMeta.Labels)
+				obj.Spec.JobTemplate.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
+				obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
 
-			// Inject imagePullSecrets if qn-registry-secret is not set
-			if applyParam.InjectSecrets {
-				ApplySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
-			}
+				// Inject imagePullSecrets if qn-registry-secret is not set
+				if applyParam.InjectSecrets {
+					ApplySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
+				}
 
-			err = updater.CreateOrPatchCronJob(obj, kubeClient)
-			if err != nil {
-				log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
-				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
-				continue
+				err = updater.CreateOrPatchCronJob(obj, kubeClient)
+				if err != nil {
+					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+					continue
+				}
+			} else {
+				obj, err := serializer.NewDecoder().JSONToCronJobBeta(jsonData)
+				if err != nil {
+					log.Errorf("Failed to convert JSON to CronJobBeta, manifest is\n%v\n, error: %v", u, err)
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+					continue
+				}
+
+				obj.Namespace = namespace
+				obj.ObjectMeta.Labels = MergeLabels(labels, obj.ObjectMeta.Labels)
+				obj.Spec.JobTemplate.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
+				obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
+
+				// Inject imagePullSecrets if qn-registry-secret is not set
+				if applyParam.InjectSecrets {
+					ApplySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
+				}
+
+				err = updater.CreateOrPatchCronJob(obj, kubeClient)
+				if err != nil {
+					log.Errorf("Failed to create or update %s, manifest is\n%v\n, error: %v", u.GetKind(), obj, err)
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
+					continue
+				}
 			}
 
 		case setting.ClusterRole, setting.ClusterRoleBinding:

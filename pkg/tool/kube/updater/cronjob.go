@@ -18,8 +18,11 @@ package updater
 
 import (
 	"context"
+	"fmt"
 
+	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -43,6 +46,28 @@ func DeleteCronJobs(namespace string, selector labels.Selector, clientset *kuber
 	return util.IgnoreNotFoundError(err)
 }
 
-func CreateOrPatchCronJob(cj *batchv1beta1.CronJob, cl client.Client) error {
+func CreateOrPatchCronJob(cj client.Object, cl client.Client) error {
 	return createOrPatchObject(cj, cl)
+}
+
+func PatchCronJob(ns, name string, patchBytes []byte, cl client.Client, versionLessThan121 bool) error {
+	if versionLessThan121 {
+		return patchObject(&batchv1beta1.CronJob{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: ns,
+				Name:      name,
+			},
+		}, patchBytes, cl)
+	}
+	return patchObject(&batchv1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      name,
+		},
+	}, patchBytes, cl)
+}
+
+func UpdateCronJobImage(ns, name, container, image string, cl client.Client, versionLessThan121 bool) error {
+	patchBytes := []byte(fmt.Sprintf(`{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}}}`, container, image))
+	return PatchCronJob(ns, name, patchBytes, cl, versionLessThan121)
 }

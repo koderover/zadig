@@ -22,6 +22,7 @@ import (
 )
 
 var KubernetesVersion122 *version.Version
+var KubernetesVersion121 *version.Version
 
 func init() {
 	// as of zadig v1.11.0. Only kubernetes version 1.17+ is supported
@@ -30,9 +31,18 @@ func init() {
 	// in future kubernetes version
 	v122, _ := version.ParseGeneric("v1.22.0")
 	KubernetesVersion122 = v122
+
+	// Use to determine which apiVersion we should use when fetching cronJobs
+	v121, _ := version.ParseGeneric("v1.21.0")
+	KubernetesVersion121 = v121
 }
 
 func VersionLessThan122(ver *k8sversion.Info) bool {
 	currVersion, _ := version.ParseGeneric(ver.String())
 	return currVersion.LessThan(KubernetesVersion122)
+}
+
+func VersionLessThan121(ver *k8sversion.Info) bool {
+	currVersion, _ := version.ParseGeneric(ver.String())
+	return currVersion.LessThan(KubernetesVersion121)
 }

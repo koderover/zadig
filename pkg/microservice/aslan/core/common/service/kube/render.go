@@ -211,21 +211,46 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 				return "", nil, err
 			}
 		case setting.CronJob:
-			// TODO support new cronjob type
-			cronJob := &batchv1beta1.CronJob{}
-			if err := decoder.Decode(cronJob); err != nil {
-				return "", nil, fmt.Errorf("unmarshal CronJob error: %v", err)
-			}
-			for i, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
-				containerName := val.Name
-				if image, ok := imageMap[containerName]; ok {
-					cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[i].Image = image.Image
+			if resKind.APIVersion == batchv1beta1.SchemeGroupVersion.String() {
+				cronJob := &batchv1beta1.CronJob{}
+				if err := decoder.Decode(cronJob); err != nil {
+					return "", nil, fmt.Errorf("unmarshal CronJob error: %v", err)
+				}
+				workloadRes = append(workloadRes, &WorkloadResource{
+					Name: resKind.Metadata.Name,
+					Type: resKind.Kind,
+				})
+				for i, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+					containerName := val.Name
+					if image, ok := imageMap[containerName]; ok {
+						cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[i].Image = image.Image
+					}
+				}
+				yamlStr, err = resourceToYaml(cronJob)
+				if err != nil {
+					return "", nil, err
+				}
+			} else {
+				cronJob := &batchv1.CronJob{}
+				if err := decoder.Decode(cronJob); err != nil {
+					return "", nil, fmt.Errorf("unmarshal CronJob error: %v", err)
+				}
+				workloadRes = append(workloadRes, &WorkloadResource{
+					Name: resKind.Metadata.Name,
+					Type: resKind.Kind,
+				})
+				for i, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+					containerName := val.Name
+					if image, ok := imageMap[containerName]; ok {
+						cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[i].Image = image.Image
+					}
+				}
+				yamlStr, err = resourceToYaml(cronJob)
+				if err != nil {
+					return "", nil, err
 				}
 			}
-			yamlStr, err = resourceToYaml(cronJob)
-			if err != nil {
-				return "", nil, err
-			}
+
 		}
 		yamlStrs = append(yamlStrs, yamlStr)
 	}
