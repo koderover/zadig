@@ -311,8 +311,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 	} else {
 		allRunning := true
 		for _, serviceResp := range servicesResp {
-			// Service是物理机部署时，无需判断状态
-			if serviceResp.Type == setting.K8SDeployType && serviceResp.Status != setting.PodRunning && serviceResp.Status != setting.PodSucceeded {
+			if serviceResp.Type == setting.K8SDeployType && serviceResp.WorkLoadType != setting.CronJob && serviceResp.Status != setting.PodRunning && serviceResp.Status != setting.PodSucceeded {
 				allRunning = false
 				break
 			}
