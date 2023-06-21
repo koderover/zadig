@@ -701,7 +701,6 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 
-	// 在更新数据库前检查是否有完全重复的Item，如果有，则退出。
 	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
 	if notFoundErr == nil && !force {
 		return nil, fmt.Errorf("service:%s already exists", serviceTmpl.ServiceName)
@@ -1524,12 +1523,8 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			return fmt.Errorf("failed to render yaml, err: %s", err)
 		}
 
-		// 拆分 all-in-one yaml文件
-		// 替换分隔符
 		args.Yaml = util.ReplaceWrapLine(args.Yaml)
 		args.RenderedYaml = util.ReplaceWrapLine(args.RenderedYaml)
-
-		// 分隔符为\n---\n
 		args.KubeYamls = util.SplitYaml(args.RenderedYaml)
 
 		// since service may contain go-template grammar, errors may occur when parsing as k8s workloads
