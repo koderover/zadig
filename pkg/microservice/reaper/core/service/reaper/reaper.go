@@ -615,14 +615,15 @@ func (r *Reaper) maskSecretEnvs(message string) string {
 }
 
 func (r *Reaper) getUserEnvs() []string {
-	envs := []string{
+	envs := os.Environ()
+	envs = append(envs,
 		"CI=true",
 		"ZADIG=true",
 		fmt.Sprintf("HOME=%s", config.Home()),
 		fmt.Sprintf("WORKSPACE=%s", r.ActiveWorkspace),
 		// TODO: readme文件可以使用别的方式代替
 		fmt.Sprintf("README=%s", ReadmeFile),
-	}
+	)
 
 	r.Ctx.Paths = strings.Replace(r.Ctx.Paths, "$HOME", config.Home(), -1)
 	envs = append(envs, fmt.Sprintf("PATH=%s", r.Ctx.Paths))

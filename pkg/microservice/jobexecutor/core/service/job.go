@@ -111,12 +111,13 @@ func (j *Job) EnsureActiveWorkspace(workspace string) error {
 }
 
 func (j *Job) getUserEnvs() []string {
-	envs := []string{
+	envs := os.Environ()
+	envs = append(envs,
 		"CI=true",
 		"ZADIG=true",
 		fmt.Sprintf("HOME=%s", config.Home()),
 		fmt.Sprintf("WORKSPACE=%s", j.ActiveWorkspace),
-	}
+	)
 
 	j.Ctx.Paths = strings.Replace(j.Ctx.Paths, "$HOME", config.Home(), -1)
 	envs = append(envs, fmt.Sprintf("PATH=%s", j.Ctx.Paths))

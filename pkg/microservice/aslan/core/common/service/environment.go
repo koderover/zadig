@@ -22,18 +22,15 @@ import (
 	"sort"
 	"strings"
 
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"gopkg.in/yaml.v3"
-
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -49,8 +46,10 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 	jsonutil "github.com/koderover/zadig/pkg/util/json"
 )
@@ -445,7 +444,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 
 	filterArray := []FilterFunc{
 		func(workloads []*Workload) []*Workload {
-			if projectInfo.ProductFeature == nil || projectInfo.ProductFeature.CreateEnvType != setting.SourceFromExternal {
+			if !projectInfo.IsHostProduct() {
 				return workloads
 			}
 
@@ -478,7 +477,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 	}
 
 	// for helm service, only show deploys/stss created by zadig
-	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.DeployType == setting.HelmDeployType {
+	if projectInfo.IsHelmProduct() {
 		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
 			releaseNameMap, err := GetReleaseNameToServiceNameMap(productInfo)
 			if err != nil {
@@ -581,6 +580,7 @@ type Workload struct {
 	Images      []string               `json:"-"`
 	Ready       bool                   `json:"ready"`
 	Annotation  map[string]string      `json:"-"`
+	Status      string                 `json:"-"`
 	ServiceName string                 `json:"service_name"` //serviceName refers to the service defines in zadig
 }
 
@@ -613,7 +613,6 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
-
 	var resp = make([]*ServiceResp, 0)
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
 	if err != nil {
@@ -658,13 +657,47 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		})
 	}
 
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", clusterID, err)
+		return 0, nil, err
+	}
+
+	cronJobs, coronBeta, err := getter.ListCronJobsWithCache(nil, informer, kubeclient.VersionLessThan121(version))
+	if err != nil {
+		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+	}
+	wrappedCronJobs := make([]wrapper.CronJobItem, 0)
+	for _, v := range cronJobs {
+		wrappedCronJobs = append(wrappedCronJobs, wrapper.CronJob(v, nil))
+	}
+	for _, v := range coronBeta {
+		wrappedCronJobs = append(wrappedCronJobs, wrapper.CronJob(nil, v))
+	}
+	getSuspendStr := func(suspend bool) string {
+		if suspend {
+			return "True"
+		} else {
+			return "False"
+		}
+	}
+	for _, cronJob := range wrappedCronJobs {
+		workLoads = append(workLoads, &Workload{
+			Name:       cronJob.GetName(),
+			Type:       setting.CronJob,
+			Images:     cronJob.ImageInfos(),
+			Annotation: cronJob.GetAnnotations(),
+			Status:     fmt.Sprintf("SUSPEND: %s", getSuspendStr(cronJob.GetSuspend())),
+		})
+	}
+
 	err = fillServiceName(envName, productName, workLoads)
 	// err of getting service name should not block the return of workloads
 	if err != nil {
 		log.Warnf("failed to set service name for workloads, error: %s", err)
 	}
 
-	// 对于workload过滤
 	for _, f := range filter {
 		workLoads = f(workLoads)
 	}
@@ -674,7 +707,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	//将获取到的所有服务按照名称进行排序
 	sort.SliceStable(workLoads, func(i, j int) bool { return workLoads[i].Name < workLoads[j].Name })
 
-	// 分页
 	if page > 0 && perPage > 0 {
 		start := (page - 1) * perPage
 		if start >= count {
@@ -687,11 +719,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	hostInfos := make([]resource.HostInfo, 0)
-	version, err := cls.Discovery().ServerVersion()
-	if err != nil {
-		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", clusterID, err)
-		return 0, nil, err
-	}
+
 	if kubeclient.VersionLessThan122(version) {
 		ingresses, err := getter.ListExtensionsV1Beta1Ingresses(nil, informer)
 		if err == nil {
@@ -734,15 +762,17 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			Status:       setting.PodRunning,
 		}
 
-		selector := labels.SelectorFromSet(labels.Set(workload.Spec.Labels))
-		// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
-		// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
-		productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
-
-		productRespInfo.Ingress = &IngressInfo{
-			HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
+		if workload.Type == setting.Deployment || workload.Type == setting.StatefulSet {
+			selector := labels.SelectorFromSet(workload.Spec.Labels)
+			// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
+			// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
+			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
+			productRespInfo.Ingress = &IngressInfo{
+				HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
+			}
+		} else if workload.Type == setting.CronJob {
+			productRespInfo.Status = workload.Status
 		}
-
 		resp = append(resp, productRespInfo)
 	}
 
@@ -835,9 +865,9 @@ func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, er
 }
 
 // GetHelmServiceName get service name from annotations of resources deployed by helm
-// resType currently only support Deployment and StatefulSet
+// resType currently only support Deployment, StatefulSet and CronJob
 // this function needs to be optimized
-func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClient client.Client) (string, error) {
+func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClient client.Client, version *version.Info) (string, error) {
 	res := &unstructured.Unstructured{}
 	namespace := prod.Namespace
 
@@ -846,11 +876,21 @@ func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClien
 		return "", err
 	}
 
-	res.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "apps",
-		Version: "v1",
-		Kind:    resType,
-	})
+	switch resType {
+	case setting.Deployment:
+		res.SetGroupVersionKind(getter.DeploymentGVK)
+	case setting.StatefulSet:
+		res.SetGroupVersionKind(getter.StatefulSetGVK)
+	case setting.CronJob:
+		if !kubeclient.VersionLessThan121(version) {
+			res.SetGroupVersionKind(getter.CronJobGVK)
+		} else {
+			res.SetGroupVersionKind(getter.CronJobV1BetaGVK)
+		}
+	default:
+		return "", fmt.Errorf("unsupported resource type %s", resType)
+	}
+
 	found, err := getter.GetResourceInCache(namespace, resName, res, kubeClient)
 	if err != nil {
 		return "", fmt.Errorf("failed to find resource %s, type %s, err %s", resName, resType, err.Error())

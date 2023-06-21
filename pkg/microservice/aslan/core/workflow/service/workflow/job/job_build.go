@@ -109,7 +109,6 @@ func (j *BuildJob) SetPreset() error {
 		newBuilds = append(newBuilds, build)
 	}
 	j.spec.ServiceAndBuilds = newBuilds
-	j.spec.ServiceOptions = newBuilds
 	j.job.Spec = j.spec
 	return nil
 }

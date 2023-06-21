@@ -308,9 +308,7 @@ func (c *DeployJobCtl) updateExternalServiceModule(ctx context.Context, resource
 	var err error
 	var replaced bool
 
-	var deployments []*appsv1.Deployment
-	var statefulSets []*appsv1.StatefulSet
-	deployments, statefulSets, err = kube.FetchSelectedWorkloads(env.Namespace, resources, c.kubeClient)
+	deployments, statefulSets, cronJobs, betaCronJobs, err := kube.FetchSelectedWorkloads(env.Namespace, resources, c.kubeClient, c.clientSet)
 	if err != nil {
 		return err
 	}
@@ -352,6 +350,46 @@ Loop:
 				replaced = true
 				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, sts.Spec.Template.Labels)
 				break Loop
+			}
+		}
+	}
+CronLoop:
+	for _, cron := range cronJobs {
+		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			if container.Name == serviceModule.ServiceModule {
+				err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient, false)
+				if err != nil {
+					return fmt.Errorf("failed to update container image in %s/cronJob/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
+				}
+				c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
+					Kind:      setting.CronJob,
+					Container: container.Name,
+					Origin:    container.Image,
+					Name:      cron.Name,
+				})
+				replaced = true
+				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, cron.Spec.JobTemplate.Spec.Template.Labels)
+				break CronLoop
+			}
+		}
+	}
+BetaCronLoop:
+	for _, cron := range betaCronJobs {
+		for _, container := range cron.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			if container.Name == serviceModule.ServiceModule {
+				err = updater.UpdateCronJobImage(cron.Namespace, cron.Name, serviceModule.ServiceModule, serviceModule.Image, c.kubeClient, true)
+				if err != nil {
+					return fmt.Errorf("failed to update container image in %s/cronJobBeta/%s/%s: %v", env.Namespace, cron.Name, container.Name, err)
+				}
+				c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
+					Kind:      setting.CronJob,
+					Container: container.Name,
+					Origin:    container.Image,
+					Name:      cron.Name,
+				})
+				replaced = true
+				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, cron.Spec.JobTemplate.Spec.Template.Labels)
+				break BetaCronLoop
 			}
 		}
 	}

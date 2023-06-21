@@ -83,10 +83,5 @@ func setStatefulSetGVK(statefulSet *appsv1.StatefulSet) {
 	if statefulSet == nil {
 		return
 	}
-	gvk := schema.GroupVersionKind{
-		Group:   "apps",
-		Kind:    "StatefulSet",
-		Version: "v1",
-	}
-	statefulSet.SetGroupVersionKind(gvk)
+	statefulSet.SetGroupVersionKind(StatefulSetGVK)
 }
