@@ -552,7 +552,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	log.Infof("fullRenderedYaml is: %s", fullRenderedYaml)
 
 	// service may not be deployed in environment, we need to extract containers again, since image related variables may be changed
-	latestSvcTemplate.KubeYamls = util.SplitYaml(latestSvcTemplate.RenderedYaml)
+	latestSvcTemplate.KubeYamls = util.SplitYaml(fullRenderedYaml)
 	commonutil.SetCurrentContainerImages(latestSvcTemplate)
 	log.Infof("container count: %v %v %v %v", len(curContainers), len(latestSvcTemplate.Containers), len(svcContainersInProduct), len(option.Containers))
 
