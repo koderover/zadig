@@ -15,27 +15,25 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type JobInfoColl struct {
+type NewNewJobInfoColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewJobInfoColl() *JobInfoColl {
-	// it is used to test and delete after testing
+func NewJobInfoCollFromOther() *NewNewJobInfoColl {
 	name := "new_job_info"
-	// name := models.JobInfo{}.TableName()
-	return &JobInfoColl{
+	return &NewNewJobInfoColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
 }
 
-func (c *JobInfoColl) GetCollectionName() string {
+func (c *NewNewJobInfoColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *JobInfoColl) EnsureIndex(ctx context.Context) error {
+func (c *NewNewJobInfoColl) EnsureIndex(ctx context.Context) error {
 	mod := []mongo.IndexModel{
 		{
 			Keys: bson.D{
@@ -61,7 +59,7 @@ func (c *JobInfoColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *JobInfoColl) Create(ctx context.Context, args *models.JobInfo) error {
+func (c *NewNewJobInfoColl) Create(ctx context.Context, args *models.JobInfo) error {
 	if args == nil {
 		return errors.New("configuration management is nil")
 	}
@@ -70,7 +68,7 @@ func (c *JobInfoColl) Create(ctx context.Context, args *models.JobInfo) error {
 	return err
 }
 
-func (c *JobInfoColl) GetProductionDeployJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
+func (c *NewNewJobInfoColl) GetProductionDeployJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
 	query := bson.M{}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	query["production"] = true
@@ -92,7 +90,7 @@ func (c *JobInfoColl) GetProductionDeployJobs(startTime, endTime int64, projectN
 	return resp, err
 }
 
-func (c *JobInfoColl) GetTestJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
+func (c *NewNewJobInfoColl) GetTestJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
 	query := bson.M{}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	query["type"] = config.JobZadigTesting
@@ -112,7 +110,7 @@ func (c *JobInfoColl) GetTestJobs(startTime, endTime int64, projectName string) 
 	return resp, err
 }
 
-func (c *JobInfoColl) GetBuildJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
+func (c *NewNewJobInfoColl) GetBuildJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
 	query := bson.M{}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	query["type"] = config.JobZadigBuild
@@ -132,7 +130,7 @@ func (c *JobInfoColl) GetBuildJobs(startTime, endTime int64, projectName string)
 	return resp, err
 }
 
-func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
+func (c *NewNewJobInfoColl) GetDeployJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
 	query := bson.M{}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	query["type"] = bson.M{"$in": []string{string(config.JobZadigDeploy), string(config.JobZadigHelmDeploy), string(config.JobDeploy)}}
@@ -152,20 +150,7 @@ func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectName string
 	return resp, err
 }
 
-type JobInfoCoarseGrainedData struct {
-	StartTime   int64             `json:"start_time"`
-	EndTime     int64             `json:"end_time"`
-	MonthlyStat []*MonthlyJobInfo `json:"monthly_stat"`
-}
-
-type MonthlyJobInfo struct {
-	Month       int `bson:"month" json:"month"`
-	BuildCount  int `bson:"build_count" json:"build_count"`
-	DeployCount int `bson:"deploy_count" json:"deploy_count"`
-	TestCount   int `bson:"test_count" json:"test_count"`
-}
-
-func (c *JobInfoColl) GetCoarseGrainedData(startTime, endTime int64, projectName []string) (*JobInfoCoarseGrainedData, error) {
+func (c *NewNewJobInfoColl) GetCoarseGrainedData(startTime, endTime int64, projectName []string) (*JobInfoCoarseGrainedData, error) {
 	match := bson.M{"$match": bson.M{"start_time": bson.M{"$gte": startTime, "$lt": endTime}}}
 
 	if projectName != nil && len(projectName) != 0 {
@@ -253,7 +238,7 @@ func (c *JobInfoColl) GetCoarseGrainedData(startTime, endTime int64, projectName
 	return jobInfo, nil
 }
 
-func (c *JobInfoColl) GetJobInfos(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
+func (c *NewNewJobInfoColl) GetJobInfos(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
 	query := bson.M{
 		"start_time": bson.M{"$gte": startTime, "$lt": endTime},
 	}
@@ -272,12 +257,7 @@ func (c *JobInfoColl) GetJobInfos(startTime, endTime int64, projectName []string
 	return resp, err
 }
 
-type JobBuildTrendInfos struct {
-	ProjectName string            `bson:"_id" json:"product_name"`
-	Documents   []*models.JobInfo `bson:"documents" json:"documents"`
-}
-
-func (c *JobInfoColl) GetJobBuildTrendInfos(startTime, endTime int64, projectName []string) ([]*JobBuildTrendInfos, error) {
+func (c *NewNewJobInfoColl) GetJobBuildTrendInfos(startTime, endTime int64, projectName []string) ([]*JobBuildTrendInfos, error) {
 	match := bson.M{"$match": bson.M{"start_time": bson.M{"$gte": startTime, "$lt": endTime}}}
 	if projectName != nil && len(projectName) != 0 {
 		match["$match"].(bson.M)["product_name"] = bson.M{"$in": projectName}
@@ -304,7 +284,7 @@ func (c *JobInfoColl) GetJobBuildTrendInfos(startTime, endTime int64, projectNam
 	return resp, nil
 }
 
-func (c *JobInfoColl) GetBuildTrend(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
+func (c *NewNewJobInfoColl) GetBuildTrend(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
 	query := bson.M{
 		"start_time": bson.M{"$gte": startTime, "$lt": endTime},
 		"type":       config.JobZadigBuild,
@@ -329,7 +309,7 @@ func (c *JobInfoColl) GetBuildTrend(startTime, endTime int64, projectName []stri
 	return resp, nil
 }
 
-func (c *JobInfoColl) GetAllProjectNameByTypeName(startTime, endTime int64, typeName string) ([]string, error) {
+func (c *NewNewJobInfoColl) GetAllProjectNameByTypeName(startTime, endTime int64, typeName string) ([]string, error) {
 	query := bson.M{}
 	if startTime != 0 && endTime != 0 {
 		query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
@@ -355,7 +335,7 @@ func (c *JobInfoColl) GetAllProjectNameByTypeName(startTime, endTime int64, type
 	return resp, nil
 }
 
-func (c *JobInfoColl) GetTestTrend(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
+func (c *NewNewJobInfoColl) GetTestTrend(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
 	query := bson.M{
 		"start_time":   bson.M{"$gte": startTime, "$lt": endTime},
 		"product_name": bson.M{"$in": projectName},
@@ -378,7 +358,7 @@ func (c *JobInfoColl) GetTestTrend(startTime, endTime int64, projectName []strin
 	return resp, nil
 }
 
-func (c *JobInfoColl) GetDeployTrend(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
+func (c *NewNewJobInfoColl) GetDeployTrend(startTime, endTime int64, projectName []string) ([]*models.JobInfo, error) {
 	query := bson.M{
 		"start_time":   bson.M{"$gte": startTime, "$lt": endTime},
 		"product_name": bson.M{"$in": projectName},

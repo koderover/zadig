@@ -51,12 +51,12 @@ func getDeployData(project string, startTime, endTime int64, log *zap.SugaredLog
 	getDeployWeeklyMeasure(project, startTime, endTime, deploy.Details.DeployWeeklyMeasureData, log)
 
 	// TODO: DeployTopFiveHigherMeasureData is old method, need to be upgrade
-	deploy.Details.DeployTopFiveHigherMeasureData = &DeployDetail{}
-	getDeployTopFiveHigherMeasure(project, startTime, endTime, deploy.Details.DeployTopFiveHigherMeasureData, log)
+	//deploy.Details.DeployTopFiveHigherMeasureData = &DeployDetail{}
+	//getDeployTopFiveHigherMeasure(project, startTime, endTime, deploy.Details.DeployTopFiveHigherMeasureData, log)
 
 	// TODO: DeployTopFiveFailureMeasureData is old method, need to be upgrade
-	deploy.Details.DeployTopFiveFailureMeasureData = &DeployDetail{}
-	getDeployTopFiveFailureMeasure(project, startTime, endTime, deploy.Details.DeployTopFiveFailureMeasureData, log)
+	//deploy.Details.DeployTopFiveFailureMeasureData = &DeployDetail{}
+	//getDeployTopFiveFailureMeasure(project, startTime, endTime, deploy.Details.DeployTopFiveFailureMeasureData, log)
 
 	return deploy, nil
 }

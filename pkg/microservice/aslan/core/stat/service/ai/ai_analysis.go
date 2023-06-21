@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
 	"github.com/koderover/zadig/pkg/tool/llm"
@@ -166,7 +166,8 @@ func combineAiAnswer(projects []*ProjectData, ans map[string]string, startTime, 
 func parseUserPrompt(args *AiAnalysisReq, aiClient llm.ILLM, logger *zap.SugaredLogger) (*UserPromptParseInput, error) {
 	input := &UserPromptParseInput{}
 	// get all project name from db
-	projectList, err := template.NewProductColl().ListAllName()
+	// projectList, err := template.NewProductColl().ListAllName()
+	projectList, err := commonrepo.NewJobInfoCollFromOther().GetAllProjectNameByTypeName(0, 0, "")
 	if err != nil {
 		return input, err
 	}

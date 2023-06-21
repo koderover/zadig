@@ -440,6 +440,8 @@ func initDatabase() {
 		commonrepo.NewWorkflowV4TemplateColl(),
 		commonrepo.NewVariableSetColl(),
 		commonrepo.NewJobInfoColl(),
+		commonrepo.NewJobInfoCollFromOther(),
+		// test: need to delete
 		commonrepo.NewStatDashboardConfigColl(),
 		commonrepo.NewProjectManagementColl(),
 		commonrepo.NewImageTagsCollColl(),
