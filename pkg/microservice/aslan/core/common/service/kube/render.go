@@ -554,12 +554,8 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	// service may not be deployed in environment, we need to extract containers again, since image related variables may be changed
 	latestSvcTemplate.KubeYamls = util.SplitYaml(fullRenderedYaml)
 	commonutil.SetCurrentContainerImages(latestSvcTemplate)
-	log.Infof("container count: %v %v %v %v", len(curContainers), len(latestSvcTemplate.Containers), len(svcContainersInProduct), len(option.Containers))
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
-	for _, container := range mergedContainers {
-		log.Infof("---------- container name: %s image: %s", container.Name, container.Image)
-	}
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, err
 }

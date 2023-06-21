@@ -2152,7 +2152,6 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 	}
 
 	// for service not deployed in envs, we should not replace containers in case variables exist in containers
-	curContainers := service.Containers
 	if prevSvc == nil {
 		service.Containers = nil
 	}
@@ -2164,9 +2163,14 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		return nil, errList
 	}
 
-	service.Containers = curContainers
-
 	manifests := releaseutil.SplitManifests(parsedYaml)
+	if prevSvc == nil {
+		fakeTemplateSvc := &commonmodels.Service{ServiceName: service.ServiceName, ProductName: service.ServiceName, KubeYamls: util.SplitYaml(parsedYaml)}
+		commonutil.SetCurrentContainerImages(fakeTemplateSvc)
+		service.Containers = fakeTemplateSvc.Containers
+	}
+
+	// validate service yaml
 	resources := make([]*unstructured.Unstructured, 0, len(manifests))
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
