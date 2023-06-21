@@ -2151,7 +2151,12 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		return nil, nil
 	}
 
-	// 获取服务模板
+	// for service not deployed in envs, we should not replace containers in case variables exist in containers
+	curContainers := service.Containers
+	if prevSvc == nil {
+		service.Containers = nil
+	}
+
 	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
 	if err != nil {
 		log.Errorf("Failed to render service %s, error: %v", service.ServiceName, err)
@@ -2159,12 +2164,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		return nil, errList
 	}
 
-	// FIXME: not really needed to replace images here
-	parsedYaml, _, err = kube.ReplaceWorkloadImages(parsedYaml, service.Containers)
-	if err != nil {
-		errList = multierror.Append(errList, fmt.Errorf("failed to replace image for service %s, error: %v", service.ServiceName, err))
-		return nil, errList
-	}
+	service.Containers = curContainers
 
 	manifests := releaseutil.SplitManifests(parsedYaml)
 	resources := make([]*unstructured.Unstructured, 0, len(manifests))
