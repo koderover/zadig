@@ -18,7 +18,6 @@ type UserPromptParseInput struct {
 
 type AiAnalysisReq struct {
 	Prompt      string   `json:"prompt"`
-	TestPrompt  string   `json:"test_prompt"`
 	ProjectList []string `json:"project_list"`
 	StartTime   int64    `json:"start_time"`
 	EndTime     int64    `json:"end_time"`

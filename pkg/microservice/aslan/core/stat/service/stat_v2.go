@@ -560,6 +560,7 @@ type EfficiencyRadarData struct {
 	Name                           string  `json:"name"`
 	TestSuccessRate                float64 `json:"test_success_rate"`
 	ReleaseFrequency               float64 `json:"release_frequency"`
+	BuildFrequency                 float64 `json:"build_frequency"`
 	ReleaseSuccessRate             float64 `json:"release_success_rate"`
 	RequirementDevelopmentLeadTime float64 `json:"requirement_development_lead_time"`
 }
@@ -606,6 +607,15 @@ func GetEfficiencyRadar(startTime, endTime int64, projects []string, logger *zap
 			return nil, err
 		}
 		radarData.ReleaseFrequency = getDestFloat(releaseFrequency)
+
+		// build frequency
+		buildFrequencyCalculator := &BuildFrequencyCalculator{}
+		buildFrequency, _, err := buildFrequencyCalculator.GetFact(startTime, endTime, project)
+		if err != nil {
+			logger.Errorf("failed to get build frequency, error: %s", err)
+			return nil, err
+		}
+		radarData.BuildFrequency = getDestFloat(buildFrequency)
 
 		// R&D lead time
 		leadTime, err := GetRequirementDevelopmentLeadTime(startTime, endTime, project)
@@ -816,4 +826,47 @@ func getAllProjectNames(projectList []string) ([]string, error) {
 
 func getDestFloat(f float64) float64 {
 	return math.Round(f*100) / 100
+}
+
+type DevDelPeriod struct {
+	RequirementDeliveryLeadTime    float64 `json:"requirement_delivery_lead_time"`
+	RequirementDevelopmentLeadTime float64 `json:"requirement_development_lead_time"`
+}
+
+func GetRequirementDevDelPeriod(start, end int64, projects []string, logger *zap.SugaredLogger) (*DevDelPeriod, error) {
+	projects, err := getAllProjectNames(projects)
+	if err != nil {
+		logger.Errorf("failed to get all project names, error: %s", err)
+		return nil, err
+	}
+
+	developSum, devCount, deliverySum, delCount := 0.0, 0, 0.0, 0
+	for _, project := range projects {
+		// get requirement_delivery_lead_time
+		delivery, err := GetRequirementDeliveryLeadTime(start, end, project)
+		if err != nil {
+			logger.Errorf("failed to get requirement delivery lead time, error: %s", err)
+		} else {
+			deliverySum += delivery
+			delCount++
+		}
+
+		// get requirement_development_lead_time
+		development, err := GetRequirementDevelopmentLeadTime(start, end, project)
+		if err != nil {
+			logger.Errorf("failed to get requirement development lead time, error: %s", err)
+		} else {
+			developSum += development
+			devCount++
+		}
+	}
+
+	resp := &DevDelPeriod{}
+	if devCount != 0 {
+		resp.RequirementDevelopmentLeadTime = getDestFloat(developSum / float64(devCount))
+	}
+	if delCount != 0 {
+		resp.RequirementDeliveryLeadTime = getDestFloat(deliverySum / float64(delCount))
+	}
+	return resp, nil
 }

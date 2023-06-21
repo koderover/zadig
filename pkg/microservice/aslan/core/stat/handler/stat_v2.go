@@ -242,3 +242,21 @@ func GetMonthAttention(c *gin.Context) {
 		SystemAnswer: data,
 	}
 }
+
+func GetRequirementDevDepPeriod(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(aiStatReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if args.StartTime == 0 && args.EndTime == 0 {
+		now := time.Now()
+		args.StartTime = now.AddDate(0, -1, 0).Unix()
+		args.EndTime = now.Unix()
+	}
+
+	ctx.Resp, ctx.Err = service.GetRequirementDevDelPeriod(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+}

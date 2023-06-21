@@ -73,6 +73,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		v2.GET("/ai/build/trend", GetCurrently30DayBuildTrend)
 		v2.GET("/ai/radar", GetEfficiencyRadar)
 		v2.GET("/ai/attention", GetMonthAttention)
+		v2.GET("/ai/requirement/period", GetRequirementDevDepPeriod)
 	}
 }
 
