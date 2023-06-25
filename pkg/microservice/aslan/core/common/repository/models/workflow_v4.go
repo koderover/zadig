@@ -218,7 +218,7 @@ type DeployTargets struct {
 	// workload_type/workload_name/container_name.
 	Target    string `bson:"target"           json:"target"            yaml:"target"`
 	Image     string `bson:"image,omitempty"  json:"image,omitempty"   yaml:"image,omitempty"`
-	ImageName string `bson:"-"  json:"image_name,omitempty"   yaml:"image_name,omitempty"`
+	ImageName string `bson:"image,omitempty"  json:"image_name,omitempty"   yaml:"image_name,omitempty"`
 }
 
 type PluginJobSpec struct {
