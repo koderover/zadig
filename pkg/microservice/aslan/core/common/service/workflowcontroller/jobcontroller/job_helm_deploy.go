@@ -139,7 +139,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	chartInfo.OverrideYaml.YamlContent = param.VariableYaml
 
 	// this function is just to make sure a values.yaml can be generated without error
-	mergedValues, err := kube.GeneMergedValues(productService, renderSet, param.Images, "")
+	mergedValues, err := kube.GeneMergedValues(productService, renderSet, param.Images)
 	if err != nil {
 		log.Errorf("failed to generate merged values.yaml, err: %w", err)
 		logError(c.job, fmt.Sprintf("fail to generate merged values.yaml, err: %s", err.Error()), c.logger)
@@ -157,7 +157,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	done := make(chan bool)
 	go func(chan bool) {
-		if err = kube.UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, param.Images, "", param.Timeout); err != nil {
+		if err = kube.UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, param.Images, param.Timeout); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",
@@ -170,7 +170,11 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	// we add timeout check here in case helm stuck in pending status
 	select {
-	case <-done:
+	case result := <-done:
+		if !result {
+			logError(c.job, err.Error(), c.logger)
+			return
+		}
 		break
 	case <-time.After(time.Second*time.Duration(timeOut) + time.Minute):
 		err = fmt.Errorf("failed to upgrade relase for service: %s, timeout", c.jobTaskSpec.ServiceName)

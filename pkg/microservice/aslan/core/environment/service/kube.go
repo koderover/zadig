@@ -43,6 +43,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -803,7 +804,7 @@ func ListK8sResOverview(args *FetchResourceArgs, log *zap.SugaredLogger) (*K8sRe
 	case "jobs":
 		return ListJobs(page, pageSize, namespace, kubeClient)
 	case "cronjobs":
-		return ListCronJobs(page, pageSize, productInfo.ClusterID, namespace, kubeClient)
+		return ListCronJobs(page, pageSize, productInfo.ClusterID, namespace, kubeClient, inf)
 	case "services":
 		return ListServices(page, pageSize, namespace, kubeClient, inf)
 	case "ingresses":
@@ -1043,10 +1044,16 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 		return nil
 	}
 
+	version, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		return fmt.Errorf("failed to get server version, err: %s", err)
+	}
+
 	relatedGvks := make(map[schema.GroupVersionKind]schema.GroupVersionKind)
 	for _, resList := range resourceMap {
 		for _, res := range resList {
-			relatedGvks[res.GVK] = res.GVK
+			gvk := kube.GetValidGVK(res.GVK, version)
+			relatedGvks[gvk] = gvk
 		}
 	}
 
@@ -1063,6 +1070,7 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 			continue
 		}
 		for _, item := range u.Items {
+			log.Infof("item: %s", item.GetName())
 			if deployStatus, ok := resources[item.GetName()]; ok && deployStatus.Status == StatusUnDeployed {
 				deployStatus.Status = StatusDeployed
 			}
@@ -1135,6 +1143,20 @@ func setReleaseDeployStatus(namespace string, resourceMap map[string]*ResourceDe
 		if release != nil {
 			deployStatus.Status = StatusDeployed
 		}
+		customValues, err := helmClient.GetReleaseValues(releaseName, false)
+		if err != nil {
+			log.Warnf("failed to get release values with name: %s, err: %s", releaseName, err)
+			continue
+		}
+		if len(customValues) == 0 {
+			continue
+		}
+		overrideYaml, err := yaml.Marshal(customValues)
+		if err != nil {
+			log.Warnf("failed to marshal values map when fetching release deploy status, err: %s", err)
+			continue
+		}
+		deployStatus.OverrideYaml = string(overrideYaml)
 	}
 	return nil
 }

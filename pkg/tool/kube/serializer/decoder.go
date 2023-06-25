@@ -130,13 +130,27 @@ func (d *decoder) YamlToJob(manifest []byte) (*batchv1.Job, error) {
 	return res, err
 }
 
-func (d *decoder) YamlToCronJob(manifest []byte) (*batchv1beta1.CronJob, error) {
+func (d *decoder) YamlToCronJobBeta(manifest []byte) (*batchv1beta1.CronJob, error) {
 	obj, err := d.YamlToRuntimeObject(manifest)
 	if err != nil {
 		return nil, err
 	}
 
 	res, ok := obj.(*batchv1beta1.CronJob)
+	if !ok {
+		return nil, fmt.Errorf("object is not a CronJob")
+	}
+
+	return res, err
+}
+
+func (d *decoder) YamlToCronJob(manifest []byte) (*batchv1.CronJob, error) {
+	obj, err := d.YamlToRuntimeObject(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	res, ok := obj.(*batchv1.CronJob)
 	if !ok {
 		return nil, fmt.Errorf("object is not a CronJob")
 	}
@@ -170,6 +184,10 @@ func (d *decoder) JSONToJob(manifest []byte) (*batchv1.Job, error) {
 	return d.YamlToJob(manifest)
 }
 
-func (d *decoder) JSONToCronJob(manifest []byte) (*batchv1beta1.CronJob, error) {
+func (d *decoder) JSONToCronJobBeta(manifest []byte) (*batchv1beta1.CronJob, error) {
+	return d.YamlToCronJobBeta(manifest)
+}
+
+func (d *decoder) JSONToCronJob(manifest []byte) (*batchv1.CronJob, error) {
 	return d.YamlToCronJob(manifest)
 }

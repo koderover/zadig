@@ -1800,8 +1800,8 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	return nil
 }
 
-func DeleteProductServices(userName, requestID, envName, productName string, serviceNames []string, log *zap.SugaredLogger) (err error) {
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+func DeleteProductServices(userName, requestID, envName, productName string, serviceNames []string, production bool, log *zap.SugaredLogger) (err error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)})
 	if err != nil {
 		log.Errorf("find product error: %v", err)
 		return err
@@ -2151,7 +2151,11 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		return nil, nil
 	}
 
-	// 获取服务模板
+	// for service not deployed in envs, we should not replace containers in case variables exist in containers
+	if prevSvc == nil {
+		service.Containers = nil
+	}
+
 	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
 	if err != nil {
 		log.Errorf("Failed to render service %s, error: %v", service.ServiceName, err)
@@ -2159,14 +2163,14 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		return nil, errList
 	}
 
-	// FIXME: not really needed to replace images here
-	parsedYaml, _, err = kube.ReplaceWorkloadImages(parsedYaml, service.Containers)
-	if err != nil {
-		errList = multierror.Append(errList, fmt.Errorf("failed to replace image for service %s, error: %v", service.ServiceName, err))
-		return nil, errList
+	manifests := releaseutil.SplitManifests(parsedYaml)
+	if prevSvc == nil {
+		fakeTemplateSvc := &commonmodels.Service{ServiceName: service.ServiceName, ProductName: service.ServiceName, KubeYamls: util.SplitYaml(parsedYaml)}
+		commonutil.SetCurrentContainerImages(fakeTemplateSvc)
+		service.Containers = fakeTemplateSvc.Containers
 	}
 
-	manifests := releaseutil.SplitManifests(parsedYaml)
+	// validate service yaml
 	resources := make([]*unstructured.Unstructured, 0, len(manifests))
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))

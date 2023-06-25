@@ -216,10 +216,12 @@ const (
 )
 
 type ResourceDeployStatus struct {
-	Type   string                  `json:"type"`
-	Name   string                  `json:"name"`
-	Status DeployStatus            `json:"status"`
-	GVK    schema.GroupVersionKind `json:"-"`
+	Type         string                  `json:"type"`
+	Name         string                  `json:"name"`
+	Status       DeployStatus            `json:"status"`
+	GVK          schema.GroupVersionKind `json:"-"`
+	OverrideYaml string                  `json:"override_yaml"`
+	OverrideKvs  []*commonservice.KVPair `json:"override_kvs"`
 }
 
 type ServiceDeployStatus struct {

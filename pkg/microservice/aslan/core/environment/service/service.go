@@ -26,6 +26,8 @@ import (
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	"k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -198,6 +200,7 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(err)
 	}
 	ret.Workloads = nil
+	ret.Namespace = env.Namespace
 	return ret, nil
 }
 
@@ -234,7 +237,9 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 		Services:    make([]*internalresource.Service, 0),
 		Ingress:     make([]*internalresource.Ingress, 0),
 		Scales:      make([]*internalresource.Workload, 0),
+		CronJobs:    make([]*internalresource.CronJob, 0),
 	}
+	err = nil
 
 	namespace := env.Namespace
 	switch env.Source {
@@ -279,6 +284,17 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 					break
 				}
 			}
+		case setting.CronJob:
+			version, err := clientset.Discovery().ServerVersion()
+			if err != nil {
+				log.Warnf("Failed to determine server version, error is: %s", err)
+				return ret, nil
+			}
+			cj, cjBeta, exists, err := getter.GetCronJob(namespace, serviceName, kubeClient, kubeclient.VersionLessThan121(version))
+			if err != nil || !exists {
+				return ret, nil
+			}
+			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
 		default:
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 		}
@@ -347,6 +363,17 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 
 				ret.Scales = append(ret.Scales, getStatefulSetWorkloadResource(sts, inf, log))
 				ret.Workloads = append(ret.Workloads, toStsWorkload(sts))
+			case setting.CronJob:
+				version, err := clientset.Discovery().ServerVersion()
+				if err != nil {
+					log.Warnf("Failed to determine server version, error is: %s", err)
+					continue
+				}
+				cj, cjBeta, exists, err := getter.GetCronJob(namespace, u.GetName(), kubeClient, kubeclient.VersionLessThan121(version))
+				if err != nil || !exists {
+					continue
+				}
+				ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
 			case setting.Ingress:
 
 				version, err := clientset.Discovery().ServerVersion()
@@ -627,12 +654,19 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 	resp.Ingress = svcResp.Ingress
 	resp.Workloads = svcResp.Workloads
 
+	suspendCronJobCount := 0
+	for _, cronJob := range svcResp.CronJobs {
+		if cronJob.Suspend {
+			suspendCronJobCount++
+		}
+	}
+
 	pods := make([]*resource.Pod, 0)
 	for _, svc := range svcResp.Scales {
 		pods = append(pods, svc.Pods...)
 	}
 
-	if len(pods) == 0 {
+	if len(pods) == 0 && len(svcResp.CronJobs) == 0 {
 		resp.PodStatus, resp.Ready = setting.PodNonStarted, setting.PodNotReady
 		return resp
 	}
@@ -643,9 +677,27 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 			imageSet.Insert(container.Image)
 		}
 	}
+
+	for _, cronJob := range svcResp.CronJobs {
+		for _, image := range cronJob.Images {
+			imageSet.Insert(image.Image)
+		}
+	}
+
 	resp.Images = imageSet.List()
 
 	ready := setting.PodReady
+
+	if len(svcResp.Workloads) == 0 && len(svcResp.CronJobs) > 0 {
+		if len(svcResp.CronJobs) == suspendCronJobCount {
+			resp.PodStatus = setting.ServiceStatusAllSuspended
+		} else if suspendCronJobCount == 0 {
+			resp.PodStatus = setting.ServiceStatusNoSuspended
+		} else {
+			resp.PodStatus = setting.ServiceStatusPartSuspended
+		}
+		return resp
+	}
 
 	succeededPods := 0
 	for _, pod := range pods {
@@ -733,4 +785,8 @@ func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.
 	}
 
 	return wrapper.StatefulSet(sts).WorkloadResource(pods)
+}
+
+func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, log *zap.SugaredLogger) *internalresource.CronJob {
+	return wrapper.CronJob(cornJob, cronJobBeta).CronJobResource()
 }
