@@ -103,16 +103,18 @@ func ListCronJobsV1Beta(ns string, selector labels.Selector, cl client.Client) (
 // GetCronJobYaml if k8s version higher than 1.21, only batch/v1 is supported, or we will fetch batch/v1beta1
 func GetCronJobYaml(ns, name string, cl client.Client, versionLessThan121 bool) ([]byte, bool, error) {
 	gvk := CronJobGVK
-	bytes, existed, err := GetResourceYamlInCache(ns, name, gvk, cl)
 	if !versionLessThan121 {
-		return bytes, existed, err
+		return GetResourceYamlInCache(ns, name, gvk, cl)
 	}
-
-	if existed && err == nil {
-		return bytes, existed, nil
-	}
-
 	return GetResourceYamlInCache(ns, name, CronJobV1BetaGVK, cl)
+}
+
+func GetCronJobYamlFormat(ns, name string, cl client.Client, versionLessThan121 bool) ([]byte, bool, error) {
+	gvk := CronJobGVK
+	if !versionLessThan121 {
+		return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
+	}
+	return GetResourceYamlInCacheFormat(ns, name, CronJobV1BetaGVK, cl)
 }
 
 func GetCronJob(ns, name string, cl client.Client, versionLessThan121 bool) (*batchv1.CronJob, *batchv1beta1.CronJob, bool, error) {
