@@ -97,7 +97,7 @@ func ExportProductionYaml(envName, productName, serviceName string, log *zap.Sug
 			continue
 		}
 		switch u.GetKind() {
-		case setting.Deployment, setting.StatefulSet, setting.ConfigMap, setting.Service, setting.Ingress:
+		case setting.Deployment, setting.StatefulSet, setting.ConfigMap, setting.Service, setting.Ingress, setting.CronJob:
 			resource, exists, err := getter.GetResourceYamlInCache(namespace, u.GetName(), u.GroupVersionKind(), kubeClient)
 			if err != nil {
 				log.Errorf("failed to get resource yaml, err: %s", err)
