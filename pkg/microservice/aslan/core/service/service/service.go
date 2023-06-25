@@ -380,6 +380,17 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		log.Errorf("[%s] error: %s", args.Namespace, err)
 		return err
 	}
+	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), args.ClusterID)
+	if err != nil {
+		log.Errorf("get client set error: %v", err)
+		return err
+	}
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("get server version error: %v", err)
+		return err
+	}
+
 	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s]NewWorkLoadsStatColl().Find %s", args.ClusterID, args.Namespace, err)
@@ -497,9 +508,11 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			var bs []byte
 			switch v.Type {
 			case setting.Deployment:
-				bs, _, err = getter.GetDeploymentYaml(args.Namespace, v.Name, kubeClient)
+				bs, _, err = getter.GetDeploymentYamlFormat(args.Namespace, v.Name, kubeClient)
 			case setting.StatefulSet:
-				bs, _, err = getter.GetStatefulSetYaml(args.Namespace, v.Name, kubeClient)
+				bs, _, err = getter.GetStatefulSetYamlFormat(args.Namespace, v.Name, kubeClient)
+			case setting.CronJob:
+				bs, _, err = getter.GetCronJobYamlFormat(args.Namespace, v.Name, kubeClient, service.VersionLessThan121(versionInfo))
 			}
 			svcNeedAdd.Insert(v.Name)
 			if len(bs) == 0 || err != nil {
