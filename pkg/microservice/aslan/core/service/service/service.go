@@ -240,7 +240,18 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		log.Errorf("[%s] error: %v", args.Namespace, err)
 		return err
 	}
-	// 检查环境是否存在，envName和productName唯一
+
+	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), args.ClusterID)
+	if err != nil {
+		log.Errorf("get client set error: %v", err)
+		return err
+	}
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("get server version error: %v", err)
+		return err
+	}
+
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	if _, err := commonrepo.NewProductColl().Find(opt); err == nil {
 		log.Errorf("[%s][P:%s] duplicate envName in the same project", args.EnvName, args.ProductName)
@@ -258,11 +269,6 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 	}
-	//for _, workload := range workLoads {
-	//	if serviceString.Has(workload.Name) {
-	//		return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", workload.Name))
-	//	}
-	//}
 
 	g := new(errgroup.Group)
 	for _, workload := range args.WorkLoads {
@@ -285,6 +291,8 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 				bs, _, err = getter.GetDeploymentYamlFormat(args.Namespace, tempWorkload.Name, kubeClient)
 			case setting.StatefulSet:
 				bs, _, err = getter.GetStatefulSetYamlFormat(args.Namespace, tempWorkload.Name, kubeClient)
+			case setting.CronJob:
+				bs, _, err = getter.GetCronJobYamlFormat(args.Namespace, tempWorkload.Name, kubeClient, service.VersionLessThan121(versionInfo))
 			}
 
 			if len(bs) == 0 || err != nil {

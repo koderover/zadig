@@ -30,6 +30,12 @@ var CronJobGVK = schema.GroupVersionKind{
 	Version: "v1",
 }
 
+var CronJobBeatGVK = schema.GroupVersionKind{
+	Group:   "batch",
+	Kind:    "CronJob",
+	Version: "v1beta1",
+}
+
 func ListCronJobs(ns string, selector labels.Selector, cl client.Client) ([]*batchv1.CronJob, error) {
 	cjs := &batchv1.CronJobList{}
 	err := ListResourceInCache(ns, selector, nil, cjs, cl)
@@ -60,19 +66,16 @@ func ListCronJobsV1Beta(ns string, selector labels.Selector, cl client.Client) (
 
 func GetCronJobYaml(ns, name string, cl client.Client, versionLessThan121 bool) ([]byte, bool, error) {
 	gvk := CronJobGVK
-	bytes, existed, err := GetResourceYamlInCache(ns, name, gvk, cl)
 	if !versionLessThan121 {
-		return bytes, existed, err
+		return GetResourceYamlInCache(ns, name, gvk, cl)
 	}
+	return GetResourceYamlInCache(ns, name, CronJobBeatGVK, cl)
+}
 
-	if existed && err == nil {
-		return bytes, existed, err
+func GetCronJobYamlFormat(ns, name string, cl client.Client, versionLessThan121 bool) ([]byte, bool, error) {
+	gvk := CronJobGVK
+	if !versionLessThan121 {
+		return GetResourceYamlInCacheFormat(ns, name, gvk, cl)
 	}
-
-	gvk = schema.GroupVersionKind{
-		Group:   "batch",
-		Kind:    "CronJob",
-		Version: "v1beta1",
-	}
-	return GetResourceYamlInCache(ns, name, gvk, cl)
+	return GetResourceYamlInCacheFormat(ns, name, CronJobBeatGVK, cl)
 }
