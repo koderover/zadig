@@ -26,6 +26,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/ai"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1 "k8s.io/api/core/v1"
@@ -425,6 +426,9 @@ func initDatabase() {
 
 		// user related db index
 		userdb.NewUserSettingColl(),
+
+		// env AI analysis related db index
+		ai.NewEnvAIAnalysisColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

@@ -225,6 +225,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/analysis", RunAnalysis)
 		environments.GET("/:name/analysis/cron", GetEnvAnalysisCron)
 		environments.PUT("/:name/analysis/cron", UpsertEnvAnalysisCron)
+		environments.GET("/:name/analysis/history", GetEnvAnalysisHistory)
 	}
 
 	// ---------------------------------------------------------------------------------------

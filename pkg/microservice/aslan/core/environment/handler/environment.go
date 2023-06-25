@@ -1303,8 +1303,7 @@ func RunAnalysis(c *gin.Context) {
 		return
 	}
 
-	triggerName := c.Query("triggerName")
-	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.False(), triggerName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.False(), c.Query("triggerName"), c.Query("userName"), setting.AIEnvAnalysisByManual, ctx.Logger)
 }
 
 // @Summary Run Production Enviroment Analysis
@@ -1332,8 +1331,7 @@ func RunProductionAnalysis(c *gin.Context) {
 		return
 	}
 
-	triggerName := c.Query("triggerName")
-	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.True(), triggerName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.True(), c.Query("triggerName"), c.Query("userName"), setting.AIEnvAnalysisByManual, ctx.Logger)
 }
 
 // @Summary Upsert Env Analysis Cron
@@ -1476,4 +1474,35 @@ func GetProductionEnvAnalysisCron(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.GetEnvAnalysisCron(projectName, envName, boolptr.True(), ctx.Logger)
+}
+
+type EnvAnalysisHistoryReq struct {
+	ProjectName string `json:"projectName" form:"projectName"`
+	Production  bool   `json:"production" form:"production"`
+	Offset      int    `json:"offset" form:"offset"`
+	Limit       int    `json:"limit" form:"limit"`
+}
+
+func GetEnvAnalysisHistory(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	req := &EnvAnalysisHistoryReq{}
+	err := c.ShouldBindQuery(req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if req.ProjectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvAnalysisHistory(req.ProjectName, req.Production, envName, req.Offset, req.Limit, ctx.Logger)
 }

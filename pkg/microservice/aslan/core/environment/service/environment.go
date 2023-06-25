@@ -29,6 +29,8 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	configbase "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/ai"
+	airepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/ai"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -3116,7 +3118,33 @@ type EnvAnalysisRespone struct {
 	Result string `json:"result"`
 }
 
-func EnvAnalysis(projectName, envName string, production *bool, triggerName string, logger *zap.SugaredLogger) (*EnvAnalysisRespone, error) {
+func EnvAnalysis(projectName, envName string, production *bool, triggerName string, userName string, source string, logger *zap.SugaredLogger) (*EnvAnalysisRespone, error) {
+	var err error
+	start := time.Now()
+	result := &ai.EnvAIAnalysis{
+		ProjectName: projectName,
+		EnvName:     envName,
+		TriggerName: triggerName,
+		Source:      source,
+		CreatedBy:   userName,
+		Production:  *production,
+		StartTime:   start.Unix(),
+	}
+	defer func() {
+		if err != nil {
+			result.Err = err.Error()
+			result.Status = setting.AIEnvAnalysisStatusFailed
+			result.EndTime = time.Now().Unix()
+		} else {
+			result.Status = setting.AIEnvAnalysisStatusSuccess
+			result.EndTime = time.Now().Unix()
+		}
+		err = airepo.NewEnvAIAnalysisColl().Create(result)
+		if err != nil {
+			logger.Errorf("failed to add env ai analysis result to db, err: %s", err)
+		}
+	}()
+
 	resp := &EnvAnalysisRespone{}
 	opt := &commonrepo.ProductFindOptions{
 		EnvName:    envName,
@@ -3181,6 +3209,7 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 			}
 		})
 	}
+	result.Result = string(analysisResult)
 
 	resp.Result = string(analysisResult)
 	return resp, nil
@@ -3322,6 +3351,16 @@ func GetEnvAnalysisCron(projectName, envName string, production *bool, logger *z
 		Cron:   crons[0].Cron,
 	}
 	return resp, nil
+}
+
+func GetEnvAnalysisHistory(projectName string, production bool, envName string, pageNum, pageSize int, log *zap.SugaredLogger) ([]*ai.EnvAIAnalysis, error) {
+	return airepo.NewEnvAIAnalysisColl().ListByOptions(airepo.EnvAIAnalysisListOption{
+		EnvName:     envName,
+		ProjectName: projectName,
+		Production:  production,
+		PageNum:     int64(pageNum),
+		PageSize:    int64(pageSize),
+	})
 }
 
 func EnvAnalysisNotification(projectName, envName, result string, config *commonmodels.NotificationConfig) error {
