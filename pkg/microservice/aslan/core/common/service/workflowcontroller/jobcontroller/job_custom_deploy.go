@@ -221,7 +221,7 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 			}
 		}
 	default:
-		msg := fmt.Sprintf("workfload type: %s not supported", c.jobTaskSpec.WorkloadType)
+		msg := fmt.Sprintf("workload type: %s not supported", c.jobTaskSpec.WorkloadType)
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
@@ -285,6 +285,8 @@ func (c *CustomDeployJobCtl) wait(ctx context.Context) {
 				} else {
 					ready = wrapper.StatefulSet(st).Ready()
 				}
+			case setting.CronJob:
+				ready = true
 			default:
 				msg := fmt.Sprintf("workfload type: %s not supported", c.jobTaskSpec.WorkloadType)
 				logError(c.job, msg, c.logger)
