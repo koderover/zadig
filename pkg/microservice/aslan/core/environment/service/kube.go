@@ -664,6 +664,32 @@ func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]
 			resp = append(resp, strings.Join([]string{setting.StatefulSet, statefulset.Name, container.Name}, "/"))
 		}
 	}
+
+	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("get client set error: %v", err)
+		return resp, err
+	}
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("get server version error: %v", err)
+		return resp, err
+	}
+	cronJobs, cronJobBetas, err := getter.ListCronJobs(namespace, labels.Everything(), kubeClient, VersionLessThan121(versionInfo))
+	if err != nil {
+		log.Errorf("list cronjobs error: %v", err)
+		return resp, err
+	}
+	for _, cronJob := range cronJobs {
+		for _, container := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			resp = append(resp, strings.Join([]string{setting.CronJob, cronJob.Name, container.Name}, "/"))
+		}
+	}
+	for _, cronJobBeta := range cronJobBetas {
+		for _, container := range cronJobBeta.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			resp = append(resp, strings.Join([]string{setting.CronJob, cronJobBeta.Name, container.Name}, "/"))
+		}
+	}
 	return resp, nil
 }
 

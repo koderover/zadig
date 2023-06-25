@@ -302,6 +302,21 @@ DistributeLoop:
 				distribute.DeployEndTime = time.Now().Unix()
 				continue
 			}
+			p.clientset, err = kubeclient.GetClientset(p.HubServerAddr, distribute.DeployClusterID)
+			if err != nil {
+				err = errors.WithMessage(err, "can't init k8s clientset")
+				distribute.DeployStatus = string(config.StatusFailed)
+				distribute.DeployEndTime = time.Now().Unix()
+				continue
+			}
+		}
+
+		versionInfo, err := p.clientset.Discovery().ServerVersion()
+		if err != nil {
+			err = errors.WithMessage(err, "can't get k8s version")
+			distribute.DeployStatus = string(config.StatusFailed)
+			distribute.DeployEndTime = time.Now().Unix()
+			continue
 		}
 		// k8s deploy type service goes here
 		if distribute.DeployServiceType != setting.HelmDeployType {
@@ -490,6 +505,53 @@ DistributeLoop:
 							}
 							replaced = true
 							break
+						}
+					}
+				case setting.CronJob:
+					cronJob, cronJobBeta, found, errFoundCron := getter.GetCronJob(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient, kubeclient.VersionLessThan121(versionInfo))
+					if found {
+						err = fmt.Errorf("cronJob %s not found", distribute.DeployServiceName)
+					}
+					if errFoundCron != nil {
+						err = errors.WithMessage(err, "failed to get cronJob")
+						distribute.DeployStatus = string(config.StatusFailed)
+						distribute.DeployEndTime = time.Now().Unix()
+						continue
+					}
+					if cronJob != nil {
+						for _, container := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+							if container.Name == distribute.DeployContainerName {
+								err = updater.UpdateCronJobImage(cronJob.Namespace, cronJob.Name, distribute.DeployContainerName, distribute.Image, p.kubeClient, kubeclient.VersionLessThan121(versionInfo))
+								if err != nil {
+									err = errors.WithMessagef(
+										err,
+										"failed to update container image in %s/cornJob/%s/%s",
+										distribute.DeployNamespace, cronJob.Name, container.Name)
+									distribute.DeployEndTime = time.Now().Unix()
+									distribute.DeployStatus = string(config.StatusFailed)
+									continue DistributeLoop
+								}
+								replaced = true
+								break
+							}
+						}
+					}
+					if cronJobBeta != nil {
+						for _, container := range cronJobBeta.Spec.JobTemplate.Spec.Template.Spec.Containers {
+							if container.Name == distribute.DeployContainerName {
+								err = updater.UpdateCronJobImage(cronJobBeta.Namespace, cronJobBeta.Name, distribute.DeployContainerName, distribute.Image, p.kubeClient, kubeclient.VersionLessThan121(versionInfo))
+								if err != nil {
+									err = errors.WithMessagef(
+										err,
+										"failed to update container image in %s/cornJobBeta/%s/%s",
+										distribute.DeployNamespace, cronJobBeta.Name, container.Name)
+									distribute.DeployEndTime = time.Now().Unix()
+									distribute.DeployStatus = string(config.StatusFailed)
+									continue DistributeLoop
+								}
+								replaced = true
+								break
+							}
 						}
 					}
 				}
