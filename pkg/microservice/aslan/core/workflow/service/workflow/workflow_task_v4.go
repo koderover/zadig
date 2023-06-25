@@ -973,6 +973,23 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 		return envInfo.Production
 	}
 
+	//projectInfo, err := templaterepo.NewProductColl().FindProjectName(projectName)
+	//if err != nil {
+	//	log.Errorf("failed to get project info %s, error : %v", projectName, err)
+	//	return resp
+	//}
+	//getServiceWorkloadType := func(jobPreview *JobTaskPreview, svcName string) {
+	//	if !projectInfo.IsHostProduct() {
+	//		return
+	//	}
+	//	svcInfo, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: svcName, ProductName: projectName})
+	//	if err != nil {
+	//		log.Errorf("failed to get service info %s/%s, error : %v", projectName, svcName, err)
+	//		return
+	//	}
+	//	jobInfo, err := svcInfo.WorkloadType
+	//}
+
 	for _, job := range jobs {
 		costSeconds := int64(0)
 		if job.StartTime != 0 {
