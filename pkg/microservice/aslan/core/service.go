@@ -26,20 +26,18 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/ai"
-	client2 "sigs.k8s.io/controller-runtime/pkg/client"
-
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	modeMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/ai"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"

@@ -780,7 +780,4 @@ const (
 	// AI analyze env result status
 	AIEnvAnalysisStatusSuccess = "success"
 	AIEnvAnalysisStatusFailed  = "failed"
-	AIEnvAnalysisByManual      = "manual"
-	AIEnvAnalysisByCronJob     = "cron_job"
-	AIEnvAnalysisCronJobUser   = "定时任务"
 )
