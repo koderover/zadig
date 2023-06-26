@@ -21,12 +21,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
-	"k8s.io/apimachinery/pkg/version"
-
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/version"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -38,6 +35,7 @@ import (
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type CustomDeployJobCtl struct {
