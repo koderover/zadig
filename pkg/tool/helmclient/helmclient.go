@@ -202,7 +202,7 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 	log.Infof("MergeOverrideValues, kr string is %v", strings.Join(kvStr, ","))
 
 	// override values for --set option
-	if len(kvStr) == 0 {
+	if len(kvStr) > 0 {
 		err = strvals.ParseInto(strings.Join(kvStr, ","), valuesMap)
 		if err != nil {
 			return "", err

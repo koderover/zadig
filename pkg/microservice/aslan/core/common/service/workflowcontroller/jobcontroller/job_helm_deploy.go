@@ -147,7 +147,6 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	c.jobTaskSpec.YamlContent = mergedValues
-	log.Info("-------- merge values: %s", mergedValues)
 	c.jobTaskSpec.UserSuppliedValue = c.jobTaskSpec.VariableYaml
 	c.ack()
 
