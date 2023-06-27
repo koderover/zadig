@@ -2431,7 +2431,7 @@ func buildInstallParam(namespace, envName, defaultValues string, renderChart *te
 		}
 	}
 
-	mergedValues, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, imageKVS)
+	mergedValues, err := helmtool.MergeOverrideValues("", defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, imageKVS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge override yaml %s and values %s, err: %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
 	}
