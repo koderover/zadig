@@ -19,6 +19,7 @@ package migrate
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
@@ -52,14 +53,15 @@ func V1170ToV1180() error {
 		log.Errorf("migrateVariables err: %v", err)
 		return errors.Wrapf(err, "failed to execute migrateVariables")
 	}
-	if err := migrateWorkflowV4LarkApproval(); err != nil {
-		log.Errorf("migrateWorkflowV4LarkApproval err: %v", err)
+	if err := migrateWorkflowV4Data(); err != nil {
+		log.Errorf("migrateWorkflowV4Data err: %v", err)
 		return err
 	}
 	if err := migrateExternalProductIsExisted(); err != nil {
 		log.Errorf("migrateExternalProductIsExisted err: %v", err)
 		return err
 	}
+
 	return nil
 }
 
@@ -169,8 +171,9 @@ func createDefaultLarkApprovalDefinition(larks []*models.IMApp) error {
 	return nil
 }
 
-func migrateWorkflowV4LarkApproval() error {
-	log := log.SugaredLogger().With("func", "migrateWorkflowV4LarkApproval")
+// migrateWorkflowV4LarkApproval and migrateWorkflowV4DeployTarget
+func migrateWorkflowV4Data() error {
+	log := log.SugaredLogger().With("func", "migrateWorkflowV4Data")
 	larkApps, err := mongodb.NewIMAppColl().List(context.Background(), setting.IMLark)
 	switch err {
 	case mongo.ErrNoDocuments:
@@ -192,7 +195,7 @@ func migrateWorkflowV4LarkApproval() error {
 		if err := cursor.Decode(&workflow); err != nil {
 			return err
 		}
-		if setLarkApprovalNodeForWorkflowV4(&workflow) {
+		if setLarkApprovalNodeForWorkflowV4(&workflow) || setCustomDeployTargetForWorkflowV4(&workflow) {
 			ms = append(ms,
 				mongo.NewUpdateOneModel().
 					SetFilter(bson.D{{"_id", workflow.ID}}).
@@ -280,6 +283,36 @@ func setLarkApprovalNodeForWorkflowV4(workflow *models.WorkflowV4) (updated bool
 				},
 			}
 			updated = true
+		}
+	}
+	return updated
+}
+
+func setCustomDeployTargetForWorkflowV4(workflow *models.WorkflowV4) (updated bool) {
+	if workflow == nil {
+		return false
+	}
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != aslanConfig.JobCustomDeploy {
+				continue
+			}
+			jobSpec := &models.CustomDeployJobSpec{}
+			if err := models.IToi(job.Spec, jobSpec); err != nil {
+				log.Errorf("failed to convert job spec to custom deploy job spec, err: %v", err)
+				continue
+			}
+			for _, target := range jobSpec.Targets {
+				if len(target.ImageName) > 0 {
+					continue
+				}
+				curTargetStr := strings.Split(target.Target, "/")
+				if len(curTargetStr) == 3 {
+					target.ImageName = curTargetStr[2]
+				}
+				updated = true
+			}
+			job.Spec = jobSpec
 		}
 	}
 	return updated
