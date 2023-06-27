@@ -2407,8 +2407,31 @@ func FindProductRenderSet(productName, renderName, envName string, log *zap.Suga
 	return resp, nil
 }
 
-func buildInstallParam(namespace, envName, defaultValues string, renderChart *templatemodels.ServiceRender, serviceObj *commonmodels.Service) (*kube.ReleaseInstallParam, error) {
-	mergedValues, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, nil)
+func buildInstallParam(namespace, envName, defaultValues string, renderChart *templatemodels.ServiceRender, serviceObj *commonmodels.Service, productSvc *commonmodels.ProductService) (*kube.ReleaseInstallParam, error) {
+	imageKVS := make([]*helmtool.KV, 0)
+	if productSvc != nil {
+		targetContainers := productSvc.Containers
+		replaceValuesMaps := make([]map[string]interface{}, 0)
+		for _, targetContainer := range targetContainers {
+			// prepare image replace info
+			replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, kube.GetValidMatchData(targetContainer.ImagePath))
+			if err != nil {
+				return nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, serviceObj.ServiceName, err.Error())
+			}
+			replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
+		}
+
+		for _, imageSecs := range replaceValuesMaps {
+			for key, value := range imageSecs {
+				imageKVS = append(imageKVS, &helmtool.KV{
+					Key:   key,
+					Value: value,
+				})
+			}
+		}
+	}
+
+	mergedValues, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, imageKVS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge override yaml %s and values %s, err: %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
 	}
@@ -2730,7 +2753,7 @@ func dryRunInstallRelease(productResp *commonmodels.Product, renderset *commonmo
 	}
 
 	handler := func(serviceObj *commonmodels.Service, log *zap.SugaredLogger) (err error) {
-		param, errBuildParam := buildInstallParam(productResp.Namespace, renderset.EnvName, renderset.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj)
+		param, errBuildParam := buildInstallParam(productResp.Namespace, renderset.EnvName, renderset.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj, nil)
 		if errBuildParam != nil {
 			return errBuildParam
 		}
@@ -2805,7 +2828,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmode
 				}
 			}
 		}()
-		param, errBuildParam := buildInstallParam(productResp.Namespace, renderset.EnvName, renderset.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj)
+		param, errBuildParam := buildInstallParam(productResp.Namespace, renderset.EnvName, renderset.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj, prodServiceMap[serviceObj.ServiceName])
 		if errBuildParam != nil {
 			err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", serviceObj.ServiceName, productResp.Namespace, errBuildParam)
 			return

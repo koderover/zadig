@@ -71,7 +71,7 @@ type ReleaseInstallParam struct {
 	Production   bool
 }
 
-func getValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
+func GetValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
 	ret := make(map[string]string)
 	if spec.Repo != "" {
 		ret[setting.PathSearchComponentRepo] = spec.Repo
@@ -180,7 +180,7 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 	replaceValuesMaps := make([]map[string]interface{}, 0)
 	for _, targetContainer := range targetContainers {
 		// prepare image replace info
-		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, getValidMatchData(targetContainer.ImagePath))
+		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, GetValidMatchData(targetContainer.ImagePath))
 		if err != nil {
 			return "", fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
 		}
