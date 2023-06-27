@@ -386,7 +386,6 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 }
 
 func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service, renderset *commonmodels.RenderSet) (string, []*WorkloadResource, error) {
-	//fakeRenderSet := &models.RenderSet{}
 	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, option.ProductName, option.ServiceName, renderset)
 	if err != nil {
 		return "", nil, err
@@ -401,6 +400,16 @@ func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 		return "", nil, errors.Wrapf(err, "cluster is not connected [%s]", productInfo.ClusterID)
 	}
 
+	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("get client set error: %v", err)
+		return "", nil, err
+	}
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("get server version error: %v", err)
+		return "", nil, err
+	}
 	manifestArr := make([]string, 0)
 
 	for _, item := range manifests {
@@ -425,6 +434,15 @@ func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 			}
 			if !exist {
 				return "", nil, errors.Errorf("statefulset %s not found", u.GetName())
+			}
+			manifestArr = append(manifestArr, string(workloadBs))
+		case setting.CronJob:
+			workloadBs, exist, err := getter.GetCronJobYamlFormat(productInfo.Namespace, u.GetName(), kubeClient, kubeclient.VersionLessThan121(versionInfo))
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "failed to get cronjob %s", u.GetName())
+			}
+			if !exist {
+				return "", nil, errors.Errorf("cronjob %s not found", u.GetName())
 			}
 			manifestArr = append(manifestArr, string(workloadBs))
 		}

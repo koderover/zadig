@@ -331,6 +331,7 @@ func transferServices(user string, projectInfo *template.Product, logger *zap.Su
 
 // optimizeServiceYaml optimize the yaml content of service, it removes unnecessary runtime information from workload yamls
 // TODO this function should be deleted after we refactor the code about host-project
+// CronJob workload is not needed to be handled here since is not supported till version 1.18.0
 func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service) error {
 	svcMap := make(map[string]*commonmodels.Service)
 	svcSets := sets.NewString()
