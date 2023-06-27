@@ -509,7 +509,7 @@ DistributeLoop:
 					}
 				case setting.CronJob:
 					cronJob, cronJobBeta, found, errFoundCron := getter.GetCronJob(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient, kubeclient.VersionLessThan121(versionInfo))
-					if found {
+					if !found {
 						err = fmt.Errorf("cronJob %s not found", distribute.DeployServiceName)
 					}
 					if errFoundCron != nil {
