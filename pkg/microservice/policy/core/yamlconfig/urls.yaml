@@ -167,6 +167,9 @@ exemption_urls:
     - endpoint: mobile/**
       methods:
         - GET
+    - endpoint: ai
+      methods:
+        - GET
     - endpoint: ai/**
       methods:
         - GET
