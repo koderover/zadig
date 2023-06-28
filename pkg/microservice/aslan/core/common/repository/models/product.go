@@ -69,8 +69,8 @@ type Product struct {
 	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
 
 	// New Since v.1.19.0, env configs
-	AnalysisConfig     *AnalysisConfig     `bson:"analysis_config"     json:"analysis_config"`
-	NotificationConfig *NotificationConfig `bson:"notification_config" json:"notification_config"`
+	AnalysisConfig      *AnalysisConfig       `bson:"analysis_config"      json:"analysis_config"`
+	NotificationConfigs []*NotificationConfig `bson:"notification_configs" json:"notification_configs"`
 
 	// For production environment
 	Production bool   `json:"production" bson:"production"`
