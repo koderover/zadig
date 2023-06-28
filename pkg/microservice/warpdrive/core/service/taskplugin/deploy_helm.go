@@ -194,6 +194,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 			}
 			targetContainers[container.Name] = &commonmodels.Container{
 				Name:      container.Name,
+				Image:     container.Image,
 				ImageName: container.Image,
 				ImagePath: &commonmodels.ImagePathSpec{
 					Repo:  container.ImagePath.Repo,
