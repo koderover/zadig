@@ -115,7 +115,6 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		UpgradeCRDs:   true,
 		CleanupOnFail: true,
 		MaxHistory:    10,
-		DryRun:        param.DryRun,
 	}
 	if isRetry {
 		chartSpec.Replace = true
@@ -126,11 +125,9 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 
 	// If the target environment is a shared environment and a sub env, we need to clear the deployed K8s Service.
 	ctx := context.TODO()
-	if !chartSpec.DryRun {
-		err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
-		if err != nil {
-			return fmt.Errorf("failed to ensure deleting pre-created K8s Services for product %q in namespace %q: %s", param.ProductName, param.Namespace, err)
-		}
+	err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
+	if err != nil {
+		return fmt.Errorf("failed to ensure deleting pre-created K8s Services for product %q in namespace %q: %s", param.ProductName, param.Namespace, err)
 	}
 
 	helmClient, err = helmClient.Clone()
@@ -146,11 +143,9 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 			"failed to install or upgrade helm chart %s/%s",
 			namespace, serviceObj.ServiceName)
 	} else {
-		if !chartSpec.DryRun {
-			err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
-			if err != nil {
-				err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
-			}
+		err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
+		if err != nil {
+			err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
 		}
 	}
 
