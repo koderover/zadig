@@ -775,3 +775,9 @@ const (
 )
 
 var ServiceVarWildCard = []string{"*"}
+
+const (
+	// AI analyze env result status
+	AIEnvAnalysisStatusSuccess = "success"
+	AIEnvAnalysisStatusFailed  = "failed"
+)

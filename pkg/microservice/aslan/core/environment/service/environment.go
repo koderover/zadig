@@ -28,7 +28,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
-	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -44,12 +43,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/ai"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	airepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/ai"
 	mongotemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -3116,7 +3118,37 @@ type EnvAnalysisRespone struct {
 	Result string `json:"result"`
 }
 
-func EnvAnalysis(projectName, envName string, production *bool, triggerName string, logger *zap.SugaredLogger) (*EnvAnalysisRespone, error) {
+func EnvAnalysis(projectName, envName string, production *bool, triggerName string, userName string, logger *zap.SugaredLogger) (*EnvAnalysisRespone, error) {
+	var err error
+	start := time.Now()
+	// get project detail
+	project, err := templaterepo.NewProductColl().Find(projectName)
+	if err != nil {
+		return nil, err
+	}
+	result := &ai.EnvAIAnalysis{
+		ProjectName: projectName,
+		DeployType:  project.ProductFeature.DeployType,
+		EnvName:     envName,
+		TriggerName: triggerName,
+		CreatedBy:   userName,
+		Production:  *production,
+		StartTime:   start.Unix(),
+	}
+	defer func() {
+		if err != nil {
+			result.Err = err.Error()
+			result.Status = setting.AIEnvAnalysisStatusFailed
+		} else {
+			result.Status = setting.AIEnvAnalysisStatusSuccess
+		}
+		result.EndTime = time.Now().Unix()
+		err = airepo.NewEnvAIAnalysisColl().Create(result)
+		if err != nil {
+			logger.Errorf("failed to add env ai analysis result to db, err: %s", err)
+		}
+	}()
+
 	resp := &EnvAnalysisRespone{}
 	opt := &commonrepo.ProductFindOptions{
 		EnvName:    envName,
@@ -3181,6 +3213,7 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 			}
 		})
 	}
+	result.Result = string(analysisResult)
 
 	resp.Result = string(analysisResult)
 	return resp, nil
@@ -3322,6 +3355,22 @@ func GetEnvAnalysisCron(projectName, envName string, production *bool, logger *z
 		Cron:   crons[0].Cron,
 	}
 	return resp, nil
+}
+
+// GetEnvAnalysisHistory get env AI analysis history
+func GetEnvAnalysisHistory(projectName string, production bool, envName string, pageNum, pageSize int, log *zap.SugaredLogger) ([]*ai.EnvAIAnalysis, int64, error) {
+	result, count, err := airepo.NewEnvAIAnalysisColl().ListByOptions(airepo.EnvAIAnalysisListOption{
+		EnvName:     envName,
+		ProjectName: projectName,
+		Production:  production,
+		PageNum:     int64(pageNum),
+		PageSize:    int64(pageSize),
+	})
+	if err != nil {
+		log.Errorf("Failed to list env ai analysis, project name: %s, env name: %s, error: %v", projectName, envName, err)
+		return nil, 0, err
+	}
+	return result, count, nil
 }
 
 func EnvAnalysisNotification(projectName, envName, result string, config *commonmodels.NotificationConfig) error {
