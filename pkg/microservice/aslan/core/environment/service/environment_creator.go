@@ -223,11 +223,11 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	}
 
 	// before create product, do install -dryRun to expose errors earlier
-	err = dryRunInstallRelease(args, renderSet, helmClient, log)
-	if err != nil {
-		log.Errorf("error occurred when installing services in env: %s/%s, err: %s ", args.ProductName, args.EnvName, err)
-		return e.ErrCreateEnv.AddErr(err)
-	}
+	// err = dryRunInstallRelease(args, renderSet, helmClient, log)
+	// if err != nil {
+	// 	log.Errorf("error occurred when installing services in env: %s/%s, err: %s ", args.ProductName, args.EnvName, err)
+	// 	return e.ErrCreateEnv.AddErr(err)
+	// }
 
 	dryRunClient := client.NewDryRunClient(kubeClient)
 	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, true, dryRunClient)
@@ -424,10 +424,10 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 
 	// before we apply yaml to k8s, we run kubectl apply --dry-run to expose problems early
 	dryRunClient := client.NewDryRunClient(kubeClient)
-	err = dryRunServices(args, renderSet, inf, dryRunClient, log)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
+	// err = dryRunServices(args, renderSet, inf, dryRunClient, log)
+	// if err != nil {
+	// 	return e.ErrCreateEnv.AddErr(err)
+	// }
 
 	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, true, dryRunClient)
 	if err != nil {
