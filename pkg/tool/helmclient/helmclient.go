@@ -199,7 +199,6 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 	for _, imageKv := range imageKvs {
 		kvStr = append(kvStr, fmt.Sprintf("%s=%v", imageKv.Key, imageKv.Value))
 	}
-	log.Infof("MergeOverrideValues, kr string is %v", strings.Join(kvStr, ","))
 
 	// override values for --set option
 	if len(kvStr) > 0 {

@@ -158,7 +158,8 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 }
 
 // GeneMergedValues generate values.yaml used to install or upgrade helm chart, like param in after option -f
-func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string) (string, error) {
+// If fullValues is set to true, full values yaml content will be returned, this case is used to preview values when running workflows
+func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string, fullValues bool) (string, error) {
 	serviceName := productSvc.ServiceName
 	var targetContainers []*commonmodels.Container
 	for _, image := range images {
@@ -210,8 +211,13 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 	// update values.yaml content in chart
 	targetChart.ValuesYaml = replacedValuesYaml
 
+	baseValuesYaml := ""
+	if fullValues {
+		baseValuesYaml = targetChart.ValuesYaml
+	}
+
 	// merge override values and kvs into service's yaml
-	mergedValuesYaml, err := helmtool.MergeOverrideValues("", renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, imageKVS)
+	mergedValuesYaml, err := helmtool.MergeOverrideValues(baseValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, imageKVS)
 	if err != nil {
 		return "", fmt.Errorf("failed to merge override values, err: %s", err)
 	}
@@ -225,7 +231,7 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
 	svcTemp *commonmodels.Service, images []string, timeout int) error {
 
-	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images)
+	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images, false)
 	if err != nil {
 		return err
 	}

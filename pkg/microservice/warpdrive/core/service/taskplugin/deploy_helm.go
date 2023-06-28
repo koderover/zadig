@@ -23,6 +23,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -174,18 +179,30 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 
 	serviceRevisionInProduct := int64(0)
 	involvedImagePaths := make(map[string]*types.ImagePathSpec)
+
+	targetContainers := make(map[string]*commonmodels.Container, 0)
+
 	for _, service := range productInfo.GetServiceMap() {
 		if service.ServiceName != p.Task.ServiceName {
 			continue
 		}
 		serviceRevisionInProduct = service.Revision
 		for _, container := range service.Containers {
-			if !containerNameSet.Has(container.Name) {
-				continue
-			}
 			if container.ImagePath == nil {
 				err = errors.WithMessagef(err, "image path of %s/%s is nil", service.ServiceName, container.Name)
 				return
+			}
+			targetContainers[container.Name] = &commonmodels.Container{
+				Name:      container.Name,
+				ImageName: container.Image,
+				ImagePath: &commonmodels.ImagePathSpec{
+					Repo:  container.ImagePath.Repo,
+					Image: container.ImagePath.Image,
+					Tag:   container.ImagePath.Tag,
+				},
+			}
+			if !containerNameSet.Has(container.Name) {
+				continue
 			}
 			involvedImagePaths[container.Name] = container.ImagePath
 		}
@@ -254,6 +271,31 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 			for k, v := range singleReplaceValuesMap {
 				replaceValuesMap[k] = v
 			}
+			targetContainers[containerName].Image = sPlugin.Task.Image
+		}
+	}
+
+	imageKVS := make([]*helmtool.KV, 0)
+	replaceValuesMaps := make([]map[string]interface{}, 0)
+	for _, targetContainer := range targetContainers {
+		// prepare image replace info
+		replaceValuesMap, errAssignData := commonutil.AssignImageData(targetContainer.Image, kube.GetValidMatchData(targetContainer.ImagePath))
+		if err != nil {
+			err = errors.WithMessagef(
+				errAssignData,
+				"failed to assign image into values yaml %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+		replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
+	}
+
+	for _, imageSecs := range replaceValuesMaps {
+		for key, value := range imageSecs {
+			imageKVS = append(imageKVS, &helmtool.KV{
+				Key:   key,
+				Value: value,
+			})
 		}
 	}
 
@@ -273,7 +315,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 	}
 
 	// merge override values and kvs into service's yaml
-	mergedValuesYaml, err = helmtool.MergeOverrideValues(serviceValuesYaml, renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, nil)
+	mergedValuesYaml, err = helmtool.MergeOverrideValues("", renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, imageKVS)
 	if err != nil {
 		err = errors.WithMessagef(
 			err,
@@ -282,6 +324,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		)
 		return
 	}
+	p.Log.Infof("final minimum merged values.yaml: \n%s", mergedValuesYaml)
 
 	// replace image into final merged values.yaml
 	replacedMergedValuesYaml, err = replaceImage(mergedValuesYaml, replaceValuesMap)
@@ -342,7 +385,8 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		Namespace:   p.Task.Namespace,
 		ReuseValues: true,
 		Version:     renderChart.ChartVersion,
-		ValuesYaml:  replacedMergedValuesYaml,
+		//ValuesYaml:  replacedMergedValuesYaml,
+		ValuesYaml:  mergedValuesYaml,
 		SkipCRDs:    false,
 		UpgradeCRDs: true,
 		Timeout:     time.Second * time.Duration(timeOut),
@@ -374,7 +418,6 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		return
 	}
 
-	//替换环境变量中的chartInfos
 	for _, chartInfo := range renderInfo.ChartInfos {
 		if chartInfo.ServiceName == p.Task.ServiceName {
 			chartInfo.ValuesYaml = replacedValuesYaml
