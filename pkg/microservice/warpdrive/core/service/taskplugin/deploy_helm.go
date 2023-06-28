@@ -287,6 +287,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
+		p.Log.Infof("------- assing image data for image: %s, assign data: %v", targetContainer.Image, replaceValuesMap)
 		replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
 	}
 
