@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/ai"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -1476,8 +1477,7 @@ func RunAnalysis(c *gin.Context) {
 		return
 	}
 
-	triggerName := c.Query("triggerName")
-	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.False(), triggerName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.False(), c.Query("triggerName"), ctx.UserName, ctx.Logger)
 }
 
 // @Summary Run Production Enviroment Analysis
@@ -1505,8 +1505,7 @@ func RunProductionAnalysis(c *gin.Context) {
 		return
 	}
 
-	triggerName := c.Query("triggerName")
-	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.True(), triggerName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.True(), c.Query("triggerName"), ctx.UserName, ctx.Logger)
 }
 
 // @Summary Upsert Env Analysis Cron
@@ -1649,4 +1648,36 @@ func GetProductionEnvAnalysisCron(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.GetEnvAnalysisCron(projectName, envName, boolptr.True(), ctx.Logger)
+}
+
+type EnvAnalysisHistoryReq struct {
+	ProjectName string `json:"projectName" form:"projectName"`
+	Production  bool   `json:"production" form:"production"`
+	EnvName     string `json:"envName" form:"envName"`
+	PageNum     int    `json:"pageNum" form:"pageNum"`
+	PageSize    int    `json:"pageSize" form:"pageSize"`
+}
+
+type EnvAnalysisHistoryResp struct {
+	Total  int64               `json:"total"`
+	Result []*ai.EnvAIAnalysis `json:"result"`
+}
+
+func GetEnvAnalysisHistory(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := &EnvAnalysisHistoryReq{}
+	err := c.ShouldBindQuery(req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	result, count, err := service.GetEnvAnalysisHistory(req.ProjectName, req.Production, req.EnvName, req.PageNum, req.PageSize, ctx.Logger)
+	ctx.Resp = &EnvAnalysisHistoryResp{
+		Total:  count,
+		Result: result,
+	}
+	ctx.Err = err
 }

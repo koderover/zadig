@@ -463,7 +463,7 @@ func (h *CronjobHandler) registerEnvAnalysisJob(name, schedule string, job *serv
 		if job.EnvAnalysisArgs.Production {
 			base = "environment/production/environments/"
 		}
-		url := base + fmt.Sprintf("%s/analysis?projectName=%s&triggerName=%s", job.EnvAnalysisArgs.EnvName, job.EnvAnalysisArgs.ProductName, setting.CronTaskCreator)
+		url := base + fmt.Sprintf("%s/analysis?projectName=%s&triggerName=%s&userName=%s", job.EnvAnalysisArgs.EnvName, job.EnvAnalysisArgs.ProductName, setting.CronTaskCreator, setting.CronTaskCreator)
 
 		if err := h.aslanCli.ScheduleCall(url, nil, log.SugaredLogger()); err != nil {
 			log.Errorf("[%s]RunScheduledTask err: %v", name, err)

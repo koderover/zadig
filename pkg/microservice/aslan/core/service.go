@@ -39,6 +39,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	modeMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/ai"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commonuser "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/user"
@@ -472,6 +473,9 @@ func initDatabase() {
 
 		// user related db index
 		userdb.NewUserSettingColl(),
+
+		// env AI analysis related db index
+		ai.NewEnvAIAnalysisColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {
