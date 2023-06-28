@@ -178,7 +178,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 	}
 
 	serviceRevisionInProduct := int64(0)
-	involvedImagePaths := make(map[string]*types.ImagePathSpec)
+	involvedImagePaths := make(map[string]*commonmodels.ImagePathSpec)
 
 	targetContainers := make(map[string]*commonmodels.Container, 0)
 
@@ -192,16 +192,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 				err = errors.WithMessagef(err, "image path of %s/%s is nil", service.ServiceName, container.Name)
 				return
 			}
-			targetContainers[container.Name] = &commonmodels.Container{
-				Name:      container.Name,
-				Image:     container.Image,
-				ImageName: container.Image,
-				ImagePath: &commonmodels.ImagePathSpec{
-					Repo:  container.ImagePath.Repo,
-					Image: container.ImagePath.Image,
-					Tag:   container.ImagePath.Tag,
-				},
-			}
+			targetContainers[container.Name] = container
 			if !containerNameSet.Has(container.Name) {
 				continue
 			}
@@ -512,7 +503,7 @@ func (p *HelmDeployTaskPlugin) getRenderSet(ctx context.Context, name string, re
 	return rs, nil
 }
 
-func getValidMatchData(spec *types.ImagePathSpec) map[string]string {
+func getValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
 	ret := make(map[string]string)
 	if spec.Repo != "" {
 		ret[setting.PathSearchComponentRepo] = spec.Repo

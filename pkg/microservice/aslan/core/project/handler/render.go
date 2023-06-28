@@ -39,6 +39,7 @@ func GetRenderSetInfo(c *gin.Context) {
 	ctx.Resp, ctx.Err = render.GetRenderSetInfo(c.Param("name"), revision)
 }
 
+// UpdateRenderSet called from warpdrive
 func UpdateRenderSet(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

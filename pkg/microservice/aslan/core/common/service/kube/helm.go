@@ -222,9 +222,6 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 		return "", fmt.Errorf("failed to merge override values, err: %s", err)
 	}
 	return mergedValuesYaml, nil
-
-	//replace image into final merged values.yaml
-	//return commonutil.ReplaceImage(mergedValuesYaml, replaceValuesMaps...)
 }
 
 // UpgradeHelmRelease upgrades helm release with some specific images
