@@ -25,18 +25,15 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
-	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -223,12 +220,6 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	}
 
 	// before create product, do install -dryRun to expose errors earlier
-	// err = dryRunInstallRelease(args, renderSet, helmClient, log)
-	// if err != nil {
-	// 	log.Errorf("error occurred when installing services in env: %s/%s, err: %s ", args.ProductName, args.EnvName, err)
-	// 	return e.ErrCreateEnv.AddErr(err)
-	// }
-
 	dryRunClient := client.NewDryRunClient(kubeClient)
 	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, true, dryRunClient)
 	if err != nil {
@@ -324,22 +315,6 @@ func newDefaultProductCreator() *K8sYamlProductCreator {
 	return &K8sYamlProductCreator{}
 }
 
-func dryRunServices(args *commonmodels.Product, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, log *zap.SugaredLogger) error {
-	errList := &multierror.Error{}
-	for _, group := range args.Services {
-		for _, svc := range group {
-			if !commonutil.ServiceDeployed(svc.ServiceName, args.ServiceDeployStrategy) {
-				continue
-			}
-			_, err := upsertService(args, svc, nil, renderSet, args.Render, !args.Production, informer, kubeClient, nil, log)
-			if err != nil {
-				errList = multierror.Append(errList, fmt.Errorf("failed to dryRun apply service: %s, err: %s", svc.ServiceName, err))
-			}
-		}
-	}
-	return errList.ErrorOrNil()
-}
-
 func (creator *K8sYamlProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
 	// get project cluster relation
 	clusterID := args.ClusterID
@@ -424,11 +399,6 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 
 	// before we apply yaml to k8s, we run kubectl apply --dry-run to expose problems early
 	dryRunClient := client.NewDryRunClient(kubeClient)
-	// err = dryRunServices(args, renderSet, inf, dryRunClient, log)
-	// if err != nil {
-	// 	return e.ErrCreateEnv.AddErr(err)
-	// }
-
 	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, true, dryRunClient)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
