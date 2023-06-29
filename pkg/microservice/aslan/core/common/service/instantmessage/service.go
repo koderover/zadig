@@ -110,7 +110,7 @@ func (w *Service) SendMessageRequest(uri string, message interface{}) ([]byte, e
 
 func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged, scanningTaskStatusChanged bool) error {
 	var notifyCtls []*models.NotifyCtl
-	var desc string
+	var desc, scanningName string
 	switch task.Type {
 	case config.SingleType:
 		resp, err := w.pipelineColl.Find(&mongodb.PipelineFindOption{Name: task.PipelineName})
@@ -138,18 +138,20 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged, sca
 		desc = resp.Desc
 
 	case config.ScanningType:
-		scanningID := strings.TrimSuffix(task.PipelineName, "-scanning-job")
-		if lastIndex := strings.LastIndex(scanningID, "-"); lastIndex != -1 && lastIndex < len(scanningID)-1 {
-			scanningID = scanningID[lastIndex+1:]
+		scanningJobName := strings.TrimSuffix(task.PipelineName, "-scanning-job")
+		if lastIndex := strings.LastIndex(scanningJobName, "-"); lastIndex != -1 && lastIndex < len(scanningJobName)-1 {
+			scanningID := scanningJobName[lastIndex+1:]
 			resp, err := w.scanningColl.GetByID(scanningID)
 			if err != nil {
 				log.Errorf("failed to find Scanning %s, err: %v", scanningID, err)
 				return err
 			}
 			notifyCtls = resp.NotifyCtls
+			desc = resp.Description
+			scanningName = strings.TrimSuffix(task.PipelineName, "-"+scanningID+"-scanning-job")
 		} else {
-			log.Errorf("invalid scanning name: %s", scanningID)
-			return fmt.Errorf("invalid scanning name: %s", scanningID)
+			log.Errorf("invalid scanning name: %s", scanningJobName)
+			return fmt.Errorf("invalid scanning name: %s", scanningJobName)
 		}
 	default:
 		log.Errorf("task type is not supported!")
@@ -157,7 +159,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged, sca
 	}
 
 	for _, notifyCtl := range notifyCtls {
-		if err := w.sendMessage(task, notifyCtl, testTaskStatusChanged, scanningTaskStatusChanged, desc); err != nil {
+		if err := w.sendMessage(task, notifyCtl, testTaskStatusChanged, scanningTaskStatusChanged, desc, scanningName); err != nil {
 			log.Errorf("send %s message err: %s", notifyCtl.WebHookType, err)
 			continue
 		}
@@ -165,7 +167,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged, sca
 	return nil
 }
 
-func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, testTaskStatusChanged, scanningTaskStatusChanged bool, desc string) error {
+func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, testTaskStatusChanged, scanningTaskStatusChanged bool, desc, scanningName string) error {
 	if notifyCtl == nil {
 		return nil
 	}
@@ -272,7 +274,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 			} else {
 				uri = notifyCtl.WeChatWebHook
 			}
-			title, content, larkCard, err = w.createNotifyBodyOfScanningIM(desc, &wechatNotification{
+			title, content, larkCard, err = w.createNotifyBodyOfScanningIM(desc, scanningName, &wechatNotification{
 				Task:        task,
 				BaseURI:     configbase.SystemAddress(),
 				IsSingle:    false,
@@ -554,7 +556,7 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 	return "", "", lc, nil
 }
 
-func (w *Service) createNotifyBodyOfScanningIM(desc string, weChatNotification *wechatNotification, notify *models.NotifyCtl) (string, string, *LarkCard, error) {
+func (w *Service) createNotifyBodyOfScanningIM(desc, scanningName string, weChatNotification *wechatNotification, notify *models.NotifyCtl) (string, string, *LarkCard, error) {
 	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProductName}} \n",
@@ -572,7 +574,7 @@ func (w *Service) createNotifyBodyOfScanningIM(desc string, weChatNotification *
 	}
 
 	buttonContent := "点击查看更多信息"
-	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProductName}}/test/detail/function/{{.Task.PipelineName}}/{{.Task.TaskID}}"
+	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProductName}}/scanner/detail/" + scanningName + "/{{.Task.TaskID}}"
 	moreInformation := fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}[%s](%s)", buttonContent, workflowDetailURL)
 
 	tplTitle, _ = getTplExec(tplTitle, weChatNotification)
