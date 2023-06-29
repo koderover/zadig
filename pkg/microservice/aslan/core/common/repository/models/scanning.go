@@ -40,6 +40,7 @@ type Scanning struct {
 	AdvancedSetting  *types.ScanningAdvancedSetting `bson:"advanced_setting"      json:"advanced_setting"`
 	CheckQualityGate bool                           `bson:"check_quality_gate"    json:"check_quality_gate"`
 	Outputs          []*Output                      `bson:"outputs"               json:"outputs"`
+	NotifyCtls       []*NotifyCtl                   `bson:"notify_ctls"     json:"notify_ctls"`
 
 	CreatedAt int64  `bson:"created_at" json:"created_at"`
 	UpdatedAt int64  `bson:"updated_at" json:"updated_at"`

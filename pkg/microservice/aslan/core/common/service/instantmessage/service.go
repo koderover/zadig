@@ -63,6 +63,7 @@ type Service struct {
 	testTaskStatColl   *mongodb.TestTaskStatColl
 	workflowV4Coll     *mongodb.WorkflowV4Coll
 	workflowTaskV4Coll *mongodb.WorkflowTaskv4Coll
+	scanningColl       *mongodb.ScanningColl
 }
 
 func NewWeChatClient() *Service {
@@ -74,6 +75,7 @@ func NewWeChatClient() *Service {
 		testTaskStatColl:   mongodb.NewTestTaskStatColl(),
 		workflowV4Coll:     mongodb.NewWorkflowV4Coll(),
 		workflowTaskV4Coll: mongodb.NewworkflowTaskv4Coll(),
+		scanningColl:       mongodb.NewScanningColl(),
 	}
 }
 
@@ -106,7 +108,7 @@ func (w *Service) SendMessageRequest(uri string, message interface{}) ([]byte, e
 	return res.Body(), nil
 }
 
-func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool) error {
+func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged, scanningTaskStatusChanged bool) error {
 	var notifyCtls []*models.NotifyCtl
 	var desc string
 	switch task.Type {
@@ -135,6 +137,20 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 		notifyCtls = resp.NotifyCtls
 		desc = resp.Desc
 
+	case config.ScanningType:
+		testName := strings.TrimSuffix(task.PipelineName, "scanning-job")
+		if lastIndex := strings.LastIndex(testName, "-"); lastIndex != -1 && lastIndex < len(testName)-1 {
+			testName = testName[lastIndex+1:]
+			resp, err := w.scanningColl.Find(testName, task.ProductName)
+			if err != nil {
+				log.Errorf("failed to find Scanning,err: %s", err)
+				return err
+			}
+			notifyCtls = resp.NotifyCtls
+		} else {
+			log.Errorf("invalid test name: %s", testName)
+			return fmt.Errorf("invalid test name: %s", testName)
+		}
 	default:
 		log.Errorf("task type is not supported!")
 		return nil
@@ -149,7 +165,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 	return nil
 }
 
-func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, testTaskStatusChanged bool, desc string) error {
+func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, testTaskStatusChanged, scanningTaskStatusChanged bool, desc string) error {
 	if notifyCtl == nil {
 		return nil
 	}
@@ -163,7 +179,8 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 		larkCard    *LarkCard
 		err         error
 	)
-	if task.Type == config.SingleType {
+	switch task.Type {
+	case config.SingleType:
 		if notifyCtl.Enabled && sets.NewString(notifyCtl.NotifyTypes...).Has(string(task.Status)) {
 			webHookType = notifyCtl.WebHookType
 			if webHookType == dingDingType {
@@ -189,7 +206,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 				return err
 			}
 		}
-	} else if task.Type == config.WorkflowType {
+	case config.WorkflowType:
 		if notifyCtl.Enabled && sets.NewString(notifyCtl.NotifyTypes...).Has(string(task.Status)) {
 			webHookType = notifyCtl.WebHookType
 			if webHookType == dingDingType {
@@ -215,7 +232,7 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 				return err
 			}
 		}
-	} else if task.Type == config.TestType {
+	case config.TestType:
 		statusSets := sets.NewString(notifyCtl.NotifyTypes...)
 		if notifyCtl.Enabled && (statusSets.Has(string(task.Status)) || (testTaskStatusChanged && statusSets.Has(string(config.StatusChanged)))) {
 			webHookType = notifyCtl.WebHookType
@@ -229,6 +246,33 @@ func (w *Service) sendMessage(task *task.Task, notifyCtl *models.NotifyCtl, test
 				uri = notifyCtl.WeChatWebHook
 			}
 			title, content, larkCard, err = w.createNotifyBodyOfTestIM(desc, &wechatNotification{
+				Task:        task,
+				BaseURI:     configbase.SystemAddress(),
+				IsSingle:    false,
+				WebHookType: webHookType,
+				TotalTime:   time.Now().Unix() - task.StartTime,
+				AtMobiles:   atMobiles,
+				IsAtAll:     isAtAll,
+			}, notifyCtl)
+			if err != nil {
+				log.Errorf("testing createNotifyBodyOfTestIM err :%s", err)
+				return err
+			}
+		}
+	case config.ScanningType:
+		statusSets := sets.NewString(notifyCtl.NotifyTypes...)
+		if notifyCtl.Enabled && (statusSets.Has(string(task.Status)) || (scanningTaskStatusChanged && statusSets.Has(string(config.StatusChanged)))) {
+			webHookType = notifyCtl.WebHookType
+			if webHookType == dingDingType {
+				uri = notifyCtl.DingDingWebHook
+				atMobiles = notifyCtl.AtMobiles
+				isAtAll = notifyCtl.IsAtAll
+			} else if webHookType == feiShuType {
+				uri = notifyCtl.FeiShuWebHook
+			} else {
+				uri = notifyCtl.WeChatWebHook
+			}
+			title, content, larkCard, err = w.createNotifyBodyOfScanningIM(desc, &wechatNotification{
 				Task:        task,
 				BaseURI:     configbase.SystemAddress(),
 				IsSingle:    false,
@@ -477,6 +521,54 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 		for _, subTask := range stage.SubTasks {
 			tplTestCaseInfo = genTestCaseText(tplTestCaseInfo, subTask, weChatNotification.Task.TestReports)
 		}
+	}
+
+	buttonContent := "点击查看更多信息"
+	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProductName}}/test/detail/function/{{.Task.PipelineName}}/{{.Task.TaskID}}"
+	moreInformation := fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}[%s](%s)", buttonContent, workflowDetailURL)
+
+	tplTitle, _ = getTplExec(tplTitle, weChatNotification)
+
+	if weChatNotification.WebHookType != feiShuType {
+		tplcontent := strings.Join(tplBaseInfo, "")
+		tplcontent = fmt.Sprintf("%s%s", tplcontent, tplTestCaseInfo)
+		tplcontent = tplcontent + getNotifyAtContent(notify)
+		tplcontent = fmt.Sprintf("%s%s%s", tplTitle, tplcontent, moreInformation)
+		tplExecContent, _ := getTplExec(tplcontent, weChatNotification)
+		return tplTitle, tplExecContent, nil, nil
+	}
+	lc := NewLarkCard()
+	lc.SetConfig(true)
+	lc.SetHeader(getColorTemplateWithStatus(weChatNotification.Task.Status), tplTitle, feiShuTagText)
+	for idx, feildContent := range tplBaseInfo {
+		feildExecContent, _ := getTplExec(feildContent, weChatNotification)
+		lc.AddI18NElementsZhcnFeild(feildExecContent, idx == 0)
+	}
+	if tplTestCaseInfo != "" {
+		tplTestCaseInfo, _ = getTplExec(tplTestCaseInfo, weChatNotification)
+		lc.AddI18NElementsZhcnFeild(tplTestCaseInfo, true)
+	}
+	workflowDetailURL, _ = getTplExec(workflowDetailURL, weChatNotification)
+	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURL)
+
+	return "", "", lc, nil
+}
+
+func (w *Service) createNotifyBodyOfScanningIM(desc string, weChatNotification *wechatNotification, notify *models.NotifyCtl) (string, string, *LarkCard, error) {
+	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
+	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProductName}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码扫描描述**：" + desc + " \n",
+	}
+
+	tplTestCaseInfo := "{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码扫描结果**: "
+	for _, stage := range weChatNotification.Task.Stages {
+		if stage.TaskType != config.TaskScanning {
+			continue
+		}
+		tplTestCaseInfo += string(stage.Status) + "\n"
 	}
 
 	buttonContent := "点击查看更多信息"
