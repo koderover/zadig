@@ -210,6 +210,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.GET("/all", ListAllAvailableWorkflows)
 		workflowV4.POST("/filterEnv", GetFilteredEnvServices)
 		workflowV4.POST("/yamlComparison", CompareHelmServiceYamlInEnv)
+		workflowV4.GET("/mse/:envName/:serviceName", GetMseServiceYaml)
 	}
 
 	// ---------------------------------------------------------------------------------------

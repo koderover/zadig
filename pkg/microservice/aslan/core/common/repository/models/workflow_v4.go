@@ -547,10 +547,13 @@ type IstioJobTarget struct {
 }
 
 type MseGrayReleaseJobSpec struct {
-	GrayTag      string                   `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
-	BaseEnv      string                   `bson:"base_env" json:"base_env" yaml:"base_env"`
-	ReleaseEnv   string                   `bson:"release_env" json:"release_env" yaml:"release_env"`
-	GrayServices []*MseGrayReleaseService `bson:"gray_services" json:"gray_services" yaml:"gray_services"`
+	GrayTag            string                   `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
+	BaseEnv            string                   `bson:"base_env" json:"base_env" yaml:"base_env"`
+	GrayEnv            string                   `bson:"gray_env" json:"gray_env" yaml:"gray_env"`
+	GrayEnvSource      string                   `bson:"gray_env_source" json:"gray_env_source" yaml:"gray_env_source"`
+	DockerRegistryID   string                   `bson:"docker_registry_id" json:"docker_registry_id" yaml:"docker_registry_id"`
+	SkipCheckRunStatus bool                     `bson:"skip_check_run_status" json:"skip_check_run_status" yaml:"skip_check_run_status"`
+	GrayServices       []*MseGrayReleaseService `bson:"gray_services" json:"gray_services" yaml:"gray_services"`
 }
 
 type MseGrayReleaseService struct {
