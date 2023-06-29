@@ -90,6 +90,7 @@ func GetProductTemplateServices(productName string, envType types.EnvType, isBas
 	return resp, nil
 }
 
+// Deprecated
 func ListOpenSourceProduct(log *zap.SugaredLogger) ([]*template.Product, error) {
 	opt := &templaterepo.ProductListOpt{
 		IsOpensource: "true",

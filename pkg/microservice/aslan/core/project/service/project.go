@@ -37,6 +37,9 @@ type ProjectListOptions struct {
 	IgnoreNoVersions bool
 	Verbosity        QueryVerbosity
 	Names            []string
+	PageSize         int64
+	PageNum          int64
+	Filter           string
 }
 
 type ProjectDetailedRepresentation struct {
@@ -81,7 +84,10 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 		return nil, err
 	}
 
-	nameWithEnvSet, nameWithEnvMap, err := getProjectsWithEnvs(opts)
+	newOpts := &ProjectListOptions{
+		Names: nameSet.List(),
+	}
+	nameWithEnvSet, nameWithEnvMap, err := getProjectsWithEnvs(newOpts)
 	if err != nil {
 		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
@@ -224,7 +230,13 @@ func getProjectsWithEnvs(opts *ProjectListOptions) (sets.String, map[string][]st
 }
 
 func getProjects(opts *ProjectListOptions) (sets.String, map[string]*templaterepo.ProjectInfo, error) {
-	res, err := templaterepo.NewProductColl().ListProjectBriefs(opts.Names)
+	listOpts := templaterepo.ProductListByFilterOpt{
+		Names:  opts.Names,
+		Filter: opts.Filter,
+		Limit:  opts.PageSize,
+		Skip:   (opts.PageNum - 1) * opts.PageSize,
+	}
+	res, err := templaterepo.NewProductColl().PageListProjectByFilter(listOpts)
 	if err != nil {
 		return nil, nil, err
 	}

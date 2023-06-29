@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -117,6 +118,67 @@ func (c *ProductColl) ListNonPMProject() ([]*ProjectInfo, error) {
 		},
 	}
 
+	cursor, err := c.Collection.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*ProjectInfo
+	err = cursor.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+type ProductListByFilterOpt struct {
+	Names  []string
+	Limit  int64
+	Skip   int64
+	Filter string
+}
+
+func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*ProjectInfo, error) {
+	filter := bson.M{}
+	if opt.Filter != "" {
+		filter["$or"] = bson.A{
+			bson.M{"project_name": bson.M{"$regex": opt.Filter}},
+			bson.M{"product_name": bson.M{"$regex": opt.Filter}},
+		}
+	}
+
+	if len(opt.Names) > 0 {
+		filter["product_name"] = bson.M{"$in": opt.Names}
+	}
+
+	projection := bson.M{
+		"product_name":      "$product_name",
+		"project_name":      "$project_name",
+		"description":       "$description",
+		"update_time":       "$update_time",
+		"update_by":         "$update_by",
+		"onboarding_status": "$onboarding_status",
+		"public":            "$public",
+		"deploy_type":       "$product_feature.deploy_type",
+		"create_env_type":   "$product_feature.create_env_type",
+		"basic_facility":    "$product_feature.basic_facility",
+	}
+	pipeline := []bson.M{
+		{
+			"$match": filter,
+		},
+		{
+			"$project": projection,
+		},
+		{
+			"$skip": opt.Skip,
+		},
+		{
+			"$limit": opt.Limit,
+		},
+	}
+
+	log.Debugf("pipeline: %v", pipeline)
 	cursor, err := c.Collection.Aggregate(context.TODO(), pipeline)
 	if err != nil {
 		return nil, err

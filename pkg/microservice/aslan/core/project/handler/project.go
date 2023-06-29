@@ -29,8 +29,12 @@ type projectListArgs struct {
 	IgnoreNoVersions bool     `json:"ignoreNoVersions" form:"ignoreNoVersions"`
 	Verbosity        string   `json:"verbosity"        form:"verbosity"`
 	Names            []string `json:"names"            form:"names"`
+	PageSize         int64    `json:"page_size"        form:"page_size,default=20"`
+	PageNum          int64    `json:"page_num"         form:"page_num,default=1"`
+	Filter           string   `json:"filter"           form:"filter"`
 }
 
+// @todo list projects (/project/projects)
 func ListProjects(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -41,18 +45,15 @@ func ListProjects(c *gin.Context) {
 		return
 	}
 
-	productType := c.DefaultQuery("productType", "normal")
-	if productType == "openSource" {
-		ctx.Resp, ctx.Err = projectservice.ListOpenSourceProduct(ctx.Logger)
-		return
-	}
-
 	ctx.Resp, ctx.Err = projectservice.ListProjects(
 		&projectservice.ProjectListOptions{
 			IgnoreNoEnvs:     args.IgnoreNoEnvs,
 			IgnoreNoVersions: args.IgnoreNoVersions,
 			Verbosity:        projectservice.QueryVerbosity(args.Verbosity),
 			Names:            args.Names,
+			PageSize:         args.PageSize,
+			PageNum:          args.PageNum,
+			Filter:           args.Filter,
 		},
 		ctx.Logger,
 	)
