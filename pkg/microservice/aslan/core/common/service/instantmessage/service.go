@@ -570,6 +570,10 @@ func (w *Service) createNotifyBodyOfScanningIM(desc, scanningName, scanningID st
 		if stage.TaskType != config.TaskScanning {
 			continue
 		}
+		if stage.Status == "" {
+			tplTestCaseInfo = ""
+			break
+		}
 		tplTestCaseInfo += string(stage.Status) + "\n"
 	}
 
