@@ -138,18 +138,18 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged, sca
 		desc = resp.Desc
 
 	case config.ScanningType:
-		testName := strings.TrimSuffix(task.PipelineName, "-scanning-job")
-		if lastIndex := strings.LastIndex(testName, "-"); lastIndex != -1 && lastIndex < len(testName)-1 {
-			testName = testName[lastIndex+1:]
-			resp, err := w.scanningColl.Find(testName, task.ProductName)
+		scanningID := strings.TrimSuffix(task.PipelineName, "-scanning-job")
+		if lastIndex := strings.LastIndex(scanningID, "-"); lastIndex != -1 && lastIndex < len(scanningID)-1 {
+			scanningID = scanningID[lastIndex+1:]
+			resp, err := w.scanningColl.GetByID(scanningID)
 			if err != nil {
-				log.Errorf("failed to find Scanning, err: %v", err)
+				log.Errorf("failed to find Scanning %s, err: %v", scanningID, err)
 				return err
 			}
 			notifyCtls = resp.NotifyCtls
 		} else {
-			log.Errorf("invalid scanning name: %s", testName)
-			return fmt.Errorf("invalid scanning name: %s", testName)
+			log.Errorf("invalid scanning name: %s", scanningID)
+			return fmt.Errorf("invalid scanning name: %s", scanningID)
 		}
 	default:
 		log.Errorf("task type is not supported!")
