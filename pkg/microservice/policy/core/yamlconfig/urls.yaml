@@ -173,6 +173,15 @@ exemption_urls:
     - endpoint: ai/**
       methods:
         - GET
+    - endpoint: ai
+      methods:
+        - GET
+    - endpoint: zadigx-ai/**
+      methods:
+        - GET
+    - endpoint: zadigx-ai
+      methods:
+        - GET
     - endpoint: workflows/**
       methods:
         - GET
