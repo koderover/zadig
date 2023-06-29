@@ -43,6 +43,7 @@ type Scanning struct {
 	AdvancedSetting  *types.ScanningAdvancedSetting `json:"advanced_settings"`
 	CheckQualityGate bool                           `json:"check_quality_gate"`
 	Outputs          []*commonmodels.Output         `json:"outputs"`
+	NotifyCtls       []*commonmodels.NotifyCtl      `json:"notify_ctls"`
 }
 
 type OpenAPICreateScanningReq struct {
@@ -150,6 +151,7 @@ func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 		PreScript:        args.PreScript,
 		CheckQualityGate: args.CheckQualityGate,
 		Outputs:          args.Outputs,
+		NotifyCtls:       args.NotifyCtls,
 	}
 }
 
@@ -173,5 +175,6 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		PreScript:        scanning.PreScript,
 		CheckQualityGate: scanning.CheckQualityGate,
 		Outputs:          scanning.Outputs,
+		NotifyCtls:       scanning.NotifyCtls,
 	}
 }
