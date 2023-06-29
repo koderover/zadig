@@ -157,7 +157,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged, sca
 	}
 
 	for _, notifyCtl := range notifyCtls {
-		if err := w.sendMessage(task, notifyCtl, testTaskStatusChanged, desc); err != nil {
+		if err := w.sendMessage(task, notifyCtl, testTaskStatusChanged, scanningTaskStatusChanged, desc); err != nil {
 			log.Errorf("send %s message err: %s", notifyCtl.WebHookType, err)
 			continue
 		}
