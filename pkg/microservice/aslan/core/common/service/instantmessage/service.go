@@ -146,9 +146,11 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged, sca
 				log.Errorf("failed to find Scanning %s, err: %v", scanningID, err)
 				return err
 			}
-			notifyCtls = resp.NotifyCtls
-			desc = resp.Description
-			scanningName = strings.TrimSuffix(task.PipelineName, "-"+scanningID+"-scanning-job")
+			if resp.AdvancedSetting == nil {
+				notifyCtls = resp.AdvancedSetting.NotifyCtls
+				desc = resp.Description
+				scanningName = strings.TrimSuffix(task.PipelineName, "-"+scanningID+"-scanning-job")
+			}
 		} else {
 			log.Errorf("invalid scanning name: %s", scanningJobName)
 			return fmt.Errorf("invalid scanning name: %s", scanningJobName)
@@ -557,7 +559,7 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 }
 
 func (w *Service) createNotifyBodyOfScanningIM(desc, scanningName, scanningID string, weChatNotification *wechatNotification, notify *models.NotifyCtl) (string, string, *LarkCard, error) {
-	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
+	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">代码扫描 " + scanningName + " #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}代码扫描 " + scanningName + " #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProductName}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",

@@ -151,7 +151,6 @@ func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 		PreScript:        args.PreScript,
 		CheckQualityGate: args.CheckQualityGate,
 		Outputs:          args.Outputs,
-		NotifyCtls:       args.NotifyCtls,
 	}
 }
 
@@ -175,6 +174,5 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		PreScript:        scanning.PreScript,
 		CheckQualityGate: scanning.CheckQualityGate,
 		Outputs:          scanning.Outputs,
-		NotifyCtls:       scanning.NotifyCtls,
 	}
 }
