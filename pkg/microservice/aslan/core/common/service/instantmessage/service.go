@@ -146,7 +146,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged, sca
 				log.Errorf("failed to find Scanning %s, err: %v", scanningID, err)
 				return err
 			}
-			if resp.AdvancedSetting == nil {
+			if resp.AdvancedSetting != nil {
 				notifyCtls = resp.AdvancedSetting.NotifyCtls
 				desc = resp.Description
 				scanningName = strings.TrimSuffix(task.PipelineName, "-"+scanningID+"-scanning-job")
