@@ -61,6 +61,10 @@ func V1170ToV1180() error {
 		log.Errorf("migrateExternalProductIsExisted err: %v", err)
 		return err
 	}
+	if err := migrateWorkflowV4ConcurrencyLimit(); err != nil {
+		log.Errorf("migrateWorkflowV4ConcurrencyLimit err: %v", err)
+		return err
+	}
 
 	return nil
 }
@@ -345,5 +349,11 @@ func setLarkApprovalNodeForWorkflowV4Task(workflow *models.WorkflowTask) (update
 func migrateExternalProductIsExisted() error {
 	_, err := mongodb.NewProductColl().UpdateMany(context.Background(),
 		bson.M{"source": "external"}, bson.M{"$set": bson.M{"is_existed": true}})
+	return err
+}
+
+func migrateWorkflowV4ConcurrencyLimit() error {
+	_, err := mongodb.NewWorkflowV4Coll().UpdateMany(context.Background(),
+		bson.M{}, bson.M{"$set": bson.M{"concurrency_limit": 1}})
 	return err
 }
