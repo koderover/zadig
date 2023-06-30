@@ -52,6 +52,7 @@ require (
 	github.com/mittwald/go-helm-client v0.11.3
 	github.com/moby/buildkit v0.10.4
 	github.com/mojocn/base64Captcha v1.3.5
+	github.com/mozillazg/go-pinyin v0.20.0
 	github.com/nsqio/go-nsq v1.1.0
 	github.com/onsi/ginkgo/v2 v2.8.3
 	github.com/onsi/gomega v1.27.0

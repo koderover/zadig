@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
-	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -142,8 +141,10 @@ func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*Pr
 	filter := bson.M{}
 	if opt.Filter != "" {
 		filter["$or"] = bson.A{
-			bson.M{"project_name": bson.M{"$regex": opt.Filter}},
-			bson.M{"product_name": bson.M{"$regex": opt.Filter}},
+			bson.M{"project_name": bson.M{"$regex": opt.Filter, "$options": "i"}},
+			bson.M{"product_name": bson.M{"$regex": opt.Filter, "$options": "i"}},
+			bson.M{"project_name_pinyin": bson.M{"$regex": opt.Filter, "$options": "i"}},
+			bson.M{"project_name_pinyin_first_letter": bson.M{"$regex": opt.Filter, "$options": "i"}},
 		}
 	}
 
@@ -178,7 +179,6 @@ func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*Pr
 		},
 	}
 
-	log.Debugf("pipeline: %v", pipeline)
 	cursor, err := c.Collection.Aggregate(context.TODO(), pipeline)
 	if err != nil {
 		return nil, err
@@ -383,23 +383,25 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
-		"project_name":                strings.TrimSpace(args.ProjectName),
-		"revision":                    args.Revision,
-		"services":                    args.Services,
-		"production_services":         args.ProductionServices,
-		"update_time":                 time.Now().Unix(),
-		"update_by":                   args.UpdateBy,
-		"enabled":                     args.Enabled,
-		"description":                 args.Description,
-		"timeout":                     args.Timeout,
-		"auto_deploy":                 args.AutoDeploy,
-		"image_searching_rules":       args.ImageSearchingRules,
-		"custom_tar_rule":             args.CustomTarRule,
-		"custom_image_rule":           args.CustomImageRule,
-		"delivery_version_hook":       args.DeliveryVersionHook,
-		"global_variables":            args.GlobalVariables,
-		"production_global_variables": args.ProductionGlobalVariables,
-		"public":                      args.Public,
+		"project_name":                     strings.TrimSpace(args.ProjectName),
+		"project_name_pinyin":              args.ProjectNamePinyin,
+		"project_name_pinyin_first_letter": args.ProjectNamePinyinFirstLetter,
+		"revision":                         args.Revision,
+		"services":                         args.Services,
+		"production_services":              args.ProductionServices,
+		"update_time":                      time.Now().Unix(),
+		"update_by":                        args.UpdateBy,
+		"enabled":                          args.Enabled,
+		"description":                      args.Description,
+		"timeout":                          args.Timeout,
+		"auto_deploy":                      args.AutoDeploy,
+		"image_searching_rules":            args.ImageSearchingRules,
+		"custom_tar_rule":                  args.CustomTarRule,
+		"custom_image_rule":                args.CustomImageRule,
+		"delivery_version_hook":            args.DeliveryVersionHook,
+		"global_variables":                 args.GlobalVariables,
+		"production_global_variables":      args.ProductionGlobalVariables,
+		"public":                           args.Public,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

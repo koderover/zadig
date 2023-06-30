@@ -25,7 +25,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-// @todo list projects (picket/projects)
 func ListProjects(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

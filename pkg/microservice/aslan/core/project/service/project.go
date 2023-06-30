@@ -135,7 +135,10 @@ func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) 
 		return nil, err
 	}
 
-	nameWithEnvSet, nameWithEnvMap, err := getProjectsWithEnvs(opts)
+	newOpts := &ProjectListOptions{
+		Names: nameSet.List(),
+	}
+	nameWithEnvSet, nameWithEnvMap, err := getProjectsWithEnvs(newOpts)
 	if err != nil {
 		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err

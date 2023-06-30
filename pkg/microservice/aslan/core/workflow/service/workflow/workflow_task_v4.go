@@ -852,7 +852,6 @@ func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, lo
 	return nil
 }
 
-// @note paging reference
 func ListWorkflowTaskV4(workflowName string, pageNum, pageSize int64, logger *zap.SugaredLogger) ([]*commonmodels.WorkflowTask, int64, error) {
 	resp, total, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowName: workflowName, Limit: int(pageSize), Skip: int((pageNum - 1) * pageSize)})
 	if err != nil {

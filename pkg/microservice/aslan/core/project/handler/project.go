@@ -34,7 +34,6 @@ type projectListArgs struct {
 	Filter           string   `json:"filter"           form:"filter"`
 }
 
-// @todo list projects (/project/projects)
 func ListProjects(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

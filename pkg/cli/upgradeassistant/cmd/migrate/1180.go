@@ -30,10 +30,12 @@ import (
 	aslanConfig "github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func init() {
@@ -70,6 +72,11 @@ func V1170ToV1180() error {
 		log.Errorf("migrateServiceModulesFieldForWorkflowV4Task err: %v", err)
 		return errors.Wrapf(err, "failed to execute migrateServiceModulesFieldForWorkflowV4Task")
 	}
+	if err := migrateProjectNamePinyin(); err != nil {
+		log.Errorf("migrateProjectNamePinyin err: %v", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -412,6 +419,47 @@ func migrateServiceModulesFieldForWorkflowV4Task() error {
 		log.Infof("update %d workflowv4 tasks", len(mTasks))
 		if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
 			return fmt.Errorf("udpate workflowV4 tasks error: %s", err)
+
+		}
+	}
+
+	return nil
+}
+
+func migrateProjectNamePinyin() error {
+	templateProducts, err := template.NewProductColl().List()
+	if err != nil {
+		return fmt.Errorf("list template product error: %s", err)
+	}
+
+	var ms []mongo.WriteModel
+	for _, templateProduct := range templateProducts {
+		if templateProduct.ProjectNamePinyin == "" {
+			projectNamePinyin, projectNamePinyinFirstLetter := util.GetPinyinFromChinese(templateProduct.ProjectName)
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"product_name", templateProduct.ProductName}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"project_name_pinyin", projectNamePinyin},
+							{"project_name_pinyin_first_letter", projectNamePinyinFirstLetter},
+						}},
+					}),
+			)
+			log.Infof("add productName %s", templateProduct.ProductName)
+		}
+		if len(ms) >= 50 {
+			log.Infof("update %d templateProduct", len(ms))
+			if _, err := template.NewProductColl().BulkWrite(context.TODO(), ms); err != nil {
+				return fmt.Errorf("update templateProduct error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+	if len(ms) > 0 {
+		log.Infof("update %d templateProduct", len(ms))
+		if _, err := template.NewProductColl().BulkWrite(context.TODO(), ms); err != nil {
+			return fmt.Errorf("udpate workflowV4s error: %s", err)
 		}
 	}
 

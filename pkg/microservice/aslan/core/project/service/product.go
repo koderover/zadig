@@ -595,6 +595,7 @@ func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) 
 		return e.ErrInvalidParam.AddDesc(err.Error())
 	}
 
+	args.ProjectNamePinyin, args.ProjectNamePinyinFirstLetter = util.GetPinyinFromChinese(args.ProjectName)
 	err = templaterepo.NewProductColl().Update(name, args)
 	if err != nil {
 		log.Errorf("Project.Update error: %v", err)
@@ -864,6 +865,8 @@ func ensureProductTmpl(args *template.Product) error {
 	}
 
 	args.Revision = rev
+
+	args.ProjectNamePinyin, args.ProjectNamePinyinFirstLetter = util.GetPinyinFromChinese(args.ProjectName)
 	return nil
 }
 
