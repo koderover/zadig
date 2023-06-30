@@ -17,8 +17,9 @@ limitations under the License.
 package models
 
 import (
-	"github.com/koderover/zadig/pkg/setting"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type WorkflowV4Template struct {
@@ -33,9 +34,9 @@ type WorkflowV4Template struct {
 	CreateTime    int64                    `bson:"create_time"         yaml:"create_time"        json:"create_time"`
 	UpdatedBy     string                   `bson:"updated_by"          yaml:"updated_by"         json:"updated_by"`
 	UpdateTime    int64                    `bson:"update_time"         yaml:"update_time"        json:"update_time"`
-	MultiRun      bool                     `bson:"multi_run"           yaml:"multi_run"          json:"multi_run"`
 	BuildIn       bool                     `bson:"build_in"            yaml:"build_in"           json:"build_in"`
 	ShareStorages []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"     json:"share_storages"`
+	//ConcurrencyLimit int                      `bson:"concurrency_limit"   yaml:"concurrency_limit"  json:"concurrency_limit"`
 }
 
 func (WorkflowV4Template) TableName() string {

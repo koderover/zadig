@@ -49,7 +49,6 @@ type WorkflowV4 struct {
 	CreateTime      int64                    `bson:"create_time"         yaml:"create_time"         json:"create_time"`
 	UpdatedBy       string                   `bson:"updated_by"          yaml:"updated_by"          json:"updated_by"`
 	UpdateTime      int64                    `bson:"update_time"         yaml:"update_time"         json:"update_time"`
-	MultiRun        bool                     `bson:"multi_run"           yaml:"multi_run"           json:"multi_run"`
 	NotifyCtls      []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
 	Debug           bool                     `bson:"debug"               yaml:"-"                   json:"debug"`
 	HookCtls        []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
@@ -61,6 +60,9 @@ type WorkflowV4 struct {
 	BaseName        string                   `bson:"base_name"           yaml:"-"                   json:"base_name"`
 	ShareStorages   []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"      json:"share_storages"`
 	Hash            string                   `bson:"hash"                yaml:"hash"                json:"hash"`
+	// ConcurrencyLimit is the max number of concurrent runs of this workflow
+	// -1 means no limit
+	ConcurrencyLimit int `bson:"concurrency_limit"   yaml:"concurrency_limit"   json:"concurrency_limit"`
 }
 
 func (w *WorkflowV4) UpdateHash() {
