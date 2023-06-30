@@ -235,10 +235,7 @@ func RunningWorkflowTasks(name string) ([]*commonmodels.WorkflowQueue, error) {
 		return nil, err
 	}
 
-	if len(tasks) > 0 {
-		return tasks, nil
-	}
-	return nil, errors.New("no waiting task found")
+	return tasks, nil
 }
 
 func BlockedTaskQueue() ([]*commonmodels.WorkflowQueue, error) {
