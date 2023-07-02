@@ -307,6 +307,10 @@ func getInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, 
 	}
 }
 
-func DeleteCustomWorkflowV4(workflowName, projectName string, logger *zap.SugaredLogger) error {
+func OpenAPIDeleteCustomWorkflowV4(workflowName, projectName string, logger *zap.SugaredLogger) error {
 	return DeleteWorkflowV4(workflowName, logger)
+}
+
+func OpenAPIDeleteProductWorkflowV4(workflowName, projectName string, requestID string, logger *zap.SugaredLogger) error {
+	return commonservice.DeleteWorkflow(workflowName, requestID, false, logger)
 }

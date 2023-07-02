@@ -167,6 +167,32 @@ type OpenAPILoadServiceFromYamlTemplateReq struct {
 	VariableYaml util.KVInput `json:"variable_yaml"`
 }
 
+type OpenAPIUpdateServiceConfigArgs struct {
+	ProjectName string `json:"project_name" `
+	ServiceName string `json:"service_name"`
+	Type        string `json:"type"`
+	Yaml        string `json:"yaml"`
+}
+
+func (o *OpenAPIUpdateServiceConfigArgs) Validate() error {
+	if o.ProjectName == "" {
+		return fmt.Errorf("project name cannot be empty")
+	}
+	if o.ServiceName == "" {
+		return fmt.Errorf("service name cannot be empty")
+	}
+
+	if o.Type == "" {
+		return fmt.Errorf("type cannot be empty")
+	}
+
+	if o.Yaml == "" {
+		return fmt.Errorf("yaml cannot be empty")
+	}
+
+	return nil
+}
+
 func (req *OpenAPILoadServiceFromYamlTemplateReq) Validate() error {
 	if req.ServiceName == "" {
 		return fmt.Errorf("service name cannot be empty")

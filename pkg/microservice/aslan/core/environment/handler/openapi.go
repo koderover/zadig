@@ -22,12 +22,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -177,25 +178,28 @@ func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
 		log.Errorf("UpdateCommonEnvCfg json.Unmarshal err : %v", err)
 	}
 	projectName := c.Query("projectName")
-
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+	args.ProductName = projectName
+	if err := args.Validate(); err != nil {
+		log.Errorf("UpdateCommonEnvCfg args.Validate err : %v", err)
+		ctx.Err = err
 		return
 	}
 
-	if len(args.YamlData) == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("env config yaml info can't be nil")
-		return
-	}
-
-	isRollBack := false
-	if len(c.Query("rollback")) > 0 {
-		isRollBack, err = strconv.ParseBool(c.Query("rollback"))
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddErr(err)
+	// check the config name is exist
+	_, err = commonrepo.NewEnvResourceColl().Find(&commonrepo.QueryEnvResourceOption{
+		Name:        args.Name,
+		EnvName:     args.EnvName,
+		ProductName: args.ProductName,
+	})
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			ctx.Err = fmt.Errorf("cannot find env resource config by name:%s in env %s", args.Name, args.EnvName)
 			return
 		}
+		ctx.Err = err
+		return
 	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, args.Name)
 
-	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectName, args, isRollBack, ctx.UserName, ctx.Logger)
+	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectName, args, ctx.UserName, ctx.Logger)
 }

@@ -21,7 +21,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
@@ -290,14 +289,30 @@ func (req *OpenAPIDeleteYamlServiceFromEnvReq) Validate() error {
 }
 
 type OpenAPIEnvCfgArgs struct {
-	EnvName              string                        `json:"env_name"`
-	ProductName          string                        `json:"product_name"`
-	ServiceName          string                        `json:"service_name"`
-	Name                 string                        `json:"name"`
-	YamlData             string                        `json:"yaml_data"`
-	RestartAssociatedSvc bool                          `json:"restart_associated_svc"`
-	CommonEnvCfgType     config.CommonEnvCfgType       `json:"common_env_cfg_type"`
-	Services             []string                      `json:"services"`
-	GitRepoConfig        *templatemodels.GitRepoConfig `json:"git_repo_config"`
-	AutoSync             bool                          `json:"auto_sync"`
+	Name             string                  `json:"name"`
+	EnvName          string                  `json:"env_name"`
+	ProductName      string                  `json:"product_name"`
+	ServiceName      string                  `json:"service_name"`
+	YamlData         string                  `json:"yaml_data"`
+	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
+	AutoSync         bool                    `json:"auto_sync"`
+}
+
+func (req *OpenAPIEnvCfgArgs) Validate() error {
+	if req.Name == "" {
+		return fmt.Errorf("name is required")
+	}
+	if req.EnvName == "" {
+		return fmt.Errorf("env_name is required")
+	}
+	if req.ProductName == "" {
+		return fmt.Errorf("project_name is required")
+	}
+	if req.CommonEnvCfgType == "" {
+		return fmt.Errorf("common_env_cfg_type is required")
+	}
+	if req.YamlData == "" {
+		return fmt.Errorf("yaml_data is required")
+	}
+	return nil
 }

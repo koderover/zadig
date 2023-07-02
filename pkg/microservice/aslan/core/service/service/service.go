@@ -713,6 +713,29 @@ func fillServiceVariable(args *commonmodels.Service, curRevision *commonmodels.S
 	return nil
 }
 
+func OpenAPIUpdateServiceConfig(userName string, args *OpenAPIUpdateServiceConfigArgs, log *zap.SugaredLogger) error {
+	svc := &commonmodels.Service{
+		ServiceName: args.ServiceName,
+		Type:        args.Type,
+		ProductName: args.ProjectName,
+		CreateBy:    userName,
+		Source:      setting.SourceFromZadig,
+		Yaml:        args.Yaml,
+	}
+	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: args.ProjectName,
+		ServiceName: args.ServiceName,
+	})
+	if err != nil {
+		return e.ErrUpdateTemplate.AddDesc(err.Error())
+	}
+	svc.ServiceVariableKVs = currentService.ServiceVariableKVs
+	svc.VariableYaml = currentService.VariableYaml
+
+	_, err = CreateServiceTemplate(userName, svc, true, log)
+	return err
+}
+
 func CreateServiceTemplate(userName string, args *commonmodels.Service, force bool, log *zap.SugaredLogger) (*ServiceOption, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,

@@ -68,10 +68,10 @@ func OpenAPIDeleteBuildModule(c *gin.Context) {
 
 	name := c.Query("name")
 	productName := c.Query("projectName")
-	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "删除", "项目管理-构建", name, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "(OpenAPI)"+"删除", "项目管理-构建", name, "", ctx.Logger)
 
 	if name == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty Name")
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty env name.")
 		return
 	}
 
