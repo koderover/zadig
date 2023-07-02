@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/gin-gonic/gin"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -128,4 +129,30 @@ func OpenAPICreateProductWorkflowTask(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = workflowservice.OpenAPICreateProductWorkflowTask(ctx.UserName, args, ctx.Logger)
+}
+
+func OpenAPIDeleteCustomWorkflowV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	workflowName := c.Param("workflowName")
+	if workflowName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid workflow name")
+		return
+	}
+
+	ctx.Err = workflowservice.DeleteCustomWorkflowV4(workflowName, c.Query("projectName"), ctx.Logger)
+}
+
+func OpenAPIDeleteProductWorkflowV4(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	workflowName := c.Query("workflowName")
+	if workflowName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid workflow name")
+		return
+	}
+
+	ctx.Err = commonservice.DeleteWorkflow(c.Param("name"), ctx.RequestID, false, ctx.Logger)
 }

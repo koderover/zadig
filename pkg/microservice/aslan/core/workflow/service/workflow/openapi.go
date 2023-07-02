@@ -306,3 +306,7 @@ func getInputUpdater(job *commonmodels.Job, input interface{}) (CustomJobInput, 
 		return nil, errors.New("undefined job type of type:" + string(job.JobType))
 	}
 }
+
+func DeleteCustomWorkflowV4(workflowName, projectName string, logger *zap.SugaredLogger) error {
+	return DeleteWorkflowV4(workflowName, logger)
+}
