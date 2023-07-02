@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -159,4 +160,42 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", req.EnvName, strings.Join(req.ServiceNames, ",")), "", ctx.Logger, req.EnvName)
 	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, false, ctx.Logger)
+}
+
+func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	log := ctx.Logger
+
+	args := new(service.OpenAPIEnvCfgArgs)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateCommonEnvCfg c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("UpdateCommonEnvCfg json.Unmarshal err : %v", err)
+	}
+	projectName := c.Query("projectName")
+
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+		return
+	}
+
+	if len(args.YamlData) == 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("env config yaml info can't be nil")
+		return
+	}
+
+	isRollBack := false
+	if len(c.Query("rollback")) > 0 {
+		isRollBack, err = strconv.ParseBool(c.Query("rollback"))
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddErr(err)
+			return
+		}
+	}
+
+	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectName, args, isRollBack, ctx.UserName, ctx.Logger)
 }

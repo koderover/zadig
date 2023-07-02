@@ -19,7 +19,9 @@ package service
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
@@ -285,4 +287,17 @@ func (req *OpenAPIDeleteYamlServiceFromEnvReq) Validate() error {
 	}
 
 	return nil
+}
+
+type OpenAPIEnvCfgArgs struct {
+	EnvName              string                        `json:"env_name"`
+	ProductName          string                        `json:"product_name"`
+	ServiceName          string                        `json:"service_name"`
+	Name                 string                        `json:"name"`
+	YamlData             string                        `json:"yaml_data"`
+	RestartAssociatedSvc bool                          `json:"restart_associated_svc"`
+	CommonEnvCfgType     config.CommonEnvCfgType       `json:"common_env_cfg_type"`
+	Services             []string                      `json:"services"`
+	GitRepoConfig        *templatemodels.GitRepoConfig `json:"git_repo_config"`
+	AutoSync             bool                          `json:"auto_sync"`
 }
