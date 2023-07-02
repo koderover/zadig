@@ -61,3 +61,19 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 
 	ctx.Err = buildservice.OpenAPICreateBuildModule(ctx.UserName, args, ctx.Logger)
 }
+
+func OpenAPIDeleteBuildModule(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	name := c.Query("name")
+	productName := c.Query("projectName")
+	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "删除", "项目管理-构建", name, "", ctx.Logger)
+
+	if name == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty Name")
+		return
+	}
+
+	ctx.Err = buildservice.DeleteBuild(name, productName, ctx.Logger)
+}
