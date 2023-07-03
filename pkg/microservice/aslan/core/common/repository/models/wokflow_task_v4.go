@@ -395,6 +395,21 @@ type JobTaskMseGrayReleaseSpec struct {
 	GrayEnv            string                `bson:"gray_env" json:"gray_env" yaml:"gray_env"`
 	SkipCheckRunStatus bool                  `bson:"skip_check_run_status" json:"skip_check_run_status" yaml:"skip_check_run_status"`
 	GrayService        MseGrayReleaseService `bson:"gray_service" json:"gray_service" yaml:"gray_service"`
+	Events             []*Event              `bson:"events" json:"events" yaml:"events"`
+	Timeout            int                   `bson:"timeout" json:"timeout" yaml:"timeout"`
+}
+
+type JobTaskMseGrayOfflineSpec struct {
+	Env             string                   `bson:"env" json:"env" yaml:"env"`
+	GrayTag         string                   `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
+	Namespace       string                   `bson:"namespace" json:"namespace" yaml:"namespace"`
+	OfflineServices []*MseGrayOfflineService `bson:"offline_services" json:"offline_services" yaml:"offline_services"`
+}
+
+type MseGrayOfflineService struct {
+	ServiceName string        `bson:"service_name" json:"service_name" yaml:"service_name"`
+	Status      config.Status `bson:"status" json:"status" yaml:"status"`
+	Error       string        `bson:"error" json:"error" yaml:"error"`
 }
 
 type PatchTaskItem struct {

@@ -17,6 +17,7 @@
 package job
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/types"
@@ -76,6 +78,12 @@ func (j *MseGrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 	if j.spec.GrayTag == types.ZadigReleaseVersionOriginal {
 		return nil, errors.Errorf("gray tag must not be 'original'")
 	}
+
+	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	if err != nil {
+		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
+	}
+	timeout := templateProduct.Timeout * 60
 
 	resources := make([]*unstructured.Unstructured, 0)
 	for _, service := range j.spec.GrayServices {
@@ -132,6 +140,7 @@ func (j *MseGrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 				GrayEnv:            j.spec.GrayEnv,
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
 				GrayService:        *service,
+				Timeout:            timeout,
 			},
 		})
 	}

@@ -567,6 +567,13 @@ type MseGrayReleaseServiceModuleAndImage struct {
 	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
 	Image         string `bson:"image"          json:"image"          yaml:"image"`
 }
+
+type MseGrayOfflineJobSpec struct {
+	EnvName string `bson:"env_name" json:"env_name" yaml:"env_name"`
+	Source  string `bson:"source" json:"source" yaml:"source"`
+	GrayTag string `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
+}
+
 type NacosJobSpec struct {
 	NacosID           string               `bson:"nacos_id"            json:"nacos_id"            yaml:"nacos_id"`
 	NamespaceID       string               `bson:"namespace_id"        json:"namespace_id"        yaml:"namespace_id"`

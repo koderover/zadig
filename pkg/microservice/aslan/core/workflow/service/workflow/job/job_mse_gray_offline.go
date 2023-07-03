@@ -1,0 +1,115 @@
+/*
+ * Copyright 2023 The KodeRover Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package job
+
+import (
+	"fmt"
+
+	"github.com/pkg/errors"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/types"
+)
+
+type MseGrayOfflineJob struct {
+	job      *commonmodels.Job
+	workflow *commonmodels.WorkflowV4
+	spec     *commonmodels.MseGrayOfflineJobSpec
+}
+
+func (j *MseGrayOfflineJob) Instantiate() error {
+	j.spec = &commonmodels.MseGrayOfflineJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *MseGrayOfflineJob) SetPreset() error {
+	j.spec = &commonmodels.MseGrayOfflineJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *MseGrayOfflineJob) MergeArgs(args *commonmodels.Job) error {
+	j.spec = &commonmodels.MseGrayOfflineJobSpec{}
+	if err := commonmodels.IToi(args.Spec, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
+	return nil
+}
+
+func (j *MseGrayOfflineJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
+	resp := []*commonmodels.JobTask{}
+	j.spec = &commonmodels.MseGrayOfflineJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return resp, err
+	}
+	j.job.Spec = j.spec
+	if j.spec.GrayTag == types.ZadigReleaseVersionOriginal {
+		return nil, errors.Errorf("gray tag must not be 'original'")
+	}
+
+	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	if err != nil {
+		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
+	}
+	timeout := templateProduct.Timeout * 60
+
+	resp = append(resp, &commonmodels.JobTask{
+		Name: j.job.Name,
+		Key:  j.job.Name,
+		JobInfo: map[string]string{
+			JobNameKey: j.job.Name,
+		},
+		JobType: string(config.JobMseGrayOffline),
+		Spec: commonmodels.JobTaskMseGrayOfflineSpec{
+			Env:             "",
+			GrayTag:         j.spec.GrayTag,
+			Namespace:       "",
+			OfflineServices: nil,
+		},
+	})
+
+	return resp, nil
+}
+
+func (j *MseGrayOfflineJob) LintJob() error {
+	j.spec = &commonmodels.MseGrayOfflineJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+	j.job.Spec = j.spec
+
+	return nil
+}
+
+func checkMapKeyExist(m map[string]string, key string) bool {
+	if m == nil {
+		return false
+	}
+	_, ok := m[key]
+	return ok
+}

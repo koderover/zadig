@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -27,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -39,7 +41,6 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
-	"github.com/koderover/zadig/pkg/types"
 )
 
 type MseGrayReleaseJobCtl struct {
@@ -130,6 +131,7 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 		}
 		resources = append(resources, u)
 	}
+	deploymentName := ""
 	for _, resource := range resources {
 		switch resource.GetKind() {
 		case setting.Deployment:
@@ -139,14 +141,13 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 				logError(c.job, fmt.Sprintf("failed to convert service %s deployment to deployment object: %v", service.ServiceName, err), c.logger)
 				return
 			}
-			if deploymentObj.Labels == nil {
-				logError(c.job, fmt.Sprintf("service %s deployment label nil", service.ServiceName), c.logger)
+			err = c.kubeClient.Create(context.Background(), deploymentObj)
+			if err != nil {
+				c.Error(fmt.Sprintf("failed to create deployment %s: %v", deploymentObj.Name, err))
 				return
 			}
-			setLabels(deploymentObj.Labels, c.jobTaskSpec.GrayTag, service.ServiceName)
-			setLabels(deploymentObj.Spec.Selector.MatchLabels, c.jobTaskSpec.GrayTag, service.ServiceName)
-			setLabels(deploymentObj.Spec.Template.Labels, c.jobTaskSpec.GrayTag, service.ServiceName)
-			//c.kubeClient.Create()
+			c.Info(fmt.Sprintf("create deployment %s successfully", deploymentObj.Name))
+			deploymentName = deploymentObj.Name
 		case setting.ConfigMap:
 			configMapObj := &corev1.ConfigMap{}
 			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, configMapObj)
@@ -154,14 +155,96 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 				logError(c.job, fmt.Sprintf("failed to convert service %s configmap to configmap object: %v", service.ServiceName, err), c.logger)
 				return
 			}
-			setLabels(configMapObj.Labels, c.jobTaskSpec.GrayTag, service.ServiceName)
+			err = c.kubeClient.Create(context.Background(), configMapObj)
+			if err != nil {
+				c.Error(fmt.Sprintf("failed to create configmap %s: %v", configMapObj.Name, err))
+				return
+			}
+			c.Info(fmt.Sprintf("create configmap %s successfully", configMapObj.Name))
+		case setting.Secret:
+			secretObj := &corev1.Secret{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, secretObj)
+			if err != nil {
+				logError(c.job, fmt.Sprintf("failed to convert service %s secret to secret object: %v", service.ServiceName, err), c.logger)
+				return
+			}
+			err = c.kubeClient.Create(context.Background(), secretObj)
+			if err != nil {
+				c.Error(fmt.Sprintf("failed to create secret %s: %v", secretObj.Name, err))
+				return
+			}
+			c.Info(fmt.Sprintf("create secret %s successfully", secretObj.Name))
+		case setting.Service:
+			serviceObj := &corev1.Service{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, serviceObj)
+			if err != nil {
+				logError(c.job, fmt.Sprintf("failed to convert service %s service to service object: %v", service.ServiceName, err), c.logger)
+				return
+			}
+			err = c.kubeClient.Create(context.Background(), serviceObj)
+			if err != nil {
+				c.Error(fmt.Sprintf("failed to create service %s: %v", serviceObj.Name, err))
+				return
+			}
+			c.Info(fmt.Sprintf("create service %s successfully", serviceObj.Name))
 		default:
-			//return resp, errors.Errorf("service %s resource type %s not allowed", service.ServiceName, resource.GetKind())
+			c.Error(fmt.Sprintf("service %s resource type %s not allowed", service.ServiceName, resource.GetKind()))
+			return
+		}
+	}
 
+	if !c.jobTaskSpec.SkipCheckRunStatus && deploymentName != "" {
+		c.Info(fmt.Sprintf("waiting for deployment %s ready", deploymentName))
+		timeout := time.After(c.timeout() * time.Second)
+		for {
+			select {
+			case <-timeout:
+				c.Error(fmt.Sprintf("deployment %s not ready in %d seconds", deploymentName, c.timeout()))
+				return
+			default:
+			}
+			deploymentObj := &v1.Deployment{}
+			err := c.kubeClient.Get(context.Background(), types.NamespacedName{
+				Namespace: c.namespace,
+				Name:      deploymentName,
+			}, deploymentObj)
+			if err != nil {
+				c.Error(fmt.Sprintf("failed to get deployment %s: %v", deploymentName, err))
+				return
+			}
+			if deploymentObj.Status.ReadyReplicas == deploymentObj.Status.Replicas {
+				c.Info(fmt.Sprintf("deployment %s ready", deploymentName))
+				break
+			}
+			time.Sleep(2 * time.Second)
 		}
 	}
 
 	return
+}
+
+func (c *MseGrayReleaseJobCtl) Info(msg string) {
+	c.jobTaskSpec.Events = append(c.jobTaskSpec.Events, &commonmodels.Event{
+		EventType: "info",
+		Message:   msg,
+		Time:      time.Now().Format("2006-01-02 15:04:05"),
+	})
+}
+
+func (c *MseGrayReleaseJobCtl) Error(msg string) {
+	c.jobTaskSpec.Events = append(c.jobTaskSpec.Events, &commonmodels.Event{
+		EventType: "error",
+		Message:   msg,
+		Time:      time.Now().Format("2006-01-02 15:04:05"),
+	})
+	logError(c.job, msg, c.logger)
+}
+
+func (c *MseGrayReleaseJobCtl) timeout() time.Duration {
+	if c.jobTaskSpec.Timeout == 0 {
+		c.jobTaskSpec.Timeout = setting.DeployTimeout
+	}
+	return time.Duration(c.jobTaskSpec.Timeout)
 }
 
 func (c *MseGrayReleaseJobCtl) SaveInfo(ctx context.Context) error {
@@ -178,12 +261,12 @@ func (c *MseGrayReleaseJobCtl) SaveInfo(ctx context.Context) error {
 	})
 }
 
-func setLabels(labels map[string]string, grayTag, serviceName string) {
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-	labels[types.ZadigReleaseVersionLabelKey] = grayTag
-	labels[types.ZadigReleaseMSEGrayTagLabelKey] = grayTag
-	labels[types.ZadigReleaseTypeLabelKey] = "gray"
-	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName
-}
+//func setLabels(labels map[string]string, grayTag, serviceName string) {
+//	if labels == nil {
+//		labels = make(map[string]string)
+//	}
+//	labels[types.ZadigReleaseVersionLabelKey] = grayTag
+//	labels[types.ZadigReleaseMSEGrayTagLabelKey] = grayTag
+//	labels[types.ZadigReleaseTypeLabelKey] = "gray"
+//	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName
+//}

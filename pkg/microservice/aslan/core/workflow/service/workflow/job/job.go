@@ -105,6 +105,8 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &OfflineServiceJob{job: job, workflow: workflow}
 	case config.JobMseGrayRelease:
 		resp = &MseGrayReleaseJob{job: job, workflow: workflow}
+	case config.JobMseGrayOffline:
+		resp = &MseGrayOfflineJob{job: job, workflow: workflow}
 	default:
 		return resp, fmt.Errorf("job type not found %s", job.JobType)
 	}

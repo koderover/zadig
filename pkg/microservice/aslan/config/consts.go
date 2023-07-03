@@ -212,6 +212,7 @@ const (
 	JobWorkflowTrigger      JobType = "workflow-trigger"
 	JobOfflineService       JobType = "offline-service"
 	JobMseGrayRelease       JobType = "mse-gray-release"
+	JobMseGrayOffline       JobType = "mse-gray-offline"
 )
 
 const (
