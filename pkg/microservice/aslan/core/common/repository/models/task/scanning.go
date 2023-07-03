@@ -32,7 +32,7 @@ type Scanning struct {
 	Name         string              `bson:"name"            json:"name"`
 	Error        string              `bson:"error,omitempty" json:"error,omitempty"`
 	ImageInfo    string              `bson:"image_info"      json:"image_info"`
-	SonarInfo    *types.SonarInfo    `bson:"sonar_info"      json:"sonar_info"`
+	SonarInfo    *models.SonarInfo   `bson:"sonar_info"      json:"sonar_info"`
 	InstallItems []*models.Item      `bson:"install_items"   json:"install_items"`
 	InstallCtx   []*models.Install   `bson:"-"               json:"install_ctx"`
 	Repos        []*types.Repository `bson:"repos"           json:"repos"`

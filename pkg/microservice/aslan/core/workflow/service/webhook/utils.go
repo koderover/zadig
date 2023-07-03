@@ -45,7 +45,6 @@ import (
 	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
 	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -517,7 +516,7 @@ func MatchChanges(m *commonmodels.MainHookRepo, files []string) bool {
 	return false
 }
 
-func ConvertScanningHookToMainHookRepo(hook *types.ScanningHook) *commonmodels.MainHookRepo {
+func ConvertScanningHookToMainHookRepo(hook *commonmodels.ScanningHook) *commonmodels.MainHookRepo {
 	return &commonmodels.MainHookRepo{
 		Source:       hook.Source,
 		RepoOwner:    hook.RepoOwner,

@@ -293,7 +293,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 			return 0, err
 		}
 
-		scanningTask.SonarInfo = &types.SonarInfo{
+		scanningTask.SonarInfo = &commonmodels.SonarInfo{
 			Token:         sonarInfo.Token,
 			ServerAddress: sonarInfo.ServerAddress,
 		}
