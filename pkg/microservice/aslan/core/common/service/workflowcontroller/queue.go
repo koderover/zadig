@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -92,17 +94,6 @@ func Push(t *commonmodels.WorkflowTask) error {
 		return errors.New("nil task")
 	}
 
-	if !t.MultiRun {
-		opt := &commonrepo.ListWorfklowQueueOption{
-			WorkflowName: t.WorkflowName,
-		}
-		tasks, err := commonrepo.NewWorkflowQueueColl().List(opt)
-		if err == nil && len(tasks) > 0 {
-			log.Infof("blocked task recevied: %v %v %v", t.CreateTime, t.TaskID, t.WorkflowName)
-			t.Status = config.StatusBlocked
-		}
-	}
-
 	if err := commonrepo.NewWorkflowQueueColl().Create(ConvertTaskToQueue(t)); err != nil {
 		log.Errorf("workflowTaskV4.Create error: %v", err)
 		return err
@@ -150,28 +141,35 @@ func WorfklowTaskSender() {
 		if !hasAgentAvaiable(int(sysSetting.WorkflowConcurrency)) {
 			continue
 		}
-		t, err := NextWaitingTask()
-		if err != nil {
-			// no waiting task found
-			blockTasks, err := BlockedTaskQueue()
+		waitingTasks, err := WaitingTasks()
+		if err != nil || len(waitingTasks) == 0 {
+			continue
+		}
+		var t *commonmodels.WorkflowQueue
+		for _, task := range waitingTasks {
+			workflow, err := commonrepo.NewWorkflowV4Coll().Find(task.WorkflowName)
 			if err != nil {
-				//no blocked task found
+				log.Errorf("WorkflowV4 Queue: find workflow %s error: %v", task.WorkflowName, err)
+				Remove(task)
 				continue
 			}
-			for _, blockTask := range blockTasks {
-				if hasAgentAvaiable(int(sysSetting.WorkflowConcurrency)) {
-					//判断相同的工作流是否正在运行
-					if ParallelRunningAndQueuedTasks(blockTask) {
-						continue
-					}
-					// update agent and queue
-					if err := updateQueueAndRunTask(blockTask, int(sysSetting.BuildConcurrency)); err != nil {
-						continue
-					}
-				} else {
-					break
-				}
+			// no concurrency limit, run task
+			if workflow.ConcurrencyLimit == -1 {
+				t = task
+				break
 			}
+			resp, err := RunningWorkflowTasks(task.WorkflowName)
+			if err != nil {
+				log.Errorf("WorkflowV4 Queue: find running workflow %s error: %v", task.WorkflowName, err)
+				continue
+			}
+			if len(resp) < workflow.ConcurrencyLimit {
+				t = task
+				break
+			}
+		}
+		// no task to run
+		if t == nil {
 			continue
 		}
 		// update agent and queue
@@ -206,8 +204,8 @@ func ListTasks() []*commonmodels.WorkflowQueue {
 	return queues
 }
 
-// NextWaitingTask 查询下一个等待的task
-func NextWaitingTask() (*commonmodels.WorkflowQueue, error) {
+// WaitingTasks 查询所有等待的task
+func WaitingTasks() ([]*commonmodels.WorkflowQueue, error) {
 	opt := &commonrepo.ListWorfklowQueueOption{
 		Status: config.StatusWaiting,
 	}
@@ -217,11 +215,27 @@ func NextWaitingTask() (*commonmodels.WorkflowQueue, error) {
 		return nil, err
 	}
 
-	for _, t := range tasks {
-		return t, nil
+	if len(tasks) > 0 {
+		return tasks, nil
+	}
+	return nil, errors.New("no waiting task found")
+}
+
+func RunningWorkflowTasks(name string) ([]*commonmodels.WorkflowQueue, error) {
+	opt := &commonrepo.ListWorfklowQueueOption{
+		WorkflowName: name,
+		Status:       config.StatusRunning,
 	}
 
-	return nil, errors.New("no waiting task found")
+	tasks, err := commonrepo.NewWorkflowQueueColl().List(opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return tasks, nil
 }
 
 func BlockedTaskQueue() ([]*commonmodels.WorkflowQueue, error) {
@@ -286,7 +300,6 @@ func ConvertTaskToQueue(task *commonmodels.WorkflowTask) *commonmodels.WorkflowQ
 		TaskCreator:         task.TaskCreator,
 		TaskRevoker:         task.TaskRevoker,
 		CreateTime:          task.CreateTime,
-		MultiRun:            task.MultiRun,
 	}
 }
 
