@@ -23,12 +23,12 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/hashicorp/go-multierror"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	scanningservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
-	"github.com/koderover/zadig/pkg/types"
 )
 
 func TriggerScanningByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
@@ -155,7 +155,7 @@ type gitlabPushEventMatcherForScanning struct {
 	event    *gitlab.PushEvent
 }
 
-func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+func (gpem *gitlabPushEventMatcherForScanning) Match(hookRepo *commonmodels.ScanningHook) (bool, error) {
 	ev := gpem.event
 	if hookRepo == nil {
 		return false, nil
@@ -191,7 +191,7 @@ type gitlabMergeEventMatcherForScanning struct {
 	event    *gitlab.MergeEvent
 }
 
-func (gmem *gitlabMergeEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+func (gmem *gitlabMergeEventMatcherForScanning) Match(hookRepo *commonmodels.ScanningHook) (bool, error) {
 	ev := gmem.event
 	if hookRepo == nil {
 		return false, nil
@@ -239,7 +239,7 @@ type gitlabTagEventMatcherForScanning struct {
 	event    *gitlab.TagEvent
 }
 
-func (gtem *gitlabTagEventMatcherForScanning) Match(hookRepo *types.ScanningHook) (bool, error) {
+func (gtem *gitlabTagEventMatcherForScanning) Match(hookRepo *commonmodels.ScanningHook) (bool, error) {
 	ev := gtem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		hookInfo := ConvertScanningHookToMainHookRepo(hookRepo)

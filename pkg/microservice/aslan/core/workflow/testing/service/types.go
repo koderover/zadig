@@ -39,10 +39,11 @@ type Scanning struct {
 	// Parameter is for sonarQube type only
 	Parameter string `json:"parameter"`
 	// Script is for other type only
-	Script           string                         `json:"script"`
-	AdvancedSetting  *types.ScanningAdvancedSetting `json:"advanced_settings"`
-	CheckQualityGate bool                           `json:"check_quality_gate"`
-	Outputs          []*commonmodels.Output         `json:"outputs"`
+	Script           string                                `json:"script"`
+	AdvancedSetting  *commonmodels.ScanningAdvancedSetting `json:"advanced_settings"`
+	CheckQualityGate bool                                  `json:"check_quality_gate"`
+	Outputs          []*commonmodels.Output                `json:"outputs"`
+	NotifyCtls       []*commonmodels.NotifyCtl             `json:"notify_ctls"`
 }
 
 type OpenAPICreateScanningReq struct {
