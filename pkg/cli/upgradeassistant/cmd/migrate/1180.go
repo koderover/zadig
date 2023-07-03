@@ -436,17 +436,19 @@ func migrateProjectNamePinyin() error {
 	for _, templateProduct := range templateProducts {
 		if templateProduct.ProjectNamePinyin == "" {
 			projectNamePinyin, projectNamePinyinFirstLetter := util.GetPinyinFromChinese(templateProduct.ProjectName)
-			ms = append(ms,
-				mongo.NewUpdateOneModel().
-					SetFilter(bson.D{{"product_name", templateProduct.ProductName}}).
-					SetUpdate(bson.D{{"$set",
-						bson.D{
-							{"project_name_pinyin", projectNamePinyin},
-							{"project_name_pinyin_first_letter", projectNamePinyinFirstLetter},
-						}},
-					}),
-			)
-			log.Infof("add productName %s", templateProduct.ProductName)
+			if projectNamePinyin != "" {
+				ms = append(ms,
+					mongo.NewUpdateOneModel().
+						SetFilter(bson.D{{"product_name", templateProduct.ProductName}}).
+						SetUpdate(bson.D{{"$set",
+							bson.D{
+								{"project_name_pinyin", projectNamePinyin},
+								{"project_name_pinyin_first_letter", projectNamePinyinFirstLetter},
+							}},
+						}),
+				)
+				log.Infof("add productName %s", templateProduct.ProductName)
+			}
 		}
 		if len(ms) >= 50 {
 			log.Infof("update %d templateProduct", len(ms))

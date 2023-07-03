@@ -137,7 +137,7 @@ type ProductListByFilterOpt struct {
 	Filter string
 }
 
-func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*ProjectInfo, error) {
+func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*ProjectInfo, int, error) {
 	filter := bson.M{}
 	if opt.Filter != "" {
 		filter["$or"] = bson.A{
@@ -169,27 +169,59 @@ func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*Pr
 			"$match": filter,
 		},
 		{
-			"$project": projection,
-		},
-		{
-			"$skip": opt.Skip,
-		},
-		{
-			"$limit": opt.Limit,
+			"$facet": bson.M{
+				"data": []bson.M{
+					{
+						"$project": projection,
+					},
+					{
+						"$skip": opt.Skip,
+					},
+					{
+						"$limit": opt.Limit,
+					},
+				},
+				"total": []bson.M{
+					{
+						"$count": "total",
+					},
+				},
+			},
 		},
 	}
+
+	result := make([]struct {
+		Data  []*ProjectInfo `bson:"data"`
+		Total []struct {
+			Total int `bson:"total"`
+		} `bson:"total"`
+	}, 0)
 
 	cursor, err := c.Collection.Aggregate(context.TODO(), pipeline)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	err = cursor.All(context.TODO(), &result)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(result) == 0 {
+		return nil, 0, nil
 	}
 
 	var res []*ProjectInfo
-	err = cursor.All(context.TODO(), &res)
-	if err != nil {
-		return nil, err
+	if len(result[0].Data) > 0 {
+		res = result[0].Data
 	}
-	return res, nil
+
+	total := 0
+	if len(result[0].Total) > 0 {
+		total = result[0].Total[0].Total
+	}
+
+	return res, total, nil
 }
 
 func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error) {

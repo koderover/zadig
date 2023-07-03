@@ -66,7 +66,7 @@ func GetImageNameFromContainerInfo(imageName, containerName string) string {
 
 func ContainsChinese(str string) bool {
 	for _, r := range str {
-		if unicode.Is(unicode.Han, r) { // 使用unicode.Han来判断是否为中文字符
+		if unicode.Is(unicode.Han, r) {
 			return true
 		}
 	}
