@@ -758,7 +758,7 @@ func migrateWorkflows() error {
 						case string(config.JobZadigDeploy):
 							jobSpec := &commonmodels.JobTaskDeploySpec{}
 							if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
-								return errors.Wrapf(err, "unmashal job spec error: %v")
+								return errors.Wrapf(err, "unmashal job spec error: %v", err)
 							}
 							if len(jobSpec.VariableKVs) > 0 {
 								continue

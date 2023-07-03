@@ -169,6 +169,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	workflowV4 := router.Group("v4")
 	{
 		workflowV4.POST("", CreateWorkflowV4)
+		workflowV4.POST("/:name/workflowtask/field", SetWorkflowTasksCustomFields)
+		workflowV4.GET("/:name/workflowtask/field", GetWorkflowTasksCustomFields)
 		workflowV4.GET("", ListWorkflowV4)
 		workflowV4.GET("/trigger", ListWorkflowV4CanTrigger)
 		workflowV4.POST("/lint", LintWorkflowV4)
@@ -218,7 +220,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	taskV4 := router.Group("v4/workflowtask")
 	{
 		taskV4.POST("", CreateWorkflowTaskV4)
-		taskV4.GET("", ListWorkflowTaskV4)
+		taskV4.GET("/filter/workflow/:name", GetWorkflowTaskFilters)
+		taskV4.GET("", ListWorkflowTaskV4ByFilter)
 		taskV4.GET("/workflow/:workflowName/task/:taskID", GetWorkflowTaskV4)
 		taskV4.DELETE("/workflow/:workflowName/task/:taskID", CancelWorkflowTaskV4)
 		taskV4.GET("/clone/workflow/:workflowName/task/:taskID", CloneWorkflowTaskV4)

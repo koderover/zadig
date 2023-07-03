@@ -19,21 +19,22 @@ package workflow
 import (
 	"fmt"
 	"io/ioutil"
+	"math"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
-
+	"gorm.io/gorm/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-
-	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
@@ -477,6 +478,13 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.WorkflowArgs = workflow
 	workflowTask.Status = config.StatusCreated
 	workflowTask.StartTime = time.Now().Unix()
+
+	workflowTask.WorkflowArgs, _, err = service.FillServiceModules2Jobs(workflowTask.WorkflowArgs)
+	if err != nil {
+		log.Errorf("fill serviceModules to jobs error: %v", err)
+		return resp, e.ErrCreateTask.AddDesc(err.Error())
+	}
+
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(workflowTask); err != nil {
 		log.Errorf("send workflow task notification failed, error: %v", err)
 	}
@@ -854,6 +862,255 @@ func ListWorkflowTaskV4(workflowName string, pageNum, pageSize int64, logger *za
 	return resp, total, nil
 }
 
+type TaskHistoryFilter struct {
+	PageSize     int64  `json:"page_size"    form:"page_size,default=20"`
+	PageNum      int64  `json:"page_num"     form:"page_num,default=1"`
+	WorkflowName string `json:"workflow_name" form:"workflow_name"`
+	ProjectName  string `json:"projectName"  form:"projectName"`
+	QueryType    string `json:"queryType"    form:"queryType"`
+	Filters      string `json:"filters" form:"filters"`
+	JobName      string `json:"jobName" form:"jobName"`
+}
+
+func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, logger *zap.SugaredLogger) ([]*commonmodels.WorkflowTaskPreview, int64, error) {
+	var listTaskOpt *mongodb.WorkFlowTaskFilter
+	switch filter.QueryType {
+	case "creator":
+		listTaskOpt = &mongodb.WorkFlowTaskFilter{
+			WorkflowName: filter.WorkflowName,
+			ProjectName:  filter.ProjectName,
+			Creator:      filterList,
+		}
+	case "serviceName":
+		listTaskOpt = &mongodb.WorkFlowTaskFilter{
+			JobName:      filter.JobName,
+			WorkflowName: filter.WorkflowName,
+			ProjectName:  filter.ProjectName,
+			Service:      filterList,
+		}
+	case "taskStatus":
+		listTaskOpt = &mongodb.WorkFlowTaskFilter{
+			WorkflowName: filter.WorkflowName,
+			ProjectName:  filter.ProjectName,
+			Status:       filterList,
+		}
+	case "envName":
+		listTaskOpt = &mongodb.WorkFlowTaskFilter{
+			JobName:      filter.JobName,
+			WorkflowName: filter.WorkflowName,
+			ProjectName:  filter.ProjectName,
+			Env:          filterList,
+		}
+	default:
+		listTaskOpt = &mongodb.WorkFlowTaskFilter{
+			WorkflowName: filter.WorkflowName,
+			ProjectName:  filter.ProjectName,
+		}
+	}
+	tasks, total, err := commonrepo.NewworkflowTaskv4Coll().ListByFilter(listTaskOpt, filter.PageNum, filter.PageSize)
+	if err != nil {
+		logger.Errorf("list workflowTaskV4 error: %s", err)
+		return nil, total, err
+	}
+
+	taskPreviews := make([]*commonmodels.WorkflowTaskPreview, 0)
+	for _, task := range tasks {
+		preview := &commonmodels.WorkflowTaskPreview{
+			TaskID:              task.TaskID,
+			TaskCreator:         task.TaskCreator,
+			ProjectName:         task.ProjectName,
+			WorkflowName:        task.WorkflowName,
+			WorkflowDisplayName: task.WorkflowDisplayName,
+			Status:              task.Status,
+			CreateTime:          task.CreateTime,
+			StartTime:           task.StartTime,
+			EndTime:             task.EndTime,
+		}
+
+		stagePreviews := make([]*commonmodels.StagePreview, 0)
+		for _, stage := range task.WorkflowArgs.Stages {
+			stagePreview := &commonmodels.StagePreview{
+				Name: stage.Name,
+			}
+			for _, job := range stage.Jobs {
+				if job.Skipped {
+					continue
+				}
+				jobPreview := &commonmodels.JobPreview{
+					Name:    job.Name,
+					JobType: string(job.JobType),
+				}
+				switch job.JobType {
+				case config.JobZadigBuild:
+					build := new(commonmodels.ZadigBuildJobSpec)
+					if err := commonmodels.IToi(job.Spec, build); err != nil {
+						return nil, 0, err
+					}
+					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
+					for _, serviceAndBuild := range build.ServiceAndBuilds {
+						sm := &commonmodels.WorkflowServiceModule{
+							ServiceName:   serviceAndBuild.ServiceName,
+							ServiceModule: serviceAndBuild.ServiceModule,
+						}
+						for _, repo := range serviceAndBuild.Repos {
+							sm.CodeInfo = append(sm.CodeInfo, repo)
+						}
+						serviceModules = append(serviceModules, sm)
+					}
+					jobPreview.ServiceModules = serviceModules
+				case config.JobZadigDeploy:
+					deploy := new(commonmodels.ZadigDeployJobSpec)
+					if err := commonmodels.IToi(job.Spec, deploy); err != nil {
+						return nil, 0, err
+					}
+					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
+					for _, service := range deploy.ServiceAndImages {
+						sm := &commonmodels.WorkflowServiceModule{
+							ServiceName:   service.ServiceName,
+							ServiceModule: service.ServiceModule,
+						}
+						serviceModules = append(serviceModules, sm)
+					}
+					jobPreview.ServiceModules = serviceModules
+					jobPreview.Envs = &commonmodels.WorkflowEnv{
+						EnvName:    deploy.Env,
+						Production: deploy.Production,
+					}
+				case config.JobZadigTesting:
+					test := new(commonmodels.ZadigTestingJobSpec)
+					if err := commonmodels.IToi(job.Spec, test); err != nil {
+						return nil, 0, err
+					}
+
+					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
+					for _, service := range test.ServiceAndTests {
+						sm := &commonmodels.WorkflowServiceModule{
+							ServiceName:   service.ServiceName,
+							ServiceModule: service.ServiceModule,
+						}
+						for _, repo := range service.Repos {
+							sm.CodeInfo = append(sm.CodeInfo, repo)
+						}
+						serviceModules = append(serviceModules, sm)
+					}
+					jobPreview.ServiceModules = serviceModules
+
+					// get test report
+					testModules := make([]*commonmodels.WorkflowTestModule, 0)
+					for _, runningStage := range task.Stages {
+						if runningStage.Name != stage.Name {
+							continue
+						}
+						for _, runningJob := range runningStage.Jobs {
+							if runningJob.JobType != string(config.JobZadigTesting) {
+								continue
+							}
+							jobInfo := new(commonmodels.TaskJobInfo)
+							if err := commonmodels.IToi(runningJob.JobInfo, jobInfo); err != nil {
+								return nil, 0, err
+							}
+
+							if job.Name == jobInfo.JobName {
+								result, _ := service.GetWorkflowV4LocalTestSuite(task.WorkflowName, runningJob.Name, task.TaskID, logger)
+								if result != nil && result.FunctionTestSuite != nil {
+									duration := 0.0
+									for _, testCase := range result.FunctionTestSuite.TestCases {
+										duration += testCase.Time
+									}
+									testModule := &commonmodels.WorkflowTestModule{
+										RunningJobName: runningJob.Name,
+										Type:           "function",
+										TestName:       result.FunctionTestSuite.Name,
+										TestCaseNum:    result.FunctionTestSuite.Tests,
+										SuccessCaseNum: result.FunctionTestSuite.Successes,
+									}
+									if testModule.TestName == "" {
+										keys := strings.Split(runningJob.Key, ".")
+										testModule.TestName = keys[len(keys)-1]
+									}
+									if result.FunctionTestSuite.Time == 0 {
+										result.FunctionTestSuite.Time = math.Round(duration*1000) / 1000
+									}
+									testModule.TestTime = result.FunctionTestSuite.Time
+									testModules = append(testModules, testModule)
+								}
+							}
+						}
+					}
+					jobPreview.TestModules = testModules
+				case config.JobZadigDistributeImage:
+					distribute := new(commonmodels.ZadigDistributeImageJobSpec)
+					if err := commonmodels.IToi(job.Spec, distribute); err != nil {
+						return nil, 0, err
+					}
+					serviceModules := make([]*commonmodels.WorkflowServiceModule, 0)
+					for _, target := range distribute.Targets {
+						sm := &commonmodels.WorkflowServiceModule{
+							ServiceName:   target.ServiceName,
+							ServiceModule: target.ServiceModule,
+						}
+						serviceModules = append(serviceModules, sm)
+					}
+				}
+				stagePreview.Jobs = append(stagePreview.Jobs, jobPreview)
+			}
+			if len(stagePreview.Jobs) > 0 {
+				stagePreviews = append(stagePreviews, stagePreview)
+			}
+		}
+
+		for _, stage := range task.Stages {
+			for _, stagePreview := range stagePreviews {
+				if stagePreview.Name == stage.Name {
+					stagePreview.Status = stage.Status
+					stagePreview.StartTime = stage.StartTime
+					stagePreview.EndTime = stage.EndTime
+					stagePreview.Approval = stage.Approval
+					stagePreview.Parallel = stage.Parallel
+					stagePreview.Error = stage.Error
+					break
+				}
+			}
+		}
+		preview.Stages = stagePreviews
+		taskPreviews = append(taskPreviews, preview)
+	}
+	cleanWorkflowV4TasksPreviews(taskPreviews)
+	return taskPreviews, total, nil
+}
+
+// clean extra message for list workflow
+func cleanWorkflowV4TasksPreviews(workflows []*commonmodels.WorkflowTaskPreview) {
+	const StatusNotRun = ""
+	for _, workflow := range workflows {
+		var stageList []*commonmodels.StagePreview
+		workflow.WorkflowArgs = nil
+		for _, stage := range workflow.Stages {
+			if stage.Approval != nil && stage.Approval.Enabled {
+				approvalMap := map[config.ApprovalType]string{
+					config.NativeApproval:   "Zadig 审批",
+					config.LarkApproval:     "飞书审批",
+					config.DingTalkApproval: "钉钉审批",
+				}
+				approvalStage := &commonmodels.StagePreview{
+					StartTime: stage.Approval.StartTime,
+					EndTime:   stage.Approval.EndTime,
+					Status:    stage.Approval.Status,
+				}
+				if name, ok := approvalMap[stage.Approval.Type]; ok {
+					approvalStage.Name = name
+				}
+				if stage.Approval.Status != config.StatusPassed {
+					stage.Status = StatusNotRun
+				}
+				stageList = append(stageList, approvalStage)
+			}
+			stageList = append(stageList, stage)
+		}
+		workflow.Stages = stageList
+	}
+}
+
 func getLatestWorkflowTaskV4(workflowName string) (*commonmodels.WorkflowTask, error) {
 	resp, err := commonrepo.NewworkflowTaskv4Coll().GetLatest(workflowName)
 	if err != nil {
@@ -890,7 +1147,11 @@ func cleanWorkflowV4Tasks(workflows []*commonmodels.WorkflowTask) {
 				stageList = append(stageList, approvalStage)
 			}
 			stageList = append(stageList, stage)
-			stage.Jobs = nil
+			for _, job := range stage.Jobs {
+				job.Spec = nil
+				job.Outputs = nil
+				job.JobInfo = nil
+			}
 		}
 		workflow.Stages = stageList
 	}
@@ -1436,4 +1697,95 @@ func GetWorkflowV4ArtifactFileContent(workflowName, jobName string, taskID int64
 		return []byte{}, fmt.Errorf("ioutil.ReadAll err: %v", err)
 	}
 	return fileByts, nil
+}
+
+func ListWorkflowFilterInfo(project, workflow, typeName string, jobName string, logger *zap.SugaredLogger) ([]string, error) {
+	if project == "" || workflow == "" || typeName == "" {
+		return []string{}, fmt.Errorf("paramerter is empty")
+	}
+
+	switch typeName {
+	case "creator":
+		resp, err := commonrepo.NewworkflowTaskv4Coll().ListCreator(project, workflow)
+		if err != nil {
+			logger.Errorf("ListWorkflowTaskCreator ListCreator err:%v", err)
+			return []string{}, fmt.Errorf("ListCreator err: %v", err)
+		}
+		return resp, nil
+	case "envName":
+		workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow)
+		if err != nil {
+			logger.Errorf("failed to find workflow %s: %v", workflow, err)
+			return nil, err
+		}
+
+		names := make([]string, 0)
+		for _, stage := range workflow.Stages {
+			for _, job := range stage.Jobs {
+				if job.Name == jobName && job.JobType == config.JobZadigDeploy {
+					deploy := &commonmodels.ZadigDeployJobSpec{}
+					if err := commonmodels.IToi(job.Spec, deploy); err != nil {
+						return nil, err
+					}
+					env, isFixed := CheckFixedMarkReturnNoFixedEnv(deploy.Env)
+					if isFixed && !utils.Contains(names, env) {
+						names = append(names, env)
+					} else {
+						envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+							Name:       project,
+							Production: &deploy.Production,
+						})
+						if err != nil {
+							return nil, err
+						}
+						for _, env := range envs {
+							if !utils.Contains(names, env.EnvName) {
+								names = append(names, env.EnvName)
+							}
+						}
+					}
+					continue
+				}
+			}
+		}
+		return names, nil
+	case "serviceName":
+		workflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow)
+		if err != nil {
+			logger.Errorf("failed to find workflow %s: %v", workflow, err)
+			return nil, err
+		}
+		services := make([]string, 0)
+		for _, stage := range workflow.Stages {
+			for _, job := range stage.Jobs {
+				if job.Name == jobName {
+					if job.JobType == config.JobZadigDeploy {
+						deploy := new(commonmodels.ZadigDeployJobSpec)
+						if err := commonmodels.IToi(job.Spec, deploy); err != nil {
+							return nil, err
+						}
+						for _, s := range deploy.ServiceAndImages {
+							if !utils.Contains(services, s.ServiceModule) {
+								services = append(services, s.ServiceModule)
+							}
+						}
+					}
+					if job.JobType == config.JobZadigBuild {
+						build := new(commonmodels.ZadigBuildJobSpec)
+						if err := commonmodels.IToi(job.Spec, build); err != nil {
+							return nil, err
+						}
+						for _, s := range build.ServiceAndBuilds {
+							if !utils.Contains(services, s.ServiceModule) {
+								services = append(services, s.ServiceModule)
+							}
+						}
+					}
+				}
+			}
+		}
+		return services, nil
+	default:
+		return nil, fmt.Errorf("queryType parameter is invalid")
+	}
 }
