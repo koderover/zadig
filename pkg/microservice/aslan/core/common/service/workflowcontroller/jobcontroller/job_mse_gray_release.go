@@ -183,7 +183,6 @@ func setLabels(labels map[string]string, grayTag, serviceName string) {
 		labels = make(map[string]string)
 	}
 	labels[types.ZadigReleaseVersionLabelKey] = grayTag
-	labels[types.ZadigReleaseMSEVersionLabelKey] = grayTag
 	labels[types.ZadigReleaseMSEGrayTagLabelKey] = grayTag
 	labels[types.ZadigReleaseTypeLabelKey] = "gray"
 	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName

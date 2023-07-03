@@ -22,7 +22,6 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
@@ -64,31 +63,31 @@ func TestName(t *testing.T) {
 	mongotool.Init(context.TODO(), "mongodb://localhost:27017")
 	viper.Set(setting.ENVAslanDBName, "zadig_ee_test")
 
-	//str, err := GetMseServiceYaml("cosmos-1", "dev", "n-4", "v1.2")
-	//if err != nil {
-	//	t.Errorf("err:%v", err)
-	//	return
-	//}
-	//t.Logf("%s", str)
-
-	str, err := RenderMseServiceYaml("v1.4", &models.MseGrayReleaseService{
-		ServiceName: "n-3",
-		Replicas:    4,
-		YamlContent: raw,
-		ServiceAndImage: []*models.MseGrayReleaseServiceModuleAndImage{
-			{
-				ServiceModule: "nginx",
-				Image:         "123",
-			},
-			{
-				ServiceModule: "nginx2",
-				Image:         "456",
-			},
-		},
-	})
+	str, err := GetMseServiceYaml("cosmos-1", "dev", "n-3", "v1.2")
 	if err != nil {
 		t.Errorf("err:%v", err)
 		return
 	}
 	t.Logf("%s", str)
+
+	//str, err := RenderMseServiceYaml("v1.4", &models.MseGrayReleaseService{
+	//	ServiceName: "n-3",
+	//	Replicas:    4,
+	//	YamlContent: raw,
+	//	ServiceAndImage: []*models.MseGrayReleaseServiceModuleAndImage{
+	//		{
+	//			ServiceModule: "nginx",
+	//			Image:         "123",
+	//		},
+	//		{
+	//			ServiceModule: "nginx2",
+	//			Image:         "456",
+	//		},
+	//	},
+	//})
+	//if err != nil {
+	//	t.Errorf("err:%v", err)
+	//	return
+	//}
+	//t.Logf("%s", str)
 }

@@ -604,6 +604,19 @@ func GetMseServiceYaml(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.GetMseServiceYaml(c.Query("projectName"), c.Param("envName"), c.Param("serviceName"), c.Query("grayTag"))
 }
 
+func RenderMseServiceYaml(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(commonmodels.MseGrayReleaseService)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = workflow.RenderMseServiceYaml(c.Query("grayTag"), req)
+}
+
 func getBody(c *gin.Context) string {
 	b, err := c.GetRawData()
 	if err != nil {

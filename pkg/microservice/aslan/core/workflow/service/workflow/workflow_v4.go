@@ -2095,20 +2095,18 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 			}
 			yamls = append(yamls, resp)
 		case setting.ConfigMap:
-			err = unstructured.SetNestedField(resource.Object, resource.GetName()+nameSuffix, "metadata", "name")
+			cmObj := &corev1.ConfigMap{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, cmObj)
 			if err != nil {
-				return "", errors.Errorf("failed to set service %s configmap name: %v", serviceName, err)
+				return "", errors.Errorf("failed to convert service %s ConfigMap to object: %v", serviceName, err)
 			}
-			setMseLabels(resource.GetLabels(), grayTag, serviceName)
-			err = unstructured.SetNestedStringMap(resource.Object, resource.GetLabels(), "metadata", "labels")
-			if err != nil {
-				return "", errors.Errorf("failed to set service %s configmap labels: %v", serviceName, err)
-			}
-			b, err := yaml.Marshal(resource)
+			cmObj.Name += nameSuffix
+			setMseLabels(cmObj.GetLabels(), grayTag, serviceName)
+			s, err := toYaml(cmObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s configmap object: %v", serviceName, err)
 			}
-			yamls = append(yamls, string(b))
+			yamls = append(yamls, s)
 		case setting.Service:
 			serviceObj := &corev1.Service{}
 			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, serviceObj)
@@ -2116,35 +2114,26 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 				return "", errors.Errorf("failed to convert service %s Service to object: %v", serviceName, err)
 			}
 			serviceObj.Name += nameSuffix
-			if err != nil {
-				return "", errors.Errorf("failed to set service %s service name: %v", serviceName, err)
-			}
 			setMseLabels(serviceObj.GetLabels(), grayTag, serviceName)
 			setMseLabels(serviceObj.Spec.Selector, grayTag, serviceName)
-			err = unstructured.SetNestedStringMap(resource.Object, resource.GetLabels(), "metadata", "labels")
-			if err != nil {
-				return "", errors.Errorf("failed to set service %s service labels: %v", serviceName, err)
-			}
-			b, err := yaml.Marshal(resource)
+			s, err := toYaml(serviceObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s service object: %v", serviceName, err)
 			}
-			yamls = append(yamls, string(b))
+			yamls = append(yamls, s)
 		case setting.Secret:
-			err = unstructured.SetNestedField(resource.Object, resource.GetName()+"-mse-"+grayTag, "metadata", "name")
+			secretObj := &corev1.Secret{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, secretObj)
 			if err != nil {
-				return "", errors.Errorf("failed to set service %s secret name: %v", serviceName, err)
+				return "", errors.Errorf("failed to convert service %s Secret to object: %v", serviceName, err)
 			}
-			setMseLabels(resource.GetLabels(), grayTag, serviceName)
-			err = unstructured.SetNestedStringMap(resource.Object, resource.GetLabels(), "metadata", "labels")
-			if err != nil {
-				return "", errors.Errorf("failed to set service %s secret labels: %v", serviceName, err)
-			}
-			b, err := yaml.Marshal(resource)
+			secretObj.Name += nameSuffix
+			setMseLabels(secretObj.GetLabels(), grayTag, serviceName)
+			s, err := toYaml(secretObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s secret object: %v", serviceName, err)
 			}
-			yamls = append(yamls, string(b))
+			yamls = append(yamls, s)
 		default:
 			return "", errors.Errorf("service %s resource type %s not allowed", serviceName, resource.GetKind())
 		}
@@ -2158,7 +2147,6 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 func RenderMseServiceYaml(grayTag string, service *commonmodels.MseGrayReleaseService) (string, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	manifests := releaseutil.SplitManifests(service.YamlContent)
-	var err error
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 		if err != nil {
@@ -2211,38 +2199,42 @@ func RenderMseServiceYaml(grayTag string, service *commonmodels.MseGrayReleaseSe
 			}
 			yamls = append(yamls, resp)
 		case setting.ConfigMap:
-			setMseLabels(resource.GetLabels(), grayTag, serviceName)
-			err = unstructured.SetNestedStringMap(resource.Object, resource.GetLabels(), "metadata", "labels")
+			cmObj := &corev1.ConfigMap{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, cmObj)
 			if err != nil {
-				return "", errors.Errorf("failed to set service %s configmap labels: %v", serviceName, err)
+				return "", errors.Errorf("failed to convert service %s ConfigMap to object: %v", serviceName, err)
 			}
-			b, err := yaml.Marshal(resource)
+			setMseLabels(cmObj.GetLabels(), grayTag, serviceName)
+			s, err := toYaml(cmObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s configmap object: %v", serviceName, err)
 			}
-			yamls = append(yamls, string(b))
+			yamls = append(yamls, s)
 		case setting.Service:
-			setMseLabels(resource.GetLabels(), grayTag, serviceName)
-			err = unstructured.SetNestedStringMap(resource.Object, resource.GetLabels(), "metadata", "labels")
+			serviceObj := &corev1.Service{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, serviceObj)
 			if err != nil {
-				return "", errors.Errorf("failed to set service %s service labels: %v", serviceName, err)
+				return "", errors.Errorf("failed to convert service %s Service to object: %v", serviceName, err)
 			}
-			b, err := yaml.Marshal(resource)
+			setMseLabels(serviceObj.GetLabels(), grayTag, serviceName)
+			setMseLabels(serviceObj.Spec.Selector, grayTag, serviceName)
+			s, err := toYaml(serviceObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s service object: %v", serviceName, err)
 			}
-			yamls = append(yamls, string(b))
+			yamls = append(yamls, s)
 		case setting.Secret:
-			setMseLabels(resource.GetLabels(), grayTag, serviceName)
-			err = unstructured.SetNestedStringMap(resource.Object, resource.GetLabels(), "metadata", "labels")
+			secretObj := &corev1.Secret{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, secretObj)
 			if err != nil {
-				return "", errors.Errorf("failed to set service %s secret labels: %v", serviceName, err)
+				return "", errors.Errorf("failed to convert service %s Secret to object: %v", serviceName, err)
 			}
-			b, err := yaml.Marshal(resource)
+			setMseLabels(secretObj.GetLabels(), grayTag, serviceName)
+			s, err := toYaml(secretObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s secret object: %v", serviceName, err)
 			}
-			yamls = append(yamls, string(b))
+			yamls = append(yamls, s)
 		default:
 			return "", errors.Errorf("service %s resource type %s not allowed", serviceName, resource.GetKind())
 		}
