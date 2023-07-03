@@ -277,6 +277,8 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		// for other job refer current latest image.
 		build.Image = job.GetJobOutputKey(jobTask.Key, "IMAGE")
+		log.Infof("BuildJob ToJobs %d: workflow %s service %s, module %s, image %s",
+			taskID, j.workflow.Name, build.ServiceName, build.ServiceModule, build.Image)
 
 		// init tools install step
 		tools := []*step.Tool{}
