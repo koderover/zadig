@@ -79,6 +79,8 @@ func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.
 						ServiceModule: build.ServiceModule,
 						Image:         build.Image,
 					})
+					log.Infof("DeployJob ToJobs getOriginReferedJobTargets: workflow %s service %s, module %s, image %s",
+						j.workflow.Name, build.ServiceName, build.ServiceModule, build.Image)
 				}
 				return serviceAndImages, nil
 			}
@@ -356,6 +358,10 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				},
 				JobType: string(config.JobZadigDeploy),
 				Spec:    jobTaskSpec,
+			}
+			for _, image := range jobTaskSpec.ServiceAndImages {
+				log.Infof("DeployJob ToJobs %d: workflow %s service %s, module %s, image %s",
+					taskID, j.workflow.Name, serviceName, image.ServiceModule, image.Image)
 			}
 			resp = append(resp, jobTask)
 		}
