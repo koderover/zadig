@@ -18,6 +18,7 @@ package handler
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"strings"
 
@@ -78,6 +79,38 @@ func CreateWorkflowV4(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新增", "自定义工作流", args.Name, data, ctx.Logger)
 	ctx.Err = workflow.CreateWorkflowV4(ctx.UserName, args, ctx.Logger)
+}
+
+func SetWorkflowTasksCustomFields(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	workflowName := c.Param("name")
+	projectName := c.Query("projectName")
+	args := new(commonmodels.CustomField)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("SetWorkflowTasksCustomFields c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("SetWorkflowTasksCustomFields json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Err = workflow.SetWorkflowTasksCustomFields(projectName, workflowName, args, ctx.Logger)
+}
+
+func GetWorkflowTasksCustomFields(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	workflowName := c.Param("name")
+	projectName := c.Query("projectName")
+
+	ctx.Resp, ctx.Err = workflow.GetWorkflowTasksCustomFields(projectName, workflowName, ctx.Logger)
 }
 
 func LintWorkflowV4(c *gin.Context) {

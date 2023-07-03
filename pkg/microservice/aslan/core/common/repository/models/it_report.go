@@ -66,8 +66,8 @@ type TestSuite struct {
 	SystemOut string     `bson:"system_out,omitempty"    json:"system_out"               xml:"system-out,omitempty"`
 	SystemErr string     `bson:"system-err,omitempty"    json:"system_err"               xml:"system-err,omitempty"`
 	TestCases []TestCase `bson:"testcase"                json:"testcase"                 xml:"testcase"`
-	SuiteType string     `bson:"-"                       json:"-"                        xml:"-"`
-	Name      string     `bson:"name"                    json:"-"                        xml:"-"`
+	SuiteType string     `bson:"suite_type"              json:"suite_type"               xml:"suite_type"`
+	Name      string     `bson:"name"                    json:"name"                     xml:"name"`
 }
 
 type Skipped struct {

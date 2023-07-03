@@ -77,18 +77,82 @@ type JobTask struct {
 	Key        string `bson:"key"                 json:"key"`
 	K8sJobName string `bson:"k8s_job_name"        json:"k8s_job_name"`
 	// JobInfo contains the fields that make up the job task name, for frontend display
-	JobInfo          interface{}   `bson:"job_info"            json:"job_info"`
-	JobType          string        `bson:"type"                json:"type"`
-	Status           config.Status `bson:"status"              json:"status"`
-	StartTime        int64         `bson:"start_time"          json:"start_time,omitempty"`
-	EndTime          int64         `bson:"end_time"            json:"end_time,omitempty"`
-	Error            string        `bson:"error"               json:"error"`
-	Timeout          int64         `bson:"timeout"             json:"timeout"`
-	Retry            int64         `bson:"retry"               json:"retry"`
-	Spec             interface{}   `bson:"spec"                json:"spec"`
-	Outputs          []*Output     `bson:"outputs"             json:"outputs"`
-	BreakpointBefore bool          `bson:"breakpoint_before"   json:"breakpoint_before"`
-	BreakpointAfter  bool          `bson:"breakpoint_after"    json:"breakpoint_after"`
+	JobInfo          interface{}              `bson:"job_info"            json:"job_info"`
+	JobType          string                   `bson:"type"                json:"type"`
+	Status           config.Status            `bson:"status"              json:"status"`
+	StartTime        int64                    `bson:"start_time"          json:"start_time,omitempty"`
+	EndTime          int64                    `bson:"end_time"            json:"end_time,omitempty"`
+	Error            string                   `bson:"error"               json:"error"`
+	Timeout          int64                    `bson:"timeout"             json:"timeout"`
+	Retry            int64                    `bson:"retry"               json:"retry"`
+	Spec             interface{}              `bson:"spec"                json:"spec"`
+	Outputs          []*Output                `bson:"outputs"             json:"outputs"`
+	BreakpointBefore bool                     `bson:"breakpoint_before"   json:"breakpoint_before"`
+	BreakpointAfter  bool                     `bson:"breakpoint_after"    json:"breakpoint_after"`
+	ServiceModules   []*WorkflowServiceModule `bson:"service_modules"     json:"service_modules"`
+}
+
+type TaskJobInfo struct {
+	RandStr       string `bson:"rand_str"        json:"rand_str"`
+	TestType      string `bson:"test_type"       json:"test_type"`
+	TestingName   string `bson:"testing_name"    json:"testing_name"`
+	JobName       string `bson:"job_name"        json:"job_name"`
+	ServiceName   string `bson:"service_name"    json:"service_name"`
+	ServiceModule string `bson:"service_module"  json:"service_module"`
+}
+
+type WorkflowTaskPreview struct {
+	TaskID              int64           `bson:"task_id"               json:"task_id"`
+	TaskCreator         string          `bson:"task_creator"          json:"task_creator"`
+	ProjectName         string          `bson:"project_name"          json:"project_name"`
+	WorkflowName        string          `bson:"workflow_name"         json:"workflow_name"`
+	WorkflowDisplayName string          `bson:"workflow_display_name" json:"workflow_display_name"`
+	Status              config.Status   `bson:"status"                json:"status"`
+	CreateTime          int64           `bson:"create_time"           json:"create_time,omitempty"`
+	StartTime           int64           `bson:"start_time"            json:"start_time,omitempty"`
+	EndTime             int64           `bson:"end_time"              json:"end_time,omitempty"`
+	WorkflowArgs        *WorkflowV4     `bson:"workflow_args"         json:"-"`
+	Stages              []*StagePreview `bson:"stages"                json:"stages,omitempty"`
+}
+
+type StagePreview struct {
+	Name      string        `bson:"name"          json:"name"`
+	Status    config.Status `bson:"status"        json:"status"`
+	StartTime int64         `bson:"start_time"    json:"start_time,omitempty"`
+	EndTime   int64         `bson:"end_time"      json:"end_time,omitempty"`
+	Parallel  bool          `bson:"parallel"      json:"parallel,omitempty"`
+	Approval  *Approval     `bson:"approval"      json:"approval,omitempty"`
+	Jobs      []*JobPreview `bson:"jobs"          json:"jobs,omitempty"`
+	Error     string        `bson:"error"         json:"error"`
+}
+
+type JobPreview struct {
+	Name           string                   `bson:"name"                json:"name"`
+	JobType        string                   `bson:"type"                json:"type"`
+	Status         config.Status            `bson:"status"              json:"status"`
+	StartTime      int64                    `bson:"start_time"          json:"start_time,omitempty"`
+	EndTime        int64                    `bson:"end_time"            json:"end_time,omitempty"`
+	Error          string                   `bson:"error"               json:"error"`
+	Timeout        int64                    `bson:"timeout"             json:"timeout"`
+	Retry          int64                    `bson:"retry"               json:"retry"`
+	ServiceModules []*WorkflowServiceModule `bson:"-"                   json:"service_modules"`
+	TestModules    []*WorkflowTestModule    `bson:"-"                   json:"test_modules"`
+	Envs           *WorkflowEnv             `bson:"-"                   json:"envs"`
+}
+
+type WorkflowTestModule struct {
+	RunningJobName string  `json:"running_job_name"`
+	Type           string  `json:"type"`
+	TestName       string  `json:"name"`
+	TestCaseNum    int     `json:"total_case_num"`
+	SuccessCaseNum int     `json:"success_case_num"`
+	TestTime       float64 `json:"time"`
+	Error          string  `json:"error"`
+}
+
+type WorkflowEnv struct {
+	EnvName    string `json:"env_name"`
+	Production bool   `json:"production"`
 }
 
 type JobTaskCustomDeploySpec struct {
