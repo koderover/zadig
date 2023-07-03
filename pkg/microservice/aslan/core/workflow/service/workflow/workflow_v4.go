@@ -36,6 +36,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -2063,6 +2064,7 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 		resources = append(resources, u)
 	}
 	deploymentNum := 0
+	nameSuffix := "-mse-" + grayTag
 	for _, resource := range resources {
 		switch resource.GetKind() {
 		case setting.Deployment:
@@ -2082,35 +2084,18 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 			if !checkMapKeyExist(deploymentObj.Spec.Template.Labels, types.ZadigReleaseVersionLabelKey) {
 				return "", errors.Errorf("service %s deployment template label must contain %s", serviceName, types.ZadigReleaseVersionLabelKey)
 			}
-			deploymentObj.Name += "-mse-" + grayTag
+			deploymentObj.Name += nameSuffix
 			deploymentObj.Spec.Replicas = pointer.Int32(1)
 			setMseLabels(deploymentObj.Labels, grayTag, serviceName)
 			setMseLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
 			setMseLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
-
-			//err = unstructured.SetNestedField(resource.Object, deploymentObj.Name, "metadata", "name")
-			//if err != nil {
-			//	return "", errors.Errorf("failed to set service %s deployment name: %v", serviceName, err)
-			//}
-			//err = unstructured.SetNestedStringMap(resource.Object, deploymentObj.Labels, "metadata", "labels")
-			//if err != nil {
-			//	return "", errors.Errorf("failed to set service %s deployment labels: %v", serviceName, err)
-			//}
-			//err = unstructured.SetNestedStringMap(resource.Object, deploymentObj.Spec.Selector.MatchLabels, "spec", "selector", "matchLabels")
-			//if err != nil {
-			//	return "", errors.Errorf("failed to set service %s deployment selector labels: %v", serviceName, err)
-			//}
-			//err = unstructured.SetNestedStringMap(resource.Object, deploymentObj.Spec.Template.Labels, "spec", "template", "metadata", "labels")
-			//if err != nil {
-			//	return "", errors.Errorf("failed to set service %s deployment template labels: %v", serviceName, err)
-			//}
-			b, err := yaml.Marshal(resource.Object)
+			resp, err := toYaml(deploymentObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s deployment object: %v", serviceName, err)
 			}
-			yamls = append(yamls, string(b))
+			yamls = append(yamls, resp)
 		case setting.ConfigMap:
-			err = unstructured.SetNestedField(resource.Object, resource.GetName()+"-mse-"+grayTag, "metadata", "name")
+			err = unstructured.SetNestedField(resource.Object, resource.GetName()+nameSuffix, "metadata", "name")
 			if err != nil {
 				return "", errors.Errorf("failed to set service %s configmap name: %v", serviceName, err)
 			}
@@ -2125,11 +2110,17 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 			}
 			yamls = append(yamls, string(b))
 		case setting.Service:
-			err = unstructured.SetNestedField(resource.Object, resource.GetName()+"-mse-"+grayTag, "metadata", "name")
+			serviceObj := &corev1.Service{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, serviceObj)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s Service to object: %v", serviceName, err)
+			}
+			serviceObj.Name += nameSuffix
 			if err != nil {
 				return "", errors.Errorf("failed to set service %s service name: %v", serviceName, err)
 			}
-			setMseLabels(resource.GetLabels(), grayTag, serviceName)
+			setMseLabels(serviceObj.GetLabels(), grayTag, serviceName)
+			setMseLabels(serviceObj.Spec.Selector, grayTag, serviceName)
 			err = unstructured.SetNestedStringMap(resource.Object, resource.GetLabels(), "metadata", "labels")
 			if err != nil {
 				return "", errors.Errorf("failed to set service %s service labels: %v", serviceName, err)
@@ -2391,7 +2382,6 @@ func setMseLabels(labels map[string]string, grayTag, serviceName string) {
 		labels = make(map[string]string)
 	}
 	labels[types.ZadigReleaseVersionLabelKey] = grayTag
-	labels[types.ZadigReleaseMSEVersionLabelKey] = grayTag
 	labels[types.ZadigReleaseMSEGrayTagLabelKey] = grayTag
 	labels[types.ZadigReleaseTypeLabelKey] = types.ZadigReleaseTypeMseGray
 	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName
