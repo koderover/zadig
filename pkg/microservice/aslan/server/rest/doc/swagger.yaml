@@ -274,6 +274,9 @@ definitions:
         items:
           $ref: '#/definitions/types.RenderVariableKV'
         type: array
+      variable_yaml:
+        description: VariableYaml added since 1.18, used for helm production environments
+        type: string
     type: object
   models.EnvConfig:
     properties:
@@ -381,6 +384,8 @@ definitions:
         items:
           $ref: '#/definitions/models.Container'
         type: array
+      deploy_strategy:
+        type: string
       env_configs:
         items:
           $ref: '#/definitions/models.EnvConfig'
@@ -395,6 +400,8 @@ definitions:
         type: string
       type:
         type: string
+      updatable:
+        type: boolean
       variable_kvs:
         items:
           $ref: '#/definitions/types.RenderVariableKV'
@@ -524,6 +531,7 @@ definitions:
         description: New since 1.16.0, stores the variable yaml of k8s services
         type: string
       visibility:
+        description: DEPRECATED since 1.17.0
         type: string
       workload_type:
         description: WorkloadType is set in host projects
@@ -730,6 +738,13 @@ definitions:
           type: string
         type: array
     type: object
+  service.GetWebhookConfigReponse:
+    properties:
+      secret:
+        type: string
+      url:
+        type: string
+    type: object
   service.HelmSvcRenderArg:
     properties:
       chartVersion:
@@ -831,21 +846,6 @@ definitions:
           $ref: '#/definitions/service.ServiceDefinition'
         type: array
     type: object
-  service.OpenAPILoadServiceFromYamlTemplateReq:
-    properties:
-      auto_sync:
-        type: boolean
-      project_key:
-        type: string
-      service_name:
-        type: string
-      template_name:
-        type: string
-      variable_yaml:
-        items:
-          $ref: '#/definitions/util.KeyValue'
-        type: array
-    type: object
   service.PreviewServiceArgs:
     properties:
       env_name:
@@ -941,6 +941,8 @@ definitions:
         type: string
       type:
         type: string
+      updatable:
+        type: boolean
       variable_kvs:
         items:
           $ref: '#/definitions/types.RenderVariableKV'
@@ -968,6 +970,12 @@ definitions:
   service.ResourceDeployStatus:
     properties:
       name:
+        type: string
+      override_kvs:
+        items:
+          $ref: '#/definitions/service.KVPair'
+        type: array
+      override_yaml:
         type: string
       status:
         $ref: '#/definitions/service.DeployStatus'
@@ -1040,8 +1048,12 @@ definitions:
     properties:
       current:
         $ref: '#/definitions/service.TmplYaml'
+      error:
+        type: string
       latest:
         $ref: '#/definitions/service.TmplYaml'
+      service_name:
+        type: string
     type: object
   service.SvcRevision:
     properties:
@@ -1691,32 +1703,6 @@ paths:
       summary: Get Resource Deploy Status
       tags:
       - environment
-  /api/aslan/environment/production/environments/{name}/servicesForUpdate:
-    get:
-      consumes:
-      - application/json
-      description: List services in production env
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/service.EnvServices'
-      summary: List services in production env
-      tags:
-      - environments
   /api/aslan/environment/rendersets/globalVariables:
     get:
       consumes:
@@ -1829,6 +1815,29 @@ paths:
       summary: '[DONT USE]  ZadigDeployJobSpec'
       tags:
       - placeholder
+  /api/aslan/project/products/{name}/globalProductionGlobalVariables:
+    get:
+      consumes:
+      - application/json
+      description: Get global variable candidates
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GetGlobalVariableCandidatesRespone'
+            type: array
+      summary: Get production_global variable candidates
+      tags:
+      - project
   /api/aslan/project/products/{name}/globalVariableCandidates:
     get:
       consumes:
@@ -1897,6 +1906,53 @@ paths:
         "200":
           description: OK
       summary: Update global variables
+      tags:
+      - project
+  /api/aslan/project/products/{name}/productionGlobalVariables:
+    get:
+      consumes:
+      - application/json
+      description: Get global variables
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/types.ServiceVariableKV'
+            type: array
+      summary: Get global production_variables
+      tags:
+      - project
+    put:
+      consumes:
+      - application/json
+      description: Update global variables
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.updateGlobalVariablesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update production_global variables
       tags:
       - project
   /api/aslan/service/services:
@@ -2044,6 +2100,21 @@ paths:
       summary: Reload service from yaml template
       tags:
       - service
+  /api/aslan/system/webhook/config:
+    get:
+      consumes:
+      - application/json
+      description: Get webhook config
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetWebhookConfigReponse'
+      summary: Get webhook config
+      tags:
+      - system
   /api/aslan/template/yaml:
     post:
       consumes:
@@ -2196,26 +2267,6 @@ paths:
         "200":
           description: OK
       summary: OpenAPI Initialize Yaml Project
-      tags:
-      - OpenAPI
-  /openapi/service/template/load/yaml:
-    post:
-      consumes:
-      - application/json
-      description: OpenAPI Load Service From Yaml Template
-      parameters:
-      - description: body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/service.OpenAPILoadServiceFromYamlTemplateReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-      summary: OpenAPI Load Service From Yaml Template
       tags:
       - OpenAPI
 swagger: "2.0"

@@ -572,45 +572,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/aslan/environment/production/environments/{name}/servicesForUpdate": {
-            "get": {
-                "description": "List services in production env",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environments"
-                ],
-                "summary": "List services in production env",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.EnvServices"
-                        }
-                    }
-                }
-            }
-        },
         "/api/aslan/environment/rendersets/globalVariables": {
             "get": {
                 "description": "Get global variable from environment, current only used for k8s project",
@@ -778,6 +739,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/project/products/{name}/globalProductionGlobalVariables": {
+            "get": {
+                "description": "Get global variable candidates",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Get production_global variable candidates",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GetGlobalVariableCandidatesRespone"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/project/products/{name}/globalVariableCandidates": {
             "get": {
                 "description": "Get global variable candidates",
@@ -859,6 +855,77 @@ const docTemplate = `{
                     "project"
                 ],
                 "summary": "Update global variables",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.updateGlobalVariablesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/project/products/{name}/productionGlobalVariables": {
+            "get": {
+                "description": "Get global variables",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Get global production_variables",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/types.ServiceVariableKV"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update global variables",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Update production_global variables",
                 "parameters": [
                     {
                         "type": "string",
@@ -1105,6 +1172,29 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/system/webhook/config": {
+            "get": {
+                "description": "Get webhook config",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get webhook config",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.GetWebhookConfigReponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/template/yaml": {
             "post": {
                 "description": "Create yaml template",
@@ -1331,37 +1421,6 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/service.OpenAPIInitializeProjectReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/openapi/service/template/load/yaml": {
-            "post": {
-                "description": "OpenAPI Load Service From Yaml Template",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "OpenAPI"
-                ],
-                "summary": "OpenAPI Load Service From Yaml Template",
-                "parameters": [
-                    {
-                        "description": "body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/service.OpenAPILoadServiceFromYamlTemplateReq"
                         }
                     }
                 ],
@@ -1780,6 +1839,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/types.RenderVariableKV"
                     }
+                },
+                "variable_yaml": {
+                    "description": "VariableYaml added since 1.18, used for helm production environments",
+                    "type": "string"
                 }
             }
         },
@@ -1942,6 +2005,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.Container"
                     }
                 },
+                "deploy_strategy": {
+                    "type": "string"
+                },
                 "env_configs": {
                     "type": "array",
                     "items": {
@@ -1962,6 +2028,9 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                },
+                "updatable": {
+                    "type": "boolean"
                 },
                 "variable_kvs": {
                     "type": "array",
@@ -2154,6 +2223,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "visibility": {
+                    "description": "DEPRECATED since 1.17.0",
                     "type": "string"
                 },
                 "workload_type": {
@@ -2468,6 +2538,17 @@ const docTemplate = `{
                 }
             }
         },
+        "service.GetWebhookConfigReponse": {
+            "type": "object",
+            "properties": {
+                "secret": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "service.HelmSvcRenderArg": {
             "type": "object",
             "properties": {
@@ -2621,29 +2702,6 @@ const docTemplate = `{
                 }
             }
         },
-        "service.OpenAPILoadServiceFromYamlTemplateReq": {
-            "type": "object",
-            "properties": {
-                "auto_sync": {
-                    "type": "boolean"
-                },
-                "project_key": {
-                    "type": "string"
-                },
-                "service_name": {
-                    "type": "string"
-                },
-                "template_name": {
-                    "type": "string"
-                },
-                "variable_yaml": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/util.KeyValue"
-                    }
-                }
-            }
-        },
         "service.PreviewServiceArgs": {
             "type": "object",
             "properties": {
@@ -2788,6 +2846,9 @@ const docTemplate = `{
                 "type": {
                     "type": "string"
                 },
+                "updatable": {
+                    "type": "boolean"
+                },
                 "variable_kvs": {
                     "type": "array",
                     "items": {
@@ -2829,6 +2890,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "name": {
+                    "type": "string"
+                },
+                "override_kvs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.KVPair"
+                    }
+                },
+                "override_yaml": {
                     "type": "string"
                 },
                 "status": {
@@ -2940,8 +3010,14 @@ const docTemplate = `{
                 "current": {
                     "$ref": "#/definitions/service.TmplYaml"
                 },
+                "error": {
+                    "type": "string"
+                },
                 "latest": {
                     "$ref": "#/definitions/service.TmplYaml"
+                },
+                "service_name": {
+                    "type": "string"
                 }
             }
         },
