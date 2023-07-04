@@ -163,7 +163,12 @@ func WorfklowTaskSender() {
 				log.Errorf("WorkflowV4 Queue: find running workflow %s error: %v", task.WorkflowName, err)
 				continue
 			}
-			if len(resp) < workflow.ConcurrencyLimit {
+			resp2, err := WaitForApproveWorkflowTasks(task.WorkflowName)
+			if err != nil {
+				log.Errorf("WorkflowV4 Queue: find waiting approve workflow %s error: %v", task.WorkflowName, err)
+				continue
+			}
+			if len(resp)+len(resp2) < workflow.ConcurrencyLimit {
 				t = task
 				break
 			}
@@ -225,6 +230,23 @@ func RunningWorkflowTasks(name string) ([]*commonmodels.WorkflowQueue, error) {
 	opt := &commonrepo.ListWorfklowQueueOption{
 		WorkflowName: name,
 		Status:       config.StatusRunning,
+	}
+
+	tasks, err := commonrepo.NewWorkflowQueueColl().List(opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
+func WaitForApproveWorkflowTasks(name string) ([]*commonmodels.WorkflowQueue, error) {
+	opt := &commonrepo.ListWorfklowQueueOption{
+		WorkflowName: name,
+		Status:       config.StatusWaitingApprove,
 	}
 
 	tasks, err := commonrepo.NewWorkflowQueueColl().List(opt)
