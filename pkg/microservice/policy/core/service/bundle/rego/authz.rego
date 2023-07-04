@@ -25,6 +25,14 @@ response = r {
 }
 
 response = r {
+   is_pprof
+   r := {
+    "allowed": true,
+    "http_status": 200
+   }
+}
+
+response = r {
     allow
     roles := all_roles
     r := {
@@ -59,6 +67,10 @@ response = r {
 
 # By default, deny requests.
 default allow = false
+
+is_pprof {
+    contains(input.request.url.path, "pprof")
+}
 
 # Allow everyone to visit public urls.
 allow {
