@@ -69,7 +69,7 @@ response = r {
 default allow = false
 
 is_pprof {
-    contains(input.request.url.path, "pprof")
+    contains(input.request.http.path, "pprof")
 }
 
 # Allow everyone to visit public urls.
