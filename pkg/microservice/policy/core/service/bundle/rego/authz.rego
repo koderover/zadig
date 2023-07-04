@@ -16,14 +16,6 @@ default response = {
 }
 
 response = r {
-   is_pprof
-   r := {
-    "allowed": true,
-    "http_status": 200
-   }
-}
-
-response = r {
     not is_authenticated
     not url_is_public
     r := {
@@ -67,10 +59,6 @@ response = r {
 
 # By default, deny requests.
 default allow = false
-
-is_pprof {
-    contains(input.request.http.path, "pprof")
-}
 
 # Allow everyone to visit public urls.
 allow {
