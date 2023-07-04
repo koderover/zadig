@@ -1,14 +1,12 @@
 description: "public urls: url not need to authentication ; system_admin urls: urls that only system admin has permission ; project_admin: urls that project admin has permission"
 exemption_urls:
   public:
-    - endpoint: /api/aslan/debug/pprof/?*
+    - endpoint: /api/debug/pprof/**
       methods:
         - GET
-        - POST
-    - endpoint: /debug/pprof/?*
+    - endpoint: /debug/pprof/**
       methods:
         - GET
-        - POST
     - endpoint: /api/plutus/license
       methods:
         - GET
