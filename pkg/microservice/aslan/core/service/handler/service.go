@@ -576,6 +576,7 @@ func UpdateServiceConfigOpenAPI(c *gin.Context) {
 		return
 	}
 	args.ProjectName = c.Query("projectName")
+	args.ServiceName = c.Param("name")
 	if err := args.Validate(); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
