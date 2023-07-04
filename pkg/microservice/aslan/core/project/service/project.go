@@ -87,7 +87,7 @@ func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interfac
 func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) (*ProjectDetailedResponse, error) {
 	var representation []*ProjectDetailedRepresentation
 
-	nameSet, nameMap, total, err := getProjects(opts)
+	nameOrder, nameSet, nameMap, total, err := getProjects(opts)
 	if err != nil {
 		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
@@ -107,7 +107,11 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 		desiredSet = nameSet.Intersection(nameWithEnvSet)
 	}
 
-	for name := range desiredSet {
+	for _, name := range nameOrder {
+		if !desiredSet.Has(name) {
+			continue
+		}
+
 		info := nameMap[name]
 		var deployType string
 		if info.CreateEnvType == "external" {
@@ -143,7 +147,7 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) (*ProjectBriefResponse, error) {
 	var representation []*ProjectBriefRepresentation
 
-	nameSet, _, total, err := getProjects(opts)
+	nameOrder, nameSet, _, total, err := getProjects(opts)
 	if err != nil {
 		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
@@ -163,7 +167,11 @@ func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) 
 		desiredSet = nameSet.Intersection(nameWithEnvSet)
 	}
 
-	for name := range desiredSet {
+	for _, name := range nameOrder {
+		if !desiredSet.Has(name) {
+			continue
+		}
+
 		representation = append(representation, &ProjectBriefRepresentation{
 			ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},
 			Envs:                         nameWithEnvMap[name],
@@ -251,7 +259,7 @@ func getProjectsWithEnvs(opts *ProjectListOptions) (sets.String, map[string][]st
 	return nameSet, nameMap, nil
 }
 
-func getProjects(opts *ProjectListOptions) (sets.String, map[string]*templaterepo.ProjectInfo, int, error) {
+func getProjects(opts *ProjectListOptions) ([]string, sets.String, map[string]*templaterepo.ProjectInfo, int, error) {
 	listOpts := templaterepo.ProductListByFilterOpt{
 		Names:  opts.Names,
 		Filter: opts.Filter,
@@ -260,15 +268,17 @@ func getProjects(opts *ProjectListOptions) (sets.String, map[string]*templaterep
 	}
 	res, total, err := templaterepo.NewProductColl().PageListProjectByFilter(listOpts)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, nil, 0, err
 	}
 
+	nameOrder := []string{}
 	nameSet := sets.NewString()
 	nameMap := make(map[string]*templaterepo.ProjectInfo)
 	for _, r := range res {
 		nameSet.Insert(r.Name)
 		nameMap[r.Name] = r
+		nameOrder = append(nameOrder, r.Name)
 	}
 
-	return nameSet, nameMap, total, nil
+	return nameOrder, nameSet, nameMap, total, nil
 }
