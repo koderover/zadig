@@ -17,13 +17,10 @@
 package job
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -72,12 +69,6 @@ func (j *MseGrayOfflineJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 		return nil, errors.Errorf("gray tag must not be 'original'")
 	}
 
-	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
-	if err != nil {
-		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
-	}
-	timeout := templateProduct.Timeout * 60
-
 	resp = append(resp, &commonmodels.JobTask{
 		Name: j.job.Name,
 		Key:  j.job.Name,
@@ -86,10 +77,8 @@ func (j *MseGrayOfflineJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 		},
 		JobType: string(config.JobMseGrayOffline),
 		Spec: commonmodels.JobTaskMseGrayOfflineSpec{
-			Env:             "",
-			GrayTag:         j.spec.GrayTag,
-			Namespace:       "",
-			OfflineServices: nil,
+			Env:     j.spec.EnvName,
+			GrayTag: j.spec.GrayTag,
 		},
 	})
 
@@ -104,12 +93,4 @@ func (j *MseGrayOfflineJob) LintJob() error {
 	j.job.Spec = j.spec
 
 	return nil
-}
-
-func checkMapKeyExist(m map[string]string, key string) bool {
-	if m == nil {
-		return false
-	}
-	_, ok := m[key]
-	return ok
 }

@@ -78,9 +78,6 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
-	var (
-		err error
-	)
 	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
 		Name:    c.workflowCtx.ProjectName,
 		EnvName: c.jobTaskSpec.GrayEnv,

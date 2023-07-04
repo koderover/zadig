@@ -2177,9 +2177,9 @@ func RenderMseServiceYaml(grayTag string, service *commonmodels.MseGrayReleaseSe
 				return "", errors.Errorf("service %s deployment template label must contain %s", serviceName, types.ZadigReleaseVersionLabelKey)
 			}
 
-			setMseLabels(deploymentObj.Labels, grayTag, serviceName)
-			setMseLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
-			setMseLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
+			setMseDeploymentLabels(deploymentObj.Labels, grayTag, serviceName)
+			setMseDeploymentLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
+			setMseDeploymentLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
 			Replicas := int32(service.Replicas)
 			deploymentObj.Spec.Replicas = &Replicas
 			resp, err := toYaml(deploymentObj)
@@ -2369,12 +2369,21 @@ func toYaml(obj runtime.Object) (string, error) {
 //	return strings.Join(yamls, "---\n"), nil
 //}
 
-func setMseLabels(labels map[string]string, grayTag, serviceName string) {
+func setMseDeploymentLabels(labels map[string]string, grayTag, serviceName string) {
 	if labels == nil {
 		labels = make(map[string]string)
 	}
 	labels[types.ZadigReleaseVersionLabelKey] = grayTag
 	labels[types.ZadigReleaseMSEGrayTagLabelKey] = grayTag
+	labels[types.ZadigReleaseTypeLabelKey] = types.ZadigReleaseTypeMseGray
+	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName
+}
+
+func setMseLabels(labels map[string]string, grayTag, serviceName string) {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[types.ZadigReleaseVersionLabelKey] = grayTag
 	labels[types.ZadigReleaseTypeLabelKey] = types.ZadigReleaseTypeMseGray
 	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName
 }

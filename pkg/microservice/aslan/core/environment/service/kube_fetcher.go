@@ -628,7 +628,7 @@ func ListConfigMapOverview(page, pageSize int, namespace string, kc client.Clien
 }
 
 func ListK8sSecretOverview(page, pageSize int, namespace string, kc client.Client) (*K8sResourceResp, error) {
-	secrets, err := getter.ListSecrets(namespace, kc)
+	secrets, err := getter.ListSecrets(namespace, nil, kc)
 	if err != nil {
 		return nil, err
 	}

@@ -404,6 +404,7 @@ type JobTaskMseGrayOfflineSpec struct {
 	GrayTag         string                   `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
 	Namespace       string                   `bson:"namespace" json:"namespace" yaml:"namespace"`
 	OfflineServices []*MseGrayOfflineService `bson:"offline_services" json:"offline_services" yaml:"offline_services"`
+	Events          []*Event                 `bson:"events" json:"events" yaml:"events"`
 }
 
 type MseGrayOfflineService struct {

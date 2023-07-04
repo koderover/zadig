@@ -18,6 +18,7 @@ package getter
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -33,7 +34,7 @@ func GetSecret(ns, name string, cl client.Client) (*corev1.Secret, bool, error) 
 	return svc, found, err
 }
 
-func ListSecrets(ns string, cl client.Client) ([]*corev1.Secret, error) {
+func ListSecrets(ns string, selector labels.Selector, cl client.Client) ([]*corev1.Secret, error) {
 	l := &corev1.SecretList{}
 	gvk := schema.GroupVersionKind{
 		Group:   "core",
@@ -41,7 +42,7 @@ func ListSecrets(ns string, cl client.Client) ([]*corev1.Secret, error) {
 		Version: "v1",
 	}
 	l.SetGroupVersionKind(gvk)
-	err := ListResourceInCache(ns, nil, nil, l, cl)
+	err := ListResourceInCache(ns, selector, nil, l, cl)
 	if err != nil {
 		return nil, err
 	}
