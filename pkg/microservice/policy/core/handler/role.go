@@ -19,6 +19,7 @@ package handler
 import (
 	"bytes"
 	"io"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -57,7 +58,7 @@ func CreateRole(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色", projectName, string(data), ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.CreateRole(projectName, args, ctx.Logger)
 }
@@ -88,7 +89,7 @@ func UpdateRole(c *gin.Context) {
 	name := c.Param("name")
 	args.Name = name
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色", projectName, string(data), ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.UpdateRole(projectName, args, ctx.Logger)
 }
@@ -118,7 +119,7 @@ func UpdateOrCreateRole(c *gin.Context) {
 	}
 	args.Name = c.Param("name")
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建或更新", "角色", projectName, string(data), ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建或更新", "角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.UpdateOrCreateRole(projectName, args, ctx.Logger)
 }
@@ -143,7 +144,7 @@ func UpdatePresetRole(c *gin.Context) {
 	name := c.Param("name")
 	args.Name = name
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "更新", "预设角色", "", string(data), ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "更新", "预设角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.UpdateRole(service.PresetScope, args, ctx.Logger)
 }
@@ -168,7 +169,7 @@ func UpdateOrCreatePresetRole(c *gin.Context) {
 	name := c.Param("name")
 	args.Name = name
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "创建或更新", "预设角色", "", string(data), ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "创建或更新", "预设角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.UpdateOrCreateRole(service.PresetScope, args, ctx.Logger)
 }
@@ -218,7 +219,7 @@ func CreatePresetRole(c *gin.Context) {
 	}
 	args.Type = setting.ResourceTypeSystem
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "创建", "预设角色", "", string(data), ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "创建", "预设角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.CreateRole(service.PresetScope, args, ctx.Logger)
 }
@@ -249,7 +250,7 @@ func DeleteRole(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色", projectName, "", ctx.Logger, name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色", "角色名称："+name, "", ctx.Logger, name)
 
 	ctx.Err = service.DeleteRole(name, projectName, ctx.Logger)
 }
@@ -278,7 +279,7 @@ func DeleteRoles(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色", projectName, string(data), ctx.Logger, args.Names...)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色", "角色名称："+strings.Join(args.Names, ","), string(data), ctx.Logger, args.Names...)
 
 	ctx.Err = service.DeleteRoles(args.Names, projectName, ctx.Logger)
 }
@@ -288,7 +289,7 @@ func DeletePresetRole(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneProject, "删除", "预设角色", "", "", ctx.Logger, name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneProject, "删除", "预设角色", "", "角色名称："+name, ctx.Logger, name)
 
 	ctx.Err = service.DeleteRole(name, service.PresetScope, ctx.Logger)
 	return
@@ -312,7 +313,7 @@ func CreateSystemRole(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "创建", "系统角色", "", string(data), ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "创建", "系统角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.CreateRole(service.SystemScope, args, ctx.Logger)
 }
@@ -337,7 +338,7 @@ func UpdateOrCreateSystemRole(c *gin.Context) {
 	name := c.Param("name")
 	args.Name = name
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "创建或更新", "系统角色", "", string(data), ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "创建或更新", "系统角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.UpdateOrCreateRole(service.SystemScope, args, ctx.Logger)
 }
@@ -355,7 +356,7 @@ func DeleteSystemRole(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "删除", "系统角色", "", "", ctx.Logger, name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "删除", "系统角色", "角色名称："+name, "", ctx.Logger, name)
 	ctx.Err = service.DeleteRole(name, service.SystemScope, ctx.Logger)
 	return
 }
