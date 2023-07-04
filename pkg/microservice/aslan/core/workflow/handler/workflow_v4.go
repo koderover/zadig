@@ -196,7 +196,7 @@ func DeleteWorkflowV4(c *gin.Context) {
 		ctx.Err = e.ErrDeleteWorkflow.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "删除", "自定义工作流", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, w.Project, "(OpenAPI)"+"删除", "自定义工作流", c.Param("name"), "", ctx.Logger)
 	ctx.Err = workflow.DeleteWorkflowV4(c.Param("name"), ctx.Logger)
 }
 

@@ -565,3 +565,24 @@ func ConvertVaraibleKVAndYaml(c *gin.Context) {
 
 	ctx.Resp = resp
 }
+
+func UpdateServiceConfigOpenAPI(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(svcservice.OpenAPIUpdateServiceConfigArgs)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid update service config json args")
+		return
+	}
+	args.ProjectName = c.Query("projectName")
+	if err := args.Validate(); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "(OpenAPI)"+"更新服务配置", "项目管理-服务", fmt.Sprintf("服务名称:%s", args.ServiceName), string(bs), ctx.Logger)
+
+	ctx.Err = svcservice.OpenAPIUpdateServiceConfig(ctx.UserName, args, ctx.Logger)
+}

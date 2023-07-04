@@ -25,8 +25,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -159,4 +161,45 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", req.EnvName, strings.Join(req.ServiceNames, ",")), "", ctx.Logger, req.EnvName)
 	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, false, ctx.Logger)
+}
+
+func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	log := ctx.Logger
+
+	args := new(service.OpenAPIEnvCfgArgs)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateCommonEnvCfg c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("UpdateCommonEnvCfg json.Unmarshal err : %v", err)
+	}
+	projectName := c.Query("projectName")
+	args.ProductName = projectName
+	if err := args.Validate(); err != nil {
+		log.Errorf("UpdateCommonEnvCfg args.Validate err : %v", err)
+		ctx.Err = err
+		return
+	}
+
+	// check the config name is exist
+	_, err = commonrepo.NewEnvResourceColl().Find(&commonrepo.QueryEnvResourceOption{
+		Name:        args.Name,
+		EnvName:     args.EnvName,
+		ProductName: args.ProductName,
+	})
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			ctx.Err = fmt.Errorf("cannot find env resource config by name:%s in env %s", args.Name, args.EnvName)
+			return
+		}
+		ctx.Err = err
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, args.Name)
+
+	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectName, args, ctx.UserName, ctx.Logger)
 }

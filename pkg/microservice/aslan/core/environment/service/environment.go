@@ -1826,6 +1826,19 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 	return kube.DeleteHelmServiceFromEnv(userName, requestID, productInfo, serviceNames, log)
 }
 
+func OpenAPIUpdateCommonEnvCfg(projectName string, args *OpenAPIEnvCfgArgs, userName string, logger *zap.SugaredLogger) error {
+	configArgs := &models.CreateUpdateCommonEnvCfgArgs{
+		EnvName:              args.EnvName,
+		ProductName:          projectName,
+		ServiceName:          args.ServiceName,
+		Name:                 args.Name,
+		YamlData:             args.YamlData,
+		RestartAssociatedSvc: true,
+		CommonEnvCfgType:     args.CommonEnvCfgType,
+	}
+	return UpdateCommonEnvCfg(configArgs, userName, false, logger)
+}
+
 func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
 	serviceRelatedYaml := make(map[string]string)
 	for _, service := range productInfo.GetServiceMap() {
