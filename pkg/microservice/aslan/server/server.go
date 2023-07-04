@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"net/http/pprof"
 	_ "net/http/pprof"
 	"time"
 
@@ -65,7 +66,13 @@ func Serve(ctx context.Context) error {
 
 	// pprof service, you can access it by {your_ip}:8888/debug/pprof
 	go func() {
-		err := http.ListenAndServe("0.0.0.0:8888", nil)
+		mux := http.NewServeMux()
+		mux.HandleFunc("/api/debug/pprof", pprof.Index)
+		mux.HandleFunc("/api/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/api/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/api/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/api/debug/pprof/trace", pprof.Trace)
+		err := http.ListenAndServe("0.0.0.0:8888", mux)
 		if err != nil {
 			log.Fatal(err)
 		}
