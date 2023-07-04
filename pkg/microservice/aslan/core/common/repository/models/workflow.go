@@ -74,6 +74,7 @@ type WorkflowHook struct {
 	MainRepo            *MainHookRepo     `bson:"main_repo"                 json:"main_repo"`
 	WorkflowArgs        *WorkflowTaskArgs `bson:"workflow_args"             json:"workflow_args"`
 	IsYaml              bool              `bson:"is_yaml,omitempty"         json:"is_yaml,omitempty"`
+	IsManual            bool              `bson:"is_manual,omitempty"       json:"is_manual,omitempty"`
 	YamlPath            string            `bson:"yaml_path,omitempty"       json:"yaml_path,omitempty"`
 }
 

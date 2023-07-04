@@ -93,6 +93,7 @@ type GitHook struct {
 	MatchFolders []string `bson:"match_folders"            json:"match_folders,omitempty"`
 	CodehostID   int      `bson:"codehost_id"              json:"codehost_id"`
 	AutoCancel   bool     `bson:"auto_cancel"              json:"auto_cancel"`
+	IsManual     bool     `bson:"is_manual"                json:"is_manual"`
 }
 
 type SubTask map[string]interface{}
