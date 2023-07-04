@@ -5,6 +5,10 @@ exemption_urls:
       methods:
         - GET
         - POST
+    - endpoint: /debug/pprof
+      methods:
+        - GET
+        - POST
     - endpoint: /api/plutus/license
       methods:
         - GET
