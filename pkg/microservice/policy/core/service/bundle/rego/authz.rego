@@ -16,20 +16,20 @@ default response = {
 }
 
 response = r {
+   is_pprof
+   r := {
+    "allowed": true,
+    "http_status": 200
+   }
+}
+
+response = r {
     not is_authenticated
     not url_is_public
     r := {
       "allowed": false,
       "http_status": 401
     }
-}
-
-response = r {
-   is_pprof
-   r := {
-    "allowed": true,
-    "http_status": 200
-   }
 }
 
 response = r {
