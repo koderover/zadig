@@ -4,13 +4,7 @@ exemption_urls:
     - endpoint: /api/debug/pprof/**
       methods:
         - GET
-    - endpoint: /debug/pprof/**
-      methods:
-        - GET
     - endpoint: /api/debug/pprof
-      methods:
-        - GET
-    - endpoint: /debug/pprof
       methods:
         - GET
     - endpoint: /api/plutus/license
