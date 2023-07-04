@@ -130,6 +130,100 @@ func (c *ProductColl) ListNonPMProject() ([]*ProjectInfo, error) {
 	return res, nil
 }
 
+type ProductListByFilterOpt struct {
+	Names  []string
+	Limit  int64
+	Skip   int64
+	Filter string
+}
+
+func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*ProjectInfo, int, error) {
+	filter := bson.M{}
+	if opt.Filter != "" {
+		filter["$or"] = bson.A{
+			bson.M{"project_name": bson.M{"$regex": opt.Filter, "$options": "i"}},
+			bson.M{"product_name": bson.M{"$regex": opt.Filter, "$options": "i"}},
+			bson.M{"project_name_pinyin": bson.M{"$regex": opt.Filter, "$options": "i"}},
+			bson.M{"project_name_pinyin_first_letter": bson.M{"$regex": opt.Filter, "$options": "i"}},
+		}
+	}
+
+	if len(opt.Names) > 0 {
+		filter["product_name"] = bson.M{"$in": opt.Names}
+	}
+
+	projection := bson.M{
+		"product_name":      "$product_name",
+		"project_name":      "$project_name",
+		"description":       "$description",
+		"update_time":       "$update_time",
+		"update_by":         "$update_by",
+		"onboarding_status": "$onboarding_status",
+		"public":            "$public",
+		"deploy_type":       "$product_feature.deploy_type",
+		"create_env_type":   "$product_feature.create_env_type",
+		"basic_facility":    "$product_feature.basic_facility",
+	}
+	pipeline := []bson.M{
+		{
+			"$match": filter,
+		},
+		{
+			"$facet": bson.M{
+				"data": []bson.M{
+					{
+						"$project": projection,
+					},
+					{
+						"$skip": opt.Skip,
+					},
+					{
+						"$limit": opt.Limit,
+					},
+				},
+				"total": []bson.M{
+					{
+						"$count": "total",
+					},
+				},
+			},
+		},
+	}
+
+	result := make([]struct {
+		Data  []*ProjectInfo `bson:"data"`
+		Total []struct {
+			Total int `bson:"total"`
+		} `bson:"total"`
+	}, 0)
+
+	cursor, err := c.Collection.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	err = cursor.All(context.TODO(), &result)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(result) == 0 {
+		return nil, 0, nil
+	}
+
+	var res []*ProjectInfo
+	if len(result[0].Data) > 0 {
+		res = result[0].Data
+	}
+
+	total := 0
+	if len(result[0].Total) > 0 {
+		total = result[0].Total[0].Total
+	}
+
+	return res, total, nil
+}
+
 func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error) {
 	return c.listProjects(inNames, bson.M{
 		"product_name":      "$product_name",
@@ -321,23 +415,25 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
-		"project_name":                strings.TrimSpace(args.ProjectName),
-		"revision":                    args.Revision,
-		"services":                    args.Services,
-		"production_services":         args.ProductionServices,
-		"update_time":                 time.Now().Unix(),
-		"update_by":                   args.UpdateBy,
-		"enabled":                     args.Enabled,
-		"description":                 args.Description,
-		"timeout":                     args.Timeout,
-		"auto_deploy":                 args.AutoDeploy,
-		"image_searching_rules":       args.ImageSearchingRules,
-		"custom_tar_rule":             args.CustomTarRule,
-		"custom_image_rule":           args.CustomImageRule,
-		"delivery_version_hook":       args.DeliveryVersionHook,
-		"global_variables":            args.GlobalVariables,
-		"production_global_variables": args.ProductionGlobalVariables,
-		"public":                      args.Public,
+		"project_name":                     strings.TrimSpace(args.ProjectName),
+		"project_name_pinyin":              args.ProjectNamePinyin,
+		"project_name_pinyin_first_letter": args.ProjectNamePinyinFirstLetter,
+		"revision":                         args.Revision,
+		"services":                         args.Services,
+		"production_services":              args.ProductionServices,
+		"update_time":                      time.Now().Unix(),
+		"update_by":                        args.UpdateBy,
+		"enabled":                          args.Enabled,
+		"description":                      args.Description,
+		"timeout":                          args.Timeout,
+		"auto_deploy":                      args.AutoDeploy,
+		"image_searching_rules":            args.ImageSearchingRules,
+		"custom_tar_rule":                  args.CustomTarRule,
+		"custom_image_rule":                args.CustomImageRule,
+		"delivery_version_hook":            args.DeliveryVersionHook,
+		"global_variables":                 args.GlobalVariables,
+		"production_global_variables":      args.ProductionGlobalVariables,
+		"public":                           args.Public,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
