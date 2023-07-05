@@ -207,13 +207,15 @@ func removeWebhook(t *task, logger *zap.Logger) {
 		}
 
 		if len(updated.References) == 0 {
-			logger.Info("Deleting webhook")
-			err = cl.DeleteWebHook(repoNamespace, t.repo, webhook.HookID)
-			if err != nil {
-				logger.Error("Failed to delete webhook", zap.Error(err))
-				t.err = err
-				t.doneCh <- struct{}{}
-				return
+			if !t.isManual {
+				logger.Info("Deleting webhook")
+				err = cl.DeleteWebHook(repoNamespace, t.repo, webhook.HookID)
+				if err != nil {
+					logger.Error("Failed to delete webhook", zap.Error(err))
+					t.err = err
+					t.doneCh <- struct{}{}
+					return
+				}
 			}
 
 			err = coll.Delete(repoNamespace, t.repo, t.address)
