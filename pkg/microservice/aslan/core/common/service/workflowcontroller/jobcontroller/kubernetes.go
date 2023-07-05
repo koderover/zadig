@@ -443,7 +443,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 					Containers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullAlways,
-							Name:            strings.ReplaceAll(jobTask.Name, "-", "_"),
+							Name:            strings.ReplaceAll(jobTask.Name, "_", "-"),
 							Image:           jobImage,
 							Command:         []string{"/bin/sh", "-c"},
 							Args:            []string{jobExecutorBootingScript},
