@@ -126,6 +126,7 @@ func (c *client) RemoveWebHook(taskOption *TaskOption) error {
 		ak:          taskOption.AK,
 		sk:          taskOption.SK,
 		region:      taskOption.Region,
+		isManual:    taskOption.IsManual,
 		doneCh:      make(chan struct{}),
 	}
 

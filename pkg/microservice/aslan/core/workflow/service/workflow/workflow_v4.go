@@ -1030,11 +1030,13 @@ func UpdateWebhookForWorkflowV4(workflowName string, input *commonmodels.Workflo
 		return e.ErrUpdateWebhook.AddDesc(errMsg)
 	}
 
-	if err := deleteGerritWebhook(existHook.MainRepo, workflowName); err != nil {
-		logger.Errorf("delete gerrit webhook failed: %v", err)
-	}
-	if err := createGerritWebhook(input.MainRepo, workflowName); err != nil {
-		logger.Errorf("create gerrit webhook failed: %v", err)
+	if !input.IsManual {
+		if err := deleteGerritWebhook(existHook.MainRepo, workflowName); err != nil {
+			logger.Errorf("delete gerrit webhook failed: %v", err)
+		}
+		if err := createGerritWebhook(input.MainRepo, workflowName); err != nil {
+			logger.Errorf("create gerrit webhook failed: %v", err)
+		}
 	}
 	return nil
 }
