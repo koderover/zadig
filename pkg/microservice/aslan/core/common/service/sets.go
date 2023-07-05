@@ -23,6 +23,7 @@ type hookUniqueID struct {
 type hookItem struct {
 	hookUniqueID
 	codeHostID int
+	IsManual   bool
 }
 
 type Empty struct{}

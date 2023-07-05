@@ -346,6 +346,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
+<<<<<<< HEAD
 	// external system API
 	// ---------------------------------------------------------------------------------------
 	llm := router.Group("llm")
@@ -355,6 +356,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		llm.GET("/integration/:id", GetLLMIntegration)
 		llm.PUT("/integration/:id", UpdateLLMIntegration)
 		llm.DELETE("/integration/:id", DeleteLLMIntegration)
+=======
+	// webhook config
+	// ---------------------------------------------------------------------------------------
+	webhook := router.Group("webhook")
+	{
+		webhook.GET("/config", GetWebhookConfig)
+>>>>>>> 63f99bfac (add manual webhook feature (#2791))
 	}
 }
 

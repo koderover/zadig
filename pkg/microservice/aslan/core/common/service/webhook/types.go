@@ -19,4 +19,5 @@ package webhook
 type WebHook struct {
 	Owner, Namespace, Repo, Address, Name string
 	CodeHostID                            int
+	IsManual                              bool
 }
