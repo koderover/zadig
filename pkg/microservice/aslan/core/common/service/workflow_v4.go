@@ -179,10 +179,10 @@ func FillServiceModules2Jobs(args *commonmodels.WorkflowV4) (*commonmodels.Workf
 	change := 0
 	for _, stage := range args.Stages {
 		for _, job := range stage.Jobs {
-			if job.Skipped {
+			if job.Skipped || (job.ServiceModules != nil && len(job.ServiceModules) > 0) {
 				continue
 			}
-			if job.JobType == config.JobZadigBuild && job.ServiceModules == nil {
+			if job.JobType == config.JobZadigBuild {
 				services := make([]*commonmodels.WorkflowServiceModule, 0)
 				build := new(commonmodels.ZadigBuildJobSpec)
 				if err := commonmodels.IToi(job.Spec, build); err != nil {
@@ -198,11 +198,13 @@ func FillServiceModules2Jobs(args *commonmodels.WorkflowV4) (*commonmodels.Workf
 					}
 					services = append(services, sm)
 				}
-				change++
-				job.ServiceModules = services
+				if len(services) > 0 {
+					change++
+					job.ServiceModules = services
+				}
 			}
 
-			if job.JobType == config.JobZadigDeploy && job.ServiceModules == nil {
+			if job.JobType == config.JobZadigDeploy {
 				services := make([]*commonmodels.WorkflowServiceModule, 0)
 				deploy := new(commonmodels.ZadigDeployJobSpec)
 				if err := commonmodels.IToi(job.Spec, deploy); err != nil {
@@ -215,11 +217,13 @@ func FillServiceModules2Jobs(args *commonmodels.WorkflowV4) (*commonmodels.Workf
 					}
 					services = append(services, sm)
 				}
-				change++
-				job.ServiceModules = services
+				if len(services) > 0 {
+					change++
+					job.ServiceModules = services
+				}
 			}
 
-			if job.JobType == config.JobZadigTesting && job.ServiceModules == nil {
+			if job.JobType == config.JobZadigTesting {
 				services := make([]*commonmodels.WorkflowServiceModule, 0)
 				testing := new(commonmodels.ZadigTestingJobSpec)
 				if err := commonmodels.IToi(job.Spec, testing); err != nil {
@@ -232,8 +236,10 @@ func FillServiceModules2Jobs(args *commonmodels.WorkflowV4) (*commonmodels.Workf
 					}
 					services = append(services, sm)
 				}
-				change++
-				job.ServiceModules = services
+				if len(services) > 0 {
+					change++
+					job.ServiceModules = services
+				}
 			}
 		}
 	}
