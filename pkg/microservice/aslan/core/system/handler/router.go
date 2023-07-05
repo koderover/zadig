@@ -344,6 +344,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		favorite.POST("/:type/:name", CreateFavorite)
 		favorite.DELETE("/:type/:name", DeleteFavorite)
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// webhook config
+	// ---------------------------------------------------------------------------------------
+	webhook := router.Group("webhook")
+	{
+		webhook.GET("/config", GetWebhookConfig)
+	}
 }
 
 type OpenAPIRouter struct{}

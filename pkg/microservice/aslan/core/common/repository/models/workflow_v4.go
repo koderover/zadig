@@ -645,6 +645,7 @@ type WorkflowV4Hook struct {
 	MainRepo            *MainHookRepo       `bson:"main_repo"                 json:"main_repo"`
 	Description         string              `bson:"description,omitempty"     json:"description,omitempty"`
 	Repos               []*types.Repository `bson:"-"                         json:"repos,omitempty"`
+	IsManual            bool                `bson:"is_manual"                 json:"is_manual"`
 	WorkflowArg         *WorkflowV4         `bson:"workflow_arg"              json:"workflow_arg"`
 }
 

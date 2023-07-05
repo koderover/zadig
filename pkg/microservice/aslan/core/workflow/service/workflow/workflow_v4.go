@@ -979,8 +979,10 @@ func CreateWebhookForWorkflowV4(workflowName string, input *commonmodels.Workflo
 		log.Error(errMsg)
 		return e.ErrCreateWebhook.AddDesc(errMsg)
 	}
-	if err := createGerritWebhook(input.MainRepo, workflowName); err != nil {
-		logger.Errorf("create gerrit webhook failed: %v", err)
+	if !input.IsManual {
+		if err := createGerritWebhook(input.MainRepo, workflowName); err != nil {
+			logger.Errorf("create gerrit webhook failed: %v", err)
+		}
 	}
 	return nil
 }

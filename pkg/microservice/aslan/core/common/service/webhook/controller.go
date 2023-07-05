@@ -267,19 +267,21 @@ func addWebhook(t *task, logger *zap.Logger) {
 		return
 	}
 
-	logger.Info("Creating webhook")
-	hookID, err = cl.CreateWebHook(repoNamespace, t.repo)
-	if err != nil {
-		t.err = err
-		logger.Error("Failed to create webhook", zap.Error(err))
-		if err = coll.Delete(repoNamespace, t.repo, t.address); err != nil {
-			logger.Error("Failed to delete webhook record in db", zap.Error(err))
-		}
-	} else {
-		if hookID != "" {
-			if err = coll.Update(repoNamespace, t.repo, t.address, hookID); err != nil {
-				t.err = err
-				logger.Error("Failed to update webhook", zap.Error(err))
+	if !t.isManual {
+		logger.Info("Creating webhook")
+		hookID, err = cl.CreateWebHook(repoNamespace, t.repo)
+		if err != nil {
+			t.err = err
+			logger.Error("Failed to create webhook", zap.Error(err))
+			if err = coll.Delete(repoNamespace, t.repo, t.address); err != nil {
+				logger.Error("Failed to delete webhook record in db", zap.Error(err))
+			}
+		} else {
+			if hookID != "" {
+				if err = coll.Update(repoNamespace, t.repo, t.address, hookID); err != nil {
+					t.err = err
+					logger.Error("Failed to update webhook", zap.Error(err))
+				}
 			}
 		}
 	}
