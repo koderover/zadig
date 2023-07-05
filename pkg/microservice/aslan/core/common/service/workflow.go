@@ -230,6 +230,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 					EnableProxy: ch.EnableProxy,
 					Ref:         name,
 					From:        ch.Type,
+					IsManual:    wh.IsManual,
 				})
 				if err != nil {
 					logger.Errorf("Failed to remove %s webhook %+v, err: %s", ch.Type, wh, err)
