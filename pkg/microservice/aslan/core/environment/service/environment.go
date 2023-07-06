@@ -2369,7 +2369,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		tmpRenderInfo.Revision = args.Render.Revision
 	}
 
-	if args.Source == setting.HelmDeployType || args.Source == setting.K8SDeployType {
+	if productTmpl.ProductFeature.DeployType == setting.HelmDeployType || productTmpl.ProductFeature.DeployType == setting.K8SDeployType {
 		args.AnalysisConfig = &commonmodels.AnalysisConfig{
 			ResourceTypes: []commonmodels.ResourceType{
 				commonmodels.ResourceTypePod,
@@ -3200,7 +3200,7 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 		config.HubServerAddress(), env.ClusterID,
 		llmClient,
 		filters, env.GetNamespace(),
-		true,  // noCache bool
+		false, // noCache bool
 		true,  // explain bool
 		10,    // maxConcurrency int
 		false, // withDoc bool
@@ -3219,7 +3219,6 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 	if err != nil {
 		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to print analysis result, err: %w", err))
 	}
-	log.Debugf("analysis result: %s", string(analysisResult))
 
 	if triggerName == setting.CronTaskCreator {
 		util.Go(func() {
