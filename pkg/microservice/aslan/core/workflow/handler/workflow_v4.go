@@ -597,24 +597,43 @@ func CompareHelmServiceYamlInEnv(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.CompareHelmServiceYamlInEnv(req.ServiceName, req.VariableYaml, req.EnvName, projectName, images, req.IsProduction, req.UpdateServiceRevision, ctx.Logger)
 }
 
+type MseResponse struct {
+	Yaml string `json:"yaml"`
+}
+
 func GetMseServiceYaml(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.GetMseServiceYaml(c.Query("projectName"), c.Param("envName"), c.Param("serviceName"), c.Query("grayTag"))
+	mseServiceYaml, err := workflow.GetMseServiceYaml(c.Query("projectName"), c.Param("envName"), c.Param("serviceName"), c.Query("grayTag"))
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = MseResponse{Yaml: mseServiceYaml}
 }
 
 func RenderMseServiceYaml(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	req := new(commonmodels.MseGrayReleaseService)
+	type RenderMseServiceYamlReq struct {
+		MseGrayReleaseService *commonmodels.MseGrayReleaseService `json:",inline"`
+		GrayTag               string                              `json:"gray_tag"`
+	}
+
+	req := new(RenderMseServiceYamlReq)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflow.RenderMseServiceYaml(c.Query("grayTag"), req)
+	mseServiceYaml, err := workflow.RenderMseServiceYaml(req.GrayTag, req.MseGrayReleaseService)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = MseResponse{Yaml: mseServiceYaml}
 }
 
 func getBody(c *gin.Context) string {
