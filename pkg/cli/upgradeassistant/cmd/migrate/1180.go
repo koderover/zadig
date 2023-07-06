@@ -52,26 +52,38 @@ func V1170ToV1180() error {
 		log.Errorf("migrateSystemTheme err: %v", err)
 		return errors.Wrapf(err, "failed to execute migrateSystemTheme")
 	}
+
+	log.Info("-------- start migrate variables --------")
 	if err := migrateVariables(); err != nil {
 		log.Errorf("migrateVariables err: %v", err)
 		return errors.Wrapf(err, "failed to execute migrateVariables")
 	}
+
+	log.Info("-------- start migrate workflow v4 data --------")
 	if err := migrateWorkflowV4Data(); err != nil {
 		log.Errorf("migrateWorkflowV4Data err: %v", err)
 		return err
 	}
+
+	log.Info("-------- start migrate external product --------")
 	if err := migrateExternalProductIsExisted(); err != nil {
 		log.Errorf("migrateExternalProductIsExisted err: %v", err)
 		return err
 	}
+
+	log.Info("-------- start migrate workflow concurrency limit --------")
 	if err := migrateWorkflowV4ConcurrencyLimit(); err != nil {
 		log.Errorf("migrateWorkflowV4ConcurrencyLimit err: %v", err)
 		return err
 	}
+
+	log.Info("-------- start migrate service module fields --------")
 	if err := migrateServiceModulesFieldForWorkflowV4Task(); err != nil {
 		log.Errorf("migrateServiceModulesFieldForWorkflowV4Task err: %v", err)
 		return errors.Wrapf(err, "failed to execute migrateServiceModulesFieldForWorkflowV4Task")
 	}
+
+	log.Infof("-------- start migrate project name pinyin --------")
 	if err := migrateProjectNamePinyin(); err != nil {
 		log.Errorf("migrateProjectNamePinyin err: %v", err)
 		return err
