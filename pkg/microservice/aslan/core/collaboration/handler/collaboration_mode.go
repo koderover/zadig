@@ -18,12 +18,16 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
+	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -57,7 +61,13 @@ func CreateCollaborationMode(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "新增", "协作模式", args.Name, string(data), ctx.Logger)
+	detail, err := generateCollaborationDetailLog(args, ctx.Logger)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "新增", "协作模式", detail, string(data), ctx.Logger)
 
 	ctx.Err = service.CreateCollaborationMode(ctx.Account, args, ctx.Logger)
 }
@@ -79,7 +89,13 @@ func UpdateCollaborationMode(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "更新", "协作模式", args.Name, string(data), ctx.Logger)
+	detail, err := generateCollaborationDetailLog(args, ctx.Logger)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "更新", "协作模式", detail, string(data), ctx.Logger)
 
 	ctx.Err = service.UpdateCollaborationMode(ctx.Account, args, ctx.Logger)
 }
@@ -97,4 +113,57 @@ func DeleteCollaborationMode(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.Account, projectName, "删除", "协作模式", name, "", ctx.Logger)
 
 	ctx.Err = service.DeleteCollaborationMode(ctx.Account, projectName, name, ctx.Logger)
+}
+
+func generateCollaborationDetailLog(args *commonmodels.CollaborationMode, logger *zap.SugaredLogger) (string, error) {
+	collaborationWorkflowVerbTranslateMap := map[string]string{
+		"get_workflow":   "查看",
+		"edit_workflow":  "编辑",
+		"run_workflow":   "执行",
+		"debug_workflow": "调试",
+	}
+
+	collaborationProductVerbTranslateMap := map[string]string{
+		"get_environment":    "查看",
+		"config_environment": "配置",
+		"manage_environment": "管理服务实例",
+		"debug_pod":          "服务调试",
+	}
+
+	collaborationTypeTranslateMap := map[string]string{
+		"new":   "独享",
+		"share": "共享",
+	}
+
+	detail := "用户名称："
+	userResp, err := user.SearchUsersByUIDs(args.Members, logger)
+	if err != nil {
+		return "", fmt.Errorf("failed to search users by uids(%v), err: %v", args.Members, err)
+	}
+	for _, user := range userResp.Users {
+		detail += user.Name + "，"
+	}
+	detail = strings.Trim(detail, "，")
+	detail += "\n"
+
+	for _, workflow := range args.Workflows {
+		detail += "工作流名称：" + workflow.Name + "，类型：" + collaborationTypeTranslateMap[string(workflow.CollaborationType)] + "，权限："
+		for _, verb := range workflow.Verbs {
+			detail += collaborationWorkflowVerbTranslateMap[verb] + "，"
+		}
+		detail = strings.TrimSuffix(detail, "，")
+		detail += "；"
+	}
+	detail += "\n"
+
+	for _, env := range args.Products {
+		detail += "环境名称：" + env.Name + "，类型：" + collaborationTypeTranslateMap[string(env.CollaborationType)] + "，权限："
+		for _, verb := range env.Verbs {
+			detail += collaborationProductVerbTranslateMap[verb] + "，"
+		}
+		detail = strings.TrimSuffix(detail, "，")
+		detail += "；"
+	}
+
+	return detail, nil
 }
