@@ -553,7 +553,7 @@ func ConvertVaraibleKVAndYaml(c *gin.Context) {
 
 	args := new(commonservice.ConvertVaraibleKVAndYamlArgs)
 	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ConvertVaraibleKVAndYamlArgs")
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ConvertVariableKVAndYamlArgs")
 		return
 	}
 
