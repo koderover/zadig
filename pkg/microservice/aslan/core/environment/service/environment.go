@@ -2369,6 +2369,24 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		tmpRenderInfo.Revision = args.Render.Revision
 	}
 
+	if args.Source == setting.HelmDeployType || args.Source == setting.K8SDeployType {
+		args.AnalysisConfig = &commonmodels.AnalysisConfig{
+			ResourceTypes: []commonmodels.ResourceType{
+				commonmodels.ResourceTypePod,
+				commonmodels.ResourceTypeDeployment,
+				commonmodels.ResourceTypeReplicaSet,
+				commonmodels.ResourceTypePVC,
+				commonmodels.ResourceTypeService,
+				commonmodels.ResourceTypeIngress,
+				commonmodels.ResourceTypeStatefulSet,
+				commonmodels.ResourceTypeCronJob,
+				commonmodels.ResourceTypeHPA,
+				commonmodels.ResourceTypePDB,
+				commonmodels.ResourceTypeNetworkPolicy,
+			},
+		}
+	}
+
 	args.Render = tmpRenderInfo
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
 		return ensureKubeEnv(args.Namespace, args.RegistryID, map[string]string{setting.ProductLabel: args.ProductName}, args.ShareEnv.Enable, kubeClient, log)
