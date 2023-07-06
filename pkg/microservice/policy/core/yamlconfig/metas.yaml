@@ -150,7 +150,7 @@ metas:
           - method: POST
             endpoint: /api/aslan/service/services
           - method: PUT
-            endpoint: /api/aslan/service/services/service1/variable
+            endpoint: /api/aslan/service/services/?*/variable
           - method: POST
             endpoint: /api/aslan/service/loader/load/?*/?*
           - method: PUT
@@ -182,7 +182,7 @@ metas:
           - method: POST
             endpoint: /api/aslan/service/services
           - method: PUT
-            endpoint: /api/aslan/service/services/service1/variable
+            endpoint: /api/aslan/service/services/?*/variable
           - method: PUT
             endpoint: /api/aslan/service/pm/?*
           - method: PUT
@@ -237,6 +237,8 @@ metas:
             endpoint: /api/aslan/service/helm/production/services
           - method: POST
             endpoint: /api/aslan/service/production/services/k8s
+          - method: PUT
+            endpoint: api/aslan/service/production/services/?*/k8s/variable
           - method: POST
             endpoint: /api/aslan/service/template/production/load
           - method: POST
