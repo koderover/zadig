@@ -253,6 +253,8 @@ metas:
             endpoint: /api/aslan/service/helm/production/services/?*/releaseNaming
           - method: PUT
             endpoint: api/aslan/service/production/services/?*/k8s/variable
+          - method: POST
+            endpoint: /api/aslan/service/production/services/k8s
           - method: PATCH
             endpoint: api/aslan/project/production/products/?*
       - action: delete_production_service
