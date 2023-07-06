@@ -400,14 +400,18 @@ func migrateWorkflowV4ConcurrencyLimit() error {
 }
 
 func migrateServiceModulesFieldForWorkflowV4Task() error {
-	tasks, _, err := mongodb.NewworkflowTaskv4Coll().List(&mongodb.ListWorkflowTaskV4Option{})
+	cursor, err := mongodb.NewworkflowTaskv4Coll().ListByCursor(&mongodb.ListWorkflowTaskV4Option{})
 	if err != nil {
 		return err
 	}
 
 	var mTasks []mongo.WriteModel
 	change := false
-	for _, task := range tasks {
+	for cursor.Next(context.TODO()) {
+		task := &models.WorkflowTask{}
+		if err := cursor.Decode(task); err != nil {
+			return err
+		}
 		task.WorkflowArgs, change, err = service.FillServiceModules2Jobs(task.WorkflowArgs)
 		if err != nil {
 			return err
@@ -419,7 +423,7 @@ func migrateServiceModulesFieldForWorkflowV4Task() error {
 					SetUpdate(bson.D{{"$set", bson.D{{"workflow_args", task.WorkflowArgs}}}}),
 			)
 			if len(mTasks) >= 50 {
-				log.Infof("update %d workflowv4 tasks", len(mTasks))
+				log.Infof("ua method:migrateServiceModulesFieldForWorkflowV4Task update %d workflowv4 tasks", len(mTasks))
 				if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
 					return fmt.Errorf("udpate workflowV4 tasks error: %s", err)
 				}
@@ -428,7 +432,7 @@ func migrateServiceModulesFieldForWorkflowV4Task() error {
 		}
 	}
 	if len(mTasks) > 0 {
-		log.Infof("update %d workflowv4 tasks", len(mTasks))
+		log.Infof("ua method:migrateServiceModulesFieldForWorkflowV4Task update %d workflowv4 tasks", len(mTasks))
 		if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
 			return fmt.Errorf("udpate workflowV4 tasks error: %s", err)
 
