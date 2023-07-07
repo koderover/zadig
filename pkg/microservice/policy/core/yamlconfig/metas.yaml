@@ -849,23 +849,15 @@ metas:
           - method: POST
             endpoint: "/api/aslan/environment/envcfgs/:name"
           - method: DELETE
-<<<<<<< HEAD
             endpoint: "/api/aslan/environment/envcfgs/:name/cfg/?*"
           - method: PUT
             endpoint: /api/aslan/environment/environments/:name/configs
-=======
-<<<<<<< HEAD
-            endpoint: '/api/aslan/environment/envcfgs/:name/cfg/?*'
->>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))
           - method: PUT
             endpoint: '/api/aslan/environment/environments/:name/k8s/globalVariables'
           - method: POST
             endpoint: 'api/aslan/environment/environments/:name/helm/default-values/preview'
-=======
-            endpoint: "/api/aslan/environment/envcfgs/:name/cfg/?*"
           - method: PUT
             endpoint: /api/aslan/environment/environments/:name/configs
->>>>>>> dddbadf2e (add enviroment analysis function (#2729))
       - action: manage_environment
         alias: 管理服务实例
         description: ""
@@ -905,11 +897,7 @@ metas:
         description: ""
         rules:
           - method: GET
-<<<<<<< HEAD
             endpoint: '/api/podexec/?*/?*/?*/podExec/:name'
-=======
-            endpoint: "/api/podexec/?*/?*/?*/?*/podExec/:name"
->>>>>>> dddbadf2e (add enviroment analysis function (#2729))
           - method: POST
             endpoint: "/api/aslan/environment/kube/:name/pods/?*/debugcontainer"
           - method: GET
@@ -971,14 +959,9 @@ metas:
         description: ""
         rules:
           - method: PUT
-<<<<<<< HEAD
             endpoint: "/api/aslan/environment/environments/:name/alias"
           - method: PUT
             endpoint: /api/aslan/environment/production/environments/:name/configs
-=======
-<<<<<<< HEAD
-            endpoint: '/api/aslan/environment/environments/:name/alias'
->>>>>>> acf6e6ae5 (add enviroment analysis function (#2729))
           - method: PUT
             endpoint: '/api/aslan/environment/production/envcfgs/:name'
           - method: POST
@@ -1005,11 +988,8 @@ metas:
             endpoint: '/api/aslan/environment/production/environments/?*/helm/charts'
           - method: PUT
             endpoint: "/api/aslan/environment/production/environments/?*/registry"
-=======
-            endpoint: "/api/aslan/environment/environments/:name/alias"
           - method: PUT
             endpoint: /api/aslan/environment/production/environments/:name/configs
->>>>>>> dddbadf2e (add enviroment analysis function (#2729))
       - action: edit_production_environment
         alias: 管理服务实例
         description: ""
@@ -1033,11 +1013,7 @@ metas:
         description: ""
         rules:
           - method: GET
-<<<<<<< HEAD
             endpoint: '/api/podexec/production/?*/?*/?*/podExec/?*'
-=======
-            endpoint: "/api/podexec/production/?*/?*/?*/?*/podExec/:name"
->>>>>>> dddbadf2e (add enviroment analysis function (#2729))
           - method: GET
             endpoint: "/api/aslan/environment/production/kube/pods/?*/file"
   - resource: Scan
