@@ -712,6 +712,9 @@ func ListCanaryDeploymentServiceInfo(clusterID, namespace string, log *zap.Sugar
 		return resp, err
 	}
 	for _, service := range services {
+		if service.Spec.Selector == nil {
+			continue
+		}
 		deploymentContainers := &ServiceMatchedDeploymentContainers{
 			ServiceName: service.Name,
 		}
