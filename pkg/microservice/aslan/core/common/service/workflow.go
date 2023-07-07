@@ -35,7 +35,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/types"
 )
 
 func DeleteWorkflows(productName, requestID string, log *zap.SugaredLogger) error {
@@ -231,6 +230,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 					EnableProxy: ch.EnableProxy,
 					Ref:         name,
 					From:        ch.Type,
+					IsManual:    wh.IsManual,
 				})
 				if err != nil {
 					logger.Errorf("Failed to remove %s webhook %+v, err: %s", ch.Type, wh, err)
@@ -267,6 +267,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 					SK:        ch.SecretKey,
 					Region:    ch.Region,
 					From:      ch.Type,
+					IsManual:  wh.IsManual,
 				})
 				if err != nil {
 					logger.Errorf("Failed to add %s webhook %+v, err: %s", ch.Type, wh, err)
@@ -286,6 +287,7 @@ func toHookSet(hooks interface{}) HookSet {
 	res := NewHookSet()
 	switch hs := hooks.(type) {
 	case []*models.WorkflowHook:
+		// deprecated, for old custom workflow
 		for _, h := range hs {
 			res.Insert(hookItem{
 				hookUniqueID: hookUniqueID{
@@ -296,9 +298,11 @@ func toHookSet(hooks interface{}) HookSet {
 					source:    h.MainRepo.Source,
 				},
 				codeHostID: h.MainRepo.CodehostID,
+				IsManual:   h.IsManual,
 			})
 		}
 	case []models.GitHook:
+		// for pipline workflow
 		for _, h := range hs {
 			res.Insert(hookItem{
 				hookUniqueID: hookUniqueID{
@@ -308,9 +312,11 @@ func toHookSet(hooks interface{}) HookSet {
 					repo:      h.Repo,
 				},
 				codeHostID: h.CodehostID,
+				IsManual:   h.IsManual,
 			})
 		}
 	case []*webhook.WebHook:
+		// for template service sync
 		for _, h := range hs {
 			res.Insert(hookItem{
 				hookUniqueID: hookUniqueID{
@@ -320,9 +326,11 @@ func toHookSet(hooks interface{}) HookSet {
 					repo:      h.Repo,
 				},
 				codeHostID: h.CodeHostID,
+				IsManual:   h.IsManual,
 			})
 		}
 	case []*models.TestingHook:
+		// for testing
 		for _, h := range hs {
 			res.Insert(hookItem{
 				hookUniqueID: hookUniqueID{
@@ -332,9 +340,11 @@ func toHookSet(hooks interface{}) HookSet {
 					repo:      h.MainRepo.RepoName,
 				},
 				codeHostID: h.MainRepo.CodehostID,
+				IsManual:   h.IsManual,
 			})
 		}
-	case []*types.ScanningHook:
+	case []*models.ScanningHook:
+		// for scanning
 		for _, h := range hs {
 			res.Insert(hookItem{
 				hookUniqueID: hookUniqueID{
@@ -343,9 +353,11 @@ func toHookSet(hooks interface{}) HookSet {
 					repo:  h.RepoName,
 				},
 				codeHostID: h.CodehostID,
+				IsManual:   h.IsManual,
 			})
 		}
 	case []*models.WorkflowV4Hook:
+		// for custom workflow
 		for _, h := range hs {
 			res.Insert(hookItem{
 				hookUniqueID: hookUniqueID{
@@ -356,6 +368,7 @@ func toHookSet(hooks interface{}) HookSet {
 					source:    h.MainRepo.Source,
 				},
 				codeHostID: h.MainRepo.CodehostID,
+				IsManual:   h.IsManual,
 			})
 		}
 	}

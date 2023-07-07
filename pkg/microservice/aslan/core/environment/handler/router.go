@@ -88,6 +88,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		image.POST("/deployment/:envName", UpdateDeploymentContainerImage)
 		image.POST("/statefulset/:envName", UpdateStatefulSetContainerImage)
+		image.POST("/cronjob/:envName", UpdateCronJobContainerImage)
 	}
 
 	// 查询环境创建时的服务和变量信息
@@ -138,7 +139,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.POST("/environments", CreateProductionProduct)
 
 		production.PUT("/environments", UpdateMultiProductionProducts)
-		production.PUT("/environments/:name/services", DeleteProductServices)
+		production.PUT("/environments/:name/services", DeleteProductionProductServices)
 		production.POST("/environments/:name/estimated-values", ProductionEstimatedValues)
 
 		production.GET("/environments", ListProductionEnvs)
@@ -293,5 +294,6 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		common.POST("/scale", OpenAPIScaleWorkloads)
 		common.POST("/service/yaml", OpenAPIApplyYamlService)
 		common.DELETE("/service/yaml", OpenAPIDeleteYamlServiceFromEnv)
+		common.PUT("/envcfgs", OpenAPIUpdateCommonEnvCfg)
 	}
 }

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -98,6 +99,31 @@ func ListWorkflowTaskV4(c *gin.Context) {
 
 	taskList, total, err := workflow.ListWorkflowTaskV4(args.WorkflowName, args.PageNum, args.PageSize, ctx.Logger)
 	resp := listWorkflowTaskV4Resp{
+		WorkflowList: taskList,
+		Total:        total,
+	}
+	ctx.Resp = resp
+	ctx.Err = err
+}
+
+type listWorkflowTaskV4PreviewResp struct {
+	WorkflowList []*commonmodels.WorkflowTaskPreview `json:"workflow_list"`
+	Total        int64                               `json:"total"`
+}
+
+func ListWorkflowTaskV4ByFilter(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	filter := &workflow.TaskHistoryFilter{}
+	if err := c.ShouldBindQuery(filter); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	filterList := strings.Split(filter.Filters, ",")
+	taskList, total, err := workflow.ListWorkflowTaskV4ByFilter(filter, filterList, ctx.Logger)
+	resp := listWorkflowTaskV4PreviewResp{
 		WorkflowList: taskList,
 		Total:        total,
 	}
@@ -252,4 +278,11 @@ func GetWorkflowV4ArtifactFileContent(c *gin.Context) {
 	c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
 
 	c.Data(200, "application/octet-stream", resp)
+}
+
+func GetWorkflowTaskFilters(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = workflow.ListWorkflowFilterInfo(c.Query("projectName"), c.Param("name"), c.Query("queryType"), c.Query("jobName"), ctx.Logger)
 }

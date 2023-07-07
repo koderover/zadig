@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
@@ -106,6 +107,7 @@ type SvcResp struct {
 	Scales      []*internalresource.Workload `json:"scales"`
 	Ingress     []*internalresource.Ingress  `json:"ingress"`
 	Services    []*internalresource.Service  `json:"service_endpoints"`
+	CronJobs    []*internalresource.CronJob  `json:"cron_jobs"`
 	Namespace   string                       `json:"namespace"`
 	EnvName     string                       `json:"env_name"`
 	ProductName string                       `json:"product_name"`
@@ -283,5 +285,34 @@ func (req *OpenAPIDeleteYamlServiceFromEnvReq) Validate() error {
 		return fmt.Errorf("env_name is required")
 	}
 
+	return nil
+}
+
+type OpenAPIEnvCfgArgs struct {
+	Name             string                  `json:"name"`
+	EnvName          string                  `json:"env_name"`
+	ProductName      string                  `json:"product_name"`
+	ServiceName      string                  `json:"service_name"`
+	YamlData         string                  `json:"yaml_data"`
+	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
+	AutoSync         bool                    `json:"auto_sync"`
+}
+
+func (req *OpenAPIEnvCfgArgs) Validate() error {
+	if req.Name == "" {
+		return fmt.Errorf("name is required")
+	}
+	if req.EnvName == "" {
+		return fmt.Errorf("env_name is required")
+	}
+	if req.ProductName == "" {
+		return fmt.Errorf("project_name is required")
+	}
+	if req.CommonEnvCfgType == "" {
+		return fmt.Errorf("common_env_cfg_type is required")
+	}
+	if req.YamlData == "" {
+		return fmt.Errorf("yaml_data is required")
+	}
 	return nil
 }

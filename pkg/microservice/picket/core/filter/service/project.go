@@ -121,7 +121,7 @@ func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 	}
 
 	if len(names) == 0 {
-		return []byte("[]"), nil
+		return []byte("{\"projects\":[],\"total\":0}"), nil
 	}
 
 	if !(len(names) == 1 && names[0] == "*") {

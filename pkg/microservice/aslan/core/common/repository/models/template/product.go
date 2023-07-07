@@ -17,34 +17,34 @@ limitations under the License.
 package template
 
 import (
-	"encoding/json"
 	"strings"
 
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type Product struct {
-	ProjectName         string                `bson:"project_name"              json:"project_name"`
-	ProductName         string                `bson:"product_name"              json:"product_name"`
-	Revision            int64                 `bson:"revision"                  json:"revision"`
-	CreateTime          int64                 `bson:"create_time"               json:"create_time"`
-	UpdateTime          int64                 `bson:"update_time"               json:"update_time"`
-	UpdateBy            string                `bson:"update_by"                 json:"update_by"`
-	Enabled             bool                  `bson:"enabled"                   json:"enabled"`
-	Visibility          string                `bson:"visibility"                json:"visibility"`
-	AutoDeploy          *AutoDeployPolicy     `bson:"auto_deploy"               json:"auto_deploy"`
-	Timeout             int                   `bson:"timeout,omitempty"         json:"timeout,omitempty"`
-	Services            [][]string            `bson:"services"                  json:"services"`
-	ProductionServices  [][]string            `bson:"production_services"       json:"production_services"`
-	SharedServices      []*ServiceInfo        `bson:"shared_services,omitempty" json:"shared_services,omitempty"` //Deprecated since 1.17
-	Vars                []*RenderKV           `bson:"-"                         json:"vars"`                      //Deprecated since 1.17
-	EnvVars             []*EnvRenderKV        `bson:"-"                         json:"env_vars,omitempty"`
-	ChartInfos          []*ServiceRender      `bson:"-"                         json:"chart_infos,omitempty"`
-	Description         string                `bson:"description,omitempty"     json:"desc,omitempty"`
-	ProductFeature      *ProductFeature       `bson:"product_feature,omitempty" json:"product_feature,omitempty"`
-	ImageSearchingRules []*ImageSearchingRule `bson:"image_searching_rules,omitempty" json:"image_searching_rules,omitempty"`
+	ProjectName                  string                `bson:"project_name"              json:"project_name"`
+	ProjectNamePinyin            string                `bson:"project_name_pinyin"       json:"project_name_pinyin"`
+	ProjectNamePinyinFirstLetter string                `bson:"project_name_pinyin_first_letter"       json:"project_name_pinyin_first_letter"`
+	ProductName                  string                `bson:"product_name"              json:"product_name"`
+	Revision                     int64                 `bson:"revision"                  json:"revision"`
+	CreateTime                   int64                 `bson:"create_time"               json:"create_time"`
+	UpdateTime                   int64                 `bson:"update_time"               json:"update_time"`
+	UpdateBy                     string                `bson:"update_by"                 json:"update_by"`
+	Enabled                      bool                  `bson:"enabled"                   json:"enabled"`
+	Visibility                   string                `bson:"visibility"                json:"visibility"`
+	AutoDeploy                   *AutoDeployPolicy     `bson:"auto_deploy"               json:"auto_deploy"`
+	Timeout                      int                   `bson:"timeout,omitempty"         json:"timeout,omitempty"`
+	Services                     [][]string            `bson:"services"                  json:"services"`
+	ProductionServices           [][]string            `bson:"production_services"       json:"production_services"`
+	SharedServices               []*ServiceInfo        `bson:"shared_services,omitempty" json:"shared_services,omitempty"` //Deprecated since 1.17
+	Vars                         []*RenderKV           `bson:"-"                         json:"vars"`                      //Deprecated since 1.17
+	EnvVars                      []*EnvRenderKV        `bson:"-"                         json:"env_vars,omitempty"`
+	ChartInfos                   []*ServiceRender      `bson:"-"                         json:"chart_infos,omitempty"`
+	Description                  string                `bson:"description,omitempty"     json:"desc,omitempty"`
+	ProductFeature               *ProductFeature       `bson:"product_feature,omitempty" json:"product_feature,omitempty"`
+	ImageSearchingRules          []*ImageSearchingRule `bson:"image_searching_rules,omitempty" json:"image_searching_rules,omitempty"`
 	// onboarding状态，0表示onboarding完成，1、2、3、4代表当前onboarding所在的步骤
 	OnboardingStatus int `bson:"onboarding_status"         json:"onboarding_status"`
 	// CI场景的onboarding流程创建的ci工作流id，用于前端跳转
@@ -287,37 +287,6 @@ func (rc *ServiceRender) GetOverrideYaml() string {
 type KV struct {
 	Key   string      `json:"key"`
 	Value interface{} `json:"value"`
-}
-
-func (rc *ServiceRender) AbsorbKVS(kvs map[string]interface{}) error {
-	kvList := make([]*KV, 0)
-	kvMap := make(map[string]interface{})
-	if rc.OverrideValues != "" {
-		err := json.Unmarshal([]byte(rc.OverrideValues), &kvList)
-		if err != nil {
-			return err
-		}
-		for _, kv := range kvList {
-			kvMap[kv.Key] = kv.Value
-		}
-	}
-	for k, v := range kvs {
-		kvMap[k] = v
-	}
-	newKvList := make([]*KV, 0)
-	for k, v := range kvMap {
-		newKvList = append(newKvList, &KV{
-			Key:   k,
-			Value: v,
-		})
-	}
-	bs, err := json.Marshal(newKvList)
-	if err != nil {
-		log.Errorf("override values json marshal error")
-		return err
-	}
-	rc.OverrideValues = string(bs)
-	return nil
 }
 
 func (rule *ImageSearchingRule) GetSearchingPattern() map[string]string {

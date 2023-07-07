@@ -1485,7 +1485,7 @@ const (
 
 type ConvertVaraibleKVAndYamlArgs struct {
 	KVs    []*commontypes.ServiceVariableKV   `json:"kvs" binding:"required"`
-	Yaml   string                             `json:"yaml" binding:"required"`
+	Yaml   string                             `json:"yaml"`
 	Action ConvertVaraibleKVAndYamlActionType `json:"action" binding:"required"`
 }
 

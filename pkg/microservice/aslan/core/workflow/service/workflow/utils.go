@@ -18,6 +18,7 @@ package workflow
 
 import (
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -40,4 +41,12 @@ func validateHookNames(hookNames []string) error {
 	}
 
 	return nil
+}
+
+func CheckFixedMarkReturnNoFixedEnv(envName string) (string, bool) {
+	if strings.Contains(envName, setting.FixedValueMark) {
+		return strings.ReplaceAll(envName, setting.FixedValueMark, ""), true
+	} else {
+		return envName, false
+	}
 }

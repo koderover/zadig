@@ -197,7 +197,7 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 		receivers := []string{notify.Receiver}
 		logger := log.SugaredLogger()
 		task.Status = ctx.Status
-		testTaskStatusChanged := false
+		testTaskStatusChanged, scanningTaskStatusChanged := false, false
 		if ctx.Type == config.SingleType {
 			pipline, err := c.pipelineColl.Find(&mongodb.PipelineFindOption{Name: ctx.PipelineName})
 			if err != nil {
@@ -246,13 +246,13 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 					return fmt.Errorf("get test previous task #%d notify, status: %s,err:%s", ctx.TaskID-1, ctx.Status, err)
 				}
 				if scanningPreTask.Status != task.Status && task.Status != config.StatusRunning {
-					testTaskStatusChanged = true
+					scanningTaskStatusChanged = true
 				}
 			}
 			task.Stages = ctx.Stages
 		}
 
-		err = c.InstantmessageService.SendInstantMessage(task, testTaskStatusChanged)
+		err = c.InstantmessageService.SendInstantMessage(task, testTaskStatusChanged, scanningTaskStatusChanged)
 		if err != nil {
 			return fmt.Errorf("SendInstantMessage err : %s", err)
 		}

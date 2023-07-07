@@ -56,7 +56,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
 )
 
@@ -116,7 +115,6 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		UpgradeCRDs:   true,
 		CleanupOnFail: true,
 		MaxHistory:    10,
-		DryRun:        param.DryRun,
 	}
 	if isRetry {
 		chartSpec.Replace = true
@@ -127,11 +125,9 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 
 	// If the target environment is a shared environment and a sub env, we need to clear the deployed K8s Service.
 	ctx := context.TODO()
-	if !chartSpec.DryRun {
-		err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
-		if err != nil {
-			return fmt.Errorf("failed to ensure deleting pre-created K8s Services for product %q in namespace %q: %s", param.ProductName, param.Namespace, err)
-		}
+	err = EnsureDeletePreCreatedServices(ctx, param.ProductName, param.Namespace, chartSpec, helmClient)
+	if err != nil {
+		return fmt.Errorf("failed to ensure deleting pre-created K8s Services for product %q in namespace %q: %s", param.ProductName, param.Namespace, err)
 	}
 
 	helmClient, err = helmClient.Clone()
@@ -147,18 +143,16 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 			"failed to install or upgrade helm chart %s/%s",
 			namespace, serviceObj.ServiceName)
 	} else {
-		if !chartSpec.DryRun {
-			err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
-			if err != nil {
-				err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
-			}
+		err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
+		if err != nil {
+			err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
 		}
 	}
 
 	return err
 }
 
-func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string, variableYaml string) (string, error) {
+func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string) (string, error) {
 	serviceName := productSvc.ServiceName
 	var targetContainers []*commonmodels.Container
 	for _, image := range images {
@@ -200,20 +194,6 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 	// update values.yaml content in chart
 	targetChart.ValuesYaml = replacedValuesYaml
 
-	// handle variables
-	// turn variables into key-value format to have higher priority
-	if len(variableYaml) > 0 {
-		log.Infof("converting yaml to kv, yaml content: \n%s\n", variableYaml)
-		flatMaps, err := converter.YamlToFlatMap([]byte(variableYaml))
-		if err != nil {
-			return "", fmt.Errorf("failed to convert variable yaml, err: %s", err)
-		}
-		err = targetChart.AbsorbKVS(flatMaps)
-		if err != nil {
-			return "", fmt.Errorf("failed to absorb kvs, err: %s", err)
-		}
-	}
-
 	// merge override values and kvs into service's yaml
 	mergedValuesYaml, err := helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
 	if err != nil {
@@ -226,9 +206,9 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 
 // UpgradeHelmRelease upgrades helm release with some specific images
 func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
-	svcTemp *commonmodels.Service, images []string, variableYaml string, timeout int) error {
+	svcTemp *commonmodels.Service, images []string, timeout int) error {
 
-	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images, variableYaml)
+	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images)
 	if err != nil {
 		return err
 	}
@@ -284,6 +264,11 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	if err != nil {
 		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
 	}
+
+	if !commonutil.ServiceDeployed(productSvc.ServiceName, newProductInfo.ServiceDeployStrategy) {
+		newProductInfo.ServiceDeployStrategy[productSvc.ServiceName] = setting.ServiceDeployStrategyDeploy
+	}
+
 	curRenderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		ProductTmpl: newProductInfo.ProductName,
 		Name:        newProductInfo.Render.Name,

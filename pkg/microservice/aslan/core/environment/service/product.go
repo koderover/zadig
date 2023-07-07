@@ -219,6 +219,16 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 	return resp, nil
 }
 
+func normalStatus(status string) bool {
+	if status == setting.PodRunning || status == setting.PodSucceeded {
+		return true
+	}
+	if status == setting.ServiceStatusNoSuspended || status == setting.ServiceStatusAllSuspended || status == setting.ServiceStatusPartSuspended {
+		return true
+	}
+	return false
+}
+
 func buildProductResp(envName string, prod *commonmodels.Product, log *zap.SugaredLogger) *ProductResp {
 	prodResp := &ProductResp{
 		ID:              prod.ID.Hex(),
@@ -311,8 +321,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 	} else {
 		allRunning := true
 		for _, serviceResp := range servicesResp {
-			// Service是物理机部署时，无需判断状态
-			if serviceResp.Type == setting.K8SDeployType && serviceResp.Status != setting.PodRunning && serviceResp.Status != setting.PodSucceeded {
+			if serviceResp.Type == setting.K8SDeployType && serviceResp.WorkLoadType != setting.CronJob && !normalStatus(serviceResp.Status) {
 				allRunning = false
 				break
 			}

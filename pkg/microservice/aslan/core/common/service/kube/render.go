@@ -211,21 +211,46 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 				return "", nil, err
 			}
 		case setting.CronJob:
-			// TODO support new cronjob type
-			cronJob := &batchv1beta1.CronJob{}
-			if err := decoder.Decode(cronJob); err != nil {
-				return "", nil, fmt.Errorf("unmarshal CronJob error: %v", err)
-			}
-			for i, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
-				containerName := val.Name
-				if image, ok := imageMap[containerName]; ok {
-					cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[i].Image = image.Image
+			if resKind.APIVersion == batchv1beta1.SchemeGroupVersion.String() {
+				cronJob := &batchv1beta1.CronJob{}
+				if err := decoder.Decode(cronJob); err != nil {
+					return "", nil, fmt.Errorf("unmarshal CronJob error: %v", err)
+				}
+				workloadRes = append(workloadRes, &WorkloadResource{
+					Name: resKind.Metadata.Name,
+					Type: resKind.Kind,
+				})
+				for i, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+					containerName := val.Name
+					if image, ok := imageMap[containerName]; ok {
+						cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[i].Image = image.Image
+					}
+				}
+				yamlStr, err = resourceToYaml(cronJob)
+				if err != nil {
+					return "", nil, err
+				}
+			} else {
+				cronJob := &batchv1.CronJob{}
+				if err := decoder.Decode(cronJob); err != nil {
+					return "", nil, fmt.Errorf("unmarshal CronJob error: %v", err)
+				}
+				workloadRes = append(workloadRes, &WorkloadResource{
+					Name: resKind.Metadata.Name,
+					Type: resKind.Kind,
+				})
+				for i, val := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+					containerName := val.Name
+					if image, ok := imageMap[containerName]; ok {
+						cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[i].Image = image.Image
+					}
+				}
+				yamlStr, err = resourceToYaml(cronJob)
+				if err != nil {
+					return "", nil, err
 				}
 			}
-			yamlStr, err = resourceToYaml(cronJob)
-			if err != nil {
-				return "", nil, err
-			}
+
 		}
 		yamlStrs = append(yamlStrs, yamlStr)
 	}
@@ -361,7 +386,6 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 }
 
 func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service, renderset *commonmodels.RenderSet) (string, []*WorkloadResource, error) {
-	//fakeRenderSet := &models.RenderSet{}
 	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, option.ProductName, option.ServiceName, renderset)
 	if err != nil {
 		return "", nil, err
@@ -376,6 +400,16 @@ func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 		return "", nil, errors.Wrapf(err, "cluster is not connected [%s]", productInfo.ClusterID)
 	}
 
+	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("get client set error: %v", err)
+		return "", nil, err
+	}
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("get server version error: %v", err)
+		return "", nil, err
+	}
 	manifestArr := make([]string, 0)
 
 	for _, item := range manifests {
@@ -400,6 +434,15 @@ func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Produ
 			}
 			if !exist {
 				return "", nil, errors.Errorf("statefulset %s not found", u.GetName())
+			}
+			manifestArr = append(manifestArr, string(workloadBs))
+		case setting.CronJob:
+			workloadBs, exist, err := getter.GetCronJobYamlFormat(productInfo.Namespace, u.GetName(), kubeClient, kubeclient.VersionLessThan121(versionInfo))
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "failed to get cronjob %s", u.GetName())
+			}
+			if !exist {
+				return "", nil, errors.Errorf("cronjob %s not found", u.GetName())
 			}
 			manifestArr = append(manifestArr, string(workloadBs))
 		}
@@ -525,6 +568,10 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
 	log.Infof("fullRenderedYaml is: %s", fullRenderedYaml)
+
+	// service may not be deployed in environment, we need to extract containers again, since image related variables may be changed
+	latestSvcTemplate.KubeYamls = util.SplitYaml(fullRenderedYaml)
+	commonutil.SetCurrentContainerImages(latestSvcTemplate)
 
 	mergedContainers := mergeContainers(curContainers, latestSvcTemplate.Containers, svcContainersInProduct, option.Containers)
 	fullRenderedYaml, workloadResource, err := ReplaceWorkloadImages(fullRenderedYaml, mergedContainers)

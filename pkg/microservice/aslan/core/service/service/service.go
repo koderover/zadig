@@ -240,7 +240,18 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		log.Errorf("[%s] error: %v", args.Namespace, err)
 		return err
 	}
-	// 检查环境是否存在，envName和productName唯一
+
+	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), args.ClusterID)
+	if err != nil {
+		log.Errorf("get client set error: %v", err)
+		return err
+	}
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("get server version error: %v", err)
+		return err
+	}
+
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	if _, err := commonrepo.NewProductColl().Find(opt); err == nil {
 		log.Errorf("[%s][P:%s] duplicate envName in the same project", args.EnvName, args.ProductName)
@@ -258,11 +269,6 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 	}
-	//for _, workload := range workLoads {
-	//	if serviceString.Has(workload.Name) {
-	//		return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", workload.Name))
-	//	}
-	//}
 
 	g := new(errgroup.Group)
 	for _, workload := range args.WorkLoads {
@@ -285,6 +291,8 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 				bs, _, err = getter.GetDeploymentYamlFormat(args.Namespace, tempWorkload.Name, kubeClient)
 			case setting.StatefulSet:
 				bs, _, err = getter.GetStatefulSetYamlFormat(args.Namespace, tempWorkload.Name, kubeClient)
+			case setting.CronJob:
+				bs, _, err = getter.GetCronJobYamlFormat(args.Namespace, tempWorkload.Name, kubeClient, service.VersionLessThan121(versionInfo))
 			}
 
 			if len(bs) == 0 || err != nil {
@@ -372,6 +380,17 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		log.Errorf("[%s] error: %s", args.Namespace, err)
 		return err
 	}
+	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), args.ClusterID)
+	if err != nil {
+		log.Errorf("get client set error: %v", err)
+		return err
+	}
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("get server version error: %v", err)
+		return err
+	}
+
 	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s]NewWorkLoadsStatColl().Find %s", args.ClusterID, args.Namespace, err)
@@ -489,9 +508,11 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			var bs []byte
 			switch v.Type {
 			case setting.Deployment:
-				bs, _, err = getter.GetDeploymentYaml(args.Namespace, v.Name, kubeClient)
+				bs, _, err = getter.GetDeploymentYamlFormat(args.Namespace, v.Name, kubeClient)
 			case setting.StatefulSet:
-				bs, _, err = getter.GetStatefulSetYaml(args.Namespace, v.Name, kubeClient)
+				bs, _, err = getter.GetStatefulSetYamlFormat(args.Namespace, v.Name, kubeClient)
+			case setting.CronJob:
+				bs, _, err = getter.GetCronJobYamlFormat(args.Namespace, v.Name, kubeClient, service.VersionLessThan121(versionInfo))
 			}
 			svcNeedAdd.Insert(v.Name)
 			if len(bs) == 0 || err != nil {
@@ -692,6 +713,29 @@ func fillServiceVariable(args *commonmodels.Service, curRevision *commonmodels.S
 	return nil
 }
 
+func OpenAPIUpdateServiceConfig(userName string, args *OpenAPIUpdateServiceConfigArgs, log *zap.SugaredLogger) error {
+	svc := &commonmodels.Service{
+		ServiceName: args.ServiceName,
+		Type:        args.Type,
+		ProductName: args.ProjectName,
+		CreateBy:    userName,
+		Source:      setting.SourceFromZadig,
+		Yaml:        args.Yaml,
+	}
+	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: args.ProjectName,
+		ServiceName: args.ServiceName,
+	})
+	if err != nil {
+		return e.ErrUpdateTemplate.AddDesc(err.Error())
+	}
+	svc.ServiceVariableKVs = currentService.ServiceVariableKVs
+	svc.VariableYaml = currentService.VariableYaml
+
+	_, err = CreateServiceTemplate(userName, svc, true, log)
+	return err
+}
+
 func CreateServiceTemplate(userName string, args *commonmodels.Service, force bool, log *zap.SugaredLogger) (*ServiceOption, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
@@ -701,7 +745,6 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 
-	// 在更新数据库前检查是否有完全重复的Item，如果有，则退出。
 	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
 	if notFoundErr == nil && !force {
 		return nil, fmt.Errorf("service:%s already exists", serviceTmpl.ServiceName)
@@ -1524,12 +1567,8 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			return fmt.Errorf("failed to render yaml, err: %s", err)
 		}
 
-		// 拆分 all-in-one yaml文件
-		// 替换分隔符
 		args.Yaml = util.ReplaceWrapLine(args.Yaml)
 		args.RenderedYaml = util.ReplaceWrapLine(args.RenderedYaml)
-
-		// 分隔符为\n---\n
 		args.KubeYamls = util.SplitYaml(args.RenderedYaml)
 
 		// since service may contain go-template grammar, errors may occur when parsing as k8s workloads

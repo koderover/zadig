@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,10 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhook
+package resource
 
-type WebHook struct {
-	Owner, Namespace, Repo, Address, Name string
-	CodeHostID                            int
-	IsManual                              bool
+type CronJob struct {
+	Name         string            `json:"name"`
+	Labels       map[string]string `json:"labels"`
+	Images       []*ContainerImage `json:"images"`
+	CreateTime   int64             `json:"create_time,omitempty"`
+	Suspend      bool              `json:"suspend"`
+	Schedule     string            `json:"schedule,omitempty"`
+	LastSchedule string            `json:"last_schedule,omitempty"`
+	Active       int               `json:"active,omitempty"`
 }

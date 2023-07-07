@@ -127,9 +127,9 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 
 	yaml := router.Group("yaml")
 	{
-		yaml.POST("raw", CreateRawYamlServicesOpenAPI)
+		yaml.POST("/raw", CreateRawYamlServicesOpenAPI)
 		yaml.DELETE("/:name", DeleteYamlServicesOpenAPI)
 		yaml.GET("/:name", GetYamlServiceOpenAPI)
-
+		yaml.PUT("/:name", UpdateServiceConfigOpenAPI)
 	}
 }

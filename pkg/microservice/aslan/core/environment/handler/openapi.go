@@ -158,5 +158,32 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", req.EnvName, strings.Join(req.ServiceNames, ",")), "", ctx.Logger, req.EnvName)
-	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, ctx.Logger)
+	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, false, ctx.Logger)
+}
+
+func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	log := ctx.Logger
+
+	args := new(service.OpenAPIEnvCfgArgs)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateCommonEnvCfg c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("UpdateCommonEnvCfg json.Unmarshal err : %v", err)
+	}
+	projectName := c.Query("projectName")
+	args.ProductName = projectName
+	if err := args.Validate(); err != nil {
+		log.Errorf("UpdateCommonEnvCfg args.Validate err : %v", err)
+		ctx.Err = err
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, args.Name)
+
+	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectName, args, ctx.UserName, ctx.Logger)
 }

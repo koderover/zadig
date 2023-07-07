@@ -1800,8 +1800,8 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	return nil
 }
 
-func DeleteProductServices(userName, requestID, envName, productName string, serviceNames []string, log *zap.SugaredLogger) (err error) {
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+func DeleteProductServices(userName, requestID, envName, productName string, serviceNames []string, production bool, log *zap.SugaredLogger) (err error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)})
 	if err != nil {
 		log.Errorf("find product error: %v", err)
 		return err
@@ -1814,6 +1814,19 @@ func DeleteProductServices(userName, requestID, envName, productName string, ser
 
 func deleteHelmProductServices(userName, requestID string, productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
 	return kube.DeleteHelmServiceFromEnv(userName, requestID, productInfo, serviceNames, log)
+}
+
+func OpenAPIUpdateCommonEnvCfg(projectName string, args *OpenAPIEnvCfgArgs, userName string, logger *zap.SugaredLogger) error {
+	configArgs := &models.CreateUpdateCommonEnvCfgArgs{
+		EnvName:              args.EnvName,
+		ProductName:          projectName,
+		ServiceName:          args.ServiceName,
+		Name:                 args.Name,
+		YamlData:             args.YamlData,
+		RestartAssociatedSvc: true,
+		CommonEnvCfgType:     args.CommonEnvCfgType,
+	}
+	return UpdateCommonEnvCfg(configArgs, userName, false, logger)
 }
 
 func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
@@ -2151,7 +2164,11 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		return nil, nil
 	}
 
-	// 获取服务模板
+	// for service not deployed in envs, we should not replace containers in case variables exist in containers
+	if prevSvc == nil {
+		service.Containers = nil
+	}
+
 	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
 	if err != nil {
 		log.Errorf("Failed to render service %s, error: %v", service.ServiceName, err)
@@ -2159,14 +2176,14 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		return nil, errList
 	}
 
-	// FIXME: not really needed to replace images here
-	parsedYaml, _, err = kube.ReplaceWorkloadImages(parsedYaml, service.Containers)
-	if err != nil {
-		errList = multierror.Append(errList, fmt.Errorf("failed to replace image for service %s, error: %v", service.ServiceName, err))
-		return nil, errList
+	manifests := releaseutil.SplitManifests(parsedYaml)
+	if prevSvc == nil {
+		fakeTemplateSvc := &commonmodels.Service{ServiceName: service.ServiceName, ProductName: service.ServiceName, KubeYamls: util.SplitYaml(parsedYaml)}
+		commonutil.SetCurrentContainerImages(fakeTemplateSvc)
+		service.Containers = fakeTemplateSvc.Containers
 	}
 
-	manifests := releaseutil.SplitManifests(parsedYaml)
+	// validate service yaml
 	resources := make([]*unstructured.Unstructured, 0, len(manifests))
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
@@ -2716,71 +2733,6 @@ func checkServiceImageUpdated(curContainer *commonmodels.Container, serviceInfo 
 		}
 	}
 	return true
-}
-
-func dryRunInstallRelease(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, helmClient *helmtool.HelmClient, log *zap.SugaredLogger) error {
-	productName, _ := productResp.ProductName, productResp.EnvName
-	renderChartMap := make(map[string]*templatemodels.ServiceRender)
-	for _, renderChart := range productResp.ServiceRenders {
-		renderChartMap[renderChart.ServiceName] = renderChart
-	}
-
-	handler := func(serviceObj *commonmodels.Service, log *zap.SugaredLogger) (err error) {
-		param, errBuildParam := buildInstallParam(productResp.Namespace, renderset.EnvName, renderset.DefaultValues, renderChartMap[serviceObj.ServiceName], serviceObj)
-		if errBuildParam != nil {
-			return errBuildParam
-		}
-		param.DryRun = true
-		param.Production = productResp.Production
-		err = kube.InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
-		return
-	}
-
-	errList := new(multierror.Error)
-	var errLock sync.Mutex
-	appendErr := func(err error) {
-		errLock.Lock()
-		defer errLock.Unlock()
-		errList = multierror.Append(errList, err)
-	}
-
-	var wg sync.WaitGroup
-	for _, groupServices := range productResp.Services {
-		serviceList := make([]*commonmodels.Service, 0)
-		for _, service := range groupServices {
-			if _, ok := renderChartMap[service.ServiceName]; !ok {
-				continue
-			}
-			if !commonutil.ServiceDeployed(service.ServiceName, productResp.ServiceDeployStrategy) {
-				continue
-			}
-			opt := &commonrepo.ServiceFindOption{
-				ServiceName: service.ServiceName,
-				Type:        service.Type,
-				Revision:    service.Revision,
-				ProductName: productName,
-			}
-			serviceObj, err := repository.QueryTemplateService(opt, productResp.Production)
-			if err != nil {
-				appendErr(fmt.Errorf("failed to find service %s, err %s", service.ServiceName, err.Error()))
-				continue
-			}
-			serviceList = append(serviceList, serviceObj)
-		}
-
-		for _, svc := range serviceList {
-			wg.Add(1)
-			go func(service *models.Service) {
-				defer wg.Done()
-				err := handler(service, log)
-				if err != nil {
-					appendErr(fmt.Errorf("failed to dryRun install chart for service: %s, err: %s", service.ServiceName, err))
-				}
-			}(svc)
-		}
-	}
-	wg.Wait()
-	return errList.ErrorOrNil()
 }
 
 func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, helmClient *helmtool.HelmClient, filter svcUpgradeFilter, log *zap.SugaredLogger) error {
