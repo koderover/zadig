@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	corev1 "k8s.io/api/core/v1"
@@ -1193,4 +1194,77 @@ func setReleaseDeployStatus(namespace string, resourceMap map[string]*ResourceDe
 		deployStatus.OverrideYaml = string(overrideYaml)
 	}
 	return nil
+}
+
+type GetReleaseInstanceDeployStatusResponse struct {
+	ReleaseName  string `json:"release_name"`
+	ChartName    string `json:"chart_name"`
+	ChartVersion string `json:"chart_version"`
+	Status       string `json:"status"`
+	Values       string `json:"values"`
+}
+
+func GetReleaseInstanceDeployStatus(productName string, request *HelmDeployStatusCheckRequest) ([]*GetReleaseInstanceDeployStatusResponse, error) {
+	clusterID, namespace, envName := request.ClusterID, request.Namespace, request.EnvName
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, IgnoreNotFoundErr: true})
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product: %s/%s, err: %s", productName, envName, err))
+	}
+	production := false
+	if productInfo != nil {
+		production = productInfo.Production
+	}
+	productServices, err := repository.ListMaxRevisionsServices(productName, production)
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
+	}
+
+	releaseToServiceMap := make(map[string]*ResourceDeployStatus)
+	for _, svcInfo := range productServices {
+		releaseName := util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, namespace, envName, svcInfo.ServiceName)
+		deployStatus := &ResourceDeployStatus{
+			Type:   "release",
+			Name:   releaseName,
+			Status: StatusUnDeployed,
+		}
+		releaseToServiceMap[releaseName] = deployStatus
+	}
+
+	helmClient, err := helmtool.NewClientFromNamespace(clusterID, namespace)
+	if err != nil {
+		return nil, e.ErrGetResourceDeployInfo.AddErr(err)
+	}
+
+	releases, err := helmClient.ListReleasesByStateMask(action.ListDeployed | action.ListUninstalled | action.ListUninstalling | action.ListPendingInstall | action.ListPendingUpgrade | action.ListPendingRollback | action.ListSuperseded | action.ListFailed | action.ListUnknown)
+	if err != nil {
+		log.Warnf("failed to list releases with ns: %s, err: %s", namespace, err)
+	}
+
+	resp := make([]*GetReleaseInstanceDeployStatusResponse, 0)
+	for _, release := range releases {
+		if _, ok := releaseToServiceMap[release.Name]; ok {
+			continue
+		}
+
+		values, err := helmClient.GetReleaseValues(release.Name, false)
+		if err != nil {
+			log.Warnf("failed to get release values with name: %s, err: %s", release.Name, err)
+			continue
+		}
+		valuesYaml, err := yaml.Marshal(values)
+		if err != nil {
+			log.Warnf("failed to marshal values map when fetching release deploy status, err: %s", err)
+			continue
+		}
+
+		resp = append(resp, &GetReleaseInstanceDeployStatusResponse{
+			ReleaseName:  release.Name,
+			ChartName:    release.Chart.Metadata.Name,
+			ChartVersion: release.Chart.Metadata.Version,
+			Status:       release.Info.Status.String(),
+			Values:       string(valuesYaml),
+		})
+	}
+
+	return resp, err
 }

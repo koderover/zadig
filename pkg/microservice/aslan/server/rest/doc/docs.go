@@ -528,6 +528,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/kube/helm/releaseInstances": {
+            "post": {
+                "description": "Get Release Instance Deploy Status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Release Instance Deploy Status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.HelmDeployStatusCheckRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GetReleaseInstanceDeployStatusResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/kube/k8s/resources": {
             "post": {
                 "description": "Get Resource Deploy Status",
@@ -2339,8 +2383,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "action",
-                "kvs",
-                "yaml"
+                "kvs"
             ],
             "properties": {
                 "action": {
@@ -2538,6 +2581,26 @@ const docTemplate = `{
                 }
             }
         },
+        "service.GetReleaseInstanceDeployStatusResponse": {
+            "type": "object",
+            "properties": {
+                "chart_name": {
+                    "type": "string"
+                },
+                "chart_version": {
+                    "type": "string"
+                },
+                "release_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "values": {
+                    "type": "string"
+                }
+            }
+        },
         "service.GetWebhookConfigReponse": {
             "type": "object",
             "properties": {
@@ -2549,10 +2612,36 @@ const docTemplate = `{
                 }
             }
         },
+        "service.HelmDeployStatusCheckRequest": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "service.HelmSvcRenderArg": {
             "type": "object",
             "properties": {
                 "chartVersion": {
+                    "type": "string"
+                },
+                "chart_name": {
+                    "type": "string"
+                },
+                "chart_repo": {
                     "type": "string"
                 },
                 "deploy_strategy": {
@@ -2572,6 +2661,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "serviceName": {
+                    "type": "string"
+                },
+                "source": {
                     "type": "string"
                 },
                 "valuesData": {
@@ -2784,6 +2876,12 @@ const docTemplate = `{
                 "chartVersion": {
                     "type": "string"
                 },
+                "chart_name": {
+                    "type": "string"
+                },
+                "chart_repo": {
+                    "type": "string"
+                },
                 "deploy_strategy": {
                     "type": "string"
                 },
@@ -2800,6 +2898,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "serviceName": {
+                    "type": "string"
+                },
+                "source": {
                     "type": "string"
                 },
                 "valuesData": {

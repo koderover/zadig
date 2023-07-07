@@ -111,6 +111,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		kube.POST("/k8s/resources", GetResourceDeployStatus)
 		kube.POST("/helm/releases", GetReleaseDeployStatus)
+		kube.POST("/helm/releaseInstances", GetReleaseInstanceDeployStatus)
 
 		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
 
