@@ -26,7 +26,6 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
@@ -46,9 +45,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
-	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // InitializeHelmDeployTaskPlugin initiates a plugin to deploy helm charts and return ref
@@ -142,16 +139,16 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 	}
 
 	var (
-		productInfo              *types.Product
-		renderChart              *types.RenderChart
-		replacedValuesYaml       string
-		mergedValuesYaml         string
-		replacedMergedValuesYaml string
-		servicePath              string
-		chartPath                string
-		replaceValuesMap         map[string]interface{}
-		renderInfo               *types.RenderSet
-		helmClient               helmclient.Client
+		productInfo *types.Product
+		renderChart *types.RenderChart
+		//replacedValuesYaml string
+		mergedValuesYaml string
+		//replacedMergedValuesYaml string
+		servicePath      string
+		chartPath        string
+		replaceValuesMap map[string]interface{}
+		renderInfo       *types.RenderSet
+		helmClient       helmclient.Client
 	)
 
 	p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %v envName: %s namespace %s", p.Task.ProductName,
@@ -243,14 +240,17 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		return
 	}
 
-	serviceValuesYaml := renderChart.ValuesYaml
+	//serviceValuesYaml := renderChart.ValuesYaml
 	replaceValuesMap = make(map[string]interface{})
+
+	imageKVS := make([]*helmtool.KV, 0)
+	replaceValuesMaps := make([]map[string]interface{}, 0)
 
 	for _, sPlugin := range p.ContentPlugins {
 		containerName := strings.TrimSuffix(sPlugin.Task.ContainerName, "_"+p.Task.ServiceName)
 		if imagePath, ok := involvedImagePaths[containerName]; ok {
-			validMatchData := getValidMatchData(imagePath)
-			singleReplaceValuesMap, errAssign := assignImageData(sPlugin.Task.Image, validMatchData)
+			validMatchData := kube.GetValidMatchData(imagePath)
+			singleReplaceValuesMap, errAssign := commonutil.AssignImageData(sPlugin.Task.Image, validMatchData)
 			if errAssign != nil {
 				err = errors.WithMessagef(
 					errAssign,
@@ -261,12 +261,11 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 			for k, v := range singleReplaceValuesMap {
 				replaceValuesMap[k] = v
 			}
+			replaceValuesMaps = append(replaceValuesMaps, singleReplaceValuesMap)
 			targetContainers[containerName].Image = sPlugin.Task.Image
 		}
 	}
 
-	imageKVS := make([]*helmtool.KV, 0)
-	replaceValuesMaps := make([]map[string]interface{}, 0)
 	for _, targetContainer := range targetContainers {
 		// prepare image replace info
 		replaceValuesMap, errAssignData := commonutil.AssignImageData(targetContainer.Image, kube.GetValidMatchData(targetContainer.ImagePath))
@@ -290,20 +289,20 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		}
 	}
 
-	// replace image into service's values.yaml
-	replacedValuesYaml, err = replaceImage(serviceValuesYaml, replaceValuesMap)
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to replace image uri %s/%s",
-			p.Task.Namespace, p.Task.ServiceName)
-		return
-	}
-	if replacedValuesYaml == "" {
-		err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
-			p.Task.Namespace, p.Task.ServiceName)
-		return
-	}
+	//// replace image into service's values.yaml
+	//replacedValuesYaml, err = replaceImage(serviceValuesYaml, replaceValuesMap)
+	//if err != nil {
+	//	err = errors.WithMessagef(
+	//		err,
+	//		"failed to replace image uri %s/%s",
+	//		p.Task.Namespace, p.Task.ServiceName)
+	//	return
+	//}
+	//if replacedValuesYaml == "" {
+	//	err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
+	//		p.Task.Namespace, p.Task.ServiceName)
+	//	return
+	//}
 
 	// merge override values and kvs into service's yaml
 	mergedValuesYaml, err = helmtool.MergeOverrideValues("", renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, imageKVS)
@@ -317,22 +316,22 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 	}
 	p.Log.Infof("final minimum merged values.yaml: \n%s", mergedValuesYaml)
 
-	// replace image into final merged values.yaml
-	replacedMergedValuesYaml, err = replaceImage(mergedValuesYaml, replaceValuesMap)
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to replace image uri into helm values %s/%s",
-			p.Task.Namespace, p.Task.ServiceName)
-		return
-	}
-	if replacedMergedValuesYaml == "" {
-		err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
-			p.Task.Namespace, p.Task.ServiceName)
-		return
-	}
-
-	p.Log.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
+	//// replace image into final merged values.yaml
+	//replacedMergedValuesYaml, err = replaceImage(mergedValuesYaml, replaceValuesMap)
+	//if err != nil {
+	//	err = errors.WithMessagef(
+	//		err,
+	//		"failed to replace image uri into helm values %s/%s",
+	//		p.Task.Namespace, p.Task.ServiceName)
+	//	return
+	//}
+	//if replacedMergedValuesYaml == "" {
+	//	err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
+	//		p.Task.Namespace, p.Task.ServiceName)
+	//	return
+	//}
+	//
+	//p.Log.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
 
 	helmClient, err = helmtool.NewClientFromNamespace(pipelineTask.ConfigPayload.DeployClusterID, p.Task.Namespace)
 	if err != nil {
@@ -409,26 +408,26 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		return
 	}
 
-	for _, chartInfo := range renderInfo.ChartInfos {
-		if chartInfo.ServiceName == p.Task.ServiceName {
-			chartInfo.ValuesYaml = replacedValuesYaml
-			break
-		}
-	}
-
-	// TODO too dangerous to override entire renderset!
-	err = p.updateRenderSet(ctx, &types.RenderSet{
-		Name:          renderInfo.Name,
-		Revision:      renderInfo.Revision,
-		DefaultValues: renderInfo.DefaultValues,
-		ChartInfos:    renderInfo.ChartInfos,
-	})
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to update renderset info %s/%s, renderset %s",
-			p.Task.Namespace, p.Task.ServiceName, renderInfo.Name)
-	}
+	//for _, chartInfo := range renderInfo.ChartInfos {
+	//	if chartInfo.ServiceName == p.Task.ServiceName {
+	//		chartInfo.ValuesYaml = replacedValuesYaml
+	//		break
+	//	}
+	//}
+	//
+	//// TODO too dangerous to override entire renderset!
+	//err = p.updateRenderSet(ctx, &types.RenderSet{
+	//	Name:          renderInfo.Name,
+	//	Revision:      renderInfo.Revision,
+	//	DefaultValues: renderInfo.DefaultValues,
+	//	ChartInfos:    renderInfo.ChartInfos,
+	//})
+	//if err != nil {
+	//	err = errors.WithMessagef(
+	//		err,
+	//		"failed to update renderset info %s/%s, renderset %s",
+	//		p.Task.Namespace, p.Task.ServiceName, renderInfo.Name)
+	//}
 }
 
 func (p *HelmDeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
@@ -501,100 +500,11 @@ func (p *HelmDeployTaskPlugin) getRenderSet(ctx context.Context, name string, re
 	return rs, nil
 }
 
-func getValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
-	ret := make(map[string]string)
-	if spec.Repo != "" {
-		ret[setting.PathSearchComponentRepo] = spec.Repo
-	}
-	if spec.Image != "" {
-		ret[setting.PathSearchComponentImage] = spec.Image
-	}
-	if spec.Tag != "" {
-		ret[setting.PathSearchComponentTag] = spec.Tag
-	}
-	return ret
-}
-
-// replace image defines in yaml by new version
-func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
-	nestedMap, err := converter.Expand(imageValuesMap)
-	if err != nil {
-		return "", err
-	}
-	bs, err := yaml.Marshal(nestedMap)
-	if err != nil {
-		return "", err
-	}
-	mergedBs, err := yamlutil.Merge([][]byte{[]byte(sourceYaml), bs})
-	if err != nil {
-		return "", err
-	}
-	return string(mergedBs), nil
-}
-
-// parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
-func resolveImageUrl(imageUrl string) map[string]string {
-	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
-	result := make(map[string]string)
-	exNames := imageParseRegex.SubexpNames()
-	for i, matchedStr := range subMatchAll {
-		if i != 0 && matchedStr != "" && matchedStr != ":" {
-			result[exNames[i]] = matchedStr
-		}
-	}
-	return result
-}
-
-// assignImageData assign image url data into match data
-// matchData: image=>absolute-path repo=>absolute-path tag=>absolute-path
-// return: absolute-image-path=>image-value  absolute-repo-path=>repo-value absolute-tag-path=>tag-value
-func assignImageData(imageUrl string, matchData map[string]string) (map[string]interface{}, error) {
-	ret := make(map[string]interface{})
-	// total image url assigned into one single value
-	if len(matchData) == 1 {
-		for _, v := range matchData {
-			ret[v] = imageUrl
-		}
-		return ret, nil
-	}
-
-	resolvedImageUrl := resolveImageUrl(imageUrl)
-
-	// image url assigned into repo/image+tag
-	if len(matchData) == 3 {
-		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
-		ret[matchData[setting.PathSearchComponentImage]] = resolvedImageUrl[setting.PathSearchComponentImage]
-		ret[matchData[setting.PathSearchComponentTag]] = resolvedImageUrl[setting.PathSearchComponentTag]
-		return ret, nil
-	}
-
-	if len(matchData) == 2 {
-		// image url assigned into repo/image + tag
-		if tagPath, ok := matchData[setting.PathSearchComponentTag]; ok {
-			ret[tagPath] = resolvedImageUrl[setting.PathSearchComponentTag]
-			for k, imagePath := range matchData {
-				if k == setting.PathSearchComponentTag {
-					continue
-				}
-				ret[imagePath] = fmt.Sprintf("%s%s", resolvedImageUrl[setting.PathSearchComponentRepo], resolvedImageUrl[setting.PathSearchComponentImage])
-				break
-			}
-			return ret, nil
-		}
-		// image url assigned into repo + image(tag)
-		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
-		ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
-		return ret, nil
-	}
-
-	return nil, errors.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
-}
-
-func (p *HelmDeployTaskPlugin) updateRenderSet(ctx context.Context, args *types.RenderSet) error {
-	url := "/api/project/renders"
-	_, err := p.httpClient.Put(url, httpclient.SetBody(args), httpclient.SetQueryParam("ifPassFilter", "true"))
-	return err
-}
+//func (p *HelmDeployTaskPlugin) updateRenderSet(ctx context.Context, args *types.RenderSet) error {
+//	url := "/api/project/renders"
+//	_, err := p.httpClient.Put(url, httpclient.SetBody(args), httpclient.SetQueryParam("ifPassFilter", "true"))
+//	return err
+//}
 
 // Wait ...
 func (p *HelmDeployTaskPlugin) Wait(ctx context.Context) {
