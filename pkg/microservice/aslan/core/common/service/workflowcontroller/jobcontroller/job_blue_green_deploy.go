@@ -164,8 +164,8 @@ func (c *BlueGreenDeployJobCtl) run(ctx context.Context) error {
 	if blueService.Spec.ClusterIP != "None" {
 		blueService.Spec.ClusterIP = ""
 	}
-	for _, port := range blueService.Spec.Ports {
-		port.NodePort = 0
+	for i := range blueService.Spec.Ports {
+		blueService.Spec.Ports[i].NodePort = 0
 	}
 	blueService.ObjectMeta.ResourceVersion = ""
 

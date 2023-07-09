@@ -19,8 +19,10 @@ package util
 import (
 	"regexp"
 	"strings"
+	"unicode"
 
 	ref "github.com/containers/image/docker/reference"
+	"github.com/mozillazg/go-pinyin"
 )
 
 func GetJiraKeys(title string) (keys []string) {
@@ -60,4 +62,27 @@ func GetImageNameFromContainerInfo(imageName, containerName string) string {
 		return containerName
 	}
 	return imageName
+}
+
+func ContainsChinese(str string) bool {
+	for _, r := range str {
+		if unicode.Is(unicode.Han, r) {
+			return true
+		}
+	}
+	return false
+}
+
+func GetPinyinFromChinese(han string) (string, string) {
+	firstLetter := ""
+	fullLetter := ""
+	a := pinyin.NewArgs()
+	pinyinArr := pinyin.Pinyin(han, a)
+	for _, pinyin := range pinyinArr {
+		for _, l := range pinyin {
+			fullLetter += l
+			firstLetter += string(l[0])
+		}
+	}
+	return fullLetter, firstLetter
 }

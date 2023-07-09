@@ -166,6 +166,13 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			err = errors.WithMessagef(err, "failed to init k8s clientset")
 		}
 	}
+
+	version, errGetVersion := p.ClientSet.Discovery().ServerVersion()
+	if errGetVersion != nil {
+		err = errors.WithMessage(errGetVersion, "failed to get kubernetes server version")
+		return
+	}
+
 	containerName := p.Task.ContainerName
 	containerName = strings.TrimSuffix(containerName, "_"+p.Task.ServiceName)
 
@@ -179,17 +186,9 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		return
 	}
 	if serviceInfo.WorkloadType == "" {
-		var deployments []*appsv1.Deployment
-		var statefulSets []*appsv1.StatefulSet
-		var cronJobs []*batchv1.CronJob
-		var cronJobBetas []*batchv1beta1.CronJob
-		version, errGetVersion := p.ClientSet.Discovery().ServerVersion()
-		if errGetVersion != nil {
-			err = errors.WithMessage(errGetVersion, "failed to get kubernetes server version")
-			return
-		}
-		deployments, statefulSets, cronJobs, cronJobBetas, err = fetchRelatedWorkloads(ctx, p.Task.EnvName, p.Task.Namespace, p.Task.ProductName, p.Task.ServiceName, p.kubeClient, version, p.httpClient, p.Log)
-		if err != nil {
+		deployments, statefulSets, cronJobs, cronJobBetas, errFoundWorkload := fetchRelatedWorkloads(ctx, p.Task.EnvName, p.Task.Namespace, p.Task.ProductName, p.Task.ServiceName, p.kubeClient, version, p.httpClient, p.Log)
+		if errFoundWorkload != nil {
+			err = errors.WithMessage(errFoundWorkload, "failed to fetch related workloads")
 			return
 		}
 	L:
@@ -350,6 +349,60 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					})
 					replaced = true
 					break
+				}
+			}
+		case setting.CronJob:
+			cronJob, cronJobBeta, found, errFoundCron := getter.GetCronJob(p.Task.Namespace, p.Task.ServiceName, p.kubeClient, kubeclient.VersionLessThan121(version))
+			if errFoundCron != nil {
+				err = errors.WithMessagef(errFoundCron, "failed to get cronjob %s", p.Task.ServiceName)
+				return
+			}
+			if !found {
+				err = fmt.Errorf("cronJob: %s not found", p.Task.ServiceName)
+				return
+			}
+			if cronJob != nil {
+				for _, container := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+					if container.Name == containerName {
+						err = updater.UpdateCronJobImage(cronJob.Namespace, cronJob.Name, containerName, p.Task.Image, p.kubeClient, false)
+						if err != nil {
+							err = errors.WithMessagef(
+								err,
+								"failed to update container image in %s/cronJob/%s/%s",
+								p.Task.Namespace, cronJob.Name, container.Name)
+							return
+						}
+						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+							Kind:      setting.CronJob,
+							Container: container.Name,
+							Origin:    container.Image,
+							Name:      cronJob.Name,
+						})
+						replaced = true
+						break
+					}
+				}
+			}
+			if cronJobBeta != nil {
+				for _, container := range cronJobBeta.Spec.JobTemplate.Spec.Template.Spec.Containers {
+					if container.Name == containerName {
+						err = updater.UpdateCronJobImage(cronJobBeta.Namespace, cronJobBeta.Name, containerName, p.Task.Image, p.kubeClient, false)
+						if err != nil {
+							err = errors.WithMessagef(
+								err,
+								"failed to update container image in %s/cronJob/%s/%s",
+								p.Task.Namespace, cronJobBeta.Name, container.Name)
+							return
+						}
+						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+							Kind:      setting.CronJob,
+							Container: container.Name,
+							Origin:    container.Image,
+							Name:      cronJobBeta.Name,
+						})
+						replaced = true
+						break
+					}
 				}
 			}
 		}
@@ -541,6 +594,11 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range p.Task.ReplaceResources {
+				if err := workLoadDeployStat(p.kubeClient, p.Task.Namespace, p.Task.RelatedPodLabels, resource.PodOwnerUID); err != nil {
+					p.Task.TaskStatus = config.StatusFailed
+					p.Task.Error = err.Error()
+					return
+				}
 				switch resource.Kind {
 				case setting.Deployment:
 					d, found, e := getter.GetDeployment(p.Task.Namespace, resource.Name, p.kubeClient)

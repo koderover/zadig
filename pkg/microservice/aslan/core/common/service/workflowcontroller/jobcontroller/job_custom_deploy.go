@@ -23,6 +23,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/version"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -34,6 +35,7 @@ import (
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type CustomDeployJobCtl struct {
@@ -41,6 +43,7 @@ type CustomDeployJobCtl struct {
 	workflowCtx *commonmodels.WorkflowTaskCtx
 	logger      *zap.SugaredLogger
 	kubeClient  crClient.Client
+	version     *version.Info
 	jobTaskSpec *commonmodels.JobTaskCustomDeploySpec
 	ack         func()
 }
@@ -84,8 +87,25 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 			logError(c.job, msg, c.logger)
 			return errors.New(msg)
 		}
+
+		clientset, err := kubeclient.GetClientset(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
+		if err != nil {
+			log.Errorf("get client set error: %v", err)
+			return err
+		}
+		c.version, err = clientset.Discovery().ServerVersion()
+		if err != nil {
+			log.Errorf("get server version error: %v", err)
+			return err
+		}
 	} else {
 		c.kubeClient = krkubeclient.Client()
+		c.version, err = krkubeclient.Clientset().Discovery().ServerVersion()
+		if err != nil {
+			msg := fmt.Sprintf("can't get k8s server version: %v", err)
+			logError(c.job, msg, c.logger)
+			return errors.New(msg)
+		}
 	}
 	replaced := false
 
@@ -146,8 +166,60 @@ func (c *CustomDeployJobCtl) run(ctx context.Context) error {
 				break
 			}
 		}
+	case setting.CronJob:
+		cronJob, cronJobBeta, _, err := getter.GetCronJob(c.jobTaskSpec.Namespace, c.jobTaskSpec.WorkloadName, c.kubeClient, kubeclient.VersionLessThan121(c.version))
+		if err != nil {
+			logError(c.job, err.Error(), c.logger)
+			return err
+		}
+		if cronJob != nil {
+			for _, container := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+				if container.Name == c.jobTaskSpec.ContainerName {
+					err = updater.UpdateCronJobImage(cronJob.Namespace, cronJob.Name, container.Name, c.jobTaskSpec.Image, c.kubeClient, kubeclient.VersionLessThan121(c.version))
+					if err != nil {
+						err = errors.WithMessagef(
+							err,
+							"failed to update container image in %s/cronJob/%s/%s",
+							cronJob.Namespace, cronJob.Name, container.Name)
+						logError(c.job, err.Error(), c.logger)
+						return err
+					}
+					c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
+						Kind:      setting.CronJob,
+						Container: container.Name,
+						Origin:    container.Image,
+						Name:      cronJob.Name,
+					})
+					replaced = true
+					break
+				}
+			}
+		}
+		if cronJobBeta != nil {
+			for _, container := range cronJobBeta.Spec.JobTemplate.Spec.Template.Spec.Containers {
+				if container.Name == c.jobTaskSpec.ContainerName {
+					err = updater.UpdateCronJobImage(cronJobBeta.Namespace, cronJobBeta.Name, container.Name, c.jobTaskSpec.Image, c.kubeClient, kubeclient.VersionLessThan121(c.version))
+					if err != nil {
+						err = errors.WithMessagef(
+							err,
+							"failed to update container image in %s/cronJob/%s/%s",
+							cronJobBeta.Namespace, cronJobBeta.Name, container.Name)
+						logError(c.job, err.Error(), c.logger)
+						return err
+					}
+					c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{
+						Kind:      setting.CronJob,
+						Container: container.Name,
+						Origin:    container.Image,
+						Name:      cronJobBeta.Name,
+					})
+					replaced = true
+					break
+				}
+			}
+		}
 	default:
-		msg := fmt.Sprintf("workfload type: %s not supported", c.jobTaskSpec.WorkloadType)
+		msg := fmt.Sprintf("workload type: %s not supported", c.jobTaskSpec.WorkloadType)
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
@@ -211,6 +283,8 @@ func (c *CustomDeployJobCtl) wait(ctx context.Context) {
 				} else {
 					ready = wrapper.StatefulSet(st).Ready()
 				}
+			case setting.CronJob:
+				ready = true
 			default:
 				msg := fmt.Sprintf("workfload type: %s not supported", c.jobTaskSpec.WorkloadType)
 				logError(c.job, msg, c.logger)

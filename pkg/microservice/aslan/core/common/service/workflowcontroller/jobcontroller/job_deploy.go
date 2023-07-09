@@ -299,6 +299,8 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 				c.jobTaskSpec.RelatedPodLabels = append(c.jobTaskSpec.RelatedPodLabels, podLabels)
 			}
 			c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{Name: us.GetName(), Kind: us.GetKind()})
+		case setting.CronJob:
+			c.jobTaskSpec.ReplaceResources = append(c.jobTaskSpec.ReplaceResources, commonmodels.Resource{Name: us.GetName(), Kind: us.GetKind()})
 		}
 	}
 	return nil
@@ -548,6 +550,10 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 			var err error
 		L:
 			for _, resource := range c.jobTaskSpec.ReplaceResources {
+				if err := workLoadDeployStat(c.kubeClient, c.namespace, c.jobTaskSpec.RelatedPodLabels, resource.PodOwnerUID); err != nil {
+					logError(c.job, err.Error(), c.logger)
+					return
+				}
 				switch resource.Kind {
 				case setting.Deployment:
 					d, found, e := getter.GetDeployment(c.namespace, resource.Name, c.kubeClient)

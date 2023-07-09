@@ -631,8 +631,13 @@ func ListWorkloadsInfo(clusterID, namespace string, log *zap.SugaredLogger) ([]*
 	return resp, nil
 }
 
-func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]string, error) {
-	resp := make([]string, 0)
+type WorkloadImageTarget struct {
+	Target    string `json:"target"`
+	ImageName string `json:"image_name"`
+}
+
+func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]*WorkloadImageTarget, error) {
+	resp := make([]*WorkloadImageTarget, 0)
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("ListCustomWorkload clusterID:%s err:%v", clusterID, err)
@@ -648,7 +653,7 @@ func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]
 	}
 	for _, deployment := range deployments {
 		for _, container := range deployment.Spec.Template.Spec.Containers {
-			resp = append(resp, strings.Join([]string{setting.Deployment, deployment.Name, container.Name}, "/"))
+			resp = append(resp, &WorkloadImageTarget{strings.Join([]string{setting.Deployment, deployment.Name, container.Name}, "/"), util.ExtractImageName(container.Image)})
 		}
 	}
 	statefulsets, err := getter.ListStatefulSets(namespace, labels.Everything(), kubeClient)
@@ -661,7 +666,33 @@ func ListCustomWorkload(clusterID, namespace string, log *zap.SugaredLogger) ([]
 	}
 	for _, statefulset := range statefulsets {
 		for _, container := range statefulset.Spec.Template.Spec.Containers {
-			resp = append(resp, strings.Join([]string{setting.StatefulSet, statefulset.Name, container.Name}, "/"))
+			resp = append(resp, &WorkloadImageTarget{strings.Join([]string{setting.StatefulSet, statefulset.Name, container.Name}, "/"), util.ExtractImageName(container.Image)})
+		}
+	}
+
+	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("get client set error: %v", err)
+		return resp, err
+	}
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("get server version error: %v", err)
+		return resp, err
+	}
+	cronJobs, cronJobBetas, err := getter.ListCronJobs(namespace, labels.Everything(), kubeClient, VersionLessThan121(versionInfo))
+	if err != nil {
+		log.Errorf("list cronjobs error: %v", err)
+		return resp, err
+	}
+	for _, cronJob := range cronJobs {
+		for _, container := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			resp = append(resp, &WorkloadImageTarget{strings.Join([]string{setting.CronJob, cronJob.Name, container.Name}, "/"), util.ExtractImageName(container.Image)})
+		}
+	}
+	for _, cronJobBeta := range cronJobBetas {
+		for _, container := range cronJobBeta.Spec.JobTemplate.Spec.Template.Spec.Containers {
+			resp = append(resp, &WorkloadImageTarget{strings.Join([]string{setting.CronJob, cronJobBeta.Name, container.Name}, "/"), util.ExtractImageName(container.Image)})
 		}
 	}
 	return resp, nil
@@ -681,6 +712,9 @@ func ListCanaryDeploymentServiceInfo(clusterID, namespace string, log *zap.Sugar
 		return resp, err
 	}
 	for _, service := range services {
+		if service.Spec.Selector == nil {
+			continue
+		}
 		deploymentContainers := &ServiceMatchedDeploymentContainers{
 			ServiceName: service.Name,
 		}

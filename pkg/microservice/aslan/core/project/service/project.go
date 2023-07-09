@@ -37,6 +37,13 @@ type ProjectListOptions struct {
 	IgnoreNoVersions bool
 	Verbosity        QueryVerbosity
 	Names            []string
+	PageSize         int64
+	PageNum          int64
+	Filter           string
+}
+type ProjectDetailedResponse struct {
+	ProjectDetailedRepresentation []*ProjectDetailedRepresentation `json:"projects"`
+	Total                         int                              `json:"total"`
 }
 
 type ProjectDetailedRepresentation struct {
@@ -48,6 +55,11 @@ type ProjectDetailedRepresentation struct {
 	Onboard    bool   `json:"onboard"`
 	Public     bool   `json:"public"`
 	DeployType string `json:"deployType"`
+}
+
+type ProjectBriefResponse struct {
+	ProjectBriefRepresentation []*ProjectBriefRepresentation `json:"projects"`
+	Total                      int                           `json:"total"`
 }
 
 type ProjectBriefRepresentation struct {
@@ -72,16 +84,19 @@ func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interfac
 	}
 }
 
-func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) ([]*ProjectDetailedRepresentation, error) {
-	var res []*ProjectDetailedRepresentation
+func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) (*ProjectDetailedResponse, error) {
+	var representation []*ProjectDetailedRepresentation
 
-	nameSet, nameMap, err := getProjects(opts)
+	nameOrder, nameSet, nameMap, total, err := getProjects(opts)
 	if err != nil {
 		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
 	}
 
-	nameWithEnvSet, nameWithEnvMap, err := getProjectsWithEnvs(opts)
+	newOpts := &ProjectListOptions{
+		Names: nameSet.List(),
+	}
+	nameWithEnvSet, nameWithEnvMap, err := getProjectsWithEnvs(newOpts)
 	if err != nil {
 		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
@@ -92,7 +107,11 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 		desiredSet = nameSet.Intersection(nameWithEnvSet)
 	}
 
-	for name := range desiredSet {
+	for _, name := range nameOrder {
+		if !desiredSet.Has(name) {
+			continue
+		}
+
 		info := nameMap[name]
 		var deployType string
 		if info.CreateEnvType == "external" {
@@ -102,7 +121,7 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 		} else {
 			deployType = info.DeployType
 		}
-		res = append(res, &ProjectDetailedRepresentation{
+		representation = append(representation, &ProjectDetailedRepresentation{
 			ProjectBriefRepresentation: &ProjectBriefRepresentation{
 				ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},
 				Envs:                         nameWithEnvMap[name],
@@ -117,19 +136,27 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 		})
 	}
 
+	res := &ProjectDetailedResponse{
+		ProjectDetailedRepresentation: representation,
+		Total:                         total,
+	}
+
 	return res, nil
 }
 
-func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) ([]*ProjectBriefRepresentation, error) {
-	var res []*ProjectBriefRepresentation
+func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) (*ProjectBriefResponse, error) {
+	var representation []*ProjectBriefRepresentation
 
-	nameSet, _, err := getProjects(opts)
+	nameOrder, nameSet, _, total, err := getProjects(opts)
 	if err != nil {
 		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
 	}
 
-	nameWithEnvSet, nameWithEnvMap, err := getProjectsWithEnvs(opts)
+	newOpts := &ProjectListOptions{
+		Names: nameSet.List(),
+	}
+	nameWithEnvSet, nameWithEnvMap, err := getProjectsWithEnvs(newOpts)
 	if err != nil {
 		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
@@ -140,11 +167,20 @@ func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) 
 		desiredSet = nameSet.Intersection(nameWithEnvSet)
 	}
 
-	for name := range desiredSet {
-		res = append(res, &ProjectBriefRepresentation{
+	for _, name := range nameOrder {
+		if !desiredSet.Has(name) {
+			continue
+		}
+
+		representation = append(representation, &ProjectBriefRepresentation{
 			ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},
 			Envs:                         nameWithEnvMap[name],
 		})
+	}
+
+	res := &ProjectBriefResponse{
+		ProjectBriefRepresentation: representation,
+		Total:                      total,
 	}
 
 	return res, nil
@@ -223,18 +259,26 @@ func getProjectsWithEnvs(opts *ProjectListOptions) (sets.String, map[string][]st
 	return nameSet, nameMap, nil
 }
 
-func getProjects(opts *ProjectListOptions) (sets.String, map[string]*templaterepo.ProjectInfo, error) {
-	res, err := templaterepo.NewProductColl().ListProjectBriefs(opts.Names)
+func getProjects(opts *ProjectListOptions) ([]string, sets.String, map[string]*templaterepo.ProjectInfo, int, error) {
+	listOpts := templaterepo.ProductListByFilterOpt{
+		Names:  opts.Names,
+		Filter: opts.Filter,
+		Limit:  opts.PageSize,
+		Skip:   (opts.PageNum - 1) * opts.PageSize,
+	}
+	res, total, err := templaterepo.NewProductColl().PageListProjectByFilter(listOpts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, 0, err
 	}
 
+	nameOrder := []string{}
 	nameSet := sets.NewString()
 	nameMap := make(map[string]*templaterepo.ProjectInfo)
 	for _, r := range res {
 		nameSet.Insert(r.Name)
 		nameMap[r.Name] = r
+		nameOrder = append(nameOrder, r.Name)
 	}
 
-	return nameSet, nameMap, nil
+	return nameOrder, nameSet, nameMap, total, nil
 }

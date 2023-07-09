@@ -79,6 +79,8 @@ func (j *DeployJob) getOriginReferedJobTargets(jobName string) ([]*commonmodels.
 						ServiceModule: build.ServiceModule,
 						Image:         build.Image,
 					})
+					log.Infof("DeployJob ToJobs getOriginReferedJobTargets: workflow %s service %s, module %s, image %s",
+						j.workflow.Name, build.ServiceName, build.ServiceModule, build.Image)
 				}
 				return serviceAndImages, nil
 			}
@@ -213,8 +215,9 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	}
 
 	productServiceMap := product.GetServiceMap()
+	workloadTypeMap := make(map[string]string)
 
-	if project.ProductFeature != nil && project.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+	if project.IsHostProduct() {
 		productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(j.workflow.Project, envName)
 		if err != nil {
 			return resp, fmt.Errorf("failed to list external workload, err: %v", err)
@@ -224,6 +227,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				ServiceName: service.ServiceName,
 				Containers:  service.Containers,
 			}
+			workloadTypeMap[service.ServiceName] = service.WorkloadType
 		}
 		servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
 			ProductName: j.workflow.Project,
@@ -281,7 +285,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 			for _, deploy := range deploys {
 				// if external env, check service exists
-				if project.ProductFeature.CreateEnvType == "external" {
+				if project.IsHostProduct() {
 					if err := checkServiceExsistsInEnv(productServiceMap, serviceName, envName); err != nil {
 						return resp, err
 					}
@@ -292,7 +296,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					ServiceModule: deploy.ServiceModule,
 				})
 			}
-			if project.ProductFeature.CreateEnvType != "external" {
+			if !project.IsHostProduct() {
 				jobTaskSpec.DeployContents = j.spec.DeployContents
 				jobTaskSpec.Production = j.spec.Production
 				service := serviceMap[serviceName]
@@ -351,11 +355,16 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Name: jobNameFormat(serviceName + "-" + j.job.Name),
 				Key:  strings.Join([]string{j.job.Name, serviceName}, "."),
 				JobInfo: map[string]string{
-					JobNameKey:     j.job.Name,
-					"service_name": serviceName,
+					JobNameKey:      j.job.Name,
+					"service_name":  serviceName,
+					"workload_type": workloadTypeMap[serviceName],
 				},
 				JobType: string(config.JobZadigDeploy),
 				Spec:    jobTaskSpec,
+			}
+			for _, image := range jobTaskSpec.ServiceAndImages {
+				log.Infof("DeployJob ToJobs %d: workflow %s service %s, module %s, image %s",
+					taskID, j.workflow.Name, serviceName, image.ServiceModule, image.Image)
 			}
 			resp = append(resp, jobTask)
 		}

@@ -47,7 +47,7 @@ type task struct {
 	ID                                                          int
 	owner, namespace, repo, address, token, ref, ak, sk, region string
 	from                                                        string
-	add, enableProxy                                            bool
+	add, enableProxy, isManual                                  bool
 	err                                                         error
 	doneCh                                                      chan struct{}
 }
@@ -65,6 +65,7 @@ type TaskOption struct {
 	AK          string
 	SK          string
 	Region      string
+	IsManual    bool
 	EnableProxy bool
 }
 
@@ -87,6 +88,7 @@ func (c *client) AddWebHook(taskOption *TaskOption) error {
 		ak:          taskOption.AK,
 		sk:          taskOption.SK,
 		region:      taskOption.Region,
+		isManual:    taskOption.IsManual,
 		doneCh:      make(chan struct{}),
 	}
 
@@ -124,6 +126,7 @@ func (c *client) RemoveWebHook(taskOption *TaskOption) error {
 		ak:          taskOption.AK,
 		sk:          taskOption.SK,
 		region:      taskOption.Region,
+		isManual:    taskOption.IsManual,
 		doneCh:      make(chan struct{}),
 	}
 

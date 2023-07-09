@@ -49,7 +49,6 @@ type WorkflowV4 struct {
 	CreateTime      int64                    `bson:"create_time"         yaml:"create_time"         json:"create_time"`
 	UpdatedBy       string                   `bson:"updated_by"          yaml:"updated_by"          json:"updated_by"`
 	UpdateTime      int64                    `bson:"update_time"         yaml:"update_time"         json:"update_time"`
-	MultiRun        bool                     `bson:"multi_run"           yaml:"multi_run"           json:"multi_run"`
 	NotifyCtls      []*NotifyCtl             `bson:"notify_ctls"         yaml:"notify_ctls"         json:"notify_ctls"`
 	Debug           bool                     `bson:"debug"               yaml:"-"                   json:"debug"`
 	HookCtls        []*WorkflowV4Hook        `bson:"hook_ctl"            yaml:"-"                   json:"hook_ctl"`
@@ -61,6 +60,10 @@ type WorkflowV4 struct {
 	BaseName        string                   `bson:"base_name"           yaml:"-"                   json:"base_name"`
 	ShareStorages   []*ShareStorage          `bson:"share_storages"      yaml:"share_storages"      json:"share_storages"`
 	Hash            string                   `bson:"hash"                yaml:"hash"                json:"hash"`
+	// ConcurrencyLimit is the max number of concurrent runs of this workflow
+	// -1 means no limit
+	ConcurrencyLimit int          `bson:"concurrency_limit"   yaml:"concurrency_limit"   json:"concurrency_limit"`
+	CustomField      *CustomField `bson:"custom_field"        yaml:"-"                   json:"custom_field"`
 }
 
 func (w *WorkflowV4) UpdateHash() {
@@ -118,7 +121,7 @@ type DingTalkApproval struct {
 	ID string `bson:"approval_id"                 yaml:"approval_id"                json:"approval_id"`
 	// DefaultApprovalInitiator if not set, use workflow task creator as approval initiator
 	DefaultApprovalInitiator *DingTalkApprovalUser   `bson:"default_approval_initiator" yaml:"default_approval_initiator" json:"default_approval_initiator"`
-	ApprovalNodes            []*DingTalkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+	ApprovalNodes            []*DingTalkApprovalNode `bson:"approval_nodes"             yaml:"approval_nodes"             json:"approval_nodes"`
 }
 
 type DingTalkApprovalNode struct {
@@ -197,9 +200,16 @@ type Job struct {
 	Name    string         `bson:"name"           yaml:"name"     json:"name"`
 	JobType config.JobType `bson:"type"           yaml:"type"     json:"type"`
 	// only for webhook workflow args to skip some tasks.
-	Skipped   bool                `bson:"skipped"        yaml:"skipped"  json:"skipped"`
-	Spec      interface{}         `bson:"spec"           yaml:"spec"     json:"spec"`
-	RunPolicy config.JobRunPolicy `bson:"run_policy"   yaml:"run_policy" json:"run_policy"`
+	Skipped        bool                     `bson:"skipped"        yaml:"skipped"    json:"skipped"`
+	Spec           interface{}              `bson:"spec"           yaml:"spec"       json:"spec"`
+	RunPolicy      config.JobRunPolicy      `bson:"run_policy"     yaml:"run_policy" json:"run_policy"`
+	ServiceModules []*WorkflowServiceModule `bson:"service_modules"                  json:"service_modules"`
+}
+
+type WorkflowServiceModule struct {
+	ServiceModule string              `bson:"service_module" json:"service_module"`
+	ServiceName   string              `bson:"service_name"   json:"service_name"`
+	CodeInfo      []*types.Repository `bson:"code_info"      json:"code_info"`
 }
 
 type CustomDeployJobSpec struct {
@@ -216,8 +226,9 @@ type CustomDeployJobSpec struct {
 
 type DeployTargets struct {
 	// workload_type/workload_name/container_name.
-	Target string `bson:"target"           json:"target"            yaml:"target"`
-	Image  string `bson:"image,omitempty"  json:"image,omitempty"   yaml:"image,omitempty"`
+	Target    string `bson:"target"           json:"target"            yaml:"target"`
+	Image     string `bson:"image,omitempty"  json:"image,omitempty"   yaml:"image,omitempty"`
+	ImageName string `bson:"image_name,omitempty"  json:"image_name,omitempty"   yaml:"image_name,omitempty"`
 }
 
 type PluginJobSpec struct {
@@ -240,7 +251,7 @@ type ServiceAndBuild struct {
 	ServiceName      string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule    string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
 	BuildName        string              `bson:"build_name"          yaml:"build_name"       json:"build_name"`
-	Image            string              `bson:"-"                   yaml:"-"                json:"image"`
+	Image            string              `bson:"image"                   yaml:"-"                json:"image"`
 	ImageName        string              `bson:"image_name"                   yaml:"image_name"                json:"image_name"`
 	Package          string              `bson:"-"                   yaml:"-"                json:"package"`
 	KeyVals          []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
@@ -634,6 +645,7 @@ type WorkflowV4Hook struct {
 	MainRepo            *MainHookRepo       `bson:"main_repo"                 json:"main_repo"`
 	Description         string              `bson:"description,omitempty"     json:"description,omitempty"`
 	Repos               []*types.Repository `bson:"-"                         json:"repos,omitempty"`
+	IsManual            bool                `bson:"is_manual"                 json:"is_manual"`
 	WorkflowArg         *WorkflowV4         `bson:"workflow_arg"              json:"workflow_arg"`
 }
 
@@ -702,4 +714,17 @@ func IToiYaml(before interface{}, after interface{}) error {
 
 func (WorkflowV4) TableName() string {
 	return "workflow_v4"
+}
+
+// CustomField use to display custom field of workflow history tasks
+type CustomField struct {
+	TaskID                 int            `bson:"task_id"                             json:"task_id"`
+	Status                 int            `bson:"status"                              json:"status"`
+	Duration               int            `bson:"duration"                            json:"duration"`
+	Executor               int            `bson:"executor"                            json:"executor"`
+	BuildServiceComponent  map[string]int `bson:"build_service_component,omitempty"   json:"build_service_component,omitempty"`
+	BuildCodeMsg           map[string]int `bson:"build_code_msg,omitempty"            json:"build_code_msg,omitempty"`
+	DeployServiceComponent map[string]int `bson:"deploy_service_component,omitempty"  json:"deploy_service_component,omitempty"`
+	DeployEnv              map[string]int `bson:"deploy_env,omitempty"                json:"deploy_env,omitempty"`
+	TestResult             map[string]int `bson:"test_result,omitempty"               json:"test_result,omitempty"`
 }

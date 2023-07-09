@@ -1,8 +1,8 @@
 ### What this PR does / Why we need it:
-
+copilot:summary
 
 ### What is changed and how it works?
-
+copilot:walkthrough
 
 ### Does this PR introduce a user-facing change?
 

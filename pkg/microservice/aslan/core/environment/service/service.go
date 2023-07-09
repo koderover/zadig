@@ -244,7 +244,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 	namespace := env.Namespace
 	switch env.Source {
 	case setting.SourceFromExternal, setting.SourceFromHelm:
-		if workLoadType == "undefined" && env.Source == setting.SourceFromExternal {
+		if env.Source == setting.SourceFromExternal {
 			svcOpt := &commonrepo.ServiceFindOption{ProductName: productName, ServiceName: serviceName, Type: setting.K8SDeployType}
 			modelSvc, err := commonrepo.NewServiceColl().Find(svcOpt)
 			if err != nil {

@@ -19,6 +19,7 @@ package migrate
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
@@ -29,9 +30,12 @@ import (
 	aslanConfig "github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func init() {
@@ -48,18 +52,43 @@ func V1170ToV1180() error {
 		log.Errorf("migrateSystemTheme err: %v", err)
 		return errors.Wrapf(err, "failed to execute migrateSystemTheme")
 	}
+
+	log.Info("-------- start migrate variables --------")
 	if err := migrateVariables(); err != nil {
 		log.Errorf("migrateVariables err: %v", err)
 		return errors.Wrapf(err, "failed to execute migrateVariables")
 	}
-	if err := migrateWorkflowV4LarkApproval(); err != nil {
-		log.Errorf("migrateWorkflowV4LarkApproval err: %v", err)
+
+	log.Info("-------- start migrate workflow v4 data --------")
+	if err := migrateWorkflowV4Data(); err != nil {
+		log.Errorf("migrateWorkflowV4Data err: %v", err)
 		return err
 	}
+
+	log.Info("-------- start migrate external product --------")
 	if err := migrateExternalProductIsExisted(); err != nil {
 		log.Errorf("migrateExternalProductIsExisted err: %v", err)
 		return err
 	}
+
+	log.Info("-------- start migrate workflow concurrency limit --------")
+	if err := migrateWorkflowV4ConcurrencyLimit(); err != nil {
+		log.Errorf("migrateWorkflowV4ConcurrencyLimit err: %v", err)
+		return err
+	}
+
+	log.Info("-------- start migrate service module fields --------")
+	if err := migrateServiceModulesFieldForWorkflowV4Task(); err != nil {
+		log.Errorf("migrateServiceModulesFieldForWorkflowV4Task err: %v", err)
+		return errors.Wrapf(err, "failed to execute migrateServiceModulesFieldForWorkflowV4Task")
+	}
+
+	log.Infof("-------- start migrate project name pinyin --------")
+	if err := migrateProjectNamePinyin(); err != nil {
+		log.Errorf("migrateProjectNamePinyin err: %v", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -169,8 +198,9 @@ func createDefaultLarkApprovalDefinition(larks []*models.IMApp) error {
 	return nil
 }
 
-func migrateWorkflowV4LarkApproval() error {
-	log := log.SugaredLogger().With("func", "migrateWorkflowV4LarkApproval")
+// migrateWorkflowV4LarkApproval and migrateWorkflowV4DeployTarget
+func migrateWorkflowV4Data() error {
+	log := log.SugaredLogger().With("func", "migrateWorkflowV4Data")
 	larkApps, err := mongodb.NewIMAppColl().List(context.Background(), setting.IMLark)
 	switch err {
 	case mongo.ErrNoDocuments:
@@ -192,7 +222,7 @@ func migrateWorkflowV4LarkApproval() error {
 		if err := cursor.Decode(&workflow); err != nil {
 			return err
 		}
-		if setLarkApprovalNodeForWorkflowV4(&workflow) {
+		if setLarkApprovalNodeForWorkflowV4(&workflow) || setCustomDeployTargetForWorkflowV4(&workflow) {
 			ms = append(ms,
 				mongo.NewUpdateOneModel().
 					SetFilter(bson.D{{"_id", workflow.ID}}).
@@ -285,6 +315,36 @@ func setLarkApprovalNodeForWorkflowV4(workflow *models.WorkflowV4) (updated bool
 	return updated
 }
 
+func setCustomDeployTargetForWorkflowV4(workflow *models.WorkflowV4) (updated bool) {
+	if workflow == nil {
+		return false
+	}
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.JobType != aslanConfig.JobCustomDeploy {
+				continue
+			}
+			jobSpec := &models.CustomDeployJobSpec{}
+			if err := models.IToi(job.Spec, jobSpec); err != nil {
+				log.Errorf("failed to convert job spec to custom deploy job spec, err: %v", err)
+				continue
+			}
+			for _, target := range jobSpec.Targets {
+				if len(target.ImageName) > 0 {
+					continue
+				}
+				curTargetStr := strings.Split(target.Target, "/")
+				if len(curTargetStr) == 3 {
+					target.ImageName = curTargetStr[2]
+				}
+				updated = true
+			}
+			job.Spec = jobSpec
+		}
+	}
+	return updated
+}
+
 func setLarkApprovalNodeForWorkflowV4Task(workflow *models.WorkflowTask) (updated bool) {
 	if workflow == nil {
 		return false
@@ -313,4 +373,113 @@ func migrateExternalProductIsExisted() error {
 	_, err := mongodb.NewProductColl().UpdateMany(context.Background(),
 		bson.M{"source": "external"}, bson.M{"$set": bson.M{"is_existed": true}})
 	return err
+}
+
+func migrateWorkflowV4ConcurrencyLimit() error {
+	_, err := mongodb.NewWorkflowV4Coll().UpdateMany(context.Background(),
+		bson.M{"multi_run": false}, bson.M{"$set": bson.M{"concurrency_limit": 1}})
+	if err != nil {
+		return errors.Wrap(err, "update workflow v4 concurrency limit 1")
+	}
+	_, err = mongodb.NewWorkflowV4Coll().UpdateMany(context.Background(),
+		bson.M{"multi_run": true}, bson.M{"$set": bson.M{"concurrency_limit": -1}})
+	if err != nil {
+		return errors.Wrap(err, "update workflow v4 concurrency limit -1")
+	}
+	_, err = mongodb.NewWorkflowV4TemplateColl().UpdateMany(context.Background(),
+		bson.M{"multi_run": false}, bson.M{"$set": bson.M{"concurrency_limit": 1}})
+	if err != nil {
+		return errors.Wrap(err, "update workflow v4 template concurrency limit 1")
+	}
+	_, err = mongodb.NewWorkflowV4TemplateColl().UpdateMany(context.Background(),
+		bson.M{"multi_run": true}, bson.M{"$set": bson.M{"concurrency_limit": -1}})
+	if err != nil {
+		return errors.Wrap(err, "update workflow v4 template concurrency limit -1")
+	}
+	return nil
+}
+
+func migrateServiceModulesFieldForWorkflowV4Task() error {
+	cursor, err := mongodb.NewworkflowTaskv4Coll().ListByCursor(&mongodb.ListWorkflowTaskV4Option{})
+	if err != nil {
+		return err
+	}
+
+	var mTasks []mongo.WriteModel
+	change := false
+	for cursor.Next(context.TODO()) {
+		task := &models.WorkflowTask{}
+		if err := cursor.Decode(task); err != nil {
+			return err
+		}
+		task.WorkflowArgs, change, err = service.FillServiceModules2Jobs(task.WorkflowArgs)
+		if err != nil {
+			return err
+		}
+		if change {
+			mTasks = append(mTasks,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", task.ID}}).
+					SetUpdate(bson.D{{"$set", bson.D{{"workflow_args", task.WorkflowArgs}}}}),
+			)
+			if len(mTasks) >= 50 {
+				log.Infof("ua method:migrateServiceModulesFieldForWorkflowV4Task update %d workflowv4 tasks", len(mTasks))
+				if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
+					return fmt.Errorf("udpate workflowV4 tasks error: %s", err)
+				}
+				mTasks = []mongo.WriteModel{}
+			}
+		}
+	}
+	if len(mTasks) > 0 {
+		log.Infof("ua method:migrateServiceModulesFieldForWorkflowV4Task update %d workflowv4 tasks", len(mTasks))
+		if _, err := mongodb.NewworkflowTaskv4Coll().BulkWrite(context.TODO(), mTasks); err != nil {
+			return fmt.Errorf("udpate workflowV4 tasks error: %s", err)
+
+		}
+	}
+
+	return nil
+}
+
+func migrateProjectNamePinyin() error {
+	templateProducts, err := template.NewProductColl().List()
+	if err != nil {
+		return fmt.Errorf("list template product error: %s", err)
+	}
+
+	var ms []mongo.WriteModel
+	for _, templateProduct := range templateProducts {
+		if templateProduct.ProjectNamePinyin == "" {
+			projectNamePinyin, projectNamePinyinFirstLetter := util.GetPinyinFromChinese(templateProduct.ProjectName)
+			if projectNamePinyin != "" {
+				ms = append(ms,
+					mongo.NewUpdateOneModel().
+						SetFilter(bson.D{{"product_name", templateProduct.ProductName}}).
+						SetUpdate(bson.D{{"$set",
+							bson.D{
+								{"project_name_pinyin", projectNamePinyin},
+								{"project_name_pinyin_first_letter", projectNamePinyinFirstLetter},
+							}},
+						}),
+				)
+				log.Infof("add productName %s", templateProduct.ProductName)
+			}
+		}
+		if len(ms) >= 50 {
+			log.Infof("update %d templateProduct", len(ms))
+			if _, err := template.NewProductColl().BulkWrite(context.TODO(), ms); err != nil {
+				return fmt.Errorf("update templateProduct error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+	if len(ms) > 0 {
+		log.Infof("update %d templateProduct", len(ms))
+		if _, err := template.NewProductColl().BulkWrite(context.TODO(), ms); err != nil {
+			return fmt.Errorf("udpate workflowV4s error: %s", err)
+		}
+	}
+
+	return nil
 }

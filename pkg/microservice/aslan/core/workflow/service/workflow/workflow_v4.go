@@ -30,9 +30,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
+	"gorm.io/gorm/utils"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -95,6 +97,131 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 	return nil
 }
 
+func SetWorkflowTasksCustomFields(projectName, workflowName string, args *models.CustomField, logger *zap.SugaredLogger) error {
+	err := commonrepo.NewWorkflowV4Coll().SetCustomFields(commonrepo.SetCustomFieldsOptions{
+		ProjectName:  projectName,
+		WorkflowName: workflowName,
+	}, args)
+	if err != nil {
+		logger.Errorf("Failed to set project: %s workflowV4: %s custom fields: %v, the error is: %s", projectName, workflowName, args, err)
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	return nil
+}
+
+func GetWorkflowTasksCustomFields(projectName, workflowName string, logger *zap.SugaredLogger) (*models.CustomField, error) {
+	workflow, err := commonrepo.NewWorkflowV4Coll().FindByOptions(commonrepo.WorkFlowOptions{
+		ProjectName:  projectName,
+		WorkflowName: workflowName,
+	})
+	if err != nil {
+		logger.Errorf("Failed to get project: %s workflowV4: %s infos, the error is: %s", projectName, workflowName, err)
+		return nil, e.ErrUpsertWorkflow.AddErr(err)
+	}
+
+	fields := workflow.CustomField
+	if fields == nil {
+		fields = &models.CustomField{
+			TaskID:                 1,
+			Status:                 1,
+			Duration:               1,
+			Executor:               1,
+			BuildServiceComponent:  make(map[string]int),
+			BuildCodeMsg:           make(map[string]int),
+			DeployServiceComponent: make(map[string]int),
+			DeployEnv:              make(map[string]int),
+			TestResult:             make(map[string]int),
+		}
+	}
+
+	buildJobNames, err := commonrepo.NewWorkflowV4Coll().GetJobNameList(projectName, workflowName, string(config.JobZadigBuild))
+	if err != nil {
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return nil, err
+		}
+	}
+	if fields.BuildServiceComponent == nil {
+		fields.BuildServiceComponent = make(map[string]int)
+	}
+	for key := range fields.BuildServiceComponent {
+		if !utils.Contains(buildJobNames, key) {
+			delete(fields.BuildServiceComponent, key)
+		}
+	}
+
+	if fields.BuildCodeMsg == nil {
+		fields.BuildCodeMsg = make(map[string]int)
+	}
+	for key := range fields.BuildCodeMsg {
+		if !utils.Contains(buildJobNames, key) {
+			delete(fields.BuildCodeMsg, key)
+		}
+	}
+	for _, jobName := range buildJobNames {
+		if _, ok := fields.BuildServiceComponent[jobName]; !ok {
+			fields.BuildServiceComponent[jobName] = 0
+		}
+		if _, ok := fields.BuildCodeMsg[jobName]; !ok {
+			fields.BuildCodeMsg[jobName] = 0
+		}
+	}
+
+	deployJobNames, err := commonrepo.NewWorkflowV4Coll().GetJobNameList(projectName, workflowName, string(config.JobZadigDeploy))
+	if err != nil {
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return nil, err
+		}
+	}
+
+	if fields.DeployServiceComponent == nil {
+		fields.DeployServiceComponent = make(map[string]int)
+	}
+	for key := range fields.DeployServiceComponent {
+		if !utils.Contains(deployJobNames, key) {
+			delete(fields.DeployServiceComponent, key)
+		}
+	}
+
+	if fields.DeployEnv == nil {
+		fields.DeployEnv = make(map[string]int)
+	}
+	for key := range fields.DeployEnv {
+		if !utils.Contains(deployJobNames, key) {
+			delete(fields.DeployEnv, key)
+		}
+	}
+
+	for _, jobName := range deployJobNames {
+		if _, ok := fields.DeployServiceComponent[jobName]; !ok {
+			fields.DeployServiceComponent[jobName] = 0
+		}
+		if _, ok := fields.DeployEnv[jobName]; !ok {
+			fields.DeployEnv[jobName] = 0
+		}
+	}
+
+	testJobNames, err := commonrepo.NewWorkflowV4Coll().GetJobNameList(projectName, workflowName, string(config.JobZadigTesting))
+	if err != nil {
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return nil, err
+		}
+	}
+	if fields.TestResult == nil {
+		fields.TestResult = make(map[string]int)
+	}
+	for key := range fields.TestResult {
+		if !utils.Contains(testJobNames, key) {
+			delete(fields.TestResult, key)
+		}
+	}
+	for _, jobName := range testJobNames {
+		if _, ok := fields.TestResult[jobName]; !ok {
+			fields.TestResult[jobName] = 0
+		}
+	}
+	return fields, nil
+}
+
 func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
 	workflow, err := commonrepo.NewWorkflowV4Coll().Find(name)
 	if err != nil {
@@ -119,6 +246,7 @@ func UpdateWorkflowV4(name, user string, inputWorkflow *commonmodels.WorkflowV4,
 	inputWorkflow.JiraHookCtls = workflow.JiraHookCtls
 	inputWorkflow.GeneralHookCtls = workflow.GeneralHookCtls
 	inputWorkflow.MeegoHookCtls = workflow.MeegoHookCtls
+	inputWorkflow.CustomField = workflow.CustomField
 
 	for _, stage := range inputWorkflow.Stages {
 		for _, job := range stage.Jobs {
@@ -613,6 +741,14 @@ func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4
 					}
 					testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals)
 				}
+				for _, testing := range spec.TestModules {
+					testingInfo, err := commonrepo.NewTestingColl().Find(testing.Name, "")
+					if err != nil {
+						logger.Errorf("find testing: %s error: %s", testing.Name, err)
+						continue
+					}
+					testing.KeyVals = commonservice.MergeBuildEnvs(testingInfo.PreTest.Envs, testing.KeyVals)
+				}
 			}
 		}
 	}
@@ -851,8 +987,10 @@ func CreateWebhookForWorkflowV4(workflowName string, input *commonmodels.Workflo
 		log.Error(errMsg)
 		return e.ErrCreateWebhook.AddDesc(errMsg)
 	}
-	if err := createGerritWebhook(input.MainRepo, workflowName); err != nil {
-		logger.Errorf("create gerrit webhook failed: %v", err)
+	if !input.IsManual {
+		if err := createGerritWebhook(input.MainRepo, workflowName); err != nil {
+			logger.Errorf("create gerrit webhook failed: %v", err)
+		}
 	}
 	return nil
 }
@@ -900,11 +1038,15 @@ func UpdateWebhookForWorkflowV4(workflowName string, input *commonmodels.Workflo
 		return e.ErrUpdateWebhook.AddDesc(errMsg)
 	}
 
-	if err := deleteGerritWebhook(existHook.MainRepo, workflowName); err != nil {
-		logger.Errorf("delete gerrit webhook failed: %v", err)
+	if !existHook.IsManual {
+		if err := deleteGerritWebhook(existHook.MainRepo, workflowName); err != nil {
+			logger.Errorf("delete gerrit webhook failed: %v", err)
+		}
 	}
-	if err := createGerritWebhook(input.MainRepo, workflowName); err != nil {
-		logger.Errorf("create gerrit webhook failed: %v", err)
+	if !input.IsManual {
+		if err := createGerritWebhook(input.MainRepo, workflowName); err != nil {
+			logger.Errorf("create gerrit webhook failed: %v", err)
+		}
 	}
 	return nil
 }

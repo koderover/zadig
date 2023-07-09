@@ -394,7 +394,10 @@ func migrateTestProductVariables() error {
 			// UseGlobalVariable will be set correctly
 			if len(renderInfo.ServiceVariables) > 0 {
 				for _, svcKV := range renderInfo.ServiceVariables {
-					if svcKV.OverrideYaml == nil || len(svcKV.OverrideYaml.YamlContent) == 0 || len(svcKV.OverrideYaml.RenderVariableKVs) > 0 {
+					if svcKV.OverrideYaml == nil {
+						svcKV.OverrideYaml = &template2.CustomYaml{}
+					}
+					if len(svcKV.OverrideYaml.RenderVariableKVs) > 0 {
 						continue
 					}
 
@@ -755,7 +758,7 @@ func migrateWorkflows() error {
 						case string(config.JobZadigDeploy):
 							jobSpec := &commonmodels.JobTaskDeploySpec{}
 							if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
-								return errors.Wrapf(err, "unmashal job spec error: %v")
+								return errors.Wrapf(err, "unmashal job spec error: %v", err)
 							}
 							if len(jobSpec.VariableKVs) > 0 {
 								continue

@@ -26,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/gorm/utils"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -177,6 +178,37 @@ func (c *WorkflowV4Coll) Create(obj *models.WorkflowV4) (string, error) {
 	return ID.Hex(), err
 }
 
+type SetCustomFieldsOptions struct {
+	ProjectName  string
+	WorkflowName string
+}
+
+func (c *WorkflowV4Coll) SetCustomFields(opts SetCustomFieldsOptions, args *models.CustomField) error {
+	if args == nil {
+		return nil
+	}
+
+	query := bson.M{"project": opts.ProjectName, "name": opts.WorkflowName}
+	change := bson.M{"$set": bson.M{"custom_field": args}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+type WorkFlowOptions struct {
+	ProjectName  string
+	WorkflowName string
+}
+
+func (c *WorkflowV4Coll) FindByOptions(opts WorkFlowOptions) (*models.WorkflowV4, error) {
+	workflow := &models.WorkflowV4{}
+	query := bson.M{"project": opts.ProjectName, "name": opts.WorkflowName}
+	err := c.FindOne(context.Background(), query).Decode(&workflow)
+	if err != nil {
+		return nil, err
+	}
+	return workflow, nil
+}
+
 func (c *WorkflowV4Coll) Count() (int64, error) {
 	query := bson.M{}
 
@@ -293,4 +325,26 @@ func (c *WorkflowV4Coll) ListByCursor(opt *ListWorkflowV4Option) (*mongo.Cursor,
 		query["name"] = bson.M{"$in": opt.Names}
 	}
 	return c.Collection.Find(context.TODO(), query)
+}
+
+func (c *WorkflowV4Coll) GetJobNameList(projectName, workflowName, jobType string) ([]string, error) {
+	workflow := new(models.WorkflowV4)
+	query := bson.M{"project": projectName, "name": workflowName}
+
+	err := c.FindOne(context.Background(), query).Decode(&workflow)
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0)
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			if string(job.JobType) == jobType {
+				if !utils.Contains(names, job.Name) {
+					names = append(names, job.Name)
+				}
+			}
+		}
+	}
+	return names, nil
 }

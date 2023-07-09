@@ -689,6 +689,17 @@ func getImageInfoFromWorkload(envName, productName, serviceName, container strin
 		return findCurrentlyUsingImage(product, serviceName, container)
 	}
 
+	clientset, err := kubeclient.GetClientset(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		log.Errorf("get client set error: %v", err)
+		return "", err
+	}
+	versionInfo, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("get server version error: %v", err)
+		return "", err
+	}
+
 	switch serviceInfo.WorkloadType {
 	case setting.StatefulSet:
 		var statefulSet *appsv1.StatefulSet
@@ -714,6 +725,26 @@ func getImageInfoFromWorkload(envName, productName, serviceName, container strin
 			}
 		}
 		return "", errors.New("no container in deployment found")
+	case setting.CronJob:
+		cronJob, cronJobBeta, _, err := getter.GetCronJob(product.Namespace, serviceName, kubeClient, kubeclient.VersionLessThan121(versionInfo))
+		if err != nil {
+			return "", err
+		}
+		if cronJob != nil {
+			for _, c := range cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers {
+				if c.Name == container {
+					return c.Image, nil
+				}
+			}
+		}
+		if cronJobBeta != nil {
+			for _, c := range cronJobBeta.Spec.JobTemplate.Spec.Template.Spec.Containers {
+				if c.Name == container {
+					return c.Image, nil
+				}
+			}
+		}
+		return "", errors.New("no container in cronJob found")
 	default:
 		// since in some version of the service, there are no workload type, we need to do something with this
 		selector := labels.Set{setting.ProductLabel: product.ProductName, setting.ServiceLabel: serviceName}.AsSelector()
