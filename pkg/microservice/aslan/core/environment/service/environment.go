@@ -1014,7 +1014,12 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 	targetChart.OverrideYaml.YamlContent = arg.OverrideYaml
 	targetChart.OverrideValues = tempArg.ToOverrideValueString()
 
-	mergeValues, err := kube.GeneMergedValues(productSvc, renderSet, nil, true)
+	images := make([]string, 0)
+	for _, container := range productSvc.Containers {
+		images = append(images, container.Image)
+	}
+
+	mergeValues, err := kube.GeneMergedValues(productSvc, renderSet, images, true)
 
 	//mergeValues, err := helmtool.MergeOverrideValues(chartValues, defaultValues, arg.OverrideYaml, tempArg.ToOverrideValueString(), nil)
 	if err != nil {
