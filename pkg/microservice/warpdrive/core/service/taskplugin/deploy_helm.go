@@ -139,11 +139,9 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 	}
 
 	var (
-		productInfo *types.Product
-		renderChart *types.RenderChart
-		//replacedValuesYaml string
+		productInfo      *types.Product
+		renderChart      *types.RenderChart
 		mergedValuesYaml string
-		//replacedMergedValuesYaml string
 		servicePath      string
 		chartPath        string
 		replaceValuesMap map[string]interface{}
@@ -240,7 +238,6 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		return
 	}
 
-	//serviceValuesYaml := renderChart.ValuesYaml
 	replaceValuesMap = make(map[string]interface{})
 
 	imageKVS := make([]*helmtool.KV, 0)
@@ -276,7 +273,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
-		p.Log.Infof("------- assing image data for image: %s, assign data: %v", targetContainer.Image, replaceValuesMap)
+		p.Log.Infof("assing image data for image: %s, assign data: %v", targetContainer.Image, replaceValuesMap)
 		replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
 	}
 
@@ -289,21 +286,6 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		}
 	}
 
-	//// replace image into service's values.yaml
-	//replacedValuesYaml, err = replaceImage(serviceValuesYaml, replaceValuesMap)
-	//if err != nil {
-	//	err = errors.WithMessagef(
-	//		err,
-	//		"failed to replace image uri %s/%s",
-	//		p.Task.Namespace, p.Task.ServiceName)
-	//	return
-	//}
-	//if replacedValuesYaml == "" {
-	//	err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
-	//		p.Task.Namespace, p.Task.ServiceName)
-	//	return
-	//}
-
 	// merge override values and kvs into service's yaml
 	mergedValuesYaml, err = helmtool.MergeOverrideValues("", renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, imageKVS)
 	if err != nil {
@@ -315,23 +297,6 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		return
 	}
 	p.Log.Infof("final minimum merged values.yaml: \n%s", mergedValuesYaml)
-
-	//// replace image into final merged values.yaml
-	//replacedMergedValuesYaml, err = replaceImage(mergedValuesYaml, replaceValuesMap)
-	//if err != nil {
-	//	err = errors.WithMessagef(
-	//		err,
-	//		"failed to replace image uri into helm values %s/%s",
-	//		p.Task.Namespace, p.Task.ServiceName)
-	//	return
-	//}
-	//if replacedMergedValuesYaml == "" {
-	//	err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
-	//		p.Task.Namespace, p.Task.ServiceName)
-	//	return
-	//}
-	//
-	//p.Log.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
 
 	helmClient, err = helmtool.NewClientFromNamespace(pipelineTask.ConfigPayload.DeployClusterID, p.Task.Namespace)
 	if err != nil {
@@ -407,27 +372,6 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 	if err != nil {
 		return
 	}
-
-	//for _, chartInfo := range renderInfo.ChartInfos {
-	//	if chartInfo.ServiceName == p.Task.ServiceName {
-	//		chartInfo.ValuesYaml = replacedValuesYaml
-	//		break
-	//	}
-	//}
-	//
-	//// TODO too dangerous to override entire renderset!
-	//err = p.updateRenderSet(ctx, &types.RenderSet{
-	//	Name:          renderInfo.Name,
-	//	Revision:      renderInfo.Revision,
-	//	DefaultValues: renderInfo.DefaultValues,
-	//	ChartInfos:    renderInfo.ChartInfos,
-	//})
-	//if err != nil {
-	//	err = errors.WithMessagef(
-	//		err,
-	//		"failed to update renderset info %s/%s, renderset %s",
-	//		p.Task.Namespace, p.Task.ServiceName, renderInfo.Name)
-	//}
 }
 
 func (p *HelmDeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
@@ -499,12 +443,6 @@ func (p *HelmDeployTaskPlugin) getRenderSet(ctx context.Context, name string, re
 	}
 	return rs, nil
 }
-
-//func (p *HelmDeployTaskPlugin) updateRenderSet(ctx context.Context, args *types.RenderSet) error {
-//	url := "/api/project/renders"
-//	_, err := p.httpClient.Put(url, httpclient.SetBody(args), httpclient.SetQueryParam("ifPassFilter", "true"))
-//	return err
-//}
 
 // Wait ...
 func (p *HelmDeployTaskPlugin) Wait(ctx context.Context) {

@@ -23,12 +23,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -43,6 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/pkg/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
@@ -697,8 +694,6 @@ DistributeLoop:
 				continue DistributeLoop
 			}
 
-			//serviceValuesYaml := renderChart.ValuesYaml
-
 			// prepare image replace info
 			validMatchData := kube.GetValidMatchData(targetContainer.ImagePath)
 
@@ -716,7 +711,7 @@ DistributeLoop:
 				distribute.DeployEndTime = time.Now().Unix()
 				continue DistributeLoop
 			}
-			p.Log.Infof("------- assing image data for image: %s, assign data: %v", targetContainer.Image, replaceValuesMap)
+			p.Log.Infof("assing image data for image: %s, assign data: %v", targetContainer.Image, replaceValuesMap)
 
 			for key, value := range replaceValuesMap {
 				imageKVS = append(imageKVS, &helmtool.KV{
@@ -724,29 +719,6 @@ DistributeLoop:
 					Value: value,
 				})
 			}
-
-			// replace image into service's values.yaml
-			//replacedValuesYaml, err = replaceImage(serviceValuesYaml, replaceValuesMap)
-			//if err != nil {
-			//	err = errors.WithMessagef(
-			//		err,
-			//		"failed to replace image uri %s/%s",
-			//		distribute.DeployNamespace,
-			//		distribute.DeployServiceName,
-			//	)
-			//	distribute.DeployStatus = string(config.StatusFailed)
-			//	distribute.DeployEndTime = time.Now().Unix()
-			//	continue DistributeLoop
-			//}
-			//if replacedValuesYaml == "" {
-			//	err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
-			//		distribute.DeployNamespace,
-			//		distribute.DeployServiceName,
-			//	)
-			//	distribute.DeployStatus = string(config.StatusFailed)
-			//	distribute.DeployEndTime = time.Now().Unix()
-			//	continue DistributeLoop
-			//}
 
 			// merge override values and kvs into service's yaml
 			mergedValuesYaml, err = helmtool.MergeOverrideValues("", renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, imageKVS)
@@ -761,31 +733,6 @@ DistributeLoop:
 				continue DistributeLoop
 			}
 			p.Log.Infof("final minimum merged values.yaml: \n%s", mergedValuesYaml)
-
-			//// replace image into final merged values.yaml
-			//replacedMergedValuesYaml, err = replaceImage(mergedValuesYaml, replaceValuesMap)
-			//if err != nil {
-			//	err = errors.WithMessagef(
-			//		err,
-			//		"failed to replace image uri into helm values %s/%s",
-			//		distribute.DeployNamespace,
-			//		distribute.DeployServiceName,
-			//	)
-			//	distribute.DeployStatus = string(config.StatusFailed)
-			//	distribute.DeployEndTime = time.Now().Unix()
-			//	continue DistributeLoop
-			//}
-			//if replacedMergedValuesYaml == "" {
-			//	err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
-			//		distribute.DeployNamespace,
-			//		distribute.DeployServiceName,
-			//	)
-			//	distribute.DeployStatus = string(config.StatusFailed)
-			//	distribute.DeployEndTime = time.Now().Unix()
-			//	continue DistributeLoop
-			//}
-			//
-			//p.Log.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
 
 			helmClient, err = helmtool.NewClientFromNamespace(distribute.DeployClusterID, distribute.DeployNamespace)
 			if err != nil {

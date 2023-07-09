@@ -840,100 +840,6 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceName string, p
 	return prodSvc, renderSet, nil
 }
 
-//func prepareEstimatedData(productName, envName, serviceName, usageScenario, defaultValues string, production bool, log *zap.SugaredLogger) (string, string, error) {
-//	var err error
-//	templateService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-//		ServiceName: serviceName,
-//		ProductName: productName,
-//		Type:        setting.HelmDeployType,
-//	}, production)
-//	if err != nil {
-//		log.Errorf("failed to query service, name %s, err %s", serviceName, err)
-//		return "", "", fmt.Errorf("failed to query service, name %s", serviceName)
-//	}
-//
-//	if usageScenario == usageScenarioCreateEnv {
-//		return templateService.HelmChart.ValuesYaml, defaultValues, nil
-//	}
-//
-//	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-//		Name:    productName,
-//		EnvName: envName,
-//	})
-//	if err != nil {
-//		return "", "", fmt.Errorf("failed to query product info, name %s", envName)
-//	}
-//
-//	// find chart info from cur render set
-//	opt := &commonrepo.RenderSetFindOption{
-//		Name:        productInfo.Render.Name,
-//		Revision:    productInfo.Render.Revision,
-//		EnvName:     productInfo.EnvName,
-//		ProductTmpl: productInfo.ProductName,
-//	}
-//	renderSet, err := commonrepo.NewRenderSetColl().Find(opt)
-//	if err != nil {
-//		log.Errorf("renderset Find error, productName:%s, envName:%s, err:%s", productInfo.ProductName, productInfo.EnvName, err)
-//		return "", "", fmt.Errorf("failed to query renderset info, name %s", productInfo.Render.Name)
-//	}
-//
-//	// find target render chart from render set
-//	var targetChart *templatemodels.ServiceRender
-//	for _, chart := range renderSet.ChartInfos {
-//		if chart.ServiceName == serviceName {
-//			targetChart = chart
-//			break
-//		}
-//	}
-//
-//	switch usageScenario {
-//	case usageScenarioUpdateEnv:
-//		imageRelatedKey := sets.NewString()
-//		proSvcMap := productInfo.GetServiceMap()
-//		proSvc := proSvcMap[serviceName]
-//		if proSvc != nil {
-//			curEnvService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-//				ServiceName: serviceName,
-//				ProductName: productName,
-//				Type:        setting.HelmDeployType,
-//				Revision:    proSvc.Revision,
-//			}, productInfo.Production)
-//			if err != nil {
-//				log.Errorf("failed to query service, name %s, Revision %d,err %s", serviceName, proSvc.Revision, err)
-//				return "", "", fmt.Errorf("failed to query service, name %s,Revision %d,err %s", serviceName, proSvc.Revision, err)
-//			}
-//		L:
-//			for _, curSvcContainer := range curEnvService.Containers {
-//				if checkServiceImageUpdated(curSvcContainer, proSvc) {
-//					for _, container := range templateService.Containers {
-//						if curSvcContainer.Name == container.Name && container.ImagePath != nil {
-//							imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
-//							continue L
-//						}
-//					}
-//				}
-//			}
-//		}
-//		curValuesYaml := ""
-//		if targetChart != nil { // service has been applied into environment, use current values.yaml
-//			curValuesYaml = targetChart.ValuesYaml
-//		}
-//		// merge environment values
-//		mergedBs, err := util.OverrideValues([]byte(curValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey, true)
-//		if err != nil {
-//			return "", "", errors.Wrapf(err, "failed to override values")
-//		}
-//		return string(mergedBs), renderSet.DefaultValues, nil
-//	case usageScenarioUpdateRenderSet:
-//		if targetChart == nil {
-//			return "", "", fmt.Errorf("failed to find chart info, name: %s", serviceName)
-//		}
-//		return targetChart.ValuesYaml, renderSet.DefaultValues, nil
-//	default:
-//		return "", "", fmt.Errorf("unrecognized usageScenario:%s", usageScenario)
-//	}
-//}
-
 func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log *zap.SugaredLogger) (map[string][]string, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
@@ -992,11 +898,6 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 		productSvc, renderSet, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceName, arg.Production, log)
 	}
 
-	//chartValues, defaultValues, err := prepareEstimatedData(productName, envName, serviceName, scene, arg.DefaultValues, arg.Production, log)
-	//if err != nil {
-	//	return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to prepare data, err %s", err))
-	//}
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare estimated value data, err %s", err)
 	}
@@ -1021,7 +922,6 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 
 	mergeValues, err := kube.GeneMergedValues(productSvc, renderSet, images, true)
 
-	//mergeValues, err := helmtool.MergeOverrideValues(chartValues, defaultValues, arg.OverrideYaml, tempArg.ToOverrideValueString(), nil)
 	if err != nil {
 		return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
 	}
