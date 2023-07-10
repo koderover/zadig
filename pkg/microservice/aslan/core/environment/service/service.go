@@ -54,6 +54,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -197,7 +198,13 @@ func GetService(envName, productName, serviceName string, production bool, workL
 
 	ret, err = GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
 	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
+		if !strings.Contains(err.Error(), "failed to find service in environment") {
+			return nil, e.ErrGetService.AddErr(err)
+		}
+		ret, err = GetMseServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+		if err != nil {
+			return nil, e.ErrGetService.AddErr(errors.Wrap(err, "failed to get mse service"))
+		}
 	}
 	ret.Workloads = nil
 	ret.Namespace = env.Namespace
@@ -301,7 +308,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 	default:
 		service := env.GetServiceMap()[serviceName]
 		if service == nil {
-			return nil, e.ErrGetService.AddDesc("failed to find service: %s in environment: %s")
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find service in environment: %s", envName))
 		}
 
 		opt := &commonrepo.ServiceFindOption{
@@ -418,6 +425,48 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			}
 		}
 	}
+	return
+}
+
+func GetMseServiceImpl(serviceName string, workLoadType string, env *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+	envName, productName := env.EnvName, env.ProductName
+	ret = &SvcResp{
+		ServiceName: serviceName,
+		EnvName:     envName,
+		ProductName: productName,
+		Services:    make([]*internalresource.Service, 0),
+		Ingress:     make([]*internalresource.Ingress, 0),
+		Scales:      make([]*internalresource.Workload, 0),
+		CronJobs:    make([]*internalresource.CronJob, 0),
+	}
+	err = nil
+
+	namespace := env.Namespace
+	switch env.Source {
+	case setting.SourceFromExternal, setting.SourceFromHelm:
+		return nil, e.ErrGetService.AddDesc("not support external service")
+	default:
+		selector := labels.SelectorFromSet(map[string]string{
+			types.ZadigReleaseServiceNameLabelKey: serviceName,
+			types.ZadigReleaseTypeLabelKey:        types.ZadigReleaseTypeMseGray,
+		})
+		deployments, err := getter.ListDeployments(namespace, selector, kubeClient)
+		if err != nil {
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to list deployments, service %s in %s: %v", serviceName, namespace, err))
+		}
+		for _, deployment := range deployments {
+			ret.Scales = append(ret.Scales, getDeploymentWorkloadResource(deployment, inf, log))
+			ret.Workloads = append(ret.Workloads, toDeploymentWorkload(deployment))
+		}
+		services, err := getter.ListServices(namespace, selector, kubeClient)
+		if err != nil {
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to get service, service %s in %s: %v", serviceName, namespace, err))
+		}
+		for _, service := range services {
+			ret.Services = append(ret.Services, wrapper.Service(service).Resource())
+		}
+	}
+
 	return
 }
 

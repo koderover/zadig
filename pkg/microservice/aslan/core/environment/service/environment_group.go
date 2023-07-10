@@ -149,6 +149,7 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 	if err != nil {
 		return resp, count, e.ErrListGroups.AddErr(errors.Wrap(err, "list mse release services"))
 	}
+	log.Debugf("mse release services num: %d", len(mseService))
 	for _, serviceResp := range mseService {
 		if _, ok := respMap[serviceResp.ServiceName]; !ok {
 			resp = append(resp, serviceResp)
