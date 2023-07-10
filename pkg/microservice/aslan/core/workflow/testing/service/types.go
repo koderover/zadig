@@ -176,3 +176,24 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		Outputs:          scanning.Outputs,
 	}
 }
+
+type OpenAPICreateTestTaskReq struct {
+	ProjectKey string `json:"project_key"`
+	TestName   string `json:"test_name"`
+}
+
+func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
+	if t.ProjectKey == "" {
+		return false, fmt.Errorf("project key cannot be empty")
+	}
+	if t.TestName == "" {
+		return false, fmt.Errorf("test name cannot be empty")
+	}
+
+	return true, nil
+}
+
+type OpenAPICreateTestTaskResp struct {
+	TaskID     int64 `json:"task_id"`
+	ErrMessage error `json:"err_message"`
+}

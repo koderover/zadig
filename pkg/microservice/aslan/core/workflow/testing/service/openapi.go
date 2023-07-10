@@ -20,11 +20,13 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
-
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	openapitool "github.com/koderover/zadig/pkg/tool/openapi"
 	"github.com/koderover/zadig/pkg/types"
+	"go.uber.org/zap"
 )
 
 func OpenAPICreateScanningModule(username string, args *OpenAPICreateScanningReq, log *zap.SugaredLogger) error {
@@ -90,4 +92,28 @@ func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *
 
 	ret.Repos = repoList
 	return ret, nil
+}
+
+func OpenAPICreateTestTask(userName string, args *OpenAPICreateTestTaskReq, logger *zap.SugaredLogger) (int64, error) {
+	task := &commonmodels.TestTaskArgs{
+		TestName:        args.TestName,
+		ProductName:     args.ProjectKey,
+		TestTaskCreator: userName,
+	}
+	result, err := CreateTestTask(task, logger)
+	if err != nil {
+		logger.Errorf("OpenAPI: user:%s failed to create project:%s test task:%s, err: %s", userName, args.ProjectKey, args.TestName, err)
+		return 0, err
+	}
+	return result.TaskID, nil
+}
+
+func OpenAPIGetTestTaskResult(taskID int64, productName, testName string, logger *zap.SugaredLogger) (*commonmodels.TestReport, error) {
+	pipelineName := fmt.Sprintf("%s-%s", testName, "job")
+	report, err := commonservice.GetLocalTestSuite(pipelineName, "", config.TestFunction, taskID, testName, config.SingleType, logger)
+	if err != nil {
+		logger.Errorf("OpenAPI: failed to get project:%s test:%s-%s task:%d result, err: %v", productName, config.TestFunction, testName, taskID, err)
+		return nil, err
+	}
+	return report, nil
 }

@@ -479,3 +479,9 @@ const (
 const (
 	CUSTOME_THEME = "custom"
 )
+
+const (
+	TestFunction    = "function"
+	TestPerformance = "performance"
+	TestSecurity    = "security"
+)
