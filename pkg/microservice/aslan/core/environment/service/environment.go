@@ -751,7 +751,7 @@ func genImageFromYaml(c *commonmodels.Container, valuesYaml, defaultValues, over
 	return image, nil
 }
 
-func prepareEstimateDaDatForEnvCreation(productName, serviceName string, production bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.RenderSet, error) {
+func prepareEstimateDataForEnvCreation(productName, serviceName string, production bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.RenderSet, error) {
 	var err error
 	templateService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
@@ -893,7 +893,7 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 
 	switch scene {
 	case usageScenarioCreateEnv:
-		productSvc, renderSet, err = prepareEstimateDaDatForEnvCreation(productName, serviceName, arg.Production, log)
+		productSvc, renderSet, err = prepareEstimateDataForEnvCreation(productName, serviceName, arg.Production, log)
 	default:
 		productSvc, renderSet, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceName, arg.Production, log)
 	}
