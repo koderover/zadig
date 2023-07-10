@@ -19,11 +19,13 @@ package service
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/setting"
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	systemService "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/setting"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	openapitool "github.com/koderover/zadig/pkg/tool/openapi"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -260,4 +262,138 @@ func generateBuildModuleFromOpenAPITemplateRequest(req *OpenAPIBuildCreationFrom
 	}
 
 	return ret, nil
+}
+
+func OpenAPIListBuildModules(projectName string, pageNum, pageSize int64, logger *zap.SugaredLogger) (*OpenAPIBuildListResp, error) {
+	opt := &commonrepo.BuildListOption{
+		ProductName: projectName,
+		PageNum:     pageNum,
+		PageSize:    pageSize,
+	}
+
+	builds, count, err := commonrepo.NewBuildColl().ListByOptions(opt)
+	if err != nil {
+		logger.Errorf("failed to list build modules, err: %s", err)
+		return nil, e.ErrListBuildModule.AddErr(err)
+	}
+
+	resp := &OpenAPIBuildListResp{
+		Total: count,
+	}
+	for _, build := range builds {
+		buildModule := &OpenAPIBuildBrief{
+			Name:        build.Name,
+			ProjectName: build.ProductName,
+			Source:      build.Source,
+			UpdateTime:  build.UpdateTime,
+			UpdateBy:    build.UpdateBy,
+		}
+
+		services := make([]*ServiceModule, 0)
+		for _, target := range build.Targets {
+			service := &ServiceModule{
+				ServiceName:   target.ServiceName,
+				ServiceModule: target.ServiceModule,
+			}
+
+			services = append(services, service)
+		}
+		buildModule.TargetServices = services
+		resp.Builds = append(resp.Builds, buildModule)
+	}
+	return resp, nil
+}
+
+func OpenAPIGetBuildModule(name, projectName string, logger *zap.SugaredLogger) (*OpenAPIBuildDetailResp, error) {
+	opt := &commonrepo.BuildFindOption{
+		Name:        name,
+		ProductName: projectName,
+	}
+
+	build, err := commonrepo.NewBuildColl().Find(opt)
+	if err != nil {
+		logger.Errorf("feailed to find build module, buildName:%s, projectName:%s err: %s", name, projectName, err)
+		return nil, e.ErrGetBuildModule.AddErr(err)
+	}
+
+	template, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+		ID: build.TemplateID,
+	})
+	if err != nil {
+		logger.Errorf("feailed to find build template, templateID:%s, err: %s", build.TemplateID, err)
+		return nil, e.ErrGetBuildModule.AddErr(err)
+	}
+	resp := &OpenAPIBuildDetailResp{
+		Name:         build.Name,
+		ProjectName:  build.ProductName,
+		BuildScript:  build.Scripts,
+		TemplateName: template.Name,
+	}
+
+	resp.Repos = make([]*OpenAPIRepo, 0)
+	for _, targetRepo := range build.TargetRepos {
+		for _, rp := range targetRepo.Repos {
+			repo := &OpenAPIRepo{
+				RepoName:     rp.RepoName,
+				Branch:       rp.Branch,
+				Source:       rp.Source,
+				RepoOwner:    rp.RepoOwner,
+				RemoteName:   rp.RemoteName,
+				CheckoutPath: rp.CheckoutPath,
+				Submodules:   rp.SubModules,
+				Hidden:       rp.Hidden,
+			}
+			resp.Repos = append(resp.Repos, repo)
+		}
+
+	}
+
+	resp.TargetServices = make([]*ServiceModule, 0)
+	for _, target := range build.Targets {
+		service := &ServiceModule{
+			ServiceName:   target.ServiceName,
+			ServiceModule: target.ServiceModule,
+		}
+		resp.TargetServices = append(resp.TargetServices, service)
+	}
+
+	basic, err := systemService.GetBasicImage(build.PreBuild.ImageID, logger)
+	resp.BuildEnv = &OpenAPIBuildEnv{
+		BasicImageID:    basic.ID.Hex(),
+		BasicImageLabel: basic.Label,
+	}
+	resp.BuildEnv.Installs = build.PreBuild.Installs
+
+	cluster, err := commonrepo.NewK8SClusterColl().FindByID(build.PreBuild.ClusterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find cluster of ID: %s, the error is: %s", build.PreBuild.ClusterID, err)
+	}
+	resp.AdvancedSetting = &types.OpenAPIAdvancedSetting{
+		ClusterName: cluster.Name,
+		Timeout:     int64(build.Timeout),
+		Spec:        build.PreBuild.ResReqSpec,
+		CacheSetting: &types.OpenAPICacheSetting{
+			Enabled:  build.CacheEnable,
+			CacheDir: build.CacheUserDir,
+		},
+	}
+	resp.AdvancedSetting.CacheSetting = &types.OpenAPICacheSetting{
+		Enabled:  build.CacheEnable,
+		CacheDir: build.CacheUserDir,
+	}
+
+	resp.Parameters = make([]*commonmodels.ServiceKeyVal, 0)
+	for _, kv := range build.PreBuild.Envs {
+		resp.Parameters = append(resp.Parameters, &commonmodels.ServiceKeyVal{
+			Key:          kv.Key,
+			Value:        kv.Value,
+			Type:         kv.Type,
+			IsCredential: kv.IsCredential,
+		})
+	}
+	resp.Outputs = build.Outputs
+
+	resp.PostBuild = build.PostBuild
+
+	return resp, nil
 }

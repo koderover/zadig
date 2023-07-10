@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
@@ -160,6 +161,7 @@ type LoadServiceFromYamlTemplateReq struct {
 }
 
 type OpenAPILoadServiceFromYamlTemplateReq struct {
+	Production   bool         `json:"production"`
 	ServiceName  string       `json:"service_name"`
 	ProjectKey   string       `json:"project_key"`
 	TemplateName string       `json:"template_name"`
@@ -210,8 +212,10 @@ func (req *OpenAPILoadServiceFromYamlTemplateReq) Validate() error {
 }
 
 type OpenAPICreateYamlServiceReq struct {
-	ServiceName string `json:"service_name"`
-	Yaml        string `json:"yaml"`
+	ServiceName  string                           `json:"service_name"`
+	Production   bool                             `json:"production"`
+	Yaml         string                           `json:"yaml"`
+	VariableYaml []*commontypes.ServiceVariableKV `json:"variable_yaml"`
 }
 
 func (req *OpenAPICreateYamlServiceReq) Validate() error {
@@ -227,5 +231,35 @@ func (req *OpenAPICreateYamlServiceReq) Validate() error {
 }
 
 type OpenAPIGetYamlServiceResp struct {
-	Yaml string `json:"yaml"`
+	ServiceName        string                           `json:"service_name"`
+	Source             string                           `json:"source"`
+	Type               string                           `json:"type"`
+	TemplateName       string                           `json:"template_name"`
+	CreatedBy          string                           `json:"created_by"`
+	CreatedTime        int64                            `json:"created_time"`
+	Yaml               string                           `json:"yaml"`
+	Containers         []*commonmodels.Container        `json:"containers"`
+	ServiceVariableKvs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
+}
+
+type OpenAPIListYamlServiceResp struct {
+	Service           []*ServiceBrief `json:"service"`
+	ProductionService []*ServiceBrief `json:"production_service"`
+}
+
+type ServiceBrief struct {
+	ServiceName string            `json:"service_name"`
+	Source      string            `json:"source"`
+	Type        string            `json:"type"`
+	Containers  []*ContainerBrief `json:"containers"`
+}
+
+type ContainerBrief struct {
+	Name      string `json:"name"`
+	Image     string `json:"image"`
+	ImageName string `json:"image_name"`
+}
+
+type OpenAPIUpdateServiceVariableRequest struct {
+	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs" binding:"required"`
 }

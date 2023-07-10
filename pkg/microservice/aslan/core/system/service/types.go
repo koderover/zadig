@@ -20,11 +20,19 @@ import (
 	"errors"
 	"net/url"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/util"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 )
+
+var ClusterProviderValueNames map[int8]string = map[int8]string{
+	1: "阿里云 ACK",
+	2: "腾讯云 TKE",
+	3: "华为云 CCE",
+	4: "Amazon EKS",
+	5: "腾讯云 TKE Serverless",
+	0: "其它",
+}
 
 type ExternalSystemDetail struct {
 	ID      string           `json:"id"`
@@ -189,4 +197,26 @@ type MeegoWorkItemStatusTransition struct {
 	TargetStateKey  string `json:"target_state_key"`
 	TargetStateName string `json:"target_state_name"`
 	TransitionID    int64  `json:"transition_id"`
+}
+
+type OpenAPIRegistry struct {
+	ID        string                  `json:"registry_id"`
+	Address   string                  `json:"address"`
+	Provider  config.RegistryProvider `json:"provider"`
+	Region    string                  `json:"region"`
+	Namespace string                  `json:"namespace"`
+	IsDefault bool                    `json:"is_default"`
+}
+
+type OpenAPICluster struct {
+	ID           string `json:"cluster_id"`
+	Name         string `json:"name"`
+	Production   bool   `json:"production"`
+	Description  string `json:"description"`
+	ProviderName string `json:"provider_name"`
+	CreatedBy    string `json:"created_by"`
+	CreatedTime  int64  `json:"created_time"`
+	Local        bool   `json:"local"`
+	Status       string `json:"status"`
+	Type         string `json:"type"`
 }

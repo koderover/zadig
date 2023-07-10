@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 )
 
 func OpenAPICreateRegistry(username string, req *OpenAPICreateRegistryReq, logger *zap.SugaredLogger) error {
@@ -43,4 +44,30 @@ func OpenAPICreateRegistry(username string, req *OpenAPICreateRegistryReq, logge
 	}
 
 	return CreateRegistryNamespace(username, reg, logger)
+}
+
+func OpenAPIListCluster(projectName string, logger *zap.SugaredLogger) ([]*OpenAPICluster, error) {
+	clusters, err := cluster.ListClusters([]string{}, projectName, logger)
+	if err != nil {
+		logger.Errorf("OpenAPI:ListClusters err : %v", err)
+		return nil, err
+	}
+
+	resp := make([]*OpenAPICluster, 0)
+	for _, cl := range clusters {
+		resp = append(resp, &OpenAPICluster{
+			ID:           cl.ID,
+			Name:         cl.Name,
+			Production:   cl.Production,
+			Description:  cl.Description,
+			ProviderName: ClusterProviderValueNames[cl.Provider],
+			CreatedBy:    cl.CreatedBy,
+			CreatedTime:  cl.CreatedAt,
+			Local:        cl.Local,
+			Status:       string(cl.Status),
+			Type:         cl.Type,
+		})
+	}
+
+	return resp, nil
 }

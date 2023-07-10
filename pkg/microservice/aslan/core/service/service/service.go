@@ -661,29 +661,6 @@ func fillServiceVariable(args *commonmodels.Service, curRevision *commonmodels.S
 	return nil
 }
 
-func OpenAPIUpdateServiceConfig(userName string, args *OpenAPIUpdateServiceConfigArgs, log *zap.SugaredLogger) error {
-	svc := &commonmodels.Service{
-		ServiceName: args.ServiceName,
-		Type:        args.Type,
-		ProductName: args.ProjectName,
-		CreateBy:    userName,
-		Source:      setting.SourceFromZadig,
-		Yaml:        args.Yaml,
-	}
-	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-		ProductName: args.ProjectName,
-		ServiceName: args.ServiceName,
-	})
-	if err != nil {
-		return e.ErrUpdateTemplate.AddDesc(err.Error())
-	}
-	svc.ServiceVariableKVs = currentService.ServiceVariableKVs
-	svc.VariableYaml = currentService.VariableYaml
-
-	_, err = CreateServiceTemplate(userName, svc, true, log)
-	return err
-}
-
 func CreateServiceTemplate(userName string, args *commonmodels.Service, force bool, log *zap.SugaredLogger) (*ServiceOption, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
@@ -1468,4 +1445,60 @@ func createGerritWebhookByService(codehostID int, serviceName, repoName, branchN
 		}
 	}
 	return nil
+}
+
+func ListServiceTemplateOpenAPI(projectName string, logger *zap.SugaredLogger) (*OpenAPIListYamlServiceResp, error) {
+	services, err := commonservice.ListServiceTemplate(projectName, logger)
+	if err != nil {
+		log.Errorf("ListServiceTemplateOpenAPI ListServiceTemplate err:%v", err)
+		return nil, err
+	}
+
+	resp := &OpenAPIListYamlServiceResp{
+		Service:           make([]*ServiceBrief, 0),
+		ProductionService: make([]*ServiceBrief, 0),
+	}
+	for _, s := range services.Data {
+		serv := &ServiceBrief{
+			ServiceName: s.Service,
+			Source:      s.Source,
+			Type:        s.Type,
+		}
+		container := make([]*ContainerBrief, 0)
+		for _, c := range s.Containers {
+			container = append(container, &ContainerBrief{
+				Name:      c.Name,
+				ImageName: c.ImageName,
+				Image:     c.Image,
+			})
+		}
+		serv.Containers = container
+		resp.Service = append(resp.Service, serv)
+	}
+
+	productionServices, err := ListProductionServices(projectName, logger)
+	if err != nil {
+		log.Errorf("ListServiceTemplateOpenAPI ListProductionServices err:%v", err)
+		return nil, err
+	}
+
+	for _, s := range productionServices.Data {
+		serv := &ServiceBrief{
+			ServiceName: s.Service,
+			Source:      s.Source,
+			Type:        s.Type,
+		}
+		container := make([]*ContainerBrief, 0)
+		for _, c := range s.Containers {
+			container = append(container, &ContainerBrief{
+				Name:      c.Name,
+				ImageName: c.ImageName,
+				Image:     c.Image,
+			})
+		}
+		serv.Containers = container
+		resp.ProductionService = append(resp.ProductionService, serv)
+	}
+
+	return resp, nil
 }

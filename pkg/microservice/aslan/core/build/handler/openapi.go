@@ -77,3 +77,41 @@ func OpenAPIDeleteBuildModule(c *gin.Context) {
 
 	ctx.Err = buildservice.DeleteBuild(name, productName, ctx.Logger)
 }
+
+func OpenAPIListBuildModules(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty project name.")
+		return
+	}
+
+	args := new(buildservice.OpenAPIPageParamsFromReq)
+	err := c.BindQuery(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = buildservice.OpenAPIListBuildModules(projectName, args.PageNum, args.PageSize, ctx.Logger)
+}
+
+func OpenAPIGetBuildModule(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	name := c.Param("name")
+	if name == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty buildName.")
+		return
+	}
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty projectName.")
+		return
+	}
+
+	ctx.Resp, ctx.Err = buildservice.OpenAPIGetBuildModule(name, projectName, ctx.Logger)
+}

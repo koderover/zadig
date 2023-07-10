@@ -23,6 +23,11 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
+type OpenAPIPageParamsFromReq struct {
+	PageNum  int64 `json:"page_num"  form:"pageNum,default=1"`
+	PageSize int64 `json:"page_size" form:"pageSize,default=20"`
+}
+
 type OpenAPIBuildCreationReq struct {
 	Name            string                           `json:"name"`
 	Description     string                           `json:"description"`
@@ -76,4 +81,57 @@ func (req *OpenAPIBuildCreationFromTemplateReq) Validate() (bool, error) {
 		return false, fmt.Errorf("target_service must have at least one item in it")
 	}
 	return true, nil
+}
+
+type OpenAPIBuildListResp struct {
+	Total  int64                `json:"total"`
+	Builds []*OpenAPIBuildBrief `json:"builds"`
+}
+
+type OpenAPIBuildBrief struct {
+	Name           string           `json:"name"`
+	ProjectName    string           `json:"project_name"`
+	Source         string           `json:"source"`
+	UpdateBy       string           `json:"update_by"`
+	UpdateTime     int64            `json:"update_time"`
+	TargetServices []*ServiceModule `json:"target_services"`
+}
+
+type ServiceModule struct {
+	ServiceName   string `json:"service_name"`
+	ServiceModule string `json:"service_module"`
+}
+
+type OpenAPIBuildDetailResp struct {
+	ProjectName     string                        `json:"project_name"`
+	Name            string                        `json:"name"`
+	Source          string                        `json:"source"`
+	TargetServices  []*ServiceModule              `json:"target_services"`
+	TemplateName    string                        `json:"template_name"`
+	UpdateBy        string                        `json:"update_by"`
+	UpdateTime      int64                         `json:"update_time"`
+	Repos           []*OpenAPIRepo                `json:"repos"`
+	BuildEnv        *OpenAPIBuildEnv              `json:"build_env"`
+	AdvancedSetting *types.OpenAPIAdvancedSetting `json:"advanced_settings"`
+	BuildScript     string                        `json:"build_script"`
+	Parameters      []*commonmodels.ServiceKeyVal `json:"parameters"`
+	Outputs         []*commonmodels.Output        `json:"outputs"`
+	PostBuild       *commonmodels.PostBuild       `json:"post_build"`
+}
+
+type OpenAPIRepo struct {
+	Source       string `json:"source"`
+	RepoOwner    string `json:"repo_owner"`
+	RepoName     string `json:"repo_name"`
+	Branch       string `json:"branch"`
+	RemoteName   string `json:"remote_name"`
+	CheckoutPath string `json:"checkout_path"`
+	Submodules   bool   `json:"submodules"`
+	Hidden       bool   `json:"hidden"`
+}
+
+type OpenAPIBuildEnv struct {
+	BasicImageID    string               `json:"basic_image_id"`
+	BasicImageLabel string               `json:"basic_image_label"`
+	Installs        []*commonmodels.Item `json:"installs"`
 }

@@ -24,6 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -57,4 +58,35 @@ func OpenAPICreateRegistry(c *gin.Context) {
 	}
 
 	ctx.Err = service.OpenAPICreateRegistry(ctx.UserName, args, ctx.Logger)
+}
+
+func OpenAPIListRegistry(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	registry, err := service.ListRegistries(ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	resp := make([]*service.OpenAPIRegistry, 0)
+	for _, reg := range registry {
+		resp = append(resp, &service.OpenAPIRegistry{
+			ID:        reg.ID.Hex(),
+			Address:   reg.RegAddr,
+			Provider:  config.RegistryProvider(reg.RegProvider),
+			Region:    reg.Region,
+			IsDefault: reg.IsDefault,
+			Namespace: reg.Namespace,
+		})
+	}
+	ctx.Resp = resp
+}
+
+func OpenAPIListCluster(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.OpenAPIListCluster(c.Query("projectName"), ctx.Logger)
 }
