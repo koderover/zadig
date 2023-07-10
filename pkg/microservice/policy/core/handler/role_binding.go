@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	picketuser "github.com/koderover/zadig/pkg/microservice/picket/client/user"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/pkg/setting"
@@ -62,7 +63,11 @@ func UpdateRoleBinding(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	detail := "用户：" + userInfo.Name + "，角色名称：" + args.Role
+	username := ""
+	if userInfo != nil {
+		username = userInfo.Name
+	}
+	detail := "用户：" + username + "，角色名称：" + args.Role
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.UpdateOrCreateRoleBinding(projectName, args, ctx.Logger)
@@ -108,7 +113,11 @@ func CreateRoleBinding(c *gin.Context) {
 			ctx.Err = e.ErrInvalidParam.AddErr(err)
 			return
 		}
-		detail += "用户：" + userInfo.Name + "，角色名称：" + arg.Role + "\n"
+		username := ""
+		if userInfo != nil {
+			username = userInfo.Name
+		}
+		detail += "用户：" + username + "，角色名称：" + arg.Role + "\n"
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色绑定", detail, string(data), ctx.Logger, "")
 
@@ -162,13 +171,23 @@ func DeleteRoleBindings(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	detail := "用户：" + userInfo.Name + "，角色名称："
+
+	username := ""
+	if userInfo != nil {
+		username = userInfo.Name
+	}
+	detail := "用户：" + username + "，角色名称："
 	for _, name := range args.Names {
 		detail += name + "，"
 	}
 	detail = strings.Trim(detail, "，")
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", projectName, detail, ctx.Logger, args.Names...)
+
+	_, err = picketuser.New().DeleteUser(userID, c.Request.Header, c.Request.URL.Query())
+	if err != nil {
+		return
+	}
 
 	ctx.Err = service.DeleteRoleBindings(args.Names, projectName, userID, ctx.Logger)
 }
@@ -206,7 +225,12 @@ func UpdateRoleBindings(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	detail := "用户：" + userInfo.Name + "，角色名称："
+
+	username := ""
+	if userInfo != nil {
+		username = userInfo.Name
+	}
+	detail := "用户：" + username + "，角色名称："
 	for _, arg := range args {
 		detail += arg.Role + "，"
 	}
@@ -265,7 +289,12 @@ func UpdateSystemRoleBindings(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	detail := "用户：" + userInfo.Name + "，角色名称："
+
+	username := ""
+	if userInfo != nil {
+		username = userInfo.Name
+	}
+	detail := "用户：" + username + "，角色名称："
 	for _, arg := range args {
 		detail += arg.Role + "，"
 	}
@@ -311,7 +340,12 @@ func CreateSystemRoleBinding(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	detail := "用户：" + userInfo.Name + "，角色名称：" + args.Role
+
+	username := ""
+	if userInfo != nil {
+		username = userInfo.Name
+	}
+	detail := "用户：" + username + "，角色名称：" + args.Role
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "创建", "系统角色绑定", detail, string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.CreateRoleBindings(service.SystemScope, []*service.RoleBinding{args}, ctx.Logger)
@@ -342,7 +376,12 @@ func CreateOrUpdateSystemRoleBinding(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	detail := "用户：" + userInfo.Name + "，角色名称：" + args.Role
+
+	username := ""
+	if userInfo != nil {
+		username = userInfo.Name
+	}
+	detail := "用户：" + username + "，角色名称：" + args.Role
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, "", setting.OperationSceneSystem, "创建或更新", "系统角色绑定", detail, string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.CreateOrUpdateSystemRoleBinding(service.SystemScope, args, ctx.Logger)
