@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
@@ -48,4 +49,21 @@ func DeleteCollaborationMode(username, projectName, name string, logger *zap.Sug
 		return err
 	}
 	return mongodb.NewCollaborationInstanceColl().ResetRevision(name, projectName)
+}
+
+func GetCollaborationMode(username, projectName, name string, logger *zap.SugaredLogger) (*models.CollaborationMode, bool, error) {
+	opt := &mongodb.CollaborationModeFindOptions{
+		ProjectName: projectName,
+		Name:        name,
+	}
+	resp, err := mongodb.NewCollaborationModeColl().Find(opt)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, false, nil
+		}
+
+		logger.Errorf("UpdateCollaborationMode error, err msg:%s", err)
+		return nil, false, err
+	}
+	return resp, true, nil
 }
