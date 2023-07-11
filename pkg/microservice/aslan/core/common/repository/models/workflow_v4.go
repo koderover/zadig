@@ -576,6 +576,11 @@ type MseGrayReleaseService struct {
 type MseGrayReleaseServiceModuleAndImage struct {
 	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
 	Image         string `bson:"image"          json:"image"          yaml:"image"`
+	// Only save for frontend
+	ImageName   string `bson:"image_name"     json:"image_name"     yaml:"image_name"`
+	Name        string `bson:"name"           json:"name"           yaml:"name"`
+	ServiceName string `bson:"service_name"   json:"service_name"   yaml:"service_name"`
+	Value       string `bson:"value"          json:"value"          yaml:"value"`
 }
 
 type MseGrayOfflineJobSpec struct {
