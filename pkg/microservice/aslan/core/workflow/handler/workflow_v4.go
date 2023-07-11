@@ -651,8 +651,9 @@ func RenderMseServiceYaml(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	type RenderMseServiceYamlReq struct {
-		MseGrayReleaseService *commonmodels.MseGrayReleaseService `json:",inline"`
-		GrayTag               string                              `json:"gray_tag"`
+		MseGrayReleaseService commonmodels.MseGrayReleaseService `json:",inline"`
+		GrayTag               string                             `json:"gray_tag"`
+		EnvName               string                             `json:"env_name"`
 	}
 
 	req := new(RenderMseServiceYamlReq)
@@ -661,7 +662,17 @@ func RenderMseServiceYaml(c *gin.Context) {
 		return
 	}
 
-	mseServiceYaml, err := workflow.RenderMseServiceYaml(req.GrayTag, req.MseGrayReleaseService)
+	if req.MseGrayReleaseService.YamlContent == "" {
+		mseServiceYaml, err := workflow.GetMseServiceYaml(c.Query("projectName"), req.EnvName, req.MseGrayReleaseService.ServiceName, req.GrayTag)
+		if err != nil {
+			ctx.Err = err
+			return
+		}
+		ctx.Resp = MseResponse{Yaml: mseServiceYaml}
+		return
+	}
+
+	mseServiceYaml, err := workflow.RenderMseServiceYaml(req.GrayTag, &req.MseGrayReleaseService)
 	if err != nil {
 		ctx.Err = err
 		return
