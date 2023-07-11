@@ -569,7 +569,7 @@ type MseGrayReleaseJobSpec struct {
 type MseGrayReleaseService struct {
 	ServiceName     string                                 `bson:"service_name" json:"service_name" yaml:"service_name"`
 	Replicas        int                                    `bson:"replicas"     json:"replicas"     yaml:"replicas"`
-	YamlContent     string                                 `bson:"yaml_content" json:"yaml_content" yaml:"yaml_content"`
+	YamlContent     string                                 `bson:"yaml" json:"yaml" yaml:"yaml"`
 	ServiceAndImage []*MseGrayReleaseServiceModuleAndImage `bson:"service_and_image" json:"service_and_image" yaml:"service_and_image"`
 }
 
