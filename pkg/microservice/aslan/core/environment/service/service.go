@@ -456,6 +456,7 @@ func GetMseServiceImpl(serviceName string, workLoadType string, env *commonmodel
 		}
 		for _, deployment := range deployments {
 			ret.Scales = append(ret.Scales, getDeploymentWorkloadResource(deployment, inf, log))
+			ret.Scales[len(ret.Scales)-1].IsZadigXRelease = true
 			ret.Workloads = append(ret.Workloads, toDeploymentWorkload(deployment))
 		}
 		services, err := getter.ListServices(namespace, selector, kubeClient)

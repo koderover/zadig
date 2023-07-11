@@ -22,6 +22,9 @@ type Workload struct {
 	Images   []ContainerImage `json:"images"`
 	Pods     []*Pod           `json:"pods"`
 	Replicas int32            `json:"replicas"`
+	// IsZadigXRelease is true when the workload is created by zadigx release workflow
+	// frontend should limit or allow some operations on these workloads
+	IsZadigXRelease bool `json:"is_zadigx_release"`
 }
 
 type ContainerImage struct {

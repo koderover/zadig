@@ -651,9 +651,9 @@ func RenderMseServiceYaml(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	type RenderMseServiceYamlReq struct {
-		MseGrayReleaseService commonmodels.MseGrayReleaseService `json:",inline"`
-		GrayTag               string                             `json:"gray_tag"`
-		EnvName               string                             `json:"env_name"`
+		commonmodels.MseGrayReleaseService `json:",inline"`
+		GrayTag                            string `json:"gray_tag"`
+		EnvName                            string `json:"env_name"`
 	}
 
 	req := new(RenderMseServiceYamlReq)
