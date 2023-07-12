@@ -26,12 +26,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
-	"go.uber.org/zap"
-
 	systemmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util/ginzap"
+	"go.uber.org/zap"
 )
 
 // Context struct
@@ -44,6 +43,7 @@ type Context struct {
 	UserID       string
 	IdentityType string
 	RequestID    string
+	Resources    *AuthorizedResources
 }
 
 type jwtClaims struct {
@@ -60,7 +60,10 @@ type FederatedClaims struct {
 	UserId      string `json:"user_id"`
 }
 
+// NewContext returns a context without user authorization info.
 // TODO: We need to implement a `context.Context` that conforms to the golang standard library.
+// After Jul.10 2023, this function should only be used when no authorization info is required.
+// If authorization info is required, use `NewContextWithAuthorization` instead.
 func NewContext(c *gin.Context) *Context {
 	logger := ginzap.WithContext(c).Sugar()
 	var claims jwtClaims
@@ -84,6 +87,26 @@ func NewContext(c *gin.Context) *Context {
 		Logger:       ginzap.WithContext(c).Sugar(),
 		RequestID:    c.GetString(setting.RequestID),
 	}
+}
+
+// NewContextWithAuthorization returns a context with user authorization info.
+// This function should only be called wnen
+func NewContextWithAuthorization(c *gin.Context) *Context {
+	logger := ginzap.WithContext(c).Sugar()
+	var resourceAuthInfo *AuthorizedResources
+	var err error
+	resp := NewContext(c)
+	if resp.UserID != "" {
+		resourceAuthInfo, err = generateUserAuthorizationInfo(resp.UserID)
+		if err != nil {
+			logger.Warnf("failed to generate ")
+		}
+	} else if resp.UserName == "system" {
+		// system calls are always authorized
+		resourceAuthInfo, err = generateSystemAuthorizationInfo()
+	}
+	resp.Resources = resourceAuthInfo
+	return resp
 }
 
 func GetResourcesInHeader(c *gin.Context) ([]string, bool) {

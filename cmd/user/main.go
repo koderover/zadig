@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,28 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package user
+package main
 
 import (
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"context"
+	"log"
+	"os/signal"
+	"syscall"
+
+	"github.com/koderover/zadig/pkg/microservice/user/server"
 )
 
-type Client struct {
-	*httpclient.Client
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
 
-	host string
-}
-
-func New() *Client {
-	host := config.UserServiceAddress()
-
-	c := httpclient.New(
-		httpclient.SetHostURL(host + "/api/v1"),
-	)
-
-	return &Client{
-		Client: c,
-		host:   host,
+	if err := server.Serve(ctx); err != nil {
+		log.Fatal(err)
 	}
 }

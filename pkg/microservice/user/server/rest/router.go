@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,28 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package user
+package rest
 
 import (
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/gin-gonic/gin"
+
+	"github.com/koderover/zadig/pkg/microservice/user/core/handler"
 )
 
-type Client struct {
-	*httpclient.Client
-
-	host string
+func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
+	for _, r := range []injector{
+		new(handler.Router),
+	} {
+		r.Inject(router.Group("/api/v1"))
+	}
 }
 
-func New() *Client {
-	host := config.UserServiceAddress()
-
-	c := httpclient.New(
-		httpclient.SetHostURL(host + "/api/v1"),
-	)
-
-	return &Client{
-		Client: c,
-		host:   host,
-	}
+type injector interface {
+	Inject(router *gin.RouterGroup)
 }

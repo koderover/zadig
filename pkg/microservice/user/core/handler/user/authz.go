@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,25 +17,17 @@ limitations under the License.
 package user
 
 import (
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/gin-gonic/gin"
+
+	userservice "github.com/koderover/zadig/pkg/microservice/user/core/service/user"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-type Client struct {
-	*httpclient.Client
+func GetUserAuthInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	host string
-}
+	uid := c.Query("uid")
 
-func New() *Client {
-	host := config.UserServiceAddress()
-
-	c := httpclient.New(
-		httpclient.SetHostURL(host + "/api/v1"),
-	)
-
-	return &Client{
-		Client: c,
-		host:   host,
-	}
+	ctx.Resp, ctx.Err = userservice.GetUserAuthInfo(uid, ctx.Logger)
 }
