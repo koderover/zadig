@@ -783,6 +783,8 @@ definitions:
         type: string
       envName:
         type: string
+      is_chart_deploy:
+        type: boolean
       overrideValues:
         items:
           $ref: '#/definitions/service.KVPair'
@@ -790,8 +792,6 @@ definitions:
       overrideYaml:
         type: string
       serviceName:
-        type: string
-      source:
         type: string
       valuesData:
         $ref: '#/definitions/service.ValuesDataArgs'
@@ -939,6 +939,8 @@ definitions:
         type: string
       envName:
         type: string
+      is_chart_deploy:
+        type: boolean
       overrideValues:
         items:
           $ref: '#/definitions/service.KVPair'
@@ -946,8 +948,6 @@ definitions:
       overrideYaml:
         type: string
       serviceName:
-        type: string
-      source:
         type: string
       valuesData:
         $ref: '#/definitions/service.ValuesDataArgs'
@@ -1240,6 +1240,8 @@ definitions:
       chart_version:
         description: '---- for helm services begin ----'
         type: string
+      is_helm_chart_deploy:
+        type: boolean
       override_values:
         description: used for helm services, json-encoded string of kv value
         type: string
@@ -1250,6 +1252,7 @@ definitions:
           OverrideYaml will be used in both helm and k8s projects
           In k8s this is variable_yaml
       service_name:
+        description: ServiceName or release name for helm chart deploy
         type: string
       values_yaml:
         type: string
@@ -1767,6 +1770,62 @@ paths:
               $ref: '#/definitions/service.ServiceDeployStatus'
             type: array
       summary: Get Resource Deploy Status
+      tags:
+      - environment
+  /api/aslan/environment/production/environments:
+    put:
+      consumes:
+      - application/json
+      description: Update Multi production products
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: type
+        in: query
+        name: type
+        type: string
+      - description: is force
+        in: query
+        name: force
+        required: true
+        type: boolean
+      - description: updateMultiK8sEnv body
+        in: body
+        name: k8s_body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.UpdateEnv'
+          type: array
+      - description: updateMultiHelmEnv body
+        in: body
+        name: helm_body
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateMultiHelmProductArg'
+      - description: updateMultiHelmChartEnv body
+        in: body
+        name: helm_chart_body
+        required: true
+        schema:
+          $ref: '#/definitions/service.UpdateMultiHelmProductArg'
+      - description: updateMultiCvmEnv body
+        in: body
+        name: pm_body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.UpdateEnv'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update Multi production products
       tags:
       - environment
   /api/aslan/environment/rendersets/globalVariables:

@@ -616,6 +616,90 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/production/environments": {
+            "put": {
+                "description": "Update Multi production products",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Update Multi production products",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "type",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is force",
+                        "name": "force",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "updateMultiK8sEnv body",
+                        "name": "k8s_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.UpdateEnv"
+                            }
+                        }
+                    },
+                    {
+                        "description": "updateMultiHelmEnv body",
+                        "name": "helm_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.UpdateMultiHelmProductArg"
+                        }
+                    },
+                    {
+                        "description": "updateMultiHelmChartEnv body",
+                        "name": "helm_chart_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.UpdateMultiHelmProductArg"
+                        }
+                    },
+                    {
+                        "description": "updateMultiCvmEnv body",
+                        "name": "pm_body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.UpdateEnv"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/rendersets/globalVariables": {
             "get": {
                 "description": "Get global variable from environment, current only used for k8s project",
@@ -2651,6 +2735,9 @@ const docTemplate = `{
                 "envName": {
                     "type": "string"
                 },
+                "is_chart_deploy": {
+                    "type": "boolean"
+                },
                 "overrideValues": {
                     "type": "array",
                     "items": {
@@ -2661,9 +2748,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "serviceName": {
-                    "type": "string"
-                },
-                "source": {
                     "type": "string"
                 },
                 "valuesData": {
@@ -2888,6 +2972,9 @@ const docTemplate = `{
                 "envName": {
                     "type": "string"
                 },
+                "is_chart_deploy": {
+                    "type": "boolean"
+                },
                 "overrideValues": {
                     "type": "array",
                     "items": {
@@ -2898,9 +2985,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "serviceName": {
-                    "type": "string"
-                },
-                "source": {
                     "type": "string"
                 },
                 "valuesData": {
@@ -3344,6 +3428,9 @@ const docTemplate = `{
                     "description": "---- for helm services begin ----",
                     "type": "string"
                 },
+                "is_helm_chart_deploy": {
+                    "type": "boolean"
+                },
                 "override_values": {
                     "description": "used for helm services, json-encoded string of kv value",
                     "type": "string"
@@ -3357,6 +3444,7 @@ const docTemplate = `{
                     ]
                 },
                 "service_name": {
+                    "description": "ServiceName or release name for helm chart deploy",
                     "type": "string"
                 },
                 "values_yaml": {
