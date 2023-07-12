@@ -557,6 +557,7 @@ type IstioJobTarget struct {
 }
 
 type MseGrayReleaseJobSpec struct {
+	Production         bool                     `bson:"production" json:"production" yaml:"production"`
 	GrayTag            string                   `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
 	BaseEnv            string                   `bson:"base_env" json:"base_env" yaml:"base_env"`
 	GrayEnv            string                   `bson:"gray_env" json:"gray_env" yaml:"gray_env"`

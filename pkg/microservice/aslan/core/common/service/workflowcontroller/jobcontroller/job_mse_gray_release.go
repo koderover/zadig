@@ -138,6 +138,7 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 				logError(c.job, fmt.Sprintf("failed to convert service %s deployment to deployment object: %v", service.ServiceName, err), c.logger)
 				return
 			}
+			deploymentObj.SetNamespace(c.namespace)
 			err = c.kubeClient.Create(context.Background(), deploymentObj)
 			if err != nil {
 				c.Error(fmt.Sprintf("failed to create deployment %s: %v", deploymentObj.Name, err))
@@ -152,6 +153,7 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 				logError(c.job, fmt.Sprintf("failed to convert service %s configmap to configmap object: %v", service.ServiceName, err), c.logger)
 				return
 			}
+			configMapObj.SetNamespace(c.namespace)
 			err = c.kubeClient.Create(context.Background(), configMapObj)
 			if err != nil {
 				c.Error(fmt.Sprintf("failed to create configmap %s: %v", configMapObj.Name, err))
@@ -165,6 +167,7 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 				logError(c.job, fmt.Sprintf("failed to convert service %s secret to secret object: %v", service.ServiceName, err), c.logger)
 				return
 			}
+			secretObj.SetNamespace(c.namespace)
 			err = c.kubeClient.Create(context.Background(), secretObj)
 			if err != nil {
 				c.Error(fmt.Sprintf("failed to create secret %s: %v", secretObj.Name, err))
@@ -178,6 +181,7 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 				logError(c.job, fmt.Sprintf("failed to convert service %s service to service object: %v", service.ServiceName, err), c.logger)
 				return
 			}
+			serviceObj.SetNamespace(c.namespace)
 			err = c.kubeClient.Create(context.Background(), serviceObj)
 			if err != nil {
 				c.Error(fmt.Sprintf("failed to create service %s: %v", serviceObj.Name, err))

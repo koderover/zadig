@@ -214,6 +214,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/yamlComparison", CompareHelmServiceYamlInEnv)
 		//workflowV4.POST("/mse/:envName/:serviceName", GetMseServiceYaml)
 		workflowV4.POST("/mse/render", RenderMseServiceYaml)
+		workflowV4.POST("/mse/offline", GetMseOfflineResources)
 	}
 
 	// ---------------------------------------------------------------------------------------

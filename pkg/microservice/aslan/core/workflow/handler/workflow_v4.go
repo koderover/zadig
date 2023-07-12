@@ -634,17 +634,17 @@ type MseResponse struct {
 	Yaml string `json:"yaml"`
 }
 
-func GetMseServiceYaml(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	mseServiceYaml, err := workflow.GetMseServiceYaml(c.Query("projectName"), c.Param("envName"), c.Param("serviceName"), c.Query("grayTag"))
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-	ctx.Resp = MseResponse{Yaml: mseServiceYaml}
-}
+//func GetMseServiceYaml(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//
+//	mseServiceYaml, err := workflow.GetMseServiceYaml(c.Query("projectName"), c.Param("envName"), c.Param("serviceName"), c.Query("grayTag"))
+//	if err != nil {
+//		ctx.Err = err
+//		return
+//	}
+//	ctx.Resp = MseResponse{Yaml: mseServiceYaml}
+//}
 
 func RenderMseServiceYaml(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -678,6 +678,22 @@ func RenderMseServiceYaml(c *gin.Context) {
 		return
 	}
 	ctx.Resp = MseResponse{Yaml: mseServiceYaml}
+}
+
+func GetMseOfflineResources(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	services, err := workflow.GetMseOfflineResources(c.Query("grayTag"), c.Query("envName"), c.Query("projectName"))
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = struct {
+		Services []string `json:"services"`
+	}{
+		Services: services,
+	}
 }
 
 func getBody(c *gin.Context) string {

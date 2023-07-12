@@ -35,6 +35,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"helm.sh/helm/v3/pkg/releaseutil"
 	v1 "k8s.io/api/apps/v1"
@@ -66,7 +67,9 @@ import (
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -2232,9 +2235,9 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 			}
 			deploymentObj.Name += nameSuffix
 			deploymentObj.Spec.Replicas = pointer.Int32(1)
-			setMseLabels(deploymentObj.Labels, grayTag, serviceName)
-			setMseLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
-			setMseLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
+			deploymentObj.Labels = setMseLabels(deploymentObj.Labels, grayTag, serviceName)
+			deploymentObj.Spec.Selector.MatchLabels = setMseLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
+			deploymentObj.Spec.Template.Labels = setMseLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
 			resp, err := toYaml(deploymentObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s deployment object: %v", serviceName, err)
@@ -2247,7 +2250,7 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 				return "", errors.Errorf("failed to convert service %s ConfigMap to object: %v", serviceName, err)
 			}
 			cmObj.Name += nameSuffix
-			setMseLabels(cmObj.GetLabels(), grayTag, serviceName)
+			cmObj.Labels = setMseLabels(cmObj.Labels, grayTag, serviceName)
 			s, err := toYaml(cmObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s configmap object: %v", serviceName, err)
@@ -2260,8 +2263,8 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 				return "", errors.Errorf("failed to convert service %s Service to object: %v", serviceName, err)
 			}
 			serviceObj.Name += nameSuffix
-			setMseLabels(serviceObj.GetLabels(), grayTag, serviceName)
-			setMseLabels(serviceObj.Spec.Selector, grayTag, serviceName)
+			serviceObj.Labels = setMseLabels(serviceObj.Labels, grayTag, serviceName)
+			serviceObj.Spec.Selector = setMseLabels(serviceObj.Spec.Selector, grayTag, serviceName)
 			s, err := toYaml(serviceObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s service object: %v", serviceName, err)
@@ -2274,7 +2277,7 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 				return "", errors.Errorf("failed to convert service %s Secret to object: %v", serviceName, err)
 			}
 			secretObj.Name += nameSuffix
-			setMseLabels(secretObj.GetLabels(), grayTag, serviceName)
+			secretObj.Labels = setMseLabels(secretObj.Labels, grayTag, serviceName)
 			s, err := toYaml(secretObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s secret object: %v", serviceName, err)
@@ -2323,9 +2326,9 @@ func RenderMseServiceYaml(productName, envName, grayTag string, service *commonm
 				return "", errors.Errorf("service %s deployment template label must contain %s", serviceName, types.ZadigReleaseVersionLabelKey)
 			}
 
-			setMseDeploymentLabels(deploymentObj.Labels, grayTag, serviceName)
-			setMseDeploymentLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
-			setMseDeploymentLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
+			deploymentObj.Labels = setMseDeploymentLabels(deploymentObj.Labels, grayTag, serviceName)
+			deploymentObj.Spec.Selector.MatchLabels = setMseDeploymentLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
+			deploymentObj.Spec.Template.Labels = setMseDeploymentLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
 			Replicas := int32(service.Replicas)
 			deploymentObj.Spec.Replicas = &Replicas
 			resp, err := toYaml(deploymentObj)
@@ -2371,7 +2374,7 @@ func RenderMseServiceYaml(productName, envName, grayTag string, service *commonm
 			if err != nil {
 				return "", errors.Errorf("failed to convert service %s ConfigMap to object: %v", serviceName, err)
 			}
-			setMseLabels(cmObj.GetLabels(), grayTag, serviceName)
+			cmObj.SetLabels(setMseLabels(cmObj.GetLabels(), grayTag, serviceName))
 			s, err := toYaml(cmObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s configmap object: %v", serviceName, err)
@@ -2383,8 +2386,8 @@ func RenderMseServiceYaml(productName, envName, grayTag string, service *commonm
 			if err != nil {
 				return "", errors.Errorf("failed to convert service %s Service to object: %v", serviceName, err)
 			}
-			setMseLabels(serviceObj.GetLabels(), grayTag, serviceName)
-			setMseLabels(serviceObj.Spec.Selector, grayTag, serviceName)
+			serviceObj.SetLabels(setMseLabels(serviceObj.GetLabels(), grayTag, serviceName))
+			serviceObj.Spec.Selector = setMseLabels(serviceObj.Spec.Selector, grayTag, serviceName)
 			s, err := toYaml(serviceObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s service object: %v", serviceName, err)
@@ -2396,7 +2399,7 @@ func RenderMseServiceYaml(productName, envName, grayTag string, service *commonm
 			if err != nil {
 				return "", errors.Errorf("failed to convert service %s Secret to object: %v", serviceName, err)
 			}
-			setMseLabels(secretObj.GetLabels(), grayTag, serviceName)
+			secretObj.SetLabels(setMseLabels(secretObj.GetLabels(), grayTag, serviceName))
 			s, err := toYaml(secretObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s secret object: %v", serviceName, err)
@@ -2420,6 +2423,38 @@ func toYaml(obj runtime.Object) (string, error) {
 		return "", errors.Wrapf(err, "failed to marshal object to yaml")
 	}
 	return writer.String(), nil
+}
+
+func GetMseOfflineResources(grayTag, envName, projectName string) ([]string, error) {
+	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return nil, errors.Errorf("failed to find product %s: %v", projectName, err)
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	if err != nil {
+		return nil, err
+	}
+	selector := labels.Set{
+		types.ZadigReleaseTypeLabelKey:    types.ZadigReleaseTypeMseGray,
+		types.ZadigReleaseVersionLabelKey: grayTag,
+	}.AsSelector()
+	deploymentList, err := getter.ListDeployments(prod.Namespace, selector, kubeClient)
+	if err != nil {
+		return nil, errors.Errorf("can't list deployment: %v", err)
+	}
+	var services []string
+	for _, deployment := range deploymentList {
+		if service := deployment.Labels[types.ZadigReleaseServiceNameLabelKey]; service != "" {
+			services = append(services, service)
+		} else {
+			log.Warnf("GetMseOfflineResources: deployment %s has no service name label", deployment.Name)
+		}
+	}
+
+	return services, nil
 }
 
 //func RenderMseServiceYaml(grayTag string, service *commonmodels.MseGrayReleaseService) (string, error) {
@@ -2536,7 +2571,7 @@ func toYaml(obj runtime.Object) (string, error) {
 //	return strings.Join(yamls, "---\n"), nil
 //}
 
-func setMseDeploymentLabels(labels map[string]string, grayTag, serviceName string) {
+func setMseDeploymentLabels(labels map[string]string, grayTag, serviceName string) map[string]string {
 	if labels == nil {
 		labels = make(map[string]string)
 	}
@@ -2544,15 +2579,17 @@ func setMseDeploymentLabels(labels map[string]string, grayTag, serviceName strin
 	labels[types.ZadigReleaseMSEGrayTagLabelKey] = grayTag
 	labels[types.ZadigReleaseTypeLabelKey] = types.ZadigReleaseTypeMseGray
 	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName
+	return labels
 }
 
-func setMseLabels(labels map[string]string, grayTag, serviceName string) {
+func setMseLabels(labels map[string]string, grayTag, serviceName string) map[string]string {
 	if labels == nil {
 		labels = make(map[string]string)
 	}
 	labels[types.ZadigReleaseVersionLabelKey] = grayTag
 	labels[types.ZadigReleaseTypeLabelKey] = types.ZadigReleaseTypeMseGray
 	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName
+	return labels
 }
 
 func checkMapKeyExist(m map[string]string, key string) bool {
