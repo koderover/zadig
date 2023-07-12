@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
@@ -27,6 +28,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -362,6 +364,58 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				JobType: string(config.JobZadigDeploy),
 				Spec:    jobTaskSpec,
 			}
+			if jobTaskSpec.CreateEnvType == "system" {
+				var updateRevision bool
+				if slices.Contains(jobTaskSpec.DeployContents, config.DeployConfig) && jobTaskSpec.UpdateConfig {
+					updateRevision = true
+				}
+
+				varsYaml := ""
+				varKVs := []*commontypes.RenderVariableKV{}
+				if slices.Contains(jobTaskSpec.DeployContents, config.DeployVars) {
+					varsYaml, err = commontypes.RenderVariableKVToYaml(jobTaskSpec.VariableKVs)
+					if err != nil {
+						return nil, errors.Errorf("generate vars yaml error: %v", err)
+					}
+					varKVs = jobTaskSpec.VariableKVs
+				}
+				containers := []*commonmodels.Container{}
+				if slices.Contains(jobTaskSpec.DeployContents, config.DeployImage) {
+					if j.spec.Source == config.SourceFromJob {
+						for _, serviceImage := range jobTaskSpec.ServiceAndImages {
+							containers = append(containers, &commonmodels.Container{
+								Name:      serviceImage.ServiceModule,
+								Image:     "{{ NOT BE RENDERED }}",
+								ImageName: "{{ NOT BE RENDERED }}",
+							})
+						}
+					} else {
+						for _, serviceImage := range jobTaskSpec.ServiceAndImages {
+							containers = append(containers, &commonmodels.Container{
+								Name:      serviceImage.ServiceModule,
+								Image:     serviceImage.Image,
+								ImageName: util.ExtractImageName(serviceImage.Image),
+							})
+						}
+					}
+				}
+
+				option := &kube.GeneSvcYamlOption{
+					ProductName:           j.workflow.Project,
+					EnvName:               jobTaskSpec.Env,
+					ServiceName:           jobTaskSpec.ServiceName,
+					UpdateServiceRevision: updateRevision,
+					VariableYaml:          varsYaml,
+					VariableKVs:           varKVs,
+					Containers:            containers,
+				}
+				updatedYaml, _, _, err := kube.GenerateRenderedYaml(option)
+				if err != nil {
+					return nil, errors.Errorf("generate service yaml error: %v", err)
+				}
+				jobTaskSpec.YamlContent = updatedYaml
+			}
+
 			for _, image := range jobTaskSpec.ServiceAndImages {
 				log.Infof("DeployJob ToJobs %d: workflow %s service %s, module %s, image %s",
 					taskID, j.workflow.Name, serviceName, image.ServiceModule, image.Image)
