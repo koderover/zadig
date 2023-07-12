@@ -672,7 +672,7 @@ func RenderMseServiceYaml(c *gin.Context) {
 		return
 	}
 
-	mseServiceYaml, err := workflow.RenderMseServiceYaml(req.GrayTag, &req.MseGrayReleaseService)
+	mseServiceYaml, err := workflow.RenderMseServiceYaml(c.Query("projectName"), req.EnvName, req.GrayTag, &req.MseGrayReleaseService)
 	if err != nil {
 		ctx.Err = err
 		return

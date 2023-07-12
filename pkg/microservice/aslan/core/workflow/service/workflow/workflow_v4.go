@@ -2290,7 +2290,7 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 	return strings.Join(yamls, "---\n"), nil
 }
 
-func RenderMseServiceYaml(grayTag string, service *commonmodels.MseGrayReleaseService) (string, error) {
+func RenderMseServiceYaml(productName, envName, grayTag string, service *commonmodels.MseGrayReleaseService) (string, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	manifests := releaseutil.SplitManifests(service.YamlContent)
 	for _, item := range manifests {
@@ -2332,12 +2332,33 @@ func RenderMseServiceYaml(grayTag string, service *commonmodels.MseGrayReleaseSe
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s deployment object: %v", serviceName, err)
 			}
+			prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+				Name:    productName,
+				EnvName: envName,
+			})
+			if err != nil {
+				return "", errors.Errorf("failed to find product %s: %v", productName, err)
+			}
+			serviceModules := sets.NewString()
 			var newImages []*commonmodels.Container
 			for _, image := range service.ServiceAndImage {
+				serviceModules.Insert(image.ServiceModule)
 				newImages = append(newImages, &commonmodels.Container{
 					Name:  image.ServiceModule,
 					Image: image.Image,
 				})
+			}
+			for _, services := range prod.Services {
+				for _, productService := range services {
+					for _, container := range productService.Containers {
+						if !serviceModules.Has(container.Name) {
+							newImages = append(newImages, &commonmodels.Container{
+								Name:  container.Name,
+								Image: container.Image,
+							})
+						}
+					}
+				}
 			}
 			resp, _, err = kube.ReplaceWorkloadImages(resp, newImages)
 			if err != nil {
