@@ -151,8 +151,11 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 	}
 	log.Debugf("mse release services num: %d", len(mseService))
 	for _, serviceResp := range mseService {
-		if _, ok := respMap[serviceResp.ServiceName]; !ok {
+		if svc, ok := respMap[serviceResp.ServiceName]; !ok {
 			resp = append(resp, serviceResp)
+		} else {
+			// when zadigx release resource exists, should set ZadigXReleaseType field too
+			svc.ZadigXReleaseType = serviceResp.ZadigXReleaseType
 		}
 	}
 	return resp, count, nil
@@ -181,11 +184,11 @@ func listZadigXMseReleaseServices(namespace, productName, envName string, client
 					return setting.PodUnstable
 				}
 			}(),
-			Images:          wrapper.Deployment(deployment).ImageInfos(),
-			ProductName:     productName,
-			EnvName:         envName,
-			DeployStrategy:  "deploy",
-			IsZadigXRelease: true,
+			Images:            wrapper.Deployment(deployment).ImageInfos(),
+			ProductName:       productName,
+			EnvName:           envName,
+			DeployStrategy:    "deploy",
+			ZadigXReleaseType: config.ZadigXMseGrayRelease,
 		})
 	}
 	return services, nil

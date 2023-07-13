@@ -91,9 +91,9 @@ type ServiceResp struct {
 	EnvConfigs     []*models.EnvConfig `json:"env_configs"`
 	Updatable      bool                `json:"updatable"`
 	DeployStrategy string              `json:"deploy_strategy"`
-	// IsZadigXRelease is true when the service is a fake zadig service created by zadigx release workflow
+	// ZadigXReleaseType represents the service contain created by zadigx release workflow
 	// frontend should limit some operations on these services
-	IsZadigXRelease bool `json:"is_zadigx_release"`
+	ZadigXReleaseType config.ZadigXReleaseType `json:"zadigx_release_type"`
 }
 
 type IngressInfo struct {

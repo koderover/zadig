@@ -481,3 +481,9 @@ const (
 const (
 	CUSTOME_THEME = "custom"
 )
+
+type ZadigXReleaseType string
+
+var (
+	ZadigXMseGrayRelease ZadigXReleaseType = "mse-gray"
+)
