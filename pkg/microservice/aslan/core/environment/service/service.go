@@ -197,15 +197,15 @@ func GetService(envName, productName, serviceName string, production bool, workL
 	}
 
 	ret, err = GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
-	if err != nil {
-		if !strings.Contains(err.Error(), "failed to find service in environment") {
-			return nil, e.ErrGetService.AddErr(err)
-		}
-		ret, err = GetMseServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
-		if err != nil {
-			return nil, e.ErrGetService.AddErr(errors.Wrap(err, "failed to get mse service"))
-		}
+	if err != nil && !strings.Contains(err.Error(), "failed to find service in environment") {
+		return nil, e.ErrGetService.AddErr(err)
 	}
+	mseResp, err := GetMseServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(errors.Wrap(err, "failed to get mse service"))
+	}
+	ret.Scales = append(ret.Scales, mseResp.Scales...)
+	ret.Services = append(ret.Services, mseResp.Services...)
 	ret.Workloads = nil
 	ret.Namespace = env.Namespace
 	return ret, nil
