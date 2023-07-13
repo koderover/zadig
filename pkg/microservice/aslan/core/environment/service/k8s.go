@@ -97,6 +97,7 @@ func (k *K8sService) queryWorkloadStatus(serviceTmpl *commonmodels.Service, prod
 			return setting.PodUnstable
 		}
 		for _, workload := range workloads {
+			log.Infof("workload name: %s, ready: %v", workload.Name, workload.Ready)
 			if !workload.Ready {
 				return setting.PodUnstable
 			}

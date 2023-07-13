@@ -277,7 +277,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 				continue
 			}
 			wd := wrapper.Deployment(d)
-			log.Infof("find deployment %s, status: %v/%v", d.Name, wd.Status.Replicas, wd.Status.ReadyReplicas)
+			log.Infof("find deployment %s, status: %v/%v/%v ready: %v", d.Name, wd.Status.Replicas, wd.Status.ReadyReplicas, wd.Status.AvailableReplicas, wd.Ready())
 			ret = append(ret, &commonservice.Workload{
 				Name:       wd.Name,
 				Spec:       wd.Spec.Template,
