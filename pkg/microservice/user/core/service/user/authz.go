@@ -56,23 +56,30 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 			}
 			if found {
 				for _, rule := range roleDetailInfo.Rules {
-					// since every rule is only associated with one resource, we just read the first one
-					switch rule.Resources[0]{
-					case
+					// resources field is no longer required, the verb itself is sufficient to explain the authorization
+					for _, verb := range rule.Verbs {
+						modifyUserAuth(projectActionMap[project], verb)
 					}
 				}
 			}
 		}
 	}
 
-	return nil, nil
+	// TODO: deal with individual resources later
+
+	resp := &AuthorizedResources{
+		IsSystemAdmin:   false,
+		ProjectAuthInfo: projectActionMap,
+	}
+
+	return resp, nil
 }
 
 func generateAdminRoleResource() *AuthorizedResources {
 	return &AuthorizedResources{
-		IsSystemAdmin:      true,
-		ProjectAuthInfo:    nil,
-		AdditionalResource: nil,
+		IsSystemAdmin:   true,
+		ProjectAuthInfo: nil,
+		//AdditionalResource: nil,
 	}
 }
 
@@ -92,7 +99,7 @@ func generateDefaultProjectActions() *ProjectActions {
 			EditConfig: false,
 			ManagePods: false,
 			Delete:     false,
-			Debug:      false,
+			DebugPod:   false,
 		},
 		ProductionEnv: &ProductionEnvActions{
 			View:       false,
@@ -100,7 +107,7 @@ func generateDefaultProjectActions() *ProjectActions {
 			EditConfig: false,
 			ManagePods: false,
 			Delete:     false,
-			Debug:      false,
+			DebugPod:   false,
 		},
 		Service: &ServiceActions{
 			View:   false,
@@ -139,5 +146,98 @@ func generateDefaultProjectActions() *ProjectActions {
 			Create: false,
 			Delete: false,
 		},
+	}
+}
+
+func modifyUserAuth(userAuthInfo *ProjectActions, verb string) {
+	switch verb {
+	case VerbCreateDelivery:
+		userAuthInfo.Version.Create = true
+	case VerbDeleteDelivery:
+		userAuthInfo.Version.Delete = true
+	case VerbGetDelivery:
+		userAuthInfo.Version.View = true
+	case VerbGetTest:
+		userAuthInfo.Test.View = true
+	case VerbCreateTest:
+		userAuthInfo.Test.Create = true
+	case VerbDeleteTest:
+		userAuthInfo.Test.Delete = true
+	case VerbEditTest:
+		userAuthInfo.Test.Edit = true
+	case VerbRunTest:
+		userAuthInfo.Test.Execute = true
+	case VerbCreateService:
+		userAuthInfo.Service.Create = true
+	case VerbEditService:
+		userAuthInfo.Service.Edit = true
+	case VerbDeleteService:
+		userAuthInfo.Service.Delete = true
+	case VerbGetService:
+		userAuthInfo.Service.View = true
+	case VerbCreateProductionService:
+		userAuthInfo.ProductionService.Create = true
+	case VerbEditProductionService:
+		userAuthInfo.ProductionService.Edit = true
+	case VerbDeleteProductionService:
+		userAuthInfo.ProductionService.Delete = true
+	case VerbGetProductionService:
+		userAuthInfo.ProductionService.View = true
+	case VerbGetBuild:
+		userAuthInfo.Build.View = true
+	case VerbEditBuild:
+		userAuthInfo.Build.Edit = true
+	case VerbDeleteBuild:
+		userAuthInfo.Build.Delete = true
+	case VerbCreateBuild:
+		userAuthInfo.Build.Create = true
+	case VerbCreateWorkflow:
+		userAuthInfo.Workflow.Create = true
+	case VerbEditWorkflow:
+		userAuthInfo.Workflow.Edit = true
+	case VerbDeleteWorkflow:
+		userAuthInfo.Workflow.Delete = true
+	case VerbGetWorkflow:
+		userAuthInfo.Workflow.View = true
+	case VerbRunWorkflow:
+		userAuthInfo.Workflow.Execute = true
+	case VerbDebugWorkflow:
+		userAuthInfo.Workflow.Debug = true
+	case VerbGetEnvironment:
+		userAuthInfo.Env.View = true
+	case VerbCreateEnvironment:
+		userAuthInfo.Env.Create = true
+	case VerbConfigEnvironment:
+		userAuthInfo.Env.EditConfig = true
+	case VerbManageEnvironment:
+		userAuthInfo.Env.ManagePods = true
+	case VerbDeleteEnvironment:
+		userAuthInfo.Env.Delete = true
+	case VerbDebugEnvironmentPod:
+		userAuthInfo.Env.DebugPod = true
+	case VerbEnvironmentSSHPM:
+		userAuthInfo.Env.SSH = true
+	case VerbGetProductionEnv:
+		userAuthInfo.ProductionEnv.View = true
+	case VerbCreateProductionEnv:
+		userAuthInfo.ProductionEnv.Create = true
+	case VerbConfigProductionEnv:
+		userAuthInfo.ProductionEnv.EditConfig = true
+	case VerbEditProductionEnv:
+		userAuthInfo.ProductionEnv.ManagePods = true
+	case VerbDeleteProductionEnv:
+		userAuthInfo.ProductionEnv.Delete = true
+	case VerbDebugProductionEnvPod:
+		userAuthInfo.ProductionEnv.DebugPod = true
+	case VerbGetScan:
+		userAuthInfo.Scanning.View = true
+	case VerbCreateScan:
+		userAuthInfo.Scanning.Create = true
+	case VerbEditScan:
+		userAuthInfo.Scanning.Edit = true
+	case VerbDeleteScan:
+		userAuthInfo.Scanning.Delete = true
+	case VerbRunScan:
+		userAuthInfo.Scanning.Execute = true
 	}
 }

@@ -22,10 +22,68 @@ const (
 	AdminRole = "admin"
 )
 
+// Namespaced Resources Actions
+const (
+	// delivery
+	VerbGetDelivery    = "get_delivery"
+	VerbCreateDelivery = "create_delivery"
+	VerbDeleteDelivery = "delete_delivery"
+	// test
+	VerbGetTest    = "get_test"
+	VerbCreateTest = "create_test"
+	VerbEditTest   = "edit_test"
+	VerbDeleteTest = "delete_test"
+	VerbRunTest    = "run_test"
+	// service
+	VerbGetService    = "get_service"
+	VerbCreateService = "create_service"
+	VerbEditService   = "edit_service"
+	VerbDeleteService = "delete_service"
+	// production service
+	VerbGetProductionService    = "get_production_service"
+	VerbCreateProductionService = "create_production_service"
+	VerbEditProductionService   = "edit_production_service"
+	VerbDeleteProductionService = "delete_production_service"
+	// build
+	VerbGetBuild    = "get_build"
+	VerbCreateBuild = "create_build"
+	VerbEditBuild   = "edit_build"
+	VerbDeleteBuild = "delete_build"
+	// Workflow
+	VerbGetWorkflow    = "get_workflow"
+	VerbCreateWorkflow = "create_workflow"
+	VerbEditWorkflow   = "edit_workflow"
+	VerbDeleteWorkflow = "delete_workflow"
+	VerbRunWorkflow    = "run_workflow"
+	VerbDebugWorkflow  = "debug_workflow"
+	// Environment
+	VerbGetEnvironment      = "get_environment"
+	VerbCreateEnvironment   = "create_environment"
+	VerbConfigEnvironment   = "config_environment"
+	VerbManageEnvironment   = "manage_environment"
+	VerbDeleteEnvironment   = "delete_environment"
+	VerbDebugEnvironmentPod = "debug_pod"
+	VerbEnvironmentSSHPM    = "ssh_pm"
+	// Production Environment
+	VerbGetProductionEnv      = "get_production_environment"
+	VerbCreateProductionEnv   = "create_production_environment"
+	VerbConfigProductionEnv   = "config_production_environment"
+	VerbEditProductionEnv     = "edit_production_environment"
+	VerbDeleteProductionEnv   = "delete_production_environment"
+	VerbDebugProductionEnvPod = "production_debug_pod"
+	// Scanning
+	VerbGetScan    = "get_scan"
+	VerbCreateScan = "create_scan"
+	VerbEditScan   = "edit_scan"
+	VerbDeleteScan = "delete_scan"
+	VerbRunScan    = "run_scan"
+)
+
 type AuthorizedResources struct {
-	IsSystemAdmin      bool
-	ProjectAuthInfo    map[string]*ProjectActions
-	AdditionalResource *AdditionalResources
+	IsSystemAdmin   bool
+	ProjectAuthInfo map[string]*ProjectActions
+	//AdditionalResource *AdditionalResources
+	//SystemAuthInfo
 }
 
 type ProjectActions struct {
@@ -39,13 +97,13 @@ type ProjectActions struct {
 	Scanning          *ScanningActions
 	Version           *VersionActions
 }
-
 type WorkflowActions struct {
 	View    bool
 	Create  bool
 	Edit    bool
 	Delete  bool
 	Execute bool
+	Debug   bool
 }
 
 type EnvActions struct {
@@ -56,7 +114,9 @@ type EnvActions struct {
 	// 管理服务实例
 	ManagePods bool
 	Delete     bool
-	Debug      bool
+	DebugPod   bool
+	// 主机登录
+	SSH bool
 }
 
 type ProductionEnvActions struct {
@@ -67,7 +127,7 @@ type ProductionEnvActions struct {
 	// 管理服务实例
 	ManagePods bool
 	Delete     bool
-	Debug      bool
+	DebugPod   bool
 }
 
 type ServiceActions struct {
