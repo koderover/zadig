@@ -2028,6 +2028,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "repo": {
+                    "type": "string"
+                },
                 "values_yaml": {
                     "type": "string"
                 },
@@ -2146,6 +2149,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "product_name": {
+                    "type": "string"
+                },
+                "release_name": {
                     "type": "string"
                 },
                 "revision": {
@@ -2747,6 +2753,9 @@ const docTemplate = `{
                 "overrideYaml": {
                     "type": "string"
                 },
+                "release_name": {
+                    "type": "string"
+                },
                 "serviceName": {
                     "type": "string"
                 },
@@ -2984,6 +2993,9 @@ const docTemplate = `{
                 "overrideYaml": {
                     "type": "string"
                 },
+                "release_name": {
+                    "type": "string"
+                },
                 "serviceName": {
                     "type": "string"
                 },
@@ -3020,6 +3032,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "product_name": {
+                    "type": "string"
+                },
+                "release_name": {
                     "type": "string"
                 },
                 "revision": {
@@ -3424,8 +3439,14 @@ const docTemplate = `{
         "template.ServiceRender": {
             "type": "object",
             "properties": {
-                "chart_version": {
+                "chart_name": {
+                    "type": "string"
+                },
+                "chart_repo": {
                     "description": "---- for helm services begin ----",
+                    "type": "string"
+                },
+                "chart_version": {
                     "type": "string"
                 },
                 "is_helm_chart_deploy": {

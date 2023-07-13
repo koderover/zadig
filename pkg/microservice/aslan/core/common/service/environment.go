@@ -902,6 +902,9 @@ func GetReleaseNameToServiceNameMap(prod *models.Product) (map[string]string, er
 	for _, svcInfo := range templateServices {
 		releaseNameMap[util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)] = svcInfo.ServiceName
 	}
+	for _, svc := range prod.GetChartServiceMap() {
+		releaseNameMap[svc.ReleaseName] = svc.ServiceName
+	}
 	return releaseNameMap, nil
 }
 
@@ -916,6 +919,9 @@ func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, er
 	releaseNameMap := make(map[string]string)
 	for _, svcInfo := range templateServices {
 		releaseNameMap[svcInfo.ServiceName] = util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)
+	}
+	for _, svc := range prod.GetChartServiceMap() {
+		releaseNameMap[svc.ServiceName] = svc.ReleaseName
 	}
 	return releaseNameMap, nil
 }

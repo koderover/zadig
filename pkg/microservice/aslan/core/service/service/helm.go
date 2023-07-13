@@ -270,7 +270,7 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 
 	base := config.LocalTestServicePath(productName, serviceName)
 	if revision > 0 {
-		base = config.LocalTestServicePathWithRevision(productName, serviceName, revision)
+		base = config.LocalTestServicePathWithRevision(productName, serviceName, fmt.Sprint(revision))
 		if err = commonutil.PreloadServiceManifestsByRevision(base, svc, false); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
@@ -312,7 +312,7 @@ func GetProductionServiceFileContent(serviceName, productName string, param *Get
 
 	base := config.LocalProductionServicePath(productName, serviceName)
 	if revision > 0 {
-		base = config.LocalProductionServicePathWithRevision(productName, serviceName, revision)
+		base = config.LocalProductionServicePathWithRevision(productName, serviceName, fmt.Sprint(revision))
 		if err = commonutil.PreloadProductionServiceManifestsByRevision(base, svc); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
@@ -511,7 +511,7 @@ func getNextServiceRevision(productName, serviceName string, isProductionService
 
 // make local chart info copy with revision
 func copyChartRevision(projectName, serviceName string, revision int64, isProductionChart bool) error {
-	sourceChartPath, revisionChartLocalPath := config.LocalServicePath(projectName, serviceName, isProductionChart), config.LocalServicePathWithRevision(projectName, serviceName, revision, isProductionChart)
+	sourceChartPath, revisionChartLocalPath := config.LocalServicePath(projectName, serviceName, isProductionChart), config.LocalServicePathWithRevision(projectName, serviceName, fmt.Sprint(revision), isProductionChart)
 	err := os.RemoveAll(revisionChartLocalPath)
 	if err != nil {
 		log.Errorf("failed to remove old chart revision data, projectName %s serviceName %s revision %d, err %s", projectName, serviceName, revision, err)
@@ -545,7 +545,7 @@ func clearChartFilesInS3Storage(projectName, serviceName string, revision int64,
 // clear local chart infos
 func clearLocalChartFiles(projectName, serviceName string, revision int64, production bool, logger *zap.SugaredLogger) {
 	latestChartPath := config.LocalServicePath(projectName, serviceName, production)
-	revisionChartLocalPath := config.LocalServicePathWithRevision(projectName, serviceName, revision, production)
+	revisionChartLocalPath := config.LocalServicePathWithRevision(projectName, serviceName, fmt.Sprint(revision), production)
 	for _, path := range []string{latestChartPath, revisionChartLocalPath} {
 		err := os.RemoveAll(path)
 		if err != nil {
@@ -1652,7 +1652,7 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 
 	base := config.LocalServicePath(productName, serviceName, production)
 	if revision > 0 {
-		base = config.LocalServicePathWithRevision(productName, serviceName, revision, production)
+		base = config.LocalServicePathWithRevision(productName, serviceName, fmt.Sprint(revision), production)
 		if err = commonutil.PreloadServiceManifestsByRevision(base, svc, production); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
@@ -1708,7 +1708,7 @@ func GetProductionHelmFilePath(productName, serviceName string, revision int64, 
 
 	base := config.LocalProductionServicePath(productName, serviceName)
 	if revision > 0 {
-		base = config.LocalProductionServicePathWithRevision(productName, serviceName, revision)
+		base = config.LocalProductionServicePathWithRevision(productName, serviceName, fmt.Sprint(revision))
 		if err = commonutil.PreloadProductionServiceManifestsByRevision(base, svc); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)

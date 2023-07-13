@@ -237,7 +237,8 @@ const (
 	// K8SDeployType Containerized Deployment
 	K8SDeployType = "k8s"
 	// helm deployment
-	HelmDeployType = "helm"
+	HelmDeployType      = "helm"
+	HelmChartDeployType = "helm_chart"
 	// PMDeployType physical machine deploy method
 	PMDeployType          = "pm"
 	TrusteeshipDeployType = "trusteeship"

@@ -202,6 +202,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			ProdSvc:    prodSvc,
 			SvcRelease: releaseMap[releaseName],
 		}
+
 		svcDatSetMap[serviceName] = svcDataSet
 		svcDataList = append(svcDataList, svcDataSet)
 	}
@@ -288,7 +289,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 }
 
 func loadChartFilesInfo(productName, serviceName string, revision int64, dir string) ([]*types.FileInfo, error) {
-	base := config.LocalTestServicePathWithRevision(productName, serviceName, revision)
+	base := config.LocalTestServicePathWithRevision(productName, serviceName, fmt.Sprint(revision))
 
 	var fis []*types.FileInfo
 	files, err := os.ReadDir(filepath.Join(base, serviceName, dir))
@@ -324,7 +325,7 @@ func loadChartFilesInfo(productName, serviceName string, revision int64, dir str
 func prepareChartVersionData(prod *models.Product, serviceObj *models.Service) error {
 	productName := prod.ProductName
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
-	base := config.LocalTestServicePathWithRevision(productName, serviceName, revision)
+	base := config.LocalTestServicePathWithRevision(productName, serviceName, fmt.Sprint(revision))
 	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj, prod.Production); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version", revision, serviceName)
 		// use the latest version when it fails to download the specific version

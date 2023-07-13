@@ -260,22 +260,22 @@ func LocalProductionServicePath(project, service string) string {
 	return configbase.LocalProductionServicePathWithRevision(project, service, "latest")
 }
 
-func LocalServicePathWithRevision(project, service string, revision int64, production bool) string {
+func LocalServicePathWithRevision(project, service string, version string, production bool) string {
 	if production {
-		return LocalProductionServicePathWithRevision(project, service, revision)
+		return LocalProductionServicePathWithRevision(project, service, version)
 	} else {
-		return LocalTestServicePathWithRevision(project, service, revision)
+		return LocalTestServicePathWithRevision(project, service, version)
 	}
 }
 
 // LocalTestServicePathWithRevision returns the path of the normal service with the specific revision
-func LocalTestServicePathWithRevision(project, service string, revision int64) string {
-	return configbase.LocalTestServicePathWithRevision(project, service, fmt.Sprintf("%d", revision))
+func LocalTestServicePathWithRevision(project, service string, revision string) string {
+	return configbase.LocalTestServicePathWithRevision(project, service, revision)
 }
 
 // LocalProductionServicePathWithRevision returns the path of the normal service with the specific revision
-func LocalProductionServicePathWithRevision(project, service string, revision int64) string {
-	return configbase.LocalProductionServicePathWithRevision(project, service, fmt.Sprintf("%d", revision))
+func LocalProductionServicePathWithRevision(project, service string, version string) string {
+	return configbase.LocalProductionServicePathWithRevision(project, service, version)
 }
 
 // LocalDeliveryChartPathWithRevision returns the path of the normal service with the specific revision

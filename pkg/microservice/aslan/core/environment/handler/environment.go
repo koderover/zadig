@@ -125,6 +125,20 @@ func UpdateMultiProducts(c *gin.Context) {
 	updateMultiEnvWrapper(c, request, false, ctx)
 }
 
+// @Summary Update Multi production products
+// @Description Update Multi production products
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	type 			query		string								false	"type"
+// @Param 	force 			query		bool								true	"is force"
+// @Param 	k8s_body 		body 		[]service.UpdateEnv 				true 	"updateMultiK8sEnv body"
+// @Param 	helm_body 		body 		service.UpdateMultiHelmProductArg 	true 	"updateMultiHelmEnv body"
+// @Param 	helm_chart_body body 		service.UpdateMultiHelmProductArg 	true 	"updateMultiHelmChartEnv body"
+// @Param 	pm_body 		body 		[]service.UpdateEnv				 	true 	"updateMultiCvmEnv body"
+// @Success 200
+// @Router /api/aslan/environment/production/environments [put]
 func UpdateMultiProductionProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -754,7 +768,11 @@ func updateMultiEnvWrapper(c *gin.Context, request *service.UpdateEnvRequest, pr
 	case setting.PMDeployType:
 		updateMultiCvmEnv(c, request, ctx)
 	case setting.HelmDeployType:
-		updateMultiHelmEnv(c, request, production, ctx)
+		if request.Type == setting.HelmChartDeployType {
+			updateMultiHelmChartEnv(c, request, production, ctx)
+		} else {
+			updateMultiHelmEnv(c, request, production, ctx)
+		}
 	case setting.K8SDeployType:
 		updateMultiK8sEnv(c, request, production, ctx)
 	}
@@ -815,6 +833,34 @@ func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, produ
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger, args.EnvNames...)
 
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
+		ctx.RequestID, ctx.UserName, args, production, ctx.Logger,
+	)
+}
+
+func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, production bool, ctx *internalhandler.Context) {
+	args := new(service.UpdateMultiHelmProductArg)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateProduct c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
+	}
+	args.ProductName = request.ProjectName
+
+	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
+	if found {
+		allowedSet := sets.NewString(allowedEnvs...)
+		currentSet := sets.NewString(args.EnvNames...)
+		if !allowedSet.IsSuperset(currentSet) {
+			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
+			return
+		}
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger, args.EnvNames...)
+
+	ctx.Resp, ctx.Err = service.UpdateMultipleHelmChartEnv(
 		ctx.RequestID, ctx.UserName, args, production, ctx.Logger,
 	)
 }

@@ -60,15 +60,16 @@ import (
 )
 
 type ReleaseInstallParam struct {
-	ProductName  string
-	Namespace    string
-	ReleaseName  string
-	MergedValues string
-	RenderChart  *templatemodels.ServiceRender
-	ServiceObj   *commonmodels.Service
-	Timeout      int
-	DryRun       bool
-	Production   bool
+	ProductName    string
+	Namespace      string
+	ReleaseName    string
+	MergedValues   string
+	IsChartInstall bool
+	RenderChart    *templatemodels.ServiceRender
+	ServiceObj     *commonmodels.Service
+	Timeout        int
+	DryRun         bool
+	Production     bool
 }
 
 func GetValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
@@ -87,7 +88,10 @@ func GetValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
 
 func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {
 	namespace, valuesYaml, renderChart, serviceObj := param.Namespace, param.MergedValues, param.RenderChart, param.ServiceObj
-	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision, param.Production)
+	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, fmt.Sprint(serviceObj.Revision), param.Production)
+	if param.IsChartInstall {
+		base = config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, param.RenderChart.ChartVersion, param.Production)
+	}
 	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj, param.Production); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 			serviceObj.Revision, serviceObj.ServiceName)
@@ -100,6 +104,9 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	}
 
 	chartFullPath := filepath.Join(base, serviceObj.ServiceName)
+	if param.IsChartInstall {
+		chartFullPath = filepath.Join(base, param.RenderChart.ChartName)
+	}
 	chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
 	if err != nil {
 		log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)

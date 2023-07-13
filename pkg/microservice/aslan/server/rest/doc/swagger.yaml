@@ -314,6 +314,8 @@ definitions:
     properties:
       name:
         type: string
+      repo:
+        type: string
       values_yaml:
         type: string
       version:
@@ -393,6 +395,8 @@ definitions:
       error:
         type: string
       product_name:
+        type: string
+      release_name:
         type: string
       revision:
         type: integer
@@ -791,6 +795,8 @@ definitions:
         type: array
       overrideYaml:
         type: string
+      release_name:
+        type: string
       serviceName:
         type: string
       valuesData:
@@ -947,6 +953,8 @@ definitions:
         type: array
       overrideYaml:
         type: string
+      release_name:
+        type: string
       serviceName:
         type: string
       valuesData:
@@ -971,6 +979,8 @@ definitions:
       error:
         type: string
       product_name:
+        type: string
+      release_name:
         type: string
       revision:
         type: integer
@@ -1237,8 +1247,12 @@ definitions:
     type: object
   template.ServiceRender:
     properties:
-      chart_version:
+      chart_name:
+        type: string
+      chart_repo:
         description: '---- for helm services begin ----'
+        type: string
+      chart_version:
         type: string
       is_helm_chart_deploy:
         type: boolean

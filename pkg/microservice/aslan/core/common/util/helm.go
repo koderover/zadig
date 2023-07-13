@@ -120,6 +120,7 @@ func PreLoadServiceManifests(base string, svc *commonmodels.Service, production 
 	if ok {
 		return nil
 	}
+	log.Debugf("base: %s, svc: %+v, production %v", base, svc, production)
 
 	if err = DownloadServiceManifests(base, svc.ProductName, svc.ServiceName, production); err == nil {
 		return nil

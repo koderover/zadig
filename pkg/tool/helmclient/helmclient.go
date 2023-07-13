@@ -444,6 +444,7 @@ func (hClient *HelmClient) getChart(chartName string, chartPathOptions *action.C
 	return helmChart, chartPath, err
 }
 
+// @todo support chart repo install
 func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec) (*release.Release, error) {
 	c := hClient.HelmClient
 	install := action.NewInstall(c.ActionConfig)
@@ -608,6 +609,7 @@ func (hClient *HelmClient) FetchIndexYaml(repoEntry *repo.Entry) (*repo.IndexFil
 // since pulling from OCI Registry is still considered as an EXPERIMENTAL feature
 // we DO NOT support pulling charts by pulling OCI Artifacts from OCI Registry
 // NOTE consider using os.execCommand('helm pull') to reduce code complexity of offering compatibility since third-party plugins CANNOT be used as SDK
+// @todo add comment for unTar
 func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
 	hClient.lock.Lock()
 	defer hClient.lock.Unlock()

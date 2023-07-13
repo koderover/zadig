@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type ProductAuthType string
@@ -102,6 +103,7 @@ type ProductAuth struct {
 
 type ProductService struct {
 	ServiceName    string                          `bson:"service_name"               json:"service_name"`
+	ReleaseName    string                          `bson:"release_name"               json:"release_name"`
 	ProductName    string                          `bson:"product_name"               json:"product_name"`
 	Type           string                          `bson:"type"                       json:"type"`
 	Revision       int64                           `bson:"revision"                   json:"revision"`
@@ -151,6 +153,20 @@ func (p *Product) GetServiceMap() map[string]*ProductService {
 	for _, group := range p.Services {
 		for _, svc := range group {
 			ret[svc.ServiceName] = svc
+		}
+	}
+
+	return ret
+}
+
+func (p *Product) GetChartServiceMap() map[string]*ProductService {
+	ret := make(map[string]*ProductService)
+	for _, group := range p.Services {
+		for _, svc := range group {
+			// @todo may need to update the type
+			if svc.Type == setting.HelmChartDeployType {
+				ret[svc.ServiceName] = svc
+			}
 		}
 	}
 

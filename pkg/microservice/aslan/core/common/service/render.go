@@ -52,6 +52,10 @@ type ValuesDataArgs struct {
 type HelmSvcRenderArg struct {
 	EnvName        string                     `json:"envName,omitempty"`
 	ServiceName    string                     `json:"serviceName,omitempty"`
+	IsChartDeploy  bool                       `json:"is_chart_deploy,omitempty"`
+	ReleaseName    string                     `json:"release_name,omitempty"`
+	ChartRepo      string                     `json:"chart_repo,omitempty"`
+	ChartName      string                     `json:"chart_name,omitempty"`
 	ChartVersion   string                     `json:"chartVersion,omitempty"`
 	OverrideValues []*KVPair                  `json:"overrideValues,omitempty"`
 	OverrideYaml   string                     `json:"overrideYaml,omitempty"`
