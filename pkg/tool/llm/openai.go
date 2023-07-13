@@ -95,7 +95,7 @@ func (c *OpenAIClient) GetCompletion(ctx context.Context, prompt string, options
 	model := opts.Model
 	if model == "" {
 		if c.model == "" {
-			model = DefaultOpenAIModel
+			model = openai.GPT3Dot5Turbo16K
 		} else {
 			model = c.model
 		}

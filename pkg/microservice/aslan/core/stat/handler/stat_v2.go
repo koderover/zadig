@@ -17,7 +17,11 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service/ai"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -92,7 +96,7 @@ func GetStatsDashboard(c *gin.Context) {
 		return
 	}
 
-	resp, err := service.GetStatsDashboard(args.StartTime, args.EndTime, ctx.Logger)
+	resp, err := service.GetStatsDashboard(args.StartTime, args.EndTime, nil, ctx.Logger)
 
 	ctx.Resp = getStatDashboardResp{resp}
 	ctx.Err = err
@@ -109,4 +113,150 @@ func GetStatsDashboardGeneralData(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.GetStatsDashboardGeneralData(args.StartTime, args.EndTime, ctx.Logger)
+}
+
+func GetAIStatsAnalysis(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// get params prompt, projectList, duration from query
+	reqData, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	args := new(ai.AiAnalysisReq)
+	if err := json.Unmarshal(reqData, args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = ai.AnalyzeProjectStats(args, ctx.Logger)
+}
+
+func GetAIStatsAnalysisPrompts(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = ai.GetAiPrompts(ctx.Logger)
+}
+
+func GetProjectsOverview(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(getStatDashboardReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	if args.StartTime == 0 && args.EndTime == 0 {
+		now := time.Now()
+		args.StartTime = now.AddDate(0, 0, -30).Unix()
+		args.EndTime = now.Unix()
+	}
+
+	ctx.Resp, ctx.Err = service.GetProjectsOverview(args.StartTime, args.EndTime, ctx.Logger)
+}
+
+type aiStatReq struct {
+	StartTime int64    `form:"start_time,default=0"`
+	EndTime   int64    `form:"end_time,default=0"`
+	Projects  []string `json:"projects"`
+}
+
+func GetCurrently30DayBuildTrend(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(aiStatReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	if args.StartTime == 0 && args.EndTime == 0 {
+		now := time.Now()
+		args.StartTime = now.AddDate(0, 0, -30).Unix()
+		args.EndTime = now.Unix()
+	}
+
+	ctx.Resp, ctx.Err = service.GetCurrently30DayBuildTrend(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+}
+
+func GetEfficiencyRadar(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(aiStatReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if args.StartTime == 0 && args.EndTime == 0 {
+		now := time.Now()
+		args.StartTime = now.AddDate(0, 0, -30).Unix()
+		args.EndTime = now.Unix()
+	}
+
+	ctx.Resp, ctx.Err = service.GetEfficiencyRadar(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+}
+
+type AIMonthAttentionResp struct {
+	AIAnswer     *ai.AIAttentionResp       `json:"ai_answer"`
+	SystemAnswer []*service.MonthAttention `json:"system_answer"`
+}
+
+func GetMonthAttention(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(aiStatReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if args.StartTime == 0 && args.EndTime == 0 {
+		now := time.Now()
+		args.StartTime = now.AddDate(0, -1, 0).Unix()
+		args.EndTime = now.Unix()
+	}
+
+	data, err := service.GetMonthAttention(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	// AI analyze data to get the attention of the month
+	resp, err := ai.AnalyzeMonthAttention(args.StartTime, args.EndTime, data, ctx.Logger)
+	if err != nil {
+		if err != ai.ReturnAnswerWrongFormat {
+			ctx.Err = err
+			return
+		}
+	}
+	ctx.Resp = AIMonthAttentionResp{
+		AIAnswer:     resp,
+		SystemAnswer: data,
+	}
+}
+
+func GetRequirementDevDepPeriod(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(aiStatReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if args.StartTime == 0 && args.EndTime == 0 {
+		now := time.Now()
+		args.StartTime = now.AddDate(0, -1, 0).Unix()
+		args.EndTime = now.Unix()
+	}
+
+	ctx.Resp, ctx.Err = service.GetRequirementDevDelPeriod(args.StartTime, args.EndTime, args.Projects, ctx.Logger)
 }

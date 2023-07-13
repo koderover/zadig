@@ -18,7 +18,10 @@ package service
 
 import (
 	"sort"
+	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"go.uber.org/zap"
 
 	models "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/models"
@@ -120,4 +123,159 @@ func GetDeployStats(args *models.DeployStatOption, log *zap.SugaredLogger) (*das
 	}
 
 	return dashboardDeploy, nil
+}
+
+type ProjectsDeployStatTotal struct {
+	ProjectName     string           `json:"project_name"`
+	DeployStatTotal *DeployStatTotal `json:"deploy_stat_total"`
+}
+
+type DeployStatTotal struct {
+	TotalSuccess int `json:"total_success"`
+	TotalFailure int `json:"total_failure"`
+	TotalTimeout int `json:"total_timeout"`
+}
+
+func GetDeployHealth(start, end int64, projects []string) ([]*ProjectsDeployStatTotal, error) {
+	result, err := commonrepo.NewJobInfoColl().GetDeployTrend(start, end, projects)
+	if err != nil {
+		return nil, err
+	}
+
+	stats := make([]*ProjectsDeployStatTotal, 0)
+	for _, project := range projects {
+		deployStatTotal := &ProjectsDeployStatTotal{
+			ProjectName:     project,
+			DeployStatTotal: &DeployStatTotal{},
+		}
+		for _, item := range result {
+			if item.ProductName == project {
+				switch item.Status {
+				case string(config.StatusPassed):
+					deployStatTotal.DeployStatTotal.TotalSuccess++
+				case string(config.StatusFailed):
+					deployStatTotal.DeployStatTotal.TotalFailure++
+				case string(config.StatusTimeout):
+					deployStatTotal.DeployStatTotal.TotalTimeout++
+				}
+			}
+		}
+		stats = append(stats, deployStatTotal)
+	}
+	return stats, nil
+}
+
+type ProjectsWeeklyDeployStat struct {
+	Project          string              `json:"project_name"`
+	WeeklyDeployStat []*WeeklyDeployStat `json:"weekly_deploy_stat_data"`
+}
+
+type WeeklyDeployStat struct {
+	WeekStartDate     string `json:"week_start_date"`
+	Success           int    `json:"success_total"`
+	Failure           int    `json:"failure_total"`
+	Timeout           int    `json:"timeout_total"`
+	AverageDeployTime int    `json:"average_deploy_time"`
+}
+
+func GetProjectsWeeklyDeployStat(start, end int64, projects []string) ([]*ProjectsWeeklyDeployStat, error) {
+	result, err := commonrepo.NewJobInfoColl().GetDeployTrend(start, end, projects)
+	if err != nil {
+		return nil, err
+	}
+
+	stats := make([]*ProjectsWeeklyDeployStat, 0)
+	for _, project := range projects {
+		deployStat := &ProjectsWeeklyDeployStat{
+			Project: project,
+		}
+
+		var start int64
+		var end int64
+		var stat *WeeklyDeployStat
+		total, duration := 0, 0
+		for i := 0; i < len(result); i++ {
+			if result[i].ProductName != project {
+				if result[i].StartTime >= end {
+					if stat != nil {
+						if total > 0 {
+							stat.AverageDeployTime = duration / total
+						}
+						deployStat.WeeklyDeployStat = append(deployStat.WeeklyDeployStat, stat)
+						stat, total, duration = nil, 0, 0
+					}
+				}
+				continue
+			}
+
+			if start == 0 {
+				start = result[i].StartTime
+				end = time.Unix(start, 0).AddDate(0, 0, 7).Unix()
+				stat = &WeeklyDeployStat{
+					WeekStartDate: time.Unix(start, 0).Format("2006-01-02"),
+				}
+			} else {
+				if result[i].StartTime >= end {
+					if stat != nil {
+						if total > 0 {
+							stat.AverageDeployTime = duration / total
+						}
+						deployStat.WeeklyDeployStat = append(deployStat.WeeklyDeployStat, stat)
+						stat, total, duration = nil, 0, 0
+					}
+					start = end
+					stat = &WeeklyDeployStat{
+						WeekStartDate: time.Unix(start, 0).Format("2006-01-02"),
+					}
+					end = time.Unix(start, 0).AddDate(0, 0, 7).Unix()
+				}
+			}
+
+			if result[i].StartTime >= start && result[i].StartTime < end {
+				switch result[i].Status {
+				case string(config.StatusPassed):
+					stat.Success++
+				case string(config.StatusFailed):
+					stat.Failure++
+				case string(config.StatusTimeout):
+					stat.Timeout++
+				}
+				total++
+				duration += int(result[i].Duration)
+			}
+		}
+		stats = append(stats, deployStat)
+	}
+	return stats, nil
+}
+
+type DeployStat struct {
+	ProjectName string `json:"project_name"`
+	Success     int    `json:"success"`
+	Failure     int    `json:"failure"`
+	Timeout     int    `json:"timeout"`
+	Total       int    `json:"total"`
+	Duration    int    `json:"duration"`
+}
+
+func GetProjectDeployStat(start, end int64, project string) (DeployStat, error) {
+	result, err := commonrepo.NewJobInfoColl().GetDeployJobs(start, end, project)
+	if err != nil {
+		return DeployStat{}, err
+	}
+
+	resp := DeployStat{
+		ProjectName: project,
+	}
+	for _, job := range result {
+		switch job.Status {
+		case string(config.StatusPassed):
+			resp.Success++
+		case string(config.StatusFailed):
+			resp.Failure++
+		}
+		resp.Duration += int(job.Duration)
+	}
+	resp.Total = len(result)
+	return resp, nil
 }
