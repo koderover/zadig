@@ -204,6 +204,7 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 				return
 			default:
 			}
+			time.Sleep(3 * time.Second)
 			deploymentObj := &v1.Deployment{}
 			err := c.kubeClient.Get(context.Background(), types.NamespacedName{
 				Namespace: c.namespace,
@@ -217,7 +218,6 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 				c.Info(fmt.Sprintf("deployment %s ready", deploymentName))
 				break
 			}
-			time.Sleep(2 * time.Second)
 		}
 	}
 
