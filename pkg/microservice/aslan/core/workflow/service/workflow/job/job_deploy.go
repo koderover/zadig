@@ -462,6 +462,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					jobTaskSpec.UpdateConfig = service.UpdateConfig
 					jobTaskSpec.KeyVals = service.KeyVals
 					jobTaskSpec.VariableYaml = service.VariableYaml
+					jobTaskSpec.UserSuppliedValue = jobTaskSpec.VariableYaml
 				}
 
 				jobTaskSpec.ImageAndModules = append(jobTaskSpec.ImageAndModules, &commonmodels.ImageAndServiceModule{
