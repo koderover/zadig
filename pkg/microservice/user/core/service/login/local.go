@@ -17,7 +17,9 @@ limitations under the License.
 package login
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -195,20 +197,38 @@ func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error)
 
 	logger.Infof("user Info: %v", userInfo)
 
-	if userInfo.IdentityType != config.OauthIdentityType {
+	if userInfo.IdentityType == config.OauthIdentityType {
+		// if we found a user with ouath login type, we check if the connector is still there
+		// if the connector exist, we check if the logout configuration is enabled and return.
+		connectorInfo, err := orm.GetConnectorInfo(config.OauthIdentityType, core.DexDB)
+		if err != nil {
+			logger.Errorf("LocalLogout get connector info error, error msg:%s", err.Error())
+			return false, "", err
+		}
+
+		if connectorInfo.EnableLogOut {
+			return true, connectorInfo.LogoutRedirectURL, nil
+		}
+
 		return false, "", nil
-	}
+	} else if userInfo.IdentityType == config.CLICIdentityType {
+		connectorInfo, err := orm.GetConnectorInfo(config.CLICIdentityType, core.DexDB)
+		if err != nil {
+			logger.Errorf("Clic Logout get connector info error, error msag: %s", err.Error())
+			return false, "", err
+		}
 
-	// if we found a user with ouath login type, we check if the connector is still there
-	// if the connector exist, we check if the logout configuration is enabled and return.
-	connectorInfo, err := orm.GetConnectorInfo(config.OauthIdentityType, core.DexDB)
-	if err != nil {
-		logger.Errorf("LocalLogout get connector info error, error msg:%s", err.Error())
-		return false, "", err
-	}
+		connConfig := new(config.CLICConnectorConfig)
 
-	if connectorInfo.EnableLogOut {
-		return true, connectorInfo.LogoutRedirectURL, nil
+		if len(connectorInfo.Config) != 0 {
+			data := []byte(string(connectorInfo.Config))
+			if err := json.Unmarshal(data, connConfig); err != nil {
+				return false, "", fmt.Errorf("parse connector config: %v", err)
+			}
+		}
+
+		redirectURL := fmt.Sprintf("%s?%s", connConfig.LogoutURL, url.QueryEscape(connConfig.SystemURL))
+		return true, redirectURL, nil
 	}
 
 	return false, "", nil
