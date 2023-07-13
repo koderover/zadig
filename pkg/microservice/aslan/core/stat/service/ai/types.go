@@ -10,10 +10,8 @@ var (
 type UserPromptParseInput struct {
 	ProjectList []string `json:"project_list"`
 	JobList     []string `json:"job_list"`
-	StartTime   string   `json:"start_time"`
-	EndTime     string   `json:"end_time"`
-	start       int64
-	end         int64
+	StartTime   int64    `json:"start_time"`
+	EndTime     int64    `json:"end_time"`
 }
 
 type AiAnalysisReq struct {

@@ -1,16 +1,19 @@
 package ai
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
-	"strconv"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
@@ -179,94 +182,130 @@ func parseUserPrompt(args *AiAnalysisReq, aiClient llm.ILLM, logger *zap.Sugared
 		"release",
 	}
 
-	if len(args.ProjectList) > 0 && args.StartTime != 0 && args.EndTime != 0 {
+	if len(args.ProjectList) > 0 && args.StartTime > 0 && args.EndTime > 0 {
 		input.ProjectList = args.ProjectList
-		input.start = args.StartTime
-		input.end = args.EndTime
+		input.StartTime = args.StartTime
+		input.EndTime = args.EndTime
 		input.JobList = jobs
 		return input, nil
 	}
 	prompt := fmt.Sprintf("%s;\"\"\"%s\"\"\"", util.RemoveExtraSpaces(ParseUserPromptPrompt), args.Prompt)
 
-	retry := 1
-	// consider that change basic prompt to get the better parse result when the parse result is not valid
-	for retry > 0 {
-		start := time.Now()
-		resp, err := aiClient.GetCompletion(context.TODO(), prompt)
-		logger.Infof("=====> Finished Request AI in parseUserPrompt method,  Duration: %.2f seconds\n; the response is: \n%s\n", time.Since(start).Seconds(), resp)
-		if err != nil {
-			return input, err
-		}
-
-		// parse the user prompt to prepare the input data of projects stat
-		err = json.Unmarshal([]byte(resp), &input)
-		if err != nil {
-			return input, err
-		}
-
-		if ok, in := checkInputData(input); ok {
-			input = in
-			break
-		}
-		retry--
+	start := time.Now()
+	resp, err := aiClient.GetCompletion(context.TODO(), prompt)
+	logger.Infof("=====> Finished Request AI in parseUserPrompt method,  Duration: %.2f seconds\n; the response is: \n%s\n", time.Since(start).Seconds(), resp)
+	if err != nil {
+		return input, err
 	}
 
-	if ok, _ := checkInputData(input); !ok {
-		if args.StartTime > 0 && args.EndTime > 0 && args.EndTime > args.StartTime {
-			input.start = args.StartTime
-			input.end = args.EndTime
-		} else {
-			return input, fmt.Errorf("failed to parse user prompt to get the valid input data for ai analysis")
-		}
+	// parse the user prompt to prepare the input data of projects stat
+	err = json.Unmarshal([]byte(resp), &input)
+	if err != nil {
+		return input, err
 	}
 
-	if len(input.ProjectList) == 0 {
-		input.ProjectList = projectList
-	}
-	if args.StartTime > 0 && args.EndTime > 0 && args.EndTime > args.StartTime {
-		input.start = args.StartTime
-		input.end = args.EndTime
+	if err := checkInputData(input, jobs, projectList); err != nil {
+		return nil, err
 	}
 
-	jobList := make([]string, 0)
-	if len(input.JobList) > 0 {
-		for _, job := range input.JobList {
-			if utils.Contains(jobs, job) {
-				jobList = append(jobList, job)
-			}
-		}
-	}
-	input.JobList = jobs
-	if len(jobList) != 0 {
-		input.JobList = jobList
+	// parse time in user prompt by restful api
+	err = getTimeParseResult(args.Prompt, input, logger)
+	if err != nil {
+		return nil, err
 	}
 	return input, nil
 }
 
 // TODO: check the input data
-func checkInputData(input *UserPromptParseInput) (bool, *UserPromptParseInput) {
-	if len(input.StartTime) == 10 && len(input.EndTime) == 10 {
-		start, err := strconv.ParseInt(input.StartTime, 10, 64)
-		if err != nil {
-			return false, nil
+func checkInputData(input *UserPromptParseInput, jobs, projects []string) error {
+	if len(input.ProjectList) > 0 {
+		for _, project := range input.ProjectList {
+			if !utils.Contains(projects, project) {
+				return fmt.Errorf("the project %s is not exist", project)
+			}
 		}
-		end, err := strconv.ParseInt(input.EndTime, 10, 64)
-		if err != nil {
-			return false, nil
-		}
-		if end > start {
-			input.start, input.end = start, end
-			return true, input
-		}
-		return false, nil
 	}
-	return false, nil
+	if len(input.JobList) > 0 {
+		for _, job := range input.JobList {
+			if !utils.Contains(jobs, job) {
+				return fmt.Errorf("the job %s is not exist", job)
+			}
+		}
+	}
+
+	if len(input.ProjectList) == 0 && len(projects) > 0 {
+		input.ProjectList = projects
+	}
+	if len(input.JobList) == 0 && len(jobs) > 0 {
+		input.JobList = jobs
+	}
+
+	return nil
+}
+
+type UserPromptTimeParseResult struct {
+	Prompt      string   `json:"prompt"`
+	ErrMessage  string   `json:"err_message"`
+	ParseResult []string `json:"parse_result"`
+}
+
+func getTimeParseResult(prompt string, input *UserPromptParseInput, logger *zap.SugaredLogger) error {
+	// parse the time in user prompt by rest api
+	userPrompt := struct {
+		Prompt string `json:"prompt"`
+	}{
+		Prompt: prompt,
+	}
+	body, err := json.Marshal(userPrompt)
+	if err != nil {
+		return err
+	}
+
+	host := setting.Services[setting.JioNlp]
+	url := fmt.Sprintf("http://%s:%d/%s", host.Name, host.Port, "api/prompt/time")
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	logger.Infof("Finished Request NLP in getTimeParseResult method, the response is: \n%s", string(responseBody))
+
+	result := &UserPromptTimeParseResult{}
+	err = json.Unmarshal(responseBody, result)
+	if err != nil {
+		return err
+	}
+
+	// check the parse result
+	if len(result.ParseResult) != 2 {
+		return fmt.Errorf("the parse result is not correct, the parse result is: %s", result.ParseResult)
+	}
+	start, err := time.ParseInLocation("2006-01-02 15:04:05", result.ParseResult[0], time.Local)
+	if err != nil {
+		return err
+	}
+	end, err := time.ParseInLocation("2006-01-02 15:04:05", result.ParseResult[1], time.Local)
+	if err != nil {
+		return err
+	}
+	input.StartTime = start.Unix()
+	input.EndTime = end.Unix()
+	now := time.Now().Unix()
+	if end.Unix() > now {
+		input.EndTime = now
+	}
+	return nil
 }
 
 func GetStatsAnalysisData(args *UserPromptParseInput, logger *zap.SugaredLogger) (*AiReqData, error) {
 	reqData := &AiReqData{
-		StartTime:   args.start,
-		EndTime:     args.end,
+		StartTime:   args.StartTime,
+		EndTime:     args.EndTime,
 		ProjectList: make([]*ProjectData, 0),
 	}
 	for _, project := range args.ProjectList {
@@ -278,25 +317,25 @@ func GetStatsAnalysisData(args *UserPromptParseInput, logger *zap.SugaredLogger)
 		for _, job := range args.JobList {
 			switch job {
 			case "build":
-				build, err := getBuildData(project, args.start, args.end, logger)
+				build, err := getBuildData(project, args.StartTime, args.EndTime, logger)
 				if err != nil {
 					logger.Errorf("failed to get build data from project %s, the error is: %+v", project, err)
 				}
 				data.ProjectDataDetail.BuildInfo = build
 			case "test":
-				test, err := getTestData(project, args.start, args.end, logger)
+				test, err := getTestData(project, args.StartTime, args.EndTime, logger)
 				if err != nil {
 					logger.Errorf("failed to get test data from project %s, the error is: %+v", project, err)
 				}
 				data.ProjectDataDetail.TestInfo = test
 			case "deploy":
-				deploy, err := getDeployData(project, args.start, args.end, logger)
+				deploy, err := getDeployData(project, args.StartTime, args.EndTime, logger)
 				if err != nil {
 					logger.Errorf("failed to get deploy data from project %s, the error is: %+v", project, err)
 				}
 				data.ProjectDataDetail.DeployInfo = deploy
 			case "release":
-				release, err := getReleaseData(project, args.start, args.end)
+				release, err := getReleaseData(project, args.StartTime, args.EndTime)
 				if err != nil {
 					logger.Errorf("failed to get release data from project %s, the error is: %+v", project, err)
 				}
@@ -305,7 +344,7 @@ func GetStatsAnalysisData(args *UserPromptParseInput, logger *zap.SugaredLogger)
 		}
 
 		// get system evaluation data
-		system, err := getSystemEvaluationData(project, args.start, args.end, logger)
+		system, err := getSystemEvaluationData(project, args.StartTime, args.EndTime, logger)
 		if err != nil {
 			logger.Errorf("failed to get system evaluation data from project %s, the error is: %+v", project, err)
 		}
