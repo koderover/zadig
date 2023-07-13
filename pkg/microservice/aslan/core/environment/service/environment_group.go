@@ -64,12 +64,6 @@ func CalculateProductStatus(productInfo *commonmodels.Product, log *zap.SugaredL
 	}
 
 	k8sHandler := &K8sService{log: log}
-
-	allServices := make([]*commonmodels.ProductService, 0)
-	for _, groupServices := range productInfo.GetServiceMap() {
-		allServices = append(allServices, groupServices)
-	}
-
 	return k8sHandler.calculateProductStatus(productInfo, inf)
 }
 

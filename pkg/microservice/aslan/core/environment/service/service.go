@@ -228,27 +228,20 @@ func toStsWorkload(v *appsv1.StatefulSet) *commonservice.Workload {
 	return workload
 }
 
-func GetServiceWorkloads(serviceName string, env *commonmodels.Product, inf informers.SharedInformerFactory, log *zap.SugaredLogger) ([]*commonservice.Workload, error) {
+func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Product, inf informers.SharedInformerFactory, log *zap.SugaredLogger) ([]*commonservice.Workload, error) {
 	ret := make([]*commonservice.Workload, 0)
 	envName, productName, namespace := env.EnvName, env.ProductName, env.Namespace
 
-	service := env.GetServiceMap()[serviceName]
-	if service == nil {
-		return nil, e.ErrGetService.AddDesc("failed to find service: %s in environment: %s")
-	}
+	//parsedYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+	//	ProductName: env.ProductName,
+	//	EnvName:     env.EnvName,
+	//	ServiceName: svcTmpl.ServiceName,
+	//})
+	//if err != nil {
+	//	log.Errorf("failed to render service yaml, err: %s", err)
+	//	return nil, err
+	//}
 
-	opt := &commonrepo.ServiceFindOption{
-		ServiceName: service.ServiceName,
-		ProductName: service.ProductName,
-		Type:        service.Type,
-		Revision:    service.Revision,
-	}
-	svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find service template: %s:%d", service.ServiceName, service.Revision)
-	}
-
-	env.EnsureRenderInfo()
 	renderSetFindOpt := &commonrepo.RenderSetFindOption{
 		Name:        env.Render.Name,
 		Revision:    env.Render.Revision,
@@ -266,8 +259,7 @@ func GetServiceWorkloads(serviceName string, env *commonmodels.Product, inf info
 		log.Errorf("failed to render service yaml, err: %s", err)
 		return nil, err
 	}
-	// 渲染系统变量键值
-	parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, parsedYaml)
+	parsedYaml = kube.ParseSysKeys(namespace, envName, productName, svcTmpl.ServiceName, parsedYaml)
 
 	manifests := releaseutil.SplitManifests(parsedYaml)
 	for _, item := range manifests {
@@ -281,9 +273,11 @@ func GetServiceWorkloads(serviceName string, env *commonmodels.Product, inf info
 		case setting.Deployment:
 			d, err := getter.GetDeploymentByNameWithCache(u.GetName(), namespace, inf)
 			if err != nil {
+				log.Errorf("----- failed to get deployment %s, err: %s", u.GetName(), err)
 				continue
 			}
 			wd := wrapper.Deployment(d)
+			log.Infof("find deployment %s, status: %s/%s", d.Name, wd.Status.Replicas, wd.Status.ReadyReplicas)
 			ret = append(ret, &commonservice.Workload{
 				Name:       wd.Name,
 				Spec:       wd.Spec.Template,
@@ -296,9 +290,11 @@ func GetServiceWorkloads(serviceName string, env *commonmodels.Product, inf info
 		case setting.StatefulSet:
 			sts, err := getter.GetStatefulSetByNameWWithCache(u.GetName(), namespace, inf)
 			if err != nil {
+				log.Errorf("----- failed to get statefuset %s, err: %s", u.GetName(), err)
 				continue
 			}
 			ws := wrapper.StatefulSet(sts)
+			log.Infof("find deployment %s, status: %s/%s", d.Name, wd.Status.Replicas, wd.Status.ReadyReplicas)
 			ret = append(ret, &commonservice.Workload{
 				Name:       ws.Name,
 				Spec:       ws.Spec.Template,

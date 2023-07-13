@@ -89,8 +89,9 @@ func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, produ
 // queryWorkloadStatus query workload status
 // only supports Deployment and StatefulSet
 func (k *K8sService) queryWorkloadStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, informer informers.SharedInformerFactory) string {
+	log.Info("------ queryWorkloadStatus for service : %s", serviceTmpl.ServiceName)
 	if len(serviceTmpl.Containers) > 0 {
-		workloads, err := GetServiceWorkloads(serviceTmpl.ServiceName, productInfo, informer, k.log)
+		workloads, err := GetServiceWorkloads(serviceTmpl, productInfo, informer, k.log)
 		if err != nil {
 			k.log.Errorf("failed to get service workloads, err: %s", err)
 			return setting.PodUnstable
