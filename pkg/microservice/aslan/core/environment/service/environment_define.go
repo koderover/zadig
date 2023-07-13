@@ -94,6 +94,9 @@ type ProductResp struct {
 	ShareEnvEnable  bool   `json:"share_env_enable"`
 	ShareEnvIsBase  bool   `json:"share_env_is_base"`
 	ShareEnvBaseEnv string `json:"share_env_base_env"`
+
+	// New Since v1.18.0
+	ServiceStatus []*commonservice.ServiceResp `json:"service_status"`
 }
 
 type ProductParams struct {

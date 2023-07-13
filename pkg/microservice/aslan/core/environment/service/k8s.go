@@ -28,7 +28,6 @@ import (
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,6 +84,24 @@ func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, produ
 		Ingress:     nil,
 		Images:      []string{},
 	}
+}
+
+// queryWorkloadStatus query workload status
+// only supports Deployment and StatefulSet
+func (k *K8sService) queryWorkloadStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, informer informers.SharedInformerFactory) string {
+	if len(serviceTmpl.Containers) > 0 {
+		workloads, err := GetServiceWorkloads(serviceTmpl.ServiceName, productInfo, informer, k.log)
+		if err != nil {
+			k.log.Errorf("failed to get service workloads, err: %s", err)
+			return setting.PodUnstable
+		}
+		for _, workload := range workloads {
+			if !workload.Ready {
+				return setting.PodUnstable
+			}
+		}
+	}
+	return setting.PodSucceeded
 }
 
 func (k *K8sService) updateService(args *SvcOptArgs) error {
@@ -280,15 +297,44 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	return nil
 }
 
+func (k *K8sService) calculateProductStatus(productInfo *commonmodels.Product, informer informers.SharedInformerFactory) (string, error) {
+	if informer == nil {
+		return setting.ClusterUnknown, nil
+	}
+
+	retStatus := setting.PodRunning
+
+	var wg sync.WaitGroup
+	for _, service := range productInfo.GetServiceMap() {
+		wg.Add(1)
+		go func(service *commonmodels.ProductService) {
+			defer wg.Done()
+			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: service.ServiceName,
+				Revision:    service.Revision,
+				ProductName: service.ProductName,
+			}, productInfo.Production)
+
+			if err != nil {
+				log.Errorf("failed to get service template %s revision %s, err: %s", service.ServiceName, service.Revision, err)
+				retStatus = setting.PodUnstable
+				return
+			}
+			statusResp := k.queryWorkloadStatus(serviceTmpl, productInfo, informer)
+			if statusResp != setting.PodRunning {
+				retStatus = statusResp
+			}
+		}(service)
+	}
+	wg.Wait()
+
+	return retStatus, nil
+}
+
 func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
 	var wg sync.WaitGroup
 	var resp []*commonservice.ServiceResp
 	var mutex sync.RWMutex
-
-	svcNameSet := sets.NewString()
-	for _, svc := range allServices {
-		svcNameSet.Insert(svc.ServiceName)
-	}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {

@@ -50,6 +50,29 @@ type EnvGroupRequest struct {
 	ServiceName string `form:"serviceName"`
 }
 
+func CalculateProductStatus(productInfo *commonmodels.Product, log *zap.SugaredLogger) (string, error) {
+	envName, productName := productInfo.EnvName, productInfo.ProductName
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, productName, err)
+		return setting.PodUnstable, e.ErrListGroups.AddDesc(err.Error())
+	}
+	inf, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, productName, err)
+		return setting.PodUnstable, e.ErrListGroups.AddDesc(err.Error())
+	}
+
+	k8sHandler := &K8sService{log: log}
+
+	allServices := make([]*commonmodels.ProductService, 0)
+	for _, groupServices := range productInfo.GetServiceMap() {
+		allServices = append(allServices, groupServices)
+	}
+
+	return k8sHandler.calculateProductStatus(productInfo, inf)
+}
+
 func ListGroups(serviceName, envName, productName string, perPage, page int, production bool, log *zap.SugaredLogger) ([]*commonservice.ServiceResp, int, error) {
 	var (
 		count           = 0
