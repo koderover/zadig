@@ -220,7 +220,8 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 			}
 		}
 	}
-
+	
+	c.job.Status = config.StatusPassed
 	return
 }
 
