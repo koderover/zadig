@@ -323,6 +323,7 @@ func (k *K8sService) calculateProductStatus(productInfo *commonmodels.Product, i
 				return
 			}
 			statusResp := k.queryWorkloadStatus(serviceTmpl, productInfo, informer)
+			log.Info("result of status resp: %s/%v", service.ServiceName, statusResp)
 			if statusResp != setting.PodRunning {
 				retStatus = statusResp
 			}

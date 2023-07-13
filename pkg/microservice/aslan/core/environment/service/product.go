@@ -320,7 +320,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 	if errObj != nil {
 		prodResp.Error = errObj.Error()
 	} else {
-		allRunning := true
+		//allRunning := true
 		//for _, serviceResp := range servicesResp {
 		//	if serviceResp.Type == setting.K8SDeployType && serviceResp.WorkLoadType != setting.CronJob && !normalStatus(serviceResp.Status) {
 		//		allRunning = false
@@ -329,10 +329,10 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		//}
 
 		//TODO is it reasonable to ignore error when all pods are running？
-		if allRunning {
-			prodResp.Status = setting.PodRunning
-			prodResp.Error = ""
-		}
+		//if allRunning {
+		//	prodResp.Status = setting.PodRunning
+		//	prodResp.Error = ""
+		//}
 	}
 
 	return prodResp
