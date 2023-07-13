@@ -995,7 +995,7 @@ metas:
           - method: PUT
             endpoint: '/api/aslan/environment/production/environments/?*/services/?*'
           - method: POST
-            endpoint: '/api/aslan/environment/production/environments/deployment/?*'
+            endpoint: '/api/aslan/environment/production/image/deployment/?*'
           - method: POST
             endpoint: '/api/aslan/environment/production/environments/?*/services/?*/scaleNew'
       - action: delete_production_environment
