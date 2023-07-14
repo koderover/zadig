@@ -718,6 +718,7 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 			Type:       setting.CronJob,
 			Images:     cronJob.ImageInfos(),
 			Annotation: cronJob.GetAnnotations(),
+			Ready:      true,
 			Status:     fmt.Sprintf("SUSPEND: %s", getSuspendStr(cronJob.GetSuspend())),
 		})
 	}

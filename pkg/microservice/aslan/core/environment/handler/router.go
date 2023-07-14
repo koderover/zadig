@@ -214,9 +214,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name/helm/default-values", UpdateHelmProductDefaultValues)
 		environments.POST("/:name/helm/default-values/preview", PreviewHelmProductDefaultValues)
 
-		// TODO delete this api
-		environments.PUT("/:name/k8s/default-values", UpdateK8sProductDefaultValues)
-
 		environments.PUT("/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
 		environments.POST("/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
 
