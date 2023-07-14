@@ -222,24 +222,6 @@ func YamlValidator(c *gin.Context) {
 	ctx.Resp = resp
 }
 
-func YamlViewServiceTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := new(svcservice.YamlViewServiceTemplateReq)
-	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid yaml args")
-		return
-	}
-	args.ProjectName = c.Query("projectName")
-	args.ServiceName = c.Param("name")
-	if args.ProjectName == "" || args.ServiceName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName or serviceName can't be nil")
-		return
-	}
-	ctx.Resp, ctx.Err = svcservice.YamlViewServiceTemplate(args)
-}
-
 func HelmReleaseNaming(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -348,22 +330,6 @@ func CreateK8sWorkloads(c *gin.Context) {
 
 func GetServiceTemplateProductName(c *gin.Context) {
 	args := new(commonmodels.Service)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("c.GetRawData() err : %v", err)
-		return
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("json.Unmarshal err : %v", err)
-		return
-	}
-	c.Set("productName", args.ProductName)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	c.Next()
-}
-
-func GetServiceTemplateObjectProductName(c *gin.Context) {
-	args := new(commonservice.ServiceTmplObject)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("c.GetRawData() err : %v", err)

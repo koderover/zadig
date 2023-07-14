@@ -372,7 +372,7 @@ func GetMyEnvironment(projectName, envName, username, userID string, log *zap.Su
 		}
 	} else {
 		// if the project is non-vm, we do it normally.
-		_, svcList, err := service.ListWorkloadsInEnv(envName, projectName, "", math.MaxInt, 1, log)
+		_, svcList, err := service.ListWorkloadDetailsInEnv(envName, projectName, "", math.MaxInt, 1, log)
 		if err != nil {
 			log.Errorf("failed to get workloads in the env, error: %s", err)
 			return nil, err

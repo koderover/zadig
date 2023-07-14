@@ -41,7 +41,22 @@ type EnvGroupRequest struct {
 	ServiceName string `form:"serviceName"`
 }
 
-func CalculateProductStatus(productInfo *commonmodels.Product, log *zap.SugaredLogger) (string, error) {
+// CalculateNonK8sProductStatus calculate product status for non k8s product: Helm + Host
+func CalculateNonK8sProductStatus(productInfo *commonmodels.Product, log *zap.SugaredLogger) (string, error) {
+	productName, envName, retStatus := productInfo.ProductName, productInfo.EnvName, setting.PodRunning
+	_, workloads, err := commonservice.ListWorkloadsInEnv(envName, productName, "", 0, 0, log)
+	if err != nil {
+		return retStatus, e.ErrListGroups.AddDesc(err.Error())
+	}
+	for _, workload := range workloads {
+		if !workload.Ready {
+			return setting.PodUnstable, nil
+		}
+	}
+	return retStatus, nil
+}
+
+func CalculateK8sProductStatus(productInfo *commonmodels.Product, log *zap.SugaredLogger) (string, error) {
 	envName, productName := productInfo.EnvName, productInfo.ProductName
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {

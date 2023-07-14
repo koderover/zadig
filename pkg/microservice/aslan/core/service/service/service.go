@@ -22,9 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path"
 	"strings"
 	"sync"
 	"text/template"
@@ -43,9 +41,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/pm"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
@@ -116,34 +112,6 @@ type ReleaseNamingRule struct {
 	ServiceName string `json:"service_name"`
 }
 
-func ListServicesInExtenalEnv(tmpResp *commonservice.ServiceTmplResp, log *zap.SugaredLogger) {
-	opt := &commonrepo.ProductListOptions{
-		Source:        setting.SourceFromExternal,
-		ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown},
-	}
-	products, err := commonrepo.NewProductColl().List(opt)
-	if err != nil {
-		log.Errorf("Product.List failed, source:%s, err:%v", setting.SourceFromExternal, err)
-	} else {
-		for _, prod := range products {
-			_, services, err := commonservice.ListWorkloadsInEnv(prod.EnvName, prod.ProductName, "", 0, 0, log)
-			if err != nil {
-				log.Errorf("ListWorkloadsInEnv failed, envName:%s, productName:%s, source:%s, err:%v", prod.EnvName, prod.ProductName, setting.SourceFromExternal, err)
-				continue
-			}
-			for _, service := range services {
-				spmap := &commonservice.ServiceProductMap{
-					Service:     service.ServiceName,
-					Type:        service.Type,
-					ProductName: service.ProductName,
-					Product:     []string{service.ProductName},
-				}
-				tmpResp.Data = append(tmpResp.Data, spmap)
-			}
-		}
-	}
-}
-
 func GetServiceTemplateOption(serviceName, productName string, revision int64, log *zap.SugaredLogger) (*ServiceOption, error) {
 	service, err := commonservice.GetServiceTemplate(serviceName, setting.K8SDeployType, productName, setting.ProductStatusDeleting, revision, log)
 	if err != nil {
@@ -156,26 +124,6 @@ func GetServiceTemplateOption(serviceName, productName string, revision int64, l
 	}
 
 	return serviceOption, err
-}
-
-// DEPRECATED ???
-// getTemplateMergedVariables gets merged variable yaml if service is created from yaml template
-func getTemplateMergedVariables(args *commonmodels.Service) string {
-	if args.TemplateID == "" {
-		return args.VariableYaml
-	}
-	templateInfo, err := commonrepo.NewYamlTemplateColl().GetById(args.TemplateID)
-	if err != nil {
-		log.Errorf("failed to find template with id: %s for service: %s, err: %s", args.TemplateID, args.ServiceName, err)
-		return ""
-	}
-
-	variableYaml, _, err := buildYamlTemplateVariables(args, templateInfo)
-	if err != nil {
-		log.Errorf("failed to extract template variables for service: %s, err: %s", args.ServiceName, err)
-		return ""
-	}
-	return variableYaml
 }
 
 func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
@@ -544,7 +492,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		func() {
 			productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
 			if err != nil {
-				log.Errorf("ListWorkloads ListExternalServicesBy err:%s", err)
+				log.Errorf("ListWorkloadDetails ListExternalServicesBy err:%s", err)
 				return
 			}
 			productServiceNames := sets.NewString()
@@ -1088,13 +1036,6 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 	return commonrepo.NewServiceColl().UpdateServiceHealthCheckStatus(updateArgs)
 }
 
-func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {
-	for _, privateKey := range privateKeys {
-		ips.Insert(privateKey.IP)
-	}
-	return ips
-}
-
 func getRenderedYaml(args *YamlValidatorReq) string {
 	extractVariableYaml, err := yamlutil.ExtractVariableYaml(args.Yaml)
 	if err != nil {
@@ -1173,50 +1114,6 @@ func YamlValidator(args *YamlValidatorReq) []string {
 		}
 	}
 	return errorDetails
-}
-
-// Deprecated
-func YamlViewServiceTemplate(args *YamlViewServiceTemplateReq) (string, error) {
-	opt := &commonrepo.ServiceFindOption{
-		ServiceName:   args.ServiceName,
-		ProductName:   args.ProjectName,
-		ExcludeStatus: setting.ProductStatusDeleting,
-	}
-	svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
-	if err != nil {
-		return "", err
-	}
-
-	renderSet := new(commonmodels.RenderSet)
-	//renderSet.KVs = args.Variables
-	//parsedYaml := commonservice.RenderValueForString(svcTmpl.Yaml, renderSet)
-	parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, args.ProjectName, svcTmpl.ServiceName, renderSet)
-	if err != nil {
-		log.Errorf("failed to render service yaml, err: %s", err)
-		return "", err
-	}
-
-	if args.EnvName != "" {
-		prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-			Name:    args.ProjectName,
-			EnvName: args.EnvName,
-		})
-		if err != nil {
-			return "", err
-		}
-
-		parsedYaml = kube.ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, args.ServiceName, parsedYaml)
-		cerSvc := prod.GetServiceMap()
-		svcInfo, found := cerSvc[args.ServiceName]
-		if found {
-			parsedYaml, _, err = kube.ReplaceWorkloadImages(parsedYaml, svcInfo.Containers)
-			if err != nil {
-				return "", err
-			}
-		}
-	}
-
-	return parsedYaml, nil
 }
 
 func UpdateReleaseNamingRule(userName, requestID, projectName string, args *ReleaseNamingRule, log *zap.SugaredLogger) error {
@@ -1499,49 +1396,6 @@ func ListServicePort(serviceName, serviceType, productName, excludeStatus string
 	return servicePorts, nil
 }
 
-func GetGerritServiceYaml(args *commonmodels.Service, log *zap.SugaredLogger) error {
-	//同步commit信息
-	codehostDetail, err := syncGerritLatestCommit(args)
-	if err != nil {
-		log.Errorf("Sync change log from gerrit failed, error: %v", err)
-		return err
-	}
-
-	base := path.Join(config.S3StoragePath(), args.GerritRepoName)
-	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(codehostDetail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, args.GerritRepoName, args.GerritBranchName, args.GerritRemoteName)
-		if err != nil {
-			return err
-		}
-	}
-
-	filePath, err := os.Stat(path.Join(base, args.GerritPath))
-	if err != nil {
-		return err
-	}
-
-	if filePath.IsDir() {
-		fileInfos, err := ioutil.ReadDir(path.Join(base, args.GerritPath))
-		if err != nil {
-			return err
-		}
-		fileContents := make([]string, 0)
-		for _, file := range fileInfos {
-			if contentBytes, err := ioutil.ReadFile(path.Join(base, args.GerritPath, file.Name())); err == nil {
-				fileContents = append(fileContents, string(contentBytes))
-			} else {
-				log.Errorf("CreateServiceTemplate gerrit ReadFile err:%v", err)
-			}
-		}
-		args.Yaml = util.JoinYamls(fileContents)
-	} else {
-		if contentBytes, err := ioutil.ReadFile(path.Join(base, args.GerritPath)); err == nil {
-			args.Yaml = string(contentBytes)
-		}
-	}
-	return nil
-}
-
 func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.SugaredLogger) error {
 	if args == nil {
 		return errors.New("service template arg is null")
@@ -1590,71 +1444,6 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 	return nil
 }
 
-// distincEnvServices 查询使用到服务模板的环境
-func distinctEnvServices(productName string) (map[string][]*commonmodels.Product, error) {
-	serviceMap := make(map[string][]*commonmodels.Product)
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
-	if err != nil {
-		return serviceMap, err
-	}
-
-	for _, env := range envs {
-		for _, group := range env.Services {
-			for _, service := range group {
-				if _, ok := serviceMap[service.ServiceName]; !ok {
-					serviceMap[service.ServiceName] = []*commonmodels.Product{env}
-				} else {
-					serviceMap[service.ServiceName] = append(serviceMap[service.ServiceName], env)
-				}
-			}
-		}
-	}
-	return serviceMap, nil
-}
-
-func updateGerritWebhookByService(lastService, currentService *commonmodels.Service) error {
-	var codehostDetail *systemconfig.CodeHost
-	var err error
-	if lastService != nil && lastService.Source == setting.SourceFromGerrit {
-		codehostDetail, err = systemconfig.New().GetCodeHost(lastService.GerritCodeHostID)
-		if err != nil {
-			log.Errorf("updateGerritWebhookByService GetCodehostDetail err:%v", err)
-			return err
-		}
-		cl := gerrit.NewHTTPClient(codehostDetail.Address, codehostDetail.AccessToken)
-		webhookURLPrefix := fmt.Sprintf("/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(lastService.GerritRepoName), "remotes")
-		_, _ = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, gerrit.RemoteName))
-		_, err = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, lastService.ServiceName))
-		if err != nil {
-			log.Errorf("updateGerritWebhookByService deleteGerritWebhook err:%v", err)
-		}
-	}
-	var detail *systemconfig.CodeHost
-	if lastService.GerritCodeHostID == currentService.GerritCodeHostID && codehostDetail != nil {
-		detail = codehostDetail
-	} else {
-		detail, _ = systemconfig.New().GetCodeHost(currentService.GerritCodeHostID)
-	}
-
-	cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
-	webhookURL := fmt.Sprintf("/%s/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(currentService.GerritRepoName), "remotes", currentService.ServiceName)
-	if _, err := cl.Get(webhookURL); err != nil {
-		log.Errorf("updateGerritWebhookByService getGerritWebhook err:%v", err)
-		//创建webhook
-		gerritWebhook := &gerrit.Webhook{
-			URL:       fmt.Sprintf("%s?name=%s", config.WebHookURL(), currentService.ServiceName),
-			MaxTries:  setting.MaxTries,
-			SslVerify: false,
-		}
-		_, err = cl.Put(webhookURL, httpclient.SetBody(gerritWebhook))
-		if err != nil {
-			log.Errorf("updateGerritWebhookByService addGerritWebhook err:%v", err)
-			return err
-		}
-	}
-	return nil
-}
-
 func createGerritWebhookByService(codehostID int, serviceName, repoName, branchName string) error {
 	detail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
@@ -1679,29 +1468,4 @@ func createGerritWebhookByService(codehostID int, serviceName, repoName, branchN
 		}
 	}
 	return nil
-}
-
-func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.CodeHost, error) {
-	if service.GerritCodeHostID == 0 {
-		return nil, fmt.Errorf("codehostId不能是空的")
-	}
-	if service.GerritRepoName == "" {
-		return nil, fmt.Errorf("repoName不能是空的")
-	}
-	if service.GerritBranchName == "" {
-		return nil, fmt.Errorf("branchName不能是空的")
-	}
-	ch, _ := systemconfig.New().GetCodeHost(service.GerritCodeHostID)
-
-	gerritCli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
-	commit, err := gerritCli.GetCommitByBranch(service.GerritRepoName, service.GerritBranchName)
-	if err != nil {
-		return nil, err
-	}
-
-	service.Commit = &commonmodels.Commit{
-		SHA:     commit.Commit,
-		Message: commit.Message,
-	}
-	return ch, nil
 }

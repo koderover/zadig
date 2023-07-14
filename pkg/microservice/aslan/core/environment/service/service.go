@@ -271,11 +271,10 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 		case setting.Deployment:
 			d, err := getter.GetDeploymentByNameWithCache(u.GetName(), namespace, inf)
 			if err != nil {
-				log.Errorf("----- failed to get deployment %s, err: %s", u.GetName(), err)
+				log.Errorf("failed to get deployment %s, err: %s", u.GetName(), err)
 				continue
 			}
 			wd := wrapper.Deployment(d)
-			log.Infof("find deployment %s, status: %v/%v/%v ready: %v", d.Name, wd.Status.Replicas, wd.Status.ReadyReplicas, wd.Status.AvailableReplicas, wd.Ready())
 			ret = append(ret, &commonservice.Workload{
 				Name:       wd.Name,
 				Spec:       wd.Spec.Template,
@@ -292,7 +291,6 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 				continue
 			}
 			ws := wrapper.StatefulSet(sts)
-			log.Infof("find sts %s, status: %v/%v", sts.Name, ws.Status.Replicas, ws.Status.ReadyReplicas)
 			ret = append(ret, &commonservice.Workload{
 				Name:       ws.Name,
 				Spec:       ws.Spec.Template,

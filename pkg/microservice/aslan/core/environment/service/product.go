@@ -300,32 +300,34 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 	}
 
 	var (
-		servicesResp = make([]*commonservice.ServiceResp, 0)
-		errObj       error
+		//servicesResp = make([]*commonservice.ServiceResp, 0)
+		errObj error
 	)
 
 	switch prod.Source {
 	case setting.SourceFromExternal, setting.SourceFromHelm:
-		_, servicesResp, errObj = commonservice.ListWorkloadsInEnv(envName, prod.ProductName, "", 0, 0, log)
-		if len(servicesResp) == 0 && errObj == nil {
-			prodResp.Status = prod.Status
-			prodResp.Error = prod.Error
-			return prodResp
-		}
-		allRunning := true
-		for _, serviceResp := range servicesResp {
-			if serviceResp.Type == setting.K8SDeployType && serviceResp.WorkLoadType != setting.CronJob && !normalStatus(serviceResp.Status) {
-				allRunning = false
-				break
-			}
-		}
-		//TODO is it reasonable to ignore error when all pods are running？
-		if allRunning {
-			prodResp.Status = setting.PodRunning
-			prodResp.Error = ""
-		}
+		//_, servicesResp, errObj = commonservice.ListWorkloadDetailsInEnv(envName, prod.ProductName, "", 0, 0, log)
+		//if len(servicesResp) == 0 && errObj == nil {
+		//	prodResp.Status = prod.Status
+		//	prodResp.Error = prod.Error
+		//	return prodResp
+		//}
+		//allRunning := true
+		//for _, serviceResp := range servicesResp {
+		//	if serviceResp.Type == setting.K8SDeployType && serviceResp.WorkLoadType != setting.CronJob && !normalStatus(serviceResp.Status) {
+		//		allRunning = false
+		//		break
+		//	}
+		//}
+		////TODO is it reasonable to ignore error when all pods are running？
+		//if allRunning {
+		//	prodResp.Status = setting.PodRunning
+		//	prodResp.Error = ""
+		//}
+		prodResp.Status, errObj = CalculateNonK8sProductStatus(prod, log)
+		prodResp.Error = ""
 	default:
-		prodResp.Status, errObj = CalculateProductStatus(prod, log)
+		prodResp.Status, errObj = CalculateK8sProductStatus(prod, log)
 		prodResp.Error = ""
 	}
 
