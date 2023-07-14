@@ -178,11 +178,6 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
-	}
-
 	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
 	if err != nil {
 		log.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", env.ClusterID, err)
@@ -195,7 +190,7 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	ret, err = GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+	ret, err = GetServiceImpl(serviceName, workLoadType, env, clientset, inf, log)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
 	}
@@ -309,7 +304,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 	return ret, nil
 }
 
-func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.Product, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
 	envName, productName := env.EnvName, env.ProductName
 	ret = &SvcResp{
 		ServiceName: serviceName,
@@ -333,11 +328,11 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			}
 			workLoadType = modelSvc.WorkloadType
 		}
-		k8sServices, _ := getter.ListServices(namespace, nil, kubeClient)
+		k8sServices, _ := getter.ListServicesWithCache(nil, inf)
 		switch workLoadType {
 		case setting.StatefulSet:
-			statefulSet, found, err := getter.GetStatefulSet(namespace, serviceName, kubeClient)
-			if !found || err != nil {
+			statefulSet, err := getter.GetStatefulSetByNameWWithCache(serviceName, namespace, inf)
+			if err != nil {
 				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 			}
 			scale := getStatefulSetWorkloadResource(statefulSet, inf, log)
@@ -351,9 +346,9 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 				}
 			}
 		case setting.Deployment:
-			deploy, found, err := getter.GetDeployment(namespace, serviceName, kubeClient)
-			if !found || err != nil {
-				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
+			deploy, err := getter.GetDeploymentByNameWithCache(serviceName, namespace, inf)
+			if err != nil {
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found, err: %s", serviceName, err.Error()))
 			}
 			scale := getDeploymentWorkloadResource(deploy, inf, log)
 			ret.Workloads = append(ret.Workloads, toDeploymentWorkload(deploy))
@@ -371,8 +366,8 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 				log.Warnf("Failed to determine server version, error is: %s", err)
 				return ret, nil
 			}
-			cj, cjBeta, exists, err := getter.GetCronJob(namespace, serviceName, kubeClient, kubeclient.VersionLessThan121(version))
-			if err != nil || !exists {
+			cj, cjBeta, err := getter.GetCronJobByNameWithCache(serviceName, namespace, inf, kubeclient.VersionLessThan121(version))
+			if err != nil {
 				return ret, nil
 			}
 			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
@@ -448,13 +443,12 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 					log.Warnf("Failed to determine server version, error is: %s", err)
 					continue
 				}
-				cj, cjBeta, exists, err := getter.GetCronJob(namespace, u.GetName(), kubeClient, kubeclient.VersionLessThan121(version))
-				if err != nil || !exists {
+				cj, cjBeta, err := getter.GetCronJobByNameWithCache(u.GetName(), namespace, inf, kubeclient.VersionLessThan121(version))
+				if err != nil {
 					continue
 				}
 				ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
 			case setting.Ingress:
-
 				version, err := clientset.Discovery().ServerVersion()
 				if err != nil {
 					log.Warnf("Failed to determine server version, error is: %s", err)
@@ -718,7 +712,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	return nil
 }
 
-func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kubeClient client.Client, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *ZadigServiceStatusResp {
+func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *ZadigServiceStatusResp {
 	resp := &ZadigServiceStatusResp{
 		ServiceName: serviceName,
 		PodStatus:   setting.PodError,
@@ -726,7 +720,7 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kube
 		Ingress:     nil,
 		Images:      nil,
 	}
-	svcResp, err := GetServiceImpl(serviceName, "", productInfo, kubeClient, clientset, informer, log)
+	svcResp, err := GetServiceImpl(serviceName, "", productInfo, clientset, informer, log)
 	if err != nil {
 		return resp
 	}

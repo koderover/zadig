@@ -72,10 +72,10 @@ type ZadigServiceStatusResp struct {
 // If service doesn't have pods, service status = success (all objects created) or failed (fail to create some objects).
 // 正常：StatusRunning or StatusSucceed
 // 错误：StatusError or StatusFailed
-func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory) *ZadigServiceStatusResp {
+func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory) *ZadigServiceStatusResp {
 	if len(serviceTmpl.Containers) > 0 {
 		// 有容器时，根据pods status判断服务状态
-		return queryPodsStatus(productInfo, serviceTmpl.ServiceName, kubeClient, clientset, informer, k.log)
+		return queryPodsStatus(productInfo, serviceTmpl.ServiceName, clientset, informer, k.log)
 	}
 	return &ZadigServiceStatusResp{
 		ServiceName: serviceTmpl.ServiceName,
@@ -89,7 +89,6 @@ func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, produ
 // queryWorkloadStatus query workload status
 // only supports Deployment and StatefulSet
 func (k *K8sService) queryWorkloadStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, informer informers.SharedInformerFactory) string {
-	log.Infof("------ queryWorkloadStatus for service : %s", serviceTmpl.ServiceName)
 	if len(serviceTmpl.Containers) > 0 {
 		workloads, err := GetServiceWorkloads(serviceTmpl, productInfo, informer, k.log)
 		if err != nil {
@@ -335,16 +334,10 @@ func (k *K8sService) calculateProductStatus(productInfo *commonmodels.Product, i
 	return retStatus, nil
 }
 
-func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
+func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductService, envName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
 	var wg sync.WaitGroup
 	var resp []*commonservice.ServiceResp
 	var mutex sync.RWMutex
-
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		log.Errorf("failed to kubeClient, err: %s", err)
-		return nil
-	}
 
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
@@ -413,7 +406,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 			gp.ProductName = serviceTmpl.ProductName
 			// 查询group下所有pods信息
 			if informer != nil {
-				statusResp := k.queryServiceStatus(serviceTmpl, productInfo, kubeClient, cls, informer)
+				statusResp := k.queryServiceStatus(serviceTmpl, productInfo, cls, informer)
 				gp.Status, gp.Ready, gp.Images = statusResp.PodStatus, statusResp.Ready, statusResp.Images
 				// 如果产品正在创建中，且service status为ERROR（POD还没创建出来），则判断为Pending，尚未开始创建
 				if productInfo.Status == setting.ProductStatusCreating && gp.Status == setting.PodError {
