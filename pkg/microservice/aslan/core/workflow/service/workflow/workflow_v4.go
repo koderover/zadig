@@ -2307,7 +2307,7 @@ func RenderMseServiceYaml(productName, envName, lastGrayTag, grayTag string, ser
 	var yamls []string
 	serviceName := service.ServiceName
 	getNameWithNewTag := func(name, lastTag, newTag string) string {
-		if lastTag == "" || !strings.HasSuffix(name, lastTag) {
+		if !strings.HasSuffix(name, lastTag) {
 			return name
 		}
 		return strings.TrimSuffix(name, lastTag) + newTag
