@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -168,12 +169,17 @@ func listZadigXMseReleaseServices(namespace, productName, envName string, client
 		return nil, err
 	}
 	services := make([]*commonservice.ServiceResp, 0)
+	serviceSets := sets.NewString()
 	for _, deployment := range deployments {
 		serviceName := deployment.GetLabels()[types.ZadigReleaseServiceNameLabelKey]
 		if serviceName == "" {
 			log.Warnf("listZadigXMseReleaseServices: deployment %s/%s has no service name label", deployment.Namespace, deployment.Name)
 			continue
 		}
+		if serviceSets.Has(serviceName) {
+			continue
+		}
+		serviceSets.Insert(serviceName)
 		services = append(services, &commonservice.ServiceResp{
 			ServiceName: serviceName,
 			Type:        setting.K8SDeployType,
