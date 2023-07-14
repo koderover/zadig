@@ -77,7 +77,7 @@ func (j *MseGrayOfflineJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 		},
 		JobType: string(config.JobMseGrayOffline),
 		Spec: commonmodels.JobTaskMseGrayOfflineSpec{
-			Env:        j.spec.EnvName,
+			Env:        j.spec.Env,
 			GrayTag:    j.spec.GrayTag,
 			Production: j.spec.Production,
 		},
