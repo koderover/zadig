@@ -585,9 +585,10 @@ type MseGrayReleaseServiceModuleAndImage struct {
 }
 
 type MseGrayOfflineJobSpec struct {
-	EnvName string `bson:"env_name" json:"env_name" yaml:"env_name"`
-	Source  string `bson:"source" json:"source" yaml:"source"`
-	GrayTag string `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
+	EnvName    string `bson:"env_name" json:"env_name" yaml:"env_name"`
+	Source     string `bson:"source" json:"source" yaml:"source"`
+	GrayTag    string `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
+	Production bool   `bson:"production" json:"production" yaml:"production"`
 }
 
 type NacosJobSpec struct {
