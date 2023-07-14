@@ -186,6 +186,7 @@ func (c *MseGrayOfflineJobCtl) Run(ctx context.Context) {
 			c.Info(fmt.Sprintf("delete service %s success", service.Name))
 		}
 	}
+	fail := false
 	for service, errors := range serviceAndErrorMap {
 		if len(errors) == 0 {
 			c.jobTaskSpec.OfflineServices = append(c.jobTaskSpec.OfflineServices, &commonmodels.MseGrayOfflineService{
@@ -198,7 +199,13 @@ func (c *MseGrayOfflineJobCtl) Run(ctx context.Context) {
 				Status:      config.StatusFailed,
 				Error:       strings.Join(errors, "\n"),
 			})
+			fail = true
 		}
+	}
+	if fail {
+		c.job.Status = config.StatusFailed
+	} else {
+		c.job.Status = config.StatusPassed
 	}
 	return
 }
