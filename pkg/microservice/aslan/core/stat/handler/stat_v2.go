@@ -156,6 +156,8 @@ func GetProjectsOverview(c *gin.Context) {
 		args.StartTime = now.AddDate(0, 0, -30).Unix()
 		args.EndTime = now.Unix()
 	}
+	args.EndTime = time.Unix(args.EndTime, 0).AddDate(0, 0, -10).Unix()
+	args.StartTime = time.Unix(args.EndTime, 0).AddDate(0, -1, 0).Unix()
 
 	ctx.Resp, ctx.Err = service.GetProjectsOverview(args.StartTime, args.EndTime, ctx.Logger)
 }

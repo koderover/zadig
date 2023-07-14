@@ -384,6 +384,7 @@ func GetProjectsOverview(start, end int64, logger *zap.SugaredLogger) ([]*DailyJ
 		data: make([]*currently30DayOverview, 0),
 	}
 
+	logger.Infof(">>>>>>>> get project overview data %d", len(result))
 	for i := 0; i < len(result); i++ {
 		start := util.GetMidnightTimestamp(result[i].StartTime)
 		end := time.Unix(start, 0).Add(time.Hour*24 - time.Second).Unix()

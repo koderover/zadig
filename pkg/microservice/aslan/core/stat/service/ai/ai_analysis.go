@@ -206,9 +206,14 @@ func parseUserPrompt(args *AiAnalysisReq, aiClient llm.ILLM, logger *zap.Sugared
 	}
 
 	// parse time in user prompt by restful api
-	err = getTimeParseResult(args.Prompt, input, logger)
-	if err != nil {
-		return nil, err
+	if (input.StartTime == 0 && input.EndTime == 0) && (args.StartTime > 0 && args.EndTime > 0) {
+		input.StartTime = args.StartTime
+		input.EndTime = args.EndTime
+	} else if (input.StartTime == 0 && input.EndTime == 0) && (args.StartTime == 0 && args.EndTime == 0) {
+		err = getTimeParseResult(args.Prompt, input, logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return input, nil
 }
@@ -414,14 +419,17 @@ func GetAiPrompts(logger *zap.SugaredLogger) (*ExamplePrompt, error) {
 		return nil, nil
 	}
 	rand.Seed(time.Now().UnixNano())
-	list = append(list, fmt.Sprintf("通过历史数据，请用简洁的文字总结%s项目最近一个月的整体表现。", projects[rand.Intn(len(projects))]))
-	list = append(list, fmt.Sprintf("请根据项目%s的构建、部署、测试和发布等数据，分析项目最近一个月的现状，并基于历史数据，分析未来的趋势和潜在问题，并提出改进建议。", projects[rand.Intn(len(projects))]))
-	list = append(list, fmt.Sprintf("根据%s项目最近一个月每周的构建，部署，测试等数据的变化，以此分析该项目最近一段时间的发展趋势，如果存在问题则分析原因并给出合理的解决方案。", projects[rand.Intn(len(projects))]))
-	list = append(list, fmt.Sprintf("通过历史数据，分析%s项目的最大短板是什么？并针对这些短板提供一些解决办法。", projects[rand.Intn(len(projects))]))
-	if len(projects) > 5 {
-		list = append(list, fmt.Sprintf("从项目质量和效率两个角度分析项目%s最近一个月的情况，并分析这些项目的最近一个月的构建和部署趋势，对比构建趋势分析这些项目发展情况。", projects[1]+"、"+projects[2]+"、"+projects[3]))
-		list = append(list, fmt.Sprintf("分析这些项目%s在最近一个月的整体表现，选出质量和效率最高的一个项目和最差的一个项目,并分析这两个项目产生差距的原因。", projects[1]+"、"+projects[2]+"、"+projects[3]))
-	}
+	list = append(list, fmt.Sprintf("分析 %s 项目近一个月的质量和效率，并给出优化建议", projects[rand.Intn(len(projects))]))
+	list = append(list, fmt.Sprintf("分析所有项目近一个月的整体表现，并给出优化建议"))
+	list = append(list, fmt.Sprintf("分析 %s 项目近一个月的质量数据，预测未来的趋势和潜在问题", projects[rand.Intn(len(projects))]))
+	//list = append(list, fmt.Sprintf("通过历史数据，请用简洁的文字总结%s项目最近一个月的整体表现。", projects[rand.Intn(len(projects))]))
+	//list = append(list, fmt.Sprintf("请根据项目%s的构建、部署、测试和发布等数据，分析项目最近一个月的现状，并基于历史数据，分析未来的趋势和潜在问题，并提出改进建议。", projects[rand.Intn(len(projects))]))
+	//list = append(list, fmt.Sprintf("根据%s项目最近一个月每周的构建，部署，测试等数据的变化，以此分析该项目最近一段时间的发展趋势，如果存在问题则分析原因并给出合理的解决方案。", projects[rand.Intn(len(projects))]))
+	//list = append(list, fmt.Sprintf("通过历史数据，分析%s项目的最大短板是什么？并针对这些短板提供一些解决办法。", projects[rand.Intn(len(projects))]))
+	//if len(projects) > 5 {
+	//	list = append(list, fmt.Sprintf("从项目质量和效率两个角度分析项目%s最近一个月的情况，并分析这些项目的最近一个月的构建和部署趋势，对比构建趋势分析这些项目发展情况。", projects[1]+"、"+projects[2]+"、"+projects[3]))
+	//	list = append(list, fmt.Sprintf("分析这些项目%s在最近一个月的整体表现，选出质量和效率最高的一个项目和最差的一个项目,并分析这两个项目产生差距的原因。", projects[1]+"、"+projects[2]+"、"+projects[3]))
+	//}
 
 	return &ExamplePrompt{
 		Prompts: list,
@@ -453,7 +461,8 @@ func AnalyzeMonthAttention(start, end int64, data []*service2.MonthAttention, lo
 		return nil, err
 	}
 	input := string(jsonStr)
-	prompt := fmt.Sprintf(MonthAttentionAnalysisPrompt, time.Now().AddDate(0, -1, 0).Month(), time.Now().Month(), input)
+	prompt := fmt.Sprintf("你是DevOps专家，你需要根据三重引号分割的输入数据，该数据分别包括了%d月和%d月每个月各自的构建成功率，测试成功率，部署成功率，发布成功率，发布频次，"+
+		"以及需求研发周期等数据;%s;输入数据\"\"\"%s\"\"\"", time.Now().AddDate(0, -1, 0).Month(), time.Now().Month(), AttentionPrompt, input)
 
 	retryTime := 0
 	answer := ""
@@ -461,7 +470,7 @@ func AnalyzeMonthAttention(start, end int64, data []*service2.MonthAttention, lo
 		answer, err = client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.2)))
 		if err != nil {
 			retryTime++
-			if strings.Contains(err.Error(), "code: 500") && retryTime < 3 {
+			if strings.Contains(err.Error(), "create chat completion failed") && retryTime < 3 {
 				continue
 			}
 			logger.Errorf("failed to get completion analyze answer, the error is: %+v", err)
@@ -477,5 +486,6 @@ func AnalyzeMonthAttention(start, end int64, data []*service2.MonthAttention, lo
 		logger.Errorf("failed to unmarshal answer, ai may return the  the error is wrong: %+v", err)
 		return nil, ReturnAnswerWrongFormat
 	}
+
 	return resp, nil
 }
