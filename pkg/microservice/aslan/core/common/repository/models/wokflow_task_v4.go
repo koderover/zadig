@@ -464,6 +464,7 @@ type JobTaskMseGrayReleaseSpec struct {
 }
 
 type JobTaskMseGrayOfflineSpec struct {
+	Production      bool                     `bson:"production" json:"production" yaml:"production"`
 	Env             string                   `bson:"env" json:"env" yaml:"env"`
 	GrayTag         string                   `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
 	Namespace       string                   `bson:"namespace" json:"namespace" yaml:"namespace"`
