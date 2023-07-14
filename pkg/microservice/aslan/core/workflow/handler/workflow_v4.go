@@ -696,6 +696,22 @@ func GetMseOfflineResources(c *gin.Context) {
 	}
 }
 
+func GetMseTagsInEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	tags, err := workflow.GetMseTagsInEnv(c.Param("envName"), c.Query("projectName"))
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = struct {
+		Tags []string `json:"tags"`
+	}{F
+		Tags: tags,
+	}
+}
+
 func getBody(c *gin.Context) string {
 	b, err := c.GetRawData()
 	if err != nil {

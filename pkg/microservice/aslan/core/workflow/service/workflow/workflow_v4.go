@@ -2457,6 +2457,37 @@ func GetMseOfflineResources(grayTag, envName, projectName string) ([]string, err
 	return services, nil
 }
 
+func GetMseTagsInEnv(envName, projectName string) ([]string, error) {
+	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return nil, errors.Errorf("failed to find product %s: %v", projectName, err)
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	if err != nil {
+		return nil, err
+	}
+	selector := labels.Set{
+		types.ZadigReleaseTypeLabelKey: types.ZadigReleaseTypeMseGray,
+	}.AsSelector()
+	deploymentList, err := getter.ListDeployments(prod.Namespace, selector, kubeClient)
+	if err != nil {
+		return nil, errors.Errorf("can't list deployment: %v", err)
+	}
+	tags := sets.NewString()
+	for _, deployment := range deploymentList {
+		if tag := deployment.Labels[types.ZadigReleaseVersionLabelKey]; tag != "" {
+			tags.Insert(tag)
+		} else {
+			log.Warnf("GetMseTagsInEnv: deployment %s has no release version tag", deployment.Name)
+		}
+	}
+
+	return tags.List(), nil
+}
+
 //func RenderMseServiceYaml(grayTag string, service *commonmodels.MseGrayReleaseService) (string, error) {
 //	resources := make([]*unstructured.Unstructured, 0)
 //	manifests := releaseutil.SplitManifests(service.YamlContent)

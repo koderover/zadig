@@ -200,6 +200,18 @@ func GetService(envName, productName, serviceName string, production bool, workL
 	if err != nil && !strings.Contains(err.Error(), "failed to find service in environment") {
 		return nil, e.ErrGetService.AddErr(err)
 	}
+	// if raw service resources not found will be nil , we should create it
+	if ret == nil {
+		ret = &SvcResp{
+			ServiceName: serviceName,
+			EnvName:     envName,
+			ProductName: productName,
+			Services:    make([]*internalresource.Service, 0),
+			Ingress:     make([]*internalresource.Ingress, 0),
+			Scales:      make([]*internalresource.Workload, 0),
+			CronJobs:    make([]*internalresource.CronJob, 0),
+		}
+	}
 	mseResp, err := GetMseServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(errors.Wrap(err, "failed to get mse service"))
