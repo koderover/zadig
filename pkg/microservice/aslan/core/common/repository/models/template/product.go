@@ -127,8 +127,8 @@ type CustomYaml struct {
 
 // ServiceRender used for helm product service ...
 type ServiceRender struct {
-	// ServiceName or release name for helm chart deploy
 	ServiceName       string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+	ReleaseName       string `bson:"release_name,omitempty"    json:"release_name,omitempty"`
 	IsHelmChartDeploy bool   `bson:"is_helm_chart_deploy,omitempty"    json:"is_helm_chart_deploy,omitempty"`
 
 	// ---- for helm services begin ----

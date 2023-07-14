@@ -167,6 +167,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.DELETE("/kube/:name/pods/:podName", DeletePod)
 
 		production.GET("/environments/:name/helm/releases", ListProductionReleases)
+		production.DELETE("/environments/:name/helm/releases", DeleteProductionHelmReleases)
 		production.GET("/environments/:name/helm/values", GetProductionChartValues)
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 

@@ -71,6 +71,13 @@ definitions:
       value:
         type: string
     type: object
+  handler.DeleteProductHelmReleaseRequest:
+    properties:
+      release_names:
+        items:
+          type: string
+        type: array
+    type: object
   handler.DeleteProductServicesRequest:
     properties:
       service_names:
@@ -1265,8 +1272,9 @@ definitions:
         description: |-
           OverrideYaml will be used in both helm and k8s projects
           In k8s this is variable_yaml
+      release_name:
+        type: string
       service_name:
-        description: ServiceName or release name for helm chart deploy
         type: string
       values_yaml:
         type: string
@@ -1840,6 +1848,36 @@ paths:
         "200":
           description: OK
       summary: Update Multi production products
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/:name/helm/releases:
+    delete:
+      consumes:
+      - application/json
+      description: Delete production helm release from envrionment
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.DeleteProductHelmReleaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Delete production helm release from envrionment
       tags:
       - environment
   /api/aslan/environment/rendersets/globalVariables:

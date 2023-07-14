@@ -398,7 +398,7 @@ func (c *ProductColl) Update(args *models.Product) error {
 	if len(args.Source) > 0 {
 		changePayload["source"] = args.Source
 	}
-	if len(args.ServiceDeployStrategy) > 0 {
+	if args.ServiceDeployStrategy != nil {
 		changePayload["service_deploy_strategy"] = args.ServiceDeployStrategy
 	}
 	change := bson.M{"$set": changePayload}

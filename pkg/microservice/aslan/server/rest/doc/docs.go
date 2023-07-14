@@ -700,6 +700,51 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/production/environments/:name/helm/releases": {
+            "delete": {
+                "description": "Delete production helm release from envrionment",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Delete production helm release from envrionment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.DeleteProductHelmReleaseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/rendersets/globalVariables": {
             "get": {
                 "description": "Get global variable from environment, current only used for k8s project",
@@ -1660,6 +1705,17 @@ const docTemplate = `{
                 },
                 "value": {
                     "type": "string"
+                }
+            }
+        },
+        "handler.DeleteProductHelmReleaseRequest": {
+            "type": "object",
+            "properties": {
+                "release_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -3464,8 +3520,10 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "release_name": {
+                    "type": "string"
+                },
                 "service_name": {
-                    "description": "ServiceName or release name for helm chart deploy",
                     "type": "string"
                 },
                 "values_yaml": {

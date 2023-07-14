@@ -444,6 +444,7 @@ const (
 	GerritDefaultOwner = "dafault"
 	// YamlFileSeperator ...
 	YamlFileSeperator = "\n---\n"
+	HelmChartDeployStrategySuffix = "<+helm_chart>"
 )
 
 const MaskValue = "********"

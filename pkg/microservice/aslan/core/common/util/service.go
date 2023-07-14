@@ -44,8 +44,27 @@ func GetServiceDeployStrategy(serviceName string, strategyMap map[string]string)
 	}
 }
 
+func GetReleaseDeployStrategyKey(releaseName string) string {
+	return fmt.Sprintf("%s%s", releaseName, setting.HelmChartDeployStrategySuffix)
+}
+
+func GetReleaseDeployStrategy(releaseName string, strategyMap map[string]string) string {
+	if strategyMap == nil {
+		return setting.ServiceDeployStrategyDeploy
+	}
+	if value, ok := strategyMap[GetReleaseDeployStrategyKey(releaseName)]; !ok || value == "" {
+		return setting.ServiceDeployStrategyDeploy
+	} else {
+		return value
+	}
+}
+
 func ServiceDeployed(serviceName string, strategyMap map[string]string) bool {
 	return GetServiceDeployStrategy(serviceName, strategyMap) == setting.ServiceDeployStrategyDeploy
+}
+
+func ReleaseDeployed(releaseName string, strategyMap map[string]string) bool {
+	return GetReleaseDeployStrategy(releaseName, strategyMap) == setting.ServiceDeployStrategyDeploy
 }
 
 func DeployStrategyChanged(serviceName string, strategyMapOld map[string]string, strategyMapNew map[string]string) bool {

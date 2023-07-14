@@ -46,6 +46,10 @@ type DeleteProductServicesRequest struct {
 	ServiceNames []string `json:"service_names"`
 }
 
+type DeleteProductHelmReleaseRequest struct {
+	ReleaseNames []string `json:"release_names"`
+}
+
 type ChartInfoArgs struct {
 	ChartInfos []*template.ServiceRender `json:"chart_infos"`
 }
@@ -1060,6 +1064,39 @@ func DeleteProductionProductServices(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger, envName)
 	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectName, args.ServiceNames, true, ctx.Logger)
+}
+
+// @Summary Delete production helm release from envrionment
+// @Description Delete production helm release from envrionment
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	name			path		string							true	"env name"
+// @Param 	body 			body 		DeleteProductHelmReleaseRequest true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/:name/helm/releases [delete]
+func DeleteProductionHelmReleases(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(DeleteProductHelmReleaseRequest)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("DeleteProductHelmRelease c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("DeleteProductHelmRelease json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	projectName := c.Query("projectName")
+	envName := c.Param("name")
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "环境的helm release", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ReleaseNames, ",")), "", ctx.Logger, envName)
+	ctx.Err = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectName, args.ReleaseNames, true, ctx.Logger)
 }
 
 func ListGroups(c *gin.Context) {

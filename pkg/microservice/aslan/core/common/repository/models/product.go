@@ -163,9 +163,8 @@ func (p *Product) GetChartServiceMap() map[string]*ProductService {
 	ret := make(map[string]*ProductService)
 	for _, group := range p.Services {
 		for _, svc := range group {
-			// @todo may need to update the type
 			if svc.Type == setting.HelmChartDeployType {
-				ret[svc.ServiceName] = svc
+				ret[svc.ReleaseName] = svc
 			}
 		}
 	}
