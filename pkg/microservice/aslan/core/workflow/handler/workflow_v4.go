@@ -707,7 +707,7 @@ func GetMseTagsInEnv(c *gin.Context) {
 	}
 	ctx.Resp = struct {
 		Tags []string `json:"tags"`
-	}{F
+	}{
 		Tags: tags,
 	}
 }
