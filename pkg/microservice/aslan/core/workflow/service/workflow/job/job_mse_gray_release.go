@@ -78,6 +78,9 @@ func (j *MseGrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 	if j.spec.GrayTag == types.ZadigReleaseVersionOriginal {
 		return nil, errors.Errorf("gray tag must not be 'original'")
 	}
+	if j.spec.GrayTag == "" {
+		return nil, errors.Errorf("gray tag must not be empty")
+	}
 
 	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {

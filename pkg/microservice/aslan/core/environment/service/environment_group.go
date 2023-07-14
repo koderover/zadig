@@ -25,7 +25,6 @@ import (
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -169,33 +168,41 @@ func listZadigXMseReleaseServices(namespace, productName, envName string, client
 		return nil, err
 	}
 	services := make([]*commonservice.ServiceResp, 0)
-	serviceSets := sets.NewString()
+	serviceSets := make(map[string]*commonservice.ServiceResp)
 	for _, deployment := range deployments {
 		serviceName := deployment.GetLabels()[types.ZadigReleaseServiceNameLabelKey]
 		if serviceName == "" {
 			log.Warnf("listZadigXMseReleaseServices: deployment %s/%s has no service name label", deployment.Namespace, deployment.Name)
 			continue
 		}
-		if serviceSets.Has(serviceName) {
+		if resp, ok := serviceSets[serviceName]; ok {
+			resp.Images = append(resp.Images, wrapper.Deployment(deployment).ImageInfos()...)
+			resp.Status = func() string {
+				if resp.Status == setting.PodUnstable || deployment.Status.Replicas != deployment.Status.ReadyReplicas {
+					return setting.PodUnstable
+				}
+				return setting.PodRunning
+			}()
 			continue
 		}
-		serviceSets.Insert(serviceName)
-		services = append(services, &commonservice.ServiceResp{
+		svcResp := &commonservice.ServiceResp{
 			ServiceName: serviceName,
 			Type:        setting.K8SDeployType,
 			Status: func() string {
 				if deployment.Status.Replicas == deployment.Status.ReadyReplicas {
 					return setting.PodRunning
-				} else {
-					return setting.PodUnstable
 				}
+				return setting.PodUnstable
+
 			}(),
 			Images:            wrapper.Deployment(deployment).ImageInfos(),
 			ProductName:       productName,
 			EnvName:           envName,
 			DeployStrategy:    "deploy",
 			ZadigXReleaseType: config.ZadigXMseGrayRelease,
-		})
+		}
+		serviceSets[serviceName] = svcResp
+		services = append(services, svcResp)
 	}
 	return services, nil
 }

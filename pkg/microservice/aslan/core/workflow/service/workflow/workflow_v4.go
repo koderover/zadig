@@ -2293,7 +2293,7 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 	return strings.Join(yamls, "---\n"), nil
 }
 
-func RenderMseServiceYaml(productName, envName, grayTag string, service *commonmodels.MseGrayReleaseService) (string, error) {
+func RenderMseServiceYaml(productName, envName, lastGrayTag, grayTag string, service *commonmodels.MseGrayReleaseService) (string, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	manifests := releaseutil.SplitManifests(service.YamlContent)
 	for _, item := range manifests {
@@ -2306,6 +2306,12 @@ func RenderMseServiceYaml(productName, envName, grayTag string, service *commonm
 	deploymentNum := 0
 	var yamls []string
 	serviceName := service.ServiceName
+	getNameWithNewTag := func(name, lastTag, newTag string) string {
+		if lastTag == "" || !strings.HasSuffix(name, lastTag) {
+			return name
+		}
+		return strings.TrimSuffix(name, lastTag) + newTag
+	}
 	for _, resource := range resources {
 		switch resource.GetKind() {
 		case setting.Deployment:
@@ -2326,6 +2332,7 @@ func RenderMseServiceYaml(productName, envName, grayTag string, service *commonm
 				return "", errors.Errorf("service %s deployment template label must contain %s", serviceName, types.ZadigReleaseVersionLabelKey)
 			}
 
+			deploymentObj.Name = getNameWithNewTag(deploymentObj.Name, lastGrayTag, grayTag)
 			deploymentObj.Labels = setMseDeploymentLabels(deploymentObj.Labels, grayTag, serviceName)
 			deploymentObj.Spec.Selector.MatchLabels = setMseDeploymentLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
 			deploymentObj.Spec.Template.Labels = setMseDeploymentLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
@@ -2374,6 +2381,7 @@ func RenderMseServiceYaml(productName, envName, grayTag string, service *commonm
 			if err != nil {
 				return "", errors.Errorf("failed to convert service %s ConfigMap to object: %v", serviceName, err)
 			}
+			cmObj.Name = getNameWithNewTag(cmObj.Name, lastGrayTag, grayTag)
 			cmObj.SetLabels(setMseLabels(cmObj.GetLabels(), grayTag, serviceName))
 			s, err := toYaml(cmObj)
 			if err != nil {
@@ -2386,6 +2394,7 @@ func RenderMseServiceYaml(productName, envName, grayTag string, service *commonm
 			if err != nil {
 				return "", errors.Errorf("failed to convert service %s Service to object: %v", serviceName, err)
 			}
+			serviceObj.Name = getNameWithNewTag(serviceObj.Name, lastGrayTag, grayTag)
 			serviceObj.SetLabels(setMseLabels(serviceObj.GetLabels(), grayTag, serviceName))
 			serviceObj.Spec.Selector = setMseLabels(serviceObj.Spec.Selector, grayTag, serviceName)
 			s, err := toYaml(serviceObj)
@@ -2399,6 +2408,7 @@ func RenderMseServiceYaml(productName, envName, grayTag string, service *commonm
 			if err != nil {
 				return "", errors.Errorf("failed to convert service %s Secret to object: %v", serviceName, err)
 			}
+			secretObj.Name = getNameWithNewTag(secretObj.Name, lastGrayTag, grayTag)
 			secretObj.SetLabels(setMseLabels(secretObj.GetLabels(), grayTag, serviceName))
 			s, err := toYaml(secretObj)
 			if err != nil {

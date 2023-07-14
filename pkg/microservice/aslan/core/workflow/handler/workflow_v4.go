@@ -652,6 +652,7 @@ func RenderMseServiceYaml(c *gin.Context) {
 
 	type RenderMseServiceYamlReq struct {
 		commonmodels.MseGrayReleaseService `json:",inline"`
+		LastGrayTag                        string `json:"last_gray_tag"`
 		GrayTag                            string `json:"gray_tag"`
 		EnvName                            string `json:"env_name"`
 	}
@@ -672,7 +673,7 @@ func RenderMseServiceYaml(c *gin.Context) {
 		return
 	}
 
-	mseServiceYaml, err := workflow.RenderMseServiceYaml(c.Query("projectName"), req.EnvName, req.GrayTag, &req.MseGrayReleaseService)
+	mseServiceYaml, err := workflow.RenderMseServiceYaml(c.Query("projectName"), req.EnvName, req.LastGrayTag, req.GrayTag, &req.MseGrayReleaseService)
 	if err != nil {
 		ctx.Err = err
 		return
