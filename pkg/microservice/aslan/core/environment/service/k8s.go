@@ -73,17 +73,7 @@ type ZadigServiceStatusResp struct {
 // 正常：StatusRunning or StatusSucceed
 // 错误：StatusError or StatusFailed
 func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory) *ZadigServiceStatusResp {
-	if len(serviceTmpl.Containers) > 0 {
-		// 有容器时，根据pods status判断服务状态
-		return queryPodsStatus(productInfo, serviceTmpl.ServiceName, clientset, informer, k.log)
-	}
-	return &ZadigServiceStatusResp{
-		ServiceName: serviceTmpl.ServiceName,
-		PodStatus:   setting.PodSucceeded,
-		Ready:       setting.PodReady,
-		Ingress:     nil,
-		Images:      []string{},
-	}
+	return queryPodsStatus(productInfo, serviceTmpl, serviceTmpl.ServiceName, clientset, informer, k.log)
 }
 
 // queryWorkloadStatus query workload status
@@ -403,7 +393,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				return
 			}
 
-			gp.ProductName = serviceTmpl.ProductName
+			gp.ProductName = service.ProductName
 			// 查询group下所有pods信息
 			if informer != nil {
 				statusResp := k.queryServiceStatus(serviceTmpl, productInfo, cls, informer)

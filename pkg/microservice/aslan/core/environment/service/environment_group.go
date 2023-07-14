@@ -21,9 +21,6 @@ import (
 	"sort"
 	"strings"
 
-	"go.uber.org/zap"
-	"k8s.io/client-go/informers"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -34,6 +31,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/util"
+	"go.uber.org/zap"
 )
 
 type EnvGroupRequest struct {
@@ -81,7 +79,6 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	//获取所有的服务
 	for _, groupServices := range productInfo.Services {
 		for _, service := range groupServices {
 			if serviceName != "" && strings.Contains(service.ServiceName, serviceName) {
@@ -118,18 +115,6 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	//called from inner api, return all services
-	if page == 0 && perPage == 0 {
-		resp = envHandleFunc(getProjectType(productName), log).listGroupServices(allServices, envName, inf, productInfo)
-		return resp, count, nil
-	}
-
-	//针对获取环境状态的接口请求，这里不需要一次性获取所有的服务，先获取十条的数据，有异常的可以直接返回，不需要继续往下获取
-	if page == -1 && perPage == -1 {
-		resp = listGroupServiceStatus(allServices, inf, productInfo, log)
-		return resp, count, nil
-	}
-
 	currentPage := page - 1
 	if page*perPage < count {
 		currentServices = allServices[currentPage*perPage : currentPage*perPage+perPage]
@@ -141,35 +126,4 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 	}
 	resp = envHandleFunc(getProjectType(productName), log).listGroupServices(currentServices, envName, inf, productInfo)
 	return resp, count, nil
-}
-
-func listGroupServiceStatus(allServices []*commonmodels.ProductService, informer informers.SharedInformerFactory, productInfo *commonmodels.Product, log *zap.SugaredLogger) []*commonservice.ServiceResp {
-	var (
-		count           = len(allServices)
-		currentServices = make([]*commonmodels.ProductService, 0)
-		perPage         = setting.PerPage
-		resp            = make([]*commonservice.ServiceResp, 0)
-	)
-	productName, envName := productInfo.ProductName, productInfo.EnvName
-	for page := 0; page*perPage < count; page++ {
-		if (page+1)*perPage < count {
-			currentServices = allServices[page*perPage : page*perPage+perPage]
-		} else {
-			currentServices = allServices[page*perPage:]
-		}
-		resp = envHandleFunc(getProjectType(productName), log).listGroupServices(currentServices, envName, informer, productInfo)
-		allRunning := true
-		for _, serviceResp := range resp {
-			// Service是物理机部署时，无需判断状态
-			if serviceResp.Type == setting.K8SDeployType && serviceResp.Status != setting.PodRunning && serviceResp.Status != setting.PodSucceeded {
-				allRunning = false
-				break
-			}
-		}
-
-		if !allRunning {
-			return resp
-		}
-	}
-	return resp
 }
