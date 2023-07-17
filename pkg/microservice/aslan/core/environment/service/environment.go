@@ -66,6 +66,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
@@ -409,16 +410,9 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		}
 	}
 
-	//// 转化prodRevs.ServiceRevisions为serviceName+serviceType:serviceRev的map
-	//// 不在遍历到每个服务时再次进行遍历
 	serviceRevisionMap := getServiceRevisionMap(prodRevs.ServiceRevisions)
-	//
-	//// 首先更新一次数据库，将产品模板的最新编排更新到数据库
-	//// 只更新编排，不更新服务revision等信息
-	//updatedServices := getUpdatedProductServices(updateProd, serviceRevisionMap, existedProd)
 
 	updateProd.Status = setting.ProductStatusUpdating
-	//updateProd.Services = updatedServices
 	updateProd.ShareEnv = existedProd.ShareEnv
 
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
@@ -431,7 +425,6 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	// 按照产品模板的顺序来创建或者更新服务
 	for groupIndex, prodServiceGroup := range updateProd.Services {
 		//Mark if there is k8s type service in this group
-		//groupServices := make([]*commonmodels.ProductService, 0)
 		var wg sync.WaitGroup
 
 		groupSvcs := make([]*commonmodels.ProductService, 0)
@@ -630,6 +623,38 @@ func buildContainerMap(cs []*models.Container) map[string]*models.Container {
 	return containerMap
 }
 
+// calculateContainer calculates containers to be applied into environments
+// if image has no change since last deploy, containers in latest service will be used
+// if image hse been change since lase deploy (eg. workflow), current values will be remained
+func calculateContainer(productSvc, latestSvc *commonmodels.ProductService, productInfo *commonmodels.Product) []*models.Container {
+	resp := make([]*models.Container, 0)
+
+	curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName: productSvc.ServiceName,
+		Revision:    productSvc.Revision,
+		ProductName: productSvc.ProductName,
+	}, productInfo.Production)
+	if err != nil {
+		log.Errorf("QueryTemplateService error: %v", err)
+		return productSvc.Containers
+	}
+
+	prodSvcContainers := buildContainerMap(productSvc.Containers)
+	prodTmpContainers := buildContainerMap(curUsedSvc.Containers)
+
+	for _, container := range latestSvc.Containers {
+		prodSvcContainer, _ := prodSvcContainers[container.Name]
+		prodTmpContainer, _ := prodTmpContainers[container.Name]
+		// image has changed in zadig since last deploy
+		if prodSvcContainer != nil && prodTmpContainer != nil && prodSvcContainer.Image != prodTmpContainer.Image {
+			container.Image = prodSvcContainer.Image
+		}
+		resp = append(resp, container)
+	}
+
+	return resp
+}
+
 func updateHelmProduct(productName, envName, username, requestID string, overrideCharts []*commonservice.HelmSvcRenderArg, deletedServices []string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
@@ -688,13 +713,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 				continue
 			}
 
-			templateContainMap := buildContainerMap(svr.Containers)
-			prodContainMap := buildContainerMap(ps.Containers)
-			for name, container := range templateContainMap {
-				if pc, ok := prodContainMap[name]; ok {
-					container.Image = pc.Image
-				}
-			}
+			svr.Containers = calculateContainer(ps, svr, productResp)
 		}
 		allServices = append(allServices, svcGroup)
 	}
