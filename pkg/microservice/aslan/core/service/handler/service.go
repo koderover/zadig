@@ -38,10 +38,27 @@ import (
 )
 
 func ListServiceTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = commonservice.ListServiceTemplate(c.Query("projectName"), ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = err
+		return
+	}
+
+	projectName := c.Query("projectName")
+
+	// authorization check
+	// either they have the authorization, or they are system admins/project admins.
+	if !ctx.Resources.ProjectAuthInfo[projectName].Service.View &&
+		!ctx.Resources.IsSystemAdmin &&
+		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = commonservice.ListServiceTemplate(projectName, ctx.Logger)
 }
 
 func ListWorkloadTemplate(c *gin.Context) {

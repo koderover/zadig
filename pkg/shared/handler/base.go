@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 	"time"
@@ -29,6 +30,7 @@ import (
 	systemmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/util/ginzap"
 	"go.uber.org/zap"
 )
@@ -36,6 +38,7 @@ import (
 // Context struct
 type Context struct {
 	Logger       *zap.SugaredLogger
+	UnAuthorized bool
 	Err          error
 	Resp         interface{}
 	Account      string
@@ -43,7 +46,7 @@ type Context struct {
 	UserID       string
 	IdentityType string
 	RequestID    string
-	Resources    *AuthorizedResources
+	Resources    *user.AuthorizedResources
 }
 
 type jwtClaims struct {
@@ -91,22 +94,20 @@ func NewContext(c *gin.Context) *Context {
 
 // NewContextWithAuthorization returns a context with user authorization info.
 // This function should only be called wnen
-func NewContextWithAuthorization(c *gin.Context) *Context {
+func NewContextWithAuthorization(c *gin.Context) (*Context, error) {
 	logger := ginzap.WithContext(c).Sugar()
-	var resourceAuthInfo *AuthorizedResources
+	var resourceAuthInfo *user.AuthorizedResources
 	var err error
 	resp := NewContext(c)
 	if resp.UserID != "" {
-		resourceAuthInfo, err = generateUserAuthorizationInfo(resp.UserID)
-		if err != nil {
-			logger.Warnf("failed to generate ")
-		}
-	} else if resp.UserName == "system" {
-		// system calls are always authorized
-		resourceAuthInfo, err = generateSystemAuthorizationInfo()
+		resourceAuthInfo, err = user.New().GetUserAuthInfo(resp.UserID)
+	}
+	if err != nil {
+		logger.Errorf("failed to generate user authorization info, error: %s", err)
+		return nil, err
 	}
 	resp.Resources = resourceAuthInfo
-	return resp
+	return resp, nil
 }
 
 func GetResourcesInHeader(c *gin.Context) ([]string, bool) {
@@ -149,6 +150,11 @@ func getUserFromJWT(token string) (jwtClaims, error) {
 }
 
 func JSONResponse(c *gin.Context, ctx *Context) {
+	if ctx.UnAuthorized {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
 	if ctx.Err != nil {
 		c.Set(setting.ResponseError, ctx.Err)
 		c.Abort()

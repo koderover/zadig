@@ -10,6 +10,7 @@ type AuthorizedResources struct {
 }
 
 type ProjectActions struct {
+	IsProjectAdmin    bool
 	Workflow          *WorkflowActions
 	Env               *EnvActions
 	ProductionEnv     *ProductionEnvActions
@@ -102,6 +103,6 @@ func (c *Client) GetUserAuthInfo(uid string) (*AuthorizedResources, error) {
 	queries := make(map[string]string)
 	queries["uid"] = uid
 
-	_, err := c.Post(url, httpclient.SetQueryParams(queries), httpclient.SetResult(resp))
+	_, err := c.Get(url, httpclient.SetQueryParams(queries), httpclient.SetResult(resp))
 	return resp, err
 }

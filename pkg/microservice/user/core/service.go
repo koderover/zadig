@@ -19,12 +19,15 @@ package core
 import (
 	"context"
 	_ "embed"
+	"fmt"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"gorm.io/gorm"
 
 	config2 "github.com/koderover/zadig/pkg/microservice/user/config"
@@ -68,6 +71,16 @@ func initDatabase() {
 	if err != nil {
 		panic(err)
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// mongodb initialization
+	mongotool.Init(ctx, config.MongoURI())
+	if err := mongotool.Ping(ctx); err != nil {
+		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
+	}
+
 }
 
 func Stop(_ context.Context) {

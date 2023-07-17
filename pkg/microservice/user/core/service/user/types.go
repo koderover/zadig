@@ -19,7 +19,8 @@ package user
 const (
 	GeneralNamespace = "*"
 
-	AdminRole = "admin"
+	AdminRole        = "admin"
+	ProjectAdminRole = "project-admin"
 )
 
 // Namespaced Resources Actions
@@ -77,6 +78,9 @@ const (
 	VerbEditScan   = "edit_scan"
 	VerbDeleteScan = "delete_scan"
 	VerbRunScan    = "run_scan"
+
+	// special symbol for all actions
+	VerbAllActions = "*"
 )
 
 type AuthorizedResources struct {
@@ -87,6 +91,7 @@ type AuthorizedResources struct {
 }
 
 type ProjectActions struct {
+	IsProjectAdmin    bool
 	Workflow          *WorkflowActions
 	Env               *EnvActions
 	ProductionEnv     *ProductionEnvActions
