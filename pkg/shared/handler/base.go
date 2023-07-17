@@ -151,6 +151,9 @@ func getUserFromJWT(token string) (jwtClaims, error) {
 
 func JSONResponse(c *gin.Context, ctx *Context) {
 	if ctx.UnAuthorized {
+		if ctx.Err != nil {
+			c.Set(setting.ResponseError, ctx.Err)
+		}
 		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}
