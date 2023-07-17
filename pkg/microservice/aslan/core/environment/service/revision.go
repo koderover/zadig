@@ -356,10 +356,8 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 					for _, exitedContainer := range productService.Containers {
 						if exitedContainer.Name == container.Name {
 							if containerImageChanged(curUsedSvc, exitedContainer) {
-								log.Infof("------ containerImageChanged，serviceName: %s, name: %s, image: %s", productService.ServiceName, exitedContainer.Name, exitedContainer.Image)
 								c.Image = exitedContainer.Image
-							} else {
-								log.Infof("------ containerImage not Changed，serviceName: %s, name: %s, image: %s", productService.ServiceName, exitedContainer.Name, exitedContainer.Image)
+								c.Image = exitedContainer.ImageName
 							}
 							break
 						}
