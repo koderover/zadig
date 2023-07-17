@@ -360,6 +360,64 @@
             }
         },
         "/api/aslan/environment/environments/{name}/services/{serviceName}": {
+            "get": {
+                "description": "Get Production Service",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Production Service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "is helm chart deploy",
+                        "name": "isHelmChartDeploy",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "workload type",
+                        "name": "workLoadType",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.SvcResp"
+                        }
+                    }
+                }
+            },
             "put": {
                 "description": "Update service",
                 "consumes": [
@@ -2574,6 +2632,261 @@
                 }
             }
         },
+        "resource.Backend": {
+            "type": "object",
+            "properties": {
+                "service_name": {
+                    "type": "string"
+                },
+                "service_port": {
+                    "type": "string"
+                }
+            }
+        },
+        "resource.Container": {
+            "type": "object",
+            "properties": {
+                "finished_at": {
+                    "description": "Time at which the container last terminated",
+                    "type": "integer"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "message": {
+                    "description": "Message regarding the last termination of the container",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ready": {
+                    "type": "boolean"
+                },
+                "reason": {
+                    "description": "reason from the last termination of the container",
+                    "type": "string"
+                },
+                "restart_count": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "description": "Time at which previous execution of the container started",
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "resource.ContainerImage": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "image_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "resource.CronJob": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "integer"
+                },
+                "create_time": {
+                    "type": "integer"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.ContainerImage"
+                    }
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "last_schedule": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "schedule": {
+                    "type": "string"
+                },
+                "suspend": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "resource.HostInfo": {
+            "type": "object",
+            "properties": {
+                "backend": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.Backend"
+                    }
+                },
+                "host": {
+                    "type": "string"
+                }
+            }
+        },
+        "resource.Ingress": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "string"
+                },
+                "host_info": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.HostInfo"
+                    }
+                },
+                "ips": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "resource.Pod": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "string"
+                },
+                "containers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.Container"
+                    }
+                },
+                "containers_message": {
+                    "type": "string"
+                },
+                "containers_ready": {
+                    "type": "boolean"
+                },
+                "createtime": {
+                    "type": "integer"
+                },
+                "enable_debug_container": {
+                    "type": "boolean"
+                },
+                "host_ip": {
+                    "type": "string"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "pod_ready": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "resource.Service": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "string"
+                },
+                "endpoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.ServicePort"
+                    }
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "resource.ServicePort": {
+            "type": "object",
+            "properties": {
+                "node_port": {
+                    "type": "integer"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "service_port": {
+                    "type": "integer"
+                }
+            }
+        },
+        "resource.Workload": {
+            "type": "object",
+            "properties": {
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.ContainerImage"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.Pod"
+                    }
+                },
+                "replicas": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "service.ConvertVaraibleKVAndYamlActionType": {
             "type": "string",
             "enum": [
@@ -3331,6 +3644,50 @@
                 },
                 "latest": {
                     "$ref": "#/definitions/service.TmplYaml"
+                },
+                "service_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.SvcResp": {
+            "type": "object",
+            "properties": {
+                "cron_jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.CronJob"
+                    }
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "group_name": {
+                    "type": "string"
+                },
+                "ingress": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.Ingress"
+                    }
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "scales": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.Workload"
+                    }
+                },
+                "service_endpoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.Service"
+                    }
                 },
                 "service_name": {
                     "type": "string"

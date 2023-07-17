@@ -608,6 +608,174 @@ definitions:
         - $ref: '#/definitions/config.DeploySourceType'
         description: fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
     type: object
+  resource.Backend:
+    properties:
+      service_name:
+        type: string
+      service_port:
+        type: string
+    type: object
+  resource.Container:
+    properties:
+      finished_at:
+        description: Time at which the container last terminated
+        type: integer
+      image:
+        type: string
+      message:
+        description: Message regarding the last termination of the container
+        type: string
+      name:
+        type: string
+      ready:
+        type: boolean
+      reason:
+        description: reason from the last termination of the container
+        type: string
+      restart_count:
+        type: integer
+      started_at:
+        description: Time at which previous execution of the container started
+        type: integer
+      status:
+        type: string
+    type: object
+  resource.ContainerImage:
+    properties:
+      image:
+        type: string
+      image_name:
+        type: string
+      name:
+        type: string
+    type: object
+  resource.CronJob:
+    properties:
+      active:
+        type: integer
+      create_time:
+        type: integer
+      images:
+        items:
+          $ref: '#/definitions/resource.ContainerImage'
+        type: array
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      last_schedule:
+        type: string
+      name:
+        type: string
+      schedule:
+        type: string
+      suspend:
+        type: boolean
+    type: object
+  resource.HostInfo:
+    properties:
+      backend:
+        items:
+          $ref: '#/definitions/resource.Backend'
+        type: array
+      host:
+        type: string
+    type: object
+  resource.Ingress:
+    properties:
+      age:
+        type: string
+      host_info:
+        items:
+          $ref: '#/definitions/resource.HostInfo'
+        type: array
+      ips:
+        items:
+          type: string
+        type: array
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+    type: object
+  resource.Pod:
+    properties:
+      age:
+        type: string
+      containers:
+        items:
+          $ref: '#/definitions/resource.Container'
+        type: array
+      containers_message:
+        type: string
+      containers_ready:
+        type: boolean
+      createtime:
+        type: integer
+      enable_debug_container:
+        type: boolean
+      host_ip:
+        type: string
+      ip:
+        type: string
+      kind:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      node_name:
+        type: string
+      pod_ready:
+        type: boolean
+      status:
+        type: string
+    type: object
+  resource.Service:
+    properties:
+      age:
+        type: string
+      endpoints:
+        items:
+          $ref: '#/definitions/resource.ServicePort'
+        type: array
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+    type: object
+  resource.ServicePort:
+    properties:
+      node_port:
+        type: integer
+      service_name:
+        type: string
+      service_port:
+        type: integer
+    type: object
+  resource.Workload:
+    properties:
+      images:
+        items:
+          $ref: '#/definitions/resource.ContainerImage'
+        type: array
+      name:
+        type: string
+      pods:
+        items:
+          $ref: '#/definitions/resource.Pod'
+        type: array
+      replicas:
+        type: integer
+      type:
+        type: string
+    type: object
   service.ConvertVaraibleKVAndYamlActionType:
     enum:
     - toKV
@@ -1106,6 +1274,35 @@ definitions:
         type: string
       latest:
         $ref: '#/definitions/service.TmplYaml'
+      service_name:
+        type: string
+    type: object
+  service.SvcResp:
+    properties:
+      cron_jobs:
+        items:
+          $ref: '#/definitions/resource.CronJob'
+        type: array
+      env_name:
+        type: string
+      group_name:
+        type: string
+      ingress:
+        items:
+          $ref: '#/definitions/resource.Ingress'
+        type: array
+      namespace:
+        type: string
+      product_name:
+        type: string
+      scales:
+        items:
+          $ref: '#/definitions/resource.Workload'
+        type: array
+      service_endpoints:
+        items:
+          $ref: '#/definitions/resource.Service'
+        type: array
       service_name:
         type: string
     type: object
@@ -1634,6 +1831,46 @@ paths:
       tags:
       - environment
   /api/aslan/environment/environments/{name}/services/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: Get Production Service
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: is helm chart deploy
+        in: query
+        name: isHelmChartDeploy
+        required: true
+        type: string
+      - description: workload type
+        in: query
+        name: workLoadType
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.SvcResp'
+      summary: Get Production Service
+      tags:
+      - environment
     put:
       consumes:
       - application/json
