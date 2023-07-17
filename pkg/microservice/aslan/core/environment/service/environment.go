@@ -715,13 +715,6 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 			}
 
 			svr.Containers = calculateContainer(ps, svr, productResp)
-			//templateContainMap := buildContainerMap(svr.Containers)
-			//prodContainMap := buildContainerMap(ps.Containers)
-			//for name, container := range templateContainMap {
-			//	if pc, ok := prodContainMap[name]; ok {
-			//		container.Image = pc.Image
-			//	}
-			//}
 		}
 		allServices = append(allServices, svcGroup)
 	}
