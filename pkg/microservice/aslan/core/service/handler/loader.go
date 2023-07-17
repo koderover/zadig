@@ -103,8 +103,8 @@ func LoadServiceTemplate(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-服务", "", string(bs), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Create) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Create) &&
 		!ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -159,8 +159,8 @@ func SyncServiceTemplate(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", "", string(bs), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Edit) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Edit) &&
 		!ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return

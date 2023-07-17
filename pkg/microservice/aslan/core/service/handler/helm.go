@@ -42,8 +42,8 @@ func ListHelmServices(c *gin.Context) {
 	projectKey := c.Param("productName")
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[projectKey].Service.View) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.View) &&
 		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -66,8 +66,8 @@ func ListHelmProductionServices(c *gin.Context) {
 	projectKey := c.Query("projectName")
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View) &&
 		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -90,8 +90,8 @@ func GetHelmServiceModule(c *gin.Context) {
 	projectKey := c.Param("productName")
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[projectKey].Service.View) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.View) &&
 		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -119,8 +119,8 @@ func GetFilePath(c *gin.Context) {
 	projectKey := c.Param("productName")
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[projectKey].Service.View) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.View) &&
 		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -151,8 +151,8 @@ func GetFileContent(c *gin.Context) {
 	projectKey := c.Param("productName")
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[projectKey].Service.View) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.View) &&
 		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -182,8 +182,8 @@ func UpdateFileContent(c *gin.Context) {
 	projectKey := c.Query("projectName")
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit) &&
 		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -214,8 +214,8 @@ func UpdateProductionSvcFileContent(c *gin.Context) {
 	projectKey := c.Query("projectName")
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit) &&
 		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -260,8 +260,8 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", args.Name), string(bs), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[projectKey].Service.Create) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.Create) &&
 		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -298,8 +298,8 @@ func UpdateHelmService(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s", args.Name), string(bs), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit) &&
 		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -336,8 +336,8 @@ func UpdateHelmProductionService(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", args.Name), string(bs), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit) &&
 		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -375,8 +375,8 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "新增", "项目管理-服务", "", string(bs), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[projectKey].Service.Create) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.Create) &&
 		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return

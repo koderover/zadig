@@ -162,8 +162,8 @@ func ReloadServiceFromYamlTemplate(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[req.ProjectName].Service.Edit) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[req.ProjectName].Service.Edit) &&
 		!ctx.Resources.ProjectAuthInfo[req.ProjectName].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
@@ -193,8 +193,8 @@ func ReloadProductionServiceFromYamlTemplate(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "更新", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[req.ProjectName].ProductionService.Edit) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[req.ProjectName].ProductionService.Edit) &&
 		!ctx.Resources.ProjectAuthInfo[req.ProjectName].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return

@@ -84,8 +84,8 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", strings.Join(serviceNames, ",")), string(data), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Create) &&
-		!ctx.Resources.IsSystemAdmin &&
+	if !ctx.Resources.IsSystemAdmin &&
+		!(ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Create) &&
 		!ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin {
 		ctx.UnAuthorized = true
 		return
