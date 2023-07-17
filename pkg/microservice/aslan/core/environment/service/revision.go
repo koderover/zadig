@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -235,11 +237,13 @@ func containerImageChanged(svcTempl *commonmodels.Service, container *commonmode
 			continue
 		}
 		if c.Image != container.Image {
+			log.Infof(" %s image changed", container.Name)
 			return true
 		} else {
 			return false
 		}
 	}
+	log.Infof("image changed due to not found")
 	return true
 }
 
@@ -355,6 +359,7 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 					// reuse existed container image only if it has been changed since last deploy
 					for _, exitedContainer := range productService.Containers {
 						if exitedContainer.Name == container.Name && containerImageChanged(curUsedSvc, exitedContainer) {
+							log.Infof("------ containerImageChanged， name: %s, image: %s", exitedContainer.Name, exitedContainer.Image)
 							c.Image = exitedContainer.Image
 							break
 						}
