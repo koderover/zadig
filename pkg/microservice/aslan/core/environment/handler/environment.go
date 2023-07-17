@@ -724,6 +724,7 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 	ctx.Err = service.UpdateProductGlobalVariables(projectName, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, ctx.Logger)
 }
 
+// @todo update this for helm chart deploy????
 func UpdateHelmProductCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

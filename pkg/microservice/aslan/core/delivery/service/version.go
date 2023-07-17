@@ -648,7 +648,7 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 
 	registrySet := sets.NewString()
 	for _, spec := range imagePathSpecs {
-		imageUrl, err := commonservice.GeneImageURI(spec, flatMap)
+		imageUrl, err := commonutil.GeneImageURI(spec, flatMap)
 		if err != nil {
 			return nil, nil, err
 		}

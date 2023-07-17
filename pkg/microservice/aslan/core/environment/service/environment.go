@@ -746,6 +746,17 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 			ProductName: productName,
 			Type:        setting.HelmChartDeployType,
 		}
+
+		valuesMap := make(map[string]interface{})
+		err = yaml.Unmarshal([]byte(chart.OverrideYaml), &valuesMap)
+		if err != nil {
+			return fmt.Errorf("Failed to unmarshall yaml, err %s", err)
+		}
+		containerList, err := commonutil.ParseImagesForProductService(valuesMap, chart.ReleaseName, productName)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to parse service from yaml")
+		}
+		svc.Containers = containerList
 		chartSvcMap[svc.ReleaseName] = svc
 	}
 
@@ -833,7 +844,7 @@ func genImageFromYaml(c *commonmodels.Container, valuesYaml, defaultValues, over
 		Image: c.ImagePath.Image,
 		Tag:   c.ImagePath.Tag,
 	}
-	image, err := commonservice.GeneImageURI(imageRule.GetSearchingPattern(), mergedValuesYamlFlattenMap)
+	image, err := commonutil.GeneImageURI(imageRule.GetSearchingPattern(), mergedValuesYamlFlattenMap)
 	if err != nil {
 		return "", err
 	}
@@ -2653,16 +2664,17 @@ func buildInstallParam(namespace, envName, defaultValues string, renderChart *te
 	return ret, nil
 }
 
+// @note buildChartInstallParam
 func buildChartInstallParam(namespace, envName, defaultValues string, renderChart *templatemodels.ServiceRender, serviceObj *commonmodels.Service, productSvc *commonmodels.ProductService) (*kube.ReleaseInstallParam, error) {
-	mergedValues, err := helmtool.MergeOverrideValues("", defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to merge override yaml %s and values %s, err: %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
-	}
+	// mergedValues, err := helmtool.MergeOverrideValues("", defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, nil)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to merge override yaml %s and values %s, err: %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
+	// }
 	ret := &kube.ReleaseInstallParam{
 		ProductName:    productSvc.ProductName,
 		Namespace:      namespace,
 		ReleaseName:    renderChart.ServiceName,
-		MergedValues:   mergedValues,
+		MergedValues:   serviceObj.HelmChart.ValuesYaml,
 		RenderChart:    renderChart,
 		ServiceObj:     serviceObj,
 		Production:     true,
@@ -3027,8 +3039,7 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 	return renderSet, nil
 }
 
-// diffRenderSet get diff between renderset in product and product template
-// generate a new renderset and insert into db
+// @todo diffRenderSetHelmChart
 func diffRenderSetHelmChart(username, productName, envName string, productResp *commonmodels.Product, overrideCharts []*commonservice.HelmSvcRenderArg, deletedReleases []string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	// chart infos from client
 	renderChartArgMap := make(map[string]*commonservice.HelmSvcRenderArg)
@@ -3081,18 +3092,18 @@ func diffRenderSetHelmChart(username, productName, envName string, productResp *
 			continue
 		}
 
-		// use the variables in current product when updating services
-		// use the value of the key of the current values.yaml to replace the value of the same key of the values.yaml in the service
-		newValuesYaml, err := util.OverrideValues([]byte(currentChartInfo.ValuesYaml), []byte(requestChartInfo.ValuesYaml), nil, true)
-		if err != nil {
-			log.Errorf("Failed to override values for service %s, err: %s", releaseName, err)
-		} else {
-			requestChartInfo.ValuesYaml = string(newValuesYaml)
-		}
+		// // use the variables in current product when updating services
+		// // use the value of the key of the current values.yaml to replace the value of the same key of the values.yaml in the service
+		// newValuesYaml, err := util.OverrideValues([]byte(currentChartInfo.ValuesYaml), []byte(requestChartInfo.ValuesYaml), nil, true)
+		// if err != nil {
+		// 	log.Errorf("Failed to override values for service %s, err: %s", releaseName, err)
+		// } else {
+		// 	requestChartInfo.ValuesYaml = string(newValuesYaml)
+		// }
 
-		// user override value in cur environment
-		requestChartInfo.OverrideValues = currentChartInfo.OverrideValues
-		requestChartInfo.OverrideYaml = currentChartInfo.OverrideYaml
+		// // user override value in cur environment
+		// requestChartInfo.OverrideValues = currentChartInfo.OverrideValues
+		// requestChartInfo.OverrideYaml = currentChartInfo.OverrideYaml
 
 		newChartInfos = append(newChartInfos, requestChartInfo)
 		delete(requestChartInfoMap, releaseName)
@@ -3207,6 +3218,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmode
 	return errList.ErrorOrNil()
 }
 
+// @note proceedHelmChartRelease
 func proceedHelmChartRelease(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, helmClient *helmtool.HelmClient, filter svcUpgradeFilter, overrideCharts []*commonservice.HelmSvcRenderArg, log *zap.SugaredLogger) error {
 	productName, envName := productResp.ProductName, productResp.EnvName
 	renderChartMap := make(map[string]*templatemodels.ServiceRender)
@@ -3284,9 +3296,10 @@ func proceedHelmChartRelease(productResp *commonmodels.Product, renderset *commo
 				ServiceName: overrideChart.ReleaseName,
 				ProductName: productName,
 				HelmChart: &commonmodels.HelmChart{
-					Name:    overrideChart.ChartName,
-					Repo:    overrideChart.ChartRepo,
-					Version: overrideChart.ChartVersion,
+					Name:       overrideChart.ChartName,
+					Repo:       overrideChart.ChartRepo,
+					Version:    overrideChart.ChartVersion,
+					ValuesYaml: overrideChart.OverrideYaml,
 				},
 			}
 			serviceList = append(serviceList, serviceObj)

@@ -547,7 +547,7 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 				Tag:   container.ImagePath.Tag,
 			}
 			pattern := imageSearchRule.GetSearchingPattern()
-			imageUrl, err := commonservice.GeneImageURI(pattern, flatMap)
+			imageUrl, err := commonutil.GeneImageURI(pattern, flatMap)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get image url for container:%s", container.Image)
 			}

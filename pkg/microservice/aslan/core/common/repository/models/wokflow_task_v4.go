@@ -226,6 +226,21 @@ type JobTaskHelmDeploySpec struct {
 	ReplaceResources   []Resource               `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 }
 
+type JobTaskHelmChartDeploySpec struct {
+	Env          string `bson:"env"                              json:"env"                                 yaml:"env"`
+	ReleaseName  string `bson:"release_name"                     json:"release_name"                        yaml:"release_name"`
+	ChartRepo    string `bson:"chart_repo"            yaml:"chart_repo"               json:"chart_repo"`
+	ChartName    string `bson:"chart_name"            yaml:"chart_name"               json:"chart_name"`
+	ChartVersion string `bson:"chart_version"         yaml:"chart_version"            json:"chart_version"`
+	VariableYaml string `bson:"variable_yaml"         yaml:"variable_yaml"            json:"variable_yaml"`
+	YamlContent  string `bson:"yaml_content"                     json:"yaml_content"                        yaml:"yaml_content"`
+	// UserSuppliedValue added since 1.18, the values that users gives.
+	UserSuppliedValue  string `bson:"user_supplied_value" json:"user_supplied_value" yaml:"user_supplied_value"`
+	SkipCheckRunStatus bool   `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	ClusterID          string `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	Timeout            int    `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+}
+
 type ImageAndServiceModule struct {
 	ServiceModule string `bson:"service_module"                     json:"service_module"                        yaml:"service_module"`
 	Image         string `bson:"image"                              json:"image"                                 yaml:"image"`

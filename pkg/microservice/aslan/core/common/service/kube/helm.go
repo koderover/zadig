@@ -336,6 +336,126 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	return nil
 }
 
+type HelmChartInstallParam struct {
+	ProductName  string
+	EnvName      string
+	ReleaseName  string
+	ChartRepo    string
+	ChartName    string
+	ChartVersion string
+	VariableYaml string
+}
+
+func UpgradeHelmChartRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
+	installParam *HelmChartInstallParam, timeout int) error {
+	helmClient, err := helmtool.NewClientFromNamespace(product.ClusterID, product.Namespace)
+	if err != nil {
+		return err
+	}
+
+	serviceObj := &commonmodels.Service{
+		ServiceName: installParam.ReleaseName,
+		ProductName: product.ProductName,
+		HelmChart: &commonmodels.HelmChart{
+			Name:    installParam.ChartName,
+			Repo:    installParam.ChartRepo,
+			Version: installParam.ChartVersion,
+		},
+	}
+
+	param := &ReleaseInstallParam{
+		ProductName:  installParam.ProductName,
+		Namespace:    product.Namespace,
+		ReleaseName:  installParam.ReleaseName,
+		MergedValues: installParam.VariableYaml,
+		RenderChart:  renderSet.GetChartRenderMap()[installParam.ReleaseName],
+		ServiceObj:   serviceObj,
+		Timeout:      timeout,
+		Production:   product.Production,
+	}
+
+	ensureUpgrade := func() error {
+		hrs, errHistory := helmClient.ListReleaseHistory(param.ReleaseName, 10)
+		if errHistory != nil {
+			// list history should not block deploy operation, error will be logged instead of returned
+			return nil
+		}
+		if len(hrs) == 0 {
+			return nil
+		}
+		releaseutil.Reverse(hrs, releaseutil.SortByRevision)
+		rel := hrs[0]
+
+		if rel.Info.Status.IsPending() {
+			return fmt.Errorf("failed to upgrade release: %s with exceptional status: %s", param.ReleaseName, rel.Info.Status)
+		}
+		return nil
+	}
+
+	err = ensureUpgrade()
+	if err != nil {
+		return err
+	}
+
+	// when replace image, should not wait
+	err = InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
+	if err != nil {
+		return err
+	}
+
+	// select product info and render info from db, in case of concurrent update caused data override issue
+	// those code can be optimized if MongoDB version are newer than 4.0
+	newProductInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: product.ProductName, EnvName: product.EnvName})
+	if err != nil {
+		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
+	}
+
+	if !commonutil.ReleaseDeployed(productSvc.ReleaseName, newProductInfo.ServiceDeployStrategy) {
+		newProductInfo.ServiceDeployStrategy[productSvc.ServiceName] = setting.ServiceDeployStrategyDeploy
+	}
+
+	curRenderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		ProductTmpl: newProductInfo.ProductName,
+		Name:        newProductInfo.Render.Name,
+		EnvName:     newProductInfo.EnvName,
+		Revision:    newProductInfo.Render.Revision,
+	})
+	if err != nil {
+		return errors.Wrapf(err, "failed to find render set %s", newProductInfo.Render.Name)
+	}
+	chartMap := make(map[string]*templatemodels.ServiceRender)
+	for _, chartInfo := range curRenderInfo.ChartInfos {
+		chartMap[chartInfo.ServiceName] = chartInfo
+	}
+	chartMap[productSvc.ServiceName] = renderSet.GetChartRenderMap()[productSvc.ReleaseName]
+	curRenderInfo.ChartInfos = make([]*templatemodels.ServiceRender, 0)
+	for _, chartInfo := range chartMap {
+		curRenderInfo.ChartInfos = append(curRenderInfo.ChartInfos, chartInfo)
+	}
+	err = render.CreateRenderSet(curRenderInfo, log.SugaredLogger())
+	if err != nil {
+		return errors.Wrapf(err, "failed to create render set %s", curRenderInfo.Name)
+	}
+
+	newProductInfo.Render.Revision = curRenderInfo.Revision
+	productSvcMap := make(map[string]*commonmodels.ProductService)
+	for _, service := range newProductInfo.GetServiceMap() {
+		productSvcMap[service.ServiceName] = service
+	}
+	productSvcMap[productSvc.ServiceName] = product.GetServiceMap()[productSvc.ServiceName]
+	newProductInfo.Services = [][]*commonmodels.ProductService{{}}
+	for _, service := range productSvcMap {
+		newProductInfo.Services[0] = append(newProductInfo.Services[0], service)
+	}
+
+	if err = commonrepo.NewProductColl().Update(newProductInfo); err != nil {
+		log.Errorf("update product %s error: %s", newProductInfo.ProductName, err.Error())
+		return fmt.Errorf("failed to update product info, name %s", newProductInfo.ProductName)
+	}
+
+	return nil
+}
+
 func UninstallServiceByName(helmClient helmclient.Client, serviceName string, env *commonmodels.Product, revision int64, force bool) error {
 	revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,

@@ -26,11 +26,23 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+)
+
+var (
+	presetPatterns = []map[string]string{
+		{setting.PathSearchComponentImage: "image.repository", setting.PathSearchComponentTag: "image.tag"},
+		{setting.PathSearchComponentImage: "image"},
+	}
 )
 
 func GetServiceDeployStrategy(serviceName string, strategyMap map[string]string) string {
@@ -272,4 +284,163 @@ func GenerateServiceNextRevision(isProductionService bool, serviceName, projectN
 		counterName = fmt.Sprintf(setting.ServiceTemplateCounterName, serviceName, projectName)
 	}
 	return commonrepo.NewCounterColl().GetNextSeq(counterName)
+}
+
+// ParseImagesForProductService for product service
+func ParseImagesForProductService(nested map[string]interface{}, serviceName, productName string) ([]*commonmodels.Container, error) {
+	patterns, err := getServiceParsePatterns(productName)
+	if err != nil {
+		log.Errorf("failed to get image parse patterns for service %s in project %s, err: %s", serviceName, productName, err)
+		return nil, errors.New("failed to get image parse patterns")
+	}
+	return parseImagesByPattern(nested, patterns)
+}
+
+// get patterns used to parse images from yaml
+func getServiceParsePatterns(productName string) ([]map[string]string, error) {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]map[string]string, 0)
+	for _, rule := range productInfo.ImageSearchingRules {
+		if !rule.InUse {
+			continue
+		}
+		ret = append(ret, rule.GetSearchingPattern())
+	}
+
+	// rules are never edited, use preset rules
+	if len(ret) == 0 {
+		ret = presetPatterns
+	}
+	return ret, nil
+}
+
+func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]string) ([]*commonmodels.Container, error) {
+	flatMap, err := converter.Flatten(nested)
+	if err != nil {
+		return nil, err
+	}
+	matchedPath, err := yamlutil.SearchByPattern(flatMap, patterns)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*commonmodels.Container, 0)
+	usedImagePath := sets.NewString()
+	for _, searchResult := range matchedPath {
+		uniquePath := generateUniquePath(searchResult)
+		if usedImagePath.Has(uniquePath) {
+			continue
+		}
+		usedImagePath.Insert(uniquePath)
+		imageUrl, err := GeneImageURI(searchResult, flatMap)
+		if err != nil {
+			return nil, err
+		}
+		name := ExtractImageName(imageUrl)
+		ret = append(ret, &commonmodels.Container{
+			Name:      name,
+			ImageName: name,
+			Image:     imageUrl,
+			ImagePath: &commonmodels.ImagePathSpec{
+				Repo:  searchResult[setting.PathSearchComponentRepo],
+				Image: searchResult[setting.PathSearchComponentImage],
+				Tag:   searchResult[setting.PathSearchComponentTag],
+			},
+		})
+	}
+	return ret, nil
+}
+
+func ParseImagesByRules(nested map[string]interface{}, matchRules []*templatemodels.ImageSearchingRule) ([]*commonmodels.Container, error) {
+	patterns := make([]map[string]string, 0)
+	for _, rule := range matchRules {
+		if !rule.InUse {
+			continue
+		}
+		patterns = append(patterns, rule.GetSearchingPattern())
+	}
+	return parseImagesByPattern(nested, patterns)
+}
+
+// ParseImagesByPresetRules parse images from flat yaml map with preset rules
+func ParseImagesByPresetRules(flatMap map[string]interface{}) ([]map[string]string, error) {
+	return yamlutil.SearchByPattern(flatMap, presetPatterns)
+}
+
+func GetPresetRules() []*templatemodels.ImageSearchingRule {
+	ret := make([]*templatemodels.ImageSearchingRule, 0, len(presetPatterns))
+	for id, pattern := range presetPatterns {
+		ret = append(ret, &templatemodels.ImageSearchingRule{
+			Repo:     pattern[setting.PathSearchComponentRepo],
+			Image:    pattern[setting.PathSearchComponentImage],
+			Tag:      pattern[setting.PathSearchComponentTag],
+			InUse:    true,
+			PresetId: id + 1,
+		})
+	}
+	return ret
+}
+
+func generateUniquePath(pathData map[string]string) string {
+	keys := []string{setting.PathSearchComponentRepo, setting.PathSearchComponentImage, setting.PathSearchComponentTag}
+	values := make([]string, 0)
+	for _, key := range keys {
+		if value := pathData[key]; value != "" {
+			values = append(values, value)
+		}
+	}
+	return strings.Join(values, "-")
+}
+
+// GeneImageURI generate valid image uri, legal formats:
+// {repo}
+// {repo}/{image}
+// {repo}/{image}:{tag}
+// {repo}:{tag}
+// {image}:{tag}
+// {image}
+func GeneImageURI(pathData map[string]string, flatMap map[string]interface{}) (string, error) {
+	valuesMap := getValuesByPath(pathData, flatMap)
+	ret := ""
+	// if repo value is set, use as repo
+	if repo, ok := valuesMap[setting.PathSearchComponentRepo]; ok {
+		ret = fmt.Sprintf("%v", repo)
+		ret = strings.TrimSuffix(ret, "/")
+	}
+	// if image value is set, append to repo, if repo is not set, image values represents repo+image
+	if image, ok := valuesMap[setting.PathSearchComponentImage]; ok {
+		imageStr := fmt.Sprintf("%v", image)
+		if ret == "" {
+			ret = imageStr
+		} else {
+			ret = fmt.Sprintf("%s/%s", ret, imageStr)
+		}
+	}
+	if ret == "" {
+		return "", errors.New("image name not found")
+	}
+	// if tag is set, append to current uri, if not set ignore
+	if tag, ok := valuesMap[setting.PathSearchComponentTag]; ok {
+		tagStr := fmt.Sprintf("%v", tag)
+		if tagStr != "" {
+			ret = fmt.Sprintf("%s:%s", ret, tagStr)
+		}
+	}
+	return ret, nil
+}
+
+// get values from source flat map
+// convert map[k]absolutePath  to  map[k]value
+func getValuesByPath(paths map[string]string, flatMap map[string]interface{}) map[string]interface{} {
+	ret := make(map[string]interface{})
+	for k, path := range paths {
+		if value, ok := flatMap[path]; ok {
+			ret[k] = value
+		} else {
+			ret[k] = nil
+		}
+	}
+	return ret
 }

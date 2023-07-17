@@ -22,7 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
@@ -104,7 +104,7 @@ func fillImageParseInfo(prod *commonmodels.Product) error {
 			log.Errorf("get flat map fail for service: %s.%s, err %s", prod.ProductName, singleService.ServiceName, err.Error())
 			continue
 		}
-		matchedPath, err := commonservice.ParseImagesByPresetRules(flatMap)
+		matchedPath, err := commonutil.ParseImagesByPresetRules(flatMap)
 		if err != nil {
 			log.Errorf("failed to parse images from service:%s.%s in product:%s", prod.ProductName, singleService.ServiceName, singleService.ProductName)
 			continue
@@ -135,7 +135,7 @@ func fillImageParseInfo(prod *commonmodels.Product) error {
 // find match rule
 func findImageByContainerName(flatMap map[string]interface{}, matchedPath []map[string]string, container *commonmodels.Container) error {
 	for _, searchResult := range matchedPath {
-		imageURI, err := commonservice.GeneImageURI(searchResult, flatMap)
+		imageURI, err := commonutil.GeneImageURI(searchResult, flatMap)
 		if err != nil {
 			log.Error("GeneImageURI fail, err %s", err.Error())
 			continue

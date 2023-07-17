@@ -1527,7 +1527,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 		return nil, err
 	}
 
-	containerList, err := commonservice.ParseImagesForProductService(valuesMap, args.ServiceName, args.ProductName)
+	containerList, err := commonutil.ParseImagesForProductService(valuesMap, args.ServiceName, args.ProductName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to parse service from yaml")
 	}
