@@ -724,7 +724,6 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 	ctx.Err = service.UpdateProductGlobalVariables(projectName, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, ctx.Logger)
 }
 
-// @todo update this for helm chart deploy????
 func UpdateHelmProductCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -892,6 +891,15 @@ func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 	ctx.Resp, ctx.Err = service.UpdateMultiCVMProducts(envNames, request.ProjectName, ctx.UserName, ctx.RequestID, ctx.Logger)
 }
 
+// @Summary Get Product
+// @Description Get Product
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Success 200 		{object} 	service.ProductResp
+// @Router /api/aslan/environment/production/environments/{name} [get]
 func GetProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1217,6 +1225,14 @@ type workloadQueryArgs struct {
 	Filter      string `json:"filter"  form:"filter"`
 }
 
+// @Summary List Workloads In Env
+// @Description List Workloads In Env
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string										true	"env name"
+// @Success 200 		{array} 	commonservice.ServiceResp
+// @Router /api/aslan/environment/production/environments/{name}/workloads [get]
 func ListWorkloadsInEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

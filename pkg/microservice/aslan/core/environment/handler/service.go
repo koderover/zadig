@@ -63,9 +63,9 @@ func GetService(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	name 				path		string										true	"env name"
-// @Param 	serviceName 		path		string										true	"service name"
+// @Param 	serviceName 		path		string										true	"service name or release name"
 // @Param 	projectName			query		string										true	"project name"
-// @Param 	isHelmChartDeploy	query		string										true	"is helm chart deploy"
+// @Param 	isHelmChartDeploy	query		bool										true	"is helm chart deploy"
 // @Param 	workLoadType		query		string										true	"workload type"
 // @Success 200 				{object} 	service.SvcResp
 // @Router /api/aslan/environment/environments/{name}/services/{serviceName} [get]

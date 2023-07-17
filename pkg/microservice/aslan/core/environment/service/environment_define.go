@@ -69,26 +69,26 @@ type EnvResp struct {
 }
 
 type ProductResp struct {
-	ID          string                     `json:"id"`
-	ProductName string                     `json:"product_name"`
-	Namespace   string                     `json:"namespace"`
-	Status      string                     `json:"status"`
-	Error       string                     `json:"error"`
-	EnvName     string                     `json:"env_name"`
-	UpdateBy    string                     `json:"update_by"`
-	UpdateTime  int64                      `json:"update_time"`
-	Services    [][]string                 `json:"services"`
-	Render      *commonmodels.RenderInfo   `json:"render"`
-	Vars        []*templatemodels.RenderKV `json:"vars"`
-	IsPublic    bool                       `json:"isPublic"`
-	ClusterID   string                     `json:"cluster_id,omitempty"`
-	ClusterName string                     `json:"cluster_name,omitempty"`
-	RecycleDay  int                        `json:"recycle_day"`
-	IsProd      bool                       `json:"is_prod"`
-	IsLocal     bool                       `json:"is_local"`
-	IsExisted   bool                       `json:"is_existed"`
-	Source      string                     `json:"source"`
-	RegisterID  string                     `json:"registry_id"`
+	ID          string                           `json:"id"`
+	ProductName string                           `json:"product_name"`
+	Namespace   string                           `json:"namespace"`
+	Status      string                           `json:"status"`
+	Error       string                           `json:"error"`
+	EnvName     string                           `json:"env_name"`
+	UpdateBy    string                           `json:"update_by"`
+	UpdateTime  int64                            `json:"update_time"`
+	Services    [][]*commonmodels.ProductService `json:"services"`
+	Render      *commonmodels.RenderInfo         `json:"render"`
+	Vars        []*templatemodels.RenderKV       `json:"vars"`
+	IsPublic    bool                             `json:"isPublic"`
+	ClusterID   string                           `json:"cluster_id,omitempty"`
+	ClusterName string                           `json:"cluster_name,omitempty"`
+	RecycleDay  int                              `json:"recycle_day"`
+	IsProd      bool                             `json:"is_prod"`
+	IsLocal     bool                             `json:"is_local"`
+	IsExisted   bool                             `json:"is_existed"`
+	Source      string                           `json:"source"`
+	RegisterID  string                           `json:"registry_id"`
 
 	// New Since v1.11.0
 	ShareEnvEnable  bool   `json:"share_env_enable"`

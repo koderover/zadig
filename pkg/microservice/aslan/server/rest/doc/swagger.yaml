@@ -62,6 +62,62 @@ definitions:
       variable_yaml:
         type: string
     type: object
+  github_com_koderover_zadig_pkg_microservice_aslan_core_environment_service.ProductResp:
+    properties:
+      cluster_id:
+        type: string
+      cluster_name:
+        type: string
+      env_name:
+        type: string
+      error:
+        type: string
+      id:
+        type: string
+      is_existed:
+        type: boolean
+      is_local:
+        type: boolean
+      is_prod:
+        type: boolean
+      isPublic:
+        type: boolean
+      namespace:
+        type: string
+      product_name:
+        type: string
+      recycle_day:
+        type: integer
+      registry_id:
+        type: string
+      render:
+        $ref: '#/definitions/models.RenderInfo'
+      services:
+        items:
+          items:
+            $ref: '#/definitions/models.ProductService'
+          type: array
+        type: array
+      share_env_base_env:
+        type: string
+      share_env_enable:
+        description: New Since v1.11.0
+        type: boolean
+      share_env_is_base:
+        type: boolean
+      source:
+        type: string
+      status:
+        type: string
+      update_by:
+        type: string
+      update_time:
+        type: integer
+      vars:
+        items:
+          $ref: '#/definitions/template.RenderKV'
+        type: array
+    type: object
   github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable:
     properties:
       description:
@@ -981,6 +1037,13 @@ definitions:
       yaml_data:
         $ref: '#/definitions/template.CustomYaml'
     type: object
+  service.IngressInfo:
+    properties:
+      host_info:
+        items:
+          $ref: '#/definitions/resource.HostInfo'
+        type: array
+    type: object
   service.K8sDeployStatusCheckRequest:
     properties:
       cluster_id:
@@ -1266,6 +1329,50 @@ definitions:
       yaml:
         type: string
     type: object
+  service.ServiceResp:
+    properties:
+      deploy_strategy:
+        type: string
+      env_configs:
+        items:
+          $ref: '#/definitions/models.EnvConfig'
+        type: array
+      env_name:
+        type: string
+      env_statuses:
+        items:
+          $ref: '#/definitions/models.EnvStatus'
+        type: array
+      images:
+        items:
+          type: string
+        type: array
+      ingress:
+        $ref: '#/definitions/service.IngressInfo'
+      is_helm_chart_deploy:
+        type: boolean
+      product_name:
+        type: string
+      ready:
+        description: deprecated
+        type: string
+      release_name:
+        type: string
+      revision:
+        type: integer
+      service_display_name:
+        type: string
+      service_name:
+        type: string
+      status:
+        type: string
+      type:
+        type: string
+      updatable:
+        type: boolean
+      workLoadType:
+        type: string
+    type: object
   service.SvcDiffResult:
     properties:
       current:
@@ -1453,6 +1560,21 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  template.RenderKV:
+    properties:
+      alias:
+        type: string
+      key:
+        type: string
+      services:
+        items:
+          type: string
+        type: array
+      state:
+        type: string
+      value:
+        type: string
     type: object
   template.ServiceRender:
     properties:
@@ -1841,7 +1963,7 @@ paths:
         name: name
         required: true
         type: string
-      - description: service name
+      - description: service name or release name
         in: path
         name: serviceName
         required: true
@@ -1855,7 +1977,7 @@ paths:
         in: query
         name: isHelmChartDeploy
         required: true
-        type: string
+        type: boolean
       - description: workload type
         in: query
         name: workLoadType
@@ -2122,6 +2244,32 @@ paths:
       summary: Delete production helm release from envrionment
       tags:
       - environment
+  /api/aslan/environment/production/environments/{name}:
+    get:
+      consumes:
+      - application/json
+      description: Get Product
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_environment_service.ProductResp'
+      summary: Get Product
+      tags:
+      - environment
   /api/aslan/environment/production/environments/{name}/helm/values:
     get:
       consumes:
@@ -2141,12 +2289,10 @@ paths:
       - description: service name
         in: query
         name: serviceName
-        required: true
         type: string
       - description: release name
         in: query
         name: releaseName
-        required: true
         type: string
       - description: isHelmChartDeploy
         in: query
@@ -2167,6 +2313,29 @@ paths:
           schema:
             $ref: '#/definitions/service.ValuesResp'
       summary: Get Production Chart Values
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/workloads:
+    get:
+      consumes:
+      - application/json
+      description: List Workloads In Env
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ServiceResp'
+            type: array
+      summary: List Workloads In Env
       tags:
       - environment
   /api/aslan/environment/rendersets/globalVariables:

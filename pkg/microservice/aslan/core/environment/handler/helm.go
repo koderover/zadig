@@ -69,8 +69,8 @@ func GetChartValues(c *gin.Context) {
 // @Produce json
 // @Param 	name				path		string									true	"env name"
 // @Param 	projectName			query		string									true	"project name"
-// @Param 	serviceName			query		string									true	"service name"
-// @Param 	releaseName			query		string									true	"release name"
+// @Param 	serviceName			query		string									false	"service name"
+// @Param 	releaseName			query		string									false	"release name"
 // @Param 	isHelmChartDeploy	query		string									true	"isHelmChartDeploy"
 // @Param 	body 				body 		service.SyncCollaborationInstanceArgs 	true 	"body"
 // @Success 200 				{object} 	commonservice.ValuesResp

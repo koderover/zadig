@@ -78,6 +78,8 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, production boo
 
 type ServiceResp struct {
 	ServiceName        string       `json:"service_name"`
+	ReleaseName        string       `json:"release_name"`
+	IsHelmChartDeploy  bool         `json:"is_helm_chart_deploy"`
 	ServiceDisplayName string       `json:"service_display_name"`
 	Type               string       `json:"type"`
 	Status             string       `json:"status"`
@@ -427,7 +429,12 @@ func fillServiceInfo(svcList []*ServiceResp, productInfo *models.Product) {
 	if productInfo.Source != setting.SourceFromHelm {
 		return
 	}
+	chartSvcMap := productInfo.GetChartServiceMap()
 	for _, svc := range svcList {
+		chartSvc := chartSvcMap[svc.ServiceName]
+		if chartSvc != nil {
+			svc.IsHelmChartDeploy = true
+		}
 		svc.ServiceDisplayName = svc.ServiceName
 	}
 }
@@ -812,6 +819,7 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 		}
 		productRespInfo := &ServiceResp{
 			ServiceName:  workload.Name,
+			ReleaseName:  workload.Annotation[setting.HelmReleaseNameAnnotation],
 			EnvName:      workload.EnvName,
 			Type:         setting.K8SDeployType,
 			WorkLoadType: workload.Type,

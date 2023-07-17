@@ -391,7 +391,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "service name",
+                        "description": "service name or release name",
                         "name": "serviceName",
                         "in": "path",
                         "required": true
@@ -404,7 +404,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "string",
+                        "type": "boolean",
                         "description": "is helm chart deploy",
                         "name": "isHelmChartDeploy",
                         "in": "query",
@@ -803,6 +803,45 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/production/environments/{name}": {
+            "get": {
+                "description": "Get Product",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_environment_service.ProductResp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/production/environments/{name}/helm/values": {
             "get": {
                 "description": "Get Production Chart Values",
@@ -835,15 +874,13 @@ const docTemplate = `{
                         "type": "string",
                         "description": "service name",
                         "name": "serviceName",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
                         "description": "release name",
                         "name": "releaseName",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
@@ -867,6 +904,41 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/service.ValuesResp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/workloads": {
+            "get": {
+                "description": "List Workloads In Env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "List Workloads In Env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.ServiceResp"
+                            }
                         }
                     }
                 }
@@ -1818,6 +1890,90 @@ const docTemplate = `{
                 },
                 "variable_yaml": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_koderover_zadig_pkg_microservice_aslan_core_environment_service.ProductResp": {
+            "type": "object",
+            "properties": {
+                "cluster_id": {
+                    "type": "string"
+                },
+                "cluster_name": {
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isPublic": {
+                    "type": "boolean"
+                },
+                "is_existed": {
+                    "type": "boolean"
+                },
+                "is_local": {
+                    "type": "boolean"
+                },
+                "is_prod": {
+                    "type": "boolean"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "recycle_day": {
+                    "type": "integer"
+                },
+                "registry_id": {
+                    "type": "string"
+                },
+                "render": {
+                    "$ref": "#/definitions/models.RenderInfo"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/models.ProductService"
+                        }
+                    }
+                },
+                "share_env_base_env": {
+                    "type": "string"
+                },
+                "share_env_enable": {
+                    "description": "New Since v1.11.0",
+                    "type": "boolean"
+                },
+                "share_env_is_base": {
+                    "type": "boolean"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "update_by": {
+                    "type": "string"
+                },
+                "update_time": {
+                    "type": "integer"
+                },
+                "vars": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/template.RenderKV"
+                    }
                 }
             }
         },
@@ -3208,6 +3364,17 @@ const docTemplate = `{
                 }
             }
         },
+        "service.IngressInfo": {
+            "type": "object",
+            "properties": {
+                "host_info": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.HostInfo"
+                    }
+                }
+            }
+        },
         "service.K8sDeployStatusCheckRequest": {
             "type": "object",
             "properties": {
@@ -3642,6 +3809,72 @@ const docTemplate = `{
                 }
             }
         },
+        "service.ServiceResp": {
+            "type": "object",
+            "properties": {
+                "deploy_strategy": {
+                    "type": "string"
+                },
+                "env_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EnvConfig"
+                    }
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "env_statuses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.EnvStatus"
+                    }
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "ingress": {
+                    "$ref": "#/definitions/service.IngressInfo"
+                },
+                "is_helm_chart_deploy": {
+                    "type": "boolean"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "ready": {
+                    "description": "deprecated",
+                    "type": "string"
+                },
+                "release_name": {
+                    "type": "string"
+                },
+                "revision": {
+                    "type": "integer"
+                },
+                "service_display_name": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updatable": {
+                    "type": "boolean"
+                },
+                "workLoadType": {
+                    "type": "string"
+                }
+            }
+        },
         "service.SvcDiffResult": {
             "type": "object",
             "properties": {
@@ -3923,6 +4156,29 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "template.RenderKV": {
+            "type": "object",
+            "properties": {
+                "alias": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
                 }
             }
         },

@@ -234,7 +234,6 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		ID:              prod.ID.Hex(),
 		ProductName:     prod.ProductName,
 		Namespace:       prod.Namespace,
-		Services:        [][]string{},
 		Status:          setting.PodUnstable,
 		EnvName:         prod.EnvName,
 		UpdateTime:      prod.UpdateTime,
@@ -279,7 +278,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 	}
 
 	if prod.Source != setting.SourceFromExternal {
-		prodResp.Services = prod.GetGroupServiceNames()
+		prodResp.Services = prod.Services
 	}
 
 	if prod.Status == setting.ProductStatusCreating {
