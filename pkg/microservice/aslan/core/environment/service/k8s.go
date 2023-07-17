@@ -300,13 +300,12 @@ func (k *K8sService) calculateProductStatus(productInfo *commonmodels.Product, i
 		allSvcs = append(allSvcs, svc.ServiceName)
 	}
 
-	batchCount := 3
+	batchCount := 10
 	for i := 0; i < len(allSvcs); {
 		maxIndex := i + batchCount
 		if maxIndex >= len(allSvcs) {
 			maxIndex = len(allSvcs)
 		}
-		log.Infof("----- checking status from %d to %d", i, maxIndex)
 		var wg sync.WaitGroup
 		for ii := i; ii < maxIndex; ii++ {
 			service := productInfo.GetServiceMap()[allSvcs[ii]]
