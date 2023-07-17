@@ -745,6 +745,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/production/environments/{name}/helm/values": {
+            "get": {
+                "description": "Get Production Chart Values",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Production Chart Values",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "release name",
+                        "name": "releaseName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "isHelmChartDeploy",
+                        "name": "isHelmChartDeploy",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.SyncCollaborationInstanceArgs"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.ValuesResp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/rendersets/globalVariables": {
             "get": {
                 "description": "Get global variable from environment, current only used for k8s project",
@@ -3426,6 +3495,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "yamlSource": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ValuesResp": {
+            "type": "object",
+            "properties": {
+                "valuesYaml": {
                     "type": "string"
                 }
             }

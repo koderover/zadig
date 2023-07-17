@@ -309,7 +309,7 @@ type ValuesResp struct {
 	ValuesYaml string `json:"valuesYaml"`
 }
 
-func GetChartValues(projectName, envName, serviceName string, production bool) (*ValuesResp, error) {
+func GetChartValues(projectName, envName, serviceName string, isHelmChartDeploy bool, production bool) (*ValuesResp, error) {
 	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -327,22 +327,25 @@ func GetChartValues(projectName, envName, serviceName string, production bool) (
 		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
 	}
 
-	serviceMap := prod.GetServiceMap()
-	prodSvc, ok := serviceMap[serviceName]
-	if !ok {
-		return nil, fmt.Errorf("failed to find sercice: %s in env: %s", serviceName, envName)
-	}
+	releaseName := serviceName
+	if !isHelmChartDeploy {
+		serviceMap := prod.GetServiceMap()
+		prodSvc, ok := serviceMap[serviceName]
+		if !ok {
+			return nil, fmt.Errorf("failed to find sercice: %s in env: %s", serviceName, envName)
+		}
 
-	revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-		ServiceName: serviceName,
-		Revision:    prodSvc.Revision,
-		ProductName: prodSvc.ProductName,
-	}, production)
-	if err != nil {
-		return nil, err
-	}
+		revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: serviceName,
+			Revision:    prodSvc.Revision,
+			ProductName: prodSvc.ProductName,
+		}, production)
+		if err != nil {
+			return nil, err
+		}
 
-	releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodSvc.ProductName, prod.Namespace, prod.EnvName, prodSvc.ServiceName)
+		releaseName = util.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodSvc.ProductName, prod.Namespace, prod.EnvName, prodSvc.ServiceName)
+	}
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 	if err != nil {
 		log.Errorf("failed to get values map data, err: %s", err)

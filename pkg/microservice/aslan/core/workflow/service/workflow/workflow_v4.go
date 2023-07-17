@@ -2012,7 +2012,7 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, images []string, isProduction, updateServiceRevision bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	// first we get the current yaml in the current environment
 	currentYaml := ""
-	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, isProduction)
+	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, false, isProduction)
 	if err != nil {
 		log.Infof("failed to get the current service[%s] values from project: %s, env: %s", serviceName, projectName, envName)
 		currentYaml = ""

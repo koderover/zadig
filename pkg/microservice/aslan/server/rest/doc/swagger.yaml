@@ -1209,6 +1209,11 @@ definitions:
       yamlSource:
         type: string
     type: object
+  service.ValuesResp:
+    properties:
+      valuesYaml:
+        type: string
+    type: object
   setting.PMHostStatus:
     enum:
     - normal
@@ -1878,6 +1883,53 @@ paths:
         "200":
           description: OK
       summary: Delete production helm release from envrionment
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/helm/values:
+    get:
+      consumes:
+      - application/json
+      description: Get Production Chart Values
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: service name
+        in: query
+        name: serviceName
+        required: true
+        type: string
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
+      - description: isHelmChartDeploy
+        in: query
+        name: isHelmChartDeploy
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.SyncCollaborationInstanceArgs'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ValuesResp'
+      summary: Get Production Chart Values
       tags:
       - environment
   /api/aslan/environment/rendersets/globalVariables:
