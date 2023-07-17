@@ -293,33 +293,52 @@ func (k *K8sService) calculateProductStatus(productInfo *commonmodels.Product, i
 	if informer == nil {
 		return setting.ClusterUnknown, nil
 	}
-
 	retStatus := setting.PodRunning
 
-	var wg sync.WaitGroup
-	for _, service := range productInfo.GetServiceMap() {
-		wg.Add(1)
-		go func(service *commonmodels.ProductService) {
-			defer wg.Done()
-			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-				ServiceName: service.ServiceName,
-				Revision:    service.Revision,
-				ProductName: service.ProductName,
-			}, productInfo.Production)
-
-			if err != nil {
-				log.Errorf("failed to get service template %s revision %s, err: %s", service.ServiceName, service.Revision, err)
-				retStatus = setting.PodUnstable
-				return
-			}
-			statusResp := k.queryWorkloadStatus(serviceTmpl, productInfo, informer)
-			log.Infof("result of status resp: %s/%v", service.ServiceName, statusResp)
-			if statusResp != setting.PodRunning {
-				retStatus = statusResp
-			}
-		}(service)
+	allSvcs := make([]string, 0)
+	for _, svc := range productInfo.GetServiceMap() {
+		allSvcs = append(allSvcs, svc.ServiceName)
 	}
-	wg.Wait()
+
+	batchCount := 3
+	for i := 0; i < len(allSvcs); {
+		maxIndex := i + batchCount
+		if maxIndex >= len(allSvcs) {
+			maxIndex = len(allSvcs)
+		}
+		log.Infof("----- checking status from %d to %d", i, maxIndex)
+		var wg sync.WaitGroup
+		for ii := i; ii < maxIndex; ii++ {
+			service := productInfo.GetServiceMap()[allSvcs[ii]]
+			wg.Add(1)
+			go func(service *commonmodels.ProductService) {
+				defer wg.Done()
+				if service == nil {
+					return
+				}
+				serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+					ServiceName: service.ServiceName,
+					Revision:    service.Revision,
+					ProductName: service.ProductName,
+				}, productInfo.Production)
+				if err != nil {
+					log.Errorf("failed to get service template %s revision %s, err: %s", service.ServiceName, service.Revision, err)
+					retStatus = setting.PodUnstable
+					return
+				}
+				statusResp := k.queryWorkloadStatus(serviceTmpl, productInfo, informer)
+				if statusResp != setting.PodRunning {
+					retStatus = statusResp
+				}
+			}(service)
+			wg.Wait()
+		}
+		if retStatus != setting.PodRunning || maxIndex >= len(allSvcs) {
+			break
+		} else {
+			i = maxIndex
+		}
+	}
 
 	return retStatus, nil
 }
