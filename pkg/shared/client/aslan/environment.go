@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -48,27 +47,6 @@ func (c *Client) GetEnvironment(envName, projectName string) (*Environment, erro
 	return res, nil
 }
 
-func (c *Client) ListHelmServicesInEnvironment(envName, projectName string) ([]*Service, error) {
-	url := fmt.Sprintf("/environment/environments/%s/groups", envName)
-
-	res := &ServicesResp{}
-	_, err := c.Get(url, httpclient.SetQueryParam("projectName", projectName), httpclient.SetResult(res))
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Services, nil
-}
-
-func (c *Client) ListServices(envName, projectName string) ([]*Service, error) {
-	url := fmt.Sprintf("/environment/environments/%s/groups", envName)
-
-	res := make([]*Service, 0)
-	_, err := c.Get(url, httpclient.SetQueryParam("projectName", projectName), httpclient.SetResult(&res))
-
-	return res, err
-}
-
 func (c *Client) GetServiceDetail(projectName, serviceName, envName string) (*ServiceDetail, error) {
 	url := fmt.Sprintf("/environment/environments/%s/services/%s", envName, serviceName)
 
@@ -79,44 +57,6 @@ func (c *Client) GetServiceDetail(projectName, serviceName, envName string) (*Se
 	_, err := c.Get(url, httpclient.SetQueryParams(req), httpclient.SetResult(res))
 	if err != nil {
 		return nil, err
-	}
-
-	return res, nil
-}
-
-func (c *Client) ListServicesStatusByEnvironment(envName, projectName string) ([]*ServiceStatus, error) {
-	env, err := c.GetEnvironment(envName, projectName)
-	if err != nil {
-		log.Errorf("Failed to get env, err: %s", err)
-		return nil, err
-	}
-
-	res := make([]*ServiceStatus, 0)
-	if env.Source == "helm" {
-		ss, err := c.ListHelmServicesInEnvironment(envName, projectName)
-		if err != nil {
-			log.Errorf("Failed to list helm services, err: %s", err)
-			return nil, err
-		}
-		for _, s := range ss {
-			res = append(res, &ServiceStatus{
-				ServiceName: s.ServiceName,
-				Status:      s.Status,
-			})
-		}
-
-	} else {
-		ss, err := c.ListServices(envName, projectName)
-		if err != nil {
-			log.Errorf("Failed to list services, err: %s", err)
-			return nil, err
-		}
-		for _, s := range ss {
-			res = append(res, &ServiceStatus{
-				ServiceName: s.ServiceName,
-				Status:      s.Status,
-			})
-		}
 	}
 
 	return res, nil

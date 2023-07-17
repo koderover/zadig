@@ -696,41 +696,6 @@ func PreviewHelmProductDefaultValues(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.PreviewHelmProductGlobalVariables(projectName, envName, arg.DefaultValues, ctx.Logger)
 }
 
-func UpdateK8sProductDefaultValues(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName, envName, err := generalRequestValidate(c)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	arg := new(service.K8sRendersetArg)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateK8sProductDefaultValues c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateK8sProductDefaultValues json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	envRenderArg := &service.EnvRendersetArg{
-		DeployType:    setting.K8SDeployType,
-		DefaultValues: arg.VariableYaml,
-	}
-
-	ctx.Err = service.UpdateProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, envRenderArg, ctx.Logger)
-}
-
 type updateK8sProductGlobalVariablesRequest struct {
 	CurrentRevision int64                           `json:"current_revision"`
 	GlobalVariables []*commontypes.GlobalVariableKV `json:"global_variables"`
@@ -1168,7 +1133,7 @@ func ListWorkloads(c *gin.Context) {
 		return
 	}
 
-	count, services, err := commonservice.ListWorkloads("", args.ClusterID, args.Namespace, "", args.PerPage, args.Page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
+	count, services, err := commonservice.ListWorkloadDetails("", args.ClusterID, args.Namespace, "", args.PerPage, args.Page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
 		workloadStat, _ := mongodb.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 		workloadM := map[string]commonmodels.Workload{}
 		for _, workload := range workloadStat.Workloads {
@@ -1232,7 +1197,7 @@ func ListWorkloadsInEnv(c *gin.Context) {
 		return
 	}
 
-	count, services, err := commonservice.ListWorkloadsInEnv(envName, args.ProjectName, args.Filter, args.PerPage, args.Page, ctx.Logger)
+	count, services, err := commonservice.ListWorkloadDetailsInEnv(envName, args.ProjectName, args.Filter, args.PerPage, args.Page, ctx.Logger)
 	ctx.Resp = &NamespaceResource{
 		Services: services,
 	}
