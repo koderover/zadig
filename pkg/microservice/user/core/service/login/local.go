@@ -227,7 +227,7 @@ func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error)
 			}
 		}
 
-		redirectURL := fmt.Sprintf("%s?%s", connConfig.LogoutURL, url.QueryEscape(connConfig.SystemURL))
+		redirectURL := fmt.Sprintf("%s?service=%s", connConfig.LogoutURL, url.QueryEscape(connConfig.SystemURL))
 		return true, redirectURL, nil
 	}
 
