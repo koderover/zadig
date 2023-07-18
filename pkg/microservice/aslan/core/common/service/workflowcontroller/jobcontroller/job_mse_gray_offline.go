@@ -216,6 +216,7 @@ func (c *MseGrayOfflineJobCtl) Info(msg string) {
 		Message:   msg,
 		Time:      time.Now().Format("2006-01-02 15:04:05"),
 	})
+	c.ack()
 }
 
 func (c *MseGrayOfflineJobCtl) Error(msg string) {

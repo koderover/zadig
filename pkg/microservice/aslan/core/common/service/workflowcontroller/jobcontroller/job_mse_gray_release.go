@@ -220,7 +220,7 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 			}
 		}
 	}
-	
+
 	c.job.Status = config.StatusPassed
 	return
 }
@@ -231,6 +231,7 @@ func (c *MseGrayReleaseJobCtl) Info(msg string) {
 		Message:   msg,
 		Time:      time.Now().Format("2006-01-02 15:04:05"),
 	})
+	c.ack()
 }
 
 func (c *MseGrayReleaseJobCtl) Error(msg string) {
