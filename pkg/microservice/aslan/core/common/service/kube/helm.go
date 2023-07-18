@@ -243,10 +243,11 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 		return err
 	}
 
+	releaseName := util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName)
 	param := &ReleaseInstallParam{
 		ProductName:  svcTemp.ProductName,
 		Namespace:    product.Namespace,
-		ReleaseName:  util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName),
+		ReleaseName:  releaseName,
 		MergedValues: replacedMergedValuesYaml,
 		RenderChart:  renderSet.GetChartRenderMap()[svcTemp.ServiceName],
 		ServiceObj:   svcTemp,
@@ -310,6 +311,10 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	chartMap[productSvc.ServiceName] = renderSet.GetChartRenderMap()[productSvc.ServiceName]
 	curRenderInfo.ChartInfos = make([]*templatemodels.ServiceRender, 0)
 	for _, chartInfo := range chartMap {
+		if chartInfo.IsHelmChartDeploy && chartInfo.ReleaseName == releaseName {
+			continue
+		}
+
 		curRenderInfo.ChartInfos = append(curRenderInfo.ChartInfos, chartInfo)
 	}
 	err = render.CreateRenderSet(curRenderInfo, log.SugaredLogger())

@@ -130,7 +130,16 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 			return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service, err: %s", err))
 		}
 		svc.Revision = latestSvcRevision.Revision
-		svc.Containers = kube.CalculateContainer(currentProductSvc, latestSvcRevision.Containers, exitedProd)
+
+		curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: currentProductSvc.ServiceName,
+			Revision:    currentProductSvc.Revision,
+			ProductName: currentProductSvc.ProductName,
+		}, exitedProd.Production)
+		if err != nil {
+			curUsedSvc = nil
+		}
+		svc.Containers = kube.CalculateContainer(currentProductSvc, curUsedSvc, latestSvcRevision.Containers, exitedProd)
 	}
 
 	switch exitedProd.Status {

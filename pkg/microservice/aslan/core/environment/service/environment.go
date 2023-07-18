@@ -649,6 +649,26 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 		}
 	}
 
+	// get services map[serviceName]=>service
+	option := &mongodb.SvcRevisionListOption{
+		ProductName:      productResp.ProductName,
+		ServiceRevisions: []*mongodb.ServiceRevision{},
+	}
+	for _, svc := range productServiceMap {
+		option.ServiceRevisions = append(option.ServiceRevisions, &mongodb.ServiceRevision{
+			ServiceName: svc.ServiceName,
+			Revision:    svc.Revision,
+		})
+	}
+	services, err := repository.ListServicesWithSRevision(option, productResp.Production)
+	if err != nil {
+		log.Errorf("ListServicesWithSRevision error: %v", err)
+	}
+	serviceMap := make(map[string]*commonmodels.Service)
+	for _, svc := range services {
+		serviceMap[svc.ServiceName] = svc
+	}
+
 	// use service definition from service template, but keep the image info
 	allServices := make([][]*commonmodels.ProductService, 0)
 	for _, svrs := range templateProd.Services {
@@ -674,7 +694,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 				continue
 			}
 
-			svr.Containers = kube.CalculateContainer(ps, svr.Containers, productResp)
+			svr.Containers = kube.CalculateContainer(ps, serviceMap[svr.ServiceName], svr.Containers, productResp)
 		}
 		allServices = append(allServices, svcGroup)
 	}
@@ -1029,7 +1049,15 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 
 	images := make([]string, 0)
 
-	containers := kube.CalculateContainer(productSvc, latestSvc.Containers, productInfo)
+	curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName: productSvc.ServiceName,
+		Revision:    productSvc.Revision,
+		ProductName: productSvc.ProductName,
+	}, productInfo.Production)
+	if err != nil {
+		curUsedSvc = nil
+	}
+	containers := kube.CalculateContainer(productSvc, curUsedSvc, latestSvc.Containers, productInfo)
 
 	for _, container := range containers {
 		images = append(images, container.Image)
@@ -2934,12 +2962,6 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 	}
 	defaultValues, yamlData := currentEnvRenderSet.DefaultValues, currentEnvRenderSet.YamlData
 
-	// chart infos in product
-	currentChartInfoMap := make(map[string]*templatemodels.ServiceRender)
-	for _, renderInfo := range currentEnvRenderSet.ChartInfos {
-		currentChartInfoMap[renderInfo.ServiceName] = renderInfo
-	}
-
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productCur, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -2951,6 +2973,21 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 	// productCur is the product info in current
 	serviceMap := productCur.GetServiceMap()
 	serviceRespMap := productResp.GetServiceMap()
+
+	// chart infos in product
+	currentChartInfoMap := make(map[string]*templatemodels.ServiceRender)
+	for _, renderInfo := range currentEnvRenderSet.ChartInfos {
+		if _, ok1 := renderChartArgMap[renderInfo.ServiceName]; ok1 {
+			if svc, ok2 := serviceMap[renderInfo.ServiceName]; ok2 {
+				if renderInfo.IsHelmChartDeploy && svc.ReleaseName == renderInfo.ReleaseName {
+					continue
+				}
+			}
+		}
+
+		currentChartInfoMap[renderInfo.ServiceName] = renderInfo
+	}
+
 	newChartInfos := make([]*templatemodels.ServiceRender, 0)
 
 	for serviceName, latestChartInfo := range latestChartInfoMap {
