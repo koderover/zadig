@@ -518,9 +518,21 @@ func EstimatedValues(c *gin.Context) {
 	}
 	arg.Production = false
 
-	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, false, ctx.Logger)
 }
 
+// @Summary Get Production Estimated Values
+// @Description Get Production Estimated Values
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 				path		string								true	"env name"
+// @Param 	projectName			query		string								true	"project name"
+// @Param 	serviceName			query		string								true	"service name or release name"
+// @Param 	isHelmChartDeploy	query		string								true	"is helm chart deploy"
+// @Param 	body 				body 		service.EstimateValuesArg			true 	"body"
+// @Success 200 				{object} 	service.RawYamlResp
+// @Router /api/aslan/environment/production/environments/{name}/estimated-values [post]
 func ProductionEstimatedValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -538,6 +550,12 @@ func ProductionEstimatedValues(c *gin.Context) {
 		return
 	}
 
+	isHelmChartDeploy := c.Query("isHelmChartDeploy")
+	if isHelmChartDeploy == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("isHelmChartDeploy can't be empty!")
+		return
+	}
+
 	arg := new(service.EstimateValuesArg)
 	if err := c.ShouldBind(arg); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -545,7 +563,8 @@ func ProductionEstimatedValues(c *gin.Context) {
 	}
 	arg.Production = true
 
-	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"),
+		arg, isHelmChartDeploy == "true", ctx.Logger)
 }
 
 func SyncHelmProductRenderset(c *gin.Context) {

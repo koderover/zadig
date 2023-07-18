@@ -842,6 +842,68 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/production/environments/{name}/estimated-values": {
+            "post": {
+                "description": "Get Production Estimated Values",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Production Estimated Values",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name or release name",
+                        "name": "serviceName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "is helm chart deploy",
+                        "name": "isHelmChartDeploy",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.EstimateValuesArg"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.RawYamlResp"
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/production/environments/{name}/helm/charts": {
             "put": {
                 "description": "Update helm product charts",
@@ -3319,6 +3381,23 @@ const docTemplate = `{
                 }
             }
         },
+        "service.EstimateValuesArg": {
+            "type": "object",
+            "properties": {
+                "defaultValues": {
+                    "type": "string"
+                },
+                "overrideValues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.KVPair"
+                    }
+                },
+                "overrideYaml": {
+                    "type": "string"
+                }
+            }
+        },
         "service.GetGlobalVariableCandidatesRespone": {
             "type": "object",
             "properties": {
@@ -3729,6 +3808,14 @@ const docTemplate = `{
                     }
                 },
                 "variable_yaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.RawYamlResp": {
+            "type": "object",
+            "properties": {
+                "yamlContent": {
                     "type": "string"
                 }
             }

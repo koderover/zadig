@@ -152,7 +152,10 @@ func (p *Product) GetServiceMap() map[string]*ProductService {
 	ret := make(map[string]*ProductService)
 	for _, group := range p.Services {
 		for _, svc := range group {
-			ret[svc.ServiceName] = svc
+			if svc.Type == setting.HelmChartDeployType {
+				continue
+			}
+			ret[svc.ReleaseName] = svc
 		}
 	}
 

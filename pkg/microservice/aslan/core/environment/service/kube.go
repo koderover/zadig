@@ -1230,6 +1230,16 @@ func GetReleaseInstanceDeployStatus(productName string, request *HelmDeployStatu
 		releaseToServiceMap[releaseName] = deployStatus
 	}
 
+	chartSvcMap := productInfo.GetChartServiceMap()
+	for _, chartSvc := range chartSvcMap {
+		deployStatus := &ResourceDeployStatus{
+			Type:   "release",
+			Name:   chartSvc.ReleaseName,
+			Status: StatusUnDeployed,
+		}
+		releaseToServiceMap[chartSvc.ReleaseName] = deployStatus
+	}
+
 	helmClient, err := helmtool.NewClientFromNamespace(clusterID, namespace)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(err)
