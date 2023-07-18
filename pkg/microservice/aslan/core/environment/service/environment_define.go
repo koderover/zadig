@@ -115,7 +115,7 @@ type EnvRenderChartArg struct {
 }
 
 type EnvRendersetArg struct {
-	DeployType        string                            `json:"-"`
+	DeployType        string                            `json:"deployType"`
 	DefaultValues     string                            `json:"defaultValues"`
 	ValuesData        *commonservice.ValuesDataArgs     `json:"valuesData"`
 	ChartValues       []*commonservice.HelmSvcRenderArg `json:"chartValues"`

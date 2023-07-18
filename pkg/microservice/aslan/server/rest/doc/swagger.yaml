@@ -952,6 +952,21 @@ definitions:
       namespace:
         type: string
     type: object
+  service.EnvRendersetArg:
+    properties:
+      chartValues:
+        items:
+          $ref: '#/definitions/service.HelmSvcRenderArg'
+        type: array
+      defaultValues:
+        type: string
+      deployType:
+        type: string
+      updateServiceTmpl:
+        type: boolean
+      valuesData:
+        $ref: '#/definitions/service.ValuesDataArgs'
+    type: object
   service.EnvServices:
     properties:
       env_name:
@@ -2268,6 +2283,36 @@ paths:
           schema:
             $ref: '#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_environment_service.ProductResp'
       summary: Get Product
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/helm/charts:
+    put:
+      consumes:
+      - application/json
+      description: Update helm product charts
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.EnvRendersetArg'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update helm product charts
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/helm/values:

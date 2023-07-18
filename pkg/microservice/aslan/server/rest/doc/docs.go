@@ -842,6 +842,51 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/production/environments/{name}/helm/charts": {
+            "put": {
+                "description": "Update helm product charts",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Update helm product charts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.EnvRendersetArg"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/production/environments/{name}/helm/values": {
             "get": {
                 "description": "Get Production Chart Values",
@@ -3231,6 +3276,29 @@ const docTemplate = `{
                 },
                 "namespace": {
                     "type": "string"
+                }
+            }
+        },
+        "service.EnvRendersetArg": {
+            "type": "object",
+            "properties": {
+                "chartValues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.HelmSvcRenderArg"
+                    }
+                },
+                "defaultValues": {
+                    "type": "string"
+                },
+                "deployType": {
+                    "type": "string"
+                },
+                "updateServiceTmpl": {
+                    "type": "boolean"
+                },
+                "valuesData": {
+                    "$ref": "#/definitions/service.ValuesDataArgs"
                 }
             }
         },

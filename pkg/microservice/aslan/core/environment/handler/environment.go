@@ -724,6 +724,16 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 	ctx.Err = service.UpdateProductGlobalVariables(projectName, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, ctx.Logger)
 }
 
+// @Summary Update helm product charts
+// @Description Update helm product charts
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	name			path		string							true	"env name"
+// @Param 	body 			body 		service.EnvRendersetArg 		true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/helm/charts [put]
 func UpdateHelmProductCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
