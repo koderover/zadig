@@ -17,7 +17,11 @@ limitations under the License.
 package user
 
 import (
+	"net/http"
+	"net/url"
+
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type User struct {
@@ -71,7 +75,12 @@ func (c *Client) CreateUser(args *CreateUserArgs) (*CreateUserResp, error) {
 }
 
 type SearchUserArgs struct {
-	Account string `json:"account"`
+	Name         string   `json:"name,omitempty"`
+	Account      string   `json:"account,omitempty"`
+	IdentityType string   `json:"identity_type,omitempty"`
+	UIDs         []string `json:"uids,omitempty"`
+	PerPage      int      `json:"per_page,omitempty"`
+	Page         int      `json:"page,omitempty"`
 }
 
 type SearchUserResp struct {
@@ -90,4 +99,26 @@ func (c *Client) Healthz() error {
 	url := "/healthz"
 	_, err := c.Get(url)
 	return err
+}
+
+// moved from policy client, TODO: merge it with searchUser function
+func (c *Client) SearchUsers(header http.Header, qs url.Values, body interface{}) (*types.UsersResp, error) {
+	url := "/users/search"
+	result := &types.UsersResp{}
+	_, err := c.Post(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetBody(body), httpclient.SetResult(result))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *Client) DeleteUser(userId string, header http.Header, qs url.Values) ([]byte, error) {
+	url := "/users/" + userId
+
+	res, err := c.Delete(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Body(), nil
 }
