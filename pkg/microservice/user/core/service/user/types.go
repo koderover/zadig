@@ -81,7 +81,27 @@ const (
 )
 
 // system level authorization actions
-const ()
+const (
+	// project
+	VerbCreateProject = "create_project"
+	VerbDeleteProject = "delete_project"
+	// template store
+	VerbCreateTemplate = "create_template"
+	VerbGetTemplate    = "get_template"
+	VerbEditTemplate   = "edit_template"
+	VerbDeleteTemplate = "delete_template"
+	// test center
+	VerbViewTestCenter = "get_test"
+	// release center
+	VerbViewReleaseCenter = "get_release"
+	// delivery center
+	VerbDeliveryCenterGetVersions = "release_get"
+	VerbDeliveryCenterGetArtifact = "delivery_get"
+	// data center
+	VerbGetDataCenterOverview       = "data_over"
+	VerbGetDataCenterInsight        = "efficiency_over"
+	VerbEditDataCenterInsightConfig = "edit_dashboard_config"
+)
 
 type AuthorizedResources struct {
 	IsSystemAdmin   bool

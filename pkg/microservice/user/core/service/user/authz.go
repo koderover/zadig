@@ -41,6 +41,9 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 	}
 
+	// generate system actions for user
+	systemActions := generateDefaultSystemActions()
+
 	// otherwise we generate a map of namespaced(project) permission
 	projectActionMap := make(map[string]*ProjectActions)
 	for project, roles := range namespacedRoleMap {
@@ -58,7 +61,12 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 				for _, rule := range roleDetailInfo.Rules {
 					// resources field is no longer required, the verb itself is sufficient to explain the authorization
 					for _, verb := range rule.Verbs {
-						modifyUserAuth(projectActionMap[project], verb)
+						if project != GeneralNamespace {
+							modifyUserProjectAuth(projectActionMap[project], verb)
+						} else {
+							modifySystemAction(systemActions, verb)
+						}
+
 					}
 				}
 			}
@@ -70,11 +78,25 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 	}
 
-	// TODO: deal with individual resources later
+	for _, role := range namespacedRoleMap[GeneralNamespace] {
+		roleDetailInfo, found, err := mongodb.NewRoleColl().Get(GeneralNamespace, role)
+		if err != nil {
+			return nil, err
+		}
+		if found {
+			for _, rule := range roleDetailInfo.Rules {
+				for _, verb := range rule.Verbs {
+					modifySystemAction(systemActions, verb)
+				}
+			}
+		}
+	}
 
+	// TODO: deal with individual resources later
 	resp := &AuthorizedResources{
 		IsSystemAdmin:   false,
 		ProjectAuthInfo: projectActionMap,
+		SystemActions:   systemActions,
 	}
 
 	return resp, nil
@@ -154,7 +176,37 @@ func generateDefaultProjectActions() *ProjectActions {
 	}
 }
 
-func modifyUserAuth(userAuthInfo *ProjectActions, verb string) {
+func generateDefaultSystemActions() *SystemActions {
+	return &SystemActions{
+		Project: &SystemProjectActions{
+			Create: false,
+			Delete: false,
+		},
+		Template: &TemplateActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+		TestCenter: &TestCenterActions{
+			View: false,
+		},
+		ReleaseCenter: &ReleaseCenterActions{
+			View: false,
+		},
+		DeliveryCenter: &DeliveryCenterActions{
+			ViewArtifact: false,
+			ViewVersion:  false,
+		},
+		DataCenter: &DataCenterActions{
+			ViewOverView:      false,
+			ViewInsight:       false,
+			EditInsightConfig: false,
+		},
+	}
+}
+
+func modifyUserProjectAuth(userAuthInfo *ProjectActions, verb string) {
 	switch verb {
 	case VerbCreateDelivery:
 		userAuthInfo.Version.Create = true
@@ -244,5 +296,36 @@ func modifyUserAuth(userAuthInfo *ProjectActions, verb string) {
 		userAuthInfo.Scanning.Delete = true
 	case VerbRunScan:
 		userAuthInfo.Scanning.Execute = true
+	}
+}
+
+func modifySystemAction(systemActions *SystemActions, verb string) {
+	switch verb {
+	case VerbCreateProject:
+		systemActions.Project.Create = true
+	case VerbDeleteProject:
+		systemActions.Project.Delete = true
+	case VerbCreateTemplate:
+		systemActions.Template.Create = true
+	case VerbGetTemplate:
+		systemActions.Template.View = true
+	case VerbEditTemplate:
+		systemActions.Template.Edit = true
+	case VerbDeleteTemplate:
+		systemActions.Template.Delete = true
+	case VerbViewTestCenter:
+		systemActions.TestCenter.View = true
+	case VerbViewReleaseCenter:
+		systemActions.ReleaseCenter.View = true
+	case VerbDeliveryCenterGetVersions:
+		systemActions.DeliveryCenter.ViewVersion = true
+	case VerbDeliveryCenterGetArtifact:
+		systemActions.DeliveryCenter.ViewArtifact = true
+	case VerbGetDataCenterOverview:
+		systemActions.DataCenter.ViewOverView = true
+	case VerbGetDataCenterInsight:
+		systemActions.DataCenter.ViewInsight = true
+	case VerbEditDataCenterInsightConfig:
+		systemActions.DataCenter.EditInsightConfig = true
 	}
 }

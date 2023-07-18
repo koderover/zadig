@@ -5,6 +5,7 @@ import "github.com/koderover/zadig/pkg/tool/httpclient"
 type AuthorizedResources struct {
 	IsSystemAdmin   bool
 	ProjectAuthInfo map[string]*ProjectActions
+	SystemActions   *SystemActions
 	//AdditionalResource *AdditionalResources
 	//SystemAuthInfo
 }
@@ -21,6 +22,16 @@ type ProjectActions struct {
 	Scanning          *ScanningActions
 	Version           *VersionActions
 }
+
+type SystemActions struct {
+	Project        *SystemProjectActions
+	Template       *TemplateActions
+	TestCenter     *TestCenterActions
+	ReleaseCenter  *ReleaseCenterActions
+	DeliveryCenter *DeliveryCenterActions
+	DataCenter     *DataCenterActions
+}
+
 type WorkflowActions struct {
 	View    bool
 	Create  bool
@@ -95,6 +106,37 @@ type VersionActions struct {
 	View   bool
 	Create bool
 	Delete bool
+}
+
+type SystemProjectActions struct {
+	Create bool
+	Delete bool
+}
+
+type TemplateActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type TestCenterActions struct {
+	View bool
+}
+
+type ReleaseCenterActions struct {
+	View bool
+}
+
+type DeliveryCenterActions struct {
+	ViewArtifact bool
+	ViewVersion  bool
+}
+
+type DataCenterActions struct {
+	ViewOverView      bool
+	ViewInsight       bool
+	EditInsightConfig bool
 }
 
 func (c *Client) GetUserAuthInfo(uid string) (*AuthorizedResources, error) {

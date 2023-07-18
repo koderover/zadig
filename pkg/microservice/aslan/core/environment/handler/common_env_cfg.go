@@ -35,20 +35,42 @@ import (
 )
 
 func DeleteCommonEnvCfg(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	productName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	commonEnvCfgType := c.Query("commonEnvCfgType")
 	objectName := c.Param("objectName")
-	if envName == "" || productName == "" || objectName == "" {
+	if envName == "" || projectKey == "" || objectName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("param envName or projectName or objectName is invalid")
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, productName, setting.OperationSceneEnv, "删除", "环境配置", fmt.Sprintf("%s:%s:%s", envName, commonEnvCfgType, objectName), "", ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境配置", fmt.Sprintf("%s:%s:%s", envName, commonEnvCfgType, objectName), "", ctx.Logger, envName)
 
-	ctx.Err = service.DeleteCommonEnvCfg(envName, productName, objectName, config.CommonEnvCfgType(commonEnvCfgType), ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		// todo: collaboration mode support
+	}
+
+	ctx.Err = service.DeleteCommonEnvCfg(envName, projectKey, objectName, config.CommonEnvCfgType(commonEnvCfgType), ctx.Logger)
 }
 
 func CreateCommonEnvCfg(c *gin.Context) {
