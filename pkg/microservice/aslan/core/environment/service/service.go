@@ -191,18 +191,22 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	productSvc := env.GetServiceMap()[serviceName]
-	if productSvc == nil {
-		return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find service %s in product %s", serviceName, productName))
-	}
+	projectType := getProjectType(productName)
+	var serviceTmpl *commonmodels.Service
+	if projectType == setting.K8SDeployType {
+		productSvc := env.GetServiceMap()[serviceName]
+		if productSvc == nil {
+			return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find service %s in product %s", serviceName, productName))
+		}
 
-	serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-		ServiceName: serviceName,
-		Revision:    productSvc.Revision,
-		ProductName: productSvc.ProductName,
-	}, env.Production)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find template service %s in product %s", serviceName, productName))
+		serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: serviceName,
+			Revision:    productSvc.Revision,
+			ProductName: productSvc.ProductName,
+		}, env.Production)
+		if err != nil {
+			return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find template service %s in product %s", serviceName, productName))
+		}
 	}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
@@ -210,7 +214,7 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	ret, err = GetServiceImpl(serviceTmpl, workLoadType, env, clientset, inf, log)
+	ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
 	}
@@ -330,8 +334,8 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 	return ret, nil
 }
 
-func GetServiceImpl(serviceTmpl *commonmodels.Service, workLoadType string, env *commonmodels.Product, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
-	envName, productName, serviceName := env.EnvName, env.ProductName, serviceTmpl.ServiceName
+func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workLoadType string, env *commonmodels.Product, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+	envName, productName := env.EnvName, env.ProductName
 	ret = &SvcResp{
 		ServiceName: serviceName,
 		EnvName:     envName,
@@ -785,7 +789,7 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodel
 		return resp
 	}
 
-	svcResp, err := GetServiceImpl(serviceTmpl, "", productInfo, clientset, informer, log)
+	svcResp, err := GetServiceImpl(serviceTmpl.ServiceName, serviceTmpl, "", productInfo, clientset, informer, log)
 	if err != nil {
 		return resp
 	}
