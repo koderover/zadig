@@ -66,15 +66,16 @@ import (
 )
 
 const (
-	BusyBoxImage            = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
-	ZadigContextDir         = "/zadig/"
-	ZadigLogFile            = ZadigContextDir + "zadig.log"
-	ZadigLifeCycleFile      = ZadigContextDir + "lifecycle"
-	JobExecutorFile         = "http://resource-server/jobexecutor"
-	ResourceServer          = "resource-server"
-	defaultSecretEmail      = "bot@koderover.com"
-	registrySecretSuffix    = "-registry-secret"
-	workflowConfigMapRoleSA = "workflow-cm-sa"
+	BusyBoxImage               = "koderover.tencentcloudcr.com/koderover-public/busybox:latest"
+	ZadigContextDir            = "/zadig/"
+	ZadigLogFile               = ZadigContextDir + "zadig.log"
+	ZadigLifeCycleFile         = ZadigContextDir + "lifecycle"
+	ExecutorResourceVolumeName = "executor-resource"
+	ExecutorVolumePath         = "/executor"
+	JobExecutorFile            = ExecutorVolumePath + "/jobexecutor"
+	defaultSecretEmail         = "bot@koderover.com"
+	registrySecretSuffix       = "-registry-secret"
+	workflowConfigMapRoleSA    = "workflow-cm-sa"
 
 	defaultRetryCount    = 3
 	defaultRetryInterval = time.Second * 3
@@ -363,24 +364,10 @@ echo $result > %s
 }
 
 func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, jobTask *commonmodels.JobTask, jobTaskSpec *commonmodels.JobTaskFreestyleSpec, workflowCtx *commonmodels.WorkflowTaskCtx, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
-	// 	tailLogCommandTemplate := `tail -f %s &
-	// while [ -f %s ];
-	// do
-	// 	sleep 1s;
-	// done;
-	// `
-	// 	tailLogCommand := fmt.Sprintf(tailLogCommandTemplate, ZadigLogFile, ZadigLifeCycleFile)
-
 	var (
 		jobExecutorBootingScript string
 		jobExecutorBinaryFile    = JobExecutorFile
 	)
-	// not local cluster
-	if clusterID != "" && clusterID != setting.LocalClusterID {
-		jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+".koderover-agent", -1)
-	} else {
-		jobExecutorBinaryFile = strings.Replace(jobExecutorBinaryFile, ResourceServer, ResourceServer+"."+currentNamespace, -1)
-	}
 
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
@@ -398,10 +385,10 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 	if jobTask.BreakpointAfter {
 		jobExecutorBootingScript += fmt.Sprintf("touch %sdebug/breakpoint_after;", ZadigContextDir)
 	}
-	jobExecutorBootingScript += fmt.Sprintf("curl -m 10 --retry-delay 3 --retry 3 -sSL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", jobExecutorBinaryFile)
+	jobExecutorBootingScript += jobExecutorBinaryFile
 
 	labels := getJobLabels(&JobLabel{
-		JobType: string(jobType),
+		JobType: jobType,
 		JobName: jobTask.K8sJobName,
 	})
 
@@ -431,15 +418,20 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 					RestartPolicy:      corev1.RestartPolicyNever,
 					ImagePullSecrets:   ImagePullSecrets,
 					ServiceAccountName: workflowConfigMapRoleSA,
-					// InitContainers: []corev1.Container{
-					// 	{
-					// 		ImagePullPolicy: corev1.PullIfNotPresent,
-					// 		Name:            "init-log-file",
-					// 		Image:           BusyBoxImage,
-					// 		VolumeMounts:    getVolumeMounts(workflowCtx.ConfigMapMountDir),
-					// 		Command:         []string{"/bin/sh", "-c", fmt.Sprintf("touch %s %s", ZadigLogFile, ZadigLifeCycleFile)},
-					// 	},
-					// },
+					InitContainers: []corev1.Container{
+						{
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Name:            "executor-resource-init",
+							Image:           config.ExecutorImage(),
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      ExecutorResourceVolumeName,
+									MountPath: ExecutorVolumePath,
+								},
+							},
+							Command: []string{"/bin/sh", "-c", fmt.Sprintf("cp /app/* %s", ExecutorVolumePath)},
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullAlways,
@@ -447,30 +439,13 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 							Image:           jobImage,
 							Command:         []string{"/bin/sh", "-c"},
 							Args:            []string{jobExecutorBootingScript},
-							// Command:         []string{"/bin/sh", "-c", "jobexecutor"},
-							// Lifecycle: &corev1.Lifecycle{
-							// 	PreStop: &corev1.Handler{
-							// 		Exec: &corev1.ExecAction{
-							// 			Command: []string{"/bin/sh", "-c", fmt.Sprintf("rm %s", ZadigLifeCycleFile)},
-							// 		},
-							// 	},
-							// },
-							Env:          getEnvs(workflowCtx.ConfigMapMountDir, jobTaskSpec),
-							VolumeMounts: getVolumeMounts(workflowCtx.ConfigMapMountDir, jobTaskSpec.Properties.UseHostDockerDaemon),
-							Resources:    getResourceRequirements(resReq, resReqSpec),
+							Env:             getEnvs(workflowCtx.ConfigMapMountDir, jobTaskSpec),
+							VolumeMounts:    getVolumeMounts(workflowCtx.ConfigMapMountDir, jobTaskSpec.Properties.UseHostDockerDaemon),
+							Resources:       getResourceRequirements(resReq, resReqSpec),
 
 							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 							TerminationMessagePath:   job.JobTerminationFile,
 						},
-						// {
-						// 	ImagePullPolicy: corev1.PullIfNotPresent,
-						// 	Name:            "log",
-						// 	Image:           BusyBoxImage,
-						// 	VolumeMounts:    getVolumeMounts(workflowCtx.ConfigMapMountDir),
-						// 	Command:         []string{"/bin/sh", "-c"},
-						// 	Args:            []string{tailLogCommand},
-						// 	Lifecycle:       &corev1.Lifecycle{},
-						// },
 					},
 					Volumes:     getVolumes(jobName, jobTaskSpec.Properties.UseHostDockerDaemon),
 					Tolerations: buildTolerations(targetCluster.AdvancedConfig),
@@ -662,6 +637,10 @@ func getVolumeMounts(configMapMountDir string, userHostDockerDaemon bool) []core
 		Name:      "zadig-context",
 		MountPath: ZadigContextDir,
 	})
+	resp = append(resp, corev1.VolumeMount{
+		Name:      ExecutorResourceVolumeName,
+		MountPath: ExecutorVolumePath,
+	})
 	if userHostDockerDaemon {
 		resp = append(resp, corev1.VolumeMount{
 			Name:      "docker-sock",
@@ -685,6 +664,12 @@ func getVolumes(jobName string, userHostDockerDaemon bool) []corev1.Volume {
 	})
 	resp = append(resp, corev1.Volume{
 		Name: "zadig-context",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+	resp = append(resp, corev1.Volume{
+		Name: ExecutorResourceVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},

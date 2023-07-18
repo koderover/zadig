@@ -2044,7 +2044,7 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 	param.VariableYaml = variableYaml
 	chartInfo.OverrideYaml.YamlContent = variableYaml
 
-	yamlContent, err := kube.GeneMergedValues(productService, renderSet, param.Images)
+	yamlContent, err := kube.GeneMergedValues(productService, renderSet, param.Images, true)
 	if err != nil {
 		log.Errorf("failed to generate merged values.yaml, err: %s", err)
 		return nil, err

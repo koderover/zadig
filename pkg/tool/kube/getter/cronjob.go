@@ -37,6 +37,18 @@ var CronJobV1BetaGVK = schema.GroupVersionKind{
 	Version: "v1beta1",
 }
 
+func GetCronJobByNameWithCache(cronJobName, namespace string, lister informers.SharedInformerFactory, versionLessThan121 bool) (*batchv1.CronJob, *batchv1beta1.CronJob, error) {
+	var cronJob *batchv1.CronJob
+	var cronJobsBeta *batchv1beta1.CronJob
+	var err error
+	if !versionLessThan121 {
+		cronJob, err = lister.Batch().V1().CronJobs().Lister().CronJobs(namespace).Get(cronJobName)
+	} else {
+		cronJobsBeta, err = lister.Batch().V1beta1().CronJobs().Lister().CronJobs(namespace).Get(cronJobName)
+	}
+	return cronJob, cronJobsBeta, err
+}
+
 func ListCronJobsWithCache(selector labels.Selector, lister informers.SharedInformerFactory, versionLessThan121 bool) ([]*batchv1.CronJob, []*batchv1beta1.CronJob, error) {
 	if selector == nil {
 		selector = labels.NewSelector()

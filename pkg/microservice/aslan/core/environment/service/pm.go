@@ -87,7 +87,7 @@ func (p *PMService) updateService(args *SvcOptArgs) error {
 	return nil
 }
 
-func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
+func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService, envName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
 	var wg sync.WaitGroup
 	var resp []*commonservice.ServiceResp
 	var mutex sync.RWMutex

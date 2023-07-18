@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -32,6 +30,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
@@ -139,7 +138,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	chartInfo.OverrideYaml.YamlContent = param.VariableYaml
 
 	// this function is just to make sure a values.yaml can be generated without error
-	mergedValues, err := kube.GeneMergedValues(productService, renderSet, param.Images)
+	mergedValues, err := kube.GeneMergedValues(productService, renderSet, param.Images, false)
 	if err != nil {
 		log.Errorf("failed to generate merged values.yaml, err: %w", err)
 		logError(c.job, fmt.Sprintf("fail to generate merged values.yaml, err: %s", err.Error()), c.logger)

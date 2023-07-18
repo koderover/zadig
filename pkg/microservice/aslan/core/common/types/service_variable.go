@@ -430,6 +430,7 @@ func MergeRenderAndServiceTemplateVariableKVs(render []*RenderVariableKV, serivc
 	return yaml, ret, nil
 }
 
+// RenderVariableKVToYaml
 func RenderVariableKVToYaml(kvs []*RenderVariableKV) (string, error) {
 	serviceVariableKVs := make([]*ServiceVariableKV, 0)
 	for _, kv := range kvs {

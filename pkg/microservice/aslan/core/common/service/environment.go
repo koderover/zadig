@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strings"
 
+	"k8s.io/client-go/informers"
+
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -426,25 +428,10 @@ func fillServiceInfo(svcList []*ServiceResp, productInfo *models.Product) {
 	}
 }
 
-// ListWorkloadsInEnv returns all workloads in the given env which meet the filter.
-// A filter is in this format: a=b,c=d, and it is a fuzzy matching. Which means it will return all records with a field called
-// a and the value contain character b.
-func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, error) {
-
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	productInfo, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
-	}
-
-	// find project info
-	projectInfo, err := templaterepo.NewProductColl().Find(productName)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
-	}
-
+// ListWorkloadDetailsInEnv returns all workloads in the given env which meet the filter.
+// this function is used for two scenarios: 1. calculate product status 2. list workflow details
+func buildWorkloadFilterFunc(productInfo *models.Product, projectInfo *templatemodels.Product, filter string, log *zap.SugaredLogger) ([]FilterFunc, error) {
+	productName, envName := productInfo.ProductName, productInfo.EnvName
 	filterArray := []FilterFunc{
 		func(workloads []*Workload) []*Workload {
 			if !projectInfo.IsHostProduct() {
@@ -453,7 +440,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 
 			productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
 			if err != nil {
-				log.Errorf("ListWorkloads ListExternalServicesBy err:%s", err)
+				log.Errorf("ListWorkloadDetails ListExternalServicesBy err:%s", err)
 				return workloads
 			}
 			productServiceNames := sets.NewString()
@@ -526,8 +513,71 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 			return res
 		})
 	}
+	return filterArray, nil
+}
 
-	count, resp, err := ListWorkloads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log, filterArray...)
+// ListWorkloadsInEnv returns all workloads in the given env which meet the filter with no detailed info (images or pods)
+func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, log *zap.SugaredLogger) (int, []*Workload, error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	productInfo, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, productName, err)
+		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
+	}
+
+	// find project info
+	projectInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, productName, err)
+		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
+	}
+
+	filterArray, err := buildWorkloadFilterFunc(productInfo, projectInfo, filter, log)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
+	}
+	informer, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, productInfo.Namespace, err)
+		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
+	}
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", productInfo.ClusterID, err)
+		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
+	}
+	return ListWorkloads(envName, productName, perPage, page, informer, version, log, filterArray...)
+}
+
+// ListWorkloadDetailsInEnv returns all workload details in the given env which meet the filter.
+// A filter is in this format: a=b,c=d, and it is a fuzzy matching. Which means it will return all records with a field called
+// a and the value contain character b.
+func ListWorkloadDetailsInEnv(envName, productName, filter string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	productInfo, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, productName, err)
+		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
+	}
+
+	// find project info
+	projectInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, productName, err)
+		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
+	}
+
+	filterArray, err := buildWorkloadFilterFunc(productInfo, projectInfo, filter, log)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	count, resp, err := ListWorkloadDetails(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log, filterArray...)
 	if err != nil {
 		return count, resp, err
 	}
@@ -615,23 +665,11 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 	return nil
 }
 
-func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
-	var resp = make([]*ServiceResp, 0)
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
-		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
-	}
-	informer, err := informer.NewInformer(clusterID, namespace, cls)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
-		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
-	}
+func ListWorkloads(envName, productName string, perPage, page int, informer informers.SharedInformerFactory, version *version.Info, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*Workload, error) {
 	var workLoads []*Workload
 	listDeployments, err := getter.ListDeploymentsWithCache(nil, informer)
 	if err != nil {
-		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
-		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+		return 0, workLoads, e.ErrListGroups.AddDesc(err.Error())
 	}
 
 	for _, v := range listDeployments {
@@ -646,8 +684,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 	statefulSets, err := getter.ListStatefulSetsWithCache(nil, informer)
 	if err != nil {
-		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
-		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+		return 0, workLoads, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
 		workLoads = append(workLoads, &Workload{
@@ -660,16 +697,9 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		})
 	}
 
-	version, err := cls.Discovery().ServerVersion()
-	if err != nil {
-		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", clusterID, err)
-		return 0, nil, err
-	}
-
 	cronJobs, coronBeta, err := getter.ListCronJobsWithCache(nil, informer, kubeclient.VersionLessThan121(version))
 	if err != nil {
-		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
-		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+		return 0, workLoads, e.ErrListGroups.AddDesc(err.Error())
 	}
 	wrappedCronJobs := make([]wrapper.CronJobItem, 0)
 	for _, v := range cronJobs {
@@ -691,6 +721,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			Type:       setting.CronJob,
 			Images:     cronJob.ImageInfos(),
 			Annotation: cronJob.GetAnnotations(),
+			Ready:      true,
 			Status:     fmt.Sprintf("SUSPEND: %s", getSuspendStr(cronJob.GetSuspend())),
 		})
 	}
@@ -705,11 +736,8 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		workLoads = f(workLoads)
 	}
 
-	count := len(workLoads)
-
-	//将获取到的所有服务按照名称进行排序
 	sort.SliceStable(workLoads, func(i, j int) bool { return workLoads[i].Name < workLoads[j].Name })
-
+	count := len(workLoads)
 	if page > 0 && perPage > 0 {
 		start := (page - 1) * perPage
 		if start >= count {
@@ -720,9 +748,33 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			workLoads = workLoads[start : start+perPage]
 		}
 	}
+	return count, workLoads, nil
+}
+
+func ListWorkloadDetails(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
+	var resp = make([]*ServiceResp, 0)
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+	}
+	informer, err := informer.NewInformer(clusterID, namespace, cls)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+	}
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", clusterID, err)
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+	}
+	count, workLoads, err := ListWorkloads(envName, productName, perPage, page, informer, version, log, filter...)
+	if err != nil {
+		log.Errorf("failed to list workloads, [%s][%s], error: %v", namespace, envName, err)
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+	}
 
 	hostInfos := make([]resource.HostInfo, 0)
-
 	if kubeclient.VersionLessThan122(version) {
 		ingresses, err := getter.ListExtensionsV1Beta1Ingresses(nil, informer)
 		if err == nil {

@@ -98,8 +98,8 @@ func HubAgentImage() string {
 	return viper.GetString(setting.ENVHubAgentImage)
 }
 
-func ResourceServerImage() string {
-	return viper.GetString(setting.ENVResourceServerImage)
+func ExecutorImage() string {
+	return viper.GetString(setting.ENVExecutorImage)
 }
 
 func KodespaceVersion() string {

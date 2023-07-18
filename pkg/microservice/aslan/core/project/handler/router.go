@@ -27,7 +27,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	render := router.Group("renders")
 	{
 		render.GET("/render/:name/revision/:revision", GetRenderSetInfo)
-		render.PUT("", UpdateRenderSet)
 	}
 
 	// ---------------------------------------------------------------------------------------

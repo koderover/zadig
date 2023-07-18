@@ -173,7 +173,7 @@ type KV struct {
 // MergeOverrideValues merge override yaml and override kvs
 // defaultValues overrideYaml used for -f option
 // overrideValues used for --set option
-func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues string) (string, error) {
+func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues string, imageKvs []*KV) (string, error) {
 
 	// merge files for helm -f option
 	// precedence from low to high: valuesYaml defaultValues overrideYaml
@@ -182,6 +182,7 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 		return "", err
 	}
 
+	kvStr := make([]string, 0)
 	// merge kv values for helm --set option
 	if overrideValues != "" {
 		kvList := make([]*KV, 0)
@@ -189,11 +190,18 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 		if err != nil {
 			return "", err
 		}
-		kvStr := make([]string, 0)
 		for _, kv := range kvList {
 			kvStr = append(kvStr, fmt.Sprintf("%s=%v", kv.Key, kv.Value))
 		}
-		// override values for --set option
+	}
+
+	// image related values
+	for _, imageKv := range imageKvs {
+		kvStr = append(kvStr, fmt.Sprintf("%s=%v", imageKv.Key, imageKv.Value))
+	}
+
+	// override values for --set option
+	if len(kvStr) > 0 {
 		err = strvals.ParseInto(strings.Join(kvStr, ","), valuesMap)
 		if err != nil {
 			return "", err
