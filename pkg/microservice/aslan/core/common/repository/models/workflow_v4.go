@@ -287,7 +287,7 @@ type DeployHelmChart struct {
 	ChartRepo    string `bson:"chart_repo"            yaml:"chart_repo"               json:"chart_repo"`
 	ChartName    string `bson:"chart_name"            yaml:"chart_name"               json:"chart_name"`
 	ChartVersion string `bson:"chart_version"         yaml:"chart_version"            json:"chart_version"`
-	VariableYaml string `bson:"variable_yaml"         yaml:"variable_yaml"            json:"variable_yaml"`
+	ValuesYaml   string `bson:"values_yaml"           yaml:"values_yaml"              json:"values_yaml"`
 }
 
 type DeployService struct {

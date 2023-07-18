@@ -88,86 +88,87 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 	})
 	if err != nil {
 		err = fmt.Errorf("failed to find redset name %s revision %d", productInfo.Namespace, productInfo.Render.Revision)
+		logError(c.job, err.Error(), c.logger)
 		return
 	}
 
-	chartInfo, ok := renderSet.GetChartRenderMap()[c.jobTaskSpec.ReleaseName]
-	if !ok {
-		msg := fmt.Sprintf("failed to find chart info in render")
-		logError(c.job, msg, c.logger)
-		return
-	}
-	if chartInfo.OverrideYaml == nil {
-		chartInfo.OverrideYaml = &template.CustomYaml{}
-	}
-
-	variableYaml := c.jobTaskSpec.VariableYaml
-	chartInfo.OverrideYaml.YamlContent = variableYaml
-	c.jobTaskSpec.YamlContent = variableYaml
-	c.jobTaskSpec.UserSuppliedValue = variableYaml
-	c.ack()
-
-	c.logger.Infof("start helm chart deploy, productName %s, releaseName %s, namespace %s, variableYaml %s, overrideValues: %s",
-		c.workflowCtx.ProjectName, c.jobTaskSpec.ReleaseName, c.namespace, variableYaml, chartInfo.OverrideValues)
-
-	timeOut := c.timeout()
-
-	param := &kube.HelmChartInstallParam{
-		ProductName:  c.workflowCtx.ProjectName,
-		EnvName:      c.jobTaskSpec.Env,
-		ReleaseName:  c.jobTaskSpec.ReleaseName,
-		ChartRepo:    c.jobTaskSpec.ChartRepo,
-		ChartName:    c.jobTaskSpec.ChartName,
-		ChartVersion: c.jobTaskSpec.ChartVersion,
-		VariableYaml: variableYaml,
-	}
-
-	valuesMap := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(c.jobTaskSpec.VariableYaml), &valuesMap)
-	if err != nil {
-		logError(c.job, fmt.Sprintf("Failed to unmarshall yaml, err %s", err), c.logger)
-	}
-	containerList, err := commonutil.ParseImagesForProductService(valuesMap, c.jobTaskSpec.ReleaseName, c.workflowCtx.ProjectName)
-	if err != nil {
-		logError(c.job, fmt.Sprintf("Failed to parse container from yaml, err %s", err), c.logger)
-	}
-	productChartService := productInfo.GetChartServiceMap()[c.jobTaskSpec.ReleaseName]
-	if productChartService == nil {
-		productChartService = &commonmodels.ProductService{
-			ReleaseName: c.jobTaskSpec.ReleaseName,
-			ProductName: c.workflowCtx.ProjectName,
-			Type:        setting.HelmChartDeployType,
+	for _, deploy := range c.jobTaskSpec.DeployHelmCharts {
+		chartInfo, ok := renderSet.GetChartRenderMap()[deploy.ReleaseName]
+		if !ok {
+			msg := fmt.Sprintf("failed to find chart info in render")
+			logError(c.job, msg, c.logger)
+			return
 		}
-	}
-	productChartService.Containers = containerList
-
-	done := make(chan bool)
-	go func(chan bool) {
-		if err = kube.UpgradeHelmChartRelease(productInfo, renderSet, productChartService, param, timeOut); err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to upgrade helm chart %s/%s",
-				c.namespace, c.jobTaskSpec.ReleaseName)
-			done <- false
-		} else {
-			done <- true
+		if chartInfo.OverrideYaml == nil {
+			chartInfo.OverrideYaml = &template.CustomYaml{}
 		}
-	}(done)
 
-	// we add timeout check here in case helm stuck in pending status
-	select {
-	case result := <-done:
-		if !result {
+		valuesYaml := deploy.ValuesYaml
+		chartInfo.OverrideYaml.YamlContent = valuesYaml
+		c.ack()
+
+		c.logger.Infof("start helm chart deploy, productName %s, releaseName %s, namespace %s, variableYaml %s, overrideValues: %s",
+			c.workflowCtx.ProjectName, deploy.ReleaseName, c.namespace, valuesYaml, chartInfo.OverrideValues)
+
+		timeOut := c.timeout()
+
+		param := &kube.HelmChartInstallParam{
+			ProductName:  c.workflowCtx.ProjectName,
+			EnvName:      c.jobTaskSpec.Env,
+			ReleaseName:  deploy.ReleaseName,
+			ChartRepo:    deploy.ChartRepo,
+			ChartName:    deploy.ChartName,
+			ChartVersion: deploy.ChartVersion,
+			VariableYaml: valuesYaml,
+		}
+
+		valuesMap := make(map[string]interface{})
+		err = yaml.Unmarshal([]byte(valuesYaml), &valuesMap)
+		if err != nil {
+			logError(c.job, fmt.Sprintf("Failed to unmarshall yaml, err %s", err), c.logger)
+		}
+		containerList, err := commonutil.ParseImagesForProductService(valuesMap, deploy.ReleaseName, c.workflowCtx.ProjectName)
+		if err != nil {
+			logError(c.job, fmt.Sprintf("Failed to parse container from yaml, err %s", err), c.logger)
+		}
+		productChartService := productInfo.GetChartServiceMap()[deploy.ReleaseName]
+		if productChartService == nil {
+			productChartService = &commonmodels.ProductService{
+				ReleaseName: deploy.ReleaseName,
+				ProductName: c.workflowCtx.ProjectName,
+				Type:        setting.HelmChartDeployType,
+			}
+		}
+		productChartService.Containers = containerList
+
+		done := make(chan bool)
+		go func(chan bool) {
+			if err = kube.UpgradeHelmChartRelease(productInfo, renderSet, productChartService, param, timeOut); err != nil {
+				err = errors.WithMessagef(
+					err,
+					"failed to upgrade helm chart %s/%s",
+					c.namespace, deploy.ReleaseName)
+				done <- false
+			} else {
+				done <- true
+			}
+		}(done)
+
+		// we add timeout check here in case helm stuck in pending status
+		select {
+		case result := <-done:
+			if !result {
+				logError(c.job, err.Error(), c.logger)
+				return
+			}
+			break
+		case <-time.After(time.Second*time.Duration(timeOut) + time.Minute):
+			err = fmt.Errorf("failed to upgrade relase for service: %s, timeout", deploy.ReleaseName)
+		}
+		if err != nil {
 			logError(c.job, err.Error(), c.logger)
 			return
 		}
-		break
-	case <-time.After(time.Second*time.Duration(timeOut) + time.Minute):
-		err = fmt.Errorf("failed to upgrade relase for service: %s, timeout", c.jobTaskSpec.ReleaseName)
-	}
-	if err != nil {
-		logError(c.job, err.Error(), c.logger)
-		return
 	}
 
 	c.job.Status = config.StatusPassed
@@ -193,7 +194,6 @@ func (c *HelmChartDeployJobCtl) SaveInfo(ctx context.Context) error {
 		Status:              string(c.job.Status),
 
 		ServiceType: setting.HelmDeployType,
-		ServiceName: c.jobTaskSpec.ReleaseName,
 		TargetEnv:   c.jobTaskSpec.Env,
 		Production:  true,
 	})

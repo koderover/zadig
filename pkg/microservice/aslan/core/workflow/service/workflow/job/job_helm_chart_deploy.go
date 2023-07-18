@@ -18,7 +18,6 @@ package job
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -73,7 +72,7 @@ func (j *HelmChartDeployJob) SetPreset() error {
 			ChartRepo:    renderChart.ChartRepo,
 			ChartName:    renderChart.ChartName,
 			ChartVersion: renderChart.ChartVersion,
-			VariableYaml: renderChart.ValuesYaml,
+			ValuesYaml:   renderChart.ValuesYaml,
 		}
 		deploys = append(deploys, deploy)
 	}
@@ -123,33 +122,26 @@ func (j *HelmChartDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	}
 	timeout := templateProduct.Timeout * 60
 
-	for _, deployHelmChart := range j.spec.DeployHelmCharts {
-		jobTaskSpec := &commonmodels.JobTaskHelmChartDeploySpec{
-			Env:                envName,
-			ReleaseName:        deployHelmChart.ReleaseName,
-			ChartRepo:          deployHelmChart.ChartRepo,
-			ChartName:          deployHelmChart.ChartName,
-			ChartVersion:       deployHelmChart.ChartVersion,
-			VariableYaml:       deployHelmChart.VariableYaml,
-			SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
-			ClusterID:          product.ClusterID,
-			Timeout:            timeout,
-		}
+	jobTaskSpec := &commonmodels.JobTaskHelmChartDeploySpec{
+		Env:                envName,
+		DeployHelmCharts:   j.spec.DeployHelmCharts,
+		SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
+		ClusterID:          product.ClusterID,
+		Timeout:            timeout,
+	}
 
-		jobTask := &commonmodels.JobTask{
-			Name: jobNameFormat(deployHelmChart.ReleaseName + "-" + j.job.Name),
-			Key:  strings.Join([]string{j.job.Name, deployHelmChart.ReleaseName}, "."),
-			JobInfo: map[string]string{
-				JobNameKey:     j.job.Name,
-				"release_name": deployHelmChart.ReleaseName,
-			},
-			JobType: string(config.JobZadigHelmChartDeploy),
-			Spec:    jobTaskSpec,
-		}
-		resp = append(resp, jobTask)
+	jobTask := &commonmodels.JobTask{
+		Name: j.job.Name,
+		Key:  j.job.Name,
+		JobInfo: map[string]string{
+			JobNameKey: j.job.Name,
+		},
+		JobType: string(config.JobZadigHelmChartDeploy),
+		Spec:    jobTaskSpec,
 	}
 
 	j.job.Spec = j.spec
+	resp = append(resp, jobTask)
 	return resp, nil
 }
 
