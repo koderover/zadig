@@ -623,11 +623,15 @@ func buildContainerMap(cs []*models.Container) map[string]*models.Container {
 	return containerMap
 }
 
-// calculateContainer calculates containers to be applied into environments
+// calculateContainer calculates containers to be applied into environments for helm projects
 // if image has no change since last deploy, containers in latest service will be used
 // if image hse been change since lase deploy (eg. workflow), current values will be remained
 func calculateContainer(productSvc, latestSvc *commonmodels.ProductService, productInfo *commonmodels.Product) []*models.Container {
 	resp := make([]*models.Container, 0)
+
+	if productInfo == nil {
+		return latestSvc.Containers
+	}
 
 	curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: productSvc.ServiceName,
@@ -770,7 +774,7 @@ func genImageFromYaml(c *commonmodels.Container, valuesYaml, defaultValues, over
 	return image, nil
 }
 
-func prepareEstimateDataForEnvCreation(productName, serviceName string, production bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.RenderSet, error) {
+func prepareEstimateDataForEnvCreation(productName, serviceName string, production bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.Service, *commonmodels.RenderSet, error) {
 	var err error
 	templateService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
@@ -779,7 +783,7 @@ func prepareEstimateDataForEnvCreation(productName, serviceName string, producti
 	}, production)
 	if err != nil {
 		log.Errorf("failed to query service, name %s, err %s", serviceName, err)
-		return nil, nil, fmt.Errorf("failed to query service, name %s", serviceName)
+		return nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceName)
 	}
 
 	prodSvc := &commonmodels.ProductService{
@@ -795,21 +799,23 @@ func prepareEstimateDataForEnvCreation(productName, serviceName string, producti
 			{
 				ServiceName:  serviceName,
 				OverrideYaml: &templatemodels.CustomYaml{},
+				ValuesYaml:   templateService.HelmChart.ValuesYaml,
 			},
 		},
 	}
 
-	return prodSvc, renderSet, nil
+	return prodSvc, templateService, renderSet, nil
 }
 
-func prepareEstimateDataForEnvUpdate(productName, envName, serviceName string, production bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.RenderSet, error) {
+func prepareEstimateDataForEnvUpdate(productName, envName, serviceName string, production bool, log *zap.SugaredLogger) (
+	*commonmodels.ProductService, *commonmodels.Service, *commonmodels.Product, *commonmodels.RenderSet, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       productName,
 		EnvName:    envName,
 		Production: util.GetBoolPointer(production),
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to query product info, name %s", envName)
+		return nil, nil, nil, nil, fmt.Errorf("failed to query product info, name %s", envName)
 	}
 
 	// find chart info from cur render set
@@ -822,7 +828,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceName string, p
 	renderSet, err := commonrepo.NewRenderSetColl().Find(opt)
 	if err != nil {
 		log.Errorf("renderset Find error, productName:%s, envName:%s, err:%s", productInfo.ProductName, productInfo.EnvName, err)
-		return nil, nil, fmt.Errorf("failed to query renderset info, name %s", productInfo.Render.Name)
+		return nil, nil, nil, nil, fmt.Errorf("failed to query renderset info, name %s", productInfo.Render.Name)
 	}
 
 	templateService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -832,7 +838,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceName string, p
 	}, production)
 	if err != nil {
 		log.Errorf("failed to query service, name %s, err %s", serviceName, err)
-		return nil, nil, fmt.Errorf("failed to query service, name %s", serviceName)
+		return nil, nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceName)
 	}
 
 	prodSvc := productInfo.GetServiceMap()[serviceName]
@@ -856,7 +862,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceName string, p
 		renderSet.ChartInfos = append(renderSet.ChartInfos, targetChart)
 	}
 
-	return prodSvc, renderSet, nil
+	return prodSvc, templateService, productInfo, renderSet, nil
 }
 
 func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log *zap.SugaredLogger) (map[string][]string, error) {
@@ -904,17 +910,18 @@ func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log 
 
 func GeneEstimatedValues(productName, envName, serviceName, scene, format string, arg *EstimateValuesArg, log *zap.SugaredLogger) (interface{}, error) {
 	var (
-		productSvc *commonmodels.ProductService
-		renderSet  *commonmodels.RenderSet
-		//images     []string
-		err error
+		productSvc  *commonmodels.ProductService
+		latestSvc   *commonmodels.Service
+		renderSet   *commonmodels.RenderSet
+		productInfo *commonmodels.Product
+		err         error
 	)
 
 	switch scene {
 	case usageScenarioCreateEnv:
-		productSvc, renderSet, err = prepareEstimateDataForEnvCreation(productName, serviceName, arg.Production, log)
+		productSvc, latestSvc, renderSet, err = prepareEstimateDataForEnvCreation(productName, serviceName, arg.Production, log)
 	default:
-		productSvc, renderSet, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceName, arg.Production, log)
+		productSvc, latestSvc, productInfo, renderSet, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceName, arg.Production, log)
 	}
 
 	if err != nil {
@@ -935,7 +942,13 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 	targetChart.OverrideValues = tempArg.ToOverrideValueString()
 
 	images := make([]string, 0)
-	for _, container := range productSvc.Containers {
+
+	containers := calculateContainer(productSvc, &commonmodels.ProductService{
+		ServiceName: latestSvc.ServiceName,
+		Containers:  latestSvc.Containers,
+	}, productInfo)
+
+	for _, container := range containers {
 		images = append(images, container.Image)
 	}
 

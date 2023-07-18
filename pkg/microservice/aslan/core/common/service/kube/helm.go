@@ -164,8 +164,8 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 	}
 
 	for _, container := range productSvc.Containers {
-		overrideImage := imageMap[container.ImageName]
-		if len(overrideImage) > 0 {
+		overrideImage, ok := imageMap[container.ImageName]
+		if ok {
 			container.Image = overrideImage
 		}
 		targetContainers = append(targetContainers, container)
