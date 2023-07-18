@@ -826,22 +826,6 @@ DistributeLoop:
 				}
 			}
 
-			// TODO too dangerous to override entire renderset!
-			err = p.updateRenderSet(ctx, &types.RenderSet{
-				Name:          renderInfo.Name,
-				Revision:      renderInfo.Revision,
-				DefaultValues: renderInfo.DefaultValues,
-				ChartInfos:    renderInfo.ChartInfos,
-			})
-			if err != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to update renderset info %s/%s, renderset %s",
-					distribute.DeployNamespace,
-					distribute.DeployServiceName,
-					renderInfo.Name,
-				)
-			}
 			distribute.DeployStatus = string(config.StatusPassed)
 			distribute.DeployEndTime = time.Now().Unix()
 		}
@@ -1019,12 +1003,4 @@ func (p *ReleaseImagePlugin) downloadService(productName, serviceName, storageUR
 	}
 
 	return tarFilePath, nil
-}
-
-func (p *ReleaseImagePlugin) updateRenderSet(ctx context.Context, args *types.RenderSet) error {
-	url := "/api/project/renders"
-
-	_, err := p.httpClient.Put(url, httpclient.SetBody(args))
-
-	return err
 }
