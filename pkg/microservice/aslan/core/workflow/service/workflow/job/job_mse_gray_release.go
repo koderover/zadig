@@ -31,6 +31,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -102,6 +103,7 @@ func (j *MseGrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 		for _, resource := range resources {
 			switch resource.GetKind() {
 			case setting.Deployment:
+				log.Debugf("MSE-GrayRelease: service %s deployment: %s", service.ServiceName, resource.GetName())
 				if deploymentNum > 0 {
 					return nil, errors.Errorf("service-%s: only one deployment is allowed in each service", service.ServiceName)
 				}
