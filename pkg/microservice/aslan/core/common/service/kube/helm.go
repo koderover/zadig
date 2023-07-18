@@ -157,15 +157,18 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string, fullValues bool) (string, error) {
 	serviceName := productSvc.ServiceName
 	var targetContainers []*commonmodels.Container
+
+	imageMap := make(map[string]string)
 	for _, image := range images {
-		imageName := commonutil.ExtractImageName(image)
-		for _, container := range productSvc.Containers {
-			if container.ImageName == imageName {
-				container.Image = image
-				targetContainers = append(targetContainers, container)
-				break
-			}
+		imageMap[commonutil.ExtractImageName(image)] = image
+	}
+
+	for _, container := range productSvc.Containers {
+		overrideImage := imageMap[container.ImageName]
+		if len(overrideImage) > 0 {
+			container.Image = overrideImage
 		}
+		targetContainers = append(targetContainers, container)
 	}
 
 	targetChart := renderSet.GetChartRenderMap()[serviceName]
