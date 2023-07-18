@@ -103,11 +103,16 @@ func LoadServiceTemplate(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-服务", "", string(bs), ctx.Logger)
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Create) &&
-		!ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, false, ctx.Logger)
@@ -159,11 +164,16 @@ func SyncServiceTemplate(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", "", string(bs), ctx.Logger)
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Edit) &&
-		!ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.UserName, codehostID, repoOwner, namespace, repoName, repoUUID, branchName, remoteName, args, true, ctx.Logger)

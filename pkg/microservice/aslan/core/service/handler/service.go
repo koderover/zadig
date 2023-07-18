@@ -52,11 +52,16 @@ func ListServiceTemplate(c *gin.Context) {
 
 	// authorization check
 	// either they have the authorization, or they are system admins/project admins.
-	if !ctx.Resources.IsSystemAdmin &&
-		!ctx.Resources.ProjectAuthInfo[projectName].Service.View &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Resp, ctx.Err = commonservice.ListServiceTemplate(projectName, ctx.Logger)
@@ -75,11 +80,16 @@ func ListWorkloadTemplate(c *gin.Context) {
 
 	projectName := c.Query("projectName")
 
-	if !ctx.Resources.IsSystemAdmin &&
-		!ctx.Resources.ProjectAuthInfo[projectName].Env.View &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	// anyone with a token should be able to use this API
@@ -100,11 +110,16 @@ func GetServiceTemplate(c *gin.Context) {
 	projectName := c.Query("projectName")
 
 	// authorization check
-	if !ctx.Resources.IsSystemAdmin &&
-		!ctx.Resources.ProjectAuthInfo[projectName].Service.View &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
@@ -129,11 +144,16 @@ func GetServiceTemplateOption(c *gin.Context) {
 	}
 
 	// authorization check
-	if !ctx.Resources.IsSystemAdmin &&
-		!ctx.Resources.ProjectAuthInfo[projectName].Service.View &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
@@ -190,11 +210,16 @@ func CreateServiceTemplate(c *gin.Context) {
 	// authorization checks
 	projectName := args.ProductName
 
-	if !ctx.Resources.IsSystemAdmin &&
-		!ctx.Resources.ProjectAuthInfo[projectName].Service.Create &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if err := c.BindJSON(args); err != nil {
@@ -245,11 +270,16 @@ func UpdateServiceTemplate(c *gin.Context) {
 	// authorization checks
 	projectName := args.ProductName
 
-	if !ctx.Resources.IsSystemAdmin &&
-		!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	args.Username = ctx.UserName
@@ -291,11 +321,16 @@ func UpdateServiceVariable(c *gin.Context) {
 
 	// authorization
 	projectName := c.Query("projectName")
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[projectName].Service.Edit) &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	servceTmplObjectargs.ProductName = c.Query("projectName")
@@ -328,11 +363,16 @@ func UpdateServiceHealthCheckStatus(c *gin.Context) {
 
 	// authorization
 	projectName := args.ProductName
-	if !ctx.Resources.IsSystemAdmin &&
-		!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if args.Username != "system" {
@@ -395,11 +435,16 @@ func HelmReleaseNaming(c *gin.Context) {
 	projectName := c.Query("projectName")
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[projectName].Service.Edit) &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if projectName == "" {
@@ -433,11 +478,16 @@ func DeleteServiceTemplate(c *gin.Context) {
 	projectName := c.Query("projectName")
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[projectName].Service.Delete) &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", "项目管理-服务", c.Param("name"), "", ctx.Logger)
@@ -487,11 +537,16 @@ func UpdateWorkloads(c *gin.Context) {
 	projectName := c.Query("projectName")
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig) &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	env := c.Query("env")
@@ -537,11 +592,16 @@ func CreateK8sWorkloads(c *gin.Context) {
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "新增", "环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[projectName].Env.Create) &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	err = c.BindJSON(args)
@@ -594,11 +654,16 @@ func CreatePMService(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[projectName].Service.Create) &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if err := c.BindJSON(args); err != nil {
@@ -663,11 +728,16 @@ func UpdatePmServiceTemplate(c *gin.Context) {
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[projectName].Service.Edit) &&
-		!ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	for _, heathCheck := range args.ServiceTmplObject.HealthChecks {
@@ -721,11 +791,16 @@ func CreateRawYamlServicesOpenAPI(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openapi)", projectKey, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(data), ctx.Logger)
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.Create) &&
-		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if projectKey == "" {
@@ -762,11 +837,16 @@ func DeleteYamlServicesOpenAPI(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openapi)", c.Query("projectName"), "删除", "项目管理-服务", c.Param("name"), "", ctx.Logger)
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.Delete) &&
-		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = svcservice.DeleteServiceTemplate(c.Param("name"), "k8s", projectKey, c.DefaultQuery("isEnvTemplate", "true"), "private", ctx.Logger)
@@ -786,11 +866,16 @@ func GetYamlServiceOpenAPI(c *gin.Context) {
 	projectKey := c.Query("projectName")
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.View) &&
-		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if projectKey == "" {
@@ -861,11 +946,16 @@ func UpdateServiceConfigOpenAPI(c *gin.Context) {
 	projectKey := c.Query("projectName")
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[projectKey].Service.View) &&
-		!ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	args.ProjectName = projectKey

@@ -55,11 +55,16 @@ func LoadServiceFromYamlTemplate(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[req.ProjectName].Service.Create) &&
-		!ctx.Resources.IsSystemAdmin &&
-		!ctx.Resources.ProjectAuthInfo[req.ProjectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[req.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[req.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[req.ProjectName].Service.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = svcservice.LoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
@@ -87,11 +92,16 @@ func LoadProductionServiceFromYamlTemplate(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "新增", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[req.ProjectName].ProductionService.Create) &&
-		!ctx.Resources.IsSystemAdmin &&
-		!ctx.Resources.ProjectAuthInfo[req.ProjectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[req.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[req.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[req.ProjectName].ProductionService.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = svcservice.LoadProductionServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
@@ -123,11 +133,16 @@ func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", req.ProjectKey, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
 	// authorization checks
-	if !(ctx.Resources.ProjectAuthInfo[req.ProjectKey].Service.Create) &&
-		!ctx.Resources.IsSystemAdmin &&
-		!ctx.Resources.ProjectAuthInfo[req.ProjectKey].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[req.ProjectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[req.ProjectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[req.ProjectKey].Service.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
@@ -162,11 +177,16 @@ func ReloadServiceFromYamlTemplate(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[req.ProjectName].Service.Edit) &&
-		!ctx.Resources.ProjectAuthInfo[req.ProjectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[req.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[req.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[req.ProjectName].Service.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = svcservice.ReloadServiceFromYamlTemplate(ctx.UserName, req, ctx.Logger)
@@ -193,11 +213,16 @@ func ReloadProductionServiceFromYamlTemplate(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "更新", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin &&
-		!(ctx.Resources.ProjectAuthInfo[req.ProjectName].ProductionService.Edit) &&
-		!ctx.Resources.ProjectAuthInfo[req.ProjectName].IsProjectAdmin {
-		ctx.UnAuthorized = true
-		return
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[req.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[req.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[req.ProjectName].ProductionService.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = svcservice.ReloadProductionServiceFromYamlTemplate(ctx.UserName, req, ctx.Logger)
