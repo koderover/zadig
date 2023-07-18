@@ -184,6 +184,10 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		log.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", env.ClusterID, err)
 		return nil, e.ErrGetService.AddErr(err)
 	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
 
 	inf, err := informer.NewInformer(env.ClusterID, env.Namespace, clientset)
 	if err != nil {
@@ -196,7 +200,7 @@ func GetService(envName, productName, serviceName string, production bool, workL
 	if projectType == setting.K8SDeployType {
 		productSvc := env.GetServiceMap()[serviceName]
 		if productSvc == nil {
-			return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find service %s in product %s", serviceName, productName))
+			goto MSE
 		}
 
 		serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -209,15 +213,11 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		}
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
-	}
-
 	ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
 	if err != nil && !strings.Contains(err.Error(), "failed to find service in environment") {
 		return nil, e.ErrGetService.AddErr(err)
 	}
+MSE:
 	// if raw service resources not found will be nil , we should create it
 	if ret == nil {
 		ret = &SvcResp{
