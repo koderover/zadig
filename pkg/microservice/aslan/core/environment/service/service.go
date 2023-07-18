@@ -215,7 +215,7 @@ func GetService(envName, productName, serviceName string, production bool, workL
 	}
 
 	ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "failed to find service in environment") {
 		return nil, e.ErrGetService.AddErr(err)
 	}
 	// if raw service resources not found will be nil , we should create it
