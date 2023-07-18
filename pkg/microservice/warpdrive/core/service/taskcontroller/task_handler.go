@@ -186,6 +186,10 @@ func (h *ExecHandler) runPipelineTask(ctx context.Context, cancel context.Cancel
 }
 
 func (h *CancelHandler) HandleMessage(message *nsq.Message) error {
+	defer func() {
+		// 每次处理完消息, 等待一段时间不处理新消息
+		time.Sleep(3 * time.Second)
+	}()
 	xl = Logger(pipelineTask)
 
 	// 获取 cancel message
