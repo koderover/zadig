@@ -17,6 +17,7 @@ limitations under the License.
 package user
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -121,4 +122,12 @@ func (c *Client) DeleteUser(userId string, header http.Header, qs url.Values) ([
 	}
 
 	return res.Body(), nil
+}
+
+func (c *Client) GetUserByID(uid string) (*types.UserInfo, error) {
+	url := fmt.Sprintf("%s/%s", "users", uid)
+	result := &types.UserInfo{}
+
+	_, err := c.Get(url, httpclient.SetResult(result))
+	return result, err
 }

@@ -24,8 +24,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -57,7 +57,7 @@ func UpdateRoleBinding(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("bind json fail %s")
 	}
 
-	userInfo, err := user.GetUser(args.UID, ctx.Logger)
+	userInfo, err := user.New().GetUserByID(args.UID)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -103,7 +103,7 @@ func CreateRoleBinding(c *gin.Context) {
 
 	detail := ""
 	for _, arg := range args {
-		userInfo, err := user.GetUser(arg.UID, ctx.Logger)
+		userInfo, err := user.New().GetUserByID(arg.UID)
 		if err != nil {
 			ctx.Err = e.ErrInvalidParam.AddErr(err)
 			return
@@ -157,7 +157,7 @@ func DeleteRoleBindings(c *gin.Context) {
 		return
 	}
 
-	userInfo, err := user.GetUser(userID, ctx.Logger)
+	userInfo, err := user.New().GetUserByID(userID)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -201,7 +201,7 @@ func UpdateRoleBindings(c *gin.Context) {
 		return
 	}
 
-	userInfo, err := user.GetUser(userID, ctx.Logger)
+	userInfo, err := user.New().GetUserByID(userID)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -260,7 +260,7 @@ func UpdateSystemRoleBindings(c *gin.Context) {
 		userId = userID
 	}
 
-	userInfo, err := user.GetUser(userID, ctx.Logger)
+	userInfo, err := user.New().GetUserByID(userID)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -306,7 +306,7 @@ func CreateSystemRoleBinding(c *gin.Context) {
 
 	args.Preset = false
 
-	userInfo, err := user.GetUser(args.UID, ctx.Logger)
+	userInfo, err := user.New().GetUserByID(args.UID)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -337,7 +337,7 @@ func CreateOrUpdateSystemRoleBinding(c *gin.Context) {
 
 	args.Preset = false
 
-	userInfo, err := user.GetUser(args.UID, ctx.Logger)
+	userInfo, err := user.New().GetUserByID(args.UID)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
