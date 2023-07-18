@@ -117,11 +117,15 @@ func (j *MseGrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 				if deploymentObj.Spec.Selector == nil || deploymentObj.Spec.Selector.MatchLabels == nil {
 					return nil, errors.Errorf("service %s deployment selector is nil", service.ServiceName)
 				}
-				if !checkMapKeyExist(deploymentObj.Spec.Selector.MatchLabels, types.ZadigReleaseVersionLabelKey) {
-					return nil, errors.Errorf("service %s deployment label selector must contain %s", service.ServiceName, types.ZadigReleaseVersionLabelKey)
+				if exist, key := checkMapKeyExist(deploymentObj.Spec.Selector.MatchLabels,
+					types.ZadigReleaseVersionLabelKey, types.ZadigReleaseServiceNameLabelKey,
+					types.ZadigReleaseMSEGrayTagLabelKey, types.ZadigReleaseTypeLabelKey); !exist {
+					return nil, errors.Errorf("service %s deployment label selector must contain %s", service.ServiceName, key)
 				}
-				if !checkMapKeyExist(deploymentObj.Spec.Template.Labels, types.ZadigReleaseVersionLabelKey) {
-					return nil, errors.Errorf("service %s deployment template label must contain %s", service.ServiceName, types.ZadigReleaseVersionLabelKey)
+				if exist, key := checkMapKeyExist(deploymentObj.Spec.Template.Labels,
+					types.ZadigReleaseVersionLabelKey, types.ZadigReleaseServiceNameLabelKey,
+					types.ZadigReleaseMSEGrayTagLabelKey, types.ZadigReleaseTypeLabelKey); !exist {
+					return nil, errors.Errorf("service %s deployment template label must contain %s", service.ServiceName, key)
 				}
 			case setting.ConfigMap, setting.Secret, setting.Service:
 			default:
@@ -163,10 +167,15 @@ func (j *MseGrayReleaseJob) LintJob() error {
 	return nil
 }
 
-func checkMapKeyExist(m map[string]string, key string) bool {
+func checkMapKeyExist(m map[string]string, keys ...string) (bool, string) {
 	if m == nil {
-		return false
+		return false, ""
 	}
-	_, ok := m[key]
-	return ok
+	for _, key := range keys {
+		_, ok := m[key]
+		if !ok {
+			return false, key
+		}
+	}
+	return true, ""
 }
