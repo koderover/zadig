@@ -89,8 +89,8 @@ func (j *MseGrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 	}
 	timeout := templateProduct.Timeout * 60
 
-	resources := make([]*unstructured.Unstructured, 0)
 	for _, service := range j.spec.GrayServices {
+		resources := make([]*unstructured.Unstructured, 0)
 		manifests := releaseutil.SplitManifests(service.YamlContent)
 		for _, item := range manifests {
 			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
