@@ -197,48 +197,54 @@ func GetService(envName, productName, serviceName string, production bool, workL
 
 	projectType := getProjectType(productName)
 	var serviceTmpl *commonmodels.Service
-	if projectType == setting.K8SDeployType {
+	switch projectType {
+	case setting.K8SDeployType:
 		productSvc := env.GetServiceMap()[serviceName]
-		if productSvc == nil {
-			// when not found service in product, we should find it as a fake service of ZadigxReleaseResource
-			goto MSE
+		if productSvc != nil {
+			serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: serviceName,
+				Revision:    productSvc.Revision,
+				ProductName: productSvc.ProductName,
+			}, env.Production)
+			if err != nil {
+				return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find template service %s in product %s", serviceName, productName))
+			}
+			ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
+			if err != nil {
+				return nil, e.ErrGetService.AddErr(err)
+			}
 		}
-
-		serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-			ServiceName: serviceName,
-			Revision:    productSvc.Revision,
-			ProductName: productSvc.ProductName,
-		}, env.Production)
+		// when not found service in product, we should find it as a fake service of ZadigxReleaseResource
+		// if raw service resources not found will be nil , we should create it
+		if ret == nil {
+			ret = &SvcResp{
+				ServiceName: serviceName,
+				EnvName:     envName,
+				ProductName: productName,
+				Services:    make([]*internalresource.Service, 0),
+				Ingress:     make([]*internalresource.Ingress, 0),
+				Scales:      make([]*internalresource.Workload, 0),
+				CronJobs:    make([]*internalresource.CronJob, 0),
+			}
+		}
+		mseResp, err := GetMseServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
 		if err != nil {
-			return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find template service %s in product %s", serviceName, productName))
+			return nil, e.ErrGetService.AddErr(errors.Wrap(err, "failed to get mse service"))
 		}
+		ret.Scales = append(ret.Scales, mseResp.Scales...)
+		ret.Services = append(ret.Services, mseResp.Services...)
+		ret.Workloads = nil
+		ret.Namespace = env.Namespace
+
+	default:
+		ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
+		if err != nil {
+			return nil, e.ErrGetService.AddErr(err)
+		}
+		ret.Workloads = nil
+		ret.Namespace = env.Namespace
 	}
 
-	ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
-	}
-MSE:
-	// if raw service resources not found will be nil , we should create it
-	if ret == nil {
-		ret = &SvcResp{
-			ServiceName: serviceName,
-			EnvName:     envName,
-			ProductName: productName,
-			Services:    make([]*internalresource.Service, 0),
-			Ingress:     make([]*internalresource.Ingress, 0),
-			Scales:      make([]*internalresource.Workload, 0),
-			CronJobs:    make([]*internalresource.CronJob, 0),
-		}
-	}
-	mseResp, err := GetMseServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(errors.Wrap(err, "failed to get mse service"))
-	}
-	ret.Scales = append(ret.Scales, mseResp.Scales...)
-	ret.Services = append(ret.Services, mseResp.Services...)
-	ret.Workloads = nil
-	ret.Namespace = env.Namespace
 	return ret, nil
 }
 
@@ -543,6 +549,7 @@ func GetMseServiceImpl(serviceName string, workLoadType string, env *commonmodel
 		for _, deployment := range deployments {
 			ret.Scales = append(ret.Scales, getDeploymentWorkloadResource(deployment, inf, log))
 			ret.Scales[len(ret.Scales)-1].ZadigXReleaseType = config.ZadigXMseGrayRelease
+			ret.Scales[len(ret.Scales)-1].ZadigXReleaseTag = deployment.Labels[types.ZadigReleaseVersionLabelKey]
 			ret.Workloads = append(ret.Workloads, toDeploymentWorkload(deployment))
 		}
 		services, err := getter.ListServices(namespace, selector, kubeClient)
