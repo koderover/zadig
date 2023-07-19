@@ -807,7 +807,7 @@ func prepareEstimateDataForEnvCreation(productName, serviceName string, producti
 	return prodSvc, templateService, renderSet, nil
 }
 
-func prepareEstimateDataForEnvUpdate(productName, envName, serviceName string, production bool, log *zap.SugaredLogger) (
+func prepareEstimateDataForEnvUpdate(productName, envName, serviceName, scene string, production bool, log *zap.SugaredLogger) (
 	*commonmodels.ProductService, *commonmodels.Service, *commonmodels.Product, *commonmodels.RenderSet, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       productName,
@@ -831,17 +831,26 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceName string, p
 		return nil, nil, nil, nil, fmt.Errorf("failed to query renderset info, name %s", productInfo.Render.Name)
 	}
 
+	targetSvcTmplRevision := int64(0)
+	prodSvc := productInfo.GetServiceMap()[serviceName]
+	if scene == usageScenarioCreateEnv {
+		if prodSvc == nil {
+			return nil, nil, nil, nil, fmt.Errorf("can't find service in env: %s, name %s", productInfo.EnvName, serviceName)
+		}
+		targetSvcTmplRevision = prodSvc.Revision
+	}
+
 	templateService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		ProductName: productName,
 		Type:        setting.HelmDeployType,
+		Revision:    targetSvcTmplRevision,
 	}, production)
 	if err != nil {
 		log.Errorf("failed to query service, name %s, err %s", serviceName, err)
 		return nil, nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceName)
 	}
 
-	prodSvc := productInfo.GetServiceMap()[serviceName]
 	if prodSvc == nil {
 		prodSvc = &commonmodels.ProductService{
 			ServiceName:  serviceName,
@@ -921,7 +930,7 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 	case usageScenarioCreateEnv:
 		productSvc, latestSvc, renderSet, err = prepareEstimateDataForEnvCreation(productName, serviceName, arg.Production, log)
 	default:
-		productSvc, latestSvc, productInfo, renderSet, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceName, arg.Production, log)
+		productSvc, latestSvc, productInfo, renderSet, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceName, scene, arg.Production, log)
 	}
 
 	if err != nil {
