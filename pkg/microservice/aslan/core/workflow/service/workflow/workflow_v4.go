@@ -67,6 +67,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/lark"
@@ -2009,7 +2010,39 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	return resp, nil
 }
 
-func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, images []string, isProduction, updateServiceRevision bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, images []string, isProduction, updateServiceRevision, isHelmChartDeploy bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
+	}
+
+	if isHelmChartDeploy {
+		renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+			Name:        prod.Render.Name,
+			ProductTmpl: prod.Render.ProductTmpl,
+			Revision:    prod.Render.Revision,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find render set name: %s, revision: %s, err: %s", prod.Render.Name, prod.Render.ProductTmpl, err)
+		}
+
+		currentYaml := ""
+		for _, chartInfo := range renderSet.ChartInfos {
+			if chartInfo.IsHelmChartDeploy && chartInfo.ReleaseName == serviceName {
+				currentYaml, err = helmtool.MergeOverrideValues("", "", chartInfo.GetOverrideYaml(), chartInfo.OverrideValues, nil)
+				if err != nil {
+					return nil, fmt.Errorf("failed to merge override values, err: %s", err)
+				}
+				break
+			}
+		}
+		return &GetHelmValuesDifferenceResp{
+			Current: currentYaml,
+			Latest:  variableYaml,
+		}, nil
+	}
+
 	// first we get the current yaml in the current environment
 	currentYaml := ""
 	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, false, isProduction)
@@ -2018,12 +2051,6 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		currentYaml = ""
 	} else {
 		currentYaml = resp.ValuesYaml
-	}
-
-	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
-	prod, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
 	}
 
 	param := &kube.ResourceApplyParam{

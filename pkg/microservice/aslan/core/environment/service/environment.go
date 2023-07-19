@@ -640,7 +640,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 		serviceNeedUpdateOrCreate.Insert(chart.ServiceName)
 	}
 
-	productServiceMap := productResp.GetServiceMap()
+	productServiceMap := productResp.GetAllServiceMap()
 
 	// get deleted services map[serviceName]=>serviceRevision
 	for _, svc := range productServiceMap {
@@ -697,6 +697,11 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 			svr.Containers = kube.CalculateContainer(ps, serviceMap[svr.ServiceName], svr.Containers, productResp)
 		}
 		allServices = append(allServices, svcGroup)
+	}
+
+	chartSvcMap := productResp.GetChartServiceMap()
+	for _, svc := range chartSvcMap {
+		allServices[0] = append(allServices[0], svc)
 	}
 	productResp.Services = allServices
 
@@ -764,16 +769,16 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 			Type:        setting.HelmChartDeployType,
 		}
 
-		valuesMap := make(map[string]interface{})
-		err = yaml.Unmarshal([]byte(chart.OverrideYaml), &valuesMap)
-		if err != nil {
-			return fmt.Errorf("Failed to unmarshall yaml, err %s", err)
-		}
-		containerList, err := commonutil.ParseImagesForProductService(valuesMap, chart.ReleaseName, productName)
-		if err != nil {
-			return errors.Wrapf(err, "Failed to parse service from yaml")
-		}
-		svc.Containers = containerList
+		// valuesMap := make(map[string]interface{})
+		// err = yaml.Unmarshal([]byte(chart.OverrideYaml), &valuesMap)
+		// if err != nil {
+		// 	return fmt.Errorf("Failed to unmarshall yaml, err %s", err)
+		// }
+		// containerList, err := commonutil.ParseImagesForProductService(valuesMap, chart.ReleaseName, productName)
+		// if err != nil {
+		// 	return errors.Wrapf(err, "Failed to parse service from yaml")
+		// }
+		// svc.Containers = containerList
 		chartSvcMap[svc.ReleaseName] = svc
 	}
 
@@ -793,26 +798,17 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 					delete(chartSvcMap, svr.ReleaseName)
 				}
 
-				// ps, ok := productChartServiceMap[svr.ReleaseName]
-				// // only update or insert services
-				// if !ok && !releaseNeedUpdateOrCreate.Has(svr.ServiceName) {
-				// 	continue
-				// }
-
-				// // // existed service has nothing to update
-				// // if ok && !serviceNeedUpdateOrCreate.Has(svr.ServiceName) {
-				// // 	svcGroup = append(svcGroup, ps)
-				// // 	continue
-				// // }
-
 				svcGroup = append(svcGroup, svr)
 			}
 		}
 		allServices = append(allServices, svcGroup)
 	}
 
+	if len(allServices) == 0 {
+		allServices = append(allServices, []*commonmodels.ProductService{})
+	}
 	for _, svc := range chartSvcMap {
-		allServices[len(allServices)-1] = append(allServices[len(allServices)-1], svc)
+		allServices[0] = append(allServices[0], svc)
 	}
 
 	productResp.Services = allServices
@@ -1113,7 +1109,12 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 	}
 
 	mergedValues := ""
-	if !isHelmChartDeploy {
+	if isHelmChartDeploy {
+		mergedValues, err = helmtool.MergeOverrideValues("", renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, nil)
+		if err != nil {
+			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge override values, err %s", err))
+		}
+	} else {
 		containers := kube.CalculateContainer(productSvc, curUsedSvc, latestSvc.Containers, productInfo)
 		for _, container := range containers {
 			images = append(images, container.Image)
@@ -1122,11 +1123,6 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 		mergedValues, err = kube.GeneMergedValues(productSvc, renderSet, images, true)
 		if err != nil {
 			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
-		}
-	} else {
-		mergedValues, err = helmtool.MergeOverrideValues("", renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, nil)
-		if err != nil {
-			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge override values, err %s", err))
 		}
 	}
 
@@ -3331,7 +3327,7 @@ func proceedHelmChartRelease(productResp *commonmodels.Product, renderset *commo
 		overrideChartsMap[chart.ReleaseName] = chart
 	}
 
-	prodServiceMap := productResp.GetServiceMap()
+	prodServiceMap := productResp.GetChartServiceMap()
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) (err error) {
 		defer func() {
 			if prodSvc, ok := prodServiceMap[serviceObj.ServiceName]; ok {
@@ -3360,7 +3356,10 @@ func proceedHelmChartRelease(productResp *commonmodels.Product, renderset *commo
 		_ = os.RemoveAll(localPath)
 
 		hClient, err := helmclient.NewClient()
-		err = hClient.DownloadChart(commonservice.GeneHelmRepo(chartRepo), chartRef, param.RenderChart.ChartVersion, localPath, true)
+		if err != nil {
+			return err
+		}
+		err = hClient.DownloadChart(commonutil.GeneHelmRepo(chartRepo), chartRef, param.RenderChart.ChartVersion, localPath, true)
 		if err != nil {
 			return fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", param.RenderChart.ChartName, chartRepo.RepoName, err)
 		}

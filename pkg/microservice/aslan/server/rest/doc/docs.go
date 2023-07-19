@@ -1879,6 +1879,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/workflow/v4/yamlComparison": {
+            "post": {
+                "description": "Compare Helm Service Yaml In Env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "workflow"
+                ],
+                "summary": "Compare Helm Service Yaml In Env",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.getHelmValuesDifferenceReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/workflow.GetHelmValuesDifferenceResp"
+                        }
+                    }
+                }
+            }
+        },
         "/openapi/projects/project/init/yaml": {
             "post": {
                 "description": "OpenAPI Initialize Yaml Project",
@@ -2120,6 +2154,17 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.ModuleAndImage": {
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.createServiceTemplateRequest": {
             "type": "object",
             "required": [
@@ -2191,6 +2236,35 @@ const docTemplate = `{
                 },
                 "revision": {
                     "type": "integer"
+                }
+            }
+        },
+        "handler.getHelmValuesDifferenceReq": {
+            "type": "object",
+            "properties": {
+                "env_name": {
+                    "type": "string"
+                },
+                "is_helm_chart_deploy": {
+                    "type": "boolean"
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "service_modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handler.ModuleAndImage"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "update_service_revision": {
+                    "type": "boolean"
+                },
+                "variable_yaml": {
+                    "type": "string"
                 }
             }
         },
@@ -3156,6 +3230,13 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                },
+                "zadigx_release_tag": {
+                    "type": "string"
+                },
+                "zadigx_release_type": {
+                    "description": "ZadigXReleaseType represent the release type of workload created by zadigx when it is not empty\nfrontend should limit or allow some operations on these workloads",
+                    "type": "string"
                 }
             }
         },
@@ -4027,6 +4108,13 @@ const docTemplate = `{
                 },
                 "workLoadType": {
                     "type": "string"
+                },
+                "zadigx_release_tag": {
+                    "type": "string"
+                },
+                "zadigx_release_type": {
+                    "description": "ZadigXReleaseType represents the service contain created by zadigx release workflow\nfrontend should limit some operations on these services",
+                    "type": "string"
                 }
             }
         },
@@ -4530,6 +4618,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "value": {}
+            }
+        },
+        "workflow.GetHelmValuesDifferenceResp": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "type": "string"
+                },
+                "latest": {
+                    "type": "string"
+                }
             }
         }
     }

@@ -1151,6 +1151,22 @@ func GetReleaseDeployStatus(productName string, request *HelmDeployStatusCheckRe
 		})
 	}
 
+	// chartSvcMap := productInfo.GetChartServiceMap()
+	// for _, chartSvc := range chartSvcMap {
+	// 	releaseName := chartSvc.ReleaseName
+	// 	deployStatus := &ResourceDeployStatus{
+	// 		Type:   "release",
+	// 		Name:   releaseName,
+	// 		Status: StatusUnDeployed,
+	// 	}
+	// 	resources := []*ResourceDeployStatus{deployStatus}
+	// 	releaseToServiceMap[releaseName] = deployStatus
+	// 	ret = append(ret, &ServiceDeployStatus{
+	// 		ServiceName: chartSvc.ServiceName,
+	// 		Resources:   resources,
+	// 	})
+	// }
+
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(err)

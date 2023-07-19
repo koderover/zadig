@@ -141,6 +141,13 @@ definitions:
           type: string
         type: array
     type: object
+  handler.ModuleAndImage:
+    properties:
+      image:
+        type: string
+      name:
+        type: string
+    type: object
   handler.createServiceTemplateRequest:
     properties:
       product_name:
@@ -190,6 +197,25 @@ definitions:
         type: array
       revision:
         type: integer
+    type: object
+  handler.getHelmValuesDifferenceReq:
+    properties:
+      env_name:
+        type: string
+      is_helm_chart_deploy:
+        type: boolean
+      production:
+        type: boolean
+      service_modules:
+        items:
+          $ref: '#/definitions/handler.ModuleAndImage'
+        type: array
+      service_name:
+        type: string
+      update_service_revision:
+        type: boolean
+      variable_yaml:
+        type: string
     type: object
   handler.getInitProductRespone:
     properties:
@@ -831,6 +857,13 @@ definitions:
         type: integer
       type:
         type: string
+      zadigx_release_tag:
+        type: string
+      zadigx_release_type:
+        description: |-
+          ZadigXReleaseType represent the release type of workload created by zadigx when it is not empty
+          frontend should limit or allow some operations on these workloads
+        type: string
     type: object
   service.ConvertVaraibleKVAndYamlActionType:
     enum:
@@ -1403,6 +1436,13 @@ definitions:
         type: boolean
       workLoadType:
         type: string
+      zadigx_release_tag:
+        type: string
+      zadigx_release_type:
+        description: |-
+          ZadigXReleaseType represents the service contain created by zadigx release workflow
+          frontend should limit some operations on these services
+        type: string
     type: object
   service.SvcDiffResult:
     properties:
@@ -1738,6 +1778,13 @@ definitions:
       key:
         type: string
       value: {}
+    type: object
+  workflow.GetHelmValuesDifferenceResp:
+    properties:
+      current:
+        type: string
+      latest:
+        type: string
     type: object
 info:
   contact:
@@ -2985,6 +3032,28 @@ paths:
               $ref: '#/definitions/models.DeployService'
             type: array
       summary: Get filtered env services
+      tags:
+      - workflow
+  /api/aslan/workflow/v4/yamlComparison:
+    post:
+      consumes:
+      - application/json
+      description: Compare Helm Service Yaml In Env
+      parameters:
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.getHelmValuesDifferenceReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/workflow.GetHelmValuesDifferenceResp'
+      summary: Compare Helm Service Yaml In Env
       tags:
       - workflow
   /openapi/projects/project/init/yaml:

@@ -19,16 +19,12 @@ package kube
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"go.uber.org/zap"
 
 	helmclient "github.com/mittwald/go-helm-client"
@@ -48,6 +44,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -368,15 +367,31 @@ func UpgradeHelmChartRelease(product *commonmodels.Product, renderSet *commonmod
 		},
 	}
 
+	renderChart := renderSet.GetChartDeployRenderMap()[installParam.ReleaseName]
+	if renderChart == nil {
+		renderChart = &templatemodels.ServiceRender{
+			ServiceName:       installParam.ReleaseName,
+			ReleaseName:       installParam.ReleaseName,
+			IsHelmChartDeploy: true,
+			ChartName:         installParam.ChartName,
+			ChartVersion:      installParam.ChartVersion,
+			ChartRepo:         installParam.ChartRepo,
+		}
+	} else {
+		renderChart.ChartName = installParam.ChartName
+		renderChart.ChartVersion = installParam.ChartVersion
+		renderChart.ChartRepo = installParam.ChartRepo
+	}
 	param := &ReleaseInstallParam{
-		ProductName:  installParam.ProductName,
-		Namespace:    product.Namespace,
-		ReleaseName:  installParam.ReleaseName,
-		MergedValues: installParam.VariableYaml,
-		RenderChart:  renderSet.GetChartRenderMap()[installParam.ReleaseName],
-		ServiceObj:   serviceObj,
-		Timeout:      timeout,
-		Production:   product.Production,
+		ProductName:    installParam.ProductName,
+		Namespace:      product.Namespace,
+		ReleaseName:    installParam.ReleaseName,
+		MergedValues:   installParam.VariableYaml,
+		RenderChart:    renderChart,
+		ServiceObj:     serviceObj,
+		Timeout:        timeout,
+		Production:     product.Production,
+		IsChartInstall: true,
 	}
 
 	ensureUpgrade := func() error {
@@ -402,17 +417,35 @@ func UpgradeHelmChartRelease(product *commonmodels.Product, renderSet *commonmod
 		return err
 	}
 
-	// when replace image, should not wait
-	err = InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
-	if err != nil {
-		return err
-	}
-
 	// select product info and render info from db, in case of concurrent update caused data override issue
 	// those code can be optimized if MongoDB version are newer than 4.0
 	newProductInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: product.ProductName, EnvName: product.EnvName})
 	if err != nil {
 		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
+	}
+
+	chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: serviceObj.HelmChart.Repo})
+	if err != nil {
+		return fmt.Errorf("failed to query chart-repo info, productName: %s, repoName: %s", newProductInfo.Render.ProductTmpl, param.RenderChart.ChartRepo)
+	}
+
+	chartRef := fmt.Sprintf("%s/%s", param.RenderChart.ChartRepo, param.RenderChart.ChartName)
+	localPath := config.LocalServicePathWithRevision(newProductInfo.Render.ProductTmpl, param.ReleaseName, param.RenderChart.ChartVersion, true)
+	// remove local file to untar
+	_ = os.RemoveAll(localPath)
+
+	hClient, err := helmtool.NewClient()
+	if err != nil {
+		return err
+	}
+	err = hClient.DownloadChart(commonutil.GeneHelmRepo(chartRepo), chartRef, param.RenderChart.ChartVersion, localPath, true)
+	if err != nil {
+		return fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", param.RenderChart.ChartName, chartRepo.RepoName, err)
+	}
+
+	err = InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
+	if err != nil {
+		return err
 	}
 
 	if !commonutil.ReleaseDeployed(productSvc.ReleaseName, newProductInfo.ServiceDeployStrategy) {
@@ -432,7 +465,7 @@ func UpgradeHelmChartRelease(product *commonmodels.Product, renderSet *commonmod
 	for _, chartInfo := range curRenderInfo.ChartInfos {
 		chartMap[chartInfo.ServiceName] = chartInfo
 	}
-	chartMap[productSvc.ServiceName] = renderSet.GetChartRenderMap()[productSvc.ReleaseName]
+	chartMap[productSvc.ServiceName] = renderChart
 	curRenderInfo.ChartInfos = make([]*templatemodels.ServiceRender, 0)
 	for _, chartInfo := range chartMap {
 		curRenderInfo.ChartInfos = append(curRenderInfo.ChartInfos, chartInfo)
@@ -444,10 +477,13 @@ func UpgradeHelmChartRelease(product *commonmodels.Product, renderSet *commonmod
 
 	newProductInfo.Render.Revision = curRenderInfo.Revision
 	productSvcMap := make(map[string]*commonmodels.ProductService)
-	for _, service := range newProductInfo.GetServiceMap() {
+	for _, service := range newProductInfo.GetAllServiceMap() {
 		productSvcMap[service.ServiceName] = service
 	}
-	productSvcMap[productSvc.ServiceName] = product.GetServiceMap()[productSvc.ServiceName]
+	productSvcMap[productSvc.ServiceName] = product.GetChartServiceMap()[productSvc.ServiceName]
+	if productSvcMap[productSvc.ServiceName] == nil {
+		productSvcMap[productSvc.ServiceName] = productSvc
+	}
 	newProductInfo.Services = [][]*commonmodels.ProductService{{}}
 	for _, service := range productSvcMap {
 		newProductInfo.Services[0] = append(newProductInfo.Services[0], service)

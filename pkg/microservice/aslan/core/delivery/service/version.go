@@ -779,7 +779,7 @@ func handleSingleChart(chartData *DeliveryChartData, product *commonmodels.Produ
 	}
 
 	log.Infof("pushing chart %s to %s...", filepath.Base(chartPackagePath), chartRepo.URL)
-	err = client.PushChart(commonservice.GeneHelmRepo(chartRepo), chartPackagePath)
+	err = client.PushChart(commonutil.GeneHelmRepo(chartRepo), chartPackagePath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to push chart: %s", chartPackagePath)
 	}
@@ -1445,7 +1445,7 @@ func downloadChart(deliveryVersion *commonmodels.DeliveryVersion, chartInfo *com
 	}
 
 	chartRef := fmt.Sprintf("%s/%s", chartRepo.RepoName, chartInfo.ChartName)
-	return chartTGZFilePath, hClient.DownloadChart(commonservice.GeneHelmRepo(chartRepo), chartRef, chartInfo.ChartVersion, chartTGZFileParent, false)
+	return chartTGZFilePath, hClient.DownloadChart(commonutil.GeneHelmRepo(chartRepo), chartRef, chartInfo.ChartVersion, chartTGZFileParent, false)
 }
 
 func getChartDistributeInfo(releaseID, chartName string, log *zap.SugaredLogger) (*commonmodels.DeliveryDistribute, error) {
@@ -1509,7 +1509,7 @@ func getIndexInfoFromChartRepo(chartRepoName string) (*repo.IndexFile, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create chart repo client")
 	}
-	return hClient.FetchIndexYaml(commonservice.GeneHelmRepo(chartRepo))
+	return hClient.FetchIndexYaml(commonutil.GeneHelmRepo(chartRepo))
 }
 
 func fillChartUrl(charts []*DeliveryVersionPayloadChart, chartRepoName string) error {

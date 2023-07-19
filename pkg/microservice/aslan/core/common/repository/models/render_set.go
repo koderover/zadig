@@ -77,7 +77,7 @@ func (m *RenderSet) GetChartRenderMap() map[string]*templatemodels.ServiceRender
 	serviceRenderMap := make(map[string]*templatemodels.ServiceRender)
 	for _, render := range m.ChartInfos {
 		if !render.IsHelmChartDeploy {
-			serviceRenderMap[render.ServiceName] = render
+			serviceRenderMap[render.ReleaseName] = render
 		}
 	}
 	return serviceRenderMap

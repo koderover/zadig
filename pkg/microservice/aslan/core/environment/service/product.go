@@ -215,8 +215,8 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 		}
 		prod.RegistryID = reg.ID.Hex()
 	}
-	resp := buildProductResp(prod.EnvName, prod, log)
-	return resp, nil
+
+	return buildProductResp(prod.EnvName, prod, log)
 }
 
 func normalStatus(status string) bool {
@@ -229,7 +229,7 @@ func normalStatus(status string) bool {
 	return false
 }
 
-func buildProductResp(envName string, prod *commonmodels.Product, log *zap.SugaredLogger) *ProductResp {
+func buildProductResp(envName string, prod *commonmodels.Product, log *zap.SugaredLogger) (*ProductResp, error) {
 	prodResp := &ProductResp{
 		ID:              prod.ID.Hex(),
 		ProductName:     prod.ProductName,
@@ -251,18 +251,51 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		ShareEnvBaseEnv: prod.ShareEnv.BaseEnv,
 	}
 
+	serviceMap := prod.GetServiceMap()
+	listOpt := &commonrepo.SvcRevisionListOption{
+		ProductName:      prod.ProductName,
+		ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
+	}
+	for _, productSvc := range serviceMap {
+		listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
+			ServiceName: productSvc.ServiceName,
+			Revision:    productSvc.Revision,
+		})
+	}
+
+	templateServices, err := repository.ListServicesWithSRevision(listOpt, prod.Production)
+	if err != nil {
+		errMsg := fmt.Errorf("[EnvName:%s][Product:%s] ListServicesWithSRevision error: %s", envName, prod.ProductName, err)
+		log.Error(errMsg)
+		return nil, errMsg
+	}
+	templSvcMap := make(map[string]*commonmodels.Service)
+	for _, svc := range templateServices {
+		templSvcMap[svc.ServiceName] = svc
+	}
+
+	for _, svcGroup := range prod.Services {
+		for _, svc := range svcGroup {
+			if svc.Type == setting.HelmChartDeployType {
+				if templSvc, ok := templSvcMap[svc.ServiceName]; ok {
+					svc.ReleaseName = util.GeneReleaseName(templSvc.GetReleaseNaming(), svc.ProductName, prod.Namespace, prod.EnvName, svc.ServiceName)
+				}
+			}
+		}
+	}
+
 	if prod.ClusterID != "" {
 		clusterService, err := kube.NewService(config.HubServerAddress())
 		if err != nil {
 			prodResp.Status = setting.ClusterNotFound
 			prodResp.Error = "未找到该环境绑定的集群"
-			return prodResp
+			return prodResp, nil
 		}
 		cluster, err := clusterService.GetCluster(prod.ClusterID, log)
 		if err != nil {
 			prodResp.Status = setting.ClusterNotFound
 			prodResp.Error = "未找到该环境绑定的集群"
-			return prodResp
+			return prodResp, nil
 		}
 		prodResp.IsProd = cluster.Production
 		prodResp.ClusterName = cluster.Name
@@ -271,7 +304,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		if !prodResp.IsLocal && !clusterService.ClusterConnected(prod.ClusterID) && cluster.Type != setting.KubeConfigClusterType {
 			prodResp.Status = setting.ClusterDisconnected
 			prodResp.Error = "集群未连接"
-			return prodResp
+			return prodResp, nil
 		}
 	} else {
 		prodResp.IsLocal = true
@@ -283,19 +316,19 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 
 	if prod.Status == setting.ProductStatusCreating {
 		prodResp.Status = setting.PodCreating
-		return prodResp
+		return prodResp, nil
 	}
 	if prod.Status == setting.ProductStatusUpdating {
 		prodResp.Status = setting.PodUpdating
-		return prodResp
+		return prodResp, nil
 	}
 	if prod.Status == setting.ProductStatusDeleting {
 		prodResp.Status = setting.PodDeleting
-		return prodResp
+		return prodResp, nil
 	}
 	if prod.Status == setting.ProductStatusUnknown {
 		prodResp.Status = setting.ClusterUnknown
-		return prodResp
+		return prodResp, nil
 	}
 
 	var errObj error
@@ -311,7 +344,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 	if errObj != nil {
 		prodResp.Error = errObj.Error()
 	}
-	return prodResp
+	return prodResp, nil
 }
 
 func CleanProducts() {

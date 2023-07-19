@@ -153,7 +153,11 @@ func (args *HelmSvcRenderArg) FillRenderChartModel(chart *templatemodels.Service
 // LoadFromRenderChartModel load from render chart model
 func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.ServiceRender) {
 	args.ServiceName = chart.ServiceName
+	args.ChartName = chart.ChartName
+	args.ChartRepo = chart.ChartRepo
 	args.ChartVersion = chart.ChartVersion
+	args.ReleaseName = chart.ReleaseName
+	args.IsChartDeploy = chart.IsHelmChartDeploy
 	args.fromOverrideValueString(chart.OverrideValues)
 	args.fromCustomValueYaml(chart.OverrideYaml)
 }

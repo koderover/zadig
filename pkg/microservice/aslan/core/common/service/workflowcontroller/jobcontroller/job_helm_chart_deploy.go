@@ -23,7 +23,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -32,7 +31,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -95,9 +93,13 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 	for _, deploy := range c.jobTaskSpec.DeployHelmCharts {
 		chartInfo, ok := renderSet.GetChartRenderMap()[deploy.ReleaseName]
 		if !ok {
-			msg := fmt.Sprintf("failed to find chart info in render")
-			logError(c.job, msg, c.logger)
-			return
+			chartInfo = &template.ServiceRender{
+				ReleaseName:       deploy.ReleaseName,
+				IsHelmChartDeploy: true,
+				ChartRepo:         deploy.ChartRepo,
+				ChartName:         deploy.ChartName,
+				ChartVersion:      deploy.ChartVersion,
+			}
 		}
 		if chartInfo.OverrideYaml == nil {
 			chartInfo.OverrideYaml = &template.CustomYaml{}
@@ -122,24 +124,15 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 			VariableYaml: valuesYaml,
 		}
 
-		valuesMap := make(map[string]interface{})
-		err = yaml.Unmarshal([]byte(valuesYaml), &valuesMap)
-		if err != nil {
-			logError(c.job, fmt.Sprintf("Failed to unmarshall yaml, err %s", err), c.logger)
-		}
-		containerList, err := commonutil.ParseImagesForProductService(valuesMap, deploy.ReleaseName, c.workflowCtx.ProjectName)
-		if err != nil {
-			logError(c.job, fmt.Sprintf("Failed to parse container from yaml, err %s", err), c.logger)
-		}
 		productChartService := productInfo.GetChartServiceMap()[deploy.ReleaseName]
 		if productChartService == nil {
 			productChartService = &commonmodels.ProductService{
-				ReleaseName: deploy.ReleaseName,
-				ProductName: c.workflowCtx.ProjectName,
-				Type:        setting.HelmChartDeployType,
+				ReleaseName:    deploy.ReleaseName,
+				ProductName:    c.workflowCtx.ProjectName,
+				Type:           setting.HelmChartDeployType,
+				DeployStrategy: setting.ServiceDeployStrategyDeploy,
 			}
 		}
-		productChartService.Containers = containerList
 
 		done := make(chan bool)
 		go func(chan bool) {

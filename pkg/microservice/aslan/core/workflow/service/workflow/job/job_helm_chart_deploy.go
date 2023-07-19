@@ -58,13 +58,13 @@ func (j *HelmChartDeployJob) SetPreset() error {
 	if err != nil {
 		return fmt.Errorf("render set %s/%v not found", product.Render.Name, product.Render.Revision)
 	}
-	renderChartMap := renderset.GetChartRenderMap()
+	renderChartMap := renderset.GetChartDeployRenderMap()
 
 	deploys := []*commonmodels.DeployHelmChart{}
 	productChartServiceMap := product.GetChartServiceMap()
 	for _, chartSvc := range productChartServiceMap {
 		renderChart := renderChartMap[chartSvc.ReleaseName]
-		if renderChart == nil || renderChart.IsHelmChartDeploy {
+		if renderChart == nil || !renderChart.IsHelmChartDeploy {
 			return fmt.Errorf("render chart %s not found", chartSvc.ReleaseName)
 		}
 		deploy := &commonmodels.DeployHelmChart{

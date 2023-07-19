@@ -63,15 +63,16 @@ type ReleaseFilter struct {
 }
 
 type HelmReleaseResp struct {
-	ReleaseName    string        `json:"releaseName"`
-	ServiceName    string        `json:"serviceName"`
-	Revision       int           `json:"revision"`
-	Chart          string        `json:"chart"`
-	AppVersion     string        `json:"appVersion"`
-	Status         ReleaseStatus `json:"status"`
-	Updatable      bool          `json:"updatable"`
-	DeployStrategy string        `json:"deploy_strategy"`
-	Error          string        `json:"error"`
+	ReleaseName       string        `json:"releaseName"`
+	ServiceName       string        `json:"serviceName"`
+	Revision          int           `json:"revision"`
+	Chart             string        `json:"chart"`
+	AppVersion        string        `json:"appVersion"`
+	Status            ReleaseStatus `json:"status"`
+	Updatable         bool          `json:"updatable"`
+	IsHelmChartDeploy bool          `json:"isHelmChartDeploy"`
+	DeployStrategy    string        `json:"deploy_strategy"`
+	Error             string        `json:"error"`
 }
 
 type ChartInfo struct {
@@ -195,7 +196,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 	svcDatSetMap := make(map[string]*SvcDataSet)
 	svcDataList := make([]*SvcDataSet, 0)
 
-	for _, prodSvc := range prod.GetServiceMap() {
+	for _, prodSvc := range prod.GetAllServiceMap() {
 		serviceName := prodSvc.ServiceName
 		releaseName := releaseNameMap[serviceName]
 		svcDataSet := &SvcDataSet{
@@ -276,6 +277,16 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			respObj.Chart = svcDataSet.SvcRelease.Chart.Name()
 			respObj.AppVersion = svcDataSet.SvcRelease.Chart.AppVersion()
 			respObj.Status = getReleaseStatus(svcDataSet.SvcRelease)
+		} else if svcDataSet.TmplSvc != nil {
+			respObj.ReleaseName = util.GeneReleaseName(svcDataSet.TmplSvc.GetReleaseNaming(), svcDataSet.TmplSvc.ProductName, prod.Namespace, prod.EnvName, svcDataSet.TmplSvc.ServiceName)
+			respObj.Chart = svcDataSet.TmplSvc.HelmChart.Name
+			respObj.AppVersion = svcDataSet.TmplSvc.HelmChart.Version
+		} else if svcDataSet.ProdSvc != nil {
+			respObj.ReleaseName = svcDataSet.ProdSvc.ReleaseName
+		}
+
+		if svcDataSet.ProdSvc.Type == setting.HelmChartDeployType {
+			respObj.IsHelmChartDeploy = true
 		}
 
 		if svcDataSet.ProdSvc.Error != "" {

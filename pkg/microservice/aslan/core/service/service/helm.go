@@ -29,9 +29,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 
 	"github.com/27149chen/afero"
 	"github.com/otiai10/copy"
@@ -41,6 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -592,7 +591,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 	log.Infof("downloading chart %s to %s", chartRef, localPath)
 	// remove local file to untar
 	_ = os.RemoveAll(localPath)
-	err = hClient.DownloadChart(commonservice.GeneHelmRepo(chartRepo), chartRef, chartRepoArgs.ChartVersion, localPath, true)
+	err = hClient.DownloadChart(commonutil.GeneHelmRepo(chartRepo), chartRef, chartRepoArgs.ChartVersion, localPath, true)
 	if err != nil {
 		return nil, e.ErrCreateTemplate.AddErr(errors.Wrapf(err, "failed to download chart %s/%s-%s", chartRepo.RepoName, chartRepoArgs.ChartName, chartRepoArgs.ChartVersion))
 	}
