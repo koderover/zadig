@@ -375,6 +375,60 @@ func migrateExternalProductIsExisted() error {
 	return err
 }
 
+func migrateProductEnvAnalysisConfig() error {
+	var ms []mongo.WriteModel
+	envs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{})
+	if err != nil {
+		return err
+	}
+
+	resourceTypes := []models.ResourceType{
+		models.ResourceTypePod,
+		models.ResourceTypeDeployment,
+		models.ResourceTypeReplicaSet,
+		models.ResourceTypePVC,
+		models.ResourceTypeService,
+		models.ResourceTypeIngress,
+		models.ResourceTypeStatefulSet,
+		models.ResourceTypeCronJob,
+		models.ResourceTypeHPA,
+		models.ResourceTypePDB,
+		models.ResourceTypeNetworkPolicy,
+	}
+	for _, env := range envs {
+		if env.AnalysisConfig != nil {
+			continue
+		}
+
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"product_name", env.ProductName}, {"env_name", env.EnvName}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"analysis_config.resource_types", resourceTypes},
+					}},
+				}),
+		)
+
+		log.Infof("add env %s", env.ProductName)
+
+		if len(ms) >= 50 {
+			log.Infof("update %d envs", len(ms))
+			if _, err := mongodb.NewProductColl().BulkWrite(context.TODO(), ms); err != nil {
+				return fmt.Errorf("udpate envs error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+	if len(ms) > 0 {
+		log.Infof("update %d envs", len(ms))
+		if _, err := mongodb.NewProductColl().BulkWrite(context.TODO(), ms); err != nil {
+			return fmt.Errorf("udpate envs error: %s", err)
+		}
+	}
+	return err
+}
+
 func migrateWorkflowV4ConcurrencyLimit() error {
 	_, err := mongodb.NewWorkflowV4Coll().UpdateMany(context.Background(),
 		bson.M{"multi_run": false}, bson.M{"$set": bson.M{"concurrency_limit": 1}})
