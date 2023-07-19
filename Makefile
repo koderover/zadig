@@ -4,9 +4,7 @@
 # Please make sure you have the right version of docker.
 .PHONY: microservice.push swag
 
-IMAGE_REPOSITORY ?= koderover.tencentcloudcr.com/koderover-public
-IMAGE_REPOSITORY := $(IMAGE_REPOSITORY)
-
+IMAGE_REPOSITORY = koderover.tencentcloudcr.com/koderover-public
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 VERSION := $(VERSION)
 MICROSERVICE_TARGETS = aslan cron executor hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin ua warpdrive
