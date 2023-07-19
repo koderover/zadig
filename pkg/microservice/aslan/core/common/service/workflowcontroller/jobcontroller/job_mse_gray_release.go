@@ -199,6 +199,9 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 		timeout := time.After(c.timeout() * time.Second)
 		for {
 			select {
+			case <-ctx.Done():
+				c.job.Status = config.StatusCancelled
+				return
 			case <-timeout:
 				c.Error(fmt.Sprintf("deployment %s not ready in %d seconds", deploymentName, c.timeout()))
 				return
@@ -263,13 +266,3 @@ func (c *MseGrayReleaseJobCtl) SaveInfo(ctx context.Context) error {
 		Status:              string(c.job.Status),
 	})
 }
-
-//func setLabels(labels map[string]string, grayTag, serviceName string) {
-//	if labels == nil {
-//		labels = make(map[string]string)
-//	}
-//	labels[types.ZadigReleaseVersionLabelKey] = grayTag
-//	labels[types.ZadigReleaseMSEGrayTagLabelKey] = grayTag
-//	labels[types.ZadigReleaseTypeLabelKey] = "gray"
-//	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName
-//}

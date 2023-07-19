@@ -169,6 +169,7 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		} else {
 			// when zadigx release resource exists, should set ZadigXReleaseType field too
 			svc.ZadigXReleaseType = serviceResp.ZadigXReleaseType
+			svc.ZadigXReleaseTag = serviceResp.ZadigXReleaseTag
 		}
 	}
 	return resp, count, nil
@@ -213,6 +214,7 @@ func listZadigXMseReleaseServices(namespace, productName, envName string, client
 			EnvName:           envName,
 			DeployStrategy:    "deploy",
 			ZadigXReleaseType: config.ZadigXMseGrayRelease,
+			ZadigXReleaseTag:  deployment.GetLabels()[types.ZadigReleaseVersionLabelKey],
 		}
 		serviceSets[serviceName] = svcResp
 		services = append(services, svcResp)

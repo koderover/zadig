@@ -241,13 +241,3 @@ func (c *MseGrayOfflineJobCtl) SaveInfo(ctx context.Context) error {
 		Status:              string(c.job.Status),
 	})
 }
-
-//func setLabels(labels map[string]string, grayTag, serviceName string) {
-//	if labels == nil {
-//		labels = make(map[string]string)
-//	}
-//	labels[types.ZadigReleaseVersionLabelKey] = grayTag
-//	labels[types.ZadigReleaseMSEGrayTagLabelKey] = grayTag
-//	labels[types.ZadigReleaseTypeLabelKey] = "gray"
-//	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName
-//}

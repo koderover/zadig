@@ -96,6 +96,7 @@ type ServiceResp struct {
 	// ZadigXReleaseType represents the service contain created by zadigx release workflow
 	// frontend should limit some operations on these services
 	ZadigXReleaseType config.ZadigXReleaseType `json:"zadigx_release_type"`
+	ZadigXReleaseTag  string                   `json:"zadigx_release_tag"`
 }
 
 type IngressInfo struct {
