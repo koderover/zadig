@@ -994,6 +994,10 @@ metas:
             endpoint: '/api/aslan/environment/production/kube/?*/pods/?*'
           - method: PUT
             endpoint: '/api/aslan/environment/production/environments/?*/services/?*'
+          - method: POST
+            endpoint: '/api/aslan/environment/production/image/deployment/?*'
+          - method: POST
+            endpoint: '/api/aslan/environment/production/environments/?*/services/?*/scaleNew'
       - action: delete_production_environment
         alias: 删除
         description: ""

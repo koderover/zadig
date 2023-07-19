@@ -144,7 +144,7 @@ func GetKubeWorkloads(namespace, clusterID string, log *zap.SugaredLogger) (*Get
 		ingressNames = append(ingressNames, ingress.GetName())
 	}
 	workloadsMap["ingress"] = ingressNames
-	secrets, err := getter.ListSecrets(namespace, kubeClient)
+	secrets, err := getter.ListSecrets(namespace, nil, kubeClient)
 	if err != nil {
 		log.Errorf("GetKubeWorkloads ListSecrets error, error msg:%s", err)
 		return nil, err

@@ -16,12 +16,18 @@ limitations under the License.
 
 package resource
 
+import "github.com/koderover/zadig/pkg/microservice/aslan/config"
+
 type Workload struct {
 	Name     string           `json:"name"`
 	Type     string           `json:"type"`
 	Images   []ContainerImage `json:"images"`
 	Pods     []*Pod           `json:"pods"`
 	Replicas int32            `json:"replicas"`
+	// ZadigXReleaseType represent the release type of workload created by zadigx when it is not empty
+	// frontend should limit or allow some operations on these workloads
+	ZadigXReleaseType config.ZadigXReleaseType `json:"zadigx_release_type"`
+	ZadigXReleaseTag  string                   `json:"zadigx_release_tag"`
 }
 
 type ContainerImage struct {

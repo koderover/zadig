@@ -211,6 +211,8 @@ const (
 	JobMeegoTransition      JobType = "meego-transition"
 	JobWorkflowTrigger      JobType = "workflow-trigger"
 	JobOfflineService       JobType = "offline-service"
+	JobMseGrayRelease       JobType = "mse-gray-release"
+	JobMseGrayOffline       JobType = "mse-gray-offline"
 )
 
 const (
@@ -478,4 +480,10 @@ const (
 
 const (
 	CUSTOME_THEME = "custom"
+)
+
+type ZadigXReleaseType string
+
+var (
+	ZadigXMseGrayRelease ZadigXReleaseType = "mse-gray"
 )

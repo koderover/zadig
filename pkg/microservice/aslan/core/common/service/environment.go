@@ -93,6 +93,10 @@ type ServiceResp struct {
 	EnvConfigs     []*models.EnvConfig `json:"env_configs"`
 	Updatable      bool                `json:"updatable"`
 	DeployStrategy string              `json:"deploy_strategy"`
+	// ZadigXReleaseType represents the service contain created by zadigx release workflow
+	// frontend should limit some operations on these services
+	ZadigXReleaseType config.ZadigXReleaseType `json:"zadigx_release_type"`
+	ZadigXReleaseTag  string                   `json:"zadigx_release_tag"`
 }
 
 type IngressInfo struct {
