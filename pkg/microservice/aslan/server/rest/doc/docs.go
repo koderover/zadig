@@ -4206,8 +4206,11 @@ const docTemplate = `{
                 "analysis_config": {
                     "$ref": "#/definitions/models.AnalysisConfig"
                 },
-                "notification_config": {
-                    "$ref": "#/definitions/models.NotificationConfig"
+                "notification_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.NotificationConfig"
+                    }
                 }
             }
         },
