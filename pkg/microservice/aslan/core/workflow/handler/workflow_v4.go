@@ -630,6 +630,77 @@ func CompareHelmServiceYamlInEnv(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.CompareHelmServiceYamlInEnv(req.ServiceName, req.VariableYaml, req.EnvName, projectName, images, req.IsProduction, req.UpdateServiceRevision, ctx.Logger)
 }
 
+type MseResponse struct {
+	Yaml string `json:"yaml"`
+}
+
+func RenderMseServiceYaml(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	type RenderMseServiceYamlReq struct {
+		commonmodels.MseGrayReleaseService `json:",inline"`
+		LastGrayTag                        string `json:"last_gray_tag"`
+		GrayTag                            string `json:"gray_tag"`
+		EnvName                            string `json:"env_name"`
+	}
+
+	req := new(RenderMseServiceYamlReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	if req.MseGrayReleaseService.YamlContent == "" {
+		mseServiceYaml, err := workflow.GetMseOriginalServiceYaml(c.Query("projectName"), req.EnvName, req.MseGrayReleaseService.ServiceName, req.GrayTag)
+		if err != nil {
+			ctx.Err = err
+			return
+		}
+		ctx.Resp = MseResponse{Yaml: mseServiceYaml}
+		return
+	}
+
+	mseServiceYaml, err := workflow.RenderMseServiceYaml(c.Query("projectName"), req.EnvName, req.LastGrayTag, req.GrayTag, &req.MseGrayReleaseService)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = MseResponse{Yaml: mseServiceYaml}
+}
+
+func GetMseOfflineResources(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	services, err := workflow.GetMseOfflineResources(c.Query("grayTag"), c.Query("envName"), c.Query("projectName"))
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = struct {
+		Services []string `json:"services"`
+	}{
+		Services: services,
+	}
+}
+
+func GetMseTagsInEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	tags, err := workflow.GetMseTagsInEnv(c.Param("envName"), c.Query("projectName"))
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = struct {
+		Tags []string `json:"tags"`
+	}{
+		Tags: tags,
+	}
+}
+
 func getBody(c *gin.Context) string {
 	b, err := c.GetRawData()
 	if err != nil {

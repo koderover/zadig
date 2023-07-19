@@ -58,7 +58,7 @@ func ListSecrets(envName, productName string, log *zap.SugaredLogger) ([]*ListSe
 		return nil, e.ErrListResources.AddDesc(err.Error())
 	}
 
-	secrets, err := getter.ListSecrets(product.Namespace, kubeClient)
+	secrets, err := getter.ListSecrets(product.Namespace, nil, kubeClient)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrListResources.AddDesc(err.Error())

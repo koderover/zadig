@@ -17,6 +17,7 @@ limitations under the License.
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -35,7 +36,15 @@ import (
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm/utils"
+	"helm.sh/helm/v3/pkg/releaseutil"
+	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/cli-runtime/pkg/printers"
+	"k8s.io/utils/pointer"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -55,9 +64,13 @@ import (
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
@@ -2050,6 +2063,342 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		Current: currentYaml,
 		Latest:  string(latestYamlContent),
 	}, nil
+}
+
+func GetMseOriginalServiceYaml(project, envName, serviceName, grayTag string) (string, error) {
+	yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+		ProductName:           project,
+		EnvName:               envName,
+		ServiceName:           serviceName,
+		UpdateServiceRevision: false,
+	})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to fetch current applied yaml")
+	}
+
+	var yamls []string
+	resources := make([]*unstructured.Unstructured, 0)
+	manifests := releaseutil.SplitManifests(yamlContent)
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			return "", errors.Errorf("failed to decode service %s yaml to unstructured: %v", serviceName, err)
+		}
+		resources = append(resources, u)
+	}
+	deploymentNum := 0
+	nameSuffix := "-mse-" + grayTag
+	for _, resource := range resources {
+		switch resource.GetKind() {
+		case setting.Deployment:
+			if deploymentNum > 0 {
+				return "", errors.Errorf("service-%s: only one deployment is allowed in each service", serviceName)
+			}
+			deploymentNum++
+
+			deploymentObj := &v1.Deployment{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, deploymentObj)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s deployment to deployment object: %v", serviceName, err)
+			}
+			if deploymentObj.Spec.Selector == nil || !checkMapKeyExist(deploymentObj.Spec.Selector.MatchLabels, types.ZadigReleaseVersionLabelKey) {
+				return "", errors.Errorf("service %s deployment label selector must contain %s", serviceName, types.ZadigReleaseVersionLabelKey)
+			}
+			if !checkMapKeyExist(deploymentObj.Spec.Template.Labels, types.ZadigReleaseVersionLabelKey) {
+				return "", errors.Errorf("service %s deployment template label must contain %s", serviceName, types.ZadigReleaseVersionLabelKey)
+			}
+			deploymentObj.Name += nameSuffix
+			deploymentObj.Spec.Replicas = pointer.Int32(1)
+			deploymentObj.Labels = setMseLabels(deploymentObj.Labels, grayTag, serviceName)
+			deploymentObj.Spec.Selector.MatchLabels = setMseDeploymentLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
+			deploymentObj.Spec.Template.Labels = setMseDeploymentLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
+			resp, err := toYaml(deploymentObj)
+			if err != nil {
+				return "", errors.Errorf("failed to marshal service %s deployment object: %v", serviceName, err)
+			}
+			yamls = append(yamls, resp)
+		case setting.ConfigMap:
+			cmObj := &corev1.ConfigMap{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, cmObj)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s ConfigMap to object: %v", serviceName, err)
+			}
+			cmObj.Name += nameSuffix
+			cmObj.Labels = setMseLabels(cmObj.Labels, grayTag, serviceName)
+			s, err := toYaml(cmObj)
+			if err != nil {
+				return "", errors.Errorf("failed to marshal service %s configmap object: %v", serviceName, err)
+			}
+			yamls = append(yamls, s)
+		case setting.Service:
+			serviceObj := &corev1.Service{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, serviceObj)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s Service to object: %v", serviceName, err)
+			}
+			serviceObj.Name += nameSuffix
+			serviceObj.Labels = setMseLabels(serviceObj.Labels, grayTag, serviceName)
+			serviceObj.Spec.Selector = setMseLabels(serviceObj.Spec.Selector, grayTag, serviceName)
+			s, err := toYaml(serviceObj)
+			if err != nil {
+				return "", errors.Errorf("failed to marshal service %s service object: %v", serviceName, err)
+			}
+			yamls = append(yamls, s)
+		case setting.Secret:
+			secretObj := &corev1.Secret{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, secretObj)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s Secret to object: %v", serviceName, err)
+			}
+			secretObj.Name += nameSuffix
+			secretObj.Labels = setMseLabels(secretObj.Labels, grayTag, serviceName)
+			s, err := toYaml(secretObj)
+			if err != nil {
+				return "", errors.Errorf("failed to marshal service %s secret object: %v", serviceName, err)
+			}
+			yamls = append(yamls, s)
+		default:
+			return "", errors.Errorf("service %s resource type %s not allowed", serviceName, resource.GetKind())
+		}
+	}
+	if deploymentNum == 0 {
+		return "", errors.Errorf("service %s must contain one deployment", serviceName)
+	}
+	return strings.Join(yamls, "---\n"), nil
+}
+
+func RenderMseServiceYaml(productName, envName, lastGrayTag, grayTag string, service *commonmodels.MseGrayReleaseService) (string, error) {
+	resources := make([]*unstructured.Unstructured, 0)
+	manifests := releaseutil.SplitManifests(service.YamlContent)
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			return "", errors.Errorf("failed to decode service %s yaml to unstructured: %v", service.ServiceName, err)
+		}
+		resources = append(resources, u)
+	}
+	deploymentNum := 0
+	var yamls []string
+	serviceName := service.ServiceName
+	getNameWithNewTag := func(name, lastTag, newTag string) string {
+		if !strings.HasSuffix(name, lastTag) {
+			return name
+		}
+		return strings.TrimSuffix(name, lastTag) + newTag
+	}
+	for _, resource := range resources {
+		switch resource.GetKind() {
+		case setting.Deployment:
+			if deploymentNum > 0 {
+				return "", errors.Errorf("service-%s: only one deployment is allowed in each service", serviceName)
+			}
+			deploymentNum++
+
+			deploymentObj := &v1.Deployment{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, deploymentObj)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s deployment to deployment object: %v", serviceName, err)
+			}
+			if deploymentObj.Spec.Selector == nil || !checkMapKeyExist(deploymentObj.Spec.Selector.MatchLabels, types.ZadigReleaseVersionLabelKey) {
+				return "", errors.Errorf("service %s deployment label selector must contain %s", serviceName, types.ZadigReleaseVersionLabelKey)
+			}
+			if !checkMapKeyExist(deploymentObj.Spec.Template.Labels, types.ZadigReleaseVersionLabelKey) {
+				return "", errors.Errorf("service %s deployment template label must contain %s", serviceName, types.ZadigReleaseVersionLabelKey)
+			}
+
+			deploymentObj.Name = getNameWithNewTag(deploymentObj.Name, lastGrayTag, grayTag)
+			deploymentObj.Labels = setMseLabels(deploymentObj.Labels, grayTag, serviceName)
+			deploymentObj.Spec.Selector.MatchLabels = setMseDeploymentLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
+			deploymentObj.Spec.Template.Labels = setMseDeploymentLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
+			Replicas := int32(service.Replicas)
+			deploymentObj.Spec.Replicas = &Replicas
+			resp, err := toYaml(deploymentObj)
+			if err != nil {
+				return "", errors.Errorf("failed to marshal service %s deployment object: %v", serviceName, err)
+			}
+			prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+				Name:    productName,
+				EnvName: envName,
+			})
+			if err != nil {
+				return "", errors.Errorf("failed to find product %s: %v", productName, err)
+			}
+			serviceModules := sets.NewString()
+			var newImages []*commonmodels.Container
+			for _, image := range service.ServiceAndImage {
+				serviceModules.Insert(image.ServiceModule)
+				newImages = append(newImages, &commonmodels.Container{
+					Name:  image.ServiceModule,
+					Image: image.Image,
+				})
+			}
+			for _, services := range prod.Services {
+				for _, productService := range services {
+					for _, container := range productService.Containers {
+						if !serviceModules.Has(container.Name) {
+							newImages = append(newImages, &commonmodels.Container{
+								Name:  container.Name,
+								Image: container.Image,
+							})
+						}
+					}
+				}
+			}
+			resp, _, err = kube.ReplaceWorkloadImages(resp, newImages)
+			if err != nil {
+				return "", errors.Errorf("failed to replace service %s deployment image: %v", serviceName, err)
+			}
+			yamls = append(yamls, resp)
+		case setting.ConfigMap:
+			cmObj := &corev1.ConfigMap{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, cmObj)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s ConfigMap to object: %v", serviceName, err)
+			}
+			cmObj.Name = getNameWithNewTag(cmObj.Name, lastGrayTag, grayTag)
+			cmObj.SetLabels(setMseLabels(cmObj.GetLabels(), grayTag, serviceName))
+			s, err := toYaml(cmObj)
+			if err != nil {
+				return "", errors.Errorf("failed to marshal service %s configmap object: %v", serviceName, err)
+			}
+			yamls = append(yamls, s)
+		case setting.Service:
+			serviceObj := &corev1.Service{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, serviceObj)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s Service to object: %v", serviceName, err)
+			}
+			serviceObj.Name = getNameWithNewTag(serviceObj.Name, lastGrayTag, grayTag)
+			serviceObj.SetLabels(setMseLabels(serviceObj.GetLabels(), grayTag, serviceName))
+			serviceObj.Spec.Selector = setMseLabels(serviceObj.Spec.Selector, grayTag, serviceName)
+			s, err := toYaml(serviceObj)
+			if err != nil {
+				return "", errors.Errorf("failed to marshal service %s service object: %v", serviceName, err)
+			}
+			yamls = append(yamls, s)
+		case setting.Secret:
+			secretObj := &corev1.Secret{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, secretObj)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s Secret to object: %v", serviceName, err)
+			}
+			secretObj.Name = getNameWithNewTag(secretObj.Name, lastGrayTag, grayTag)
+			secretObj.SetLabels(setMseLabels(secretObj.GetLabels(), grayTag, serviceName))
+			s, err := toYaml(secretObj)
+			if err != nil {
+				return "", errors.Errorf("failed to marshal service %s secret object: %v", serviceName, err)
+			}
+			yamls = append(yamls, s)
+		default:
+			return "", errors.Errorf("service %s resource type %s not allowed", serviceName, resource.GetKind())
+		}
+	}
+	if deploymentNum == 0 {
+		return "", errors.Errorf("service %s must contain one deployment", serviceName)
+	}
+	return strings.Join(yamls, "---\n"), nil
+}
+
+func toYaml(obj runtime.Object) (string, error) {
+	y := printers.YAMLPrinter{}
+	writer := bytes.NewBuffer(nil)
+	err := y.PrintObj(obj, writer)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to marshal object to yaml")
+	}
+	return writer.String(), nil
+}
+
+func GetMseOfflineResources(grayTag, envName, projectName string) ([]string, error) {
+	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return nil, errors.Errorf("failed to find product %s: %v", projectName, err)
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	if err != nil {
+		return nil, err
+	}
+	selector := labels.Set{
+		types.ZadigReleaseTypeLabelKey:    types.ZadigReleaseTypeMseGray,
+		types.ZadigReleaseVersionLabelKey: grayTag,
+	}.AsSelector()
+	deploymentList, err := getter.ListDeployments(prod.Namespace, selector, kubeClient)
+	if err != nil {
+		return nil, errors.Errorf("can't list deployment: %v", err)
+	}
+	var services []string
+	for _, deployment := range deploymentList {
+		if service := deployment.Labels[types.ZadigReleaseServiceNameLabelKey]; service != "" {
+			services = append(services, service)
+		} else {
+			log.Warnf("GetMseOfflineResources: deployment %s has no service name label", deployment.Name)
+		}
+	}
+
+	return services, nil
+}
+
+func GetMseTagsInEnv(envName, projectName string) ([]string, error) {
+	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return nil, errors.Errorf("failed to find product %s: %v", projectName, err)
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	if err != nil {
+		return nil, err
+	}
+	selector := labels.Set{
+		types.ZadigReleaseTypeLabelKey: types.ZadigReleaseTypeMseGray,
+	}.AsSelector()
+	deploymentList, err := getter.ListDeployments(prod.Namespace, selector, kubeClient)
+	if err != nil {
+		return nil, errors.Errorf("can't list deployment: %v", err)
+	}
+	tags := sets.NewString()
+	for _, deployment := range deploymentList {
+		if tag := deployment.Labels[types.ZadigReleaseVersionLabelKey]; tag != "" {
+			tags.Insert(tag)
+		} else {
+			log.Warnf("GetMseTagsInEnv: deployment %s has no release version tag", deployment.Name)
+		}
+	}
+
+	return tags.List(), nil
+}
+
+func setMseDeploymentLabels(labels map[string]string, grayTag, serviceName string) map[string]string {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[types.ZadigReleaseVersionLabelKey] = grayTag
+	labels[types.ZadigReleaseMSEGrayTagLabelKey] = grayTag
+	labels[types.ZadigReleaseTypeLabelKey] = types.ZadigReleaseTypeMseGray
+	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName
+	return labels
+}
+
+func setMseLabels(labels map[string]string, grayTag, serviceName string) map[string]string {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[types.ZadigReleaseVersionLabelKey] = grayTag
+	labels[types.ZadigReleaseTypeLabelKey] = types.ZadigReleaseTypeMseGray
+	labels[types.ZadigReleaseServiceNameLabelKey] = serviceName
+	return labels
+}
+
+func checkMapKeyExist(m map[string]string, key string) bool {
+	if m == nil {
+		return false
+	}
+	_, ok := m[key]
+	return ok
 }
 
 func filterServiceVars(serviceName string, deployContents []config.DeployContent, service *commonmodels.DeployService, serviceEnv *commonservice.EnvService) (*commonmodels.DeployService, error) {

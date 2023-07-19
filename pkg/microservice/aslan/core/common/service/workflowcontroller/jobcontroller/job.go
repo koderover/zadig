@@ -86,6 +86,10 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewWorkflowTriggerJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobOfflineService):
 		jobCtl = NewOfflineServiceJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobMseGrayRelease):
+		jobCtl = NewMseGrayReleaseJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobMseGrayOffline):
+		jobCtl = NewMseGrayOfflineJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}

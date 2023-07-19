@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -53,6 +54,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -182,6 +184,10 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		log.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", env.ClusterID, err)
 		return nil, e.ErrGetService.AddErr(err)
 	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(err)
+	}
 
 	inf, err := informer.NewInformer(env.ClusterID, env.Namespace, clientset)
 	if err != nil {
@@ -191,28 +197,54 @@ func GetService(envName, productName, serviceName string, production bool, workL
 
 	projectType := getProjectType(productName)
 	var serviceTmpl *commonmodels.Service
-	if projectType == setting.K8SDeployType {
+	switch projectType {
+	case setting.K8SDeployType:
 		productSvc := env.GetServiceMap()[serviceName]
-		if productSvc == nil {
-			return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find service %s in product %s", serviceName, productName))
+		if productSvc != nil {
+			serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: serviceName,
+				Revision:    productSvc.Revision,
+				ProductName: productSvc.ProductName,
+			}, env.Production)
+			if err != nil {
+				return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find template service %s in product %s", serviceName, productName))
+			}
+			ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
+			if err != nil {
+				return nil, e.ErrGetService.AddErr(err)
+			}
 		}
-
-		serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-			ServiceName: serviceName,
-			Revision:    productSvc.Revision,
-			ProductName: productSvc.ProductName,
-		}, env.Production)
+		// when not found service in product, we should find it as a fake service of ZadigxReleaseResource
+		// if raw service resources not found will be nil , we should create it
+		if ret == nil {
+			ret = &SvcResp{
+				ServiceName: serviceName,
+				EnvName:     envName,
+				ProductName: productName,
+				Services:    make([]*internalresource.Service, 0),
+				Ingress:     make([]*internalresource.Ingress, 0),
+				Scales:      make([]*internalresource.Workload, 0),
+				CronJobs:    make([]*internalresource.CronJob, 0),
+			}
+		}
+		mseResp, err := GetMseServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
 		if err != nil {
-			return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find template service %s in product %s", serviceName, productName))
+			return nil, e.ErrGetService.AddErr(errors.Wrap(err, "failed to get mse service"))
 		}
+		ret.Scales = append(ret.Scales, mseResp.Scales...)
+		ret.Services = append(ret.Services, mseResp.Services...)
+		ret.Workloads = nil
+		ret.Namespace = env.Namespace
+
+	default:
+		ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
+		if err != nil {
+			return nil, e.ErrGetService.AddErr(err)
+		}
+		ret.Workloads = nil
+		ret.Namespace = env.Namespace
 	}
 
-	ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
-	}
-	ret.Workloads = nil
-	ret.Namespace = env.Namespace
 	return ret, nil
 }
 
@@ -382,7 +414,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 	default:
 		service := env.GetServiceMap()[serviceName]
 		if service == nil {
-			return nil, e.ErrGetService.AddDesc("failed to find service: %s in environment: %s")
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find service in environment: %s", envName))
 		}
 
 		env.EnsureRenderInfo()
@@ -485,6 +517,50 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 			}
 		}
 	}
+	return
+}
+
+func GetMseServiceImpl(serviceName string, workLoadType string, env *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+	envName, productName := env.EnvName, env.ProductName
+	ret = &SvcResp{
+		ServiceName: serviceName,
+		EnvName:     envName,
+		ProductName: productName,
+		Services:    make([]*internalresource.Service, 0),
+		Ingress:     make([]*internalresource.Ingress, 0),
+		Scales:      make([]*internalresource.Workload, 0),
+		CronJobs:    make([]*internalresource.CronJob, 0),
+	}
+	err = nil
+
+	namespace := env.Namespace
+	switch env.Source {
+	case setting.SourceFromExternal, setting.SourceFromHelm:
+		return nil, e.ErrGetService.AddDesc("not support external service")
+	default:
+		selector := labels.SelectorFromSet(map[string]string{
+			types.ZadigReleaseServiceNameLabelKey: serviceName,
+			types.ZadigReleaseTypeLabelKey:        types.ZadigReleaseTypeMseGray,
+		})
+		deployments, err := getter.ListDeployments(namespace, selector, kubeClient)
+		if err != nil {
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to list deployments, service %s in %s: %v", serviceName, namespace, err))
+		}
+		for _, deployment := range deployments {
+			ret.Scales = append(ret.Scales, getDeploymentWorkloadResource(deployment, inf, log))
+			ret.Scales[len(ret.Scales)-1].ZadigXReleaseType = config.ZadigXMseGrayRelease
+			ret.Scales[len(ret.Scales)-1].ZadigXReleaseTag = deployment.Labels[types.ZadigReleaseVersionLabelKey]
+			ret.Workloads = append(ret.Workloads, toDeploymentWorkload(deployment))
+		}
+		services, err := getter.ListServices(namespace, selector, kubeClient)
+		if err != nil {
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to get service, service %s in %s: %v", serviceName, namespace, err))
+		}
+		for _, service := range services {
+			ret.Services = append(ret.Services, wrapper.Service(service).Resource())
+		}
+	}
+
 	return
 }
 

@@ -21,6 +21,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -28,10 +33,13 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
-	"go.uber.org/zap"
 )
 
 type EnvGroupRequest struct {
@@ -119,6 +127,11 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		svc.DeployStrategy = productInfo.ServiceDeployStrategy[svc.ServiceName]
 	}
 
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("[%s][%s] failed to get kubeclient error: %v", envName, productName, err)
+		return resp, count, e.ErrListGroups.AddDesc(err.Error())
+	}
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
@@ -140,5 +153,71 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		currentServices = allServices[currentPage*perPage:]
 	}
 	resp = envHandleFunc(getProjectType(productName), log).listGroupServices(currentServices, envName, inf, productInfo)
+
+	respMap := make(map[string]*commonservice.ServiceResp)
+	for _, serviceResp := range resp {
+		respMap[serviceResp.ServiceName] = serviceResp
+	}
+	mseService, err := listZadigXMseReleaseServices(productInfo.Namespace, productName, envName, kubeClient)
+	if err != nil {
+		return resp, count, e.ErrListGroups.AddErr(errors.Wrap(err, "list mse release services"))
+	}
+	log.Debugf("mse release services num: %d", len(mseService))
+	for _, serviceResp := range mseService {
+		if svc, ok := respMap[serviceResp.ServiceName]; !ok {
+			resp = append(resp, serviceResp)
+		} else {
+			// when zadigx release resource exists, should set ZadigXReleaseType field too
+			svc.ZadigXReleaseType = serviceResp.ZadigXReleaseType
+			svc.ZadigXReleaseTag = serviceResp.ZadigXReleaseTag
+		}
+	}
 	return resp, count, nil
+}
+
+func listZadigXMseReleaseServices(namespace, productName, envName string, client client.Client) ([]*commonservice.ServiceResp, error) {
+	selector := labels.Set{types.ZadigReleaseTypeLabelKey: types.ZadigReleaseTypeMseGray}.AsSelector()
+	deployments, err := getter.ListDeployments(namespace, selector, client)
+	if err != nil {
+		return nil, err
+	}
+	services := make([]*commonservice.ServiceResp, 0)
+	serviceSets := make(map[string]*commonservice.ServiceResp)
+	for _, deployment := range deployments {
+		serviceName := deployment.GetLabels()[types.ZadigReleaseServiceNameLabelKey]
+		if serviceName == "" {
+			log.Warnf("listZadigXMseReleaseServices: deployment %s/%s has no service name label", deployment.Namespace, deployment.Name)
+			continue
+		}
+		if resp, ok := serviceSets[serviceName]; ok {
+			resp.Images = append(resp.Images, wrapper.Deployment(deployment).ImageInfos()...)
+			resp.Status = func() string {
+				if resp.Status == setting.PodUnstable || deployment.Status.Replicas != deployment.Status.ReadyReplicas {
+					return setting.PodUnstable
+				}
+				return setting.PodRunning
+			}()
+			continue
+		}
+		svcResp := &commonservice.ServiceResp{
+			ServiceName: serviceName,
+			Type:        setting.K8SDeployType,
+			Status: func() string {
+				if deployment.Status.Replicas == deployment.Status.ReadyReplicas {
+					return setting.PodRunning
+				}
+				return setting.PodUnstable
+
+			}(),
+			Images:            wrapper.Deployment(deployment).ImageInfos(),
+			ProductName:       productName,
+			EnvName:           envName,
+			DeployStrategy:    "deploy",
+			ZadigXReleaseType: config.ZadigXMseGrayRelease,
+			ZadigXReleaseTag:  deployment.GetLabels()[types.ZadigReleaseVersionLabelKey],
+		}
+		serviceSets[serviceName] = svcResp
+		services = append(services, svcResp)
+	}
+	return services, nil
 }

@@ -556,6 +556,41 @@ type IstioJobTarget struct {
 	TargetReplica      int    `bson:"target_replica,omitempty"  json:"target_replica,omitempty"  yaml:"target_replica,omitempty"`
 }
 
+type MseGrayReleaseJobSpec struct {
+	Production         bool                     `bson:"production" json:"production" yaml:"production"`
+	GrayTag            string                   `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
+	BaseEnv            string                   `bson:"base_env" json:"base_env" yaml:"base_env"`
+	GrayEnv            string                   `bson:"gray_env" json:"gray_env" yaml:"gray_env"`
+	GrayEnvSource      string                   `bson:"gray_env_source" json:"gray_env_source" yaml:"gray_env_source"`
+	DockerRegistryID   string                   `bson:"docker_registry_id" json:"docker_registry_id" yaml:"docker_registry_id"`
+	SkipCheckRunStatus bool                     `bson:"skip_check_run_status" json:"skip_check_run_status" yaml:"skip_check_run_status"`
+	GrayServices       []*MseGrayReleaseService `bson:"gray_services" json:"gray_services" yaml:"gray_services"`
+}
+
+type MseGrayReleaseService struct {
+	ServiceName     string                                 `bson:"service_name" json:"service_name" yaml:"service_name"`
+	Replicas        int                                    `bson:"replicas"     json:"replicas"     yaml:"replicas"`
+	YamlContent     string                                 `bson:"yaml" json:"yaml" yaml:"yaml"`
+	ServiceAndImage []*MseGrayReleaseServiceModuleAndImage `bson:"service_and_image" json:"service_and_image" yaml:"service_and_image"`
+}
+
+type MseGrayReleaseServiceModuleAndImage struct {
+	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
+	Image         string `bson:"image"          json:"image"          yaml:"image"`
+	// Following fields only save for frontend
+	ImageName   string `bson:"image_name"     json:"image_name"     yaml:"image_name"`
+	Name        string `bson:"name"           json:"name"           yaml:"name"`
+	ServiceName string `bson:"service_name"   json:"service_name"   yaml:"service_name"`
+	Value       string `bson:"value"          json:"value"          yaml:"value"`
+}
+
+type MseGrayOfflineJobSpec struct {
+	Env        string `bson:"env" json:"env" yaml:"env"`
+	Source     string `bson:"source" json:"source" yaml:"source"`
+	GrayTag    string `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`
+	Production bool   `bson:"production" json:"production" yaml:"production"`
+}
+
 type NacosJobSpec struct {
 	NacosID           string               `bson:"nacos_id"            json:"nacos_id"            yaml:"nacos_id"`
 	NamespaceID       string               `bson:"namespace_id"        json:"namespace_id"        yaml:"namespace_id"`
