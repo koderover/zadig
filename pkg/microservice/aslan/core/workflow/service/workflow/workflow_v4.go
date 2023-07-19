@@ -35,16 +35,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
-	"k8s.io/apimachinery/pkg/labels"
-
+	"gorm.io/gorm/utils"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"gorm.io/gorm/utils"
-
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/utils/pointer"

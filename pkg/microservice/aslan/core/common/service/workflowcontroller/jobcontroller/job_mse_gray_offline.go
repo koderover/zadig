@@ -30,13 +30,12 @@ import (
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/types"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type MseGrayOfflineJobCtl struct {
@@ -78,7 +77,7 @@ func (c *MseGrayOfflineJobCtl) Run(ctx context.Context) {
 		EnvName: c.jobTaskSpec.Env,
 	})
 	if err != nil {
-		msg := fmt.Sprintf("find project error: %v", err)
+		msg := fmt.Sprintf("find env %s error: %v", c.jobTaskSpec.Env, err)
 		logError(c.job, msg, c.logger)
 		return
 	}
