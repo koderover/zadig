@@ -811,8 +811,10 @@ definitions:
     properties:
       analysis_config:
         $ref: '#/definitions/models.AnalysisConfig'
-      notification_config:
-        $ref: '#/definitions/models.NotificationConfig'
+      notification_configs:
+        items:
+          $ref: '#/definitions/models.NotificationConfig'
+        type: array
     type: object
   service.EnvDefinition:
     properties:

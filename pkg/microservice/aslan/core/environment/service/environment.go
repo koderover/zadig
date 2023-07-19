@@ -3049,8 +3049,8 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 }
 
 type EnvConfigsArgs struct {
-	AnalysisConfig     *models.AnalysisConfig     `json:"analysis_config"`
-	NotificationConfig *models.NotificationConfig `json:"notification_config"`
+	AnalysisConfig      *models.AnalysisConfig       `json:"analysis_config"`
+	NotificationConfigs []*models.NotificationConfig `json:"notification_configs"`
 }
 
 func GetEnvConfigs(projectName, envName string, production *bool, logger *zap.SugaredLogger) (*EnvConfigsArgs, error) {
@@ -3068,14 +3068,14 @@ func GetEnvConfigs(projectName, envName string, production *bool, logger *zap.Su
 	if env.AnalysisConfig != nil {
 		analysisConfig = env.AnalysisConfig
 	}
-	notificationConfig := &models.NotificationConfig{}
-	if env.NotificationConfig != nil {
-		notificationConfig = env.NotificationConfig
+	notificationConfigs := []*models.NotificationConfig{}
+	if env.NotificationConfigs != nil {
+		notificationConfigs = env.NotificationConfigs
 	}
 
 	configs := &EnvConfigsArgs{
-		AnalysisConfig:     analysisConfig,
-		NotificationConfig: notificationConfig,
+		AnalysisConfig:      analysisConfig,
+		NotificationConfigs: notificationConfigs,
 	}
 	return configs, nil
 }
@@ -3098,7 +3098,7 @@ func UpdateEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, producti
 		}
 	}
 
-	err = commonrepo.NewProductColl().UpdateConfigs(envName, projectName, arg.AnalysisConfig, arg.NotificationConfig)
+	err = commonrepo.NewProductColl().UpdateConfigs(envName, projectName, arg.AnalysisConfig, arg.NotificationConfigs)
 	if err != nil {
 		return e.ErrUpdateEnvConfigs.AddErr(fmt.Errorf("failed to update environment %s/%s, err: %w", projectName, envName, err))
 	}
@@ -3201,15 +3201,14 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 	if err != nil {
 		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to print analysis result, err: %w", err))
 	}
-	log.Debugf("analysis result: %s", string(analysisResult))
 
 	if triggerName == setting.CronTaskCreator {
 		util.Go(func() {
-			err := EnvAnalysisNotification(projectName, envName, string(analysisResult), env.NotificationConfig)
+			err := EnvAnalysisNotification(projectName, envName, string(analysisResult), env.NotificationConfigs)
 			if err != nil {
 				log.Errorf("failed to send notification, err: %w", err)
 			} else {
-				log.Infof("send notification successfully")
+				log.Infof("send env analysis notification successfully")
 			}
 		})
 	}
@@ -3373,39 +3372,41 @@ func GetEnvAnalysisHistory(projectName string, production bool, envName string, 
 	return result, count, nil
 }
 
-func EnvAnalysisNotification(projectName, envName, result string, config *commonmodels.NotificationConfig) error {
-	eventSet := sets.NewString()
-	for _, event := range config.Events {
-		eventSet.Insert(string(event))
-	}
-
-	status := commonmodels.NotificationEventAnalyzerNoraml
-	if result != "" {
-		status = commonmodels.NotificationEventAnalyzerAbnormal
-	}
-	if !eventSet.Has(string(status)) {
-		return nil
-	}
-
-	title, content, larkCard, err := getNotificationContent(projectName, envName, result, imnotify.IMNotifyType(config.WebHookType))
-	if err != nil {
-		return fmt.Errorf("failed to get notification content, err: %w", err)
-	}
-
-	imnotifyClient := imnotify.NewIMNotifyClient()
-
-	switch imnotify.IMNotifyType(config.WebHookType) {
-	case imnotify.IMNotifyTypeDingDing:
-		if err := imnotifyClient.SendDingDingMessage(config.WebHookURL, title, content, nil, false); err != nil {
-			return err
+func EnvAnalysisNotification(projectName, envName, result string, configs []*commonmodels.NotificationConfig) error {
+	for _, config := range configs {
+		eventSet := sets.NewString()
+		for _, event := range config.Events {
+			eventSet.Insert(string(event))
 		}
-	case imnotify.IMNotifyTypeLark:
-		if err := imnotifyClient.SendFeishuMessage(config.WebHookURL, larkCard); err != nil {
-			return err
+
+		status := commonmodels.NotificationEventAnalyzerNoraml
+		if result != "" {
+			status = commonmodels.NotificationEventAnalyzerAbnormal
 		}
-	case imnotify.IMNotifyTypeWeChat:
-		if err := imnotifyClient.SendWeChatWorkMessage(imnotify.WeChatTextTypeMarkdown, config.WebHookURL, content); err != nil {
-			return err
+		if !eventSet.Has(string(status)) {
+			return nil
+		}
+
+		title, content, larkCard, err := getNotificationContent(projectName, envName, result, imnotify.IMNotifyType(config.WebHookType))
+		if err != nil {
+			return fmt.Errorf("failed to get notification content, err: %w", err)
+		}
+
+		imnotifyClient := imnotify.NewIMNotifyClient()
+
+		switch imnotify.IMNotifyType(config.WebHookType) {
+		case imnotify.IMNotifyTypeDingDing:
+			if err := imnotifyClient.SendDingDingMessage(config.WebHookURL, title, content, nil, false); err != nil {
+				return err
+			}
+		case imnotify.IMNotifyTypeLark:
+			if err := imnotifyClient.SendFeishuMessage(config.WebHookURL, larkCard); err != nil {
+				return err
+			}
+		case imnotify.IMNotifyTypeWeChat:
+			if err := imnotifyClient.SendWeChatWorkMessage(imnotify.WeChatTextTypeMarkdown, config.WebHookURL, content); err != nil {
+				return err
+			}
 		}
 	}
 
