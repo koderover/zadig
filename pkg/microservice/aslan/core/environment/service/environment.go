@@ -833,7 +833,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceName, scene st
 
 	targetSvcTmplRevision := int64(0)
 	prodSvc := productInfo.GetServiceMap()[serviceName]
-	if scene == usageScenarioCreateEnv {
+	if scene == usageScenarioUpdateRenderSet {
 		if prodSvc == nil {
 			return nil, nil, nil, nil, fmt.Errorf("can't find service in env: %s, name %s", productInfo.EnvName, serviceName)
 		}
