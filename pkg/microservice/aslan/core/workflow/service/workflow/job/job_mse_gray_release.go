@@ -150,6 +150,7 @@ func (j *MseGrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 				SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
 				GrayService:        *service,
 				Timeout:            timeout,
+				Production:         j.spec.Production,
 			},
 		})
 	}

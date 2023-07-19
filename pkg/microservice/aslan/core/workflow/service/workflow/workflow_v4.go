@@ -2236,8 +2236,8 @@ func GetMseServiceYaml(project, envName, serviceName, grayTag string) (string, e
 			deploymentObj.Name += nameSuffix
 			deploymentObj.Spec.Replicas = pointer.Int32(1)
 			deploymentObj.Labels = setMseLabels(deploymentObj.Labels, grayTag, serviceName)
-			deploymentObj.Spec.Selector.MatchLabels = setMseLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
-			deploymentObj.Spec.Template.Labels = setMseLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
+			deploymentObj.Spec.Selector.MatchLabels = setMseDeploymentLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
+			deploymentObj.Spec.Template.Labels = setMseDeploymentLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
 			resp, err := toYaml(deploymentObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s deployment object: %v", serviceName, err)
@@ -2333,7 +2333,7 @@ func RenderMseServiceYaml(productName, envName, lastGrayTag, grayTag string, ser
 			}
 
 			deploymentObj.Name = getNameWithNewTag(deploymentObj.Name, lastGrayTag, grayTag)
-			deploymentObj.Labels = setMseDeploymentLabels(deploymentObj.Labels, grayTag, serviceName)
+			deploymentObj.Labels = setMseLabels(deploymentObj.Labels, grayTag, serviceName)
 			deploymentObj.Spec.Selector.MatchLabels = setMseDeploymentLabels(deploymentObj.Spec.Selector.MatchLabels, grayTag, serviceName)
 			deploymentObj.Spec.Template.Labels = setMseDeploymentLabels(deploymentObj.Spec.Template.Labels, grayTag, serviceName)
 			Replicas := int32(service.Replicas)

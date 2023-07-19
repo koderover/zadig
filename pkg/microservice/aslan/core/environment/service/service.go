@@ -200,6 +200,7 @@ func GetService(envName, productName, serviceName string, production bool, workL
 	if projectType == setting.K8SDeployType {
 		productSvc := env.GetServiceMap()[serviceName]
 		if productSvc == nil {
+			// when not found service in product, we should find it as a fake service of ZadigxReleaseResource
 			goto MSE
 		}
 
@@ -214,7 +215,7 @@ func GetService(envName, productName, serviceName string, production bool, workL
 	}
 
 	ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
-	if err != nil && !strings.Contains(err.Error(), "failed to find service in environment") {
+	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
 	}
 MSE:
