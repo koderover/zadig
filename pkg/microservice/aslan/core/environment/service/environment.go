@@ -672,7 +672,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 				continue
 			}
 
-			svr.Containers = calculateContainer(ps, svr, productResp)
+			svr.Containers = kube.CalculateContainer(ps, svr.Containers, productResp)
 		}
 		allServices = append(allServices, svcGroup)
 	}
@@ -907,7 +907,7 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 
 	images := make([]string, 0)
 
-	containers := kube.CalculateContainer(productSvc, latestSvc, productInfo)
+	containers := kube.CalculateContainer(productSvc, latestSvc.Containers, productInfo)
 
 	for _, container := range containers {
 		images = append(images, container.Image)
