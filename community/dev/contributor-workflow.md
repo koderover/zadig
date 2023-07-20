@@ -45,14 +45,14 @@ Zadig 后端使用 Go 语言，在您贡献代码之前，本地需安装 Go 1.1
 > 服务列表：aslan cron hub-server hub-agent resource-server predator-plugin ua warpdrive
 > 请确认当前构建环境有推送镜像至开发环境的远端仓库的权限
 
-1. 执行 `export IMAGE_REPOSITOR={YOUR_IMAGE_REGISTRY_URL}`指定目标镜像仓库地址
+1. 执行 `export IMAGE_REPOSITORY={YOUR_IMAGE_REGISTRY_URL}`指定目标镜像仓库地址
 2. 执行 `export VERSION={YOUR_IMAGE_TAG}` 指定镜像 TAG
 3. 在 zadig 代码库根目录执行 `make {SERVICE}.push` 构建出镜像并上传至镜像仓库
 
 ### 前端构建
 > 请确认当前构建环境有推送镜像至远端仓库的权限
 1. 切换至 zadig-portal 目录
-2. 执行 `export IMAGE_REPOSITOR={YOUR_IMAGE_REGISTRY_URL}`指定目标镜像仓库地址
+2. 执行 `export IMAGE_REPOSITORY={YOUR_IMAGE_REGISTRY_URL}`指定目标镜像仓库地址
 3. 执行 `export VERSION={YOUR_IMAGE_TAG}` 指定镜像 TAG
 4. 执行 make all 构建镜像并上传至镜像仓库
 
