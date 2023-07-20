@@ -357,7 +357,7 @@ func compareServicesRev(serviceTmplNames []string, productServices []*commonmode
 						if exitedContainer.Name == container.Name {
 							if containerImageChanged(curUsedSvc, exitedContainer) {
 								c.Image = exitedContainer.Image
-								c.Image = exitedContainer.ImageName
+								c.ImageName = exitedContainer.ImageName
 							}
 							break
 						}
