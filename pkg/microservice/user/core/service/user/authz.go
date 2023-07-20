@@ -22,6 +22,11 @@ import (
 )
 
 func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResources, error) {
+	// system calls
+	if uid == "" {
+		return generateAdminRoleResource(), nil
+	}
+
 	userRoleBindingList, err := mongodb.NewRoleBindingColl().ListUserRoleBinding(uid)
 	if err != nil {
 		logger.Errorf("failed to list user role binding, error: %s", err)
@@ -106,6 +111,7 @@ func generateAdminRoleResource() *AuthorizedResources {
 	return &AuthorizedResources{
 		IsSystemAdmin:   true,
 		ProjectAuthInfo: nil,
+		SystemActions:   nil,
 		//AdditionalResource: nil,
 	}
 }

@@ -99,9 +99,8 @@ func NewContextWithAuthorization(c *gin.Context) (*Context, error) {
 	var resourceAuthInfo *user.AuthorizedResources
 	var err error
 	resp := NewContext(c)
-	if resp.UserID != "" {
-		resourceAuthInfo, err = user.New().GetUserAuthInfo(resp.UserID)
-	}
+	// there is a case where the request does not have token (system call), in this case we will have admin access
+	resourceAuthInfo, err = user.New().GetUserAuthInfo(resp.UserID)
 	if err != nil {
 		logger.Errorf("failed to generate user authorization info, error: %s", err)
 		return nil, err
@@ -126,6 +125,20 @@ func GetResourcesInHeader(c *gin.Context) ([]string, bool) {
 	}
 
 	return resources, true
+}
+
+type checkCollaborationModePermissionReq struct {
+	UID        string `json:"uid" form:"uid"`
+	ProjectKey string `json:"project_key" form:"project_key"`
+	Resource   string `json:"resource" form:"resource"`
+	Action     string `json:"action" form:"action"`
+}
+
+func GetCollaborationModePermission(uid, projectKey, resource, action string) (isPermitted bool, err error) {
+	isPermitted = false
+	err = nil
+
+	resp
 }
 
 func getUserFromJWT(token string) (jwtClaims, error) {

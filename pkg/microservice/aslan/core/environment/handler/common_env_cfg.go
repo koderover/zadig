@@ -67,7 +67,11 @@ func DeleteCommonEnvCfg(c *gin.Context) {
 			return
 		}
 
-		// todo: collaboration mode support
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, "a", "b", "c")
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = service.DeleteCommonEnvCfg(envName, projectKey, objectName, config.CommonEnvCfgType(commonEnvCfgType), ctx.Logger)

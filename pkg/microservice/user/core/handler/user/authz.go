@@ -31,3 +31,21 @@ func GetUserAuthInfo(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = userservice.GetUserAuthInfo(uid, ctx.Logger)
 }
+
+type checkCollaborationModePermissionReq struct {
+	UID        string `json:"uid"`
+	ProjectKey string `json:"project_key"`
+	Resource   string `json:"resource"`
+	Action     string `json:"action"`
+}
+
+func CheckCollaborationModePermission(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &checkCollaborationModePermissionReq{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+}
