@@ -66,7 +66,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
@@ -615,50 +614,6 @@ func UpdateProductAlias(envName, productName, alias string) error {
 	return nil
 }
 
-func buildContainerMap(cs []*models.Container) map[string]*models.Container {
-	containerMap := make(map[string]*models.Container)
-	for _, c := range cs {
-		containerMap[c.Name] = c
-	}
-	return containerMap
-}
-
-// calculateContainer calculates containers to be applied into environments for helm projects
-// if image has no change since last deploy, containers in latest service will be used
-// if image hse been change since lase deploy (eg. workflow), current values will be remained
-func calculateContainer(productSvc, latestSvc *commonmodels.ProductService, productInfo *commonmodels.Product) []*models.Container {
-	resp := make([]*models.Container, 0)
-
-	if productInfo == nil {
-		return latestSvc.Containers
-	}
-
-	curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-		ServiceName: productSvc.ServiceName,
-		Revision:    productSvc.Revision,
-		ProductName: productSvc.ProductName,
-	}, productInfo.Production)
-	if err != nil {
-		log.Errorf("QueryTemplateService error: %v", err)
-		return productSvc.Containers
-	}
-
-	prodSvcContainers := buildContainerMap(productSvc.Containers)
-	prodTmpContainers := buildContainerMap(curUsedSvc.Containers)
-
-	for _, container := range latestSvc.Containers {
-		prodSvcContainer, _ := prodSvcContainers[container.Name]
-		prodTmpContainer, _ := prodTmpContainers[container.Name]
-		// image has changed in zadig since last deploy
-		if prodSvcContainer != nil && prodTmpContainer != nil && prodSvcContainer.Image != prodTmpContainer.Image {
-			container.Image = prodSvcContainer.Image
-		}
-		resp = append(resp, container)
-	}
-
-	return resp
-}
-
 func updateHelmProduct(productName, envName, username, requestID string, overrideCharts []*commonservice.HelmSvcRenderArg, deletedServices []string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
@@ -952,10 +907,7 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 
 	images := make([]string, 0)
 
-	containers := calculateContainer(productSvc, &commonmodels.ProductService{
-		ServiceName: latestSvc.ServiceName,
-		Containers:  latestSvc.Containers,
-	}, productInfo)
+	containers := kube.CalculateContainer(productSvc, latestSvc, productInfo)
 
 	for _, container := range containers {
 		images = append(images, container.Image)
