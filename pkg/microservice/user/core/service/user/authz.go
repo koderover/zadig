@@ -17,6 +17,7 @@ limitations under the License.
 package user
 
 import (
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"go.uber.org/zap"
 )
@@ -106,6 +107,26 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 
 	return resp, nil
 }
+
+func CheckCollaborationModePermission(uid, projectKey, resource, resourceName, action string) (hasPermission bool, err error) {
+	hasPermission = false
+	collabInstance, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	if findErr != nil {
+		err = findErr
+		return
+	}
+
+	switch resource {
+	case ResourceTypeWorkflow:
+	case ResourceTypeEnvironment:
+	default:
+		return
+	}
+	return
+}
+
+// TODO: finish me
+func checkWorkflowPermission(list []models.WorkflowCIItem)
 
 func generateAdminRoleResource() *AuthorizedResources {
 	return &AuthorizedResources{
