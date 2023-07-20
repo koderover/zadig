@@ -144,7 +144,6 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		mergedValuesYaml string
 		servicePath      string
 		chartPath        string
-		replaceValuesMap map[string]interface{}
 		renderInfo       *types.RenderSet
 		helmClient       helmclient.Client
 	)
@@ -172,7 +171,6 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 
 	serviceRevisionInProduct := int64(0)
 	involvedImagePaths := make(map[string]*commonmodels.ImagePathSpec)
-
 	targetContainers := make(map[string]*commonmodels.Container, 0)
 
 	for _, service := range productInfo.GetServiceMap() {
@@ -238,27 +236,12 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		return
 	}
 
-	replaceValuesMap = make(map[string]interface{})
-
 	imageKVS := make([]*helmtool.KV, 0)
 	replaceValuesMaps := make([]map[string]interface{}, 0)
 
 	for _, sPlugin := range p.ContentPlugins {
 		containerName := strings.TrimSuffix(sPlugin.Task.ContainerName, "_"+p.Task.ServiceName)
-		if imagePath, ok := involvedImagePaths[containerName]; ok {
-			validMatchData := kube.GetValidMatchData(imagePath)
-			singleReplaceValuesMap, errAssign := commonutil.AssignImageData(sPlugin.Task.Image, validMatchData)
-			if errAssign != nil {
-				err = errors.WithMessagef(
-					errAssign,
-					"failed to pase image uri %s/%s",
-					p.Task.Namespace, p.Task.ServiceName)
-				return
-			}
-			for k, v := range singleReplaceValuesMap {
-				replaceValuesMap[k] = v
-			}
-			replaceValuesMaps = append(replaceValuesMaps, singleReplaceValuesMap)
+		if _, ok := involvedImagePaths[containerName]; ok {
 			targetContainers[containerName].Image = sPlugin.Task.Image
 		}
 	}

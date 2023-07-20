@@ -130,22 +130,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 			return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service, err: %s", err))
 		}
 		svc.Revision = latestSvcRevision.Revision
-
-		containerMap := make(map[string]*commonmodels.Container)
-		for _, container := range latestSvcRevision.Containers {
-			containerMap[container.Name] = container
-		}
-
-		for _, container := range svc.Containers {
-			if _, ok := containerMap[container.Name]; ok {
-				containerMap[container.Name] = container
-			}
-		}
-
-		svc.Containers = make([]*commonmodels.Container, 0)
-		for _, container := range containerMap {
-			svc.Containers = append(svc.Containers, container)
-		}
+		svc.Containers = kube.CalculateContainer(currentProductSvc, latestSvcRevision.Containers, exitedProd)
 	}
 
 	switch exitedProd.Status {
