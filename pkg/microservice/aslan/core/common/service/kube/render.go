@@ -586,14 +586,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	curContainers := latestSvcTemplate.Containers
 	if curProductSvc != nil {
 		curContainers = curProductSvc.Containers
-		log.Infof("service %s/%s revision %d", option.ProductName, option.ServiceName, curProductSvc.Revision)
-		for _, container := range latestSvcTemplate.Containers {
-			log.Infof("-------- latest container %s, image: %s", container.Name, container.Image)
-		}
 		svcContainersInProduct = CalculateContainer(curProductSvc, latestSvcTemplate.Containers, productInfo)
-		for _, container := range svcContainersInProduct {
-			log.Infof("merged containers: %s, image: %s", container.Name, container.Image)
-		}
 	}
 
 	renderVariableKVs := []*commontypes.RenderVariableKV{}

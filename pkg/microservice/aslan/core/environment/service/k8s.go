@@ -131,21 +131,6 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		}
 		svc.Revision = latestSvcRevision.Revision
 		svc.Containers = kube.CalculateContainer(currentProductSvc, latestSvcRevision.Containers, exitedProd)
-		//containerMap := make(map[string]*commonmodels.Container)
-		//for _, container := range latestSvcRevision.Containers {
-		//	containerMap[container.Name] = container
-		//}
-		//
-		//for _, container := range svc.Containers {
-		//	if _, ok := containerMap[container.Name]; ok {
-		//		containerMap[container.Name] = container
-		//	}
-		//}
-		//
-		//svc.Containers = make([]*commonmodels.Container, 0)
-		//for _, container := range containerMap {
-		//	svc.Containers = append(svc.Containers, container)
-		//}
 	}
 
 	switch exitedProd.Status {
