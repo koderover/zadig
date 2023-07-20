@@ -295,6 +295,7 @@ func CalculateContainer(productSvc *commonmodels.ProductService, latestContainer
 		// image has changed in zadig since last deploy
 		if prodSvcContainer != nil && prodTmpContainer != nil && prodSvcContainer.Image != prodTmpContainer.Image {
 			container.Image = prodSvcContainer.Image
+			container.ImageName = prodSvcContainer.ImageName
 		}
 		resp = append(resp, container)
 	}
