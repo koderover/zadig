@@ -584,7 +584,8 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 
 	curContainers := latestSvcTemplate.Containers
 	if curProductSvc != nil {
-		curContainers = CalculateContainer(curProductSvc, latestSvcTemplate, productInfo)
+		curContainers = curProductSvc.Containers
+		svcContainersInProduct = CalculateContainer(curProductSvc, latestSvcTemplate, productInfo)
 	}
 
 	renderVariableKVs := []*commontypes.RenderVariableKV{}
