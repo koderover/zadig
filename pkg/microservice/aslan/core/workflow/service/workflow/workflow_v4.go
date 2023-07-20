@@ -39,6 +39,7 @@ import (
 	"helm.sh/helm/v3/pkg/releaseutil"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -2157,6 +2158,19 @@ func GetMseOriginalServiceYaml(project, envName, serviceName, grayTag string) (s
 				return "", errors.Errorf("failed to marshal service %s secret object: %v", serviceName, err)
 			}
 			yamls = append(yamls, s)
+		case setting.Ingress:
+			ingressObj := &networkingv1.Ingress{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, ingressObj)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s Ingress to object: %v", serviceName, err)
+			}
+			ingressObj.Name += nameSuffix
+			ingressObj.Labels = setMseLabels(ingressObj.Labels, grayTag, serviceName)
+			s, err := toYaml(ingressObj)
+			if err != nil {
+				return "", errors.Errorf("failed to marshal service %s ingress object: %v", serviceName, err)
+			}
+			yamls = append(yamls, s)
 		default:
 			return "", errors.Errorf("service %s resource type %s not allowed", serviceName, resource.GetKind())
 		}
@@ -2287,6 +2301,19 @@ func RenderMseServiceYaml(productName, envName, lastGrayTag, grayTag string, ser
 			s, err := toYaml(secretObj)
 			if err != nil {
 				return "", errors.Errorf("failed to marshal service %s secret object: %v", serviceName, err)
+			}
+			yamls = append(yamls, s)
+		case setting.Ingress:
+			ingressObj := &networkingv1.Ingress{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, ingressObj)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s Ingress to object: %v", serviceName, err)
+			}
+			ingressObj.Name = getNameWithNewTag(ingressObj.Name, lastGrayTag, grayTag)
+			ingressObj.SetLabels(setMseLabels(ingressObj.GetLabels(), grayTag, serviceName))
+			s, err := toYaml(ingressObj)
+			if err != nil {
+				return "", errors.Errorf("failed to marshal service %s ingress object: %v", serviceName, err)
 			}
 			yamls = append(yamls, s)
 		default:

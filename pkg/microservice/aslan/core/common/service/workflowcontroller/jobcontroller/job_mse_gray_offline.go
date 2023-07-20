@@ -24,6 +24,8 @@ import (
 
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -35,6 +37,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -103,6 +106,12 @@ func (c *MseGrayOfflineJobCtl) Run(ctx context.Context) {
 		logError(c.job, msg, c.logger)
 		return
 	}
+	c.informer, err = informer.NewInformer(clusterID, c.jobTaskSpec.Namespace, c.clientSet)
+	if err != nil {
+		msg := fmt.Sprintf("can't init k8s informer: %v", err)
+		logError(c.job, msg, c.logger)
+		return
+	}
 	selector := labels.Set{
 		types.ZadigReleaseTypeLabelKey:    types.ZadigReleaseTypeMseGray,
 		types.ZadigReleaseVersionLabelKey: c.jobTaskSpec.GrayTag,
@@ -126,6 +135,28 @@ func (c *MseGrayOfflineJobCtl) Run(ctx context.Context) {
 	if err != nil {
 		logError(c.job, fmt.Sprintf("can't list service: %v", err), c.logger)
 		return
+	}
+	version, err := c.clientSet.Discovery().ServerVersion()
+	if err != nil {
+		logError(c.job, fmt.Sprintf("Failed to determine server version, error is: %s", err), c.logger)
+		return
+	}
+	var (
+		ingressExtentionList  []*extensionsv1beta1.Ingress
+		ingressNetworkingList []*networkingv1.Ingress
+	)
+	if kubeclient.VersionLessThan122(version) {
+		ingressExtentionList, err = getter.ListExtensionsV1Beta1Ingresses(selector, c.informer)
+		if err != nil {
+			logError(c.job, fmt.Sprintf("can't list ingress: %v", err), c.logger)
+			return
+		}
+	} else {
+		ingressNetworkingList, err = getter.ListNetworkingV1Ingress(selector, c.informer)
+		if err != nil {
+			logError(c.job, fmt.Sprintf("can't list ingress: %v", err), c.logger)
+			return
+		}
 	}
 
 	serviceAndErrorMap := make(map[string][]string)
@@ -183,6 +214,34 @@ func (c *MseGrayOfflineJobCtl) Run(ctx context.Context) {
 				continue
 			}
 			c.Info(fmt.Sprintf("delete service %s success", service.Name))
+		}
+	}
+	for _, ingress := range ingressExtentionList {
+		err := c.kubeClient.Delete(context.Background(), ingress)
+		if serviceName, ok := ingress.GetLabels()[types.ZadigReleaseServiceNameLabelKey]; ok {
+			if serviceAndErrorMap[serviceName] == nil {
+				serviceAndErrorMap[serviceName] = []string{}
+			}
+			if err != nil {
+				serviceAndErrorMap[serviceName] = append(serviceAndErrorMap[serviceName], fmt.Sprintf("delete ingress %s error: %v", ingress.Name, err))
+				c.Error(fmt.Sprintf("delete ingress %s error: %v", ingress.Name, err))
+				continue
+			}
+			c.Info(fmt.Sprintf("delete ingress %s success", ingress.Name))
+		}
+	}
+	for _, ingress := range ingressNetworkingList {
+		err := c.kubeClient.Delete(context.Background(), ingress)
+		if serviceName, ok := ingress.GetLabels()[types.ZadigReleaseServiceNameLabelKey]; ok {
+			if serviceAndErrorMap[serviceName] == nil {
+				serviceAndErrorMap[serviceName] = []string{}
+			}
+			if err != nil {
+				serviceAndErrorMap[serviceName] = append(serviceAndErrorMap[serviceName], fmt.Sprintf("delete ingress %s error: %v", ingress.Name, err))
+				c.Error(fmt.Sprintf("delete ingress %s error: %v", ingress.Name, err))
+				continue
+			}
+			c.Info(fmt.Sprintf("delete ingress %s success", ingress.Name))
 		}
 	}
 	fail := false

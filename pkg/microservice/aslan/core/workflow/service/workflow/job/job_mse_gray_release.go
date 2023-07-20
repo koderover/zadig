@@ -127,7 +127,7 @@ func (j *MseGrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 					types.ZadigReleaseMSEGrayTagLabelKey, types.ZadigReleaseTypeLabelKey); !exist {
 					return nil, errors.Errorf("service %s deployment template label must contain %s", service.ServiceName, key)
 				}
-			case setting.ConfigMap, setting.Secret, setting.Service:
+			case setting.ConfigMap, setting.Secret, setting.Service, setting.Ingress:
 			default:
 				return nil, errors.Errorf("service %s resource type %s not allowed", service.ServiceName, resource.GetKind())
 			}
