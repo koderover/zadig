@@ -76,7 +76,6 @@ func (j *HelmChartDeployJob) SetPreset() error {
 		}
 		deploys = append(deploys, deploy)
 	}
-	j.spec.ProductDeployHelmCharts = deploys
 	j.job.Spec = j.spec
 
 	return nil
@@ -122,27 +121,27 @@ func (j *HelmChartDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 	}
 	timeout := templateProduct.Timeout * 60
 
-	jobTaskSpec := &commonmodels.JobTaskHelmChartDeploySpec{
-		Env:                envName,
-		DeployHelmChart:    j.spec.DeployHelmChart,
-		SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
-		ClusterID:          product.ClusterID,
-		Timeout:            timeout,
-	}
+	for _, deploy := range j.spec.DeployHelmCharts {
+		jobTaskSpec := &commonmodels.JobTaskHelmChartDeploySpec{
+			Env:                envName,
+			DeployHelmChart:    deploy,
+			SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
+			ClusterID:          product.ClusterID,
+			Timeout:            timeout,
+		}
 
-	jobTask := &commonmodels.JobTask{
-		Name: j.job.Name,
-		Key:  j.job.Name,
-		JobInfo: map[string]string{
-			JobNameKey:     j.job.Name,
-			"release_name": j.spec.DeployHelmChart.ReleaseName,
-		},
-		JobType: string(config.JobZadigHelmChartDeploy),
-		Spec:    jobTaskSpec,
+		jobTask := &commonmodels.JobTask{
+			Name: j.job.Name,
+			Key:  j.job.Name,
+			JobInfo: map[string]string{
+				JobNameKey:     j.job.Name,
+				"release_name": deploy.ReleaseName,
+			},
+			JobType: string(config.JobZadigHelmChartDeploy),
+			Spec:    jobTaskSpec,
+		}
+		resp = append(resp, jobTask)
 	}
-
-	j.job.Spec = j.spec
-	resp = append(resp, jobTask)
 	return resp, nil
 }
 
