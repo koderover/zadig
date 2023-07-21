@@ -372,7 +372,7 @@ type GetSvcRenderArg struct {
 	IsHelmChartDeploy    bool   `json:"is_helm_chart_deploy"`
 }
 
-func GetSvcRenderArgs(productName, envName string, GetSvcRendersArgs []*GetSvcRenderArg, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
+func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRenderArg, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 	renderRevision := int64(0)
 	ret := make([]*HelmSvcRenderArg, 0)
@@ -406,16 +406,15 @@ func GetSvcRenderArgs(productName, envName string, GetSvcRendersArgs []*GetSvcRe
 	}
 
 	matchedRenderChartModels := make([]*templatemodels.ServiceRender, 0)
-	if len(GetSvcRendersArgs) == 0 {
+	if len(getSvcRendersArgs) == 0 {
 		matchedRenderChartModels = rendersetObj.ChartInfos
 	} else {
 		for _, singleChart := range rendersetObj.ChartInfos {
-			for _, arg := range GetSvcRendersArgs {
+			for _, arg := range getSvcRendersArgs {
 				if arg.IsHelmChartDeploy == true && singleChart.IsHelmChartDeploy == true && arg.ServiceOrReleaseName == singleChart.ReleaseName {
 					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
 					break
-				}
-				if arg.IsHelmChartDeploy == false && singleChart.IsHelmChartDeploy == false && arg.ServiceOrReleaseName == singleChart.ServiceName {
+				} else if arg.IsHelmChartDeploy == false && singleChart.IsHelmChartDeploy == false && arg.ServiceOrReleaseName == singleChart.ServiceName {
 					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
 					break
 				}
