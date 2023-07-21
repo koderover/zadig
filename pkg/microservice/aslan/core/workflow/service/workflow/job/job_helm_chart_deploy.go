@@ -76,6 +76,7 @@ func (j *HelmChartDeployJob) SetPreset() error {
 		}
 		deploys = append(deploys, deploy)
 	}
+	j.spec.DeployHelmCharts = deploys
 	j.job.Spec = j.spec
 
 	return nil

@@ -279,7 +279,7 @@ type ZadigHelmChartDeployJobSpec struct {
 	Env                string             `bson:"env"                      yaml:"env"                         json:"env"`
 	EnvSource          string             `bson:"env_source"               yaml:"env_source"                  json:"env_source"`
 	SkipCheckRunStatus bool               `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
-	DeployHelmCharts   []*DeployHelmChart `bson:"deploy_helm_charts"     yaml:"deploy_helm_charts"     json:"deploy_helm_charts"`
+	DeployHelmCharts   []*DeployHelmChart `bson:"deploy_helm_charts"       yaml:"deploy_helm_charts"          json:"deploy_helm_charts"`
 }
 
 type DeployHelmChart struct {
