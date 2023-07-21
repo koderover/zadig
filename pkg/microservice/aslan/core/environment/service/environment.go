@@ -2262,33 +2262,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 	return nil
 }
 
-func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, production bool, log *zap.SugaredLogger) ([]*commonservice.HelmSvcRenderArg, error) {
-
-	getSvcRenderArgs := []*commonservice.GetSvcRenderArg{}
-	var serviceNameList []string
-	// no service appointed, find all service templates
-	if serviceNameListStr == "" {
-		prodTmpl, err := templaterepo.NewProductColl().Find(productName)
-		if err != nil {
-			log.Errorf("query product: %s fail, err %s", productName, err.Error())
-			return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("query product info fail"))
-		}
-		for _, singleService := range prodTmpl.AllServiceInfoMap(production) {
-			getSvcRenderArgs = append(getSvcRenderArgs, &commonservice.GetSvcRenderArg{
-				ServiceOrReleaseName: singleService.Name,
-				IsHelmChartDeploy:    false,
-			})
-		}
-	} else {
-		serviceNameList = strings.Split(serviceNameListStr, ",")
-		for _, serviceName := range serviceNameList {
-			getSvcRenderArgs = append(getSvcRenderArgs, &commonservice.GetSvcRenderArg{
-				ServiceOrReleaseName: serviceName,
-				IsHelmChartDeploy:    false,
-			})
-		}
-	}
-
+func GetEstimatedRenderCharts(productName, envName string, getSvcRenderArgs []*commonservice.GetSvcRenderArg, production bool, log *zap.SugaredLogger) ([]*commonservice.HelmSvcRenderArg, error) {
 	// find renderchart info in env
 	renderChartInEnv, _, err := commonservice.GetSvcRenderArgs(productName, envName, getSvcRenderArgs, log)
 	if err != nil {
@@ -2297,11 +2271,13 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, p
 	}
 
 	rcMap := make(map[string]*commonservice.HelmSvcRenderArg)
+	rcChartMap := make(map[string]*commonservice.HelmSvcRenderArg)
 	for _, rc := range renderChartInEnv {
 		if rc.IsChartDeploy {
-			continue
+			rcChartMap[rc.ReleaseName] = rc
+		} else {
+			rcMap[rc.ServiceName] = rc
 		}
-		rcMap[rc.ServiceName] = rc
 	}
 
 	serviceOption := &commonrepo.ServiceListOption{
@@ -2309,12 +2285,16 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, p
 		Type:        setting.HelmDeployType,
 	}
 
-	for _, serviceName := range serviceNameList {
-		if _, ok := rcMap[serviceName]; ok {
+	for _, arg := range getSvcRenderArgs {
+		if arg.IsHelmChartDeploy {
+			continue
+		}
+
+		if _, ok := rcMap[arg.ServiceOrReleaseName]; ok {
 			continue
 		}
 		serviceOption.InServices = append(serviceOption.InServices, &templatemodels.ServiceInfo{
-			Name:  serviceName,
+			Name:  arg.ServiceOrReleaseName,
 			Owner: productName,
 		})
 	}
@@ -2336,6 +2316,9 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, p
 
 	ret := make([]*commonservice.HelmSvcRenderArg, 0, len(rcMap))
 	for _, rc := range rcMap {
+		ret = append(ret, rc)
+	}
+	for _, rc := range rcChartMap {
 		ret = append(ret, rc)
 	}
 	return ret, nil
