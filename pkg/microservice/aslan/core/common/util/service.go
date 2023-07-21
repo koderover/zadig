@@ -71,6 +71,22 @@ func GetReleaseDeployStrategy(releaseName string, strategyMap map[string]string)
 	}
 }
 
+func ChartDeployed(render *templatemodels.ServiceRender, strategyMap map[string]string) bool {
+	if render.DeployedFromZadig() {
+		return ServiceDeployed(render.ServiceName, strategyMap)
+	} else {
+		return ReleaseDeployed(render.ReleaseName, strategyMap)
+	}
+}
+
+func SetChartDeployed(render *templatemodels.ServiceRender, strategyMap map[string]string) {
+	if render.DeployedFromZadig() {
+		strategyMap[render.ServiceName] = setting.ServiceDeployStrategyDeploy
+	} else {
+		strategyMap[GetReleaseDeployStrategyKey(render.ReleaseName)] = setting.ServiceDeployStrategyDeploy
+	}
+}
+
 func ServiceDeployed(serviceName string, strategyMap map[string]string) bool {
 	return GetServiceDeployStrategy(serviceName, strategyMap) == setting.ServiceDeployStrategyDeploy
 }

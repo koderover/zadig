@@ -1239,11 +1239,17 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 				return fmt.Errorf("failed to fetch diff services, err: %s", err)
 			}
 			svcSet := sets.NewString()
+			releaseSet := sets.NewString()
 			for _, svc := range diffSvcs {
-				svcSet.Insert(svc.ServiceName)
+				if len(svc.ServiceName) > 0 {
+					svcSet.Insert(svc.ServiceName)
+				}
+				if len(svc.ReleaseName) > 0 {
+					releaseSet.Insert(svc.ReleaseName)
+				}
 			}
 			for _, svcChart := range productRenderset.ChartInfos {
-				if svcSet.Has(svcChart.ServiceName) {
+				if svcSet.Has(svcChart.ServiceName) || releaseSet.Has(svcChart.ReleaseName)) {
 					updatedSvcList = append(updatedSvcList, svcChart)
 				}
 			}
@@ -1516,9 +1522,9 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 	}
 	needUpdateStrategy := false
 	for _, rc := range updatedSvcs {
-		if !commonutil.ServiceDeployed(rc.ServiceName, productResp.ServiceDeployStrategy) {
+		if !commonutil.ChartDeployed(rc, productResp.ServiceDeployStrategy) {
 			needUpdateStrategy = true
-			productResp.ServiceDeployStrategy[rc.ServiceName] = setting.ServiceDeployStrategyDeploy
+			commonutil.SetChartDeployed(rc, productResp.ServiceDeployStrategy)
 		}
 	}
 	if needUpdateStrategy {
@@ -3536,9 +3542,16 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 	}
 
 	for _, chartInfo := range productRenderset.ChartInfos {
-		_, ok := product.GetServiceMap()[chartInfo.ServiceName]
-		if !ok {
-			continue
+		if chartInfo.DeployedFromZadig() {
+			_, ok := product.GetServiceMap()[chartInfo.ServiceName]
+			if !ok {
+				continue
+			}
+		} else {
+			_, ok := product.GetChartServiceMap()[chartInfo.ServiceName]
+			if !ok {
+				continue
+			}
 		}
 
 		svcPreview := &SvcDiffResult{

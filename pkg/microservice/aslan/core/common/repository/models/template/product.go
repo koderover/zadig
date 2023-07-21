@@ -144,6 +144,10 @@ type ServiceRender struct {
 	OverrideYaml *CustomYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
 }
 
+func (rc *ServiceRender) DeployedFromZadig() bool {
+	return !rc.IsHelmChartDeploy
+}
+
 type ProductFeature struct {
 	// 基础设施，kubernetes 或者 cloud_host
 	BasicFacility string `bson:"basic_facility"            json:"basic_facility"`
