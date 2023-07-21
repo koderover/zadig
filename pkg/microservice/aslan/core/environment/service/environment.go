@@ -2724,9 +2724,11 @@ func buildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 	productName, namespace, envName := productInfo.ProductName, productInfo.Namespace, productInfo.EnvName
 
 	ret := &kube.ReleaseInstallParam{
-		ProductName: productName,
-		Namespace:   namespace,
-		RenderChart: renderChart,
+		ProductName:    productName,
+		Namespace:      namespace,
+		RenderChart:    renderChart,
+		ProdService:    productSvc,
+		IsChartInstall: renderChart.IsHelmChartDeploy,
 	}
 
 	if productSvc.FromZadig() {
