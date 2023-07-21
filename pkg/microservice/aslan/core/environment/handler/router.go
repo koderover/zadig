@@ -176,7 +176,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		production.PUT("/environments/:name/helm/default-values", UpdateHelmProductDefaultValues)
 		production.POST("/environments/:name/helm/default-values/preview", PreviewHelmProductDefaultValues)
-		production.GET("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
+		production.POST("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
 
 		production.POST("/environments/:name/services/:serviceName/restart", RestartService)
 		production.POST("/environments/:name/services/:serviceName/restartNew", RestartWorkload)
@@ -248,7 +248,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/services/:serviceName/scaleNew", ScaleNewService)
 		environments.GET("/:name/services/:serviceName/containers/:container", GetServiceContainer)
 
-		environments.GET("/:name/estimated-renderchart", GetEstimatedRenderCharts)
+		environments.POST("/:name/estimated-renderchart", GetEstimatedRenderCharts)
 
 		environments.GET("/:name/check/workloads/k8services", CheckWorkloadsK8sServices)
 		environments.POST("/:name/share/enable", EnableBaseEnv)
