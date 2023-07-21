@@ -587,15 +587,15 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 	serviceNameToProdSvcMap := make(map[string]*commonmodels.ProductService)
 	releaseNameToChartProdSvcMap := make(map[string]*commonmodels.ProductService)
 	for releaseName, serviceName := range releaseToServiceNameMap {
-		if prodSvcMap[serviceName] == nil {
-			return fmt.Errorf("failed to find service %s(release %s) in product %s", serviceName, releaseName, productInfo.ProductName)
-		}
 		if !releaseNameSet.Has(releaseName) {
 			continue
 		}
 		if prodSvcMap[serviceName].Type == setting.HelmChartDeployType {
 			releaseNameToChartProdSvcMap[releaseName] = prodChartSvcMap[serviceName]
 		} else {
+			if prodSvcMap[serviceName] == nil {
+				return fmt.Errorf("failed to find service %s(release %s) in product %s", serviceName, releaseName, productInfo.ProductName)
+			}
 			serviceNameToProdSvcMap[serviceName] = prodSvcMap[serviceName]
 		}
 	}
