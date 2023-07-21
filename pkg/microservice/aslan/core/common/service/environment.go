@@ -411,11 +411,13 @@ func GetSvcRenderArgs(productName, envName string, GetSvcRendersArgs []*GetSvcRe
 	} else {
 		for _, singleChart := range rendersetObj.ChartInfos {
 			for _, arg := range GetSvcRendersArgs {
-				if arg.IsHelmChartDeploy == true && singleChart.IsHelmChartDeploy == true && arg.ServiceOrReleaseName == singleChart.ServiceName {
+				if arg.IsHelmChartDeploy == true && singleChart.IsHelmChartDeploy == true && arg.ServiceOrReleaseName == singleChart.ReleaseName {
 					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
+					break
 				}
 				if arg.IsHelmChartDeploy == false && singleChart.IsHelmChartDeploy == false && arg.ServiceOrReleaseName == singleChart.ServiceName {
 					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
+					break
 				}
 			}
 		}
