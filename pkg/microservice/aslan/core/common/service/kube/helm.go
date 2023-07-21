@@ -66,6 +66,7 @@ type ReleaseInstallParam struct {
 	IsChartInstall bool
 	RenderChart    *templatemodels.ServiceRender
 	ServiceObj     *commonmodels.Service
+	ProdService    *commonmodels.ProductService
 	Timeout        int
 	DryRun         bool
 	Production     bool

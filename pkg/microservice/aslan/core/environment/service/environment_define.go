@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -229,5 +230,6 @@ type ServiceDeployStatus struct {
 	Resources   []*ResourceDeployStatus `json:"resources"`
 }
 
-type intervalExecutorHandler func(data *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error
+// type intervalExecutorHandler func(data *commonmodels.Service, productSvc *commonmodels.ProductService, releaseName string, isRetry bool, log *zap.SugaredLogger) error
+type intervalExecutorHandler func(data *kube.ReleaseInstallParam, isRetry bool, log *zap.SugaredLogger) error
 type svcUpgradeFilter func(svc *commonmodels.ProductService) bool
