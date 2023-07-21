@@ -117,7 +117,7 @@ type ProductService struct {
 }
 
 func (svc *ProductService) FromZadig() bool {
-	return svc.Type == setting.HelmChartDeployType
+	return svc.Type != setting.HelmChartDeployType
 }
 
 type ServiceConfig struct {
