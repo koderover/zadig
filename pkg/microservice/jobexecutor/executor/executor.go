@@ -50,6 +50,9 @@ func Execute(ctx context.Context) error {
 		// Filename:    ZadigLogFile,
 	})
 
+	log.Errorf("Boom")
+	panic("Boom")
+	
 	start := time.Now()
 
 	excutor := "job-executor"
