@@ -590,7 +590,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		if !releaseNameSet.Has(releaseName) {
 			continue
 		}
-		if prodSvcMap[serviceName].Type == setting.HelmChartDeployType {
+		if prodSvcMap[serviceName] == nil {
 			releaseNameToChartProdSvcMap[releaseName] = prodChartSvcMap[serviceName]
 		} else {
 			if prodSvcMap[serviceName] == nil {
