@@ -1243,15 +1243,17 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 			svcSet := sets.NewString()
 			releaseSet := sets.NewString()
 			for _, svc := range diffSvcs {
-				if len(svc.ServiceName) > 0 {
+				if !svc.DeployedFromChart {
 					svcSet.Insert(svc.ServiceName)
-				}
-				if len(svc.ReleaseName) > 0 {
+				} else {
 					releaseSet.Insert(svc.ReleaseName)
 				}
 			}
 			for _, svcChart := range productRenderset.ChartInfos {
-				if svcSet.Has(svcChart.ServiceName) || releaseSet.Has(svcChart.ReleaseName) {
+				if svcChart.DeployedFromZadig() && svcSet.Has(svcChart.ServiceName) {
+					updatedSvcList = append(updatedSvcList, svcChart)
+				}
+				if !svcChart.DeployedFromZadig() && releaseSet.Has(svcChart.ReleaseName) {
 					updatedSvcList = append(updatedSvcList, svcChart)
 				}
 			}
@@ -3598,11 +3600,13 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 	}
 
 	for _, chartInfo := range productRenderset.ChartInfos {
+		svcRevision := int64(0)
 		if chartInfo.DeployedFromZadig() {
-			_, ok := product.GetServiceMap()[chartInfo.ServiceName]
+			prodSvc, ok := product.GetServiceMap()[chartInfo.ServiceName]
 			if !ok {
 				continue
 			}
+			svcRevision = prodSvc.Revision
 		} else {
 			_, ok := product.GetChartServiceMap()[chartInfo.ServiceName]
 			if !ok {
@@ -3613,8 +3617,19 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 		svcPreview := &SvcDiffResult{}
 		if chartInfo.DeployedFromZadig() {
 			svcPreview.ServiceName = chartInfo.ServiceName
+			tmplSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ProductName: product.ProductName,
+				ServiceName: chartInfo.ServiceName,
+				Revision:    svcRevision,
+			}, product.Production)
+			if err != nil {
+				return ret, fmt.Errorf("failed to query template service %s, err: %s", chartInfo.ServiceName, err)
+			}
+			svcPreview.ReleaseName = util.GeneReleaseName(tmplSvc.GetReleaseNaming(), tmplSvc.ProductName, product.Namespace, product.EnvName, tmplSvc.ServiceName)
 		} else {
 			svcPreview.ReleaseName = chartInfo.ReleaseName
+			svcPreview.ServiceName = chartInfo.ServiceName
+			svcPreview.DeployedFromChart = true
 		}
 
 		if chartInfo.OverrideYaml == nil && len(chartInfo.OverrideValues) == 0 {
