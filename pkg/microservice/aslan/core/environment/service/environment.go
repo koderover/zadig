@@ -2279,6 +2279,9 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, p
 
 	rcMap := make(map[string]*commonservice.HelmSvcRenderArg)
 	for _, rc := range renderChartInEnv {
+		if rc.IsChartDeploy {
+			continue
+		}
 		rcMap[rc.ServiceName] = rc
 	}
 

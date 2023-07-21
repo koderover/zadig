@@ -276,7 +276,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 
 	for _, svcGroup := range prod.Services {
 		for _, svc := range svcGroup {
-			if svc.Type == setting.HelmChartDeployType {
+			if svc.FromZadig() {
 				if templSvc, ok := templSvcMap[svc.ServiceName]; ok {
 					svc.ReleaseName = util.GeneReleaseName(templSvc.GetReleaseNaming(), svc.ProductName, prod.Namespace, prod.EnvName, svc.ServiceName)
 				}
