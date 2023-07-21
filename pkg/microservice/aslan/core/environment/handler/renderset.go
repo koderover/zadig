@@ -53,7 +53,7 @@ func GetServiceRenderCharts(c *gin.Context) {
 	}
 
 	arg := &commonservice.GetSvcRenderRequest{}
-	if err := c.ShouldBindQuery(arg); err != nil {
+	if err := c.ShouldBindJSON(arg); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
