@@ -593,7 +593,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		if prodSvcMap[serviceName].Type == setting.HelmChartDeployType {
 			releaseNameToChartProdSvcMap[releaseName] = prodSvcMap[serviceName]
 		} else {
-			serviceNameToProdSvcMap[releaseName] = prodSvcMap[serviceName]
+			serviceNameToProdSvcMap[serviceName] = prodSvcMap[serviceName]
 		}
 	}
 
@@ -619,17 +619,17 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 
 	// services deployed by zadig
 	for _, prodSvc := range serviceNameToProdSvcMap {
-		if prodSvc.Type == setting.HelmChartDeployType {
-			if !commonutil.ReleaseDeployed(prodSvc.ReleaseName, productInfo.ServiceDeployStrategy) {
-				continue
-			}
-			delete(productInfo.ServiceDeployStrategy, commonutil.GetReleaseDeployStrategyKey(prodSvc.ReleaseName))
-		} else {
-			if !commonutil.ServiceDeployed(prodSvc.ServiceName, productInfo.ServiceDeployStrategy) {
-				continue
-			}
-			delete(productInfo.ServiceDeployStrategy, prodSvc.ServiceName)
+		if !commonutil.ServiceDeployed(prodSvc.ServiceName, productInfo.ServiceDeployStrategy) {
+			continue
 		}
+		delete(productInfo.ServiceDeployStrategy, prodSvc.ServiceName)
+	}
+
+	for _, prodSvc := range releaseNameToChartProdSvcMap {
+		if !commonutil.ReleaseDeployed(prodSvc.ReleaseName, productInfo.ServiceDeployStrategy) {
+			continue
+		}
+		delete(productInfo.ServiceDeployStrategy, commonutil.GetReleaseDeployStrategyKey(prodSvc.ReleaseName))
 	}
 
 	err = commonrepo.NewProductColl().UpdateDeployStrategy(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy)
@@ -676,7 +676,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		wg := sync.WaitGroup{}
 
 		for svcName, prodSvc := range serviceNameToProdSvcMap {
-			if !commonutil.ReleaseDeployed(prodSvc.ReleaseName, productInfo.ServiceDeployStrategy) {
+			if !commonutil.ServiceDeployed(prodSvc.ServiceName, productInfo.ServiceDeployStrategy) {
 				continue
 			}
 			wg.Add(1)
@@ -695,7 +695,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 			}(productInfo, prodSvc)
 		}
 		for releaseName, prodSvc := range releaseNameToChartProdSvcMap {
-			if !commonutil.ServiceDeployed(prodSvc.ServiceName, productInfo.ServiceDeployStrategy) {
+			if !commonutil.ReleaseDeployed(prodSvc.ReleaseName, productInfo.ServiceDeployStrategy) {
 				continue
 			}
 			wg.Add(1)
