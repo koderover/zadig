@@ -1277,13 +1277,11 @@ func GetReleaseInstanceDeployStatus(productName string, request *HelmDeployStatu
 			log.Warnf("failed to get release values with name: %s, err: %s", release.Name, err)
 			continue
 		}
-		log.Debugf("release values: %v", values)
 		valuesYaml, err := yaml.Marshal(values)
 		if err != nil {
 			log.Warnf("failed to marshal values map when fetching release deploy status, err: %s", err)
 			continue
 		}
-		log.Debugf("release values yaml: %v", valuesYaml)
 
 		resp = append(resp, &GetReleaseInstanceDeployStatusResponse{
 			ReleaseName:  release.Name,

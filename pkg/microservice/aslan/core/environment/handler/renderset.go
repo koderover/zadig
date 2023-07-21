@@ -42,7 +42,13 @@ func GetServiceRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
+	arg := &commonservice.GetSvcRenderRequest{}
+	if err := c.ShouldBindQuery(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(c.Query("projectName"), c.Query("envName"), arg.GetSvcRendersArgs, ctx.Logger)
 }
 
 // @Summary Get service variables

@@ -363,7 +363,16 @@ func GetChartValues(projectName, envName, serviceName string, isHelmChartDeploy 
 	return &ValuesResp{ValuesYaml: string(currentValuesYaml)}, nil
 }
 
-func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
+type GetSvcRenderRequest struct {
+	GetSvcRendersArgs []*GetSvcRenderArg `json:"get_svc_render_args"`
+}
+
+type GetSvcRenderArg struct {
+	ServiceOrReleaseName string `json:"service_or_release_name"`
+	IsHelmChartDeploy    bool   `json:"is_helm_chart_deploy"`
+}
+
+func GetSvcRenderArgs(productName, envName string, GetSvcRendersArgs []*GetSvcRenderArg, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 	renderRevision := int64(0)
 	ret := make([]*HelmSvcRenderArg, 0)
@@ -397,16 +406,18 @@ func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.Sugared
 	}
 
 	matchedRenderChartModels := make([]*templatemodels.ServiceRender, 0)
-	if len(serviceName) == 0 {
+	if len(GetSvcRendersArgs) == 0 {
 		matchedRenderChartModels = rendersetObj.ChartInfos
 	} else {
-		serverList := strings.Split(serviceName, ",")
-		stringSet := sets.NewString(serverList...)
 		for _, singleChart := range rendersetObj.ChartInfos {
-			if !stringSet.Has(singleChart.ServiceName) {
-				continue
+			for _, arg := range GetSvcRendersArgs {
+				if arg.IsHelmChartDeploy == true && singleChart.IsHelmChartDeploy == true && arg.ServiceOrReleaseName == singleChart.ServiceName {
+					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
+				}
+				if arg.IsHelmChartDeploy == false && singleChart.IsHelmChartDeploy == false && arg.ServiceOrReleaseName == singleChart.ServiceName {
+					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
+				}
 			}
-			matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
 		}
 	}
 

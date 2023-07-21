@@ -186,7 +186,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.POST("/image/deployment/:envName", UpdateDeploymentContainerImage)
 
 		production.GET("/rendersets/variables", GetProductionServiceVariables)
-		production.GET("/rendersets/renderchart", GetServiceRenderCharts)
+		production.POST("/rendersets/renderchart", GetServiceRenderCharts)
 
 		// normal resources
 		production.GET("/configmaps/:name", ListConfigMaps)
@@ -267,7 +267,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	rendersets := router.Group("rendersets")
 	{
-		rendersets.GET("/renderchart", GetServiceRenderCharts)
+		rendersets.POST("/renderchart", GetServiceRenderCharts)
 		rendersets.GET("/default-values", GetProductDefaultValues)
 		rendersets.GET("/globalVariables", GetGlobalVariables)
 		rendersets.GET("/yamlContent", GetYamlContent)

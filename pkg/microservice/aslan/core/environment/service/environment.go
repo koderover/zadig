@@ -2259,8 +2259,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 }
 
 func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, production bool, log *zap.SugaredLogger) ([]*commonservice.HelmSvcRenderArg, error) {
-
-	var serviceNameList []string
+	getSvcRenderArgs := []*commonservice.GetSvcRenderArg{}
 	// no service appointed, find all service templates
 	if serviceNameListStr == "" {
 		prodTmpl, err := templaterepo.NewProductColl().Find(productName)
@@ -2269,15 +2268,23 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, p
 			return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("query product info fail"))
 		}
 		for _, singleService := range prodTmpl.AllServiceInfoMap(production) {
-			serviceNameList = append(serviceNameList, singleService.Name)
+			getSvcRenderArgs = append(getSvcRenderArgs, &commonservice.GetSvcRenderArg{
+				ServiceOrReleaseName: singleService.Name,
+				IsHelmChartDeploy:    false,
+			})
 		}
-		serviceNameListStr = strings.Join(serviceNameList, ",")
 	} else {
-		serviceNameList = strings.Split(serviceNameListStr, ",")
+		serviceNameList := strings.Split(serviceNameListStr, ",")
+		for _, serviceName := range serviceNameList {
+			getSvcRenderArgs = append(getSvcRenderArgs, &commonservice.GetSvcRenderArg{
+				ServiceOrReleaseName: serviceName,
+				IsHelmChartDeploy:    false,
+			})
+		}
 	}
 
 	// find renderchart info in env
-	renderChartInEnv, _, err := commonservice.GetSvcRenderArgs(productName, envName, serviceNameListStr, log)
+	renderChartInEnv, _, err := commonservice.GetSvcRenderArgs(productName, envName, getSvcRenderArgs, log)
 	if err != nil {
 		log.Errorf("find render charts in env fail, env %s err %s", envName, err.Error())
 		return nil, e.ErrGetRenderSet.AddDesc("failed to get render charts in env")
