@@ -1049,6 +1049,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/production/rendersets/renderchart": {
+            "post": {
+                "description": "Get service render charts",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Service render charts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "envName",
+                        "in": "query"
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.GetSvcRenderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.HelmSvcRenderArg"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/rendersets/globalVariables": {
             "get": {
                 "description": "Get global variable from environment, current only used for k8s project",
@@ -3500,6 +3550,28 @@ const docTemplate = `{
                 }
             }
         },
+        "service.GetSvcRenderArg": {
+            "type": "object",
+            "properties": {
+                "is_helm_chart_deploy": {
+                    "type": "boolean"
+                },
+                "service_or_release_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.GetSvcRenderRequest": {
+            "type": "object",
+            "properties": {
+                "get_svc_render_args": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.GetSvcRenderArg"
+                    }
+                }
+            }
+        },
         "service.GetWebhookConfigReponse": {
             "type": "object",
             "properties": {
@@ -4116,6 +4188,9 @@ const docTemplate = `{
                 },
                 "latest": {
                     "$ref": "#/definitions/service.TmplYaml"
+                },
+                "release_name": {
+                    "type": "string"
                 },
                 "service_name": {
                     "type": "string"

@@ -28,6 +28,16 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+// @Summary Get Service render charts
+// @Description Get service render charts
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	envName		query		string										false	"env name"
+// @Param 	body 		body 		commonservice.GetSvcRenderRequest 			true 	"body"
+// @Success 200 		{array} 	commonservice.HelmSvcRenderArg
+// @Router /api/aslan/environment/production/rendersets/renderchart [post]
 func GetServiceRenderCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

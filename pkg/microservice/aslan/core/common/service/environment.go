@@ -405,6 +405,9 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 		return nil, nil, nil
 	}
 
+	for _, arg := range getSvcRendersArgs {
+		log.Debugf("get svc render arg: %+v", arg)
+	}
 	matchedRenderChartModels := make([]*templatemodels.ServiceRender, 0)
 	if len(getSvcRendersArgs) == 0 {
 		matchedRenderChartModels = rendersetObj.ChartInfos
