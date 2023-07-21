@@ -76,7 +76,7 @@ func (j *HelmChartDeployJob) SetPreset() error {
 		}
 		deploys = append(deploys, deploy)
 	}
-	j.spec.DeployHelmCharts = deploys
+	j.spec.ProductDeployHelmCharts = deploys
 	j.job.Spec = j.spec
 
 	return nil
@@ -124,7 +124,7 @@ func (j *HelmChartDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 	jobTaskSpec := &commonmodels.JobTaskHelmChartDeploySpec{
 		Env:                envName,
-		DeployHelmCharts:   j.spec.DeployHelmCharts,
+		DeployHelmChart:    j.spec.DeployHelmChart,
 		SkipCheckRunStatus: j.spec.SkipCheckRunStatus,
 		ClusterID:          product.ClusterID,
 		Timeout:            timeout,
@@ -134,7 +134,8 @@ func (j *HelmChartDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		Name: j.job.Name,
 		Key:  j.job.Name,
 		JobInfo: map[string]string{
-			JobNameKey: j.job.Name,
+			JobNameKey:     j.job.Name,
+			"release_name": j.spec.DeployHelmChart.ReleaseName,
 		},
 		JobType: string(config.JobZadigHelmChartDeploy),
 		Spec:    jobTaskSpec,

@@ -1436,7 +1436,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			}
 			spec.Env = taskJobSpec.Env
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
-			spec.DeployHelmCharts = taskJobSpec.DeployHelmCharts
+			spec.DeployHelmChart = taskJobSpec.DeployHelmChart
 			jobPreview.Spec = spec
 		case string(config.JobPlugin):
 			taskJobSpec := &commonmodels.JobTaskPluginSpec{}

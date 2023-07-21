@@ -227,11 +227,11 @@ type JobTaskHelmDeploySpec struct {
 }
 
 type JobTaskHelmChartDeploySpec struct {
-	Env                string             `bson:"env"                              json:"env"                                 yaml:"env"`
-	DeployHelmCharts   []*DeployHelmChart `bson:"deploy_helm_charts"       yaml:"deploy_helm_charts"          json:"deploy_helm_charts"`
-	SkipCheckRunStatus bool               `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
-	ClusterID          string             `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
-	Timeout            int                `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
+	Env                string           `bson:"env"                              json:"env"                                 yaml:"env"`
+	DeployHelmChart    *DeployHelmChart `bson:"deploy_helm_chart"       yaml:"deploy_helm_chart"          json:"deploy_helm_chart"`
+	SkipCheckRunStatus bool             `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
+	ClusterID          string           `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	Timeout            int              `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
 }
 
 type ImageAndServiceModule struct {

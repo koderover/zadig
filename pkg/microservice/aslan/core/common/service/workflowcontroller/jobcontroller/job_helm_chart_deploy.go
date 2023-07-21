@@ -90,78 +90,77 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	for _, deploy := range c.jobTaskSpec.DeployHelmCharts {
-		chartInfo, ok := renderSet.GetChartRenderMap()[deploy.ReleaseName]
-		if !ok {
-			chartInfo = &template.ServiceRender{
-				ReleaseName:       deploy.ReleaseName,
-				IsHelmChartDeploy: true,
-				ChartRepo:         deploy.ChartRepo,
-				ChartName:         deploy.ChartName,
-				ChartVersion:      deploy.ChartVersion,
-			}
+	deploy := c.jobTaskSpec.DeployHelmChart
+	chartInfo, ok := renderSet.GetChartRenderMap()[deploy.ReleaseName]
+	if !ok {
+		chartInfo = &template.ServiceRender{
+			ReleaseName:       deploy.ReleaseName,
+			IsHelmChartDeploy: true,
+			ChartRepo:         deploy.ChartRepo,
+			ChartName:         deploy.ChartName,
+			ChartVersion:      deploy.ChartVersion,
 		}
-		if chartInfo.OverrideYaml == nil {
-			chartInfo.OverrideYaml = &template.CustomYaml{}
+	}
+	if chartInfo.OverrideYaml == nil {
+		chartInfo.OverrideYaml = &template.CustomYaml{}
+	}
+
+	valuesYaml := deploy.ValuesYaml
+	chartInfo.OverrideYaml.YamlContent = valuesYaml
+	c.ack()
+
+	c.logger.Infof("start helm chart deploy, productName %s, releaseName %s, namespace %s, variableYaml %s, overrideValues: %s",
+		c.workflowCtx.ProjectName, deploy.ReleaseName, c.namespace, valuesYaml, chartInfo.OverrideValues)
+
+	timeOut := c.timeout()
+
+	param := &kube.HelmChartInstallParam{
+		ProductName:  c.workflowCtx.ProjectName,
+		EnvName:      c.jobTaskSpec.Env,
+		ReleaseName:  deploy.ReleaseName,
+		ChartRepo:    deploy.ChartRepo,
+		ChartName:    deploy.ChartName,
+		ChartVersion: deploy.ChartVersion,
+		VariableYaml: valuesYaml,
+	}
+
+	productChartService := productInfo.GetChartServiceMap()[deploy.ReleaseName]
+	if productChartService == nil {
+		productChartService = &commonmodels.ProductService{
+			ReleaseName:    deploy.ReleaseName,
+			ProductName:    c.workflowCtx.ProjectName,
+			Type:           setting.HelmChartDeployType,
+			DeployStrategy: setting.ServiceDeployStrategyDeploy,
 		}
+	}
 
-		valuesYaml := deploy.ValuesYaml
-		chartInfo.OverrideYaml.YamlContent = valuesYaml
-		c.ack()
-
-		c.logger.Infof("start helm chart deploy, productName %s, releaseName %s, namespace %s, variableYaml %s, overrideValues: %s",
-			c.workflowCtx.ProjectName, deploy.ReleaseName, c.namespace, valuesYaml, chartInfo.OverrideValues)
-
-		timeOut := c.timeout()
-
-		param := &kube.HelmChartInstallParam{
-			ProductName:  c.workflowCtx.ProjectName,
-			EnvName:      c.jobTaskSpec.Env,
-			ReleaseName:  deploy.ReleaseName,
-			ChartRepo:    deploy.ChartRepo,
-			ChartName:    deploy.ChartName,
-			ChartVersion: deploy.ChartVersion,
-			VariableYaml: valuesYaml,
+	done := make(chan bool)
+	go func(chan bool) {
+		if err = kube.UpgradeHelmChartRelease(productInfo, renderSet, productChartService, param, timeOut); err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to upgrade helm chart %s/%s",
+				c.namespace, deploy.ReleaseName)
+			done <- false
+		} else {
+			done <- true
 		}
+	}(done)
 
-		productChartService := productInfo.GetChartServiceMap()[deploy.ReleaseName]
-		if productChartService == nil {
-			productChartService = &commonmodels.ProductService{
-				ReleaseName:    deploy.ReleaseName,
-				ProductName:    c.workflowCtx.ProjectName,
-				Type:           setting.HelmChartDeployType,
-				DeployStrategy: setting.ServiceDeployStrategyDeploy,
-			}
-		}
-
-		done := make(chan bool)
-		go func(chan bool) {
-			if err = kube.UpgradeHelmChartRelease(productInfo, renderSet, productChartService, param, timeOut); err != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to upgrade helm chart %s/%s",
-					c.namespace, deploy.ReleaseName)
-				done <- false
-			} else {
-				done <- true
-			}
-		}(done)
-
-		// we add timeout check here in case helm stuck in pending status
-		select {
-		case result := <-done:
-			if !result {
-				logError(c.job, err.Error(), c.logger)
-				return
-			}
-			break
-		case <-time.After(time.Second*time.Duration(timeOut) + time.Minute):
-			err = fmt.Errorf("failed to upgrade relase for service: %s, timeout", deploy.ReleaseName)
-		}
-		if err != nil {
+	// we add timeout check here in case helm stuck in pending status
+	select {
+	case result := <-done:
+		if !result {
 			logError(c.job, err.Error(), c.logger)
 			return
 		}
+		break
+	case <-time.After(time.Second*time.Duration(timeOut) + time.Minute):
+		err = fmt.Errorf("failed to upgrade relase for service: %s, timeout", deploy.ReleaseName)
+	}
+	if err != nil {
+		logError(c.job, err.Error(), c.logger)
+		return
 	}
 
 	c.job.Status = config.StatusPassed
