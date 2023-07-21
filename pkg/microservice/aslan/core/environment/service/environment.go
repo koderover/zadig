@@ -3563,8 +3563,11 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 			}
 		}
 
-		svcPreview := &SvcDiffResult{
-			ServiceName: chartInfo.ServiceName,
+		svcPreview := &SvcDiffResult{}
+		if chartInfo.DeployedFromZadig() {
+			svcPreview.ServiceName = chartInfo.ServiceName
+		} else {
+			svcPreview.ReleaseName = chartInfo.ReleaseName
 		}
 
 		if chartInfo.OverrideYaml == nil && len(chartInfo.OverrideValues) == 0 {
