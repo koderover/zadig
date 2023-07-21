@@ -916,7 +916,8 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 				return config.StatusFailed, errMsg
 			}
 			// pod is still running
-			if job.Status.Active != 0 {
+			switch {
+			case job.Status.Active != 0:
 				pods, err := podLister.List(labels.Set{"job-name": jobName}.AsSelector())
 				if err != nil {
 					errMsg := fmt.Sprintf("failed to find pod with label job-name=%s %v", jobName, err)
@@ -948,6 +949,10 @@ func waitJobEndByCheckingConfigMap(ctx context.Context, taskTimeout <-chan time.
 						}
 					}
 				}
+			case job.Status.Succeeded != 0:
+				return config.StatusPassed, ""
+			case job.Status.Failed != 0:
+				return config.StatusFailed, ""
 			}
 			if status, ok := cm.Data[commontypes.JobResultKey]; ok {
 				switch commontypes.JobStatus(status) {
