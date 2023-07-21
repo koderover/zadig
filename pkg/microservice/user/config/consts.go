@@ -24,6 +24,7 @@ const (
 	AppState           = setting.ProductName + "user"
 	SystemIdentityType = "system"
 	OauthIdentityType  = "oauth"
+	CLICIdentityType   = "clic"
 	FeiShuEmailHost    = "smtp.feishu.cn"
 )
 
@@ -32,3 +33,16 @@ type LoginType int
 const (
 	AccountLoginType LoginType = 0
 )
+
+type CLICConnectorConfig struct {
+	ClientID           string   `json:"clientID"`
+	ClientSecret       string   `json:"clientSecret"`
+	SystemURL          string   `json:"systemURL"`
+	RedirectURI        string   `json:"redirectURI"`
+	TokenURL           string   `json:"tokenURL"`
+	AuthorizationURL   string   `json:"authorizationURL"`
+	LogoutURL          string   `json:"logoutURL"`
+	UserInfoURL        string   `json:"userInfoURL"`
+	Scopes             []string `json:"scopes"`
+	InsecureSkipVerify bool     `json:"insecureSkipVerify"`
+}
