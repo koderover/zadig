@@ -26,6 +26,7 @@ import (
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -188,6 +189,20 @@ func (c *MseGrayReleaseJobCtl) Run(ctx context.Context) {
 				return
 			}
 			c.Info(fmt.Sprintf("create service %s successfully", serviceObj.Name))
+		case setting.Ingress:
+			ingressObj := &networkingv1.Ingress{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, ingressObj)
+			if err != nil {
+				logError(c.job, fmt.Sprintf("failed to convert service %s ingress to ingress object: %v", service.ServiceName, err), c.logger)
+				return
+			}
+			ingressObj.SetNamespace(c.namespace)
+			err = c.kubeClient.Create(context.Background(), ingressObj)
+			if err != nil {
+				c.Error(fmt.Sprintf("failed to create ingress %s: %v", ingressObj.Name, err))
+				return
+			}
+			c.Info(fmt.Sprintf("create ingress %s successfully", ingressObj.Name))
 		default:
 			c.Error(fmt.Sprintf("service %s resource type %s not allowed", service.ServiceName, resource.GetKind()))
 			return
