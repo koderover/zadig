@@ -978,7 +978,12 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectName, envName, c.Query("serviceName"), false, ctx.Logger)
+	arg := &commonservice.GetSvcRenderRequest{}
+	if err := c.ShouldBindQuery(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectName, envName, arg.GetSvcRendersArgs, false, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectName, ctx.Err)
 	}
@@ -1000,7 +1005,12 @@ func GetProductionEstimatedRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectName, envName, c.Query("serviceName"), true, ctx.Logger)
+	arg := &commonservice.GetSvcRenderRequest{}
+	if err := c.ShouldBindQuery(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectName, envName, arg.GetSvcRendersArgs, true, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectName, ctx.Err)
 	}
