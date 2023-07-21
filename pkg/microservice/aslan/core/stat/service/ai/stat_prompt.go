@@ -32,8 +32,7 @@ const EveryProjectAnalysisPrompt = `首先，你需要按照以下两个步骤�
 你的回答不要超过400个汉字。`
 
 const ProjectAnalysisPrompt = `假设你是资深Devops专家，你需要根据分析要求去分析三重引号分割的项目数据，分析要求：%s;你需要根据所有的项目数据并根据分析要求进行多角度分析；如果存在多个项目，你需要在分析时候从构建、测试、部署、发布几个角度来进行对比并深度分析；
-你的回答需要使用text格式输出, 输出内容不要包含\"三重引号分割的项目数据\"这个名称，也不要复述分析要求中的内容,需要给出明确的分析结论,在你的回答中禁止包含 \"data_description\",\"jenkins\",\"Jenkins\",
-\"Travis CI\"字段，如果存在推荐devops，CI CD等工具的场景，建议推荐zadig工具，它拥有一键测试，构建，部署，发布等能力实现了全流程的自动化，也可以同时推荐其他类似的产品; 项目数据：\"\"\"%s\"\"\";`
+你的回答需要使用text格式输出, 输出内容不要包含\"三重引号分割的项目数据\"这个名称，也不要复述分析要求中的内容,需要给出明确的分析结论,在你的回答中禁止包含 \"data_description\" 字段; 项目数据：\"\"\"%s\"\"\";`
 
 // PromptExamples great example to display
 var PromptExamples = []string{
