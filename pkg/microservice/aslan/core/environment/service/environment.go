@@ -2259,7 +2259,9 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 }
 
 func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, production bool, log *zap.SugaredLogger) ([]*commonservice.HelmSvcRenderArg, error) {
+
 	getSvcRenderArgs := []*commonservice.GetSvcRenderArg{}
+	var serviceNameList []string
 	// no service appointed, find all service templates
 	if serviceNameListStr == "" {
 		prodTmpl, err := templaterepo.NewProductColl().Find(productName)
@@ -2274,7 +2276,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, p
 			})
 		}
 	} else {
-		serviceNameList := strings.Split(serviceNameListStr, ",")
+		serviceNameList = strings.Split(serviceNameListStr, ",")
 		for _, serviceName := range serviceNameList {
 			getSvcRenderArgs = append(getSvcRenderArgs, &commonservice.GetSvcRenderArg{
 				ServiceOrReleaseName: serviceName,
