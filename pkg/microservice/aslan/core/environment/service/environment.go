@@ -769,16 +769,6 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 			Type:        setting.HelmChartDeployType,
 		}
 
-		// valuesMap := make(map[string]interface{})
-		// err = yaml.Unmarshal([]byte(chart.OverrideYaml), &valuesMap)
-		// if err != nil {
-		// 	return fmt.Errorf("Failed to unmarshall yaml, err %s", err)
-		// }
-		// containerList, err := commonutil.ParseImagesForProductService(valuesMap, chart.ReleaseName, productName)
-		// if err != nil {
-		// 	return errors.Wrapf(err, "Failed to parse service from yaml")
-		// }
-		// svc.Containers = containerList
 		chartSvcMap[svc.ReleaseName] = svc
 	}
 
@@ -3185,7 +3175,9 @@ func diffRenderSetHelmChart(username, productName, envName string, productResp *
 			ChartRepo:         chartInfo.ChartRepo,
 			ChartName:         chartInfo.ChartName,
 			OverrideValues:    chartInfo.ToOverrideValueString(),
-			OverrideYaml:      chartInfo.YamlData,
+			OverrideYaml: &templatemodels.CustomYaml{
+				YamlContent: chartInfo.OverrideYaml,
+			},
 		}
 	}
 
