@@ -127,13 +127,6 @@ definitions:
       value:
         type: string
     type: object
-  handler.DeleteProductHelmReleaseRequest:
-    properties:
-      release_names:
-        items:
-          type: string
-        type: array
-    type: object
   handler.DeleteProductServicesRequest:
     properties:
       service_names:
@@ -2308,12 +2301,11 @@ paths:
         name: name
         required: true
         type: string
-      - description: body
-        in: body
-        name: body
+      - description: release names
+        in: query
+        name: releaseNames
         required: true
-        schema:
-          $ref: '#/definitions/handler.DeleteProductHelmReleaseRequest'
+        type: string
       produces:
       - application/json
       responses:

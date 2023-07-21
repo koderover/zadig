@@ -188,7 +188,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 		releaseMap[re.Name] = re
 	}
 
-	releaseNameMap, err := commonservice.GetServiceNameToReleaseNameMap(prod)
+	releaseNameMap, err := commonutil.GetServiceNameToReleaseNameMap(prod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build release-service map: %s", err)
 	}
@@ -494,7 +494,7 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 
 	// filter releases, only list releases deployed by zadig
 	serviceMap := prod.GetServiceMap()
-	templateSvcs, err := commonservice.GetProductUsedTemplateSvcs(prod)
+	templateSvcs, err := commonutil.GetProductUsedTemplateSvcs(prod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service tempaltes,  err: %s", err)
 	}

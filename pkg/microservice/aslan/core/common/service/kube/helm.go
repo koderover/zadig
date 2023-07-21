@@ -546,15 +546,14 @@ func UninstallRelease(helmClient helmclient.Client, env *commonmodels.Product, r
 // TODO optimize me
 var helmSvcOfflineLock sync.Mutex
 
-// DeleteHelmServiceFromEnv deletes the service from the environment
 // 1. Uninstall related resources
 // 2. Delete service info from database
-func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmodels.Product, serviceOrReleaseNames []string, isHelmChartDeploy bool, log *zap.SugaredLogger) error {
+func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmodels.Product, releaseNames []string, log *zap.SugaredLogger) error {
 
 	helmSvcOfflineLock.Lock()
 	defer helmSvcOfflineLock.Unlock()
 
-	log.Infof("remove svc from env, svc: %v", serviceOrReleaseNames)
+	log.Infof("remove releases from env, releaseNames: %v", releaseNames)
 
 	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
@@ -576,23 +575,38 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 		return err
 	}
 
-	deleteSvcOrReleaseSet := sets.NewString(serviceOrReleaseNames...)
-	deletedSvcOrReleaseRevision := make(map[string]int64)
+	releaseNameSet := sets.NewString(releaseNames...)
+	prodSvcMap := productInfo.GetAllServiceMap()
+	releaseToServiceNameMap, err := commonutil.GetReleaseNameToServiceNameMap(productInfo)
+	if err != nil {
+		return fmt.Errorf("failed to get release name to service name map, err: %s", err)
+	}
+	serviceNameToProdSvcMap := make(map[string]*commonmodels.ProductService)
+	releaseNameToChartProdSvcMap := make(map[string]*commonmodels.ProductService)
+	for releaseName, serviceName := range releaseToServiceNameMap {
+		if prodSvcMap[serviceName] == nil {
+			return fmt.Errorf("failed to find service %s(release %s) in product %s", serviceName, releaseName, productInfo.ProductName)
+		}
+		if !releaseNameSet.Has(releaseName) {
+			continue
+		}
+		if prodSvcMap[serviceName].Type == setting.HelmChartDeployType {
+			releaseNameToChartProdSvcMap[releaseName] = prodSvcMap[serviceName]
+		} else {
+			serviceNameToProdSvcMap[releaseName] = prodSvcMap[serviceName]
+		}
+	}
 
 	for serviceGroupIndex, serviceGroup := range productInfo.Services {
 		var group []*commonmodels.ProductService
 		for _, service := range serviceGroup {
-			if isHelmChartDeploy && service.Type == setting.HelmChartDeployType {
-				if !deleteSvcOrReleaseSet.Has(service.ReleaseName) {
+			if service.Type == setting.HelmChartDeployType {
+				if _, ok := releaseNameToChartProdSvcMap[service.ReleaseName]; !ok {
 					group = append(group, service)
-				} else {
-					deletedSvcOrReleaseRevision[service.ReleaseName] = service.Revision
 				}
 			} else {
-				if !deleteSvcOrReleaseSet.Has(service.ServiceName) {
+				if _, ok := serviceNameToProdSvcMap[service.ServiceName]; !ok {
 					group = append(group, service)
-				} else {
-					deletedSvcOrReleaseRevision[service.ServiceName] = service.Revision
 				}
 			}
 		}
@@ -604,27 +618,20 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 	}
 
 	// services deployed by zadig
-	deployedSvcs := sets.NewString()
-	for _, svcOrRelease := range serviceOrReleaseNames {
-		if isHelmChartDeploy {
-			if !commonutil.ReleaseDeployed(svcOrRelease, productInfo.ServiceDeployStrategy) {
+	for _, prodSvc := range serviceNameToProdSvcMap {
+		if prodSvc.Type == setting.HelmChartDeployType {
+			if !commonutil.ReleaseDeployed(prodSvc.ReleaseName, productInfo.ServiceDeployStrategy) {
 				continue
 			}
+			delete(productInfo.ServiceDeployStrategy, commonutil.GetReleaseDeployStrategyKey(prodSvc.ReleaseName))
 		} else {
-			if !commonutil.ServiceDeployed(svcOrRelease, productInfo.ServiceDeployStrategy) {
+			if !commonutil.ServiceDeployed(prodSvc.ServiceName, productInfo.ServiceDeployStrategy) {
 				continue
 			}
+			delete(productInfo.ServiceDeployStrategy, prodSvc.ServiceName)
 		}
-		deployedSvcs.Insert(svcOrRelease)
 	}
 
-	for _, singleName := range serviceOrReleaseNames {
-		if isHelmChartDeploy {
-			delete(productInfo.ServiceDeployStrategy, commonutil.GetReleaseDeployStrategyKey(singleName))
-		} else {
-			delete(productInfo.ServiceDeployStrategy, singleName)
-		}
-	}
 	err = commonrepo.NewProductColl().UpdateDeployStrategy(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy)
 	if err != nil {
 		log.Errorf("failed to update product deploy strategy, err: %s", err)
@@ -641,12 +648,12 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 	}
 	rcs := make([]*template.ServiceRender, 0)
 	for _, v := range renderset.ChartInfos {
-		if isHelmChartDeploy {
-			if v.IsHelmChartDeploy && !deleteSvcOrReleaseSet.Has(v.ReleaseName) {
+		if v.IsHelmChartDeploy {
+			if _, ok := releaseNameToChartProdSvcMap[v.ReleaseName]; !ok {
 				rcs = append(rcs, v)
 			}
 		} else {
-			if !deleteSvcOrReleaseSet.Has(v.ServiceName) {
+			if _, ok := serviceNameToProdSvcMap[v.ServiceName]; !ok {
 				rcs = append(rcs, v)
 			}
 		}
@@ -667,32 +674,39 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 	go func() {
 		failedServices := sync.Map{}
 		wg := sync.WaitGroup{}
-		for svcOrRelease, revision := range deletedSvcOrReleaseRevision {
-			if !deployedSvcs.Has(svcOrRelease) {
+
+		for svcName, prodSvc := range serviceNameToProdSvcMap {
+			if !commonutil.ReleaseDeployed(prodSvc.ReleaseName, productInfo.ServiceDeployStrategy) {
 				continue
 			}
 			wg.Add(1)
-			go func(product *models.Product, svcOrReleaseName string, revision int64, isHelmChartDeploy bool) {
+			go func(product *models.Product, prodSvc *commonmodels.ProductService) {
 				defer wg.Done()
-				if isHelmChartDeploy {
-					if errUninstall := UninstallRelease(helmClient, productInfo, svcOrReleaseName, false); errUninstall != nil {
-						errStr := fmt.Sprintf("helm uninstall release %s err: %s", svcOrReleaseName, errUninstall)
-						failedServices.Store(svcOrReleaseName, errStr)
-						log.Error(errStr)
-					}
-				} else {
-					templateSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ServiceName: svcOrReleaseName, Revision: revision, ProductName: product.ProductName}, productInfo.Production)
-					if err != nil {
-						failedServices.Store(svcOrReleaseName, err.Error())
-						return
-					}
-					if errUninstall := UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
-						errStr := fmt.Sprintf("helm uninstall service %s err: %s", svcOrReleaseName, errUninstall)
-						failedServices.Store(svcOrReleaseName, errStr)
-						log.Error(errStr)
-					}
+				templateSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ServiceName: svcName, Revision: prodSvc.Revision, ProductName: product.ProductName}, productInfo.Production)
+				if err != nil {
+					failedServices.Store(svcName, err.Error())
+					return
 				}
-			}(productInfo, svcOrRelease, revision, isHelmChartDeploy)
+				if errUninstall := UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
+					errStr := fmt.Sprintf("helm uninstall service %s err: %s", svcName, errUninstall)
+					failedServices.Store(svcName, errStr)
+					log.Error(errStr)
+				}
+			}(productInfo, prodSvc)
+		}
+		for releaseName, prodSvc := range releaseNameToChartProdSvcMap {
+			if !commonutil.ServiceDeployed(prodSvc.ServiceName, productInfo.ServiceDeployStrategy) {
+				continue
+			}
+			wg.Add(1)
+			go func(product *models.Product, releaseName string) {
+				defer wg.Done()
+				if errUninstall := UninstallRelease(helmClient, productInfo, releaseName, false); errUninstall != nil {
+					errStr := fmt.Sprintf("helm uninstall release %s err: %s", releaseName, errUninstall)
+					failedServices.Store(releaseName, errStr)
+					log.Error(errStr)
+				}
+			}(productInfo, releaseName)
 		}
 		wg.Wait()
 		errList := make([]string, 0)
@@ -703,9 +717,144 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 		// send err message to user
 		if len(errList) > 0 {
 			title := fmt.Sprintf("[%s] 的 [%s] 环境服务删除失败", productInfo.ProductName, productInfo.EnvName)
-			if isHelmChartDeploy {
-				title = fmt.Sprintf("[%s] 的 [%s] 环境helm release删除失败", productInfo.ProductName, productInfo.EnvName)
+			notify.SendErrorMessage(userName, title, requestID, errors.New(strings.Join(errList, "\n")), log)
+		}
+
+		if productInfo.ShareEnv.Enable && !productInfo.ShareEnv.IsBase {
+			err = EnsureGrayEnvConfig(ctx, productInfo, kclient, istioClient)
+			if err != nil {
+				log.Errorf("Failed to ensure gray env config: %s", err)
 			}
+		}
+	}()
+	return nil
+}
+
+// DeleteHelmServiceFromEnv deletes the service from the environment
+// 1. Uninstall related resources
+// 2. Delete service info from database
+func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
+
+	helmSvcOfflineLock.Lock()
+	defer helmSvcOfflineLock.Unlock()
+
+	log.Infof("remove svc from env, svc: %v", serviceNames)
+
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return err
+	}
+	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.TODO()
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return err
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
+	deleteServiceSet := sets.NewString(serviceNames...)
+	deletedSvcRevision := make(map[string]int64)
+
+	for serviceGroupIndex, serviceGroup := range productInfo.Services {
+		var group []*commonmodels.ProductService
+		for _, service := range serviceGroup {
+			if !deleteServiceSet.Has(service.ServiceName) {
+				group = append(group, service)
+			} else {
+				deletedSvcRevision[service.ServiceName] = service.Revision
+			}
+		}
+		err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, serviceGroupIndex, group)
+		if err != nil {
+			log.Errorf("update product error: %v", err)
+			return err
+		}
+	}
+
+	// services deployed by zadig
+	deployedSvcs := sets.NewString()
+	for _, svc := range serviceNames {
+		if !commonutil.ServiceDeployed(svc, productInfo.ServiceDeployStrategy) {
+			continue
+		}
+		deployedSvcs.Insert(svc)
+	}
+
+	for _, singleName := range serviceNames {
+		delete(productInfo.ServiceDeployStrategy, singleName)
+	}
+	err = commonrepo.NewProductColl().UpdateDeployStrategy(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy)
+	if err != nil {
+		log.Errorf("failed to update product deploy strategy, err: %s", err)
+	}
+
+	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		Name:        productInfo.Render.Name,
+		EnvName:     productInfo.EnvName,
+		ProductTmpl: productInfo.ProductName,
+		Revision:    productInfo.Render.Revision,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to find renderset: %s/%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, err)
+	}
+	rcs := make([]*template.ServiceRender, 0)
+	for _, v := range renderset.ChartInfos {
+		if !deleteServiceSet.Has(v.ServiceName) {
+			rcs = append(rcs, v)
+		}
+	}
+	renderset.ChartInfos = rcs
+
+	// create new renderset
+	if err := render.CreateK8sHelmRenderSet(renderset, log); err != nil {
+		return fmt.Errorf("failed to create renderset, name %s, err: %s", renderset.Name, err)
+	}
+
+	productInfo.Render.Revision = renderset.Revision
+	err = commonrepo.NewProductColl().UpdateRender(renderset.EnvName, productInfo.ProductName, productInfo.Render)
+	if err != nil {
+		return fmt.Errorf("failed to update product render info, renderName: %s, err: %s", productInfo.Render.Name, err)
+	}
+
+	go func() {
+		failedServices := sync.Map{}
+		wg := sync.WaitGroup{}
+		for service, revision := range deletedSvcRevision {
+			if !deployedSvcs.Has(service) {
+				continue
+			}
+			wg.Add(1)
+			go func(product *models.Product, serviceName string, revision int64) {
+				defer wg.Done()
+				templateSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ServiceName: serviceName, Revision: revision, ProductName: product.ProductName}, productInfo.Production)
+				if err != nil {
+					failedServices.Store(serviceName, err.Error())
+					return
+				}
+				if errUninstall := UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
+					errStr := fmt.Sprintf("helm uninstall service %s err: %s", serviceName, errUninstall)
+					failedServices.Store(serviceName, errStr)
+					log.Error(errStr)
+				}
+			}(productInfo, service, revision)
+		}
+		wg.Wait()
+		errList := make([]string, 0)
+		failedServices.Range(func(key, value interface{}) bool {
+			errList = append(errList, value.(string))
+			return true
+		})
+		// send err message to user
+		if len(errList) > 0 {
+			title := fmt.Sprintf("[%s] 的 [%s] 环境服务删除失败", productInfo.ProductName, productInfo.EnvName)
 			notify.SendErrorMessage(userName, title, requestID, errors.New(strings.Join(errList, "\n")), log)
 		}
 

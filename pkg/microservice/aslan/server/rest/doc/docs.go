@@ -787,13 +787,11 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.DeleteProductHelmReleaseRequest"
-                        }
+                        "type": "string",
+                        "description": "release names",
+                        "name": "releaseNames",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -2129,17 +2127,6 @@ const docTemplate = `{
                 },
                 "value": {
                     "type": "string"
-                }
-            }
-        },
-        "handler.DeleteProductHelmReleaseRequest": {
-            "type": "object",
-            "properties": {
-                "release_names": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },

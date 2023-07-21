@@ -32,11 +32,11 @@ import (
 	template2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	util2 "github.com/koderover/zadig/pkg/util"
@@ -50,7 +50,7 @@ func ExtractRootKeyFromFlat(flatKey string) string {
 // GetAffectedServices fetch affected services
 // key => services
 func GenerateEnvVariableAffectServices(productInfo *models.Product, renderset *models.RenderSet) (map[string]sets.String, map[string]*types.ServiceVariableKV, error) {
-	productServiceRevisions, err := commonservice.GetProductUsedTemplateSvcs(productInfo)
+	productServiceRevisions, err := commonutil.GetProductUsedTemplateSvcs(productInfo)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find revision services, err: %s", err)
 	}

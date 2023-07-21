@@ -23,6 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -270,7 +271,7 @@ func CopyHelmProduct(productName, userName, requestID string, args []*CreateSing
 			errList = multierror.Append(errList, fmt.Errorf("failed to query base product info name :%s,envname:%s", productName, arg.BaseName))
 			continue
 		}
-		templateSvcs, err := commonservice.GetProductUsedTemplateSvcs(baseProduct)
+		templateSvcs, err := commonutil.GetProductUsedTemplateSvcs(baseProduct)
 		templateServiceMap := make(map[string]*commonmodels.Service)
 		for _, svc := range templateSvcs {
 			templateServiceMap[svc.ServiceName] = svc

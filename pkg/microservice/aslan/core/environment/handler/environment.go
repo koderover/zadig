@@ -1111,30 +1111,20 @@ func DeleteProductionProductServices(c *gin.Context) {
 // @Produce json
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	name			path		string							true	"env name"
-// @Param 	body 			body 		DeleteProductHelmReleaseRequest true 	"body"
+// @Param 	releaseNames	query		string							true	"release names"
 // @Success 200
 // @Router /api/aslan/environment/production/environments/:name/helm/releases [delete]
 func DeleteProductionHelmReleases(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(DeleteProductHelmReleaseRequest)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("DeleteProductHelmRelease c.GetRawData() err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("DeleteProductHelmRelease json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
 	projectName := c.Query("projectName")
+	releaseNames := c.Query("releaseNames")
 	envName := c.Param("name")
+	releaseNameArr := strings.Split(releaseNames, ",")
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "环境的helm release", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ReleaseNames, ",")), "", ctx.Logger, envName)
-	ctx.Err = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectName, args.ReleaseNames, true, ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "环境的helm release", fmt.Sprintf("%s:[%s]", envName, releaseNames), "", ctx.Logger, envName)
+	ctx.Err = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectName, releaseNameArr, true, ctx.Logger)
 }
 
 func ListGroups(c *gin.Context) {

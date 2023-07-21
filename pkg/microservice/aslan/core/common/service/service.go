@@ -996,7 +996,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		return ret, nil
 	}
 
-	productTemplateSvcs, err := GetProductUsedTemplateSvcs(productInfo)
+	productTemplateSvcs, err := commonutil.GetProductUsedTemplateSvcs(productInfo)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find product template services for env %s:%s", productName, envName))
 	}

@@ -1014,7 +1014,7 @@ func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log 
 	if err != nil {
 		return nil, fmt.Errorf("failed to find product info, err: %s", err)
 	}
-	productServiceRevisions, err := commonservice.GetProductUsedTemplateSvcs(productInfo)
+	productServiceRevisions, err := commonutil.GetProductUsedTemplateSvcs(productInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find revision services, err: %s", err)
 	}
@@ -2127,11 +2127,11 @@ func DeleteProductHelmReleases(userName, requestID, envName, productName string,
 		log.Errorf("find product error: %v", err)
 		return err
 	}
-	return kube.DeleteHelmServiceFromEnv(userName, requestID, productInfo, releases, true, log)
+	return kube.DeleteHelmReleaseFromEnv(userName, requestID, productInfo, releases, log)
 }
 
 func deleteHelmProductServices(userName, requestID string, productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
-	return kube.DeleteHelmServiceFromEnv(userName, requestID, productInfo, serviceNames, false, log)
+	return kube.DeleteHelmServiceFromEnv(userName, requestID, productInfo, serviceNames, log)
 }
 
 func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {

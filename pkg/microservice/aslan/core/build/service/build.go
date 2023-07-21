@@ -141,7 +141,7 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 		if err != nil {
 			return nil, goerrors.Wrapf(err, "failed to find product: %s/%s", productName, envName)
 		}
-		prodUsedSvs, err := commonservice.GetProductUsedTemplateSvcs(productInfo)
+		prodUsedSvs, err := commonutil.GetProductUsedTemplateSvcs(productInfo)
 		if err != nil {
 			return nil, goerrors.Wrapf(err, "failed to get product used template services: %s/%s", productName, envName)
 		}

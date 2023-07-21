@@ -43,6 +43,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -243,7 +244,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 	// svc used in products
 	productSvcMap := make(map[string]*models.ProductService)
 	if productInfo != nil {
-		svcs, err := GetProductUsedTemplateSvcs(productInfo)
+		svcs, err := commonutil.GetProductUsedTemplateSvcs(productInfo)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -480,7 +481,7 @@ func buildWorkloadFilterFunc(productInfo *models.Product, projectInfo *templatem
 	// for helm service, only show deploys/stss created by zadig
 	if projectInfo.IsHelmProduct() {
 		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
-			releaseNameMap, err := GetReleaseNameToServiceNameMap(productInfo)
+			releaseNameMap, err := commonutil.GetReleaseNameToServiceNameMap(productInfo)
 			if err != nil {
 				log.Errorf("failed to generate relase map for product: %s:%s", productInfo.ProductName, productInfo.EnvName)
 				return workloads
@@ -664,7 +665,7 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 	if productInfo.Source != setting.SourceFromHelm {
 		return nil
 	}
-	releaseNameMap, err := GetReleaseNameToServiceNameMap(productInfo)
+	releaseNameMap, err := commonutil.GetReleaseNameToServiceNameMap(productInfo)
 	if err != nil {
 		return err
 	}
@@ -877,66 +878,6 @@ func FindServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	return resp
 }
 
-func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error) {
-	// filter releases, only list releases deployed by zadig
-	productName, envName, serviceMap := prod.ProductName, prod.EnvName, prod.GetServiceMap()
-	if len(serviceMap) == 0 {
-		return nil, nil
-	}
-	listOpt := &commonrepo.SvcRevisionListOption{
-		ProductName:      prod.ProductName,
-		ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
-	}
-	resp := make([]*models.Service, 0)
-	for _, productSvc := range serviceMap {
-		listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
-			ServiceName: productSvc.ServiceName,
-			Revision:    productSvc.Revision,
-		})
-	}
-	templateServices, err := repository.ListServicesWithSRevision(listOpt, prod.Production)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s, err: %s", productName, envName, err)
-	}
-	return append(resp, templateServices...), nil
-}
-
-// GetReleaseNameToServiceNameMap generates mapping relationship: releaseName=>serviceName
-func GetReleaseNameToServiceNameMap(prod *models.Product) (map[string]string, error) {
-	productName, envName := prod.ProductName, prod.EnvName
-	templateServices, err := GetProductUsedTemplateSvcs(prod)
-	if err != nil {
-		return nil, err
-	}
-	// map[ReleaseName] => serviceName
-	releaseNameMap := make(map[string]string)
-	for _, svcInfo := range templateServices {
-		releaseNameMap[util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)] = svcInfo.ServiceName
-	}
-	for _, svc := range prod.GetChartServiceMap() {
-		releaseNameMap[svc.ReleaseName] = svc.ServiceName
-	}
-	return releaseNameMap, nil
-}
-
-// GetServiceNameToReleaseNameMap generates mapping relationship: serviceName=>releaseName
-func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, error) {
-	productName, envName := prod.ProductName, prod.EnvName
-	templateServices, err := GetProductUsedTemplateSvcs(prod)
-	if err != nil {
-		return nil, err
-	}
-	// map[serviceName] => ReleaseName
-	releaseNameMap := make(map[string]string)
-	for _, svcInfo := range templateServices {
-		releaseNameMap[svcInfo.ServiceName] = util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)
-	}
-	for _, svc := range prod.GetChartServiceMap() {
-		releaseNameMap[svc.ServiceName] = svc.ReleaseName
-	}
-	return releaseNameMap, nil
-}
-
 // GetHelmServiceName get service name from annotations of resources deployed by helm
 // resType currently only support Deployment, StatefulSet and CronJob
 // this function needs to be optimized
@@ -944,7 +885,7 @@ func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClien
 	res := &unstructured.Unstructured{}
 	namespace := prod.Namespace
 
-	nameMap, err := GetReleaseNameToServiceNameMap(prod)
+	nameMap, err := commonutil.GetReleaseNameToServiceNameMap(prod)
 	if err != nil {
 		return "", err
 	}
