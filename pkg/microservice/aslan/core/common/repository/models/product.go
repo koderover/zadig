@@ -116,6 +116,10 @@ type ProductService struct {
 	DeployStrategy string                          `bson:"-"                          json:"deploy_strategy"`
 }
 
+func (svc *ProductService) FromZadig() bool {
+	return svc.Type == setting.HelmChartDeployType
+}
+
 type ServiceConfig struct {
 	ConfigName string `bson:"config_name"           json:"config_name"`
 	Revision   int64  `bson:"revision"              json:"revision"`

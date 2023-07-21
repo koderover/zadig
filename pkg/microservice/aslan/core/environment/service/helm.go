@@ -258,7 +258,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 
 		updatable := false
 		if svcDataSet.TmplSvc != nil {
-			if svcDataSet.ProdSvc.Revision != svcDataSet.TmplSvc.Revision {
+			if svcDataSet.ProdSvc.FromZadig() && svcDataSet.ProdSvc.Revision != svcDataSet.TmplSvc.Revision {
 				updatable = true
 			}
 		}
