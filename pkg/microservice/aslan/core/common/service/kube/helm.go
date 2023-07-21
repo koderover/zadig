@@ -477,16 +477,17 @@ func UpgradeHelmChartRelease(product *commonmodels.Product, renderSet *commonmod
 	}
 
 	newProductInfo.Render.Revision = curRenderInfo.Revision
-	productSvcMap := make(map[string]*commonmodels.ProductService)
-	for _, service := range newProductInfo.GetAllServiceMap() {
-		productSvcMap[service.ServiceName] = service
+	productChartSvcMap := product.GetChartServiceMap()
+	productChartSvcMap[productSvc.ReleaseName] = product.GetChartServiceMap()[productSvc.ReleaseName]
+	if productChartSvcMap[productSvc.ReleaseName] == nil {
+		productChartSvcMap[productSvc.ReleaseName] = productSvc
 	}
-	productSvcMap[productSvc.ServiceName] = product.GetChartServiceMap()[productSvc.ServiceName]
-	if productSvcMap[productSvc.ServiceName] == nil {
-		productSvcMap[productSvc.ServiceName] = productSvc
-	}
+
 	newProductInfo.Services = [][]*commonmodels.ProductService{{}}
-	for _, service := range productSvcMap {
+	for _, service := range newProductInfo.GetServiceMap() {
+		newProductInfo.Services[0] = append(newProductInfo.Services[0], service)
+	}
+	for _, service := range productChartSvcMap {
 		newProductInfo.Services[0] = append(newProductInfo.Services[0], service)
 	}
 
@@ -577,7 +578,8 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 	}
 
 	releaseNameSet := sets.NewString(releaseNames...)
-	prodSvcMap := productInfo.GetAllServiceMap()
+	prodSvcMap := productInfo.GetServiceMap()
+	prodChartSvcMap := productInfo.GetChartServiceMap()
 	releaseToServiceNameMap, err := commonutil.GetReleaseNameToServiceNameMap(productInfo)
 	if err != nil {
 		return fmt.Errorf("failed to get release name to service name map, err: %s", err)
@@ -592,7 +594,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 			continue
 		}
 		if prodSvcMap[serviceName].Type == setting.HelmChartDeployType {
-			releaseNameToChartProdSvcMap[releaseName] = prodSvcMap[serviceName]
+			releaseNameToChartProdSvcMap[releaseName] = prodChartSvcMap[serviceName]
 		} else {
 			serviceNameToProdSvcMap[serviceName] = prodSvcMap[serviceName]
 		}

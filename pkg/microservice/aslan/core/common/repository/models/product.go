@@ -152,25 +152,13 @@ func (p *Product) GetGroupServiceNames() [][]string {
 	return resp
 }
 
-func (p *Product) GetAllServiceMap() map[string]*ProductService {
-	ret := make(map[string]*ProductService)
-	for _, group := range p.Services {
-		for _, svc := range group {
-			ret[svc.ServiceName] = svc
-		}
-	}
-
-	return ret
-}
-
 func (p *Product) GetServiceMap() map[string]*ProductService {
 	ret := make(map[string]*ProductService)
 	for _, group := range p.Services {
 		for _, svc := range group {
-			if svc.Type == setting.HelmChartDeployType {
-				continue
+			if svc.FromZadig() {
+				ret[svc.ServiceName] = svc
 			}
-			ret[svc.ServiceName] = svc
 		}
 	}
 
@@ -181,7 +169,7 @@ func (p *Product) GetChartServiceMap() map[string]*ProductService {
 	ret := make(map[string]*ProductService)
 	for _, group := range p.Services {
 		for _, svc := range group {
-			if svc.Type == setting.HelmChartDeployType {
+			if !svc.FromZadig() {
 				ret[svc.ReleaseName] = svc
 			}
 		}

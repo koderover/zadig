@@ -642,7 +642,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 		serviceNeedUpdateOrCreate.Insert(chart.ServiceName)
 	}
 
-	productServiceMap := productResp.GetAllServiceMap()
+	productServiceMap := productResp.GetServiceMap()
 
 	// get deleted services map[serviceName]=>serviceRevision
 	for _, svc := range productServiceMap {
