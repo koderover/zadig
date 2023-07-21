@@ -405,8 +405,8 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 		return nil, nil, nil
 	}
 
-	svcRenderArgSet := sets.NewString()
 	svcChartRenderArgSet := sets.NewString()
+	svcRenderArgSet := sets.NewString()
 	for _, arg := range getSvcRendersArgs {
 		if arg.IsHelmChartDeploy {
 			svcChartRenderArgSet.Insert(arg.ServiceOrReleaseName)
@@ -418,8 +418,10 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 	if len(getSvcRendersArgs) == 0 {
 		matchedRenderChartModels = rendersetObj.ChartInfos
 	} else {
+		log.Debugf("svcChartRenderArgSet: %v", svcChartRenderArgSet.List())
 		for _, singleChart := range rendersetObj.ChartInfos {
 			if singleChart.IsHelmChartDeploy {
+				log.Debugf("singleChart.ReleaseName: %s", singleChart.ReleaseName)
 				if svcChartRenderArgSet.Has(singleChart.ReleaseName) {
 					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
 				}
