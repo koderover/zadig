@@ -1249,7 +1249,7 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 				}
 			}
 			for _, svcChart := range productRenderset.ChartInfos {
-				if svcSet.Has(svcChart.ServiceName) || releaseSet.Has(svcChart.ReleaseName)) {
+				if svcSet.Has(svcChart.ServiceName) || releaseSet.Has(svcChart.ReleaseName) {
 					updatedSvcList = append(updatedSvcList, svcChart)
 				}
 			}
