@@ -373,6 +373,7 @@ type GetSvcRenderArg struct {
 }
 
 func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRenderArg, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
+	log.Debugf("enter GetSvcRenderArgs, productName: %s, envName: %s, getSvcRendersArgs: %+v", productName, envName, getSvcRendersArgs)
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 	renderRevision := int64(0)
 	ret := make([]*HelmSvcRenderArg, 0)
