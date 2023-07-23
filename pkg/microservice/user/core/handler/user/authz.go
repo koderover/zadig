@@ -49,5 +49,5 @@ func CheckCollaborationModePermission(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = user.UpdateUser(uid, args, ctx.Logger)
+	ctx.Resp, ctx.Err = userservice.CheckCollaborationModePermission(args.UID, args.ProjectKey, args.Resource, args.Resource, args.Action)
 }

@@ -98,7 +98,6 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 	}
 
-	// TODO: deal with individual resources later
 	resp := &AuthorizedResources{
 		IsSystemAdmin:   false,
 		ProjectAuthInfo: projectActionMap,
@@ -118,15 +117,40 @@ func CheckCollaborationModePermission(uid, projectKey, resource, resourceName, a
 
 	switch resource {
 	case ResourceTypeWorkflow:
+		hasPermission = checkWorkflowPermission(collabInstance.Workflows, resourceName, action)
 	case ResourceTypeEnvironment:
+		hasPermission = checkEnvPermission(collabInstance.Products, resourceName, action)
 	default:
 		return
 	}
 	return
 }
 
-// TODO: finish me
-func checkWorkflowPermission(list []models.WorkflowCIItem)
+func checkWorkflowPermission(list []models.WorkflowCIItem, resourceName, action string) bool {
+	for _, workflow := range list {
+		if workflow.Name == resourceName {
+			for _, verb := range workflow.Verbs {
+				if action == verb {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func checkEnvPermission(list []models.ProductCIItem, resourceName, action string) bool {
+	for _, env := range list {
+		if env.Name == resourceName {
+			for _, verb := range env.Verbs {
+				if action == verb {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
 
 func generateAdminRoleResource() *AuthorizedResources {
 	return &AuthorizedResources{
