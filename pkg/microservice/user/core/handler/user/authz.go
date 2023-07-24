@@ -18,9 +18,9 @@ package user
 
 import (
 	"github.com/gin-gonic/gin"
-
 	userservice "github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func GetUserAuthInfo(c *gin.Context) {
@@ -32,22 +32,23 @@ func GetUserAuthInfo(c *gin.Context) {
 	ctx.Resp, ctx.Err = userservice.GetUserAuthInfo(uid, ctx.Logger)
 }
 
-type checkCollaborationModePermissionReq struct {
-	UID        string `json:"uid"`
-	ProjectKey string `json:"project_key"`
-	Resource   string `json:"resource"`
-	Action     string `json:"action"`
-}
-
 func CheckCollaborationModePermission(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &checkCollaborationModePermissionReq{}
-	if err := c.ShouldBindJSON(args); err != nil {
+	args := &types.CheckCollaborationModePermissionReq{}
+	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = userservice.CheckCollaborationModePermission(args.UID, args.ProjectKey, args.Resource, args.Resource, args.Action)
+	hasPermission, err := userservice.CheckCollaborationModePermission(args.UID, args.ProjectKey, args.Resource, args.ResourceName, args.Action)
+	resp := &types.CheckCollaborationModePermissionResp{
+		HasPermission: hasPermission,
+	}
+	if err != nil {
+		resp.Error = err.Error()
+	}
+
+	ctx.Resp = resp
 }

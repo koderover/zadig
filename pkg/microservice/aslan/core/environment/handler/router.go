@@ -70,7 +70,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	productDiff := router.Group("diff")
 	{
 		productDiff.GET("/products/:productName/service/:serviceName", ServiceDiff)
-		productDiff.GET("/production/products/:productName/service/:serviceName", ServiceDiff)
+		productDiff.GET("/production/products/:productName/service/:serviceName", ProductionServiceDiff)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -143,8 +143,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.POST("/environments/:name/estimated-values", ProductionEstimatedValues)
 
 		production.GET("/environments", ListProductionEnvs)
-		production.GET("/environments/:name", GetProduct)
-		production.PUT("/environments/:name/registry", UpdateProductRegistry)
+		production.GET("/environments/:name", GetProductionEnv)
+		production.PUT("/environments/:name/registry", UpdateProductionProductRegistry)
 		production.GET("/environments/:name/groups", ListProductionGroups)
 
 		// used for production deploy workflows
@@ -152,7 +152,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/servicesForUpdate", ListSvcsInEnv)
 
 		production.PUT("/environments/:name/services/:serviceName", UpdateService)
-		production.PUT("/environments/:name/helm/charts", UpdateHelmProductCharts)
+		production.PUT("/environments/:name/helm/charts", UpdateProductionEnvHelmProductCharts)
 
 		// services related
 		production.GET("/environments/:name/services/:serviceName", GetProductionService)
@@ -169,11 +169,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/helm/values", GetProductionChartValues)
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
-		production.PUT("/environments/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
-		production.POST("/environments/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
+		production.PUT("/environments/:name/k8s/globalVariables", UpdateProductionEnvK8sProductGlobalVariables)
+		production.POST("/environments/:name/k8s/globalVariables/preview", PreviewProductionEnvGlobalVariables)
 
-		production.PUT("/environments/:name/helm/default-values", UpdateHelmProductDefaultValues)
-		production.POST("/environments/:name/helm/default-values/preview", PreviewHelmProductDefaultValues)
+		production.PUT("/environments/:name/helm/default-values", UpdateProductionHelmProductDefaultValues)
+		production.POST("/environments/:name/helm/default-values/preview", PreviewProductionHelmProductDefaultValues)
 		production.GET("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
 
 		production.POST("/environments/:name/services/:serviceName/restart", RestartService)
@@ -183,14 +183,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/rendersets/renderchart", GetServiceRenderCharts)
 
 		// normal resources
-		production.GET("/configmaps/:name", ListConfigMaps)
+		production.GET("/configmaps/:name", ListProductionConfigMaps)
 		production.GET("/secrets/:name", ListSecrets)
-		production.GET("/ingresses/:name", ListIngresses)
-		production.GET("/pvcs/:name", ListPvcs)
-		production.GET("/envcfgs/:name/cfg/:objectName", ListCommonEnvCfgHistory)
-		production.PUT("/envcfgs/:name", UpdateCommonEnvCfg)
-		production.POST("/envcfgs/:name", CreateCommonEnvCfg)
-		production.DELETE("/envcfgs/:name/cfg/:objectName", DeleteCommonEnvCfg)
+		production.GET("/ingresses/:name", ListProductionIngresses)
+		production.GET("/pvcs/:name", ListProductionPvcs)
+		production.GET("/envcfgs/:name/cfg/:objectName", ListProductionCommonEnvCfgHistory)
+		production.PUT("/envcfgs/:name", UpdateProductionCommonEnvCfg)
+		production.POST("/envcfgs/:name", CreateProductionCommonEnvCfg)
+		production.DELETE("/envcfgs/:name/cfg/:objectName", DeleteProductionCommonEnvCfg)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -204,7 +204,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("", UpdateMultiProducts)
 		environments.POST("", CreateProduct)
 
-		environments.GET("/:name", GetProduct)
+		environments.GET("/:name", GetEnvironment)
 		environments.PUT("/:name/envRecycle", UpdateProductRecycleDay)
 		environments.PUT("/:name/alias", UpdateProductAlias)
 		environments.POST("/:name/affectedservices", AffectedServices)

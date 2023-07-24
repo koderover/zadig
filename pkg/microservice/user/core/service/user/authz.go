@@ -19,6 +19,7 @@ package user
 import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
 )
 
@@ -116,9 +117,9 @@ func CheckCollaborationModePermission(uid, projectKey, resource, resourceName, a
 	}
 
 	switch resource {
-	case ResourceTypeWorkflow:
+	case types.ResourceTypeWorkflow:
 		hasPermission = checkWorkflowPermission(collabInstance.Workflows, resourceName, action)
-	case ResourceTypeEnvironment:
+	case types.ResourceTypeEnvironment:
 		hasPermission = checkEnvPermission(collabInstance.Products, resourceName, action)
 	default:
 		return
@@ -126,11 +127,11 @@ func CheckCollaborationModePermission(uid, projectKey, resource, resourceName, a
 	return
 }
 
-func checkWorkflowPermission(list []models.WorkflowCIItem, resourceName, action string) bool {
+func checkWorkflowPermission(list []models.WorkflowCIItem, workflowName, action string) bool {
 	for _, workflow := range list {
-		if workflow.Name == resourceName {
+		if workflow.Name == workflowName {
 			for _, verb := range workflow.Verbs {
-				if action == verb {
+				if verb == action {
 					return true
 				}
 			}
@@ -139,11 +140,11 @@ func checkWorkflowPermission(list []models.WorkflowCIItem, resourceName, action 
 	return false
 }
 
-func checkEnvPermission(list []models.ProductCIItem, resourceName, action string) bool {
+func checkEnvPermission(list []models.ProductCIItem, envName, action string) bool {
 	for _, env := range list {
-		if env.Name == resourceName {
+		if env.Name == envName {
 			for _, verb := range env.Verbs {
-				if action == verb {
+				if verb == action {
 					return true
 				}
 			}

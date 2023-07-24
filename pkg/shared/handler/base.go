@@ -19,6 +19,7 @@ package handler
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -127,18 +128,12 @@ func GetResourcesInHeader(c *gin.Context) ([]string, bool) {
 	return resources, true
 }
 
-type checkCollaborationModePermissionReq struct {
-	UID        string `json:"uid" form:"uid"`
-	ProjectKey string `json:"project_key" form:"project_key"`
-	Resource   string `json:"resource" form:"resource"`
-	Action     string `json:"action" form:"action"`
-}
-
-func GetCollaborationModePermission(uid, projectKey, resource, action string) (isPermitted bool, err error) {
-	isPermitted = false
-	err = nil
-
-	resp
+func GetCollaborationModePermission(uid, projectKey, resource, resourceName, action string) (bool, error) {
+	// when this method is called, uid is an expected field
+	if uid == "" {
+		return false, errors.New("empty user ID")
+	}
+	return user.New().CheckUserAuthInfoForCollaborationMode(uid, projectKey, resource, resourceName, action)
 }
 
 func getUserFromJWT(token string) (jwtClaims, error) {

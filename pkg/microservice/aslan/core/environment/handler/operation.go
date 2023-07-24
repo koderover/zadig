@@ -17,9 +17,11 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/types"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
@@ -34,8 +36,41 @@ type OperationLog struct {
 }
 
 func GetOperationLogs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Query("envName")
+	projectKey := c.Query("projectName")
+	if len(projectKey) == 0 {
+		ctx.Err = e.ErrFindOperationLog.AddDesc("projectName can't be nil")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil {
@@ -55,18 +90,12 @@ func GetOperationLogs(c *gin.Context) {
 		return
 	}
 
-	projectName := c.Query("projectName")
-	if len(projectName) == 0 {
-		ctx.Err = e.ErrFindOperationLog.AddDesc("projectName can't be nil")
-		return
-	}
-
 	args := &service.OperationLogArgs{
-		ExactProduct: projectName,
+		ExactProduct: projectKey,
 		Username:     c.Query("username"),
 		Function:     c.Query("function"),
 		Scene:        setting.OperationSceneEnv,
-		TargetID:     c.Query("envName"),
+		TargetID:     envName,
 		Status:       status,
 		PerPage:      pageSize,
 		Page:         page,
