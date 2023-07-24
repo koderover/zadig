@@ -151,7 +151,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environmentsForUpdate", ListProductionEnvs)
 		production.GET("/environments/:name/servicesForUpdate", ListSvcsInEnv)
 
-		production.PUT("/environments/:name/services/:serviceName", UpdateService)
+		production.PUT("/environments/:name/services/:serviceName", UpdateProductionService)
 		production.PUT("/environments/:name/helm/charts", UpdateProductionEnvHelmProductCharts)
 
 		// services related
@@ -176,15 +176,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.POST("/environments/:name/helm/default-values/preview", PreviewProductionHelmProductDefaultValues)
 		production.GET("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
 
-		production.POST("/environments/:name/services/:serviceName/restart", RestartService)
-		production.POST("/environments/:name/services/:serviceName/restartNew", RestartWorkload)
+		production.POST("/environments/:name/services/:serviceName/restart", RestartProductionService)
+		production.POST("/environments/:name/services/:serviceName/restartNew", RestartProductionWorkload)
 
 		production.GET("/rendersets/variables", GetProductionServiceVariables)
 		production.GET("/rendersets/renderchart", GetServiceRenderCharts)
 
 		// normal resources
 		production.GET("/configmaps/:name", ListProductionConfigMaps)
-		production.GET("/secrets/:name", ListSecrets)
+		production.GET("/secrets/:name", ListProductionSecrets)
 		production.GET("/ingresses/:name", ListProductionIngresses)
 		production.GET("/pvcs/:name", ListProductionPvcs)
 		production.GET("/envcfgs/:name/cfg/:objectName", ListProductionCommonEnvCfgHistory)

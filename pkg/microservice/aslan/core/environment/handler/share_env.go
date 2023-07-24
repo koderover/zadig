@@ -24,6 +24,8 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
+// TODO: does this thing have authorization?
+
 func CheckWorkloadsK8sServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
