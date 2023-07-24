@@ -64,6 +64,7 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
+	"github.com/koderover/zadig/pkg/tool/klock"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
@@ -142,6 +143,7 @@ func Start(ctx context.Context) {
 	})
 
 	initDatabase()
+	initKlock()
 
 	initService()
 	initDinD()
@@ -335,6 +337,10 @@ func initDinD() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func initKlock() {
+	_ = klock.Init(config.Namespace())
 }
 
 func initDatabase() {

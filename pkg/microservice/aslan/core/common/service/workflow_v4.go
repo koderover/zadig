@@ -27,7 +27,6 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	"github.com/koderover/zadig/pkg/setting"
@@ -172,7 +171,10 @@ func DisableCronjobForWorkflowV4(workflow *commonmodels.WorkflowV4) error {
 	payload.DeleteList = disableIDList
 
 	pl, _ := json.Marshal(payload)
-	return nsq.Publish(setting.TopicCronjob, pl)
+	return mongodb.NewMsgQueueCommonColl().Create(&commonmodels.MsgQueueCommon{
+		Payload:   string(pl),
+		QueueType: setting.TopicCronjob,
+	})
 }
 
 func FillServiceModules2Jobs(args *commonmodels.WorkflowV4) (*commonmodels.WorkflowV4, bool, error) {

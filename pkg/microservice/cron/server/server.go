@@ -18,13 +18,16 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service/scheduler"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 func Serve(ctx context.Context) error {
@@ -36,6 +39,7 @@ func Serve(ctx context.Context) error {
 	})
 
 	log.Infof("App Cron Started at %s", time.Now())
+	initMongodb()
 	cronClient := scheduler.NewCronClient()
 	cronClient.Init()
 
@@ -72,4 +76,11 @@ func Serve(ctx context.Context) error {
 
 func ping(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte("success"))
+}
+
+func initMongodb() {
+	mongotool.Init(context.Background(), config.MongoURI())
+	if err := mongotool.Ping(context.Background()); err != nil {
+		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
+	}
 }

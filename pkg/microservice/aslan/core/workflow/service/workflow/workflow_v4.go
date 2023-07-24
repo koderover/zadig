@@ -56,7 +56,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
@@ -1618,8 +1617,12 @@ func CreateCronForWorkflowV4(workflowName string, input *commonmodels.Cronjob, l
 	}
 
 	pl, _ := json.Marshal(payload)
-	if err := nsq.Publish(setting.TopicCronjob, pl); err != nil {
-		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+	err = commonrepo.NewMsgQueueCommonColl().Create(&commonmodels.MsgQueueCommon{
+		Payload:   string(pl),
+		QueueType: setting.TopicCronjob,
+	})
+	if err != nil {
+		log.Errorf("Failed to publish cron to MsgQueueCommon, the error is: %v", err)
 		return e.ErrUpsertCronjob.AddDesc(err.Error())
 	}
 	return nil
@@ -1654,8 +1657,12 @@ func UpdateCronForWorkflowV4(input *commonmodels.Cronjob, logger *zap.SugaredLog
 	}
 
 	pl, _ := json.Marshal(payload)
-	if err := nsq.Publish(setting.TopicCronjob, pl); err != nil {
-		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+	err = commonrepo.NewMsgQueueCommonColl().Create(&commonmodels.MsgQueueCommon{
+		Payload:   string(pl),
+		QueueType: setting.TopicCronjob,
+	})
+	if err != nil {
+		log.Errorf("Failed to publish cron to MsgQueueCommon, the error is: %v", err)
 		return e.ErrUpsertCronjob.AddDesc(err.Error())
 	}
 	return nil
@@ -1723,8 +1730,12 @@ func DeleteCronForWorkflowV4(workflowName, cronID string, logger *zap.SugaredLog
 	}
 
 	pl, _ := json.Marshal(payload)
-	if err := nsq.Publish(setting.TopicCronjob, pl); err != nil {
-		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+	err = commonrepo.NewMsgQueueCommonColl().Create(&commonmodels.MsgQueueCommon{
+		Payload:   string(pl),
+		QueueType: setting.TopicCronjob,
+	})
+	if err != nil {
+		log.Errorf("Failed to publish cron to MsgQueueCommon, the error is: %v", err)
 		return e.ErrUpsertCronjob.AddDesc(err.Error())
 	}
 	if err := commonrepo.NewCronjobColl().Delete(&commonrepo.CronjobDeleteOption{IDList: []string{cronID}}); err != nil {

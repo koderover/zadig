@@ -14,14 +14,21 @@
  * limitations under the License.
  */
 
-package klock
+package models
 
-import "github.com/pkg/errors"
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
-var (
-	ErrNotInit            = errors.New("klock not init")
-	ErrCreateLockTimeout  = errors.New("create lock timeout")
-	ErrCreateLockMaxRetry = errors.New("create lock reached max attempts")
-	ErrUnlockMaxRetry     = errors.New("unlock reached max attempts")
-	ErrLockExist          = errors.New("lock exist")
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 )
+
+type MsgQueuePipelineTask struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty"             json:"id,omitempty"`
+	Task      *task.Task
+	QueueType string `json:"queue_type" bson:"queue_type"`
+	QueueID   int    `json:"queue_id" bson:"queue_id"`
+}
+
+func (MsgQueuePipelineTask) TableName() string {
+	return "msg_queue_pipeline_task"
+}

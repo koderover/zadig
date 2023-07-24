@@ -18,17 +18,21 @@ package taskcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"log"
-	"os"
+	"math/rand"
 	"time"
 
 	"github.com/nsqio/go-nsq"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/klock"
 	"github.com/koderover/zadig/pkg/tool/kube/client"
-	"github.com/koderover/zadig/pkg/tool/nsqcli"
+	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type controller struct {
@@ -50,59 +54,147 @@ func (c *controller) Init(ctx context.Context) error {
 		}
 	}()
 
-	cfg := nsq.NewConfig()
-	cfg.UserAgent = config.WarpDrivePodName()
-	cfg.MaxAttempts = 50
-	cfg.LookupdPollInterval = 1 * time.Second
-	cfg.MsgTimeout = 1 * time.Minute
-	nsqClient := nsqcli.NewNsqClient(config.NSQLookupAddrs(), "127.0.0.1:4151")
+	time.Sleep(time.Duration(rand.Intn(500)) * time.Millisecond)
+	_ = klock.Init(config.WarpDriveNamespace())
 
-	processor, err := nsq.NewConsumer(setting.TopicProcess, "process", cfg)
-	if err != nil {
-		return fmt.Errorf("init nsq processor error: %v", err)
-	}
+	initMongoDB()
 
-	processor.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
-	c.consumers = append(c.consumers, processor)
+	// handle pipeline task
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				func() {
+					klock.Lock(config.ProcessLock)
+					defer func() {
+						if err := klock.UnlockWithRetry(config.ProcessLock, 3); err != nil {
+							log.Errorf("unlock process lock error: %v", err)
+						}
+					}()
+					resp, err := mongodb.NewMsgQueuePipelineTaskColl().List(&mongodb.ListMsgQueuePipelineTaskOption{
+						QueueType: setting.TopicProcess,
+					})
+					if err != nil {
+						log.Warnf("list queue error: %v", err)
+						return
+					}
+					if len(resp) == 0 {
+						return
+					}
+					if err = mongodb.NewMsgQueuePipelineTaskColl().Delete(resp[0].ID); err != nil {
+						log.Errorf("delete queue error: %v", err)
+					}
+					if err := commonmodels.IToi(&resp[0].Task, pipelineTask); err != nil {
+						log.Errorf("convert interface to struct error: %v", err)
+						return
+					}
+					h := &ExecHandler{
+						AckID: 0,
+					}
+					h.PipelineTaskHandler()
+				}()
 
-	canceller, err := nsq.NewConsumer(setting.TopicCancel, cfg.UserAgent, cfg)
-	if err != nil {
-		return fmt.Errorf("init nsq canceller error: %v", err)
-	}
+			}
+		}
+	}()
 
-	canceller.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
-	c.consumers = append(c.consumers, canceller)
+	// handle cancel pipeline task
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				func() {
+					resp, err := mongodb.NewMsgQueueCommonColl().List(&mongodb.ListMsgQueueCommonOption{
+						QueueType: setting.TopicCancel,
+					})
+					if err != nil {
+						log.Warnf("list cancel queue error: %v", err)
+						return
+					}
+					if len(resp) == 0 {
+						return
+					}
+					for _, common := range resp {
+						msg := new(CancelMessage)
+						if err := json.Unmarshal([]byte(common.Payload), msg); err != nil {
+							log.Errorf("convert interface to struct error: %v", err)
+							return
+						}
+						xl.Infof("receiving cancel task %s:%d message", msg.PipelineName, msg.TaskID)
 
-	nsqdAddr := "127.0.0.1:4150"
-	sender, err := nsq.NewProducer(nsqdAddr, cfg)
-	if err != nil {
-		return fmt.Errorf("init nsq sender error: %v", err)
-	}
+						// 如果存在处理的 PipelineTask 并且匹配 PipelineName, 则取消PipelineTask
+						if pipelineTask != nil && pipelineTask.PipelineName == msg.PipelineName && pipelineTask.TaskID == msg.TaskID {
+							xl.Infof("cancelling message: %+v", msg)
+							pipelineTask.TaskRevoker = msg.Revoker
 
-	sender.SetLogger(log.New(os.Stdout, "nsq producer:", 0), nsq.LogLevelError)
-	c.producers = append(c.producers, sender)
+							//取消pipelineTask
+							cancel()
+							if err = mongodb.NewMsgQueueCommonColl().Delete(resp[0].ID); err != nil {
+								log.Errorf("delete cancel queue error: %v", err)
+							}
+							break
+						}
+					}
+				}()
+			}
+		}
+	}()
+	//cfg := nsq.NewConfig()
+	//cfg.UserAgent = config.WarpDrivePodName()
+	//cfg.MaxAttempts = 50
+	//cfg.LookupdPollInterval = 1 * time.Second
+	//cfg.MsgTimeout = 1 * time.Minute
+	//nsqClient := nsqcli.NewNsqClient(config.NSQLookupAddrs(), "127.0.0.1:4151")
+	//
+	//processor, err := nsq.NewConsumer(setting.TopicProcess, "process", cfg)
+	//if err != nil {
+	//	return fmt.Errorf("init nsq processor error: %v", err)
+	//}
+	//
+	//processor.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
+	//c.consumers = append(c.consumers, processor)
 
-	err = nsqClient.EnsureNsqdTopics([]string{setting.TopicAck, setting.TopicItReport, setting.TopicNotification})
-	if err != nil {
-		return fmt.Errorf("ensure nsq topic error: %v", err)
-	}
+	//canceller, err := nsq.NewConsumer(setting.TopicCancel, cfg.UserAgent, cfg)
+	//if err != nil {
+	//	return fmt.Errorf("init nsq canceller error: %v", err)
+	//}
+	//
+	//canceller.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
+	//c.consumers = append(c.consumers, canceller)
+	//
+	//nsqdAddr := "127.0.0.1:4150"
+	//sender, err := nsq.NewProducer(nsqdAddr, cfg)
+	//if err != nil {
+	//	return fmt.Errorf("init nsq sender error: %v", err)
+	//}
+	//
+	//sender.SetLogger(log.New(os.Stdout, "nsq producer:", 0), nsq.LogLevelError)
+	//c.producers = append(c.producers, sender)
+	//
+	//err = nsqClient.EnsureNsqdTopics([]string{setting.TopicAck, setting.TopicItReport, setting.TopicNotification})
+	//if err != nil {
+	//	return fmt.Errorf("ensure nsq topic error: %v", err)
+	//}
+	//
 
-	execHandler := &ExecHandler{
-		Sender: sender,
-	}
-	processor.AddHandler(execHandler)
+	//processor.AddHandler(execHandler)
 	// Add task plugin initiators to exec Handler.
-	initTaskPlugins(execHandler)
-
-	cancelHandler := &CancelHandler{}
-	canceller.AddHandler(cancelHandler)
-
-	if err := processor.ConnectToNSQLookupds(config.NSQLookupAddrs()); err != nil {
-		return fmt.Errorf("processor could not connect to %v", config.NSQLookupAddrs())
-	}
-	if err := canceller.ConnectToNSQLookupds(config.NSQLookupAddrs()); err != nil {
-		return fmt.Errorf("canceller could not connect to %v", config.NSQLookupAddrs())
-	}
+	//initTaskPlugins(execHandler)
+	//
+	//canceller.AddHandler(cancelHandler)
+	//
+	//if err := processor.ConnectToNSQLookupds(config.NSQLookupAddrs()); err != nil {
+	//	return fmt.Errorf("processor could not connect to %v", config.NSQLookupAddrs())
+	//}
+	//if err := canceller.ConnectToNSQLookupds(config.NSQLookupAddrs()); err != nil {
+	//	return fmt.Errorf("canceller could not connect to %v", config.NSQLookupAddrs())
+	//}
 
 	return nil
 }
@@ -118,3 +210,58 @@ func (c *controller) Stop(ctx context.Context) error {
 
 	return nil
 }
+
+func initMongoDB() {
+	mongotool.Init(ctx, config.MongoURI())
+	if err := mongotool.Ping(ctx); err != nil {
+		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
+	}
+}
+
+//func ConvertQueueToTask(queueTask *commonmodels.Queue) *task.Task {
+//	return &task.Task{
+//		TaskID:                  queueTask.TaskID,
+//		ProductName:             queueTask.ProductName,
+//		PipelineName:            queueTask.PipelineName,
+//		PipelineDisplayName:     queueTask.PipelineDisplayName,
+//		Type:                    queueTask.Type,
+//		Status:                  queueTask.Status,
+//		Description:             queueTask.Description,
+//		TaskCreator:             queueTask.TaskCreator,
+//		TaskRevoker:             queueTask.TaskRevoker,
+//		CreateTime:              queueTask.CreateTime,
+//		StartTime:               queueTask.StartTime,
+//		EndTime:                 queueTask.EndTime,
+//		SubTasks:                queueTask.SubTasks,
+//		Stages:                  queueTask.Stages,
+//		ReqID:                   queueTask.ReqID,
+//		AgentHost:               queueTask.AgentHost,
+//		DockerHost:              queueTask.DockerHost,
+//		TeamName:                queueTask.TeamName,
+//		IsDeleted:               queueTask.IsDeleted,
+//		IsArchived:              queueTask.IsArchived,
+//		AgentID:                 queueTask.AgentID,
+//		MultiRun:                queueTask.MultiRun,
+//		Target:                  queueTask.Target,
+//		BuildModuleVer:          queueTask.BuildModuleVer,
+//		ServiceName:             queueTask.ServiceName,
+//		TaskArgs:                queueTask.TaskArgs,
+//		WorkflowArgs:            queueTask.WorkflowArgs,
+//		TestArgs:                queueTask.TestArgs,
+//		ServiceTaskArgs:         queueTask.ServiceTaskArgs,
+//		ArtifactPackageTaskArgs: queueTask.ArtifactPackageTaskArgs,
+//		ConfigPayload:           queueTask.ConfigPayload,
+//		Error:                   queueTask.Error,
+//		Services:                queueTask.Services,
+//		Render:                  queueTask.Render,
+//		StorageURI:              queueTask.StorageURI,
+//		TestReports:             queueTask.TestReports,
+//		RwLock:                  queueTask.RwLock,
+//		ResetImage:              queueTask.ResetImage,
+//		ResetImagePolicy:        queueTask.ResetImagePolicy,
+//		TriggerBy:               queueTask.TriggerBy,
+//		Features:                queueTask.Features,
+//		IsRestart:               queueTask.IsRestart,
+//		StorageEndpoint:         queueTask.StorageEndpoint,
+//	}
+//}

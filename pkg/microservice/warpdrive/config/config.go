@@ -30,6 +30,14 @@ func WarpDrivePodName() string {
 	return viper.GetString(setting.WarpDrivePodName)
 }
 
+func WarpDriveNamespace() string {
+	return viper.GetString(setting.WarpDriveNamespace)
+}
+
+func MongoURI() string {
+	return viper.GetString(setting.ENVMongoDBConnectionString)
+}
+
 func ExecutorImage() string {
 	return viper.GetString(setting.ENVExecutorImage)
 }

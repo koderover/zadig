@@ -18,9 +18,11 @@ package klock
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +56,22 @@ func Init(namespace string) error {
 	return nil
 }
 
-func Lock(key string) error {
+func Lock(key string) {
+	if c == nil {
+		panic(ErrNotInit)
+	}
+
+	for {
+		err := LockWithRetry(key, 3)
+		if err == nil {
+			return
+		}
+		fmt.Printf("klock: lock %s error: %v\n", key, err)
+		time.Sleep(DefaultRetryInterval)
+	}
+}
+
+func TryLock(key string) error {
 	if c == nil {
 		return ErrNotInit
 	}
@@ -66,9 +83,31 @@ func Lock(key string) error {
 		if apierrors.IsAlreadyExists(err) {
 			return ErrLockExist
 		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return ErrCreateLockTimeout
+		}
 		return err
 	}
 	return nil
+}
+
+func LockWithRetry(key string, retry int) error {
+	if c == nil {
+		return ErrNotInit
+	}
+
+	for i := 0; i < retry; i++ {
+		if err := TryLock(key); err != nil {
+			if err == ErrLockExist {
+				time.Sleep(DefaultRetryInterval)
+				continue
+			}
+			return err
+		}
+		return nil
+	}
+	checkLockTTLAndRemove(key)
+	return ErrCreateLockMaxRetry
 }
 
 func checkLockTTLAndRemove(key string) {
@@ -87,32 +126,15 @@ func checkLockTTLAndRemove(key string) {
 
 	createTime, err := strconv.ParseInt(configMap.Data[CreateTimeKey], 10, 64)
 	if err != nil {
+		fmt.Printf("klock: parse create time error: %v\n", err)
 		_ = Unlock(key)
 		return
 	}
 	if time.Now().Unix()-createTime > int64(DefaultTTL.Seconds()) {
+		fmt.Printf("klock: lock timeout, remove lock: %s\n", key)
 		_ = Unlock(key)
 	}
 	return
-}
-
-func LockWithRetry(key string, retry int) error {
-	if c == nil {
-		return ErrNotInit
-	}
-
-	for i := 0; i < retry; i++ {
-		if err := Lock(key); err != nil {
-			if err == ErrLockExist {
-				time.Sleep(DefaultRetryInterval)
-				continue
-			}
-			return err
-		}
-		return nil
-	}
-	checkLockTTLAndRemove(key)
-	return ErrCreateLockTimeout
 }
 
 func Unlock(key string) error {
@@ -127,6 +149,24 @@ func Unlock(key string) error {
 		return err
 	}
 	return nil
+}
+
+func UnlockWithRetry(key string, retry int) error {
+	if c == nil {
+		return ErrNotInit
+	}
+
+	for i := 0; i < retry; i++ {
+		if err := Unlock(key); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			time.Sleep(DefaultRetryInterval)
+			continue
+		}
+		return nil
+	}
+	return ErrCreateLockTimeout
 }
 
 func configMapBuilder(key, namespace string) *corev1.ConfigMap {

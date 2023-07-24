@@ -33,6 +33,7 @@ type ListQueueOption struct {
 	PipelineName   string
 	Status         config.Status
 	MergeRequestID string
+	WarpdriveID    *string
 }
 
 type QueueColl struct {
@@ -73,6 +74,9 @@ func (c *QueueColl) List(opt *ListQueueOption) ([]*models.Queue, error) {
 		}
 		if opt.Status != "" {
 			query["status"] = opt.Status
+		}
+		if opt.WarpdriveID != nil {
+			query["warpdrive_id"] = *opt.WarpdriveID
 		}
 	}
 

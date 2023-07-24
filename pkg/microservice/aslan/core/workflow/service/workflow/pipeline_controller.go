@@ -41,25 +41,43 @@ func SubScribeNSQ() error {
 	logger := log.SugaredLogger()
 
 	// init ack consumer
-	ackConfig := nsqservice.Config()
-	ackConfig.MaxInFlight = 50
-	ackHandler := NewTaskAckHandler(ackConfig.MaxInFlight, logger)
-	err := nsqservice.SubScribe(setting.TopicAck, "ack", 1, ackConfig, ackHandler)
-	if err != nil {
-		logger.Errorf("ack subscription failed, the error is: %v", err)
-		return err
-	}
+	//ackConfig := nsqservice.Config()
+	//ackConfig.MaxInFlight = 50
+	ackHandler := NewTaskAckHandler(50, logger)
+	go func() {
+		for {
+			time.Sleep(time.Second * 1)
+			list, err := commonrepo.NewMsgQueuePipelineTaskColl().List(&commonrepo.ListMsgQueuePipelineTaskOption{
+				QueueType:   setting.TopicAck,
+				SortQueueID: true,
+			})
+			if err != nil {
+				logger.Errorf("PipelineTask ACK handler: list failed, the error is: %v", err)
+				continue
+			}
+			for _, pipelineTask := range list {
+				err := commonrepo.NewMsgQueuePipelineTaskColl().Delete(pipelineTask.ID)
+				if err != nil {
+					logger.Errorf("PipelineTask ACK handler: delete queue failed, the error is: %v", err)
+				}
+				if err := ackHandler.HandleMessage(pipelineTask.Task); err != nil {
+					logger.Errorf("PipelineTask ACK handler: handle message failed, the error is: %v", err)
+					continue
+				}
+			}
+		}
+	}()
 
 	// init itReport consumer
 	itReportHandler := &ItReportHandler{
 		itReportColl: commonrepo.NewItReportColl(),
 		log:          logger,
 	}
-	err = nsqservice.SubScribeSimple(setting.TopicItReport, "it.report", itReportHandler)
-	if err != nil {
-		logger.Errorf("itReport subscription failed, the error is: %v", err)
-		return err
-	}
+	//err = nsqservice.SubScribeSimple(setting.TopicItReport, "it.report", itReportHandler)
+	//if err != nil {
+	//	logger.Errorf("itReport subscription failed, the error is: %v", err)
+	//	return err
+	//}
 
 	// init notification consumer
 	notificationCfg := nsqservice.Config()
@@ -67,11 +85,33 @@ func SubScribeNSQ() error {
 	notificationHandler := &TaskNotificationHandler{
 		log: logger,
 	}
-	err = nsqservice.SubScribe(setting.TopicNotification, "notification", 1, notificationCfg, notificationHandler)
-	if err != nil {
-		logger.Errorf("notification subscription failed, the error is: %v", err)
-		return err
-	}
+	go func() {
+		for {
+			time.Sleep(time.Second * 1)
+			list, err := commonrepo.NewMsgQueueCommonColl().List(&commonrepo.ListMsgQueueCommonOption{
+				QueueType: setting.TopicNotification,
+			})
+			if err != nil {
+				logger.Errorf("Notification handler: list failed, the error is: %v", err)
+				continue
+			}
+			for _, common := range list {
+				err := commonrepo.NewMsgQueueCommonColl().Delete(common.ID)
+				if err != nil {
+					logger.Errorf("Notification handler: delete queue failed, the error is: %v", err)
+				}
+				notify := new(commonmodels.Notify)
+				if err := json.Unmarshal([]byte(common.Payload), notify); err != nil {
+					logger.Errorf("Notification handler: unmarshal failed, the error is: %v", err)
+					continue
+				}
+				if err := notificationHandler.HandleMessage(notify); err != nil {
+					logger.Errorf("Notification handler: handle message failed, the error is: %v", err)
+					continue
+				}
+			}
+		}
+	}()
 
 	return nil
 }
@@ -491,18 +531,16 @@ func updateAgentAndQueue(t *task.Task) error {
 		return err
 	}
 
-	b, err := json.Marshal(t)
-	if err != nil {
-		log.Errorf("marshal PipelineTaskV2 error: %v", err)
-		return err
-	}
-
 	// 发送当前任务到nsq
 	log.Infof("sending task to warpdrive %s:%d", t.PipelineName, t.TaskID)
-	if err = nsqservice.Publish(setting.TopicProcess, b); err != nil {
+	if err = commonrepo.NewMsgQueuePipelineTaskColl().Create(&commonmodels.MsgQueuePipelineTask{
+		Task:      t,
+		QueueType: setting.TopicProcess,
+	}); err != nil {
 		log.Errorf("Publish %s:%d to nsq error: %v", t.PipelineName, t.TaskID, err)
 		return err
 	}
+
 	// 更新当前任务状态为 TaskQueued
 	t.Status = config.StatusQueued
 	// 更新队列状态为TaskQueued

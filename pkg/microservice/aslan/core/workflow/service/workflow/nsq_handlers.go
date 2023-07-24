@@ -65,7 +65,7 @@ type TaskAckHandler struct {
 	deliveryArtifactColl *commonrepo.DeliveryArtifactColl
 	deliveryActivityColl *commonrepo.DeliveryActivityColl
 	TestTaskStatColl     *commonrepo.TestTaskStatColl
-	messages             chan *nsq.Message
+	messages             chan *task.Task
 	log                  *zap.SugaredLogger
 }
 
@@ -79,7 +79,7 @@ func NewTaskAckHandler(maxInFlight int, log *zap.SugaredLogger) *TaskAckHandler 
 		deliveryArtifactColl: commonrepo.NewDeliveryArtifactColl(),
 		deliveryActivityColl: commonrepo.NewDeliveryActivityColl(),
 		TestTaskStatColl:     commonrepo.NewTestTaskStatColl(),
-		messages:             make(chan *nsq.Message, maxInFlight*10),
+		messages:             make(chan *task.Task, maxInFlight*10),
 		log:                  log,
 	}
 }
@@ -91,7 +91,7 @@ func NewTaskAckHandler(maxInFlight int, log *zap.SugaredLogger) *TaskAckHandler 
 // pipeline 完成状态包括：passed, failed, timeout
 // 4. 更新 数据库 proudct
 // 5. 更新历史piplinetask的状态为archived(默认只留下最近的一百个task)
-func (h *TaskAckHandler) HandleMessage(message *nsq.Message) error {
+func (h *TaskAckHandler) HandleMessage(message *task.Task) error {
 	once.Do(func() {
 		go func() {
 			for msg := range h.messages {
@@ -104,19 +104,8 @@ func (h *TaskAckHandler) HandleMessage(message *nsq.Message) error {
 	return nil
 }
 
-func (h *TaskAckHandler) handle(message *nsq.Message) error {
-	if message == nil {
-		h.log.Error("nil nsq.Message")
-		return nil
-	}
-
-	var pt *task.Task
-	if err := json.Unmarshal(message.Body, &pt); err != nil {
-		h.log.Errorf("unmarshal PipelineTaskV2 message error: %v", err)
-		return nil
-	}
-
-	ptInfo := fmt.Sprintf("%s %s-%d(%s)", message.ID, pt.PipelineName, pt.TaskID, pt.Status)
+func (h *TaskAckHandler) handle(pt *task.Task) error {
+	ptInfo := fmt.Sprintf("%s-%d(%s)", pt.PipelineName, pt.TaskID, pt.Status)
 	//h.log.Infof("[%s]receive task ACK: %+v", ptInfo, pt)
 
 	start := time.Now()
@@ -853,13 +842,7 @@ type TaskNotificationHandler struct {
 }
 
 // HandleMessage ...
-func (h *TaskNotificationHandler) HandleMessage(message *nsq.Message) error {
-	var n *commonmodels.Notify
-	if err := json.Unmarshal(message.Body, &n); err != nil {
-		h.log.Errorf("unmarshal Notify message error: %v", err)
-		return nil
-	}
-
+func (h *TaskNotificationHandler) HandleMessage(n *commonmodels.Notify) error {
 	h.log.Infof("receive notification: %+v", n)
 
 	notifyClient := notify.NewNotifyClient()

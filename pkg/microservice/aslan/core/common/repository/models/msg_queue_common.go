@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-package klock
+package models
 
-import "github.com/pkg/errors"
+import "go.mongodb.org/mongo-driver/bson/primitive"
 
-var (
-	ErrNotInit            = errors.New("klock not init")
-	ErrCreateLockTimeout  = errors.New("create lock timeout")
-	ErrCreateLockMaxRetry = errors.New("create lock reached max attempts")
-	ErrUnlockMaxRetry     = errors.New("unlock reached max attempts")
-	ErrLockExist          = errors.New("lock exist")
-)
+type MsgQueueCommon struct {
+	ID        primitive.ObjectID `bson:"_id,omitempty"           json:"id,omitempty"`
+	Payload   string             `json:"payload" bson:"payload"`
+	QueueType string             `json:"queue_type" bson:"queue_type"`
+}
+
+func (MsgQueueCommon) TableName() string {
+	return "msg_queue_common"
+}

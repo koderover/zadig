@@ -87,6 +87,7 @@ const (
 
 	// warpdrive
 	WarpDrivePodName    = "WD_POD_NAME"
+	WarpDriveNamespace  = "BE_POD_NAMESPACE"
 	ReleaseImageTimeout = "RELEASE_IMAGE_TIMEOUT"
 
 	// reaper
