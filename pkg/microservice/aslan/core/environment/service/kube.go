@@ -1265,6 +1265,7 @@ func GetReleaseInstanceDeployStatus(productName string, request *HelmDeployStatu
 	if err != nil {
 		log.Warnf("failed to list releases with ns: %s, err: %s", namespace, err)
 	}
+	log.Debugf("list releases with ns: %s, clusterID: %s, releases: %+v", namespace, clusterID, releases)
 
 	resp := make([]*GetReleaseInstanceDeployStatusResponse, 0)
 	for _, release := range releases {

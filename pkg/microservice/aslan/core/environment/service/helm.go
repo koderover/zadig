@@ -188,7 +188,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 		releaseMap[re.Name] = re
 	}
 
-	releaseNameMap, err := commonutil.GetServiceNameToReleaseNameMap(prod)
+	svcToReleaseNameMap, err := commonutil.GetServiceNameToReleaseNameMap(prod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build release-service map: %s", err)
 	}
@@ -197,7 +197,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 
 	for _, prodSvc := range prod.GetServiceMap() {
 		serviceName := prodSvc.ServiceName
-		releaseName := releaseNameMap[serviceName]
+		releaseName := svcToReleaseNameMap[serviceName]
 		svcDataSet := &SvcDataSet{
 			ProdSvc:    prodSvc,
 			SvcRelease: releaseMap[releaseName],

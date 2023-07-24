@@ -123,6 +123,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		CleanupOnFail: true,
 		MaxHistory:    10,
 	}
+	log.Debugf("chart spec: %+v", chartSpec)
 	if isRetry {
 		chartSpec.Replace = true
 	}
@@ -603,7 +604,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 	for serviceGroupIndex, serviceGroup := range productInfo.Services {
 		var group []*commonmodels.ProductService
 		for _, service := range serviceGroup {
-			if service.Type == setting.HelmChartDeployType {
+			if !service.FromZadig() {
 				if _, ok := releaseNameToChartProdSvcMap[service.ReleaseName]; !ok {
 					group = append(group, service)
 				}
@@ -678,21 +679,21 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		failedServices := sync.Map{}
 		wg := sync.WaitGroup{}
 
-		for svcName, prodSvc := range serviceNameToProdSvcMap {
+		for _, prodSvc := range serviceNameToProdSvcMap {
 			if !commonutil.ServiceDeployed(prodSvc.ServiceName, productInfo.ServiceDeployStrategy) {
 				continue
 			}
 			wg.Add(1)
 			go func(product *models.Product, prodSvc *commonmodels.ProductService) {
 				defer wg.Done()
-				templateSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ServiceName: svcName, Revision: prodSvc.Revision, ProductName: product.ProductName}, productInfo.Production)
+				templateSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ServiceName: prodSvc.ServiceName, Revision: prodSvc.Revision, ProductName: product.ProductName}, productInfo.Production)
 				if err != nil {
-					failedServices.Store(svcName, err.Error())
+					failedServices.Store(prodSvc.ServiceName, err.Error())
 					return
 				}
 				if errUninstall := UninstallService(helmClient, productInfo, templateSvc, false); errUninstall != nil {
-					errStr := fmt.Sprintf("helm uninstall service %s err: %s", svcName, errUninstall)
-					failedServices.Store(svcName, errStr)
+					errStr := fmt.Sprintf("helm uninstall service %s err: %s", prodSvc.ServiceName, errUninstall)
+					failedServices.Store(prodSvc.ServiceName, errStr)
 					log.Error(errStr)
 				}
 			}(productInfo, prodSvc)
