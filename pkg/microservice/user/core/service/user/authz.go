@@ -19,6 +19,7 @@ package user
 import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
 )
 
@@ -98,7 +99,6 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 	}
 
-	// TODO: deal with individual resources later
 	resp := &AuthorizedResources{
 		IsSystemAdmin:   false,
 		ProjectAuthInfo: projectActionMap,
@@ -117,16 +117,41 @@ func CheckCollaborationModePermission(uid, projectKey, resource, resourceName, a
 	}
 
 	switch resource {
-	case ResourceTypeWorkflow:
-	case ResourceTypeEnvironment:
+	case types.ResourceTypeWorkflow:
+		hasPermission = checkWorkflowPermission(collabInstance.Workflows, resourceName, action)
+	case types.ResourceTypeEnvironment:
+		hasPermission = checkEnvPermission(collabInstance.Products, resourceName, action)
 	default:
 		return
 	}
 	return
 }
 
-// TODO: finish me
-func checkWorkflowPermission(list []models.WorkflowCIItem)
+func checkWorkflowPermission(list []models.WorkflowCIItem, workflowName, action string) bool {
+	for _, workflow := range list {
+		if workflow.Name == workflowName {
+			for _, verb := range workflow.Verbs {
+				if verb == action {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func checkEnvPermission(list []models.ProductCIItem, envName, action string) bool {
+	for _, env := range list {
+		if env.Name == envName {
+			for _, verb := range env.Verbs {
+				if verb == action {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
 
 func generateAdminRoleResource() *AuthorizedResources {
 	return &AuthorizedResources{

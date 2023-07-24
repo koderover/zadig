@@ -17,31 +17,80 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/types"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
 func ExportYaml(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	serviceName := c.Query("serviceName")
 	envName := c.Query("envName")
-	productName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	source := c.Query("source")
 
-	ctx.Resp = service.ExportYaml(envName, productName, serviceName, source, ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp = service.ExportYaml(envName, projectKey, serviceName, source, ctx.Logger)
 }
 
 func ExportProductionServiceYaml(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	serviceName := c.Param("serviceName")
 	envName := c.Param("name")
-	productName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 
-	ctx.Resp, ctx.Err = service.ExportProductionYaml(envName, productName, serviceName, ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ExportProductionYaml(envName, projectKey, serviceName, ctx.Logger)
 }

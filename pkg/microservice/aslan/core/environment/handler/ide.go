@@ -18,6 +18,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 
@@ -27,12 +28,38 @@ import (
 )
 
 func PatchWorkload(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	envName := c.Param("name")
 	serviceName := c.Param("serviceName")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	var staretInfo types.StartDevmodeInfo
 	if err := c.BindJSON(&staretInfo); err != nil {
@@ -40,16 +67,42 @@ func PatchWorkload(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.PatchWorkload(c, projectName, envName, serviceName, staretInfo.DevImage)
+	ctx.Resp, ctx.Err = service.PatchWorkload(c, projectKey, envName, serviceName, staretInfo.DevImage)
 }
 
 func RecoverWorkload(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	envName := c.Param("name")
 	serviceName := c.Param("serviceName")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 
-	ctx.Err = service.RecoverWorkload(c, projectName, envName, serviceName)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.RecoverWorkload(c, projectKey, envName, serviceName)
 }

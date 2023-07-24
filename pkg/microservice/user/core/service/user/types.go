@@ -103,12 +103,6 @@ const (
 	VerbEditDataCenterInsightConfig = "edit_dashboard_config"
 )
 
-// collaboration mode constants
-const (
-	ResourceTypeWorkflow    = "workflow"
-	ResourceTypeEnvironment = "environment"
-)
-
 type AuthorizedResources struct {
 	IsSystemAdmin   bool
 	ProjectAuthInfo map[string]*ProjectActions

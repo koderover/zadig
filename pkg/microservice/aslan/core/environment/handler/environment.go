@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -109,11 +110,18 @@ func ListProductionEnvs(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/environment/environments [put]
 func UpdateMultiProducts(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	request := &service.UpdateEnvRequest{}
-	err := c.ShouldBindQuery(request)
+	err = c.ShouldBindQuery(request)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -122,15 +130,36 @@ func UpdateMultiProducts(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	updateMultiEnvWrapper(c, request, false, ctx)
 }
 
 func UpdateMultiProductionProducts(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	request := &service.UpdateEnvRequest{}
-	err := c.ShouldBindQuery(request)
+	err = c.ShouldBindQuery(request)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -139,6 +168,20 @@ func UpdateMultiProductionProducts(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[request.ProjectName].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	updateMultiEnvWrapper(c, request, true, ctx)
 }
 
@@ -253,14 +296,34 @@ func copyProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*
 // Query param `type` determines the type of product
 // Query param `scene` determines if the product is copied from some project
 func CreateProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	createParam := &service.CreateEnvRequest{}
-	err := c.ShouldBindQuery(createParam)
+	err = c.ShouldBindQuery(createParam)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[createParam.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[createParam.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[createParam.ProjectName].Env.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if createParam.ProjectName == "" {
@@ -290,6 +353,7 @@ func CreateProduct(c *gin.Context) {
 			}
 		}
 
+		// TODO: fix me, there won't be resources in request headers
 		allowedClusters, found := internalhandler.GetResourcesInHeader(c)
 		if found {
 			allowedSet := sets.NewString(allowedClusters...)
@@ -344,11 +408,18 @@ func CreateProduct(c *gin.Context) {
 }
 
 func CreateProductionProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	createParam := &service.CreateEnvRequest{}
-	err := c.ShouldBindQuery(createParam)
+	err = c.ShouldBindQuery(createParam)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -357,6 +428,19 @@ func CreateProductionProduct(c *gin.Context) {
 	if createParam.ProjectName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[createParam.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[createParam.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[createParam.ProjectName].Env.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	data, err := c.GetRawData()
@@ -383,6 +467,7 @@ func CreateProductionProduct(c *gin.Context) {
 		arg.ChartValues = nil
 	}
 
+	// TODO: fix this, there won't be get resources in headers
 	allowedClusters, found := internalhandler.GetResourcesInHeader(c)
 	if found {
 		allowedSet := sets.NewString(allowedClusters...)
@@ -410,11 +495,18 @@ type UpdateProductParams struct {
 
 // UpdateProduct update product variables, used for pm products
 func UpdateProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 
 	args := new(UpdateProductParams)
 	data, err := c.GetRawData()
@@ -426,7 +518,7 @@ func UpdateProduct(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "环境变量", envName, string(data), ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境变量", envName, string(data), ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -434,17 +526,38 @@ func UpdateProduct(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateCVMProduct(envName, projectName, ctx.UserName, ctx.RequestID, ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.UpdateCVMProduct(envName, projectKey, ctx.UserName, ctx.RequestID, ctx.Logger)
 	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, projectName, ctx.Err)
+		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, projectKey, ctx.Err)
 	}
 }
 
 func UpdateProductRegistry(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	args := new(UpdateProductRegistryRequest)
 	data, err := c.GetRawData()
 	if err != nil {
@@ -457,32 +570,129 @@ func UpdateProductRegistry(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "环境", envName, string(data), ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境", envName, string(data), ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = service.UpdateProductRegistry(envName, projectName, args.RegistryID, ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.UpdateProductRegistry(envName, projectKey, args.RegistryID, ctx.Logger)
+	if ctx.Err != nil {
+		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, args.RegistryID, ctx.Err)
+	}
+}
+
+func UpdateProductionProductRegistry(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+	args := new(UpdateProductRegistryRequest)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("updateProductImpl c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("updateProductImpl json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境", envName, string(data), ctx.Logger, envName)
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.UpdateProductRegistry(envName, projectKey, args.RegistryID, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, args.RegistryID, ctx.Err)
 	}
 }
 
 func UpdateProductRecycleDay(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	recycleDayStr := c.Query("recycleDay")
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "环境-环境回收", envName, "", ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "环境-环境回收", envName, "", ctx.Logger, envName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	var (
 		recycleDay int
-		err        error
 	)
 	if recycleDayStr == "" || envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName or recycleDay不能为空")
@@ -494,19 +704,49 @@ func UpdateProductRecycleDay(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateProductRecycleDay(envName, projectName, recycleDay)
+	ctx.Err = service.UpdateProductRecycleDay(envName, projectKey, recycleDay)
 }
 
 func UpdateProductAlias(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// FIXME: tf? a HUGE struct just for one field
 	arg := new(commonmodels.Product)
 	if err := c.BindJSON(arg); err != nil {
 		return
 	}
 
-	ctx.Err = service.UpdateProductAlias(c.Param("name"), c.Query("projectName"), arg.Alias)
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.UpdateProductAlias(envName, projectKey, arg.Alias)
 }
 
 func AffectedServices(c *gin.Context) {
@@ -583,21 +823,49 @@ func ProductionEstimatedValues(c *gin.Context) {
 }
 
 func SyncHelmProductRenderset(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+
+	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
 		return
 	}
-	envName := c.Param("name")
+
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
 		return
 	}
 
-	ctx.Err = service.SyncHelmProductEnvironment(projectName, envName, ctx.RequestID, ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.SyncHelmProductEnvironment(projectKey, envName, ctx.RequestID, ctx.Logger)
 }
 
 func generalRequestValidate(c *gin.Context) (string, string, error) {
@@ -614,10 +882,17 @@ func generalRequestValidate(c *gin.Context) (string, string, error) {
 }
 
 func UpdateHelmProductRenderset(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -631,8 +906,27 @@ func UpdateHelmProductRenderset(c *gin.Context) {
 	if err = json.Unmarshal(data, arg); err != nil {
 		log.Errorf("UpdateHelmProductRenderset json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新环境变量", "", string(data), ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新环境变量", "", string(data), ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	err = c.BindJSON(arg)
 	if err != nil {
@@ -640,17 +934,24 @@ func UpdateHelmProductRenderset(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateHelmProductRenderset(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
+	ctx.Err = service.UpdateHelmProductRenderset(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, projectName, ctx.Err)
+		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, projectKey, ctx.Err)
 	}
 }
 
 func UpdateHelmProductDefaultValues(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -664,8 +965,27 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	if err = json.Unmarshal(data, arg); err != nil {
 		log.Errorf("UpdateProductDefaultValues json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	err = c.BindJSON(arg)
 	if err != nil {
@@ -673,14 +993,71 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 		return
 	}
 	arg.DeployType = setting.HelmDeployType
-	ctx.Err = service.UpdateProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
+	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
+}
+
+func UpdateProductionHelmProductDefaultValues(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	arg := new(service.EnvRendersetArg)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateProductDefaultValues c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, arg); err != nil {
+		log.Errorf("UpdateProductDefaultValues json.Unmarshal err : %v", err)
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	arg.DeployType = setting.HelmDeployType
+	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
 
 func PreviewHelmProductDefaultValues(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -692,15 +1069,83 @@ func PreviewHelmProductDefaultValues(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	arg.DeployType = setting.HelmDeployType
-	ctx.Resp, ctx.Err = service.PreviewHelmProductGlobalVariables(projectName, envName, arg.DefaultValues, ctx.Logger)
+	ctx.Resp, ctx.Err = service.PreviewHelmProductGlobalVariables(projectKey, envName, arg.DefaultValues, ctx.Logger)
+}
+
+func PreviewProductionHelmProductDefaultValues(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	arg := new(service.EnvRendersetArg)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	arg.DeployType = setting.HelmDeployType
+	ctx.Resp, ctx.Err = service.PreviewHelmProductGlobalVariables(projectKey, envName, arg.DefaultValues, ctx.Logger)
 }
 
 func UpdateK8sProductDefaultValues(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -714,8 +1159,27 @@ func UpdateK8sProductDefaultValues(c *gin.Context) {
 	if err = json.Unmarshal(data, arg); err != nil {
 		log.Errorf("UpdateK8sProductDefaultValues json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	err = c.BindJSON(arg)
 	if err != nil {
@@ -728,7 +1192,7 @@ func UpdateK8sProductDefaultValues(c *gin.Context) {
 		DefaultValues: arg.VariableYaml,
 	}
 
-	ctx.Err = service.UpdateProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, envRenderArg, ctx.Logger)
+	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, envRenderArg, ctx.Logger)
 }
 
 type updateK8sProductGlobalVariablesRequest struct {
@@ -737,13 +1201,39 @@ type updateK8sProductGlobalVariablesRequest struct {
 }
 
 func PreviewGlobalVariables(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	arg := new(updateK8sProductGlobalVariablesRequest)
@@ -753,7 +1243,47 @@ func PreviewGlobalVariables(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	ctx.Resp, ctx.Err = service.PreviewProductGlobalVariables(projectName, envName, arg.GlobalVariables, ctx.Logger)
+	ctx.Resp, ctx.Err = service.PreviewProductGlobalVariables(projectKey, envName, arg.GlobalVariables, ctx.Logger)
+}
+
+func PreviewProductionEnvGlobalVariables(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	arg := new(updateK8sProductGlobalVariablesRequest)
+
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Resp, ctx.Err = service.PreviewProductGlobalVariables(projectKey, envName, arg.GlobalVariables, ctx.Logger)
 }
 
 // @Summary Update global variables
@@ -767,10 +1297,17 @@ func PreviewGlobalVariables(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/environment/environments/{name}/k8s/globalVariables [put]
 func UpdateK8sProductGlobalVariables(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -782,7 +1319,26 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 		log.Errorf("UpdateK8sProductDefaultValues c.GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	err = c.BindJSON(arg)
 	if err != nil {
@@ -790,14 +1346,68 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateProductGlobalVariables(projectName, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, ctx.Logger)
+	ctx.Err = service.UpdateProductGlobalVariables(projectKey, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, ctx.Logger)
+}
+
+func UpdateProductionEnvK8sProductGlobalVariables(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	arg := new(updateK8sProductGlobalVariablesRequest)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateK8sProductDefaultValues c.GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.UpdateProductGlobalVariables(projectKey, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, ctx.Logger)
 }
 
 func UpdateHelmProductCharts(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -818,8 +1428,27 @@ func UpdateHelmProductCharts(c *gin.Context) {
 		serviceName = append(serviceName, cd.ServiceName)
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(serviceName, ",")), string(data), ctx.Logger, envName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(serviceName, ",")), string(data), ctx.Logger, envName)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	err = c.BindJSON(arg)
 	if err != nil {
@@ -827,7 +1456,64 @@ func UpdateHelmProductCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateHelmProductCharts(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
+	ctx.Err = service.UpdateHelmProductCharts(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
+}
+
+func UpdateProductionEnvHelmProductCharts(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	arg := new(service.EnvRendersetArg)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateHelmProductCharts c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, arg); err != nil {
+		log.Errorf("UpdateHelmProductCharts json.Unmarshal err : %v", err)
+	}
+
+	serviceName := make([]string, 0)
+	for _, cd := range arg.ChartValues {
+		serviceName = append(serviceName, cd.ServiceName)
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(serviceName, ",")), string(data), ctx.Logger, envName)
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.UpdateHelmProductCharts(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
 
 func updateMultiEnvWrapper(c *gin.Context, request *service.UpdateEnvRequest, production bool, ctx *internalhandler.Context) {
@@ -928,45 +1614,160 @@ func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 	ctx.Resp, ctx.Err = service.UpdateMultiCVMProducts(envNames, request.ProjectName, ctx.UserName, ctx.RequestID, ctx.Logger)
 }
 
-func GetProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+func GetEnvironment(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	name := c.Param("name")
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
-	ctx.Resp, ctx.Err = service.GetProduct(ctx.UserName, name, projectName, ctx.Logger)
+	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
+}
+
+func GetProductionEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
 }
 
 func GetProductInfo(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Param("name")
-	projectName := c.Query("projectName")
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
-	ctx.Resp, ctx.Err = service.GetProductInfo(ctx.UserName, envName, projectName, ctx.Logger)
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetProductInfo(ctx.UserName, envName, projectKey, ctx.Logger)
 }
 
 func GetHelmChartVersions(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Param("name")
-	projectName := c.Query("projectName")
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
-	ctx.Resp, ctx.Err = service.GetHelmChartVersions(projectName, envName, ctx.Logger)
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetHelmChartVersions(projectKey, envName, ctx.Logger)
 	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to get helmVersions %s %s: %v", envName, projectName, ctx.Err)
+		ctx.Logger.Errorf("failed to get helmVersions %s %s: %v", envName, projectKey, ctx.Err)
 	}
 }
 
 func GetEstimatedRenderCharts(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
 		return
 	}
@@ -977,18 +1778,44 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectName, envName, c.Query("serviceName"), false, ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectKey, envName, c.Query("serviceName"), false, ctx.Logger)
 	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectName, ctx.Err)
+		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectKey, ctx.Err)
 	}
 }
 
 func GetProductionEstimatedRenderCharts(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
 		return
 	}
@@ -999,35 +1826,90 @@ func GetProductionEstimatedRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectName, envName, c.Query("serviceName"), true, ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectKey, envName, c.Query("serviceName"), true, ctx.Logger)
 	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectName, ctx.Err)
+		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectKey, ctx.Err)
 	}
 }
 
 func DeleteProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	isDelete, err := strconv.ParseBool(c.Query("is_delete"))
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalidParam is_delete")
 		return
 	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "环境", envName, "", ctx.Logger, envName)
-	ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, isDelete, ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境", envName, "", ctx.Logger, envName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectKey, ctx.RequestID, isDelete, ctx.Logger)
 }
 
 func DeleteProductionProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "生产环境", envName, "", ctx.Logger, envName)
-	ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
+	projectKey := c.Query("projectName")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "生产环境", envName, "", ctx.Logger, envName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectKey, ctx.RequestID, ctx.Logger)
 }
 
 // @Summary Delete services
@@ -1041,8 +1923,15 @@ func DeleteProductionProduct(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/environment/environments/{name}/services [put]
 func DeleteProductServices(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(DeleteProductServicesRequest)
 	data, err := c.GetRawData()
@@ -1056,12 +1945,31 @@ func DeleteProductServices(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	envName := c.Param("name")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	// For environment sharing, if the environment is the base environment and the service to be deleted has been deployed in the subenvironment,
 	// we should prompt the user that `Delete the service in the subenvironment before deleting the service in the base environment`.
-	svcsInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c, projectName, envName, args.ServiceNames)
+	svcsInSubEnvs, err := service.CheckServicesDeployedInSubEnvs(c, projectKey, envName, args.ServiceNames)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -1076,13 +1984,20 @@ func DeleteProductServices(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger, envName)
-	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectName, args.ServiceNames, false, ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger, envName)
+	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, false, ctx.Logger)
 }
 
 func DeleteProductionProductServices(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(DeleteProductServicesRequest)
 	data, err := c.GetRawData()
@@ -1096,26 +2011,66 @@ func DeleteProductionProductServices(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	envName := c.Param("name")
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger, envName)
-	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectName, args.ServiceNames, true, ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger, envName)
+	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, true, ctx.Logger)
 }
 
 func ListGroups(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	envName := c.Param("name")
 	var count int
 
 	envGroupRequest := new(service.EnvGroupRequest)
-	err := c.BindQuery(envGroupRequest)
+	err = c.BindQuery(envGroupRequest)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("bind query err :%s", err))
 		return
 	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].Env.View {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, envGroupRequest.ProjectName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+		if err != nil || !permitted {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	if envGroupRequest.PerPage == 0 {
 		envGroupRequest.PerPage = setting.PerPage
 	}
@@ -1128,14 +2083,21 @@ func ListGroups(c *gin.Context) {
 }
 
 func ListProductionGroups(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	envName := c.Param("name")
 	var count int
 
 	envGroupRequest := new(service.EnvGroupRequest)
-	err := c.BindQuery(envGroupRequest)
+	err = c.BindQuery(envGroupRequest)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("bind query err :%s", err))
 		return
@@ -1145,6 +2107,19 @@ func ListProductionGroups(c *gin.Context) {
 	}
 	if envGroupRequest.Page == 0 {
 		envGroupRequest.Page = 1
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].ProductionEnv.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Resp, count, ctx.Err = service.ListProductionGroups(envGroupRequest.ServiceName, envName, envGroupRequest.ProjectName, envGroupRequest.PerPage, envGroupRequest.Page, ctx.Logger)
@@ -1253,15 +2228,18 @@ func GetGlobalVariableCandidates(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	if c.Query("projectName") == "" {
+	projectKey := c.Query("projectName")
+	envName := c.Param("name")
+
+	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
 
-	if c.Param("name") == "" {
+	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetGlobalVariableCandidate(c.Query("projectName"), c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetGlobalVariableCandidate(projectKey, envName, ctx.Logger)
 }
