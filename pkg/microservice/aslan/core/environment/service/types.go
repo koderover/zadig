@@ -314,22 +314,6 @@ type OpenAPIEnvCfgArgs struct {
 	SourceDetail         *commonmodels.CreateFromRepo `json:"source_detail"`
 	RestartAssociatedSvc bool                         `json:"restart_associated_svc,omitempty"`
 	AutoSync             bool                         `json:"auto_sync"`
-	// ingress field
-	HostInfo    string `json:"host_info,omitempty"`
-	Address     string `json:"address,omitempty"`
-	Ports       string `json:"ports,omitempty"`
-	ErrorReason string `json:"error_reason,omitempty"`
-	// secret field
-	SecretType string `json:"secret_type,omitempty"`
-	// pvc field
-	Status       string `json:"status,omitempty"`
-	Volume       string `json:"volume,omitempty"`
-	AccessModes  string `json:"access_modes,omitempty"`
-	StorageClass string `json:"storage_class,omitempty"`
-	Capacity     string `json:"capacity,omitempty"`
-	// configMap field
-	Immutable bool              `json:"immutable,omitempty"`
-	CmData    map[string]string `json:"cm_data,omitempty"`
 }
 
 type OpenAPIEnvCfgDetail struct {

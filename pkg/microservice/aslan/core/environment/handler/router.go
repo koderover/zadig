@@ -328,6 +328,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		production.POST("/service/yaml", OpenAPIApplyProductionYamlService)
 		production.DELETE("/service/yaml", OpenAPIDeleteProductionYamlServiceFromEnv)
 
+		production.PUT("/envcfgs", OpenAPIUpdateProductionCommonEnvCfg)
 		production.POST("/:name/envcfgs", OpenAPICreateCommonEnvCfg)
 		production.GET("/:name/envcfgs", OpenAPIListProductionCommonEnvCfg)
 		production.GET("/:name/envcfg/:cfgName", OpenAPIGetProductionCommonEnvCfg)

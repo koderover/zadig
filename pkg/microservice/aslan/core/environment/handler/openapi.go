@@ -256,6 +256,36 @@ func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
 	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectName, args, ctx.UserName, ctx.Logger)
 }
 
+func OpenAPIUpdateProductionCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPIEnvCfgArgs)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		msg := fmt.Errorf("failed to get request data err : %v", err)
+		ctx.Err = e.ErrUpdateEnvCfg.AddErr(msg)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		msg := fmt.Errorf("failed to unmarshal request data err : %v", err)
+		ctx.Err = e.ErrUpdateEnvCfg.AddErr(msg)
+		return
+	}
+	projectName := c.Query("projectName")
+	args.ProductName = projectName
+	if err := args.Validate(); err != nil {
+		msg := fmt.Errorf("failed to validate request data err : %v", err)
+		ctx.Err = e.ErrUpdateEnvCfg.AddErr(msg)
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "生产环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, args.Name)
+
+	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectName, args, ctx.UserName, ctx.Logger)
+}
+
 func OpenAPICreateCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
