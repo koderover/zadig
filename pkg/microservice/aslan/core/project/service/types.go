@@ -69,12 +69,53 @@ type ServiceDefinition struct {
 	VariableYaml util.KVInput `json:"variable_yaml"`
 	AutoSync     bool         `json:"auto_sync"`
 	Yaml         string       `json:"yaml"`
+	ValuesYaml   string       `json:"values_yaml"`
 }
 
 type EnvDefinition struct {
 	EnvName     string `json:"env_name"`
 	ClusterName string `json:"cluster_name"`
 	Namespace   string `json:"namespace"`
+}
+
+type OpenAPIListProjectReq struct {
+	PageSize int64 `json:"pageSize" form:"pageSize" default:"20"`
+	PageNum  int64 `json:"pageNum"  form:"pageNum"  default:"1"`
+}
+
+type OpenAPIProjectDetailResp struct {
+	ProjectName string `json:"project_name"`
+	ProjectKey  string `json:"project_key"`
+	IsPublic    bool   `json:"is_public"`
+	Desc        string `json:"desc"`
+	DeployType  string `json:"deploy_type"`
+	CreateTime  int64  `json:"create_time"`
+	CreatedBy   string `json:"created_by"`
+}
+
+type OpenAPIProjectListResp struct {
+	Total    int             `json:"total"`
+	Projects []*ProjectBrief `json:"projects"`
+}
+
+type ProjectBrief struct {
+	ProjectName string `json:"project_name"`
+	ProjectKey  string `json:"project_key"`
+	Description string `json:"description"`
+}
+
+type EnvInfo struct {
+	Name       string `json:"name"`
+	Production bool   `json:"production"`
+	Status     string `json:"status"`
+}
+
+type Service struct {
+	Name       string `json:"name"`
+	CreatedBy  string `json:"created_by"`
+	CreateTime int64  `json:"create_time"`
+	Source     string `json:"source"`
+	Production bool   `json:"production"`
 }
 
 func (req OpenAPIInitializeProjectReq) Validate() error {

@@ -270,6 +270,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 type OpenAPIRouter struct{}
 
 func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	common := router.Group("")
+	{
+		common.GET("", OpenAPIGetWorkflowV4List)
+	}
+
 	// custom workflow apis
 	custom := router.Group("custom")
 	{
@@ -278,16 +283,25 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		custom.DELETE("/task", OpenAPICancelWorkflowTaskV4)
 		custom.POST("/task/approve", ApproveStage)
 		custom.DELETE("", OpenAPIDeleteCustomWorkflowV4)
+		custom.GET("/:name/detail", OpenAPIGetCustomWorkflowV4)
+		custom.POST("/:name/task/:taskID", OpenAPIRetryCustomWorkflowTaskV4)
+		custom.GET("/:name/tasks", OpenAPIGetCustomWorkflowTaskV4)
+
 	}
 
 	view := router.Group("view")
 	{
 		view.POST("", OpenAPICreateWorkflowView)
+		view.GET("", OpenAPIGetWorkflowViews)
+		view.PUT("/:name", OpenAPIUpdateWorkflowView)
+		view.DELETE("/:name", OpenAPIDeleteWorkflowView)
 	}
 
 	product := router.Group("product")
 	{
 		product.POST("/task", OpenAPICreateProductWorkflowTask)
 		product.DELETE("", OpenAPIDeleteProductWorkflowV4)
+		product.GET("/:name/tasks", OpenAPIGetProductWorkflowTasksV4)
+		product.GET("/:name/task/:taskID", OpenAPIGetProductWorkflowTaskV4)
 	}
 }

@@ -1835,19 +1835,6 @@ func deleteHelmProductServices(userName, requestID string, productInfo *commonmo
 	return kube.DeleteHelmServiceFromEnv(userName, requestID, productInfo, serviceNames, log)
 }
 
-func OpenAPIUpdateCommonEnvCfg(projectName string, args *OpenAPIEnvCfgArgs, userName string, logger *zap.SugaredLogger) error {
-	configArgs := &models.CreateUpdateCommonEnvCfgArgs{
-		EnvName:              args.EnvName,
-		ProductName:          projectName,
-		ServiceName:          args.ServiceName,
-		Name:                 args.Name,
-		YamlData:             args.YamlData,
-		RestartAssociatedSvc: true,
-		CommonEnvCfgType:     args.CommonEnvCfgType,
-	}
-	return UpdateCommonEnvCfg(configArgs, userName, false, logger)
-}
-
 func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
 	serviceRelatedYaml := make(map[string]string)
 	for _, service := range productInfo.GetServiceMap() {
@@ -3245,4 +3232,56 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 	}
 
 	return retList, nil
+}
+
+func EnsureProductionNamespace(createArgs []*CreateSingleProductArg) error {
+	for _, arg := range createArgs {
+		namespace, err := ListNamespaceFromCluster(arg.ClusterID)
+		if err != nil {
+			return err
+		}
+
+		// 1. check specified namespace
+		filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
+		if filterK8sNamespaces.Has(arg.Namespace) {
+			return fmt.Errorf("namespace %s is invalid, production environment namespace cannot be set to these three namespaces: kube-node-lease, kube-public, kube-system", arg.Namespace)
+		}
+
+		// 2. check existed namespace
+		nsList, err := mongodb.NewProductColl().ListExistedNamespace(arg.ClusterID)
+		if err != nil {
+			return err
+		}
+		filterK8sNamespaces.Insert(nsList...)
+		if filterK8sNamespaces.Has(arg.Namespace) {
+			return fmt.Errorf("namespace %s is invalid, it has been used for other test environment or host project", arg.Namespace)
+		}
+
+		// 3. check production namespace
+		productionEnvs, err := mongodb.NewProductColl().ListProductionNamespace(arg.ClusterID)
+		if err != nil {
+			return err
+		}
+		filterK8sNamespaces.Insert(productionEnvs...)
+		if filterK8sNamespaces.Has(arg.Namespace) {
+			return fmt.Errorf("namespace %s is invalid, it has been used for other production environment", arg.Namespace)
+		}
+
+		// 4. check namespace created by koderover
+		for _, ns := range namespace {
+			if ns.Name == arg.Namespace {
+				if value, IsExist := ns.Labels[setting.EnvCreatedBy]; IsExist {
+					if value == setting.EnvCreator {
+						return fmt.Errorf("namespace %s is invalid, namespace created by koderover cannot be used", arg.Namespace)
+					}
+				}
+				return nil
+			}
+		}
+
+		//5. arg.namespace is not in valid namespace list
+		//return fmt.Errorf("namespace %s does not belong to legal namespace", arg.Namespace)
+		return nil
+	}
+	return nil
 }

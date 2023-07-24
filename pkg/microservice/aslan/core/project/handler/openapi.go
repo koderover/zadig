@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -80,7 +81,7 @@ func OpenAPIInitializeYamlProject(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("Initialize project json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "初始化", "项目管理-项目", args.ProjectName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "初始化", "项目管理-k8s项目", args.ProjectName, string(data), ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// input validation for OpenAPI
@@ -91,4 +92,89 @@ func OpenAPIInitializeYamlProject(c *gin.Context) {
 	}
 
 	ctx.Err = service.InitializeYAMLProject(ctx.UserID, ctx.UserName, ctx.RequestID, args, ctx.Logger)
+}
+
+func OpenAPIInitializeHelmProject(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPIInitializeProjectReq)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid InitializeHelmProject params")
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Err = err
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName+"(openAPI)", args.ProjectName, "OpenAPI"+"初始化", "项目管理-helm项目", args.ProjectName, string(data), ctx.Logger)
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// input validation for OpenAPI
+	err = args.Validate()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.OpenAPIInitializeHelmProject(ctx.UserID, ctx.UserName, ctx.RequestID, args, ctx.Logger)
+}
+
+func OpenAPIListProject(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPIListProjectReq)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ListProjectOpenAPI params")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListProjectOpenAPI(args.PageSize, args.PageNum, ctx.Logger)
+}
+
+func OpenAPIGetProjectDetail(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetProjectDetailOpenAPI(projectName, ctx.Logger)
+}
+
+func OpenAPIDeleteProject(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param projectName")
+		return
+	}
+	isDelete, err := strconv.ParseBool(c.Query("isDelete"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param isDelete")
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "OpenAPI"+"删除", "项目管理-项目", projectName, "", ctx.Logger)
+
+	ctx.Err = service.DeleteProjectOpenAPI(ctx.UserName, ctx.RequestID, projectName, isDelete, ctx.Logger)
+}
+
+func OpenAPIGetGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.OpenAPIGetGlobalVariables(projectName, ctx.Logger)
 }

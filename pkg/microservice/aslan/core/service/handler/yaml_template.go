@@ -67,27 +67,6 @@ func LoadProductionServiceFromYamlTemplate(c *gin.Context) {
 	ctx.Err = svcservice.LoadProductionServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
 
-func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	req := new(svcservice.OpenAPILoadServiceFromYamlTemplateReq)
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	bs, _ := json.Marshal(req)
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", req.ProjectKey, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
-
-	ctx.Err = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
-}
-
 // @Summary Reload service from yaml template
 // @Description Reload service from yaml template
 // @Tags 	service

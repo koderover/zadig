@@ -196,6 +196,17 @@ func (c *K8SClusterColl) FindByName(name string) (*models.K8SCluster, error) {
 	return res, err
 }
 
+func (c *K8SClusterColl) FindByID(ID string) (*models.K8SCluster, error) {
+	clusterID, err := primitive.ObjectIDFromHex(ID)
+	if err != nil {
+		return nil, err
+	}
+	res := &models.K8SCluster{}
+	err = c.FindOne(context.TODO(), bson.M{"_id": clusterID}).Decode(res)
+
+	return res, err
+}
+
 func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster, id string) error {
 	var err error
 	cluster.ID, err = primitive.ObjectIDFromHex(id)

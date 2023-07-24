@@ -17,6 +17,10 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 
 	testingservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
@@ -41,4 +45,101 @@ func OpenAPICreateScanningModule(c *gin.Context) {
 	}
 
 	ctx.Err = testingservice.OpenAPICreateScanningModule(ctx.UserName, args, ctx.Logger)
+}
+
+func OpenAPICreateScanningTask(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(testingservice.OpenAPICreateScanningTaskReq)
+	err := c.BindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+	}
+	args.ProjectName = c.Query("projectName")
+	args.ScanName = c.Param("scanName")
+	isValid, err := args.Validate()
+	if !isValid {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "OpenAPI"+"新增", "代码扫描任务", args.ScanName, string(data), ctx.Logger)
+
+	taskID, err := testingservice.OpenAPICreateScanningTask(ctx.UserName, args, ctx.Logger)
+	ctx.Resp = testingservice.OpenAPICreateScanningTaskResp{
+		TaskID: taskID,
+	}
+	ctx.Err = err
+}
+
+func OpenAPIGetScanningTaskDetail(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	scanName := c.Param("scanName")
+	// projectName is display name in db and productName is project unique key in db
+	productName := c.Query("projectName")
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param taskID")
+		return
+	}
+	if taskID == 0 || productName == "" || scanName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid params")
+		return
+	}
+
+	ctx.Resp, ctx.Err = testingservice.OpenAPIGetScanningTaskDetail(taskID, productName, scanName, ctx.Logger)
+}
+
+func OpenAPICreateTestTask(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(testingservice.OpenAPICreateTestTaskReq)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	isValid, err := args.Validate()
+	if !isValid {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "OpenAPI"+"测试-task", fmt.Sprintf("%s-%s", args.TestName, "job"), string(data), ctx.Logger)
+
+	taskID, err := testingservice.OpenAPICreateTestTask(ctx.UserName, args, ctx.Logger)
+	ctx.Resp = testingservice.OpenAPICreateTestTaskResp{
+		TaskID: taskID,
+	}
+	ctx.Err = err
+}
+
+func OpenAPIGetTestTaskResult(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// projectName is display name in db and productName is project unique key in db
+	productName := c.Query("projectName")
+	testName := c.Param("testName")
+	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param taskID")
+		return
+	}
+	if taskID == 0 || productName == "" || testName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid params")
+		return
+	}
+
+	ctx.Resp, ctx.Err = testingservice.OpenAPIGetTestTaskResult(taskID, productName, testName, ctx.Logger)
 }

@@ -62,6 +62,32 @@ type OpenAPICreateScanningReq struct {
 	AdvancedSetting   *types.OpenAPIAdvancedSetting `json:"advanced_settings"`
 }
 
+type OpenAPICreateScanningTaskReq struct {
+	ProjectName string
+	ScanName    string
+	ScanRepos   []*ScanningRepoInfo `json:"scan_repos"`
+}
+
+func (s *OpenAPICreateScanningTaskReq) Validate() (bool, error) {
+	if s.ProjectName == "" {
+		return false, fmt.Errorf("project name cannot be empty")
+	}
+	if s.ScanName == "" {
+		return false, fmt.Errorf("scan name cannot be empty")
+	}
+	for _, repo := range s.ScanRepos {
+		if repo.Branch == "" {
+			return false, fmt.Errorf("branch cannot be empty")
+		}
+	}
+
+	return true, nil
+}
+
+type OpenAPICreateScanningTaskResp struct {
+	TaskID int64 `json:"task_id"`
+}
+
 func (req *OpenAPICreateScanningReq) Validate() (bool, error) {
 	if req.Name == "" {
 		return false, fmt.Errorf("scanning name cannot be empty")
@@ -175,4 +201,75 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		CheckQualityGate: scanning.CheckQualityGate,
 		Outputs:          scanning.Outputs,
 	}
+}
+
+type OpenAPICreateTestTaskReq struct {
+	ProjectName string `json:"project_key"`
+	TestName    string `json:"test_name"`
+}
+
+func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
+	if t.ProjectName == "" {
+		return false, fmt.Errorf("project name cannot be empty")
+	}
+	if t.TestName == "" {
+		return false, fmt.Errorf("test name cannot be empty")
+	}
+
+	return true, nil
+}
+
+type OpenAPICreateTestTaskResp struct {
+	TaskID int64 `json:"task_id"`
+}
+
+type OpenAPIScanTaskDetail struct {
+	ScanName   string                  `json:"scan_name"`
+	Creator    string                  `json:"creator"`
+	TaskID     int64                   `json:"task_id"`
+	Status     string                  `json:"status"`
+	CreateTime int64                   `json:"create_time"`
+	EndTime    int64                   `json:"end_time"`
+	ResultLink string                  `json:"result_link"`
+	RepoInfo   []*OpenAPIScanRepoBrief `json:"repo_info"`
+}
+
+type OpenAPIScanRepoBrief struct {
+	RepoOwner    string `json:"repo_owner"`
+	Source       string `json:"source"`
+	Address      string `json:"address"`
+	Branch       string `json:"branch"`
+	RemoteName   string `json:"remote_name"`
+	RepoName     string `json:"repo_name"`
+	Hidden       bool   `json:"hidden"`
+	CheckoutPath string `json:"checkout_path"`
+	SubModules   bool   `json:"submodules"`
+}
+
+type OpenAPITestTaskDetail struct {
+	TestName   string             `json:"test_name"`
+	TaskID     int64              `json:"task_id"`
+	Creator    string             `json:"creator"`
+	CreateTime int64              `json:"create_time"`
+	StartTime  int64              `json:"start_time"`
+	EndTime    int64              `json:"end_time"`
+	Status     string             `json:"status"`
+	TestReport *OpenAPITestReport `json:"test_report"`
+}
+
+type OpenAPITestReport struct {
+	TestTotal    int                `json:"test_total"`
+	FailureTotal int                `json:"failure_total"`
+	SuccessTotal int                `json:"success_total"`
+	SkipedTotal  int                `json:"skiped_total"`
+	ErrorTotal   int                `json:"error_total"`
+	Time         float64            `json:"time"`
+	TestCases    []*OpenAPITestCase `json:"test_cases"`
+}
+
+type OpenAPITestCase struct {
+	Name    string                `json:"name"`
+	Time    float64               `json:"time"`
+	Failure *commonmodels.Failure `json:"failure"`
+	Error   *commonmodels.Error   `json:"error"`
 }

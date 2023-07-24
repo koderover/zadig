@@ -668,3 +668,8 @@ func ClipServiceVariableKVs(clipRange []*ServiceVariableKV, kvs []*ServiceVariab
 
 	return yaml, ret, nil
 }
+
+type GlobalVariables struct {
+	Variables           []*ServiceVariableKV `json:"variables"`
+	ProductionVariables []*ServiceVariableKV `json:"production_variables"`
+}

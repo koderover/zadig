@@ -360,5 +360,11 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	reg := router.Group("registry")
 	{
 		reg.POST("", OpenAPICreateRegistry)
+		reg.GET("", OpenAPIListRegistry)
+	}
+
+	cluster := router.Group("cluster")
+	{
+		cluster.GET("", OpenAPIListCluster)
 	}
 }

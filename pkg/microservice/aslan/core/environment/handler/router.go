@@ -292,9 +292,49 @@ type OpenAPIRouter struct{}
 func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	common := router.Group("")
 	{
+		common.GET("", OpenAPIListEnvs)
+
+		common.POST("", OpenAPICreateK8sEnv)
+		common.DELETE("/:name", OpenAPIDeleteEnv)
+		common.GET("/:name", OpenAPIGetEnvDetail)
+		common.PUT("/:name", OpenAPIUpdateEnvBasicInfo)
+
 		common.POST("/scale", OpenAPIScaleWorkloads)
 		common.POST("/service/yaml", OpenAPIApplyYamlService)
 		common.DELETE("/service/yaml", OpenAPIDeleteYamlServiceFromEnv)
+
 		common.PUT("/envcfgs", OpenAPIUpdateCommonEnvCfg)
+		common.POST("/:name/envcfgs", OpenAPICreateCommonEnvCfg)
+		common.GET("/:name/envcfgs", OpenAPIListCommonEnvCfg)
+		common.GET("/:name/envcfg/:cfgName", OpenAPIGetCommonEnvCfg)
+		common.DELETE("/:name/envcfg/:cfgName", OpenAPIDeleteCommonEnvCfg)
+
+		common.PUT("/:name/services", OpenAPIUpdateYamlServices)
+		common.GET("/:name/variable", OpenAPIGetEnvGlobalVariables)
+		common.PUT("/:name/variable", OpenAPIUpdateGlobalVariables)
+
+		common.POST("/:name/service/:serviceName/restart", OpenAPIRestartService)
+	}
+
+	production := router.Group("production")
+	{
+		production.DELETE("/:name", OpenAPIDeleteProductionEnv)
+		production.POST("", OpenAPICreateProductionEnv)
+		production.GET("/:name", OpenAPIGetProductionEnvDetail)
+		production.PUT("/:name", OpenAPIUpdateProductionEnvBasicInfo)
+
+		production.POST("/service/yaml", OpenAPIApplyProductionYamlService)
+		production.DELETE("/service/yaml", OpenAPIDeleteProductionYamlServiceFromEnv)
+
+		production.POST("/:name/envcfgs", OpenAPICreateCommonEnvCfg)
+		production.GET("/:name/envcfgs", OpenAPIListProductionCommonEnvCfg)
+		production.GET("/:name/envcfg/:cfgName", OpenAPIGetProductionCommonEnvCfg)
+		production.DELETE("/:name/envcfg/:cfgName", OpenAPIDeleteProductionEnvCommonEnvCfg)
+
+		production.PUT("/:name/services", OpenAPIUpdateProductionYamlServices)
+		production.GET("/:name/variable", OpenAPIGetProductionEnvGlobalVariables)
+		production.PUT("/:name/variable", OpenAPIUpdateProductionGlobalVariables)
+
+		production.POST("/:name/service/:serviceName/restart", OpenAPIRestartService)
 	}
 }

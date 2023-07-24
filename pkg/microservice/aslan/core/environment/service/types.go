@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
@@ -259,7 +260,8 @@ type OpenAPIApplyYamlServiceReq struct {
 }
 
 type YamlServiceWithKV struct {
-	ServiceName string `json:"service_name"`
+	ServiceName string                          `json:"service_name"`
+	VariableKvs []*commontypes.RenderVariableKV `json:"variable_kvs"`
 }
 
 func (req *OpenAPIApplyYamlServiceReq) Validate() error {
@@ -288,14 +290,135 @@ func (req *OpenAPIDeleteYamlServiceFromEnvReq) Validate() error {
 	return nil
 }
 
-type OpenAPIEnvCfgArgs struct {
+type OpenAPIEnvCfgBrief struct {
 	Name             string                  `json:"name"`
 	EnvName          string                  `json:"env_name"`
-	ProductName      string                  `json:"product_name"`
-	ServiceName      string                  `json:"service_name"`
-	YamlData         string                  `json:"yaml_data"`
+	ProjectName      string                  `json:"project_name"`
 	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
-	AutoSync         bool                    `json:"auto_sync"`
+	UpdateBy         string                  `json:"update_by,omitempty"`
+	UpdateTime       int64                   `json:"update_time,omitempty"`
+}
+
+type OpenAPIEnvCfgArgs struct {
+	Name                 string                       `json:"name"`
+	CommonEnvCfgType     config.CommonEnvCfgType      `json:"common_env_cfg_type"`
+	CreatedBy            string                       `json:"created_by,omitempty"`
+	CreatedTime          int64                        `json:"created_time,omitempty"`
+	UpdateBy             string                       `json:"update_by,omitempty"`
+	UpdateTime           int64                        `json:"update_time,omitempty"`
+	EnvName              string                       `json:"env_name"`
+	ProductName          string                       `json:"product_name"`
+	ServiceName          string                       `json:"service_name,omitempty"`
+	Services             []string                     `json:"services,omitempty"`
+	YamlData             string                       `json:"yaml_data,omitempty"`
+	SourceDetail         *commonmodels.CreateFromRepo `json:"source_detail"`
+	RestartAssociatedSvc bool                         `json:"restart_associated_svc,omitempty"`
+	AutoSync             bool                         `json:"auto_sync"`
+	// ingress field
+	HostInfo    string `json:"host_info,omitempty"`
+	Address     string `json:"address,omitempty"`
+	Ports       string `json:"ports,omitempty"`
+	ErrorReason string `json:"error_reason,omitempty"`
+	// secret field
+	SecretType string `json:"secret_type,omitempty"`
+	// pvc field
+	Status       string `json:"status,omitempty"`
+	Volume       string `json:"volume,omitempty"`
+	AccessModes  string `json:"access_modes,omitempty"`
+	StorageClass string `json:"storage_class,omitempty"`
+	Capacity     string `json:"capacity,omitempty"`
+	// configMap field
+	Immutable bool              `json:"immutable,omitempty"`
+	CmData    map[string]string `json:"cm_data,omitempty"`
+}
+
+type OpenAPIEnvCfgDetail struct {
+	IngressDetail   *OpenAPIEnvCfgIngressDetail   `json:"ingress_detail,omitempty"`
+	SecretDetail    *OpenAPIEnvCfgSecretDetail    `json:"secret_detail,omitempty"`
+	PvcDetail       *OpenAPIEnvCfgPvcDetail       `json:"pvc_detail,omitempty"`
+	ConfigMapDetail *OpenAPIEnvCfgConfigMapDetail `json:"configMap_detail,omitempty"`
+}
+
+type OpenAPIEnvCfgIngressDetail struct {
+	Name             string                  `json:"name"`
+	ProjectName      string                  `json:"project_name"`
+	EnvName          string                  `json:"env_name"`
+	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
+	CreatedBy        string                  `json:"created_by,omitempty"`
+	CreatedTime      int64                   `json:"created_time,omitempty"`
+	UpdateBy         string                  `json:"update_by,omitempty"`
+	UpdateTime       int64                   `json:"update_time,omitempty"`
+	YamlData         string                  `json:"yaml_data,omitempty"`
+	Services         []string                `json:"services,omitempty"`
+	SourceDetail     *CfgRepoInfo            `json:"source_detail"`
+	HostInfo         string                  `json:"host_info,omitempty"`
+	Address          string                  `json:"address,omitempty"`
+	Ports            string                  `json:"ports,omitempty"`
+	ErrorReason      string                  `json:"error_reason,omitempty"`
+}
+
+type CfgRepoInfo struct {
+	GitRepoConfig *GitRepoConfig `bson:"git_repo_config,omitempty"      json:"git_repo_config,omitempty"`
+	LoadPath      string         `bson:"load_path,omitempty"            json:"load_path,omitempty"`
+}
+
+type GitRepoConfig struct {
+	CodehostKey string   `json:"codehost_key"`
+	Owner       string   `json:"owner"`
+	Repo        string   `json:"repo"`
+	Branch      string   `json:"branch"`
+	Namespace   string   `json:"namespace"` // records the actual namespace of repo, used to generate correct project name
+	ValuesPaths []string `json:"values_paths,omitempty"`
+}
+
+type OpenAPIEnvCfgSecretDetail struct {
+	Name             string                  `json:"name"`
+	ProjectName      string                  `json:"project_name"`
+	EnvName          string                  `json:"env_name"`
+	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
+	CreatedBy        string                  `json:"created_by,omitempty"`
+	CreatedTime      int64                   `json:"created_time,omitempty"`
+	UpdateBy         string                  `json:"update_by,omitempty"`
+	UpdateTime       int64                   `json:"update_time,omitempty"`
+	YamlData         string                  `json:"yaml_data,omitempty"`
+	Services         []string                `json:"services,omitempty"`
+	SourceDetail     *CfgRepoInfo            `json:"source_detail"`
+	SecretType       string                  `json:"secret_type,omitempty"`
+}
+
+type OpenAPIEnvCfgPvcDetail struct {
+	Name             string                  `json:"name"`
+	ProjectName      string                  `json:"project_name"`
+	EnvName          string                  `json:"env_name"`
+	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
+	CreatedBy        string                  `json:"created_by,omitempty"`
+	CreatedTime      int64                   `json:"created_time,omitempty"`
+	UpdateBy         string                  `json:"update_by,omitempty"`
+	UpdateTime       int64                   `json:"update_time,omitempty"`
+	YamlData         string                  `json:"yaml_data,omitempty"`
+	Services         []string                `json:"services,omitempty"`
+	SourceDetail     *CfgRepoInfo            `json:"source_detail"`
+	Status           string                  `json:"status,omitempty"`
+	Volume           string                  `json:"volume,omitempty"`
+	AccessModes      string                  `json:"access_modes,omitempty"`
+	StorageClass     string                  `json:"storage_class,omitempty"`
+	Capacity         string                  `json:"capacity,omitempty"`
+}
+
+type OpenAPIEnvCfgConfigMapDetail struct {
+	Name             string                  `json:"name"`
+	ProjectName      string                  `json:"project_name"`
+	EnvName          string                  `json:"env_name"`
+	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
+	CreatedBy        string                  `json:"created_by,omitempty"`
+	CreatedTime      int64                   `json:"created_time,omitempty"`
+	UpdateBy         string                  `json:"update_by,omitempty"`
+	UpdateTime       int64                   `json:"update_time,omitempty"`
+	YamlData         string                  `json:"yaml_data,omitempty"`
+	Services         []string                `json:"services,omitempty"`
+	SourceDetail     *CfgRepoInfo            `json:"source_detail"`
+	Immutable        bool                    `json:"immutable,omitempty"`
+	CmData           map[string]string       `json:"cm_data,omitempty"`
 }
 
 func (req *OpenAPIEnvCfgArgs) Validate() error {
@@ -315,4 +438,133 @@ func (req *OpenAPIEnvCfgArgs) Validate() error {
 		return fmt.Errorf("yaml_data is required")
 	}
 	return nil
+}
+
+type OpenAPICreateEnvArgs struct {
+	Production      bool                              `json:"production"`
+	ProjectName     string                            `json:"project_name"`
+	EnvName         string                            `json:"env_name"`
+	ClusterID       string                            `json:"cluster_id"`
+	Namespace       string                            `json:"namespace"`
+	RegistryID      string                            `json:"registry_id"`
+	Alias           string                            `json:"alias"`
+	GlobalVariables []*commontypes.GlobalVariableKV   `json:"global_variables"`
+	ChartValues     []*ProductHelmServiceCreationInfo `json:"chart_values"`
+	Services        []*OpenAPICreateServiceArgs       `json:"services"`
+	EnvConfigs      []*EnvCfgArgs                     `json:"env_configs"`
+}
+
+type EnvCfgArgs struct {
+	Name             string                  `json:"name"`
+	AutoSync         bool                    `json:"auto_sync"`
+	CommonEnvCfgType string                  `json:"common_env_cfg_type"`
+	YamlData         string                  `json:"yaml_data"`
+	GitRepoConfig    *template.GitRepoConfig `json:"git_repo_config"`
+}
+
+type OpenAPICreateServiceArgs struct {
+	ServiceName    string                          `json:"service_name"`
+	DeployStrategy string                          `json:"deploy_strategy"`
+	Containers     []*commonmodels.Container       `json:"containers"`
+	VariableKVs    []*commontypes.RenderVariableKV `json:"variable_kvs"`
+	Status         string                          `json:"status"`
+	Type           string                          `json:"type"`
+}
+
+type OpenAPIServiceDetail struct {
+	ServiceName string                           `json:"service_name"`
+	Containers  []*commonmodels.Container        `json:"containers"`
+	VariableKVs []*commontypes.ServiceVariableKV `json:"variable_kvs"`
+	Status      string                           `json:"status"`
+	Type        string                           `json:"type"`
+}
+
+func (env *OpenAPICreateEnvArgs) Validate() error {
+	if env.ProjectName == "" {
+		return fmt.Errorf("project_name is required")
+	}
+	if env.EnvName == "" {
+		return fmt.Errorf("env_name is required")
+	}
+	if env.ClusterID == "" {
+		return fmt.Errorf("cluster_id is required")
+	}
+	if env.Namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if env.RegistryID == "" {
+		return fmt.Errorf("registry_id is required")
+	}
+	if !env.Production {
+		if env.Services == nil || len(env.Services) == 0 {
+			return fmt.Errorf("services is required")
+		}
+	}
+	return nil
+}
+
+type OpenAPIEnvDetail struct {
+	ProjectName     string                            `json:"project_name"`
+	EnvName         string                            `json:"env_name"`
+	UpdateBy        string                            `json:"update_by"`
+	UpdateTime      int64                             `json:"update_time"`
+	ClusterID       string                            `json:"cluster_id"`
+	Namespace       string                            `json:"namespace"`
+	RegistryID      string                            `json:"registry_id"`
+	Alias           string                            `json:"alias"`
+	GlobalVariables []*commontypes.GlobalVariableKV   `json:"global_variables"`
+	ChartValues     []*ProductHelmServiceCreationInfo `json:"chart_values,omitempty"`
+	Services        []*OpenAPIServiceDetail           `json:"services"`
+	Status          string                            `json:"status"`
+}
+
+type EnvBasicInfoArgs struct {
+	RegistryID string `json:"registry_id"`
+	Alias      string `json:"alias"`
+}
+
+type OpenAPIListEnvsResp struct {
+	Total          int64       `json:"total"`
+	TestEnvs       []*EnvBrief `json:"test_envs"`
+	ProductionEnvs []*EnvBrief `json:"production_envs"`
+}
+
+type EnvBrief struct {
+	Alias      string `json:"alias,omitempty"`
+	EnvName    string `json:"env_name"`
+	ClusterID  string `json:"cluster_id"`
+	Namespace  string `json:"namespace"`
+	Production bool   `json:"production"`
+	RegistryID string `json:"registry_id"`
+	Status     string `json:"status"`
+	UpdateBy   string `json:"update_by"`
+	UpdateTime int64  `json:"update_time"`
+}
+
+type GlobalVariables struct {
+	Variables           []*commontypes.ServiceVariableKV `json:"variables"`
+	ProductionVariables []*commontypes.ServiceVariableKV `json:"production_variables"`
+}
+
+type OpenAPIServiceVariablesReq struct {
+	ServiceList []*ServiceVariable `json:"service_list"`
+}
+
+type ServiceVariable struct {
+	ServiceName string                          `json:"service_name"`
+	Variables   []*commontypes.RenderVariableKV `json:"variable_kvs"`
+}
+
+type OpenAPIEnvGlobalVariables struct {
+	GlobalVariables []*commontypes.GlobalVariableKV `json:"global_variables"`
+}
+
+type OpenAPIEnvServiceDetail struct {
+	ServiceName    string                           `json:"service_name"`
+	Variables      []*commontypes.ServiceVariableKV `json:"variables"`
+	Images         []string                         `json:"images"`
+	Status         string                           `json:"status"`
+	Type           string                           `json:"type"`
+	Error          string                           `json:"error"`
+	DeployStrategy string                           `json:"deploy_strategy"`
 }

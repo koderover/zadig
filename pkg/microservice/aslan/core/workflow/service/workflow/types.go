@@ -609,3 +609,173 @@ type GetHelmValuesDifferenceResp struct {
 	Current string `json:"current"`
 	Latest  string `json:"latest"`
 }
+
+type OpenAPIWorkflowV4ListReq struct {
+	ProjectName string `form:"projectName"`
+	ViewName    string `form:"viewName"`
+}
+
+type OpenAPIWorkflowListResp struct {
+	Workflows []*WorkflowBrief `json:"workflows"`
+}
+
+type WorkflowBrief struct {
+	WorkflowName string `json:"workflow_name"`
+	DisplayName  string `json:"display_name"`
+	UpdateBy     string `json:"update_by"`
+	UpdateTime   int64  `json:"update_time"`
+	Type         string `json:"type"`
+}
+
+type OpenAPIWorkflowV4Detail struct {
+	Name             string                       `json:"name"`
+	DisplayName      string                       `json:"display_name"`
+	ProjectName      string                       `json:"project_name"`
+	Description      string                       `json:"description"`
+	CreatedBy        string                       `json:"created_by"`
+	CreateTime       int64                        `json:"create_time"`
+	UpdatedBy        string                       `json:"updated_by"`
+	UpdateTime       int64                        `json:"update_time"`
+	Params           []*commonmodels.Param        `json:"params"`
+	KeyVals          []*commonmodels.KeyVal       `json:"key_vals"`
+	Stages           []*OpenAPIStage              `json:"stages"`
+	NotifyCtls       []*commonmodels.NotifyCtl    `json:"notify_ctls"`
+	ShareStorages    []*commonmodels.ShareStorage `json:"share_storages"`
+	ConcurrencyLimit int                          `json:"concurrency_limit"`
+}
+
+type Param struct {
+	Name        string `bson:"name"             json:"name"             yaml:"name"`
+	Description string `bson:"description"      json:"description"      yaml:"description"`
+	// support string/text/choice/repo type
+	ParamsType   string                 `bson:"type"                      json:"type"                        yaml:"type"`
+	Value        string                 `bson:"value"                     json:"value"                       yaml:"value,omitempty"`
+	Repo         *types.Repository      `bson:"repo"                     json:"repo"                         yaml:"repo,omitempty"`
+	ChoiceOption []string               `bson:"choice_option,omitempty"   json:"choice_option,omitempty"     yaml:"choice_option,omitempty"`
+	Default      string                 `bson:"default"                   json:"default"                     yaml:"default"`
+	IsCredential bool                   `bson:"is_credential"             json:"is_credential"               yaml:"is_credential"`
+	Source       config.ParamSourceType `bson:"source,omitempty" json:"source,omitempty" yaml:"source,omitempty"`
+}
+
+type OpenAPIStage struct {
+	Name     string                   `json:"name"`
+	Parallel bool                     `json:"parallel,omitempty"`
+	Approval *OpenAPIWorkflowApproval `json:"approval,omitempty"`
+	Jobs     []*commonmodels.Job      `json:"jobs,omitempty"`
+}
+
+type OpenAPIServiceModule struct {
+	ServiceModule string `json:"service_module"`
+	ServiceName   string `json:"service_name"`
+}
+
+type OpenAPIWorkflowV4TaskListResp struct {
+	Total         int64                    `json:"total"`
+	WorkflowTasks []*OpenAPIWorkflowV4Task `json:"workflow_tasks"`
+}
+
+type OpenAPIWorkflowV4Task struct {
+	WorkflowName string          `json:"workflow_name"`
+	DisplayName  string          `json:"display_name"`
+	ProjectName  string          `json:"project_name"`
+	TaskID       int64           `json:"task_id"`
+	CreateTime   int64           `json:"create_time"`
+	TaskCreator  string          `json:"task_creator"`
+	StartTime    int64           `json:"start_time"`
+	EndTime      int64           `json:"end_time"`
+	Stages       []*OpenAPIStage `json:"stages,omitempty"`
+	Status       config.Status   `json:"status"`
+}
+
+type OpenAPIProductWorkflowTaskBrief struct {
+	WorkflowName string        `json:"workflow_name"`
+	ProjectName  string        `json:"project_name"`
+	TaskID       int64         `json:"task_id"`
+	CreateTime   int64         `json:"create_time"`
+	TaskCreator  string        `json:"task_creator"`
+	StartTime    int64         `json:"start_time"`
+	EndTime      int64         `json:"end_time"`
+	Status       config.Status `json:"status"`
+}
+
+type OpenAPIProductWorkflowTaskDetail struct {
+	WorkflowName string        `json:"workflow_name"`
+	DisplayName  string        `json:"display_name,omitempty"`
+	ProjectName  string        `json:"project_name"`
+	TaskID       int64         `json:"task_id"`
+	CreateTime   int64         `json:"create_time"`
+	TaskCreator  string        `json:"task_creator"`
+	StartTime    int64         `json:"start_time"`
+	EndTime      int64         `json:"end_time"`
+	Status       config.Status `json:"status"`
+}
+
+type OpenAPIWorkflowTaskStage struct {
+	Name      string                    `json:"name"`
+	Parallel  bool                      `json:"parallel"`
+	Approval  *OpenAPIWorkflowApproval  `json:"approval,omitempty"`
+	Jobs      []*OpenAPIWorkflowTaskJob `json:"jobs,omitempty"`
+	Status    config.Status             `json:"status"`
+	Error     string                    `json:"error"`
+	StartTime int64                     `json:"start_time"`
+	EndTime   int64                     `json:"end_time"`
+}
+
+type OpenAPIWorkflowApproval struct {
+	Enabled          bool                `json:"enabled"`
+	Type             config.ApprovalType `json:"type"`
+	Description      string              `json:"description"`
+	NativeApproval   *NativeApproval     `json:"native_approval,omitempty"`
+	LarkApproval     *LarkApproval       `json:"lark_approval,omitempty"`
+	DingTalkApproval *DingTalkApproval   `json:"dingtalk_approval,omitempty"`
+}
+
+type NativeApproval struct {
+	Timeout         int64          `bson:"timeout"`
+	ApproveUsers    []*ApproveUser `json:"approve_users"`
+	NeededApprovers int            `bson:"needed_approvers"`
+}
+
+type LarkApproval struct {
+	Timeout      int64          `bson:"timeout"`
+	ApproveUsers []*ApproveUser `json:"approve_users"`
+}
+
+type DingTalkApproval struct {
+	Timeout int64 `bson:"timeout"`
+}
+
+type ApproveUser struct {
+	UserName string `json:"user_name"`
+	UserID   string `json:"user_id"`
+}
+
+type OpenAPIWorkflowTaskJob struct {
+	Name           string                  `json:"name"`
+	JobType        config.JobType          `json:"job_type"`
+	Skipped        bool                    `json:"skipped"`
+	RunPolicy      config.JobRunPolicy     `json:"run_policy"`
+	ServiceModules []*OpenAPIServiceModule `json:"service_modules"`
+	Status         config.Status           `json:"status"`
+	Error          string                  `json:"error"`
+	StartTime      int64                   `json:"start_time"`
+	EndTime        int64                   `json:"end_time"`
+}
+
+type OpenAPIPageParamsFromReq struct {
+	PageNum  int64 `form:"pageNum,default=1"`
+	PageSize int64 `form:"pageSize,default=10"`
+}
+
+type OpenAPIWorkflowViewBrief struct {
+	Name        string          `json:"name"`
+	ProjectName string          `json:"project_name"`
+	UpdateTime  int64           `json:"update_time"`
+	UpdateBy    string          `json:"update_by"`
+	Workflows   []*ViewWorkflow `json:"workflows"`
+}
+
+type ViewWorkflow struct {
+	WorkflowName string `json:"workflow_name"`
+	WorkflowType string `json:"workflow_type"`
+}

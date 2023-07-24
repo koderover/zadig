@@ -122,13 +122,21 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	template := router.Group("template")
 	{
 		template.POST("/load/yaml", LoadServiceFromYamlTemplateOpenAPI)
+		template.POST("/production/load/yaml", LoadProductionServiceFromYamlTemplateOpenAPI)
 	}
 
 	yaml := router.Group("yaml")
 	{
 		yaml.POST("/raw", CreateRawYamlServicesOpenAPI)
+		yaml.POST("/production/raw", CreateRawProductionYamlServicesOpenAPI)
 		yaml.DELETE("/:name", DeleteYamlServicesOpenAPI)
+		yaml.DELETE("production/:name", DeleteProductionServicesOpenAPI)
+		yaml.GET("/services", ListYamlServicesOpenAPI)
 		yaml.GET("/:name", GetYamlServiceOpenAPI)
+		yaml.GET("/production/:name", GetProductionYamlServiceOpenAPI)
 		yaml.PUT("/:name", UpdateServiceConfigOpenAPI)
+		yaml.PUT("/production/:name", UpdateProductionServiceConfigOpenAPI)
+		yaml.PUT("/:name/variable", UpdateServiceVariableOpenAPI)
+		yaml.PUT("/production/:name/variable", UpdateProductionServiceVariableOpenAPI)
 	}
 }

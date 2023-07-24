@@ -98,5 +98,10 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		product.POST("", OpenAPICreateProductTemplate)
 		product.POST("/init/yaml", OpenAPIInitializeYamlProject)
+		product.POST("/init/helm", OpenAPIInitializeHelmProject)
+		product.GET("", OpenAPIListProject)
+		product.GET("/detail", OpenAPIGetProjectDetail)
+		product.DELETE("", OpenAPIDeleteProject)
+		product.GET("/globalVariable", OpenAPIGetGlobalVariables)
 	}
 }
