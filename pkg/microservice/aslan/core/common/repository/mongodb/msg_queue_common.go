@@ -83,6 +83,12 @@ func (c *MsgQueueCommonColl) Delete(id primitive.ObjectID) error {
 	return err
 }
 
+func (c *MsgQueueCommonColl) DeleteByQueueType(_type string) error {
+	query := bson.M{"queue_type": _type}
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}
+
 func (c *MsgQueueCommonColl) Create(args *msg_queue.MsgQueueCommon) error {
 	_, err := c.InsertOne(context.TODO(), args)
 	return err

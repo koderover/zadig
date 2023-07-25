@@ -23,6 +23,8 @@ import (
 	"math/rand"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
@@ -98,6 +100,7 @@ func (c *controller) Init(ctx context.Context) error {
 
 	// handle cancel pipeline task
 	go func() {
+		cancelMsgMap := sets.NewString()
 		for {
 			time.Sleep(1 * time.Second)
 			select {
@@ -121,7 +124,11 @@ func (c *controller) Init(ctx context.Context) error {
 							log.Errorf("convert interface to struct error: %v", err)
 							return
 						}
+						if cancelMsgMap.Has(fmt.Sprintf("%s:%d", msg.PipelineName, msg.TaskID)) {
+							continue
+						}
 						log.Infof("receiving cancel task %s:%d message", msg.PipelineName, msg.TaskID)
+						cancelMsgMap.Insert(fmt.Sprintf("%s:%d", msg.PipelineName, msg.TaskID))
 
 						// 如果存在处理的 PipelineTask 并且匹配 PipelineName, 则取消PipelineTask
 						if pipelineTask != nil && pipelineTask.PipelineName == msg.PipelineName && pipelineTask.TaskID == msg.TaskID {

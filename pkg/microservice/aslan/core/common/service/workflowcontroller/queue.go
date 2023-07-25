@@ -124,6 +124,11 @@ func InitQueue() error {
 			continue
 		}
 	}
+
+	err = commonrepo.NewMsgQueueCommonColl().DeleteByQueueType(setting.TopicCancel)
+	if err != nil {
+		log.Warnf("remove cancel msgs error: %v", err)
+	}
 	return nil
 }
 
