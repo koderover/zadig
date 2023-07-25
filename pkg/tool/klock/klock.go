@@ -80,6 +80,8 @@ func TryLock(key string) error {
 
 	configMap := configMapBuilder(key, c.namespace)
 	if err := c.Create(ctx, configMap); err != nil {
+		// debug
+		fmt.Printf("klock: create configmap %s error: %v\n", key, err)
 		if apierrors.IsAlreadyExists(err) {
 			return ErrLockExist
 		}
