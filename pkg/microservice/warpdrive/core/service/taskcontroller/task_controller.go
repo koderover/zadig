@@ -83,12 +83,10 @@ func (c *controller) Init(ctx context.Context) error {
 					if err = mongodb.NewMsgQueuePipelineTaskColl().Delete(resp[0].ID); err != nil {
 						log.Errorf("delete queue error: %v", err)
 					}
-					if err := commonmodels.IToi(resp[0].Task, pipelineTask); err != nil {
+					if err := commonmodels.IToi(resp[0].Task, &pipelineTask); err != nil {
 						log.Errorf("convert interface to struct error: %v", err)
 						return
 					}
-					// debug
-					fmt.Printf("nil: %v", pipelineTask == nil)
 					log.Infof("receiving pipeline task %s:%d message", pipelineTask.PipelineName, pipelineTask.TaskID)
 					h := &ExecHandler{
 						AckID: 0,
