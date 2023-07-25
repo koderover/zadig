@@ -121,11 +121,11 @@ func (c *controller) Init(ctx context.Context) error {
 							log.Errorf("convert interface to struct error: %v", err)
 							return
 						}
-						xl.Infof("receiving cancel task %s:%d message", msg.PipelineName, msg.TaskID)
+						log.Infof("receiving cancel task %s:%d message", msg.PipelineName, msg.TaskID)
 
 						// 如果存在处理的 PipelineTask 并且匹配 PipelineName, 则取消PipelineTask
 						if pipelineTask != nil && pipelineTask.PipelineName == msg.PipelineName && pipelineTask.TaskID == msg.TaskID {
-							xl.Infof("cancelling message: %+v", msg)
+							log.Infof("cancelling message: %+v", msg)
 							pipelineTask.TaskRevoker = msg.Revoker
 
 							//取消pipelineTask
