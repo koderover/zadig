@@ -123,7 +123,6 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 		CleanupOnFail: true,
 		MaxHistory:    10,
 	}
-	log.Debugf("chart spec: %+v", chartSpec)
 	if isRetry {
 		chartSpec.Replace = true
 	}

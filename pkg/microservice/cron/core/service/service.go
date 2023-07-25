@@ -19,6 +19,7 @@ package service
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
@@ -52,22 +53,22 @@ type EnvResource struct {
 }
 
 type ProductResp struct {
-	ID          string      `json:"id"`
-	ProductName string      `json:"product_name"`
-	Namespace   string      `json:"namespace"`
-	Status      string      `json:"status"`
-	Error       string      `json:"error"`
-	EnvName     string      `json:"env_name"`
-	UpdateBy    string      `json:"update_by"`
-	UpdateTime  int64       `json:"update_time"`
-	Services    [][]string  `json:"services"`
-	Render      *RenderInfo `json:"render"`
-	Vars        []*RenderKV `json:"vars"`
-	IsPublic    bool        `json:"isPublic"`
-	ClusterID   string      `json:"cluster_id,omitempty"`
-	RecycleDay  int         `json:"recycle_day"`
-	IsProd      bool        `json:"is_prod"`
-	Source      string      `json:"source"`
+	ID          string                           `json:"id"`
+	ProductName string                           `json:"product_name"`
+	Namespace   string                           `json:"namespace"`
+	Status      string                           `json:"status"`
+	Error       string                           `json:"error"`
+	EnvName     string                           `json:"env_name"`
+	UpdateBy    string                           `json:"update_by"`
+	UpdateTime  int64                            `json:"update_time"`
+	Services    [][]*commonmodels.ProductService `json:"services"`
+	Render      *RenderInfo                      `json:"render"`
+	Vars        []*RenderKV                      `json:"vars"`
+	IsPublic    bool                             `json:"isPublic"`
+	ClusterID   string                           `json:"cluster_id,omitempty"`
+	RecycleDay  int                              `json:"recycle_day"`
+	IsProd      bool                             `json:"is_prod"`
+	Source      string                           `json:"source"`
 }
 
 type ProductRenderset struct {

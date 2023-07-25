@@ -3580,7 +3580,7 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 			}
 			svcRevision = prodSvc.Revision
 		} else {
-			_, ok := product.GetChartServiceMap()[chartInfo.ServiceName]
+			_, ok := product.GetChartServiceMap()[chartInfo.ReleaseName]
 			if !ok {
 				continue
 			}
@@ -3600,7 +3600,7 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 			svcPreview.ReleaseName = util.GeneReleaseName(tmplSvc.GetReleaseNaming(), tmplSvc.ProductName, product.Namespace, product.EnvName, tmplSvc.ServiceName)
 		} else {
 			svcPreview.ReleaseName = chartInfo.ReleaseName
-			svcPreview.ServiceName = chartInfo.ServiceName
+			svcPreview.ChartName = chartInfo.ChartName
 			svcPreview.DeployedFromChart = true
 		}
 

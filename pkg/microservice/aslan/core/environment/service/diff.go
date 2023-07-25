@@ -31,12 +31,13 @@ import (
 )
 
 type SvcDiffResult struct {
-	ReleaseName       string   `json:"release_name,omitempty"`
-	ServiceName       string   `json:"service_name,omitempty"`
-	DeployedFromChart bool     `json:"-"`
-	Current           TmplYaml `json:"current,omitempty"`
-	Latest            TmplYaml `json:"latest,omitempty"`
-	Error             string   `json:"error,omitempty"`
+	ReleaseName       string   `json:"release_name"`
+	ServiceName       string   `json:"service_name"`
+	ChartName         string   `json:"chart_name"`
+	DeployedFromChart bool     `json:"deployed_from_chart"`
+	Current           TmplYaml `json:"current"`
+	Latest            TmplYaml `json:"latest"`
+	Error             string   `json:"error"`
 }
 
 type TmplYaml struct {

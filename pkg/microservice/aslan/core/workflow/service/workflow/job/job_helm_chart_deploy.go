@@ -94,7 +94,7 @@ func (j *HelmChartDeployJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 		j.spec.Env = argsSpec.Env
-		j.spec.EnvSource = argsSpec.EnvSource
+		j.spec.DeployHelmCharts = argsSpec.DeployHelmCharts
 
 		j.job.Spec = j.spec
 	}
