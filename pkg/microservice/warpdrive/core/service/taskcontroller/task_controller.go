@@ -91,6 +91,7 @@ func (c *controller) Init(ctx context.Context) error {
 					h := &ExecHandler{
 						AckID: 0,
 					}
+					initTaskPlugins(h)
 					h.PipelineTaskHandler()
 				}()
 
