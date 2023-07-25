@@ -58,7 +58,7 @@ func (c *controller) Init(ctx context.Context) error {
 	// handle pipeline task
 	go func() {
 		for {
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 			select {
 			case <-ctx.Done():
 				return

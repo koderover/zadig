@@ -18,7 +18,7 @@ package klock
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -36,9 +36,10 @@ const (
 )
 
 var (
-	DefaultTTL           = 60 * time.Second
-	DefaultTimeout       = 3 * time.Second
-	DefaultRetryInterval = 100 * time.Millisecond
+	DefaultTTL                  = 60 * time.Second
+	DefaultTimeout              = 3 * time.Second
+	DefaultTryLockRetryInterval = 200 * time.Millisecond
+	DefaultLockRetryInterval    = 1 * time.Second
 )
 
 var c *Client
@@ -66,8 +67,8 @@ func Lock(key string) {
 		if err == nil {
 			return
 		}
-		fmt.Printf("klock: lock %s error: %v\n", key, err)
-		time.Sleep(DefaultRetryInterval)
+		log.Printf("klock: lock %s error: %v\n", key, err)
+		time.Sleep(DefaultLockRetryInterval)
 	}
 }
 
@@ -81,7 +82,7 @@ func TryLock(key string) error {
 	configMap := configMapBuilder(key, c.namespace)
 	if err := c.Create(ctx, configMap); err != nil {
 		// debug
-		fmt.Printf("klock: create configmap %s error: %v\n", key, err)
+		log.Printf("klock: create configmap %s error: %v\n", key, err)
 		if apierrors.IsAlreadyExists(err) {
 			return ErrLockExist
 		}
@@ -101,7 +102,7 @@ func LockWithRetry(key string, retry int) error {
 	for i := 0; i < retry; i++ {
 		if err := TryLock(key); err != nil {
 			if err == ErrLockExist {
-				time.Sleep(DefaultRetryInterval)
+				time.Sleep(DefaultTryLockRetryInterval)
 				continue
 			}
 			return err
@@ -128,12 +129,12 @@ func checkLockTTLAndRemove(key string) {
 
 	createTime, err := strconv.ParseInt(configMap.Data[CreateTimeKey], 10, 64)
 	if err != nil {
-		fmt.Printf("klock: parse create time error: %v\n", err)
+		log.Printf("klock: parse create time error: %v\n", err)
 		_ = Unlock(key)
 		return
 	}
 	if time.Now().Unix()-createTime > int64(DefaultTTL.Seconds()) {
-		fmt.Printf("klock: lock timeout, remove lock: %s\n", key)
+		log.Printf("klock: lock timeout, remove lock: %s\n", key)
 		_ = Unlock(key)
 	}
 	return
@@ -163,7 +164,7 @@ func UnlockWithRetry(key string, retry int) error {
 			if apierrors.IsNotFound(err) {
 				return nil
 			}
-			time.Sleep(DefaultRetryInterval)
+			time.Sleep(DefaultTryLockRetryInterval)
 			continue
 		}
 		return nil
