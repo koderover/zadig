@@ -3502,6 +3502,15 @@ const docTemplate = `{
         "service.EstimateValuesArg": {
             "type": "object",
             "properties": {
+                "chartName": {
+                    "type": "string"
+                },
+                "chartRepo": {
+                    "type": "string"
+                },
+                "chartVersion": {
+                    "type": "string"
+                },
                 "defaultValues": {
                     "type": "string"
                 },

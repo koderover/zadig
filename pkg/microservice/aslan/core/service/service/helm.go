@@ -29,7 +29,6 @@ import (
 	"text/template"
 	"time"
 
-
 	"github.com/27149chen/afero"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -38,8 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -50,6 +47,8 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -404,7 +403,7 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 	fsTree := os.DirFS(config.LocalServicePath(productName, serviceName, param.Production))
 
 	// read values.yaml
-	valuesYAML, errRead := readValuesYAML(fsTree, serviceName, logger)
+	valuesYAML, errRead := util.ReadValuesYAML(fsTree, serviceName, logger)
 	if errRead != nil {
 		err = errRead
 		return e.ErrEditHelmCharts.AddErr(err)
@@ -613,7 +612,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 
 	// read values.yaml
 	fsTree := os.DirFS(localPath)
-	valuesYAML, err := readValuesYAML(fsTree, chartRepoArgs.ChartName, log)
+	valuesYAML, err := util.ReadValuesYAML(fsTree, chartRepoArgs.ChartName, log)
 	if err != nil {
 		finalErr = e.ErrCreateTemplate.AddErr(err)
 		return nil, finalErr
@@ -881,7 +880,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 			if finalErr != nil {
 				return
 			}
-			valuesYAML, finalErr = readValuesYAMLFromLocal(currentFilePath, log)
+			valuesYAML, finalErr = util.ReadValuesYAMLFromLocal(currentFilePath, log)
 			if finalErr != nil {
 				return
 			}
@@ -1060,7 +1059,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					if err != nil {
 						return serviceName, err
 					}
-					valuesYAML, err = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+					valuesYAML, err = util.ReadValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
 					return serviceName, err
 				})
 			if err != nil {
@@ -1369,24 +1368,6 @@ func readChartYAMLFromLocal(base string, logger *zap.SugaredLogger) (string, str
 	}
 
 	return chart.Name, chart.Version, nil
-}
-
-func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]byte, error) {
-	content, err := fs.ReadFile(chartTree, filepath.Join(base, setting.ValuesYaml))
-	if err != nil {
-		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
-		return nil, err
-	}
-	return content, nil
-}
-
-func readValuesYAMLFromLocal(base string, logger *zap.SugaredLogger) ([]byte, error) {
-	content, err := util.ReadFile(filepath.Join(base, setting.ValuesYaml))
-	if err != nil {
-		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
-		return nil, err
-	}
-	return content, nil
 }
 
 func geneCreationDetail(args *helmServiceCreationArgs) interface{} {

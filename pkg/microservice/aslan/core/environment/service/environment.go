@@ -1153,7 +1153,22 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 
 	mergedValues := ""
 	if isHelmChartDeploy {
-		mergedValues, err = helmtool.MergeOverrideValues("", renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, nil)
+		chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: arg.ChartRepo})
+		if err != nil {
+			return nil, fmt.Errorf("failed to query chart-repo info, repoName: %s", arg.ChartRepo)
+		}
+
+		client, err := helmtool.NewClient()
+		if err != nil {
+			return nil, fmt.Errorf("failed to new helm client, err %s", err)
+		}
+
+		valuesYaml, err := client.GetChartValues(commonutil.GeneHelmRepo(chartRepo), productName, serviceOrReleaseName, arg.ChartRepo, arg.ChartName, arg.ChartVersion)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", arg.ChartRepo, arg.ChartName, arg.ChartVersion, err)
+		}
+
+		mergedValues, err = helmtool.MergeOverrideValues(string(valuesYaml), renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, nil)
 		if err != nil {
 			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge override values, err %s", err))
 		}

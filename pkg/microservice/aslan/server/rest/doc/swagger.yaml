@@ -1006,6 +1006,12 @@ definitions:
     type: object
   service.EstimateValuesArg:
     properties:
+      chartName:
+        type: string
+      chartRepo:
+        type: string
+      chartVersion:
+        type: string
       defaultValues:
         type: string
       overrideValues:

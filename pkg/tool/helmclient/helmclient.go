@@ -58,6 +58,7 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
@@ -708,6 +709,26 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) er
 	} else {
 		return hClient.pushChartMuseum(repoEntry, chartPath)
 	}
+}
+
+func (hClient *HelmClient) GetChartValues(repoEntry *repo.Entry, projectName, releaseName, chartRepo, chartName, chartVersion string) (string, error) {
+	chartRef := fmt.Sprintf("%s/%s", chartRepo, chartName)
+	localPath := config.LocalServicePathWithRevision(projectName, releaseName, chartVersion, true)
+	// remove local file to untar
+	_ = os.RemoveAll(localPath)
+
+	err := hClient.DownloadChart(repoEntry, chartRef, chartVersion, localPath, true)
+	if err != nil {
+		return "", fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartName, repoEntry.Name, err)
+	}
+
+	fsTree := os.DirFS(localPath)
+	valuesYAML, err := util.ReadValuesYAML(fsTree, chartName, log.SugaredLogger())
+	if err != nil {
+		return "", err
+	}
+
+	return string(valuesYAML), nil
 }
 
 // NOTE: When using this method, pay attention to whether restConfig is present in the original client.

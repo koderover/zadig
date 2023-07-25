@@ -18,12 +18,16 @@ package util
 
 import (
 	"fmt"
+	"io/fs"
+	"path/filepath"
 	"strings"
 
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/helm/pkg/strvals"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util/converter"
 )
 
@@ -81,4 +85,22 @@ func OverrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey 
 	}
 
 	return yaml.Marshal(latestValuesMap)
+}
+
+func ReadValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]byte, error) {
+	content, err := fs.ReadFile(chartTree, filepath.Join(base, setting.ValuesYaml))
+	if err != nil {
+		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
+		return nil, err
+	}
+	return content, nil
+}
+
+func ReadValuesYAMLFromLocal(base string, logger *zap.SugaredLogger) ([]byte, error) {
+	content, err := ReadFile(filepath.Join(base, setting.ValuesYaml))
+	if err != nil {
+		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
+		return nil, err
+	}
+	return content, nil
 }
