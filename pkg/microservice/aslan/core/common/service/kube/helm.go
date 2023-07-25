@@ -71,7 +71,7 @@ type ReleaseInstallParam struct {
 	Production   bool
 }
 
-func getValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
+func GetValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
 	ret := make(map[string]string)
 	if spec.Repo != "" {
 		ret[setting.PathSearchComponentRepo] = spec.Repo
@@ -152,18 +152,23 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	return err
 }
 
-func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string) (string, error) {
+// GeneMergedValues generate values.yaml used to install or upgrade helm chart, like param in after option -f
+// If fullValues is set to true, full values yaml content will be returned, this case is used to preview values when running workflows
+func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, images []string, fullValues bool) (string, error) {
 	serviceName := productSvc.ServiceName
 	var targetContainers []*commonmodels.Container
+
+	imageMap := make(map[string]string)
 	for _, image := range images {
-		imageName := commonutil.ExtractImageName(image)
-		for _, container := range productSvc.Containers {
-			if container.ImageName == imageName {
-				container.Image = image
-				targetContainers = append(targetContainers, container)
-				break
-			}
+		imageMap[commonutil.ExtractImageName(image)] = image
+	}
+
+	for _, container := range productSvc.Containers {
+		overrideImage, ok := imageMap[container.ImageName]
+		if ok {
+			container.Image = overrideImage
 		}
+		targetContainers = append(targetContainers, container)
 	}
 
 	targetChart := renderSet.GetChartRenderMap()[serviceName]
@@ -174,11 +179,21 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 	replaceValuesMaps := make([]map[string]interface{}, 0)
 	for _, targetContainer := range targetContainers {
 		// prepare image replace info
-		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, getValidMatchData(targetContainer.ImagePath))
+		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, GetValidMatchData(targetContainer.ImagePath))
 		if err != nil {
 			return "", fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
 		}
 		replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
+	}
+
+	imageKVS := make([]*helmtool.KV, 0)
+	for _, imageSecs := range replaceValuesMaps {
+		for key, value := range imageSecs {
+			imageKVS = append(imageKVS, &helmtool.KV{
+				Key:   key,
+				Value: value,
+			})
+		}
 	}
 
 	// replace image into service's values.yaml
@@ -194,21 +209,24 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 	// update values.yaml content in chart
 	targetChart.ValuesYaml = replacedValuesYaml
 
+	baseValuesYaml := ""
+	if fullValues {
+		baseValuesYaml = targetChart.ValuesYaml
+	}
+
 	// merge override values and kvs into service's yaml
-	mergedValuesYaml, err := helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
+	mergedValuesYaml, err := helmtool.MergeOverrideValues(baseValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, imageKVS)
 	if err != nil {
 		return "", fmt.Errorf("failed to merge override values, err: %s", err)
 	}
-
-	// replace image into final merged values.yaml
-	return commonutil.ReplaceImage(mergedValuesYaml, replaceValuesMaps...)
+	return mergedValuesYaml, nil
 }
 
 // UpgradeHelmRelease upgrades helm release with some specific images
 func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
 	svcTemp *commonmodels.Service, images []string, timeout int) error {
 
-	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images)
+	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images, false)
 	if err != nil {
 		return err
 	}

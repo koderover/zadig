@@ -185,58 +185,6 @@ func UpdateMultiProductionProducts(c *gin.Context) {
 	updateMultiEnvWrapper(c, request, true, ctx)
 }
 
-func ensureProductionNamespace(createArgs []*service.CreateSingleProductArg) error {
-	for _, arg := range createArgs {
-		namespace, err := service.ListNamespaceFromCluster(arg.ClusterID)
-		if err != nil {
-			return err
-		}
-
-		// 1. check specified namespace
-		filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
-		if filterK8sNamespaces.Has(arg.Namespace) {
-			return fmt.Errorf("namespace %s is invalid, production environment namespace cannot be set to these three namespaces: kube-node-lease, kube-public, kube-system", arg.Namespace)
-		}
-
-		// 2. check existed namespace
-		nsList, err := mongodb.NewProductColl().ListExistedNamespace(arg.ClusterID)
-		if err != nil {
-			return err
-		}
-		filterK8sNamespaces.Insert(nsList...)
-		if filterK8sNamespaces.Has(arg.Namespace) {
-			return fmt.Errorf("namespace %s is invalid, it has been used for other test environment or host project", arg.Namespace)
-		}
-
-		// 3. check production namespace
-		productionEnvs, err := mongodb.NewProductColl().ListProductionNamespace(arg.ClusterID)
-		if err != nil {
-			return err
-		}
-		filterK8sNamespaces.Insert(productionEnvs...)
-		if filterK8sNamespaces.Has(arg.Namespace) {
-			return fmt.Errorf("namespace %s is invalid, it has been used for other production environment", arg.Namespace)
-		}
-
-		// 4. check namespace created by koderover
-		for _, ns := range namespace {
-			if ns.Name == arg.Namespace {
-				if value, IsExist := ns.Labels[setting.EnvCreatedBy]; IsExist {
-					if value == setting.EnvCreator {
-						return fmt.Errorf("namespace %s is invalid, namespace created by koderover cannot be used", arg.Namespace)
-					}
-				}
-				return nil
-			}
-		}
-
-		//5. arg.namespace is not in valid namespace list
-		//return fmt.Errorf("namespace %s does not belong to legal namespace", arg.Namespace)
-		return nil
-	}
-	return nil
-}
-
 func createProduct(c *gin.Context, param *service.CreateEnvRequest, createArgs []*service.CreateSingleProductArg, requestBody string, ctx *internalhandler.Context) {
 	envNameList := make([]string, 0)
 	for _, arg := range createArgs {
@@ -479,7 +427,7 @@ func CreateProductionProduct(c *gin.Context) {
 		}
 	}
 
-	err = ensureProductionNamespace(createArgs)
+	err = service.EnsureProductionNamespace(createArgs)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -1093,6 +1041,11 @@ func PreviewHelmProductDefaultValues(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.PreviewHelmProductGlobalVariables(projectKey, envName, arg.DefaultValues, ctx.Logger)
 }
 
+type updateK8sProductGlobalVariablesRequest struct {
+	CurrentRevision int64                           `json:"current_revision"`
+	GlobalVariables []*commontypes.GlobalVariableKV `json:"global_variables"`
+}
+
 func PreviewProductionHelmProductDefaultValues(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1132,72 +1085,6 @@ func PreviewProductionHelmProductDefaultValues(c *gin.Context) {
 
 	arg.DeployType = setting.HelmDeployType
 	ctx.Resp, ctx.Err = service.PreviewHelmProductGlobalVariables(projectKey, envName, arg.DefaultValues, ctx.Logger)
-}
-
-func UpdateK8sProductDefaultValues(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	projectKey, envName, err := generalRequestValidate(c)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	arg := new(service.K8sRendersetArg)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateK8sProductDefaultValues c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateK8sProductDefaultValues json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "更新", "更新全局变量", envName, string(data), ctx.Logger, envName)
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			ctx.UnAuthorized = true
-			return
-		}
-
-		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
-		if err != nil || !permitted {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	err = c.BindJSON(arg)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	envRenderArg := &service.EnvRendersetArg{
-		DeployType:    setting.K8SDeployType,
-		DefaultValues: arg.VariableYaml,
-	}
-
-	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, envRenderArg, ctx.Logger)
-}
-
-type updateK8sProductGlobalVariablesRequest struct {
-	CurrentRevision int64                           `json:"current_revision"`
-	GlobalVariables []*commontypes.GlobalVariableKV `json:"global_variables"`
 }
 
 func PreviewGlobalVariables(c *gin.Context) {
@@ -2143,7 +2030,7 @@ func ListWorkloads(c *gin.Context) {
 		return
 	}
 
-	count, services, err := commonservice.ListWorkloads("", args.ClusterID, args.Namespace, "", args.PerPage, args.Page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
+	count, services, err := commonservice.ListWorkloadDetails("", args.ClusterID, args.Namespace, "", args.PerPage, args.Page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
 		workloadStat, _ := mongodb.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 		workloadM := map[string]commonmodels.Workload{}
 		for _, workload := range workloadStat.Workloads {
@@ -2207,7 +2094,7 @@ func ListWorkloadsInEnv(c *gin.Context) {
 		return
 	}
 
-	count, services, err := commonservice.ListWorkloadsInEnv(envName, args.ProjectName, args.Filter, args.PerPage, args.Page, ctx.Logger)
+	count, services, err := commonservice.ListWorkloadDetailsInEnv(envName, args.ProjectName, args.Filter, args.PerPage, args.Page, ctx.Logger)
 	ctx.Resp = &NamespaceResource{
 		Services: services,
 	}

@@ -4,10 +4,11 @@
 # Please make sure you have the right version of docker.
 .PHONY: microservice.push swag
 
-IMAGE_REPOSITORY = koderover.tencentcloudcr.com/koderover-public
+IMAGE_REPOSITORY ?= koderover.tencentcloudcr.com/koderover-public
+IMAGE_REPOSITORY := $(IMAGE_REPOSITORY)
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 VERSION := $(VERSION)
-MICROSERVICE_TARGETS = aslan cron hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin resource-server ua user warpdrive
+MICROSERVICE_TARGETS = aslan cron executor hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin ua user warpdrive
 BUILD_BASE_TARGETS = focal bionic
 DEBUG_TOOLS_TARGETS = zadig-debug zgctl-sidecar
 

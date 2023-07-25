@@ -121,7 +121,7 @@ func DeleteProductionProduct(username, envName, productName, requestID string, l
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(true)})
 	if err != nil {
 		log.Errorf("find product error: %v", err)
-		return e.ErrDeleteEnv.AddErr(errors.Wrapf(err, "find product %s error", productName))
+		return e.ErrDeleteEnv.AddErr(errors.Wrapf(err, "failed to find product from db, project:%s envName:%s error:%v", productName, envName, err))
 	}
 
 	// delete informer's cache

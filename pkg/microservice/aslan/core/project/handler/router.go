@@ -27,7 +27,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	render := router.Group("renders")
 	{
 		render.GET("/render/:name/revision/:revision", GetRenderSetInfo)
-		render.PUT("", UpdateRenderSet)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -99,5 +98,10 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	{
 		product.POST("", OpenAPICreateProductTemplate)
 		product.POST("/init/yaml", OpenAPIInitializeYamlProject)
+		product.POST("/init/helm", OpenAPIInitializeHelmProject)
+		product.GET("", OpenAPIListProject)
+		product.GET("/detail", OpenAPIGetProjectDetail)
+		product.DELETE("", OpenAPIDeleteProject)
+		product.GET("/globalVariable", OpenAPIGetGlobalVariables)
 	}
 }

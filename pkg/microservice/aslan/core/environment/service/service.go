@@ -54,6 +54,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -109,25 +110,6 @@ func OpenAPIScale(req *OpenAPIScaleServiceReq, logger *zap.SugaredLogger) error 
 	return Scale(args, logger)
 }
 
-func OpenAPIApplyYamlService(projectKey string, req *OpenAPIApplyYamlServiceReq, requestID string, logger *zap.SugaredLogger) ([]*EnvStatus, error) {
-	args := make([]*UpdateEnv, 0)
-	svcList := make([]*UpdateServiceArg, 0)
-
-	for _, service := range req.ServiceList {
-		// for now we hard code the deploy strategy to deploy, since only this is required for now
-		svcList = append(svcList, &UpdateServiceArg{
-			ServiceName:    service.ServiceName,
-			DeployStrategy: setting.ServiceDeployStrategyDeploy,
-		})
-	}
-	args = append(args, &UpdateEnv{
-		EnvName:  req.EnvName,
-		Services: svcList,
-	})
-
-	return UpdateMultipleK8sEnv(args, []string{req.EnvName}, projectKey, requestID, false, false, logger)
-}
-
 func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
@@ -178,14 +160,13 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
-	}
-
 	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
 	if err != nil {
 		log.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", env.ClusterID, err)
+		return nil, e.ErrGetService.AddErr(err)
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
@@ -195,12 +176,56 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	ret, err = GetServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
+	projectType := getProjectType(productName)
+	var serviceTmpl *commonmodels.Service
+	switch projectType {
+	case setting.K8SDeployType:
+		productSvc := env.GetServiceMap()[serviceName]
+		if productSvc != nil {
+			serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: serviceName,
+				Revision:    productSvc.Revision,
+				ProductName: productSvc.ProductName,
+			}, env.Production)
+			if err != nil {
+				return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find template service %s in product %s", serviceName, productName))
+			}
+			ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
+			if err != nil {
+				return nil, e.ErrGetService.AddErr(err)
+			}
+		}
+		// when not found service in product, we should find it as a fake service of ZadigxReleaseResource
+		// if raw service resources not found will be nil , we should create it
+		if ret == nil {
+			ret = &SvcResp{
+				ServiceName: serviceName,
+				EnvName:     envName,
+				ProductName: productName,
+				Services:    make([]*internalresource.Service, 0),
+				Ingress:     make([]*internalresource.Ingress, 0),
+				Scales:      make([]*internalresource.Workload, 0),
+				CronJobs:    make([]*internalresource.CronJob, 0),
+			}
+		}
+		mseResp, err := GetMseServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+		if err != nil {
+			return nil, e.ErrGetService.AddErr(errors.Wrap(err, "failed to get mse service"))
+		}
+		ret.Scales = append(ret.Scales, mseResp.Scales...)
+		ret.Services = append(ret.Services, mseResp.Services...)
+		ret.Workloads = nil
+		ret.Namespace = env.Namespace
+
+	default:
+		ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
+		if err != nil {
+			return nil, e.ErrGetService.AddErr(err)
+		}
+		ret.Workloads = nil
+		ret.Namespace = env.Namespace
 	}
-	ret.Workloads = nil
-	ret.Namespace = env.Namespace
+
 	return ret, nil
 }
 
@@ -228,7 +253,76 @@ func toStsWorkload(v *appsv1.StatefulSet) *commonservice.Workload {
 	return workload
 }
 
-func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Product, inf informers.SharedInformerFactory, log *zap.SugaredLogger) ([]*commonservice.Workload, error) {
+	ret := make([]*commonservice.Workload, 0)
+	envName, productName, namespace := env.EnvName, env.ProductName, env.Namespace
+
+	renderSetFindOpt := &commonrepo.RenderSetFindOption{
+		Name:        env.Render.Name,
+		Revision:    env.Render.Revision,
+		ProductTmpl: env.ProductName,
+		EnvName:     envName,
+	}
+	rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
+	if err != nil {
+		log.Errorf("find renderset[%s] error: %v", env.Render.Name, err)
+		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
+	}
+
+	parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, rs)
+	if err != nil {
+		log.Errorf("failed to render service yaml, err: %s", err)
+		return nil, err
+	}
+	parsedYaml = kube.ParseSysKeys(namespace, envName, productName, svcTmpl.ServiceName, parsedYaml)
+
+	manifests := releaseutil.SplitManifests(parsedYaml)
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			log.Warnf("Failed to decode yaml to Unstructured, err: %s", err)
+			continue
+		}
+
+		switch u.GetKind() {
+		case setting.Deployment:
+			d, err := getter.GetDeploymentByNameWithCache(u.GetName(), namespace, inf)
+			if err != nil {
+				log.Errorf("failed to get deployment %s, err: %s", u.GetName(), err)
+				continue
+			}
+			wd := wrapper.Deployment(d)
+			ret = append(ret, &commonservice.Workload{
+				Name:       wd.Name,
+				Spec:       wd.Spec.Template,
+				Type:       setting.Deployment,
+				Images:     wd.ImageInfos(),
+				Ready:      wd.Ready(),
+				Annotation: wd.Annotations,
+			})
+
+		case setting.StatefulSet:
+			sts, err := getter.GetStatefulSetByNameWWithCache(u.GetName(), namespace, inf)
+			if err != nil {
+				log.Errorf("failed to get statefuset %s, err: %s", u.GetName(), err)
+				continue
+			}
+			ws := wrapper.StatefulSet(sts)
+			ret = append(ret, &commonservice.Workload{
+				Name:       ws.Name,
+				Spec:       ws.Spec.Template,
+				Type:       setting.StatefulSet,
+				Images:     ws.ImageInfos(),
+				Ready:      ws.Ready(),
+				Annotation: ws.Annotations,
+			})
+		}
+	}
+
+	return ret, nil
+}
+
+func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workLoadType string, env *commonmodels.Product, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
 	envName, productName := env.EnvName, env.ProductName
 	ret = &SvcResp{
 		ServiceName: serviceName,
@@ -252,11 +346,11 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			}
 			workLoadType = modelSvc.WorkloadType
 		}
-		k8sServices, _ := getter.ListServices(namespace, nil, kubeClient)
+		k8sServices, _ := getter.ListServicesWithCache(nil, inf)
 		switch workLoadType {
 		case setting.StatefulSet:
-			statefulSet, found, err := getter.GetStatefulSet(namespace, serviceName, kubeClient)
-			if !found || err != nil {
+			statefulSet, err := getter.GetStatefulSetByNameWWithCache(serviceName, namespace, inf)
+			if err != nil {
 				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 			}
 			scale := getStatefulSetWorkloadResource(statefulSet, inf, log)
@@ -270,9 +364,9 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 				}
 			}
 		case setting.Deployment:
-			deploy, found, err := getter.GetDeployment(namespace, serviceName, kubeClient)
-			if !found || err != nil {
-				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
+			deploy, err := getter.GetDeploymentByNameWithCache(serviceName, namespace, inf)
+			if err != nil {
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found, err: %s", serviceName, err.Error()))
 			}
 			scale := getDeploymentWorkloadResource(deploy, inf, log)
 			ret.Workloads = append(ret.Workloads, toDeploymentWorkload(deploy))
@@ -290,8 +384,8 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 				log.Warnf("Failed to determine server version, error is: %s", err)
 				return ret, nil
 			}
-			cj, cjBeta, exists, err := getter.GetCronJob(namespace, serviceName, kubeClient, kubeclient.VersionLessThan121(version))
-			if err != nil || !exists {
+			cj, cjBeta, err := getter.GetCronJobByNameWithCache(serviceName, namespace, inf, kubeclient.VersionLessThan121(version))
+			if err != nil {
 				return ret, nil
 			}
 			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
@@ -301,18 +395,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 	default:
 		service := env.GetServiceMap()[serviceName]
 		if service == nil {
-			return nil, e.ErrGetService.AddDesc("failed to find service: %s in environment: %s")
-		}
-
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName: service.ServiceName,
-			ProductName: service.ProductName,
-			Type:        service.Type,
-			Revision:    service.Revision,
-		}
-		svcTmpl, err := repository.QueryTemplateService(opt, env.Production)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to find service template: %s:%d", service.ServiceName, service.Revision)
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find service in environment: %s", envName))
 		}
 
 		env.EnsureRenderInfo()
@@ -328,7 +411,7 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
 		}
 
-		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, rs)
+		parsedYaml, err := kube.RenderServiceYaml(serviceTmpl.Yaml, productName, serviceTmpl.ServiceName, rs)
 		if err != nil {
 			log.Errorf("failed to render service yaml, err: %s", err)
 			return nil, err
@@ -348,7 +431,6 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			case setting.Deployment:
 				d, err := getter.GetDeploymentByNameWithCache(u.GetName(), namespace, inf)
 				if err != nil {
-					//log.Warnf("failed to get deployment %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
 
@@ -357,7 +439,6 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			case setting.StatefulSet:
 				sts, err := getter.GetStatefulSetByNameWWithCache(u.GetName(), namespace, inf)
 				if err != nil {
-					//log.Warnf("failed to get statefulSet %s %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
 					continue
 				}
 
@@ -369,13 +450,12 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 					log.Warnf("Failed to determine server version, error is: %s", err)
 					continue
 				}
-				cj, cjBeta, exists, err := getter.GetCronJob(namespace, u.GetName(), kubeClient, kubeclient.VersionLessThan121(version))
-				if err != nil || !exists {
+				cj, cjBeta, err := getter.GetCronJobByNameWithCache(u.GetName(), namespace, inf, kubeclient.VersionLessThan121(version))
+				if err != nil {
 					continue
 				}
 				ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
 			case setting.Ingress:
-
 				version, err := clientset.Discovery().ServerVersion()
 				if err != nil {
 					log.Warnf("Failed to determine server version, error is: %s", err)
@@ -418,6 +498,50 @@ func GetServiceImpl(serviceName string, workLoadType string, env *commonmodels.P
 			}
 		}
 	}
+	return
+}
+
+func GetMseServiceImpl(serviceName string, workLoadType string, env *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+	envName, productName := env.EnvName, env.ProductName
+	ret = &SvcResp{
+		ServiceName: serviceName,
+		EnvName:     envName,
+		ProductName: productName,
+		Services:    make([]*internalresource.Service, 0),
+		Ingress:     make([]*internalresource.Ingress, 0),
+		Scales:      make([]*internalresource.Workload, 0),
+		CronJobs:    make([]*internalresource.CronJob, 0),
+	}
+	err = nil
+
+	namespace := env.Namespace
+	switch env.Source {
+	case setting.SourceFromExternal, setting.SourceFromHelm:
+		return nil, e.ErrGetService.AddDesc("not support external service")
+	default:
+		selector := labels.SelectorFromSet(map[string]string{
+			types.ZadigReleaseServiceNameLabelKey: serviceName,
+			types.ZadigReleaseTypeLabelKey:        types.ZadigReleaseTypeMseGray,
+		})
+		deployments, err := getter.ListDeployments(namespace, selector, kubeClient)
+		if err != nil {
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to list deployments, service %s in %s: %v", serviceName, namespace, err))
+		}
+		for _, deployment := range deployments {
+			ret.Scales = append(ret.Scales, getDeploymentWorkloadResource(deployment, inf, log))
+			ret.Scales[len(ret.Scales)-1].ZadigXReleaseType = config.ZadigXMseGrayRelease
+			ret.Scales[len(ret.Scales)-1].ZadigXReleaseTag = deployment.Labels[types.ZadigReleaseVersionLabelKey]
+			ret.Workloads = append(ret.Workloads, toDeploymentWorkload(deployment))
+		}
+		services, err := getter.ListServices(namespace, selector, kubeClient)
+		if err != nil {
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to get service, service %s in %s: %v", serviceName, namespace, err))
+		}
+		for _, service := range services {
+			ret.Services = append(ret.Services, wrapper.Service(service).Resource())
+		}
+	}
+
 	return
 }
 
@@ -639,15 +763,22 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	return nil
 }
 
-func queryPodsStatus(productInfo *commonmodels.Product, serviceName string, kubeClient client.Client, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *ZadigServiceStatusResp {
+func queryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodels.Service, serviceName string, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *ZadigServiceStatusResp {
 	resp := &ZadigServiceStatusResp{
 		ServiceName: serviceName,
 		PodStatus:   setting.PodError,
 		Ready:       setting.PodNotReady,
 		Ingress:     nil,
-		Images:      nil,
+		Images:      []string{},
 	}
-	svcResp, err := GetServiceImpl(serviceName, "", productInfo, kubeClient, clientset, informer, log)
+
+	if len(serviceTmpl.Containers) == 0 {
+		resp.PodStatus = setting.PodSucceeded
+		resp.Ready = setting.PodReady
+		return resp
+	}
+
+	svcResp, err := GetServiceImpl(serviceTmpl.ServiceName, serviceTmpl, "", productInfo, clientset, informer, log)
 	if err != nil {
 		return resp
 	}

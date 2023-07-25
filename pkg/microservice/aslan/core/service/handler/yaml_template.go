@@ -107,47 +107,6 @@ func LoadProductionServiceFromYamlTemplate(c *gin.Context) {
 	ctx.Err = svcservice.LoadProductionServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
 
-func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	req := new(svcservice.OpenAPILoadServiceFromYamlTemplateReq)
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	if err := req.Validate(); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	bs, _ := json.Marshal(req)
-	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", req.ProjectKey, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[req.ProjectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[req.ProjectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[req.ProjectKey].Service.Create {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
-	ctx.Err = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
-}
-
 // @Summary Reload service from yaml template
 // @Description Reload service from yaml template
 // @Tags 	service

@@ -22,7 +22,12 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/setting"
 	openapitool "github.com/koderover/zadig/pkg/tool/openapi"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -35,6 +40,34 @@ func OpenAPICreateScanningModule(username string, args *OpenAPICreateScanningReq
 	}
 
 	return CreateScanningModule(username, scanning, log)
+}
+
+func OpenAPICreateScanningTask(username string, args *OpenAPICreateScanningTaskReq, log *zap.SugaredLogger) (int64, error) {
+	scan, err := mongodb.NewScanningColl().Find(args.ProjectName, args.ScanName)
+	if err != nil {
+		log.Errorf("failed to find scanning module, err: %s", err)
+		return 0, err
+	}
+
+	scanDatas := make([]*ScanningRepoInfo, 0)
+	for _, repo := range args.ScanRepos {
+		for _, dbRepo := range scan.Repos {
+			if repo.RepoName == dbRepo.RepoName && repo.RepoOwner == dbRepo.RepoOwner && repo.Source == dbRepo.Source {
+				scanDatas = append(scanDatas, &ScanningRepoInfo{
+					RepoName:      repo.RepoName,
+					RepoNamespace: dbRepo.RepoNamespace,
+					RepoOwner:     repo.RepoOwner,
+					Source:        repo.Source,
+					Branch:        repo.Branch,
+					CodehostID:    dbRepo.CodehostID,
+					PRs:           repo.PRs,
+				})
+			}
+			break
+		}
+	}
+
+	return CreateScanningTask(scan.ID.Hex(), scanDatas, "", username, log)
 }
 
 func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *zap.SugaredLogger) (*Scanning, error) {
@@ -90,4 +123,105 @@ func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *
 
 	ret.Repos = repoList
 	return ret, nil
+}
+
+func OpenAPICreateTestTask(userName string, args *OpenAPICreateTestTaskReq, logger *zap.SugaredLogger) (int64, error) {
+	task := &commonmodels.TestTaskArgs{
+		TestName:        args.TestName,
+		ProductName:     args.ProjectName,
+		TestTaskCreator: userName,
+	}
+	result, err := CreateTestTask(task, logger)
+	if err != nil {
+		logger.Errorf("OpenAPI: failed to create test task, project:%s, test name:%s, err: %s", args.ProjectName, args.TestName, err)
+		return 0, err
+	}
+	return result.TaskID, nil
+}
+
+func OpenAPIGetTestTaskResult(taskID int64, productName, testName string, logger *zap.SugaredLogger) (*OpenAPITestTaskDetail, error) {
+	pipelineName := fmt.Sprintf("%s-%s", testName, "job")
+	pipelineTask, err := commonrepo.NewTaskColl().Find(taskID, pipelineName, config.TestType)
+	if err != nil {
+		logger.Errorf("OpenAPI: failed to get pipeline task from db, taskID:%d, pipelineName:%s, err: %v", taskID, pipelineName, err)
+		return nil, fmt.Errorf("failed to get pipeline task from db, taskID:%d, pipelineName:%s, err: %v", taskID, pipelineName, err)
+	}
+	result := &OpenAPITestTaskDetail{
+		TestName:   testName,
+		TaskID:     taskID,
+		Creator:    pipelineTask.TaskCreator,
+		CreateTime: pipelineTask.CreateTime,
+		StartTime:  pipelineTask.StartTime,
+		EndTime:    pipelineTask.EndTime,
+		Status:     string(pipelineTask.Status),
+	}
+	if pipelineTask.Status == config.StatusPassed {
+
+		report, err := commonservice.GetLocalTestSuite(pipelineName, testName, setting.FunctionTest, taskID, "", config.TestType, logger)
+		if err != nil {
+			logger.Errorf("OpenAPI: failed to get project:%s test:%s task:%d result, err: %v", productName, testName, taskID, err)
+		} else {
+			if report.FunctionTestSuite != nil {
+				result.TestReport = &OpenAPITestReport{
+					TestTotal:    report.FunctionTestSuite.Tests,
+					SuccessTotal: report.FunctionTestSuite.Successes,
+					FailureTotal: report.FunctionTestSuite.Failures,
+					ErrorTotal:   report.FunctionTestSuite.Errors,
+					SkipedTotal:  report.FunctionTestSuite.Skips,
+					Time:         report.FunctionTestSuite.Time,
+				}
+
+				result.TestReport.TestCases = make([]*OpenAPITestCase, 0)
+				for _, testCase := range report.FunctionTestSuite.TestCases {
+					result.TestReport.TestCases = append(result.TestReport.TestCases, &OpenAPITestCase{
+						Name:    testCase.Name,
+						Time:    testCase.Time,
+						Failure: testCase.Failure,
+						Error:   testCase.Error,
+					})
+				}
+			}
+		}
+	}
+
+	return result, nil
+}
+
+func OpenAPIGetScanningTaskDetail(taskID int64, productName, scanName string, logger *zap.SugaredLogger) (*OpenAPIScanTaskDetail, error) {
+	scan, err := mongodb.NewScanningColl().Find(productName, scanName)
+	if err != nil {
+		logger.Errorf("OpenAPI: failed to find scanning module:%s in project:%s, err: %s", scanName, productName, err)
+		return nil, err
+	}
+	detail, err := GetScanningTaskInfo(scan.ID.Hex(), taskID, logger)
+	if err != nil {
+		logger.Errorf("OpenAPI: failed to get scanning task:%d detail, err: %s", taskID, err)
+		return nil, err
+	}
+
+	resp := &OpenAPIScanTaskDetail{
+		ScanName:   scanName,
+		TaskID:     taskID,
+		Creator:    detail.Creator,
+		CreateTime: detail.CreateTime,
+		EndTime:    detail.EndTime,
+		ResultLink: detail.ResultLink,
+		Status:     detail.Status,
+	}
+	resp.RepoInfo = make([]*OpenAPIScanRepoBrief, 0)
+	for _, repo := range detail.RepoInfo {
+		resp.RepoInfo = append(resp.RepoInfo, &OpenAPIScanRepoBrief{
+			RepoName:     repo.RepoName,
+			RepoOwner:    repo.RepoOwner,
+			Source:       repo.Source,
+			Address:      repo.Address,
+			Branch:       repo.Branch,
+			RemoteName:   repo.RemoteName,
+			Hidden:       repo.Hidden,
+			CheckoutPath: repo.CheckoutPath,
+			SubModules:   repo.SubModules,
+		})
+	}
+
+	return resp, nil
 }

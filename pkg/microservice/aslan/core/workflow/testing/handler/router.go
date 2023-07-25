@@ -110,5 +110,13 @@ func (*QualityRouter) Inject(router *gin.RouterGroup) {
 	scan := router.Group("codescan")
 	{
 		scan.POST("", OpenAPICreateScanningModule)
+		scan.POST("/:scanName/task", OpenAPICreateScanningTask)
+		scan.GET("/:scanName/task/:taskID", OpenAPIGetScanningTaskDetail)
+	}
+
+	test := router.Group("testing")
+	{
+		test.POST("/task", OpenAPICreateTestTask)
+		test.GET("/:testName/task/:taskID", OpenAPIGetTestTaskResult)
 	}
 }

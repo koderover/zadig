@@ -430,6 +430,7 @@ func MergeRenderAndServiceTemplateVariableKVs(render []*RenderVariableKV, serivc
 	return yaml, ret, nil
 }
 
+// RenderVariableKVToYaml
 func RenderVariableKVToYaml(kvs []*RenderVariableKV) (string, error) {
 	serviceVariableKVs := make([]*ServiceVariableKV, 0)
 	for _, kv := range kvs {
@@ -666,4 +667,9 @@ func ClipServiceVariableKVs(clipRange []*ServiceVariableKV, kvs []*ServiceVariab
 	}
 
 	return yaml, ret, nil
+}
+
+type GlobalVariables struct {
+	Variables           []*ServiceVariableKV `json:"variables"`
+	ProductionVariables []*ServiceVariableKV `json:"production_variables"`
 }

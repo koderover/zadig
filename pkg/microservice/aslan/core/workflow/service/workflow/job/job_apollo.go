@@ -61,6 +61,9 @@ func (j *ApolloJob) SetPreset() error {
 			continue
 		}
 		for _, item := range result.Items {
+			if item.Key == "" {
+				continue
+			}
 			namespace.KeyValList = append(namespace.KeyValList, &commonmodels.ApolloKV{
 				Key: item.Key,
 				Val: item.Value,

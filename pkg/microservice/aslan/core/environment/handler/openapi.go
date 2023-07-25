@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -111,9 +112,9 @@ func OpenAPIApplyYamlService(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "更新", "环境", req.EnvName, string(data), ctx.Logger, req.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "更新", "测试环境", req.EnvName, string(data), ctx.Logger, req.EnvName)
 
-	_, err = service.OpenAPIApplyYamlService(projectKey, req, ctx.RequestID, ctx.Logger)
+	_, err = service.OpenAPIApplyYamlService(projectKey, req, false, ctx.RequestID, ctx.Logger)
 
 	ctx.Err = err
 }
@@ -159,8 +160,75 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", req.EnvName, strings.Join(req.ServiceNames, ",")), "", ctx.Logger, req.EnvName)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "删除", "测试环境的服务", fmt.Sprintf("%s:[%s]", req.EnvName, strings.Join(req.ServiceNames, ",")), "", ctx.Logger, req.EnvName)
 	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, false, ctx.Logger)
+}
+
+func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(service.OpenAPIDeleteYamlServiceFromEnvReq)
+	if err := c.BindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		return
+	}
+	// input validation for OpenAPI
+	err := req.Validate()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName+"(openAPI)", projectKey, setting.OperationSceneEnv, "删除", "生产环境的服务", fmt.Sprintf("%s:[%s]", req.EnvName, strings.Join(req.ServiceNames, ",")), "", ctx.Logger, req.EnvName)
+	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, req.EnvName, projectKey, req.ServiceNames, true, ctx.Logger)
+}
+
+func OpenAPIApplyProductionYamlService(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(service.OpenAPIApplyYamlServiceReq)
+	if err := c.BindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		return
+	}
+	// input validation for OpenAPI
+	err := req.Validate()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+		return
+	}
+
+	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
+	if found {
+		allowedSet := sets.NewString(allowedEnvs...)
+		if !allowedSet.Has(req.EnvName) {
+			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
+			return
+		}
+	}
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "(openAPI)"+"更新", "生产环境", req.EnvName, string(data), ctx.Logger, req.EnvName)
+
+	_, err = service.OpenAPIApplyYamlService(projectKey, req, true, ctx.RequestID, ctx.Logger)
+	ctx.Err = err
 }
 
 func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
@@ -188,4 +256,460 @@ func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, args.Name)
 
 	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectName, args, ctx.UserName, ctx.Logger)
+}
+
+func OpenAPICreateCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPIEnvCfgArgs)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Err = err
+		return
+	}
+	args.ProductName, args.EnvName, err = generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err := args.Validate(); err != nil {
+		ctx.Err = err
+		return
+	}
+	logData, err := json.Marshal(args)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProductName, setting.OperationSceneEnv, "(OpenAPI)"+"新建", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(logData), ctx.Logger, args.Name)
+
+	ctx.Err = service.OpenAPICreateCommonEnvCfg(args.ProductName, args, ctx.UserName, ctx.Logger)
+}
+
+func OpenAPIListProductionCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.OpenAPIListCommonEnvCfg(projectName, envName, c.Query("type"), ctx.Logger)
+}
+
+func OpenAPIGetProductionCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	cfgName := c.Param("cfgName")
+	if cfgName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("cfgName is empty")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.OpenAPIGetCommonEnvCfg(projectName, envName, c.Query("type"), cfgName, ctx.Logger)
+}
+
+func OpenAPIListCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.OpenAPIListCommonEnvCfg(projectName, envName, c.Query("type"), ctx.Logger)
+}
+
+func OpenAPIGetCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	cfgName := c.Param("cfgName")
+	if cfgName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("cfgName is empty")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.OpenAPIGetCommonEnvCfg(projectName, envName, c.Query("type"), cfgName, ctx.Logger)
+}
+
+func OpenAPIDeleteCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	cfgName := c.Param("cfgName")
+	if cfgName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("cfgName is empty")
+		return
+	}
+	cfgType := c.Query("type")
+	if cfgType == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("type is empty")
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "OpenAPI"+"删除", "测试环境配置", fmt.Sprintf("%s:%s:%s", envName, cfgType, cfgName), "", ctx.Logger, envName)
+
+	ctx.Err = service.OpenAPIDeleteCommonEnvCfg(projectName, envName, cfgType, cfgName, ctx.Logger)
+}
+
+func OpenAPIDeleteProductionEnvCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	cfgName := c.Param("cfgName")
+	if cfgName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("cfgName is empty")
+		return
+	}
+	cfgType := c.Query("type")
+	if cfgType == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("type is empty")
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "OpenAPI"+"删除", "生产环境配置", fmt.Sprintf("%s:%s:%s", envName, cfgType, cfgName), "", ctx.Logger, envName)
+
+	ctx.Err = service.OpenAPIDeleteProductionEnvCommonEnvCfg(projectName, envName, cfgType, cfgName, ctx.Logger)
+}
+
+func OpenAPICreateK8sEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPICreateEnvArgs)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Err = err
+		return
+	}
+	args.ProjectName = c.Query("projectName")
+	if err := args.Validate(); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProjectName, setting.OperationSceneEnv, "(OpenAPI)"+"创建", "测试环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
+
+	ctx.Err = service.OpenAPICreateK8sEnv(args, ctx.UserName, ctx.RequestID, ctx.Logger)
+}
+
+func OpenAPIDeleteProductionEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"删除", "生产环境", envName, "", ctx.Logger, envName)
+
+	ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
+}
+
+func OpenAPICreateProductionEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPICreateEnvArgs)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Err = err
+		return
+	}
+	args.ProjectName = c.Query("projectName")
+	args.Production = true
+	if err := args.Validate(); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, args.ProjectName, setting.OperationSceneEnv, "(OpenAPI)"+"创建", "生产环境", args.EnvName, string(data), ctx.Logger, args.EnvName)
+
+	ctx.Err = service.OpenAPICreateProductionEnv(args, ctx.UserName, ctx.RequestID, ctx.Logger)
+}
+
+func OpenAPIDeleteEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrDeleteResource.AddErr(err)
+		return
+	}
+	isDelete, err := strconv.ParseBool(c.Query("isDelete"))
+	if err != nil {
+		ctx.Err = e.ErrDeleteResource.AddErr(err)
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"删除", "测试环境", envName, "", ctx.Logger, envName)
+
+	ctx.Err = service.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, isDelete, ctx.Logger)
+}
+
+func OpenAPIGetEnvDetail(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvDetail(projectName, envName, ctx.Logger)
+}
+
+func OpenAPIGetProductionEnvDetail(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvDetail(projectName, envName, ctx.Logger)
+}
+
+func OpenAPIUpdateEnvBasicInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.EnvBasicInfoArgs)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "测试环境", envName, string(data), ctx.Logger, envName)
+
+	ctx.Err = service.OpenAPIUpdateEnvBasicInfo(args, ctx.UserName, projectName, envName, false, ctx.Logger)
+}
+
+func OpenAPIUpdateYamlServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPIServiceVariablesReq)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"环境管理-更新服务", "测试环境", envName, string(data), ctx.Logger, envName)
+
+	ctx.Err = service.OpenAPIUpdateYamlService(args, ctx.UserName, ctx.RequestID, projectName, envName, false, ctx.Logger)
+}
+
+func OpenAPIGetEnvGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.OpenAPIGetGlobalVariables(projectName, envName, false, ctx.Logger)
+}
+
+func OpenAPIGetProductionEnvGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.OpenAPIGetGlobalVariables(projectName, envName, true, ctx.Logger)
+}
+
+func OpenAPIUpdateGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPIEnvGlobalVariables)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "测试环境管理-更新全局变量", envName, string(data), ctx.Logger, envName)
+
+	ctx.Err = service.OpenAPIUpdateGlobalVariables(args, ctx.UserName, ctx.RequestID, projectName, envName, ctx.Logger)
+}
+
+func OpenAPIUpdateProductionYamlServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPIServiceVariablesReq)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"环境管理-更新服务", "生产环境", envName, string(data), ctx.Logger, envName)
+
+	ctx.Err = service.OpenAPIUpdateYamlService(args, ctx.UserName, ctx.RequestID, projectName, envName, true, ctx.Logger)
+}
+
+func OpenAPIUpdateProductionGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPIEnvGlobalVariables)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, &args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "生产环境管理-更新全局变量", envName, string(data), ctx.Logger, envName)
+
+	ctx.Err = service.OpenAPIUpdateGlobalVariables(args, ctx.UserName, ctx.RequestID, projectName, envName, ctx.Logger)
+}
+
+func OpenAPIUpdateProductionEnvBasicInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.EnvBasicInfoArgs)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "生产环境", envName, string(data), ctx.Logger, envName)
+
+	ctx.Err = service.OpenAPIUpdateEnvBasicInfo(args, ctx.UserName, projectName, envName, true, ctx.Logger)
+}
+
+func OpenAPIListEnvs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.OpenAPIListEnvs(c.Query("projectName"), ctx.Logger)
+}
+
+func OpenAPIRestartService(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	serviceName := c.Param("serviceName")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName is empty")
+		return
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "OpenAPI"+"重启", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, serviceName), "", ctx.Logger)
+	ctx.Err = service.OpenAPIRestartService(projectName, envName, serviceName, ctx.Logger)
 }

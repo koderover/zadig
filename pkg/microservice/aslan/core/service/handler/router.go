@@ -76,7 +76,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.PUT("/:name/variable", UpdateServiceVariable)
 		k8s.PUT("", UpdateServiceTemplate)
 		k8s.PUT("/yaml/validator", YamlValidator)
-		k8s.PUT("/:name/yaml/view", YamlViewServiceTemplate) // Deprecated
 		k8s.DELETE("/:name/:type", DeleteServiceTemplate)
 		k8s.GET("/:name/:type/ports", ListServicePort)
 		k8s.GET("/:name/environments/deployable", GetDeployableEnvs)
@@ -123,13 +122,21 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	template := router.Group("template")
 	{
 		template.POST("/load/yaml", LoadServiceFromYamlTemplateOpenAPI)
+		template.POST("/production/load/yaml", LoadProductionServiceFromYamlTemplateOpenAPI)
 	}
 
 	yaml := router.Group("yaml")
 	{
 		yaml.POST("/raw", CreateRawYamlServicesOpenAPI)
+		yaml.POST("/production/raw", CreateRawProductionYamlServicesOpenAPI)
 		yaml.DELETE("/:name", DeleteYamlServicesOpenAPI)
+		yaml.DELETE("production/:name", DeleteProductionServicesOpenAPI)
+		yaml.GET("/services", ListYamlServicesOpenAPI)
 		yaml.GET("/:name", GetYamlServiceOpenAPI)
+		yaml.GET("/production/:name", GetProductionYamlServiceOpenAPI)
 		yaml.PUT("/:name", UpdateServiceConfigOpenAPI)
+		yaml.PUT("/production/:name", UpdateProductionServiceConfigOpenAPI)
+		yaml.PUT("/:name/variable", UpdateServiceVariableOpenAPI)
+		yaml.PUT("/production/:name/variable", UpdateProductionServiceVariableOpenAPI)
 	}
 }

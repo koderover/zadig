@@ -33,10 +33,6 @@ type DeleteUserResp struct {
 }
 
 func DeleteUser(userID string, header http.Header, qs url.Values, _ *zap.SugaredLogger) ([]byte, error) {
-	_, err := user.New().DeleteUser(userID, header, qs)
-	if err != nil {
-		return []byte{}, err
-	}
 	return policy.New().DeleteRoleBindings(userID, header, qs)
 }
 

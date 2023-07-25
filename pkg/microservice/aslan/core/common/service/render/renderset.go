@@ -149,18 +149,6 @@ func createRenderset(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 	return nil
 }
 
-// use it in caution, it won't update revision
-func UpdateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	err := commonrepo.NewRenderSetColl().Update(args)
-	if err != nil {
-		errMsg := fmt.Sprintf("[RenderSet.update] %s error: %+v", args.Name, err)
-		log.Error(errMsg)
-		return e.ErrUpdateRenderSet.AddDesc(errMsg)
-	}
-
-	return nil
-}
-
 func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, error) {
 	renderSvcMap := make(map[string][]string)
 	resp := make([]*templatemodels.RenderKV, 0)
