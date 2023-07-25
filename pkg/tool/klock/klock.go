@@ -38,7 +38,7 @@ const (
 var (
 	DefaultTTL                  = 60 * time.Second
 	DefaultTimeout              = 3 * time.Second
-	DefaultTryLockRetryInterval = 200 * time.Millisecond
+	DefaultTryLockRetryInterval = 1 * time.Second
 	DefaultLockRetryInterval    = 1 * time.Second
 )
 
@@ -57,6 +57,7 @@ func Init(namespace string) error {
 	return nil
 }
 
+// Lock will block until the lock is acquired
 func Lock(key string) {
 	if c == nil {
 		panic(ErrNotInit)
@@ -67,11 +68,12 @@ func Lock(key string) {
 		if err == nil {
 			return
 		}
-		log.Printf("klock: lock %s error: %v\n", key, err)
 		time.Sleep(DefaultLockRetryInterval)
 	}
 }
 
+// TryLock will try to acquire the lock, if the lock is already acquired, it will return ErrLockExist
+// Timeout is set to 3 seconds
 func TryLock(key string) error {
 	if c == nil {
 		return ErrNotInit
@@ -81,8 +83,6 @@ func TryLock(key string) error {
 
 	configMap := configMapBuilder(key, c.namespace)
 	if err := c.Create(ctx, configMap); err != nil {
-		// debug
-		log.Printf("klock: create configmap %s error: %v\n", key, err)
 		if apierrors.IsAlreadyExists(err) {
 			return ErrLockExist
 		}
@@ -109,6 +109,7 @@ func LockWithRetry(key string, retry int) error {
 		}
 		return nil
 	}
+	// if lock failed, check lock ttl and remove
 	checkLockTTLAndRemove(key)
 	return ErrCreateLockMaxRetry
 }

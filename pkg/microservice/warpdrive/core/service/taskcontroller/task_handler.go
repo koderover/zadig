@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/nsqio/go-nsq"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -72,15 +71,10 @@ func (h *ExecHandler) PipelineTaskHandler() {
 	ctx, cancel = context.WithCancel(context.Background())
 
 	h.runPipelineTask(ctx, cancel, xl)
-
-	// Note: If returning `nil`, we emit `FIN` cmd to nsq indicating that the messsage has been processed succefully.
-	//return nil
 }
 
-// Sender: sender to send ack/notification
 // TaskPlugins: registered task plugin initiators to initiate specific plugin to execute task
 type ExecHandler struct {
-	Sender      *nsq.Producer
 	AckID       int
 	TaskPlugins map[config.TaskType]plugins.Initiator
 }

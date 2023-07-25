@@ -137,12 +137,6 @@ const (
 // 服务初始化
 func NewCronClient() *CronClient {
 	aslanCli := client.NewAslanClient(fmt.Sprintf("%s/api", configbase.AslanServiceAddress()))
-	//初始化nsq
-	//config := nsq.NewConfig()
-	//// 注意 WD_POD_NAME 必须使用 Downward API 配置环境变量
-	//config.UserAgent = "ASLAN_CRONJOB"
-	//config.MaxAttempts = 50
-	//config.LookupdPollInterval = 1 * time.Second
 
 	cronjobScheduler := cronlib.New()
 	cronjobScheduler.Start()

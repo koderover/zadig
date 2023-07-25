@@ -137,5 +137,4 @@ const (
 // Distributed Locks
 const (
 	ProcessLock = "process"
-	CancelLock  = "cancel"
 )

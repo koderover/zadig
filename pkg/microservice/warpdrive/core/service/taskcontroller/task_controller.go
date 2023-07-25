@@ -48,12 +48,11 @@ func (c *controller) Init(ctx context.Context) error {
 			panic(err)
 		}
 	}()
+	initMongoDB()
 
 	time.Sleep(time.Duration(rand.Intn(500)) * time.Millisecond)
 	_ = klock.Init(config.WarpDriveNamespace())
 	log.Debugf("init lock successfully, ns: %s", config.WarpDriveNamespace())
-
-	initMongoDB()
 
 	// handle pipeline task
 	go func() {
@@ -102,6 +101,7 @@ func (c *controller) Init(ctx context.Context) error {
 
 	// handle cancel pipeline task
 	go func() {
+		// filter duplicate cancel message
 		cancelMsgMap := sets.NewString()
 		for {
 			time.Sleep(1 * time.Second)
@@ -149,56 +149,6 @@ func (c *controller) Init(ctx context.Context) error {
 			}
 		}
 	}()
-	//cfg := nsq.NewConfig()
-	//cfg.UserAgent = config.WarpDrivePodName()
-	//cfg.MaxAttempts = 50
-	//cfg.LookupdPollInterval = 1 * time.Second
-	//cfg.MsgTimeout = 1 * time.Minute
-	//nsqClient := nsqcli.NewNsqClient(config.NSQLookupAddrs(), "127.0.0.1:4151")
-	//
-	//processor, err := nsq.NewConsumer(setting.TopicProcess, "process", cfg)
-	//if err != nil {
-	//	return fmt.Errorf("init nsq processor error: %v", err)
-	//}
-	//
-	//processor.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
-	//c.consumers = append(c.consumers, processor)
-
-	//canceller, err := nsq.NewConsumer(setting.TopicCancel, cfg.UserAgent, cfg)
-	//if err != nil {
-	//	return fmt.Errorf("init nsq canceller error: %v", err)
-	//}
-	//
-	//canceller.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
-	//c.consumers = append(c.consumers, canceller)
-	//
-	//nsqdAddr := "127.0.0.1:4150"
-	//sender, err := nsq.NewProducer(nsqdAddr, cfg)
-	//if err != nil {
-	//	return fmt.Errorf("init nsq sender error: %v", err)
-	//}
-	//
-	//sender.SetLogger(log.New(os.Stdout, "nsq producer:", 0), nsq.LogLevelError)
-	//c.producers = append(c.producers, sender)
-	//
-	//err = nsqClient.EnsureNsqdTopics([]string{setting.TopicAck, setting.TopicItReport, setting.TopicNotification})
-	//if err != nil {
-	//	return fmt.Errorf("ensure nsq topic error: %v", err)
-	//}
-	//
-
-	//processor.AddHandler(execHandler)
-	// Add task plugin initiators to exec Handler.
-	//initTaskPlugins(execHandler)
-	//
-	//canceller.AddHandler(cancelHandler)
-	//
-	//if err := processor.ConnectToNSQLookupds(config.NSQLookupAddrs()); err != nil {
-	//	return fmt.Errorf("processor could not connect to %v", config.NSQLookupAddrs())
-	//}
-	//if err := canceller.ConnectToNSQLookupds(config.NSQLookupAddrs()); err != nil {
-	//	return fmt.Errorf("canceller could not connect to %v", config.NSQLookupAddrs())
-	//}
 
 	return nil
 }
@@ -213,51 +163,3 @@ func initMongoDB() {
 		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
 	}
 }
-
-//func ConvertQueueToTask(queueTask *commonmodels.Queue) *task.Task {
-//	return &task.Task{
-//		TaskID:                  queueTask.TaskID,
-//		ProductName:             queueTask.ProductName,
-//		PipelineName:            queueTask.PipelineName,
-//		PipelineDisplayName:     queueTask.PipelineDisplayName,
-//		Type:                    queueTask.Type,
-//		Status:                  queueTask.Status,
-//		Description:             queueTask.Description,
-//		TaskCreator:             queueTask.TaskCreator,
-//		TaskRevoker:             queueTask.TaskRevoker,
-//		CreateTime:              queueTask.CreateTime,
-//		StartTime:               queueTask.StartTime,
-//		EndTime:                 queueTask.EndTime,
-//		SubTasks:                queueTask.SubTasks,
-//		Stages:                  queueTask.Stages,
-//		ReqID:                   queueTask.ReqID,
-//		AgentHost:               queueTask.AgentHost,
-//		DockerHost:              queueTask.DockerHost,
-//		TeamName:                queueTask.TeamName,
-//		IsDeleted:               queueTask.IsDeleted,
-//		IsArchived:              queueTask.IsArchived,
-//		AgentID:                 queueTask.AgentID,
-//		MultiRun:                queueTask.MultiRun,
-//		Target:                  queueTask.Target,
-//		BuildModuleVer:          queueTask.BuildModuleVer,
-//		ServiceName:             queueTask.ServiceName,
-//		TaskArgs:                queueTask.TaskArgs,
-//		WorkflowArgs:            queueTask.WorkflowArgs,
-//		TestArgs:                queueTask.TestArgs,
-//		ServiceTaskArgs:         queueTask.ServiceTaskArgs,
-//		ArtifactPackageTaskArgs: queueTask.ArtifactPackageTaskArgs,
-//		ConfigPayload:           queueTask.ConfigPayload,
-//		Error:                   queueTask.Error,
-//		Services:                queueTask.Services,
-//		Render:                  queueTask.Render,
-//		StorageURI:              queueTask.StorageURI,
-//		TestReports:             queueTask.TestReports,
-//		RwLock:                  queueTask.RwLock,
-//		ResetImage:              queueTask.ResetImage,
-//		ResetImagePolicy:        queueTask.ResetImagePolicy,
-//		TriggerBy:               queueTask.TriggerBy,
-//		Features:                queueTask.Features,
-//		IsRestart:               queueTask.IsRestart,
-//		StorageEndpoint:         queueTask.StorageEndpoint,
-//	}
-//}

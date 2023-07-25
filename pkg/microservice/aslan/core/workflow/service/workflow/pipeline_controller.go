@@ -40,9 +40,7 @@ import (
 func InitMongodbMsgQueueHandler() error {
 	logger := log.SugaredLogger()
 
-	// init ack consumer
-	//ackConfig := nsqservice.Config()
-	//ackConfig.MaxInFlight = 50
+	// handle pipeline task ack
 	ackHandler := NewTaskAckHandler(50, logger)
 	go func() {
 		for {
@@ -69,20 +67,7 @@ func InitMongodbMsgQueueHandler() error {
 		}
 	}()
 
-	// init itReport consumer
-	//itReportHandler := &ItReportHandler{
-	//	itReportColl: commonrepo.NewItReportColl(),
-	//	log:          logger,
-	//}
-	//err = nsqservice.SubScribeSimple(setting.TopicItReport, "it.report", itReportHandler)
-	//if err != nil {
-	//	logger.Errorf("itReport subscription failed, the error is: %v", err)
-	//	return err
-	//}
-
-	// init notification consumer
-	//notificationCfg := nsqservice.Config()
-	//notificationCfg.MaxInFlight = 50
+	// handle pipeline task notification
 	notificationHandler := &TaskNotificationHandler{
 		log: logger,
 	}
@@ -533,7 +518,7 @@ func updateAgentAndQueue(t *task.Task) error {
 		return err
 	}
 
-	// 发送当前任务到nsq
+	// 发送当前任务到 mongodb msgqueue
 	log.Infof("sending task to warpdrive %s:%d", t.PipelineName, t.TaskID)
 	if err := commonrepo.NewMsgQueuePipelineTaskColl().Create(&msg_queue.MsgQueuePipelineTask{
 		Task:      t,
