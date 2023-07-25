@@ -29,6 +29,8 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+// kubernetes resources apis will not have authorization for now
+
 type ListServicePodsArgs struct {
 	serviceName string `json:"service_name"`
 	ProductName string `json:"product_name"`

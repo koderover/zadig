@@ -81,6 +81,10 @@ func AslanServiceInfo() *setting.ServiceInfo {
 	return GetServiceByCode(setting.Aslan)
 }
 
+func UserServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.User)
+}
+
 func SecretKey() string {
 	return viper.GetString(setting.ENVSecretKey)
 }
@@ -90,12 +94,9 @@ func AslanServiceAddress() string {
 	return GetServiceAddress(s.Name, s.Port)
 }
 
-func AslanServiceName() string {
-	return AslanServiceInfo().Name
-}
-
-func AslanServicePort() int32 {
-	return AslanServiceInfo().Port
+func UserServiceAddress() string {
+	s := UserServiceInfo()
+	return GetServiceAddress(s.Name, s.Port)
 }
 
 func AslanxServiceInfo() *setting.ServiceInfo {
@@ -105,14 +106,6 @@ func AslanxServiceInfo() *setting.ServiceInfo {
 func AslanxServiceAddress() string {
 	s := AslanxServiceInfo()
 	return GetServiceAddress(s.Name, s.Port)
-}
-
-func AslanxServiceName() string {
-	return AslanxServiceInfo().Name
-}
-
-func AslanxServicePort() int32 {
-	return AslanxServiceInfo().Port
 }
 
 func HubServerServiceInfo() *setting.ServiceInfo {

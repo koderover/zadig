@@ -19,24 +19,27 @@ package handler
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
-	"go.uber.org/zap"
-
 	systemmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/util/ginzap"
+	"go.uber.org/zap"
 )
 
 // Context struct
 type Context struct {
 	Logger       *zap.SugaredLogger
+	UnAuthorized bool
 	Err          error
 	Resp         interface{}
 	Account      string
@@ -44,6 +47,7 @@ type Context struct {
 	UserID       string
 	IdentityType string
 	RequestID    string
+	Resources    *user.AuthorizedResources
 }
 
 type jwtClaims struct {
@@ -60,7 +64,10 @@ type FederatedClaims struct {
 	UserId      string `json:"user_id"`
 }
 
+// NewContext returns a context without user authorization info.
 // TODO: We need to implement a `context.Context` that conforms to the golang standard library.
+// After Jul.10 2023, this function should only be used when no authorization info is required.
+// If authorization info is required, use `NewContextWithAuthorization` instead.
 func NewContext(c *gin.Context) *Context {
 	logger := ginzap.WithContext(c).Sugar()
 	var claims jwtClaims
@@ -86,6 +93,23 @@ func NewContext(c *gin.Context) *Context {
 	}
 }
 
+// NewContextWithAuthorization returns a context with user authorization info.
+// This function should only be called wnen
+func NewContextWithAuthorization(c *gin.Context) (*Context, error) {
+	logger := ginzap.WithContext(c).Sugar()
+	var resourceAuthInfo *user.AuthorizedResources
+	var err error
+	resp := NewContext(c)
+	// there is a case where the request does not have token (system call), in this case we will have admin access
+	resourceAuthInfo, err = user.New().GetUserAuthInfo(resp.UserID)
+	if err != nil {
+		logger.Errorf("failed to generate user authorization info, error: %s", err)
+		return nil, err
+	}
+	resp.Resources = resourceAuthInfo
+	return resp, nil
+}
+
 func GetResourcesInHeader(c *gin.Context) ([]string, bool) {
 	_, ok := c.Request.Header[setting.ResourcesHeader]
 	if !ok {
@@ -102,6 +126,21 @@ func GetResourcesInHeader(c *gin.Context) ([]string, bool) {
 	}
 
 	return resources, true
+}
+
+func GetCollaborationModePermission(uid, projectKey, resource, resourceName, action string) (bool, error) {
+	// when this method is called, uid is an expected field
+	if uid == "" {
+		return false, errors.New("empty user ID")
+	}
+	return user.New().CheckUserAuthInfoForCollaborationMode(uid, projectKey, resource, resourceName, action)
+}
+
+func ListAuthorizedProjects(uid string) ([]string, error) {
+	if uid == "" {
+		return []string{}, errors.New("empty user ID")
+	}
+	return user.New().ListAuthorizedProjects(uid)
 }
 
 func getUserFromJWT(token string) (jwtClaims, error) {
@@ -126,6 +165,14 @@ func getUserFromJWT(token string) (jwtClaims, error) {
 }
 
 func JSONResponse(c *gin.Context, ctx *Context) {
+	if ctx.UnAuthorized {
+		if ctx.Err != nil {
+			c.Set(setting.ResponseError, ctx.Err)
+		}
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+
 	if ctx.Err != nil {
 		c.Set(setting.ResponseError, ctx.Err)
 		c.Abort()

@@ -58,7 +58,6 @@ import (
 	mongodb2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	configmongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
 	configservice "github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/service"
-	userCore "github.com/koderover/zadig/pkg/microservice/user/core"
 	userdb "github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -149,10 +148,6 @@ func Start(ctx context.Context) {
 
 	// old config service initialization, it didn't panic or stop if it fails, so I will just keep it that way.
 	InitializeConfigFeatureGates()
-
-	// old user service initialization process cannot be skipped since the DB variable is in that package
-	// the db initialization process has been moved to the initDatabase function.
-	userCore.Start(context.TODO())
 
 	systemservice.SetProxyConfig()
 

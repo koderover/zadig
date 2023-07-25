@@ -51,8 +51,23 @@ func GetProductNameByDelivery(c *gin.Context) {
 }
 
 func GetDeliveryVersion(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	//params validate
 	ID := c.Param("id")
@@ -66,11 +81,26 @@ func GetDeliveryVersion(c *gin.Context) {
 }
 
 func ListDeliveryVersion(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	args := new(deliveryservice.ListDeliveryVersionArgs)
-	err := c.BindQuery(args)
+	err = c.BindQuery(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -166,11 +196,26 @@ func ListPackagesVersion(c *gin.Context) {
 }
 
 func CreateHelmDeliveryVersion(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	args := new(deliveryservice.CreateHelmDeliveryVersionArgs)
-	err := c.ShouldBindJSON(args)
+	err = c.ShouldBindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -184,9 +229,24 @@ func CreateHelmDeliveryVersion(c *gin.Context) {
 }
 
 func DeleteDeliveryVersion(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "删除", "版本交付", c.Param("id"), "", ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	//params validate
 	ID := c.Param("id")
@@ -199,7 +259,7 @@ func DeleteDeliveryVersion(c *gin.Context) {
 	ctx.Err = deliveryservice.DeleteDeliveryVersion(version, ctx.Logger)
 
 	errs := make([]string, 0)
-	err := deliveryservice.DeleteDeliveryBuild(&commonrepo.DeliveryBuildArgs{ReleaseID: ID}, ctx.Logger)
+	err = deliveryservice.DeleteDeliveryBuild(&commonrepo.DeliveryBuildArgs{ReleaseID: ID}, ctx.Logger)
 	if err != nil {
 		errs = append(errs, err.Error())
 	}
@@ -222,16 +282,46 @@ func DeleteDeliveryVersion(c *gin.Context) {
 }
 
 func ListDeliveryServiceNames(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	productName := c.Query("projectName")
 	ctx.Resp, ctx.Err = deliveryservice.ListDeliveryServiceNames(productName, ctx.Logger)
 }
 
 func DownloadDeliveryChart(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	versionName := c.Query("version")
 	chartName := c.Query("chartName")
@@ -248,8 +338,23 @@ func DownloadDeliveryChart(c *gin.Context) {
 }
 
 func GetChartVersionFromRepo(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	chartName := c.Query("chartName")
 	chartRepoName := c.Query("chartRepoName")
@@ -258,8 +363,23 @@ func GetChartVersionFromRepo(c *gin.Context) {
 }
 
 func PreviewGetDeliveryChart(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	versionName := c.Query("version")
 	chartName := c.Query("chartName")
@@ -269,11 +389,26 @@ func PreviewGetDeliveryChart(c *gin.Context) {
 }
 
 func GetDeliveryChartFilePath(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	args := new(deliveryservice.DeliveryChartFilePathArgs)
-	err := c.BindQuery(args)
+	err = c.BindQuery(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -283,11 +418,26 @@ func GetDeliveryChartFilePath(c *gin.Context) {
 }
 
 func GetDeliveryChartFileContent(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	args := new(deliveryservice.DeliveryChartFileContentArgs)
-	err := c.BindQuery(args)
+	err = c.BindQuery(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -296,11 +446,26 @@ func GetDeliveryChartFileContent(c *gin.Context) {
 }
 
 func ApplyDeliveryGlobalVariables(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	args := new(deliveryservice.DeliveryVariablesApplyArgs)
-	err := c.BindJSON(args)
+	err = c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return

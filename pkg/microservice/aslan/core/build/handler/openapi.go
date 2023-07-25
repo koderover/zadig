@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	buildservice "github.com/koderover/zadig/pkg/microservice/aslan/core/build/service"
@@ -25,8 +27,15 @@ import (
 )
 
 func OpenAPICreateBuildModule(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	source := c.Query("source")
 
@@ -35,6 +44,20 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 		err := c.BindJSON(args)
 		if err != nil {
 			ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+			return
+		}
+
+		// authorization checks
+		if !ctx.Resources.IsSystemAdmin {
+			if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+				ctx.UnAuthorized = true
+				return
+			}
+			if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[args.ProjectName].Build.Create {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 
 		isValid, err := args.Validate()
@@ -48,9 +71,23 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 	}
 
 	args := new(buildservice.OpenAPIBuildCreationReq)
-	err := c.BindJSON(args)
+	err = c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Build.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	isValid, err := args.Validate()
@@ -63,17 +100,37 @@ func OpenAPICreateBuildModule(c *gin.Context) {
 }
 
 func OpenAPIDeleteBuildModule(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	name := c.Query("name")
-	productName := c.Query("projectName")
-	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "(OpenAPI)"+"删除", "项目管理-构建", name, "", ctx.Logger)
+	projectKey := c.Query("projectName")
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "项目管理-构建", name, "", ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Build.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	if name == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty env name.")
 		return
 	}
 
-	ctx.Err = buildservice.DeleteBuild(name, productName, ctx.Logger)
+	ctx.Err = buildservice.DeleteBuild(name, projectKey, ctx.Logger)
 }

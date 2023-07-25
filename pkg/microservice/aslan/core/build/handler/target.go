@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	buildservice "github.com/koderover/zadig/pkg/microservice/aslan/core/build/service"
@@ -24,22 +26,71 @@ import (
 )
 
 func ListDeployTarget(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = buildservice.ListDeployTarget(c.Query("projectName"), ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	// FIX ME LATER: return empty when not authorized
+	// FIX ME LATER 2: the authorization requirement for this api has been changed from
+	// View Build -> View Service. If this is ok remove the TODO, if not just do a rollback
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = buildservice.ListDeployTarget(projectKey, ctx.Logger)
 }
 
 func ListBuildModulesForProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	productName := c.Param("productName")
-	containerList, err := buildservice.ListContainers(productName, ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Param("productName")
+
+	// authorization checks
+	// FIX ME LATER: return empty when not authorized
+	// FIX ME LATER 2: the authorization requirement for this api has been changed from
+	// View Build -> View Service. If this is ok remove the TODO, if not just do a rollback
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Build.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	containerList, err := buildservice.ListContainers(projectKey, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
 	}
 
-	ctx.Resp, ctx.Err = buildservice.ListBuildForProduct(productName, containerList, ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.ListBuildForProduct(projectKey, containerList, ctx.Logger)
 }

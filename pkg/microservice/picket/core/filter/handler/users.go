@@ -19,8 +19,8 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/client/user"
 	"github.com/koderover/zadig/pkg/microservice/picket/core/filter/service"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 

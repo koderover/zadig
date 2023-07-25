@@ -7,7 +7,7 @@
 IMAGE_REPOSITORY = koderover.tencentcloudcr.com/koderover-public
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 VERSION := $(VERSION)
-MICROSERVICE_TARGETS = aslan cron hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin resource-server ua warpdrive
+MICROSERVICE_TARGETS = aslan cron hub-agent hub-server init jenkins-plugin packager-plugin predator-plugin resource-server ua user warpdrive
 BUILD_BASE_TARGETS = focal bionic
 DEBUG_TOOLS_TARGETS = zadig-debug zgctl-sidecar
 

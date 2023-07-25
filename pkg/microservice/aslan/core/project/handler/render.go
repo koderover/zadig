@@ -27,6 +27,9 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+// Deprecated apis
+// TODO: remove this file
+
 func GetRenderSetInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

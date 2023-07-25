@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	projectservice "github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
@@ -35,12 +37,25 @@ type projectListArgs struct {
 }
 
 func ListProjects(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := &projectListArgs{}
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	authorizedProjectList, err := internalhandler.ListAuthorizedProjects(ctx.UserID)
+	if err != nil {
+		ctx.Err = e.ErrInternalError.AddDesc(err.Error())
 		return
 	}
 
@@ -49,7 +64,7 @@ func ListProjects(c *gin.Context) {
 			IgnoreNoEnvs:     args.IgnoreNoEnvs,
 			IgnoreNoVersions: args.IgnoreNoVersions,
 			Verbosity:        projectservice.QueryVerbosity(args.Verbosity),
-			Names:            args.Names,
+			Names:            authorizedProjectList,
 			PageSize:         args.PageSize,
 			PageNum:          args.PageNum,
 			Filter:           args.Filter,
