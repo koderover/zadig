@@ -65,18 +65,19 @@ func (c *controller) Init(ctx context.Context) error {
 			default:
 				func() {
 					klock.Lock(config.ProcessLock)
-					defer func() {
-						if err := klock.UnlockWithRetry(config.ProcessLock, 3); err != nil {
-							log.Errorf("unlock process lock error: %v", err)
-						}
-					}()
 					resp, err := mongodb.NewMsgQueuePipelineTaskColl().List(&mongodb.ListMsgQueuePipelineTaskOption{
 						QueueType: setting.TopicProcess,
 					})
+					// unlock process lock at first
+					if err := klock.UnlockWithRetry(config.ProcessLock, 3); err != nil {
+						log.Errorf("unlock process lock error: %v", err)
+					}
+					// check list error
 					if err != nil {
 						log.Warnf("list queue error: %v", err)
 						return
 					}
+
 					if len(resp) == 0 {
 						return
 					}

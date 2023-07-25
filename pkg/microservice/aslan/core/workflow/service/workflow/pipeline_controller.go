@@ -60,6 +60,7 @@ func InitMongodbMsgQueueHandler() error {
 				if err != nil {
 					logger.Errorf("PipelineTask ACK handler: delete queue failed, the error is: %v", err)
 				}
+				log.Infof("PipelineTask ACK handler: task name: %s, id: %d, ack id: %d", pipelineTask.Task.PipelineName, pipelineTask.Task.TaskID, pipelineTask.QueueID)
 				if err := ackHandler.HandleMessage(pipelineTask.Task); err != nil {
 					logger.Errorf("PipelineTask ACK handler: handle message failed, the error is: %v", err)
 					continue
@@ -329,7 +330,7 @@ func InitQueue() error {
 // 并将task状态设置为queued
 func PipelineTaskSender() {
 	for {
-		time.Sleep(time.Second * 3)
+		time.Sleep(time.Second * 1)
 
 		//c.checkAgents()
 		if hasAgentAvaiable() {
