@@ -697,6 +697,7 @@ var (
 	ErrDindClean       = NewHTTPError(6820, "系统正在清理中，请等待...")
 	ErrCreateDindClean = NewHTTPError(6821, "创建镜像缓存清理失败")
 	ErrUpdateDindClean = NewHTTPError(6822, "更新镜像缓存清理失败")
+	ErrCleanDindClean  = NewHTTPError(6823, "清理镜像缓存失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// jenkins integraton Error Range: 6830 - 6839
