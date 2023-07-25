@@ -446,6 +446,10 @@ func initDatabase() {
 		commonrepo.NewProjectManagementColl(),
 		commonrepo.NewImageTagsCollColl(),
 
+		// msg queue
+		commonrepo.NewMsgQueueCommonColl(),
+		commonrepo.NewMsgQueuePipelineTaskColl(),
+
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),
 		labelMongodb.NewLabelColl(),

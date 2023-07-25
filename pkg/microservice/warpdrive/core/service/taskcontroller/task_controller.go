@@ -49,6 +49,7 @@ func (c *controller) Init(ctx context.Context) error {
 
 	time.Sleep(time.Duration(rand.Intn(500)) * time.Millisecond)
 	_ = klock.Init(config.WarpDriveNamespace())
+	log.Debugf("init lock successfully, ns: %s", config.WarpDriveNamespace())
 
 	initMongoDB()
 
@@ -84,6 +85,7 @@ func (c *controller) Init(ctx context.Context) error {
 						log.Errorf("convert interface to struct error: %v", err)
 						return
 					}
+					log.Infof("receiving pipeline task %s:%d message", pipelineTask.PipelineName, pipelineTask.TaskID)
 					h := &ExecHandler{
 						AckID: 0,
 					}
