@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
@@ -128,7 +129,7 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 	q := covertTaskToQueue(t)
 	Remove(q, log)
 
-	if err := mongodb.NewMsgQueueCommonColl().Create(&models.MsgQueueCommon{
+	if err := mongodb.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
 		Payload:   string(b),
 		QueueType: setting.TopicCancel,
 	}); err != nil {

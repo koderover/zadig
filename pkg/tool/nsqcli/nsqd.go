@@ -16,31 +16,27 @@ limitations under the License.
 
 package nsqcli
 
-import (
-	"fmt"
-)
-
 // EnsureNsqdTopic is to create a nsqd topic
-func (c *Client) EnsureNsqdTopic(topic string) error {
-	var createURL string
-	if len(c.nsqdAddr) > 0 {
-		createURL = fmt.Sprintf("http://%s/topic/create?topic=%s", c.nsqdAddr, topic)
-	} else {
-		return fmt.Errorf("no nsqd host found")
-	}
-
-	_, err := c.Conn.Post(createURL)
-
-	return err
-}
-
-// EnsureNsqdTopics is to create a list of topic
-func (c *Client) EnsureNsqdTopics(topics []string) error {
-	for _, topic := range topics {
-		err := c.EnsureNsqdTopic(topic)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+//func (c *Client) EnsureNsqdTopic(topic string) error {
+//	var createURL string
+//	if len(c.nsqdAddr) > 0 {
+//		createURL = fmt.Sprintf("http://%s/topic/create?topic=%s", c.nsqdAddr, topic)
+//	} else {
+//		return fmt.Errorf("no nsqd host found")
+//	}
+//
+//	_, err := c.Conn.Post(createURL)
+//
+//	return err
+//}
+//
+//// EnsureNsqdTopics is to create a list of topic
+//func (c *Client) EnsureNsqdTopics(topics []string) error {
+//	for _, topic := range topics {
+//		err := c.EnsureNsqdTopic(topic)
+//		if err != nil {
+//			return err
+//		}
+//	}
+//	return nil
+//}

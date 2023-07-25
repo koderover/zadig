@@ -40,7 +40,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
@@ -225,9 +224,7 @@ func initService() {
 		}
 	}()
 
-	nsq.Init(config.PodName(), config.NsqLookupAddrs())
-
-	if err := workflowservice.SubScribeNSQ(); err != nil {
+	if err := workflowservice.InitMongodbMsgQueueHandler(); err != nil {
 		errors = multierror.Append(errors, err)
 	}
 }

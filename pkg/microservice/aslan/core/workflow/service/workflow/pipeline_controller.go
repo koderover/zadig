@@ -27,17 +27,17 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	nsqservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/setting"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func SubScribeNSQ() error {
+func InitMongodbMsgQueueHandler() error {
 	logger := log.SugaredLogger()
 
 	// init ack consumer
@@ -69,10 +69,10 @@ func SubScribeNSQ() error {
 	}()
 
 	// init itReport consumer
-	itReportHandler := &ItReportHandler{
-		itReportColl: commonrepo.NewItReportColl(),
-		log:          logger,
-	}
+	//itReportHandler := &ItReportHandler{
+	//	itReportColl: commonrepo.NewItReportColl(),
+	//	log:          logger,
+	//}
 	//err = nsqservice.SubScribeSimple(setting.TopicItReport, "it.report", itReportHandler)
 	//if err != nil {
 	//	logger.Errorf("itReport subscription failed, the error is: %v", err)
@@ -80,8 +80,8 @@ func SubScribeNSQ() error {
 	//}
 
 	// init notification consumer
-	notificationCfg := nsqservice.Config()
-	notificationCfg.MaxInFlight = 50
+	//notificationCfg := nsqservice.Config()
+	//notificationCfg.MaxInFlight = 50
 	notificationHandler := &TaskNotificationHandler{
 		log: logger,
 	}
@@ -105,6 +105,7 @@ func SubScribeNSQ() error {
 					logger.Errorf("Notification handler: unmarshal failed, the error is: %v", err)
 					continue
 				}
+				log.Infof("Notification handler: receive notify: %+v", notify)
 				if err := notificationHandler.HandleMessage(notify); err != nil {
 					logger.Errorf("Notification handler: handle message failed, the error is: %v", err)
 					continue
@@ -533,11 +534,11 @@ func updateAgentAndQueue(t *task.Task) error {
 
 	// 发送当前任务到nsq
 	log.Infof("sending task to warpdrive %s:%d", t.PipelineName, t.TaskID)
-	if err = commonrepo.NewMsgQueuePipelineTaskColl().Create(&commonmodels.MsgQueuePipelineTask{
+	if err := commonrepo.NewMsgQueuePipelineTaskColl().Create(&msg_queue.MsgQueuePipelineTask{
 		Task:      t,
 		QueueType: setting.TopicProcess,
 	}); err != nil {
-		log.Errorf("Publish %s:%d to nsq error: %v", t.PipelineName, t.TaskID, err)
+		log.Errorf("Publish %s:%d to MsgQueuePipelineTask error: %v", t.PipelineName, t.TaskID, err)
 		return err
 	}
 

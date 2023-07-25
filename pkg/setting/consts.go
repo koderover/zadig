@@ -26,7 +26,6 @@ const (
 	ENVSystemAddress           = "ADDRESS"
 	ENVEnterprise              = "ENTERPRISE"
 	ENVMode                    = "MODE"
-	ENVNsqLookupAddrs          = "NSQLOOKUP_ADDRS"
 	ENVMongoDBConnectionString = "MONGODB_CONNECTION_STRING"
 	ENVAslanDBName             = "ASLAN_DB"
 	ENVHubAgentImage           = "HUB_AGENT_IMAGE"

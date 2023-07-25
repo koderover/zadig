@@ -86,10 +86,6 @@ func MongoDatabase() string {
 	return configbase.MongoDatabase()
 }
 
-func NsqLookupAddrs() []string {
-	return strings.Split(viper.GetString(setting.ENVNsqLookupAddrs), ",")
-}
-
 func HubServerAddress() string {
 	return configbase.HubServerServiceAddress()
 }

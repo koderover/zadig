@@ -18,7 +18,6 @@ package workflow
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -30,7 +29,6 @@ import (
 
 	dockerCli "github.com/docker/docker/client"
 	"github.com/docker/go-connections/sockets"
-	"github.com/nsqio/go-nsq"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -815,26 +813,26 @@ func (h *TaskAckHandler) updateProductImageByNs(namespace, productName, serviceN
 	return nil
 }
 
-type ItReportHandler struct {
-	itReportColl *commonrepo.ItReportColl
-	log          *zap.SugaredLogger
-}
-
-func (h *ItReportHandler) HandleMessage(message *nsq.Message) error {
-
-	var report *commonmodels.ItReport
-	if err := json.Unmarshal(message.Body, &report); err != nil {
-		h.log.Errorf("unmarshal ItReport message error: %v", err)
-		return nil
-	}
-
-	h.log.Infof("receive it report: %+v", report)
-
-	if err := h.itReportColl.Upsert(report); err != nil {
-		h.log.Errorf("create ItReport error: %v", err)
-	}
-	return nil
-}
+//type ItReportHandler struct {
+//	itReportColl *commonrepo.ItReportColl
+//	log          *zap.SugaredLogger
+//}
+//
+//func (h *ItReportHandler) HandleMessage(message *nsq.Message) error {
+//
+//	var report *commonmodels.ItReport
+//	if err := json.Unmarshal(message.Body, &report); err != nil {
+//		h.log.Errorf("unmarshal ItReport message error: %v", err)
+//		return nil
+//	}
+//
+//	h.log.Infof("receive it report: %+v", report)
+//
+//	if err := h.itReportColl.Upsert(report); err != nil {
+//		h.log.Errorf("create ItReport error: %v", err)
+//	}
+//	return nil
+//}
 
 // TaskNotificationHandler ...
 type TaskNotificationHandler struct {

@@ -25,7 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -36,7 +36,7 @@ type MsgQueueCommonColl struct {
 }
 
 func NewMsgQueueCommonColl() *MsgQueueCommonColl {
-	name := models.MsgQueueCommon{}.TableName()
+	name := msg_queue.MsgQueueCommon{}.TableName()
 	return &MsgQueueCommonColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
 
@@ -52,7 +52,7 @@ type ListMsgQueueCommonOption struct {
 	QueueType string
 }
 
-func (c *MsgQueueCommonColl) List(opt *ListMsgQueueCommonOption) ([]*models.MsgQueueCommon, error) {
+func (c *MsgQueueCommonColl) List(opt *ListMsgQueueCommonOption) ([]*msg_queue.MsgQueueCommon, error) {
 	query := bson.M{}
 	sort := bson.D{}
 	if opt != nil {
@@ -61,7 +61,7 @@ func (c *MsgQueueCommonColl) List(opt *ListMsgQueueCommonOption) ([]*models.MsgQ
 		}
 	}
 
-	var resp []*models.MsgQueueCommon
+	var resp []*msg_queue.MsgQueueCommon
 	ctx := context.Background()
 	opts := options.Find().SetSort(sort)
 	cursor, err := c.Collection.Find(ctx, query, opts)
@@ -83,7 +83,7 @@ func (c *MsgQueueCommonColl) Delete(id primitive.ObjectID) error {
 	return err
 }
 
-func (c *MsgQueueCommonColl) Create(args *models.MsgQueueCommon) error {
+func (c *MsgQueueCommonColl) Create(args *msg_queue.MsgQueueCommon) error {
 	_, err := c.InsertOne(context.TODO(), args)
 	return err
 }

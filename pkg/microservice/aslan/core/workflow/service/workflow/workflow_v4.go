@@ -49,6 +49,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -1617,7 +1618,7 @@ func CreateCronForWorkflowV4(workflowName string, input *commonmodels.Cronjob, l
 	}
 
 	pl, _ := json.Marshal(payload)
-	err = commonrepo.NewMsgQueueCommonColl().Create(&commonmodels.MsgQueueCommon{
+	err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
 		Payload:   string(pl),
 		QueueType: setting.TopicCronjob,
 	})
@@ -1657,7 +1658,7 @@ func UpdateCronForWorkflowV4(input *commonmodels.Cronjob, logger *zap.SugaredLog
 	}
 
 	pl, _ := json.Marshal(payload)
-	err = commonrepo.NewMsgQueueCommonColl().Create(&commonmodels.MsgQueueCommon{
+	err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
 		Payload:   string(pl),
 		QueueType: setting.TopicCronjob,
 	})
@@ -1730,7 +1731,7 @@ func DeleteCronForWorkflowV4(workflowName, cronID string, logger *zap.SugaredLog
 	}
 
 	pl, _ := json.Marshal(payload)
-	err = commonrepo.NewMsgQueueCommonColl().Create(&commonmodels.MsgQueueCommon{
+	err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
 		Payload:   string(pl),
 		QueueType: setting.TopicCronjob,
 	})

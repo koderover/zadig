@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
@@ -183,7 +184,7 @@ func DisableCronjobForWorkflow(workflow *models.Workflow) error {
 	}
 
 	pl, _ := json.Marshal(payload)
-	return mongodb.NewMsgQueueCommonColl().Create(&models.MsgQueueCommon{
+	return mongodb.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
 		Payload:   string(pl),
 		QueueType: setting.TopicCronjob,
 	})

@@ -25,7 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -36,7 +36,7 @@ type MsgQueuePipelineTaskColl struct {
 }
 
 func NewMsgQueuePipelineTaskColl() *MsgQueuePipelineTaskColl {
-	name := models.MsgQueuePipelineTask{}.TableName()
+	name := msg_queue.MsgQueuePipelineTask{}.TableName()
 	return &MsgQueuePipelineTaskColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
 
@@ -53,7 +53,7 @@ type ListMsgQueuePipelineTaskOption struct {
 	SortQueueID bool
 }
 
-func (c *MsgQueuePipelineTaskColl) List(opt *ListMsgQueuePipelineTaskOption) ([]*models.MsgQueuePipelineTask, error) {
+func (c *MsgQueuePipelineTaskColl) List(opt *ListMsgQueuePipelineTaskOption) ([]*msg_queue.MsgQueuePipelineTask, error) {
 	query := bson.M{}
 	sort := bson.D{}
 	if opt != nil {
@@ -65,7 +65,7 @@ func (c *MsgQueuePipelineTaskColl) List(opt *ListMsgQueuePipelineTaskOption) ([]
 		}
 	}
 
-	var resp []*models.MsgQueuePipelineTask
+	var resp []*msg_queue.MsgQueuePipelineTask
 	ctx := context.Background()
 	opts := options.Find().SetSort(sort)
 	cursor, err := c.Collection.Find(ctx, query, opts)
@@ -87,7 +87,7 @@ func (c *MsgQueuePipelineTaskColl) Delete(id primitive.ObjectID) error {
 	return err
 }
 
-func (c *MsgQueuePipelineTaskColl) Create(args *models.MsgQueuePipelineTask) error {
+func (c *MsgQueuePipelineTaskColl) Create(args *msg_queue.MsgQueuePipelineTask) error {
 	_, err := c.InsertOne(context.TODO(), args)
 	return err
 }

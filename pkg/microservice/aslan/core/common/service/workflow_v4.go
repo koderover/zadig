@@ -25,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
@@ -171,7 +172,7 @@ func DisableCronjobForWorkflowV4(workflow *commonmodels.WorkflowV4) error {
 	payload.DeleteList = disableIDList
 
 	pl, _ := json.Marshal(payload)
-	return mongodb.NewMsgQueueCommonColl().Create(&commonmodels.MsgQueueCommon{
+	return mongodb.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
 		Payload:   string(pl),
 		QueueType: setting.TopicCronjob,
 	})

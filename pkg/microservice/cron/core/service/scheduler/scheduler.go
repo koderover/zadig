@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/jasonlvhit/gocron"
-	"github.com/nsqio/go-nsq"
 	"github.com/rfyiamcool/cronlib"
 	"go.uber.org/zap"
 
@@ -139,11 +138,11 @@ const (
 func NewCronClient() *CronClient {
 	aslanCli := client.NewAslanClient(fmt.Sprintf("%s/api", configbase.AslanServiceAddress()))
 	//初始化nsq
-	config := nsq.NewConfig()
-	// 注意 WD_POD_NAME 必须使用 Downward API 配置环境变量
-	config.UserAgent = "ASLAN_CRONJOB"
-	config.MaxAttempts = 50
-	config.LookupdPollInterval = 1 * time.Second
+	//config := nsq.NewConfig()
+	//// 注意 WD_POD_NAME 必须使用 Downward API 配置环境变量
+	//config.UserAgent = "ASLAN_CRONJOB"
+	//config.MaxAttempts = 50
+	//config.LookupdPollInterval = 1 * time.Second
 
 	cronjobScheduler := cronlib.New()
 	cronjobScheduler.Start()
@@ -167,6 +166,7 @@ func NewCronClient() *CronClient {
 					log.Errorf("failed to unmarshal cronjob queue, error is %v", err)
 					continue
 				}
+				log.Infof("receive cronjob from queue is %+v", msg)
 				msgs = append(msgs, msg)
 				if err := mongodb.NewMsgQueueCommonColl().Delete(common.ID); err != nil {
 					log.Warnf("failed to delete cronjob queue, error is %v", err)

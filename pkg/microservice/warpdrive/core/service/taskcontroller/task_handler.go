@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	aslantask "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
@@ -85,50 +86,6 @@ type ExecHandler struct {
 }
 
 type CancelHandler struct{}
-
-// Message handler to handle task execution message
-func (h *ExecHandler) HandleMessage(message *nsq.Message) error {
-	defer func() {
-		// 每次处理完消息, 等待一段时间不处理新消息
-		time.Sleep(durationBeforeNextTask)
-	}()
-
-	xl = log.SugaredLogger()
-
-	// 获取 PipelineTask 内容
-	if err := json.Unmarshal(message.Body, &pipelineTask); err != nil {
-		xl.Errorf("unmarshal PipelineTask error: %v", err)
-		return nil
-	}
-	taskName := fmt.Sprintf("%s:%d", pipelineTask.PipelineName, pipelineTask.TaskID)
-	xl.Infof("Receiving pipeline task %s message", taskName)
-
-	xl = Logger(pipelineTask)
-	ctx, cancel = context.WithCancel(context.Background())
-
-	go func(ctx context.Context, taskName string) {
-		for {
-			select {
-			case <-ctx.Done():
-				xl.Infof("Pipeline task %q has been canceled. Exit.", taskName)
-				return
-			case <-time.After(durationTouchMsg):
-				if pipelineTask == nil {
-					xl.Infof("Pipeline task %q has completed. Exit.", taskName)
-					return
-				}
-
-				xl.Infof("After %s, touch message %q.", durationTouchMsg.String(), taskName)
-				message.Touch()
-			}
-		}
-	}(ctx, taskName)
-
-	h.runPipelineTask(ctx, cancel, xl)
-
-	// Note: If returning `nil`, we emit `FIN` cmd to nsq indicating that the messsage has been processed succefully.
-	return nil
-}
 
 func (h *ExecHandler) runPipelineTask(ctx context.Context, cancel context.CancelFunc, xl *zap.SugaredLogger) {
 	defer func() {
@@ -245,18 +202,18 @@ func (h *ExecHandler) SendAck() {
 		xl.Errorf("convert PipelineTask to Task error: %v", err)
 		return
 	}
-	err = mongodb.NewMsgQueuePipelineTaskColl().Create(&commonmodels.MsgQueuePipelineTask{
+	err = mongodb.NewMsgQueuePipelineTaskColl().Create(&msg_queue.MsgQueuePipelineTask{
 		Task:      t,
 		QueueType: setting.TopicAck,
 		QueueID:   h.AckID,
 	})
 	if err != nil {
-		xl.Errorf("SendACK: create MsgQueuePipelineTask error: %v", err)
+		xl.Errorf("SendACK %d: create MsgQueuePipelineTask error: %v", h.AckID, err)
 		return
 	}
 
 	//DEBUG ONLY
-	xl.Infof("Sending ACK: %#v", pipelineTask)
+	xl.Infof("Sending ACK %d: %#v", h.AckID, pipelineTask)
 }
 
 // SendItReport ...
@@ -297,7 +254,7 @@ func (h *ExecHandler) SendNotification() {
 		return
 	}
 
-	if err := mongodb.NewMsgQueueCommonColl().Create(&commonmodels.MsgQueueCommon{
+	if err := mongodb.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
 		Payload:   string(nb),
 		QueueType: setting.TopicNotification,
 	}); err != nil {

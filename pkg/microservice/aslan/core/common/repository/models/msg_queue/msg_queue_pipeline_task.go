@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package models
+package msg_queue
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"

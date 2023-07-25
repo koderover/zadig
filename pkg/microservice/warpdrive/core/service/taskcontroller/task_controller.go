@@ -23,8 +23,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/nsqio/go-nsq"
-
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
@@ -36,15 +34,10 @@ import (
 )
 
 type controller struct {
-	consumers []*nsq.Consumer
-	producers []*nsq.Producer
 }
 
 func NewController() ControllerI {
-	return &controller{
-		consumers: []*nsq.Consumer{},
-		producers: []*nsq.Producer{},
-	}
+	return &controller{}
 }
 
 func (c *controller) Init(ctx context.Context) error {
@@ -200,14 +193,6 @@ func (c *controller) Init(ctx context.Context) error {
 }
 
 func (c *controller) Stop(ctx context.Context) error {
-	for _, consumer := range c.consumers {
-		consumer.Stop()
-	}
-
-	for _, producer := range c.producers {
-		producer.Stop()
-	}
-
 	return nil
 }
 

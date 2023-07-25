@@ -15,25 +15,3 @@ limitations under the License.
 */
 
 package nsqcli
-
-import (
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-)
-
-// Client is nsq RPC client
-type Client struct {
-	lookupdAddr []string
-	nsqdAddr    string
-	Conn        *httpclient.Client
-}
-
-// NewNsqClient is to get nsq client func
-func NewNsqClient(lookupdAddr []string, nsqdAddr string) *Client {
-	c := &Client{
-		lookupdAddr: lookupdAddr,
-		nsqdAddr:    nsqdAddr,
-		Conn:        httpclient.New(),
-	}
-
-	return c
-}

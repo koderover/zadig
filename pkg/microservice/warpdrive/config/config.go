@@ -17,8 +17,6 @@ limitations under the License.
 package config
 
 import (
-	"strings"
-
 	"github.com/spf13/viper"
 
 	// init the config first
@@ -40,10 +38,6 @@ func MongoURI() string {
 
 func ExecutorImage() string {
 	return viper.GetString(setting.ENVExecutorImage)
-}
-
-func NSQLookupAddrs() []string {
-	return strings.Split(viper.GetString(setting.ENVNsqLookupAddrs), ",")
 }
 
 func ReleaseImageTimeout() string {
