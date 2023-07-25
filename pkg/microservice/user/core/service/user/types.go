@@ -105,7 +105,7 @@ const (
 
 type AuthorizedResources struct {
 	IsSystemAdmin   bool
-	ProjectAuthInfo map[string]*ProjectActions
+	ProjectAuthInfo map[string]ProjectActions
 	SystemActions   *SystemActions
 	//AdditionalResource *AdditionalResources
 	//SystemAuthInfo

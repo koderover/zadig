@@ -75,5 +75,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		router.GET("/auth-info", user.GetUserAuthInfo)
 
 		router.GET("/collaboration-permission", user.CheckCollaborationModePermission)
+
+		router.GET("/authorized-project", user.ListAuthorizedProject)
 	}
 }

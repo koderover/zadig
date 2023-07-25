@@ -52,3 +52,26 @@ func CheckCollaborationModePermission(c *gin.Context) {
 
 	ctx.Resp = resp
 }
+
+func ListAuthorizedProject(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	uid := c.Query("uid")
+	if uid == "" {
+		ctx.Resp = &types.ListAuthorizedProjectResp{ProjectList: []string{}}
+		return
+	}
+
+	authorizedProject, err := userservice.ListAuthorizedProject(uid, ctx.Logger)
+	if err != nil {
+		ctx.Resp = &types.ListAuthorizedProjectResp{
+			ProjectList: []string{},
+			Error:       err.Error(),
+		}
+		return
+	}
+	ctx.Resp = &types.ListAuthorizedProjectResp{
+		ProjectList: authorizedProject,
+	}
+}

@@ -175,3 +175,22 @@ func (c *Client) CheckUserAuthInfoForCollaborationMode(uid, projectKey, resource
 
 	return resp.HasPermission, nil
 }
+
+func (c *Client) ListAuthorizedProjects(uid string) ([]string, error) {
+	url := "/authorized-project"
+
+	resp := types.ListAuthorizedProjectResp{}
+
+	queries := map[string]string{
+		"uid": uid,
+	}
+
+	_, err := c.Get(url, httpclient.SetQueryParams(queries), httpclient.SetResult(resp))
+	if err != nil {
+		return []string{}, err
+	}
+	if len(resp.Error) > 0 {
+		return []string{}, errors.New(resp.Error)
+	}
+	return resp.ProjectList, nil
+}

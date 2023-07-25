@@ -136,6 +136,13 @@ func GetCollaborationModePermission(uid, projectKey, resource, resourceName, act
 	return user.New().CheckUserAuthInfoForCollaborationMode(uid, projectKey, resource, resourceName, action)
 }
 
+func ListAuthorizedProjects(uid string) ([]string, error) {
+	if uid == "" {
+		return []string{}, errors.New("empty user ID")
+	}
+	return user.New().ListAuthorizedProjects(uid)
+}
+
 func getUserFromJWT(token string) (jwtClaims, error) {
 	cs := jwtClaims{}
 

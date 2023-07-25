@@ -17,10 +17,13 @@ limitations under the License.
 package user
 
 import (
+	"fmt"
+
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResources, error) {
@@ -99,9 +102,14 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 	}
 
+	projectInfo := make(map[string]ProjectActions)
+	for proj, actions := range projectActionMap {
+		projectInfo[proj] = *actions
+	}
+
 	resp := &AuthorizedResources{
 		IsSystemAdmin:   false,
-		ProjectAuthInfo: projectActionMap,
+		ProjectAuthInfo: projectInfo,
 		SystemActions:   systemActions,
 	}
 
@@ -125,6 +133,40 @@ func CheckCollaborationModePermission(uid, projectKey, resource, resourceName, a
 		return
 	}
 	return
+}
+
+func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, error) {
+	respSet := sets.NewString()
+
+	userRoleBindingList, err := mongodb.NewRoleBindingColl().ListUserRoleBinding(uid)
+	if err != nil {
+		logger.Errorf("failed to list user role binding, error: %s", err)
+		return nil, fmt.Errorf("failed to list user role binding, error: %s", err)
+	}
+
+	// generate a corresponding role list for each namespace(project)
+	namespacedRoleMap := make(map[string][]string)
+
+	for _, roleBinding := range userRoleBindingList {
+		namespacedRoleMap[roleBinding.Namespace] = append(namespacedRoleMap[roleBinding.Namespace], roleBinding.RoleRef.Name)
+	}
+
+	for project, _ := range namespacedRoleMap {
+		respSet.Insert(project)
+	}
+
+	collaborationModeList, err := mongodb.NewCollaborationModeColl().ListUserCollaborationMode(uid)
+	if err != nil {
+		logger.Errorf("failed to find user collaboration mode, error: %s", err)
+		return nil, fmt.Errorf("failed to find user collaboration mode, error: %s", err)
+	}
+
+	// if user have collaboration mode, they must have access to this project.
+	for _, collabMode := range collaborationModeList {
+		respSet.Insert(collabMode.ProjectName)
+	}
+
+	return respSet.List(), nil
 }
 
 func checkWorkflowPermission(list []models.WorkflowCIItem, workflowName, action string) bool {
