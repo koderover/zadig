@@ -280,6 +280,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			DeployStrategy: prod.ServiceDeployStrategy[svcDataSet.ProdSvc.ServiceName],
 			Error:          svcDataSet.ProdSvc.Error,
 		}
+		respObj.Updatable = updatable
 
 		if svcDataSet.SvcRelease != nil {
 			respObj.ReleaseName = svcDataSet.SvcRelease.Name
@@ -288,15 +289,18 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			respObj.AppVersion = svcDataSet.SvcRelease.Chart.AppVersion()
 			respObj.Status = getReleaseStatus(svcDataSet.SvcRelease)
 		} else if svcDataSet.TmplSvc != nil {
+			// service template deploy
 			respObj.ReleaseName = util.GeneReleaseName(svcDataSet.TmplSvc.GetReleaseNaming(), svcDataSet.TmplSvc.ProductName, prod.Namespace, prod.EnvName, svcDataSet.TmplSvc.ServiceName)
 			respObj.Chart = svcDataSet.TmplSvc.HelmChart.Name
 			respObj.AppVersion = svcDataSet.TmplSvc.HelmChart.Version
 		} else if svcDataSet.ProdSvc != nil {
+			// chart deploy
 			respObj.ReleaseName = svcDataSet.ProdSvc.ReleaseName
 		}
 
 		if svcDataSet.ProdSvc.Type == setting.HelmChartDeployType {
 			respObj.IsHelmChartDeploy = true
+			respObj.DeployStrategy = prod.ServiceDeployStrategy[commonutil.GetReleaseDeployStrategyKey(svcDataSet.ProdSvc.ReleaseName)]
 		}
 
 		if svcDataSet.ProdSvc.Error != "" {

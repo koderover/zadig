@@ -1230,14 +1230,18 @@ func GetReleaseInstanceDeployStatus(productName string, request *HelmDeployStatu
 	if productInfo != nil {
 		production = productInfo.Production
 	}
-	productServices, err := repository.ListMaxRevisionsServices(productName, production)
+	productServiceMap, err := repository.GetMaxRevisionsServicesMap(productName, production)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}
 
 	releaseToServiceMap := make(map[string]*ResourceDeployStatus)
-	for _, svcInfo := range productServices {
-		releaseName := util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, namespace, envName, svcInfo.ServiceName)
+	for _, prodSvc := range productInfo.GetServiceMap() {
+		svcInfo, ok := productServiceMap[prodSvc.ServiceName]
+		if !ok {
+			continue
+		}
+		releaseName := util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, namespace, envName, prodSvc.ServiceName)
 		deployStatus := &ResourceDeployStatus{
 			Type:   "release",
 			Name:   releaseName,
@@ -1265,7 +1269,6 @@ func GetReleaseInstanceDeployStatus(productName string, request *HelmDeployStatu
 	if err != nil {
 		log.Warnf("failed to list releases with ns: %s, err: %s", namespace, err)
 	}
-	log.Debugf("list releases with ns: %s, clusterID: %s, releases: %+v", namespace, clusterID, releases)
 
 	resp := make([]*GetReleaseInstanceDeployStatusResponse, 0)
 	for _, release := range releases {
