@@ -647,33 +647,25 @@ func (f *workloadFilter) UnmarshalJSON(data []byte) error {
 		chartNames := strings.Split(f.ChartName, "|")
 		f.ChartNameList = sets.NewString(chartNames...)
 	}
-	log.Debugf("workload filter: %+v", f)
 	return nil
 }
 
 func (f *workloadFilter) Match(workload *Workload) bool {
 	if len(f.Name) > 0 {
-		log.Debugf("1")
 		if !strings.Contains(workload.Name, f.Name) {
-			log.Debugf("2 workload name: %s, name: %s", workload.Name, f.Name)
 			return false
 		}
 	}
 	if f.ReleaseNameList.Len() > 0 {
-		log.Debugf("3")
 		if !f.ReleaseNameList.Has(workload.ReleaseName) {
-			log.Debugf("4 release name: %s, release name list: %v", workload.ReleaseName, f.ReleaseNameList.List())
 			return false
 		}
 	}
 	if f.ChartNameList.Len() > 0 {
-		log.Debugf("5")
 		if !f.ChartNameList.Has(workload.ChartName) {
-			log.Debugf("6 chart name: %s, chart name list: %v", workload.ChartName, f.ChartNameList.List())
 			return false
 		}
 	}
-	log.Debugf("7")
 	return true
 }
 
