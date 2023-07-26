@@ -40,27 +40,61 @@ func ListPrivateKeysInternal(c *gin.Context) {
 }
 
 func ListPrivateKeys(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.ListPrivateKeys(encryptedKey, "", c.Query("keyword"), true, ctx.Logger)
 }
 
 func GetPrivateKey(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Resp, ctx.Err = service.GetPrivateKey(c.Param("id"), ctx.Logger)
 }
 
 func CreatePrivateKey(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(commonmodels.PrivateKey)
 	data, err := c.GetRawData()
@@ -74,6 +108,12 @@ func CreatePrivateKey(c *gin.Context) {
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
 		return
@@ -84,8 +124,15 @@ func CreatePrivateKey(c *gin.Context) {
 }
 
 func UpdatePrivateKey(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(commonmodels.PrivateKey)
 	data, err := c.GetRawData()
@@ -96,8 +143,13 @@ func UpdatePrivateKey(c *gin.Context) {
 		log.Errorf("UpdatePrivateKey json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), ctx.Logger)
-
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
@@ -109,10 +161,24 @@ func UpdatePrivateKey(c *gin.Context) {
 }
 
 func DeletePrivateKey(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源管理-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)
 }
 
@@ -129,8 +195,15 @@ type privateKeyArgs struct {
 }
 
 func BatchCreatePrivateKey(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(privateKeyArgs)
 	data, err := c.GetRawData()
@@ -142,8 +215,13 @@ func BatchCreatePrivateKey(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "批量新增", "资源管理-主机管理", "", string(data), ctx.Logger)
-
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")

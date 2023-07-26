@@ -89,16 +89,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
-	// Github管理接口
-	// ---------------------------------------------------------------------------------------
-	github := router.Group("githubApp")
-	{
-		github.GET("", GetGithubApp)
-		github.POST("", CreateGithubApp)
-		github.DELETE("/:id", DeleteGithubApp)
-	}
-
-	// ---------------------------------------------------------------------------------------
 	// jenkins集成接口以及jobs和buildWithParameters接口
 	// ---------------------------------------------------------------------------------------
 	jenkins := router.Group("jenkins")
