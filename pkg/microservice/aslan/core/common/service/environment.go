@@ -657,12 +657,12 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 			return false
 		}
 	}
-	if len(f.ReleaseNameList) > 0 {
+	if f.ReleaseNameList.Len() > 0 {
 		if !f.ReleaseNameList.Has(workload.ReleaseName) {
 			return false
 		}
 	}
-	if len(f.ChartNameList) > 0 {
+	if f.ChartNameList.Len() > 0 {
 		if !f.ChartNameList.Has(workload.ChartName) {
 			return false
 		}
