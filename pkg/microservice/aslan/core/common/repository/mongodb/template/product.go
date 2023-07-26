@@ -144,6 +144,8 @@ func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*Pr
 
 	if len(opt.Names) > 0 {
 		fullFindOptions = append(fullFindOptions, bson.M{"product_name": bson.M{"$in": opt.Names}})
+	} else {
+		fullFindOptions = append(fullFindOptions, bson.M{"product_name": bson.M{"$ne": ""}})
 	}
 
 	findOption := bson.M{
@@ -264,6 +266,12 @@ func (c *ProductColl) listProjects(inNames []string, projection bson.M) ([]*Proj
 		filter = append(filter, bson.M{
 			"product_name": bson.M{
 				"$in": inNames,
+			},
+		})
+	} else {
+		filter = append(filter, bson.M{
+			"product_name": bson.M{
+				"$ne": "",
 			},
 		})
 	}

@@ -73,8 +73,10 @@ func ListAuthorizedProject(c *gin.Context) {
 	}
 	resp := &types.ListAuthorizedProjectResp{
 		ProjectList: authorizedProject,
+		Found:       true,
 	}
 	if len(authorizedProject) == 0 {
 		resp.Found = false
 	}
+	ctx.Resp = resp
 }
