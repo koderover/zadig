@@ -45,38 +45,6 @@ func (j *HelmChartDeployJob) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-
-	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: j.workflow.Project, EnvName: j.spec.Env})
-	if err != nil {
-		return fmt.Errorf("env %s not exists", j.spec.Env)
-	}
-	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:        product.Render.Name,
-		ProductTmpl: product.ProductName,
-		Revision:    product.Render.Revision,
-	})
-	if err != nil {
-		return fmt.Errorf("render set %s/%v not found", product.Render.Name, product.Render.Revision)
-	}
-	renderChartMap := renderset.GetChartDeployRenderMap()
-
-	deploys := []*commonmodels.DeployHelmChart{}
-	productChartServiceMap := product.GetChartServiceMap()
-	for _, chartSvc := range productChartServiceMap {
-		renderChart := renderChartMap[chartSvc.ReleaseName]
-		if renderChart == nil || !renderChart.IsHelmChartDeploy {
-			return fmt.Errorf("render chart %s not found", chartSvc.ReleaseName)
-		}
-		deploy := &commonmodels.DeployHelmChart{
-			ReleaseName:  chartSvc.ReleaseName,
-			ChartRepo:    renderChart.ChartRepo,
-			ChartName:    renderChart.ChartName,
-			ChartVersion: renderChart.ChartVersion,
-			ValuesYaml:   renderChart.ValuesYaml,
-		}
-		deploys = append(deploys, deploy)
-	}
-	j.spec.DeployHelmCharts = deploys
 	j.job.Spec = j.spec
 
 	return nil

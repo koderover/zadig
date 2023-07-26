@@ -112,7 +112,6 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 
 	c.logger.Infof("start helm chart deploy, productName %s, releaseName %s, namespace %s, valuesYaml %s, overrideValues: %s",
 		c.workflowCtx.ProjectName, deploy.ReleaseName, c.namespace, valuesYaml, chartInfo.OverrideValues)
-	c.logger.Debugf("chartInfos: %+v", renderSet.ChartInfos)
 
 	timeOut := c.timeout()
 
