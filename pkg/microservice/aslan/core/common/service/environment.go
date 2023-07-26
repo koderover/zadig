@@ -639,6 +639,7 @@ func (f *workloadFilter) UnmarshalJSON(data []byte) error {
 	}
 	f.Name = aliasData.Name
 	f.ReleaseName = aliasData.ReleaseName
+	f.ChartName = aliasData.ChartName
 	if f.ReleaseName != "*" {
 		serviceNames := strings.Split(f.ReleaseName, "|")
 		f.ReleaseNameList = sets.NewString(serviceNames...)
