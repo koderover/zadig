@@ -1030,10 +1030,10 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 		prodSvc = productInfo.GetServiceMap()[serviceOrReleaseName]
 		if prodSvc == nil {
 			prodSvc = &commonmodels.ProductService{
-				ServiceName:  serviceOrReleaseName,
-				ProductName:  productName,
-				Revision:     templateService.Revision,
-				Containers:   templateService.Containers,
+				ServiceName: serviceOrReleaseName,
+				ProductName: productName,
+				Revision:    templateService.Revision,
+				Containers:  templateService.Containers,
 			}
 		}
 
@@ -3122,9 +3122,14 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 	// chart infos from client
 	addedReleaseNameSet := sets.NewString()
 	renderChartArgMap := make(map[string]*commonservice.HelmSvcRenderArg)
+	renderChartDeployArgMap := make(map[string]*commonservice.HelmSvcRenderArg)
 	for _, singleArg := range overrideCharts {
 		if singleArg.EnvName == envName {
-			renderChartArgMap[singleArg.ServiceName] = singleArg
+			if singleArg.IsChartDeploy {
+				renderChartDeployArgMap[singleArg.ReleaseName] = singleArg
+			} else {
+				renderChartArgMap[singleArg.ServiceName] = singleArg
+			}
 			addedReleaseNameSet.Insert(singleArg.ReleaseName)
 		}
 	}
@@ -3163,7 +3168,7 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 				}
 			}
 		}
-		if renderInfo.IsHelmChartDeploy && !addedReleaseNameSet.Has(renderInfo.ReleaseName) {
+		if renderInfo.IsHelmChartDeploy && addedReleaseNameSet.Has(renderInfo.ReleaseName) {
 			continue
 		}
 
