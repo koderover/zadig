@@ -131,3 +131,22 @@ func (c *Client) GetUserByID(uid string) (*types.UserInfo, error) {
 	_, err := c.Get(url, httpclient.SetResult(result))
 	return result, err
 }
+
+type userSearchRequest struct {
+	UIDs []string `json:"uids"`
+}
+
+func (c *Client) SearchUsersByIDList(idList []string) (*types.UsersResp, error) {
+	url := "/users/search"
+	result := &types.UsersResp{}
+
+	body := &userSearchRequest{
+		UIDs: idList,
+	}
+
+	_, err := c.Post(url, httpclient.SetBody(body), httpclient.SetResult(result))
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
