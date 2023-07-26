@@ -1225,7 +1225,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		for _, product := range newProduct {
 			//chart, ok := envChartsMap[product.BaseName]
 
-			renderChartArgs, rendersetData, err := commonservice.GetSvcRenderArgs(projectName, product.BaseName, "", logger)
+			renderChartArgs, rendersetData, err := commonservice.GetSvcRenderArgs(projectName, product.BaseName, nil, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find product renderset :%s, err: %s", product.BaseName, err)
 			}

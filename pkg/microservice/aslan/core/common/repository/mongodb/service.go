@@ -538,12 +538,17 @@ func (c *ServiceColl) ListServicesWithSRevision(opt *SvcRevisionListOption) ([]*
 		{
 			"$match": productMatch,
 		},
-		{
+	}
+	if len(opt.ServiceRevisions) > 0 {
+		pipeline = append(pipeline, bson.M{
 			"$match": bson.M{
 				"$or": serviceMatch,
 			},
-		},
+		})
+	} else {
+		return []*models.Service{}, nil
 	}
+
 	cursor, err := c.Aggregate(context.TODO(), pipeline)
 	if err != nil {
 		return nil, err

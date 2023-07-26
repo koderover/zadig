@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 
 	"github.com/pkg/errors"
@@ -154,5 +155,12 @@ func DeleteProductionProduct(username, envName, productName, requestID string, l
 		content := fmt.Sprintf("namespace:%s", productInfo.Namespace)
 		notify.SendMessage(username, title, content, requestID, log)
 	}
+
+	// remove custom labels
+	err = service.DeleteZadigLabelFromNamespace(productInfo.Namespace, productInfo.ClusterID, log)
+	if err != nil {
+		log.Errorf("failed to delete zadig label from namespace %s, error: %v", productInfo.Namespace, err)
+	}
+
 	return nil
 }

@@ -26,6 +26,7 @@ import (
 
 	"github.com/27149chen/afero"
 	"gopkg.in/yaml.v2"
+	"helm.sh/helm/v3/pkg/repo"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -120,6 +121,7 @@ func PreLoadServiceManifests(base string, svc *commonmodels.Service, production 
 	if ok {
 		return nil
 	}
+	log.Debugf("base: %s, svc: %+v, production %v", base, svc, production)
 
 	if err = DownloadServiceManifests(base, svc.ProductName, svc.ServiceName, production); err == nil {
 		return nil
@@ -283,4 +285,13 @@ func ReplaceImage(sourceYaml string, imageValuesMap ...map[string]interface{}) (
 		return "", err
 	}
 	return string(mergedBs), nil
+}
+
+func GeneHelmRepo(chartRepo *commonmodels.HelmRepo) *repo.Entry {
+	return &repo.Entry{
+		Name:     chartRepo.RepoName,
+		URL:      chartRepo.URL,
+		Username: chartRepo.Username,
+		Password: chartRepo.Password,
+	}
 }

@@ -21,7 +21,6 @@ import (
 	"path"
 
 	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/repo"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -81,13 +80,4 @@ func CopyAndUploadService(projectName, serviceName, currentChartPath string, cop
 	names := append([]string{serviceName}, copies...)
 
 	return fsservice.CopyAndUploadFiles(names, path.Join(localBase, serviceName), s3Base, localBase, currentChartPath, log.SugaredLogger())
-}
-
-func GeneHelmRepo(chartRepo *commonmodels.HelmRepo) *repo.Entry {
-	return &repo.Entry{
-		Name:     chartRepo.RepoName,
-		URL:      chartRepo.URL,
-		Username: chartRepo.Username,
-		Password: chartRepo.Password,
-	}
 }

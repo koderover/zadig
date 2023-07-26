@@ -19,9 +19,9 @@ package service
 import (
 	"go.uber.org/zap"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/tool/helmclient"
 )
 
@@ -79,7 +79,7 @@ func ListCharts(name string, log *zap.SugaredLogger) (*IndexFileResp, error) {
 		return nil, err
 	}
 
-	indexInfo, err := client.FetchIndexYaml(service.GeneHelmRepo(chartRepo))
+	indexInfo, err := client.FetchIndexYaml(commonutil.GeneHelmRepo(chartRepo))
 	if err != nil {
 		return nil, err
 	}

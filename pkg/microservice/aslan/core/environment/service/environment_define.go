@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -69,26 +70,26 @@ type EnvResp struct {
 }
 
 type ProductResp struct {
-	ID          string                     `json:"id"`
-	ProductName string                     `json:"product_name"`
-	Namespace   string                     `json:"namespace"`
-	Status      string                     `json:"status"`
-	Error       string                     `json:"error"`
-	EnvName     string                     `json:"env_name"`
-	UpdateBy    string                     `json:"update_by"`
-	UpdateTime  int64                      `json:"update_time"`
-	Services    [][]string                 `json:"services"`
-	Render      *commonmodels.RenderInfo   `json:"render"`
-	Vars        []*templatemodels.RenderKV `json:"vars"`
-	IsPublic    bool                       `json:"isPublic"`
-	ClusterID   string                     `json:"cluster_id,omitempty"`
-	ClusterName string                     `json:"cluster_name,omitempty"`
-	RecycleDay  int                        `json:"recycle_day"`
-	IsProd      bool                       `json:"is_prod"`
-	IsLocal     bool                       `json:"is_local"`
-	IsExisted   bool                       `json:"is_existed"`
-	Source      string                     `json:"source"`
-	RegisterID  string                     `json:"registry_id"`
+	ID          string                           `json:"id"`
+	ProductName string                           `json:"product_name"`
+	Namespace   string                           `json:"namespace"`
+	Status      string                           `json:"status"`
+	Error       string                           `json:"error"`
+	EnvName     string                           `json:"env_name"`
+	UpdateBy    string                           `json:"update_by"`
+	UpdateTime  int64                            `json:"update_time"`
+	Services    [][]*commonmodels.ProductService `json:"services"`
+	Render      *commonmodels.RenderInfo         `json:"render"`
+	Vars        []*templatemodels.RenderKV       `json:"vars"`
+	IsPublic    bool                             `json:"isPublic"`
+	ClusterID   string                           `json:"cluster_id,omitempty"`
+	ClusterName string                           `json:"cluster_name,omitempty"`
+	RecycleDay  int                              `json:"recycle_day"`
+	IsProd      bool                             `json:"is_prod"`
+	IsLocal     bool                             `json:"is_local"`
+	IsExisted   bool                             `json:"is_existed"`
+	Source      string                           `json:"source"`
+	RegisterID  string                           `json:"registry_id"`
 
 	// New Since v1.11.0
 	ShareEnvEnable  bool   `json:"share_env_enable"`
@@ -104,6 +105,9 @@ type ProductParams struct {
 }
 
 type EstimateValuesArg struct {
+	ChartRepo      string                  `json:"chartRepo,omitempty"`
+	ChartName      string                  `json:"chartName,omitempty"`
+	ChartVersion   string                  `json:"chartVersion,omitempty"`
 	DefaultValues  string                  `json:"defaultValues"`
 	OverrideYaml   string                  `json:"overrideYaml"`
 	OverrideValues []*commonservice.KVPair `json:"overrideValues,omitempty"`
@@ -115,7 +119,7 @@ type EnvRenderChartArg struct {
 }
 
 type EnvRendersetArg struct {
-	DeployType        string                            `json:"-"`
+	DeployType        string                            `json:"deployType"`
 	DefaultValues     string                            `json:"defaultValues"`
 	ValuesData        *commonservice.ValuesDataArgs     `json:"valuesData"`
 	ChartValues       []*commonservice.HelmSvcRenderArg `json:"chartValues"`
@@ -229,5 +233,6 @@ type ServiceDeployStatus struct {
 	Resources   []*ResourceDeployStatus `json:"resources"`
 }
 
-type intervalExecutorHandler func(data *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error
+// type intervalExecutorHandler func(data *commonmodels.Service, productSvc *commonmodels.ProductService, releaseName string, isRetry bool, log *zap.SugaredLogger) error
+type intervalExecutorHandler func(data *kube.ReleaseInstallParam, isRetry bool, log *zap.SugaredLogger) error
 type svcUpgradeFilter func(svc *commonmodels.ProductService) bool

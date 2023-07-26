@@ -153,7 +153,7 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	return nil
 }
 
-func GetService(envName, productName, serviceName string, production bool, workLoadType string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+func GetService(envName, productName, serviceName string, production bool, workLoadType string, isHelmChartDeploy bool, log *zap.SugaredLogger) (ret *SvcResp, err error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {

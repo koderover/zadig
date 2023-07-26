@@ -237,7 +237,8 @@ const (
 	// K8SDeployType Containerized Deployment
 	K8SDeployType = "k8s"
 	// helm deployment
-	HelmDeployType = "helm"
+	HelmDeployType      = "helm"
+	HelmChartDeployType = "helm_chart"
 	// PMDeployType physical machine deploy method
 	PMDeployType          = "pm"
 	TrusteeshipDeployType = "trusteeship"
@@ -443,6 +444,7 @@ const (
 	GerritDefaultOwner = "dafault"
 	// YamlFileSeperator ...
 	YamlFileSeperator = "\n---\n"
+	HelmChartDeployStrategySuffix = "<+helm_chart>"
 )
 
 const MaskValue = "********"

@@ -52,6 +52,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewDeployJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobZadigHelmDeploy):
 		jobCtl = NewHelmDeployJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobZadigHelmChartDeploy):
+		jobCtl = NewHelmChartDeployJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobCustomDeploy):
 		jobCtl = NewCustomDeployJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobPlugin):

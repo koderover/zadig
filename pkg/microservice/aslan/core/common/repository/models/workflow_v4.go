@@ -275,6 +275,21 @@ type ZadigDeployJobSpec struct {
 	Services         []*DeployService   `bson:"services"             yaml:"services"             json:"services"`
 }
 
+type ZadigHelmChartDeployJobSpec struct {
+	Env                string             `bson:"env"                      yaml:"env"                         json:"env"`
+	EnvSource          string             `bson:"env_source"               yaml:"env_source"                  json:"env_source"`
+	SkipCheckRunStatus bool               `bson:"skip_check_run_status"    yaml:"skip_check_run_status"       json:"skip_check_run_status"`
+	DeployHelmCharts   []*DeployHelmChart `bson:"deploy_helm_charts"       yaml:"deploy_helm_charts"          json:"deploy_helm_charts"`
+}
+
+type DeployHelmChart struct {
+	ReleaseName  string `bson:"release_name"          yaml:"release_name"             json:"release_name"`
+	ChartRepo    string `bson:"chart_repo"            yaml:"chart_repo"               json:"chart_repo"`
+	ChartName    string `bson:"chart_name"            yaml:"chart_name"               json:"chart_name"`
+	ChartVersion string `bson:"chart_version"         yaml:"chart_version"            json:"chart_version"`
+	ValuesYaml   string `bson:"values_yaml"           yaml:"values_yaml"              json:"values_yaml"`
+}
+
 type DeployService struct {
 	ServiceName string `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	// VariableConfigs added since 1.18

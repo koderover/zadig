@@ -59,17 +59,36 @@ func GetChartValues(c *gin.Context) {
 	projectName := c.Query("projectName")
 	serviceName := c.Query("serviceName")
 
-	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, serviceName, false)
+	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, serviceName, false, false)
 }
 
+// @Summary Get Production Chart Values
+// @Description Get Production Chart Values
+// @Tags    environment
+// @Accept 	json
+// @Produce json
+// @Param 	name				path		string									true	"env name"
+// @Param 	projectName			query		string									true	"project name"
+// @Param 	serviceName			query		string									false	"service name"
+// @Param 	releaseName			query		string									false	"release name"
+// @Param 	isHelmChartDeploy	query		string									true	"isHelmChartDeploy"
+// @Param 	body 				body 		service.SyncCollaborationInstanceArgs 	true 	"body"
+// @Success 200 				{object} 	commonservice.ValuesResp
+// @Router /api/aslan/environment/production/environments/{name}/helm/values [get]
 func GetProductionChartValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	envName := c.Param("name")
 	projectName := c.Query("projectName")
 	serviceName := c.Query("serviceName")
+	isHelmChartDeploy := c.Query("isHelmChartDeploy")
+	releaseName := c.Query("releaseName")
 
-	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, serviceName, true)
+	if isHelmChartDeploy == "false" {
+		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, serviceName, false, true)
+	} else {
+		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, releaseName, true, true)
+	}
 }
 
 func GetChartInfos(c *gin.Context) {

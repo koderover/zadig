@@ -111,6 +111,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		kube.POST("/k8s/resources", GetResourceDeployStatus)
 		kube.POST("/helm/releases", GetReleaseDeployStatus)
+		kube.POST("/helm/releaseInstances", GetReleaseInstanceDeployStatus)
 
 		kube.POST("/:env/pods/:podName/debugcontainer", PatchDebugContainer)
 
@@ -166,6 +167,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.DELETE("/kube/:name/pods/:podName", DeletePod)
 
 		production.GET("/environments/:name/helm/releases", ListProductionReleases)
+		production.DELETE("/environments/:name/helm/releases", DeleteProductionHelmReleases)
 		production.GET("/environments/:name/helm/values", GetProductionChartValues)
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
@@ -174,7 +176,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		production.PUT("/environments/:name/helm/default-values", UpdateHelmProductDefaultValues)
 		production.POST("/environments/:name/helm/default-values/preview", PreviewHelmProductDefaultValues)
-		production.GET("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
+		production.POST("/environments/:name/estimated-renderchart", GetProductionEstimatedRenderCharts)
 
 		production.POST("/environments/:name/services/:serviceName/restart", RestartService)
 		production.POST("/environments/:name/services/:serviceName/restartNew", RestartWorkload)
@@ -184,7 +186,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.POST("/image/deployment/:envName", UpdateDeploymentContainerImage)
 
 		production.GET("/rendersets/variables", GetProductionServiceVariables)
-		production.GET("/rendersets/renderchart", GetServiceRenderCharts)
+		production.POST("/rendersets/renderchart", GetServiceRenderCharts)
 
 		// normal resources
 		production.GET("/configmaps/:name", ListConfigMaps)
@@ -246,7 +248,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/services/:serviceName/scaleNew", ScaleNewService)
 		environments.GET("/:name/services/:serviceName/containers/:container", GetServiceContainer)
 
-		environments.GET("/:name/estimated-renderchart", GetEstimatedRenderCharts)
+		environments.POST("/:name/estimated-renderchart", GetEstimatedRenderCharts)
 
 		environments.GET("/:name/check/workloads/k8services", CheckWorkloadsK8sServices)
 		environments.POST("/:name/share/enable", EnableBaseEnv)
@@ -265,7 +267,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	rendersets := router.Group("rendersets")
 	{
-		rendersets.GET("/renderchart", GetServiceRenderCharts)
+		rendersets.POST("/renderchart", GetServiceRenderCharts)
 		rendersets.GET("/default-values", GetProductDefaultValues)
 		rendersets.GET("/globalVariables", GetGlobalVariables)
 		rendersets.GET("/yamlContent", GetYamlContent)

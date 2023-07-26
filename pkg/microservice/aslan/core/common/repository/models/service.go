@@ -191,7 +191,8 @@ type ServiceTmplRevision struct {
 
 type HelmChart struct {
 	Name       string `bson:"name"               json:"name"`
-	Version    string `bson:"version"     json:"version"`
+	Repo       string `bson:"repo"               json:"repo"`
+	Version    string `bson:"version"            json:"version"`
 	ValuesYaml string `bson:"values_yaml"        json:"values_yaml"`
 }
 

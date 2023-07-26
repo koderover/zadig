@@ -43,6 +43,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -78,6 +79,8 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, production boo
 
 type ServiceResp struct {
 	ServiceName        string       `json:"service_name"`
+	ReleaseName        string       `json:"release_name"`
+	IsHelmChartDeploy  bool         `json:"is_helm_chart_deploy"`
 	ServiceDisplayName string       `json:"service_display_name"`
 	Type               string       `json:"type"`
 	Status             string       `json:"status"`
@@ -241,7 +244,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 	// svc used in products
 	productSvcMap := make(map[string]*models.ProductService)
 	if productInfo != nil {
-		svcs, err := GetProductUsedTemplateSvcs(productInfo)
+		svcs, err := commonutil.GetProductUsedTemplateSvcs(productInfo)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -309,7 +312,7 @@ type ValuesResp struct {
 	ValuesYaml string `json:"valuesYaml"`
 }
 
-func GetChartValues(projectName, envName, serviceName string, production bool) (*ValuesResp, error) {
+func GetChartValues(projectName, envName, serviceName string, isHelmChartDeploy bool, production bool) (*ValuesResp, error) {
 	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName, Production: util.GetBoolPointer(production)}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -327,22 +330,25 @@ func GetChartValues(projectName, envName, serviceName string, production bool) (
 		return nil, fmt.Errorf("failed to init helm client, err: %s", err)
 	}
 
-	serviceMap := prod.GetServiceMap()
-	prodSvc, ok := serviceMap[serviceName]
-	if !ok {
-		return nil, fmt.Errorf("failed to find sercice: %s in env: %s", serviceName, envName)
-	}
+	releaseName := serviceName
+	if !isHelmChartDeploy {
+		serviceMap := prod.GetServiceMap()
+		prodSvc, ok := serviceMap[serviceName]
+		if !ok {
+			return nil, fmt.Errorf("failed to find sercice: %s in env: %s", serviceName, envName)
+		}
 
-	revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-		ServiceName: serviceName,
-		Revision:    prodSvc.Revision,
-		ProductName: prodSvc.ProductName,
-	}, production)
-	if err != nil {
-		return nil, err
-	}
+		revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: serviceName,
+			Revision:    prodSvc.Revision,
+			ProductName: prodSvc.ProductName,
+		}, production)
+		if err != nil {
+			return nil, err
+		}
 
-	releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodSvc.ProductName, prod.Namespace, prod.EnvName, prodSvc.ServiceName)
+		releaseName = util.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodSvc.ProductName, prod.Namespace, prod.EnvName, prodSvc.ServiceName)
+	}
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 	if err != nil {
 		log.Errorf("failed to get values map data, err: %s", err)
@@ -357,7 +363,16 @@ func GetChartValues(projectName, envName, serviceName string, production bool) (
 	return &ValuesResp{ValuesYaml: string(currentValuesYaml)}, nil
 }
 
-func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
+type GetSvcRenderRequest struct {
+	GetSvcRendersArgs []*GetSvcRenderArg `json:"get_svc_render_args"`
+}
+
+type GetSvcRenderArg struct {
+	ServiceOrReleaseName string `json:"service_or_release_name"`
+	IsHelmChartDeploy    bool   `json:"is_helm_chart_deploy"`
+}
+
+func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRenderArg, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
 	renderSetName := GetProductEnvNamespace(envName, productName, "")
 	renderRevision := int64(0)
 	ret := make([]*HelmSvcRenderArg, 0)
@@ -390,17 +405,29 @@ func GetSvcRenderArgs(productName, envName, serviceName string, log *zap.Sugared
 		return nil, nil, nil
 	}
 
+	svcChartRenderArgSet := sets.NewString()
+	svcRenderArgSet := sets.NewString()
+	for _, arg := range getSvcRendersArgs {
+		if arg.IsHelmChartDeploy {
+			svcChartRenderArgSet.Insert(arg.ServiceOrReleaseName)
+		} else {
+			svcRenderArgSet.Insert(arg.ServiceOrReleaseName)
+		}
+	}
 	matchedRenderChartModels := make([]*templatemodels.ServiceRender, 0)
-	if len(serviceName) == 0 {
+	if len(getSvcRendersArgs) == 0 {
 		matchedRenderChartModels = rendersetObj.ChartInfos
 	} else {
-		serverList := strings.Split(serviceName, ",")
-		stringSet := sets.NewString(serverList...)
 		for _, singleChart := range rendersetObj.ChartInfos {
-			if !stringSet.Has(singleChart.ServiceName) {
-				continue
+			if singleChart.IsHelmChartDeploy {
+				if svcChartRenderArgSet.Has(singleChart.ReleaseName) {
+					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
+				}
+			} else {
+				if svcRenderArgSet.Has(singleChart.ServiceName) {
+					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
+				}
 			}
-			matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
 		}
 	}
 
@@ -424,7 +451,12 @@ func fillServiceInfo(svcList []*ServiceResp, productInfo *models.Product) {
 	if productInfo.Source != setting.SourceFromHelm {
 		return
 	}
+	chartSvcMap := productInfo.GetChartServiceMap()
 	for _, svc := range svcList {
+		chartSvc := chartSvcMap[svc.ServiceName]
+		if chartSvc != nil {
+			svc.IsHelmChartDeploy = true
+		}
 		svc.ServiceDisplayName = svc.ServiceName
 	}
 }
@@ -470,7 +502,7 @@ func buildWorkloadFilterFunc(productInfo *models.Product, projectInfo *templatem
 	// for helm service, only show deploys/stss created by zadig
 	if projectInfo.IsHelmProduct() {
 		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
-			releaseNameMap, err := GetReleaseNameToServiceNameMap(productInfo)
+			releaseNameMap, err := commonutil.GetReleaseNameToServiceNameMap(productInfo)
 			if err != nil {
 				log.Errorf("failed to generate relase map for product: %s:%s", productInfo.ProductName, productInfo.EnvName)
 				return workloads
@@ -591,8 +623,10 @@ type FilterFunc func(services []*Workload) []*Workload
 
 type workloadFilter struct {
 	Name            string      `json:"name"`
-	ServiceName     string      `json:"serviceName"`
-	ServiceNameList sets.String `json:"-"`
+	ReleaseName     string      `json:"releaseName"`
+	ReleaseNameList sets.String `json:"-"`
+	ChartName       string      `json:"chartName"`
+	ChartNameList   sets.String `json:"-"`
 }
 
 type wfAlias workloadFilter
@@ -603,10 +637,15 @@ func (f *workloadFilter) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	f.Name = aliasData.Name
-	f.ServiceName = aliasData.ServiceName
-	if f.ServiceName != "*" {
-		serviceNames := strings.Split(f.ServiceName, "|")
-		f.ServiceNameList = sets.NewString(serviceNames...)
+	f.ReleaseName = aliasData.ReleaseName
+	f.ChartName = aliasData.ChartName
+	if f.ReleaseName != "*" && f.ReleaseName != "" {
+		serviceNames := strings.Split(f.ReleaseName, "|")
+		f.ReleaseNameList = sets.NewString(serviceNames...)
+	}
+	if f.ChartName != "*" && f.ChartName != "" {
+		chartNames := strings.Split(f.ChartName, "|")
+		f.ChartNameList = sets.NewString(chartNames...)
 	}
 	return nil
 }
@@ -617,8 +656,13 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 			return false
 		}
 	}
-	if len(f.ServiceNameList) > 0 {
-		if !f.ServiceNameList.Has(workload.ServiceName) {
+	if f.ReleaseNameList.Len() > 0 {
+		if !f.ReleaseNameList.Has(workload.ReleaseName) {
+			return false
+		}
+	}
+	if f.ChartNameList.Len() > 0 {
+		if !f.ChartNameList.Has(workload.ChartName) {
 			return false
 		}
 	}
@@ -635,7 +679,8 @@ type Workload struct {
 	Ready       bool                   `json:"ready"`
 	Annotation  map[string]string      `json:"-"`
 	Status      string                 `json:"-"`
-	ServiceName string                 `json:"service_name"` //serviceName refers to the service defines in zadig
+	ReleaseName string                 `json:"-"` //ReleaseName refers to the releaseName of helm services
+	ChartName   string                 `json:"-"` //ChartName refers to chartName of helm services
 }
 
 // fillServiceName set service name defined in zadig to workloads, this would be helpful for helm release view
@@ -654,13 +699,14 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 	if productInfo.Source != setting.SourceFromHelm {
 		return nil
 	}
-	releaseNameMap, err := GetReleaseNameToServiceNameMap(productInfo)
+	releaseChartNameMap, err := commonutil.GetReleaseNameToChartNameMap(productInfo)
 	if err != nil {
 		return err
 	}
 	for _, wl := range workloads {
 		if chartRelease, ok := wl.Annotation[setting.HelmReleaseNameAnnotation]; ok {
-			wl.ServiceName = releaseNameMap[chartRelease]
+			wl.ReleaseName = chartRelease
+			wl.ChartName = releaseChartNameMap[wl.ReleaseName]
 		}
 	}
 	return nil
@@ -809,6 +855,7 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 		}
 		productRespInfo := &ServiceResp{
 			ServiceName:  workload.Name,
+			ReleaseName:  workload.Annotation[setting.HelmReleaseNameAnnotation],
 			EnvName:      workload.EnvName,
 			Type:         setting.K8SDeployType,
 			WorkLoadType: workload.Type,
@@ -866,60 +913,6 @@ func FindServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	return resp
 }
 
-func GetProductUsedTemplateSvcs(prod *models.Product) ([]*models.Service, error) {
-	// filter releases, only list releases deployed by zadig
-	productName, envName, serviceMap := prod.ProductName, prod.EnvName, prod.GetServiceMap()
-	if len(serviceMap) == 0 {
-		return nil, nil
-	}
-	listOpt := &commonrepo.SvcRevisionListOption{
-		ProductName:      prod.ProductName,
-		ServiceRevisions: make([]*commonrepo.ServiceRevision, 0),
-	}
-	resp := make([]*models.Service, 0)
-	for _, productSvc := range serviceMap {
-		listOpt.ServiceRevisions = append(listOpt.ServiceRevisions, &commonrepo.ServiceRevision{
-			ServiceName: productSvc.ServiceName,
-			Revision:    productSvc.Revision,
-		})
-	}
-	templateServices, err := repository.ListServicesWithSRevision(listOpt, prod.Production)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list template services for pruduct: %s:%s, err: %s", productName, envName, err)
-	}
-	return append(resp, templateServices...), nil
-}
-
-// GetReleaseNameToServiceNameMap generates mapping relationship: releaseName=>serviceName
-func GetReleaseNameToServiceNameMap(prod *models.Product) (map[string]string, error) {
-	productName, envName := prod.ProductName, prod.EnvName
-	templateServices, err := GetProductUsedTemplateSvcs(prod)
-	if err != nil {
-		return nil, err
-	}
-	// map[ReleaseName] => serviceName
-	releaseNameMap := make(map[string]string)
-	for _, svcInfo := range templateServices {
-		releaseNameMap[util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)] = svcInfo.ServiceName
-	}
-	return releaseNameMap, nil
-}
-
-// GetServiceNameToReleaseNameMap generates mapping relationship: serviceName=>releaseName
-func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, error) {
-	productName, envName := prod.ProductName, prod.EnvName
-	templateServices, err := GetProductUsedTemplateSvcs(prod)
-	if err != nil {
-		return nil, err
-	}
-	// map[serviceName] => ReleaseName
-	releaseNameMap := make(map[string]string)
-	for _, svcInfo := range templateServices {
-		releaseNameMap[svcInfo.ServiceName] = util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)
-	}
-	return releaseNameMap, nil
-}
-
 // GetHelmServiceName get service name from annotations of resources deployed by helm
 // resType currently only support Deployment, StatefulSet and CronJob
 // this function needs to be optimized
@@ -927,7 +920,7 @@ func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClien
 	res := &unstructured.Unstructured{}
 	namespace := prod.Namespace
 
-	nameMap, err := GetReleaseNameToServiceNameMap(prod)
+	nameMap, err := commonutil.GetReleaseNameToServiceNameMap(prod)
 	if err != nil {
 		return "", err
 	}

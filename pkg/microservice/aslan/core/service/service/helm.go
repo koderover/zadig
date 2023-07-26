@@ -29,10 +29,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-
 	"github.com/27149chen/afero"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -51,6 +47,8 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -270,7 +268,7 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 
 	base := config.LocalTestServicePath(productName, serviceName)
 	if revision > 0 {
-		base = config.LocalTestServicePathWithRevision(productName, serviceName, revision)
+		base = config.LocalTestServicePathWithRevision(productName, serviceName, fmt.Sprint(revision))
 		if err = commonutil.PreloadServiceManifestsByRevision(base, svc, false); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
@@ -312,7 +310,7 @@ func GetProductionServiceFileContent(serviceName, productName string, param *Get
 
 	base := config.LocalProductionServicePath(productName, serviceName)
 	if revision > 0 {
-		base = config.LocalProductionServicePathWithRevision(productName, serviceName, revision)
+		base = config.LocalProductionServicePathWithRevision(productName, serviceName, fmt.Sprint(revision))
 		if err = commonutil.PreloadProductionServiceManifestsByRevision(base, svc); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
@@ -405,7 +403,7 @@ func EditFileContent(serviceName, productName, createdBy, requestID string, para
 	fsTree := os.DirFS(config.LocalServicePath(productName, serviceName, param.Production))
 
 	// read values.yaml
-	valuesYAML, errRead := readValuesYAML(fsTree, serviceName, logger)
+	valuesYAML, errRead := util.ReadValuesYAML(fsTree, serviceName, logger)
 	if errRead != nil {
 		err = errRead
 		return e.ErrEditHelmCharts.AddErr(err)
@@ -511,7 +509,7 @@ func getNextServiceRevision(productName, serviceName string, isProductionService
 
 // make local chart info copy with revision
 func copyChartRevision(projectName, serviceName string, revision int64, isProductionChart bool) error {
-	sourceChartPath, revisionChartLocalPath := config.LocalServicePath(projectName, serviceName, isProductionChart), config.LocalServicePathWithRevision(projectName, serviceName, revision, isProductionChart)
+	sourceChartPath, revisionChartLocalPath := config.LocalServicePath(projectName, serviceName, isProductionChart), config.LocalServicePathWithRevision(projectName, serviceName, fmt.Sprint(revision), isProductionChart)
 	err := os.RemoveAll(revisionChartLocalPath)
 	if err != nil {
 		log.Errorf("failed to remove old chart revision data, projectName %s serviceName %s revision %d, err %s", projectName, serviceName, revision, err)
@@ -545,7 +543,7 @@ func clearChartFilesInS3Storage(projectName, serviceName string, revision int64,
 // clear local chart infos
 func clearLocalChartFiles(projectName, serviceName string, revision int64, production bool, logger *zap.SugaredLogger) {
 	latestChartPath := config.LocalServicePath(projectName, serviceName, production)
-	revisionChartLocalPath := config.LocalServicePathWithRevision(projectName, serviceName, revision, production)
+	revisionChartLocalPath := config.LocalServicePathWithRevision(projectName, serviceName, fmt.Sprint(revision), production)
 	for _, path := range []string{latestChartPath, revisionChartLocalPath} {
 		err := os.RemoveAll(path)
 		if err != nil {
@@ -592,7 +590,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 	log.Infof("downloading chart %s to %s", chartRef, localPath)
 	// remove local file to untar
 	_ = os.RemoveAll(localPath)
-	err = hClient.DownloadChart(commonservice.GeneHelmRepo(chartRepo), chartRef, chartRepoArgs.ChartVersion, localPath, true)
+	err = hClient.DownloadChart(commonutil.GeneHelmRepo(chartRepo), chartRef, chartRepoArgs.ChartVersion, localPath, true)
 	if err != nil {
 		return nil, e.ErrCreateTemplate.AddErr(errors.Wrapf(err, "failed to download chart %s/%s-%s", chartRepo.RepoName, chartRepoArgs.ChartName, chartRepoArgs.ChartVersion))
 	}
@@ -614,7 +612,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 
 	// read values.yaml
 	fsTree := os.DirFS(localPath)
-	valuesYAML, err := readValuesYAML(fsTree, chartRepoArgs.ChartName, log)
+	valuesYAML, err := util.ReadValuesYAML(fsTree, chartRepoArgs.ChartName, log)
 	if err != nil {
 		finalErr = e.ErrCreateTemplate.AddErr(err)
 		return nil, finalErr
@@ -882,7 +880,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 			if finalErr != nil {
 				return
 			}
-			valuesYAML, finalErr = readValuesYAMLFromLocal(currentFilePath, log)
+			valuesYAML, finalErr = util.ReadValuesYAMLFromLocal(currentFilePath, log)
 			if finalErr != nil {
 				return
 			}
@@ -1061,7 +1059,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					if err != nil {
 						return serviceName, err
 					}
-					valuesYAML, err = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+					valuesYAML, err = util.ReadValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
 					return serviceName, err
 				})
 			if err != nil {
@@ -1372,24 +1370,6 @@ func readChartYAMLFromLocal(base string, logger *zap.SugaredLogger) (string, str
 	return chart.Name, chart.Version, nil
 }
 
-func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]byte, error) {
-	content, err := fs.ReadFile(chartTree, filepath.Join(base, setting.ValuesYaml))
-	if err != nil {
-		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
-		return nil, err
-	}
-	return content, nil
-}
-
-func readValuesYAMLFromLocal(base string, logger *zap.SugaredLogger) ([]byte, error) {
-	content, err := util.ReadFile(filepath.Join(base, setting.ValuesYaml))
-	if err != nil {
-		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
-		return nil, err
-	}
-	return content, nil
-}
-
 func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 	switch args.Source {
 	case setting.SourceFromGitlab,
@@ -1527,7 +1507,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, forc
 		return nil, err
 	}
 
-	containerList, err := commonservice.ParseImagesForProductService(valuesMap, args.ServiceName, args.ProductName)
+	containerList, err := commonutil.ParseImagesForProductService(valuesMap, args.ServiceName, args.ProductName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to parse service from yaml")
 	}
@@ -1652,7 +1632,7 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 
 	base := config.LocalServicePath(productName, serviceName, production)
 	if revision > 0 {
-		base = config.LocalServicePathWithRevision(productName, serviceName, revision, production)
+		base = config.LocalServicePathWithRevision(productName, serviceName, fmt.Sprint(revision), production)
 		if err = commonutil.PreloadServiceManifestsByRevision(base, svc, production); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)
@@ -1708,7 +1688,7 @@ func GetProductionHelmFilePath(productName, serviceName string, revision int64, 
 
 	base := config.LocalProductionServicePath(productName, serviceName)
 	if revision > 0 {
-		base = config.LocalProductionServicePathWithRevision(productName, serviceName, revision)
+		base = config.LocalProductionServicePathWithRevision(productName, serviceName, fmt.Sprint(revision))
 		if err = commonutil.PreloadProductionServiceManifestsByRevision(base, svc); err != nil {
 			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
 				svc.Revision, svc.ServiceName)

@@ -1426,6 +1426,18 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				})
 			}
 			jobPreview.Spec = spec
+		case string(config.JobZadigHelmChartDeploy):
+			jobPreview.JobType = string(config.JobZadigHelmChartDeploy)
+			spec := commonmodels.ZadigHelmChartDeployJobSpec{}
+			job.JobType = string(config.JobZadigHelmChartDeploy)
+			taskJobSpec := &commonmodels.JobTaskHelmChartDeploySpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+			spec.Env = taskJobSpec.Env
+			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
+			spec.DeployHelmCharts = append(spec.DeployHelmCharts, taskJobSpec.DeployHelmChart)
+			jobPreview.Spec = spec
 		case string(config.JobPlugin):
 			taskJobSpec := &commonmodels.JobTaskPluginSpec{}
 			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {

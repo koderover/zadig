@@ -47,15 +47,15 @@ import (
 )
 
 func InstallService(helmClient *helmtool.HelmClient, param *kube.ReleaseInstallParam) error {
-	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
+	handler := func(param *kube.ReleaseInstallParam, isRetry bool, log *zap.SugaredLogger) error {
 		errInstall := kube.InstallOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
 		if errInstall != nil {
-			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, param.Namespace, isRetry, errInstall)
-			return errors.Wrapf(errInstall, "failed to install or upgrade service %s", serviceObj.ServiceName)
+			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", param.ServiceObj.ServiceName, param.Namespace, isRetry, errInstall)
+			return errors.Wrapf(errInstall, "failed to install or upgrade service %s", param.ServiceObj.ServiceName)
 		}
 		return nil
 	}
-	errList := batchExecutorWithRetry(3, time.Millisecond*2500, []*commonmodels.Service{param.ServiceObj}, handler, log.SugaredLogger())
+	errList := batchExecutorWithRetry(3, time.Millisecond*2500, []*kube.ReleaseInstallParam{param}, handler, log.SugaredLogger())
 	if len(errList) > 0 {
 		return errList[0]
 	}
@@ -165,19 +165,21 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return
 	}
 
-	param, errBuildParam := buildInstallParam(productInfo.Namespace, productInfo.EnvName, renderInfo.DefaultValues, renderChart, templateSvc, productSvc)
+	param, errBuildParam := buildInstallParam(renderInfo.DefaultValues, productInfo, renderChart, productSvc)
 	if errBuildParam != nil {
 		err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, errBuildParam)
 		return
 	}
-	param.Production = productInfo.Production
+
+	err = updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
+	if err != nil {
+		return
+	}
 
 	err = InstallService(helmClient, param)
 	if err != nil {
 		return
 	}
-
-	err = updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
 	return
 }
 
