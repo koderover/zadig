@@ -26,9 +26,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -129,7 +129,10 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 	q := covertTaskToQueue(t)
 	Remove(q, log)
 
-	if err := nsq.Publish(setting.TopicCancel, b); err != nil {
+	if err := mongodb.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
+		Payload:   string(b),
+		QueueType: setting.TopicCancel,
+	}); err != nil {
 		log.Errorf("[%s] cancel %s %s:%d error", userName, t.AgentHost, pipelineName, taskID)
 		return err
 	}

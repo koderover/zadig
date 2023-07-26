@@ -107,7 +107,7 @@ const (
 // CIStatus ...
 type CIStatus string
 
-//ProductPermission ...
+// ProductPermission ...
 type ProductPermission string
 
 // ProductAuthType ...
@@ -132,4 +132,9 @@ const (
 	ImageFromCustom    = "custom"
 
 	APIServer = "https://api.github.com/"
+)
+
+// Distributed Locks
+const (
+	ProcessLock = "process"
 )
