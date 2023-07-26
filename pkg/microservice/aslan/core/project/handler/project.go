@@ -53,10 +53,18 @@ func ListProjects(c *gin.Context) {
 		return
 	}
 
-	authorizedProjectList, err := internalhandler.ListAuthorizedProjects(ctx.UserID)
-	if err != nil {
-		ctx.Err = e.ErrInternalError.AddDesc(err.Error())
-		return
+	var authorizedProjectList []string
+
+	if ctx.Resources.IsSystemAdmin {
+		authorizedProjectList = []string{}
+	} else {
+		authorizedProjectList, err = internalhandler.ListAuthorizedProjects(ctx.UserID)
+		if err != nil {
+			ctx.Err = e.ErrInternalError.AddDesc(err.Error())
+			return
+		}
+		ctx.Logger.Infof("authorized project list: %+v", authorizedProjectList)
+		ctx.Logger.Infof("authorized project list length: %d", len(authorizedProjectList))
 	}
 
 	ctx.Resp, ctx.Err = projectservice.ListProjects(
