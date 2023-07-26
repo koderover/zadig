@@ -66,13 +66,15 @@ type HelmReleaseResp struct {
 	ReleaseName       string        `json:"releaseName"`
 	ServiceName       string        `json:"serviceName"`
 	Revision          int           `json:"revision"`
-	ChartRepo         string        `json:"chart_repo"`
+	ChartRepo         string        `json:"chartRepo"`
 	Chart             string        `json:"chart"`
 	AppVersion        string        `json:"appVersion"`
+	OverrideValues    string        `json:"overrideValues"`
+	OverrideYaml      string        `json:"overrideYaml"`
 	Status            ReleaseStatus `json:"status"`
 	Updatable         bool          `json:"updatable"`
 	IsHelmChartDeploy bool          `json:"isHelmChartDeploy"`
-	DeployStrategy    string        `json:"deploy_strategy"`
+	DeployStrategy    string        `json:"deployStrategy"`
 	Error             string        `json:"error"`
 }
 
@@ -269,6 +271,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 	if err != nil {
 		return nil, fmt.Errorf("failed to find renderset: %s:%v, err: %s", prod.Render.Name, prod.Render.Revision, err)
 	}
+	chartInfoMap := renderset.GetChartRenderMap()
 	chartDeployInfoMap := renderset.GetChartDeployRenderMap()
 	for _, svcDataSet := range svcDataList {
 		if !filterFunc(svcDataSet) {
@@ -308,9 +311,16 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			respObj.ReleaseName = svcDataSet.ProdSvc.ReleaseName
 		}
 
-		if !svcDataSet.ProdSvc.FromZadig() {
+		if svcDataSet.ProdSvc.FromZadig() {
+			if chartInfo, ok := chartInfoMap[respObj.ReleaseName]; ok {
+				respObj.OverrideYaml = chartInfo.GetOverrideYaml()
+				respObj.OverrideValues = chartInfo.OverrideValues
+			}
+		} else {
 			if chartDeployInfo, ok := chartDeployInfoMap[respObj.ReleaseName]; ok {
 				respObj.ChartRepo = chartDeployInfo.ChartRepo
+				respObj.OverrideYaml = chartDeployInfo.GetOverrideYaml()
+				respObj.OverrideValues = chartDeployInfo.OverrideValues
 			}
 			respObj.IsHelmChartDeploy = true
 			respObj.DeployStrategy = prod.ServiceDeployStrategy[commonutil.GetReleaseDeployStrategyKey(svcDataSet.ProdSvc.ReleaseName)]
