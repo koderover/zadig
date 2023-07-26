@@ -408,12 +408,15 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 	svcChartRenderArgSet := sets.NewString()
 	svcRenderArgSet := sets.NewString()
 	for _, arg := range getSvcRendersArgs {
+		log.Debugf("arg: %+v", arg)
 		if arg.IsHelmChartDeploy {
 			svcChartRenderArgSet.Insert(arg.ServiceOrReleaseName)
 		} else {
 			svcRenderArgSet.Insert(arg.ServiceOrReleaseName)
 		}
 	}
+	log.Debugf("svcChartRenderArgSet: %+v", svcChartRenderArgSet)
+	log.Debugf("svcRenderArgSet: %+v", svcRenderArgSet)
 	matchedRenderChartModels := make([]*templatemodels.ServiceRender, 0)
 	if len(getSvcRendersArgs) == 0 {
 		matchedRenderChartModels = rendersetObj.ChartInfos
@@ -421,10 +424,12 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 		for _, singleChart := range rendersetObj.ChartInfos {
 			if singleChart.IsHelmChartDeploy {
 				if svcChartRenderArgSet.Has(singleChart.ReleaseName) {
+					log.Debugf("1 matched chart: %+v", singleChart)
 					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
 				}
 			} else {
 				if svcRenderArgSet.Has(singleChart.ServiceName) {
+					log.Debugf("2 matched chart: %+v", singleChart)
 					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
 				}
 			}
