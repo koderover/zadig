@@ -232,10 +232,58 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 // UpgradeHelmRelease upgrades helm release with some specific images
 func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
 	svcTemp *commonmodels.Service, images []string, timeout int) error {
+	chartInfoMap := renderSet.GetChartRenderMap()
+	chartDeployInfoMap := renderSet.GetChartDeployRenderMap()
 
-	replacedMergedValuesYaml, err := GeneMergedValues(productSvc, renderSet, images, false)
-	if err != nil {
-		return err
+	var (
+		err                      error
+		releaseName              string
+		replacedMergedValuesYaml string
+		chartInfo                *templatemodels.ServiceRender
+	)
+	if productSvc.FromZadig() {
+		releaseName = util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName)
+		chartInfo = chartInfoMap[productSvc.ServiceName]
+		replacedMergedValuesYaml, err = GeneMergedValues(productSvc, renderSet, images, false)
+		if err != nil {
+			return fmt.Errorf("failed to gene merged values, err: %s", err)
+		}
+	} else {
+		releaseName = productSvc.ReleaseName
+		chartInfo = chartDeployInfoMap[productSvc.ReleaseName]
+		svcTemp = &commonmodels.Service{
+			ServiceName: productSvc.ReleaseName,
+			ProductName: product.ProductName,
+			HelmChart: &commonmodels.HelmChart{
+				Name:    chartInfo.ChartName,
+				Repo:    chartInfo.ChartRepo,
+				Version: chartInfo.ChartVersion,
+			},
+		}
+
+		replacedMergedValuesYaml, err = helmtool.MergeOverrideValues("", renderSet.DefaultValues, chartInfo.GetOverrideYaml(), chartInfo.OverrideValues, nil)
+		if err != nil {
+			return fmt.Errorf("failed to merge override values, err: %s", err)
+		}
+
+		chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: chartInfo.ChartRepo})
+		if err != nil {
+			return fmt.Errorf("failed to query chart-repo info, productName: %s, repoName: %s", product.ProductName, chartInfo.ChartRepo)
+		}
+
+		chartRef := fmt.Sprintf("%s/%s", chartInfo.ChartRepo, chartInfo.ChartName)
+		localPath := config.LocalServicePathWithRevision(product.ProductName, releaseName, chartInfo.ChartVersion, true)
+		// remove local file to untar
+		_ = os.RemoveAll(localPath)
+
+		hClient, err := helmtool.NewClient()
+		if err != nil {
+			return err
+		}
+		err = hClient.DownloadChart(commonutil.GeneHelmRepo(chartRepo), chartRef, chartInfo.ChartVersion, localPath, true)
+		if err != nil {
+			return fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartInfo.ChartName, chartRepo.RepoName, err)
+		}
 	}
 
 	helmClient, err := helmtool.NewClientFromNamespace(product.ClusterID, product.Namespace)
@@ -243,13 +291,12 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 		return err
 	}
 
-	releaseName := util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName)
 	param := &ReleaseInstallParam{
 		ProductName:  svcTemp.ProductName,
 		Namespace:    product.Namespace,
 		ReleaseName:  releaseName,
 		MergedValues: replacedMergedValuesYaml,
-		RenderChart:  renderSet.GetChartRenderMap()[svcTemp.ServiceName],
+		RenderChart:  chartInfo,
 		ServiceObj:   svcTemp,
 		Timeout:      timeout,
 		Production:   product.Production,
@@ -291,10 +338,6 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
 	}
 
-	if !commonutil.ServiceDeployed(productSvc.ServiceName, newProductInfo.ServiceDeployStrategy) {
-		newProductInfo.ServiceDeployStrategy[productSvc.ServiceName] = setting.ServiceDeployStrategyDeploy
-	}
-
 	curRenderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		ProductTmpl: newProductInfo.ProductName,
 		Name:        newProductInfo.Render.Name,
@@ -304,18 +347,49 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	if err != nil {
 		return errors.Wrapf(err, "failed to find render set %s", newProductInfo.Render.Name)
 	}
-	chartMap := make(map[string]*templatemodels.ServiceRender)
-	for _, chartInfo := range curRenderInfo.ChartInfos {
-		chartMap[chartInfo.ServiceName] = chartInfo
+
+	chartMap := curRenderInfo.GetChartRenderMap()
+	chartDeployMap := curRenderInfo.GetChartDeployRenderMap()
+	productSvcMap := make(map[string]*commonmodels.ProductService)
+	productChartSvcMap := make(map[string]*commonmodels.ProductService)
+	if productSvc.FromZadig() {
+		if !commonutil.ServiceDeployed(productSvc.ServiceName, newProductInfo.ServiceDeployStrategy) {
+			newProductInfo.ServiceDeployStrategy[productSvc.ServiceName] = setting.ServiceDeployStrategyDeploy
+		}
+
+		chartMap[productSvc.ServiceName] = chartInfo
+
+		for _, service := range newProductInfo.GetServiceMap() {
+			productSvcMap[service.ServiceName] = service
+		}
+		productSvcMap[productSvc.ServiceName] = product.GetServiceMap()[productSvc.ServiceName]
+	} else {
+		if !commonutil.ReleaseDeployed(productSvc.ReleaseName, newProductInfo.ServiceDeployStrategy) {
+			newProductInfo.ServiceDeployStrategy[commonutil.GetReleaseDeployStrategyKey(productSvc.ReleaseName)] = setting.ServiceDeployStrategyDeploy
+		}
+
+		chartDeployMap[productSvc.ReleaseName] = chartInfo
+
+		productChartSvcMap[productSvc.ReleaseName] = product.GetChartServiceMap()[productSvc.ReleaseName]
+		if productChartSvcMap[productSvc.ReleaseName] == nil {
+			productChartSvcMap[productSvc.ReleaseName] = productSvc
+		}
 	}
-	chartMap[productSvc.ServiceName] = renderSet.GetChartRenderMap()[productSvc.ServiceName]
+
 	curRenderInfo.ChartInfos = make([]*templatemodels.ServiceRender, 0)
-	for _, chartInfo := range chartMap {
-		if chartInfo.IsHelmChartDeploy && chartInfo.ReleaseName == releaseName {
+	for _, chart := range chartMap {
+		if chart.ReleaseName == releaseName {
 			continue
 		}
 
-		curRenderInfo.ChartInfos = append(curRenderInfo.ChartInfos, chartInfo)
+		curRenderInfo.ChartInfos = append(curRenderInfo.ChartInfos, chart)
+	}
+	for _, chart := range chartDeployMap {
+		if chart.ReleaseName == releaseName {
+			continue
+		}
+
+		curRenderInfo.ChartInfos = append(curRenderInfo.ChartInfos, chart)
 	}
 	err = render.CreateRenderSet(curRenderInfo, log.SugaredLogger())
 	if err != nil {
@@ -323,13 +397,12 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	}
 
 	newProductInfo.Render.Revision = curRenderInfo.Revision
-	productSvcMap := make(map[string]*commonmodels.ProductService)
-	for _, service := range newProductInfo.GetServiceMap() {
-		productSvcMap[service.ServiceName] = service
-	}
-	productSvcMap[productSvc.ServiceName] = product.GetServiceMap()[productSvc.ServiceName]
+
 	newProductInfo.Services = [][]*commonmodels.ProductService{{}}
 	for _, service := range productSvcMap {
+		newProductInfo.Services[0] = append(newProductInfo.Services[0], service)
+	}
+	for _, service := range productChartSvcMap {
 		newProductInfo.Services[0] = append(newProductInfo.Services[0], service)
 	}
 
@@ -450,7 +523,7 @@ func UpgradeHelmChartRelease(product *commonmodels.Product, renderSet *commonmod
 	}
 
 	if !commonutil.ReleaseDeployed(productSvc.ReleaseName, newProductInfo.ServiceDeployStrategy) {
-		newProductInfo.ServiceDeployStrategy[productSvc.ServiceName] = setting.ServiceDeployStrategyDeploy
+		newProductInfo.ServiceDeployStrategy[commonutil.GetReleaseDeployStrategyKey(productSvc.ReleaseName)] = setting.ServiceDeployStrategyDeploy
 	}
 
 	curRenderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{

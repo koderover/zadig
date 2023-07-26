@@ -96,9 +96,6 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 		chartInfo = &template.ServiceRender{
 			ReleaseName:       deploy.ReleaseName,
 			IsHelmChartDeploy: true,
-			ChartRepo:         deploy.ChartRepo,
-			ChartName:         deploy.ChartName,
-			ChartVersion:      deploy.ChartVersion,
 		}
 	}
 	if chartInfo.OverrideYaml == nil {
@@ -106,6 +103,9 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 	}
 
 	valuesYaml := deploy.ValuesYaml
+	chartInfo.ChartRepo = deploy.ChartRepo
+	chartInfo.ChartName = deploy.ChartName
+	chartInfo.ChartVersion = deploy.ChartVersion
 	chartInfo.OverrideYaml.YamlContent = valuesYaml
 	c.ack()
 
@@ -113,16 +113,6 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 		c.workflowCtx.ProjectName, deploy.ReleaseName, c.namespace, valuesYaml, chartInfo.OverrideValues)
 
 	timeOut := c.timeout()
-
-	param := &kube.HelmChartInstallParam{
-		ProductName:  c.workflowCtx.ProjectName,
-		EnvName:      c.jobTaskSpec.Env,
-		ReleaseName:  deploy.ReleaseName,
-		ChartRepo:    deploy.ChartRepo,
-		ChartName:    deploy.ChartName,
-		ChartVersion: deploy.ChartVersion,
-		VariableYaml: valuesYaml,
-	}
 
 	productChartService := productInfo.GetChartServiceMap()[deploy.ReleaseName]
 	if productChartService == nil {
@@ -136,7 +126,7 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 
 	done := make(chan bool)
 	go func(chan bool) {
-		if err = kube.UpgradeHelmChartRelease(productInfo, renderSet, productChartService, param, timeOut); err != nil {
+		if err = kube.UpgradeHelmRelease(productInfo, renderSet, productChartService, nil, nil, timeOut); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",
