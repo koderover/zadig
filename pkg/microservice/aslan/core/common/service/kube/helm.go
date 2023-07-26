@@ -381,17 +381,15 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 
 	curRenderInfo.ChartInfos = make([]*templatemodels.ServiceRender, 0)
 	for _, chart := range chartMap {
-		if chart.ReleaseName == releaseName {
+		if !productSvc.FromZadig() && chart.ReleaseName == releaseName {
 			continue
 		}
-
 		curRenderInfo.ChartInfos = append(curRenderInfo.ChartInfos, chart)
 	}
 	for _, chart := range chartDeployMap {
-		if chart.ReleaseName == releaseName {
+		if productSvc.FromZadig() && chart.ReleaseName == releaseName {
 			continue
 		}
-
 		curRenderInfo.ChartInfos = append(curRenderInfo.ChartInfos, chart)
 	}
 	err = render.CreateRenderSet(curRenderInfo, log.SugaredLogger())
