@@ -23,7 +23,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	picketuser "github.com/koderover/zadig/pkg/microservice/picket/client/user"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/user"
@@ -184,7 +183,7 @@ func DeleteRoleBindings(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", projectName, detail, ctx.Logger, args.Names...)
 
-	_, err = picketuser.New().DeleteUser(userID, c.Request.Header, c.Request.URL.Query())
+	_, err = user.New().DeleteUser(userID, c.Request.Header, c.Request.URL.Query())
 	if err != nil {
 		return
 	}
