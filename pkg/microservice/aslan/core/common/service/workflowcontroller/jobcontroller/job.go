@@ -256,13 +256,8 @@ func logError(job *commonmodels.JobTask, msg string, logger *zap.SugaredLogger) 
 }
 
 // update product image info
-func updateProductImageByNs(namespace, productName, serviceName string, targets map[string]string, logger *zap.SugaredLogger) error {
-	opt := &commonrepo.ProductEnvFindOptions{
-		Name:      productName,
-		Namespace: namespace,
-	}
-
-	prod, err := commonrepo.NewProductColl().FindEnv(opt)
+func updateProductImageByNs(envName, productName, serviceName string, targets map[string]string, logger *zap.SugaredLogger) error {
+	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: envName, Name: productName})
 
 	if err != nil {
 		logger.Errorf("find product namespace error: %v", err)
