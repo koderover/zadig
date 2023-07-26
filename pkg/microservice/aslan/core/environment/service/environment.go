@@ -3160,10 +3160,11 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 
 	// chart infos in product
 	currentChartInfoMap := make(map[string]*templatemodels.ServiceRender)
+	currentChartDeployInfoMap := make(map[string]*templatemodels.ServiceRender)
 	for _, renderInfo := range currentEnvRenderSet.ChartInfos {
 		if _, ok1 := renderChartArgMap[renderInfo.ServiceName]; ok1 {
 			if svc, ok2 := serviceMap[renderInfo.ServiceName]; ok2 {
-				if renderInfo.IsHelmChartDeploy && svc.ReleaseName == renderInfo.ReleaseName {
+				if renderInfo.IsHelmChartDeploy && renderInfo.ReleaseName == svc.ReleaseName {
 					continue
 				}
 			}
@@ -3172,7 +3173,11 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 			continue
 		}
 
-		currentChartInfoMap[renderInfo.ServiceName] = renderInfo
+		if renderInfo.IsHelmChartDeploy {
+			currentChartDeployInfoMap[renderInfo.ReleaseName] = renderInfo
+		} else {
+			currentChartInfoMap[renderInfo.ServiceName] = renderInfo
+		}
 	}
 
 	newChartInfos := make([]*templatemodels.ServiceRender, 0)
@@ -3237,6 +3242,9 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 			renderArg.FillRenderChartModel(latestChartInfo, latestChartInfo.ChartVersion)
 		}
 		newChartInfos = append(newChartInfos, latestChartInfo)
+	}
+	for _, chartInfo := range currentChartDeployInfoMap {
+		newChartInfos = append(newChartInfos, chartInfo)
 	}
 
 	if err = render.CreateK8sHelmRenderSet(
