@@ -626,6 +626,8 @@ type workloadFilter struct {
 	ServiceName     string      `json:"serviceName"`
 	ReleaseName     string      `json:"releaseName"`
 	ReleaseNameList sets.String `json:"-"`
+	ChartName       string      `json:"chartName"`
+	ChartNameList   sets.String `json:"-"`
 }
 
 type wfAlias workloadFilter
@@ -636,11 +638,14 @@ func (f *workloadFilter) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	f.Name = aliasData.Name
-	//f.ServiceName = aliasData.ServiceName
 	f.ReleaseName = aliasData.ReleaseName
 	if f.ReleaseName != "*" {
 		serviceNames := strings.Split(f.ReleaseName, "|")
 		f.ReleaseNameList = sets.NewString(serviceNames...)
+	}
+	if f.ChartName != "*" {
+		chartNames := strings.Split(f.ChartName, "|")
+		f.ChartNameList = sets.NewString(chartNames...)
 	}
 	return nil
 }
@@ -653,6 +658,11 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 	}
 	if len(f.ReleaseNameList) > 0 {
 		if !f.ReleaseNameList.Has(workload.ReleaseName) {
+			return false
+		}
+	}
+	if len(f.ChartNameList) > 0 {
+		if !f.ChartNameList.Has(workload.ChartName) {
 			return false
 		}
 	}
@@ -669,7 +679,8 @@ type Workload struct {
 	Ready       bool                   `json:"ready"`
 	Annotation  map[string]string      `json:"-"`
 	Status      string                 `json:"-"`
-	ReleaseName string                 `json:"service_name"` //serviceName refers to the service defines in zadig
+	ReleaseName string                 `json:"-"` //ReleaseName refers to the releaseName of helm services
+	ChartName   string                 `json:"-"` //ChartName refers to chartName of helm services
 }
 
 // fillServiceName set service name defined in zadig to workloads, this would be helpful for helm release view
@@ -688,14 +699,14 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 	if productInfo.Source != setting.SourceFromHelm {
 		return nil
 	}
-	//releaseNameMap, err := commonutil.GetReleaseNameToServiceNameMap(productInfo)
-	//if err != nil {
-	//	return err
-	//}
+	releaseChartNameMap, err := commonutil.GetReleaseNameToChartNameMap(productInfo)
+	if err != nil {
+		return err
+	}
 	for _, wl := range workloads {
 		if chartRelease, ok := wl.Annotation[setting.HelmReleaseNameAnnotation]; ok {
-			//wl.ServiceName = releaseNameMap[chartRelease]
 			wl.ReleaseName = chartRelease
+			wl.ChartName = releaseChartNameMap[wl.ReleaseName]
 		}
 	}
 	return nil
