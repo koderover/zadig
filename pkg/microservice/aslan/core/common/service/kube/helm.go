@@ -591,7 +591,7 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 			continue
 		}
 		if prodSvcMap[serviceName] == nil {
-			releaseNameToChartProdSvcMap[releaseName] = prodChartSvcMap[serviceName]
+			releaseNameToChartProdSvcMap[releaseName] = prodChartSvcMap[releaseName]
 		} else {
 			if prodSvcMap[serviceName] == nil {
 				return fmt.Errorf("failed to find service %s(release %s) in product %s", serviceName, releaseName, productInfo.ProductName)

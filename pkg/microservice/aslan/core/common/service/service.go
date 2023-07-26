@@ -958,7 +958,7 @@ func ListServicesInEnv(envName, productName string, newSvcKVsMap map[string][]*c
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	env, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return nil, e.ErrGetService.AddErr(err)
+		return nil, e.ErrGetService.AddErr(fmt.Errorf("failed to find env %s:%s", productName, envName))
 	}
 
 	latestSvcs, err := repository.ListMaxRevisionsServices(productName, env.Production)

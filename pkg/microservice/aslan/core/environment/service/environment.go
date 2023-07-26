@@ -1034,7 +1034,6 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 				ProductName:  productName,
 				Revision:     templateService.Revision,
 				Containers:   templateService.Containers,
-				VariableYaml: templateService.VariableYaml,
 			}
 		}
 
@@ -1042,7 +1041,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 		if targetChart == nil {
 			targetChart = &templatemodels.ServiceRender{
 				ServiceName:  serviceOrReleaseName,
-				ValuesYaml:   prodSvc.VariableYaml,
+				ValuesYaml:   templateService.HelmChart.ValuesYaml,
 				OverrideYaml: &templatemodels.CustomYaml{},
 			}
 			renderSet.ChartInfos = append(renderSet.ChartInfos, targetChart)
@@ -3260,14 +3259,6 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 }
 
 func diffRenderSetHelmChart(username, productName, envName string, productResp *commonmodels.Product, overrideCharts []*commonservice.HelmSvcRenderArg, deletedReleases []string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
-	// chart infos from client
-	renderChartArgMap := make(map[string]*commonservice.HelmSvcRenderArg)
-	for _, singleArg := range overrideCharts {
-		if singleArg.EnvName == envName {
-			renderChartArgMap[singleArg.ServiceName] = singleArg
-		}
-	}
-
 	renderSetOpt := &commonrepo.RenderSetFindOption{
 		Name:        productResp.Render.Name,
 		Revision:    productResp.Render.Revision,
@@ -3279,12 +3270,6 @@ func diffRenderSetHelmChart(username, productName, envName string, productResp *
 		return nil, err
 	}
 	defaultValues, yamlData := currentEnvRenderSet.DefaultValues, currentEnvRenderSet.YamlData
-
-	// chart infos in product
-	currentChartInfoMap := make(map[string]*templatemodels.ServiceRender)
-	for _, renderInfo := range currentEnvRenderSet.ChartInfos {
-		currentChartInfoMap[renderInfo.ServiceName] = renderInfo
-	}
 
 	requestChartInfoMap := make(map[string]*templatemodels.ServiceRender)
 
@@ -3305,19 +3290,19 @@ func diffRenderSetHelmChart(username, productName, envName string, productResp *
 
 	deletedReleasesSet := sets.NewString(deletedReleases...)
 	newChartInfos := make([]*templatemodels.ServiceRender, 0)
-	for releaseName, currentChartInfo := range currentChartInfoMap {
-		if deletedReleasesSet.Has(releaseName) {
+	for _, currentChartInfo := range currentEnvRenderSet.ChartInfos {
+		if deletedReleasesSet.Has(currentChartInfo.ReleaseName) {
 			continue
 		}
 
-		requestChartInfo, okR := requestChartInfoMap[releaseName]
+		requestChartInfo, okR := requestChartInfoMap[currentChartInfo.ReleaseName]
 		if !okR {
 			newChartInfos = append(newChartInfos, currentChartInfo)
 			continue
 		}
 
 		newChartInfos = append(newChartInfos, requestChartInfo)
-		delete(requestChartInfoMap, releaseName)
+		delete(requestChartInfoMap, currentChartInfo.ReleaseName)
 	}
 
 	for _, chartInfo := range requestChartInfoMap {
