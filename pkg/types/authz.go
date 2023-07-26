@@ -51,5 +51,6 @@ type CheckCollaborationModePermissionResp struct {
 
 type ListAuthorizedProjectResp struct {
 	ProjectList []string `json:"project_list"`
+	Found       bool     `json:"found"`
 	Error       string   `json:"error"`
 }

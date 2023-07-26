@@ -138,18 +138,35 @@ type ProductListByFilterOpt struct {
 }
 
 func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*ProjectInfo, int, error) {
-	filter := bson.M{}
-	if opt.Filter != "" {
-		filter["$or"] = bson.A{
-			bson.M{"project_name": bson.M{"$regex": opt.Filter, "$options": "i"}},
-			bson.M{"product_name": bson.M{"$regex": opt.Filter, "$options": "i"}},
-			bson.M{"project_name_pinyin": bson.M{"$regex": opt.Filter, "$options": "i"}},
-			bson.M{"project_name_pinyin_first_letter": bson.M{"$regex": opt.Filter, "$options": "i"}},
-		}
+	fullFindOptions := []bson.M{
+		{"public": true},
 	}
 
 	if len(opt.Names) > 0 {
-		filter["product_name"] = bson.M{"$in": opt.Names}
+		fullFindOptions = append(fullFindOptions, bson.M{"product_name": bson.M{"$in": opt.Names}})
+	}
+
+	findOption := bson.M{
+		"$or": fullFindOptions,
+	}
+
+	finalSearchCondition := []bson.M{
+		findOption,
+	}
+
+	if opt.Filter != "" {
+		finalSearchCondition = append(finalSearchCondition, bson.M{
+			"$or": bson.A{
+				bson.M{"project_name": bson.M{"$regex": opt.Filter, "$options": "i"}},
+				bson.M{"product_name": bson.M{"$regex": opt.Filter, "$options": "i"}},
+				bson.M{"project_name_pinyin": bson.M{"$regex": opt.Filter, "$options": "i"}},
+				bson.M{"project_name_pinyin_first_letter": bson.M{"$regex": opt.Filter, "$options": "i"}},
+			},
+		})
+	}
+
+	filter := bson.M{
+		"$and": finalSearchCondition,
 	}
 
 	projection := bson.M{
@@ -240,14 +257,24 @@ func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error
 }
 
 func (c *ProductColl) listProjects(inNames []string, projection bson.M) ([]*ProjectInfo, error) {
-	filter := bson.M{}
+	filter := []bson.M{
+		{"public": true},
+	}
 	if len(inNames) > 0 {
-		filter["product_name"] = bson.M{"$in": inNames}
+		filter = append(filter, bson.M{
+			"product_name": bson.M{
+				"$in": inNames,
+			},
+		})
+	}
+
+	query := bson.M{
+		"$or": filter,
 	}
 
 	pipeline := []bson.M{
 		{
-			"$match": filter,
+			"$match": query,
 		},
 		{
 			"$project": projection,

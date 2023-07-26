@@ -136,9 +136,9 @@ func GetCollaborationModePermission(uid, projectKey, resource, resourceName, act
 	return user.New().CheckUserAuthInfoForCollaborationMode(uid, projectKey, resource, resourceName, action)
 }
 
-func ListAuthorizedProjects(uid string) ([]string, error) {
+func ListAuthorizedProjects(uid string) ([]string, bool, error) {
 	if uid == "" {
-		return []string{}, errors.New("empty user ID")
+		return []string{}, false, errors.New("empty user ID")
 	}
 	return user.New().ListAuthorizedProjects(uid)
 }

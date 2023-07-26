@@ -36,6 +36,11 @@ type projectListArgs struct {
 	Filter           string   `json:"filter"           form:"filter"`
 }
 
+type projectResp struct {
+	Projects []string `json:"projects"`
+	Total    int64    `json:"total"`
+}
+
 func ListProjects(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -58,13 +63,20 @@ func ListProjects(c *gin.Context) {
 	if ctx.Resources.IsSystemAdmin {
 		authorizedProjectList = []string{}
 	} else {
-		authorizedProjectList, err = internalhandler.ListAuthorizedProjects(ctx.UserID)
+		var found bool
+		authorizedProjectList, found, err = internalhandler.ListAuthorizedProjects(ctx.UserID)
 		if err != nil {
 			ctx.Err = e.ErrInternalError.AddDesc(err.Error())
 			return
 		}
-		ctx.Logger.Infof("authorized project list: %+v", authorizedProjectList)
-		ctx.Logger.Infof("authorized project list length: %d", len(authorizedProjectList))
+
+		if !found {
+			ctx.Resp = &projectResp{
+				Projects: []string{},
+				Total:    0,
+			}
+			return
+		}
 	}
 
 	ctx.Resp, ctx.Err = projectservice.ListProjects(
