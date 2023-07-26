@@ -399,7 +399,7 @@ BetaCronLoop:
 	if !replaced {
 		return fmt.Errorf("service %s container name %s is not found in env %s", c.jobTaskSpec.ServiceName, serviceModule.ServiceModule, c.jobTaskSpec.Env)
 	}
-	if err := updateProductImageByNs(env.Namespace, c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, map[string]string{serviceModule.ServiceModule: serviceModule.Image}, c.logger); err != nil {
+	if err := updateProductImageByNs(env.EnvName, c.workflowCtx.ProjectName, c.jobTaskSpec.ServiceName, map[string]string{serviceModule.ServiceModule: serviceModule.Image}, c.logger); err != nil {
 		return err
 	}
 	return nil
