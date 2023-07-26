@@ -686,13 +686,14 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 	if productInfo.Source != setting.SourceFromHelm {
 		return nil
 	}
-	releaseNameMap, err := commonutil.GetReleaseNameToServiceNameMap(productInfo)
-	if err != nil {
-		return err
-	}
+	//releaseNameMap, err := commonutil.GetReleaseNameToServiceNameMap(productInfo)
+	//if err != nil {
+	//	return err
+	//}
 	for _, wl := range workloads {
 		if chartRelease, ok := wl.Annotation[setting.HelmReleaseNameAnnotation]; ok {
-			wl.ServiceName = releaseNameMap[chartRelease]
+			//wl.ServiceName = releaseNameMap[chartRelease]
+			wl.ServiceName = chartRelease
 		}
 	}
 	return nil
