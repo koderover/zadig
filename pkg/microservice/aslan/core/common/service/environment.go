@@ -623,7 +623,6 @@ type FilterFunc func(services []*Workload) []*Workload
 
 type workloadFilter struct {
 	Name            string      `json:"name"`
-	ServiceName     string      `json:"serviceName"`
 	ReleaseName     string      `json:"releaseName"`
 	ReleaseNameList sets.String `json:"-"`
 	ChartName       string      `json:"chartName"`
@@ -648,6 +647,7 @@ func (f *workloadFilter) UnmarshalJSON(data []byte) error {
 		chartNames := strings.Split(f.ChartName, "|")
 		f.ChartNameList = sets.NewString(chartNames...)
 	}
+	log.Debugf("workload filter: %+v", f)
 	return nil
 }
 
