@@ -301,6 +301,9 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 		Timeout:      timeout,
 		Production:   product.Production,
 	}
+	if !productSvc.FromZadig() {
+		param.IsChartInstall = true
+	}
 
 	ensureUpgrade := func() error {
 		hrs, errHistory := helmClient.ListReleaseHistory(param.ReleaseName, 10)
