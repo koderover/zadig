@@ -353,8 +353,8 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 
 	chartMap := curRenderInfo.GetChartRenderMap()
 	chartDeployMap := curRenderInfo.GetChartDeployRenderMap()
-	productSvcMap := make(map[string]*commonmodels.ProductService)
-	productChartSvcMap := make(map[string]*commonmodels.ProductService)
+	productSvcMap := newProductInfo.GetServiceMap()
+	productChartSvcMap := newProductInfo.GetChartServiceMap()
 	if productSvc.FromZadig() {
 		if !commonutil.ServiceDeployed(productSvc.ServiceName, newProductInfo.ServiceDeployStrategy) {
 			newProductInfo.ServiceDeployStrategy[productSvc.ServiceName] = setting.ServiceDeployStrategyDeploy
@@ -362,9 +362,6 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 
 		chartMap[productSvc.ServiceName] = chartInfo
 
-		for _, service := range newProductInfo.GetServiceMap() {
-			productSvcMap[service.ServiceName] = service
-		}
 		productSvcMap[productSvc.ServiceName] = product.GetServiceMap()[productSvc.ServiceName]
 	} else {
 		if !commonutil.ReleaseDeployed(productSvc.ReleaseName, newProductInfo.ServiceDeployStrategy) {
