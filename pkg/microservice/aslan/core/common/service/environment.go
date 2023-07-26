@@ -624,7 +624,8 @@ type FilterFunc func(services []*Workload) []*Workload
 type workloadFilter struct {
 	Name            string      `json:"name"`
 	ServiceName     string      `json:"serviceName"`
-	ServiceNameList sets.String `json:"-"`
+	ReleaseName     string      `json:"releaseName"`
+	ReleaseNameList sets.String `json:"-"`
 }
 
 type wfAlias workloadFilter
@@ -635,10 +636,11 @@ func (f *workloadFilter) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	f.Name = aliasData.Name
-	f.ServiceName = aliasData.ServiceName
-	if f.ServiceName != "*" {
-		serviceNames := strings.Split(f.ServiceName, "|")
-		f.ServiceNameList = sets.NewString(serviceNames...)
+	//f.ServiceName = aliasData.ServiceName
+	f.ReleaseName = aliasData.ReleaseName
+	if f.ReleaseName != "*" {
+		serviceNames := strings.Split(f.ReleaseName, "|")
+		f.ReleaseNameList = sets.NewString(serviceNames...)
 	}
 	return nil
 }
@@ -649,8 +651,8 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 			return false
 		}
 	}
-	if len(f.ServiceNameList) > 0 {
-		if !f.ServiceNameList.Has(workload.ServiceName) {
+	if len(f.ReleaseNameList) > 0 {
+		if !f.ReleaseNameList.Has(workload.ReleaseName) {
 			return false
 		}
 	}
@@ -667,7 +669,7 @@ type Workload struct {
 	Ready       bool                   `json:"ready"`
 	Annotation  map[string]string      `json:"-"`
 	Status      string                 `json:"-"`
-	ServiceName string                 `json:"service_name"` //serviceName refers to the service defines in zadig
+	ReleaseName string                 `json:"service_name"` //serviceName refers to the service defines in zadig
 }
 
 // fillServiceName set service name defined in zadig to workloads, this would be helpful for helm release view
@@ -693,7 +695,7 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 	for _, wl := range workloads {
 		if chartRelease, ok := wl.Annotation[setting.HelmReleaseNameAnnotation]; ok {
 			//wl.ServiceName = releaseNameMap[chartRelease]
-			wl.ServiceName = chartRelease
+			wl.ReleaseName = chartRelease
 		}
 	}
 	return nil
