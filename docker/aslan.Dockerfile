@@ -10,6 +10,7 @@ COPY go.mod go.sum ./
 COPY cmd cmd
 COPY pkg pkg
 
+RUN go mod tidy
 RUN go mod download
 
 RUN --mount=type=cache,id=gobuild,target=/gocache \
