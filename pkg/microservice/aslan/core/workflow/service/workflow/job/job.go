@@ -61,6 +61,8 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &BuildJob{job: job, workflow: workflow}
 	case config.JobZadigDeploy:
 		resp = &DeployJob{job: job, workflow: workflow}
+	case config.JobZadigHelmChartDeploy:
+		resp = &HelmChartDeployJob{job: job, workflow: workflow}
 	case config.JobPlugin:
 		resp = &PluginJob{job: job, workflow: workflow}
 	case config.JobFreestyle:

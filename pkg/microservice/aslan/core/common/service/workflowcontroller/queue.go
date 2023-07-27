@@ -124,6 +124,12 @@ func InitQueue() error {
 			continue
 		}
 	}
+
+	// clear all cancel pipeline task msgs when aslan restart
+	err = commonrepo.NewMsgQueueCommonColl().DeleteByQueueType(setting.TopicCancel)
+	if err != nil {
+		log.Warnf("remove cancel msgs error: %v", err)
+	}
 	return nil
 }
 

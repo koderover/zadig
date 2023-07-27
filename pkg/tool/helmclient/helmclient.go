@@ -58,6 +58,7 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
@@ -608,6 +609,8 @@ func (hClient *HelmClient) FetchIndexYaml(repoEntry *repo.Entry) (*repo.IndexFil
 // since pulling from OCI Registry is still considered as an EXPERIMENTAL feature
 // we DO NOT support pulling charts by pulling OCI Artifacts from OCI Registry
 // NOTE consider using os.execCommand('helm pull') to reduce code complexity of offering compatibility since third-party plugins CANNOT be used as SDK
+// if unTar is true, no need to mkdir for destDir
+// if unTar is no, your need to mkdir for destDir yourself
 func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
 	hClient.lock.Lock()
 	defer hClient.lock.Unlock()
@@ -706,6 +709,26 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) er
 	} else {
 		return hClient.pushChartMuseum(repoEntry, chartPath)
 	}
+}
+
+func (hClient *HelmClient) GetChartValues(repoEntry *repo.Entry, projectName, releaseName, chartRepo, chartName, chartVersion string) (string, error) {
+	chartRef := fmt.Sprintf("%s/%s", chartRepo, chartName)
+	localPath := config.LocalServicePathWithRevision(projectName, releaseName, chartVersion, true)
+	// remove local file to untar
+	_ = os.RemoveAll(localPath)
+
+	err := hClient.DownloadChart(repoEntry, chartRef, chartVersion, localPath, true)
+	if err != nil {
+		return "", fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", chartName, repoEntry.Name, err)
+	}
+
+	fsTree := os.DirFS(localPath)
+	valuesYAML, err := util.ReadValuesYAML(fsTree, chartName, log.SugaredLogger())
+	if err != nil {
+		return "", err
+	}
+
+	return string(valuesYAML), nil
 }
 
 // NOTE: When using this method, pay attention to whether restConfig is present in the original client.

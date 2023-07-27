@@ -17,18 +17,9 @@ limitations under the License.
 package config
 
 import (
-	"strings"
-
-	"github.com/spf13/viper"
-
 	configbase "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/setting"
 )
 
 func CollieAPI() string {
 	return configbase.CollieServiceAddress()
-}
-
-func NsqLookupAddrs() []string {
-	return strings.Split(viper.GetString(setting.ENVNsqLookupAddrs), ",")
 }

@@ -50,6 +50,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -57,7 +58,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
@@ -67,6 +67,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/lark"
@@ -1619,8 +1620,12 @@ func CreateCronForWorkflowV4(workflowName string, input *commonmodels.Cronjob, l
 	}
 
 	pl, _ := json.Marshal(payload)
-	if err := nsq.Publish(setting.TopicCronjob, pl); err != nil {
-		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+	err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
+		Payload:   string(pl),
+		QueueType: setting.TopicCronjob,
+	})
+	if err != nil {
+		log.Errorf("Failed to publish cron to MsgQueueCommon, the error is: %v", err)
 		return e.ErrUpsertCronjob.AddDesc(err.Error())
 	}
 	return nil
@@ -1655,8 +1660,12 @@ func UpdateCronForWorkflowV4(input *commonmodels.Cronjob, logger *zap.SugaredLog
 	}
 
 	pl, _ := json.Marshal(payload)
-	if err := nsq.Publish(setting.TopicCronjob, pl); err != nil {
-		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+	err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
+		Payload:   string(pl),
+		QueueType: setting.TopicCronjob,
+	})
+	if err != nil {
+		log.Errorf("Failed to publish cron to MsgQueueCommon, the error is: %v", err)
 		return e.ErrUpsertCronjob.AddDesc(err.Error())
 	}
 	return nil
@@ -1724,8 +1733,12 @@ func DeleteCronForWorkflowV4(workflowName, cronID string, logger *zap.SugaredLog
 	}
 
 	pl, _ := json.Marshal(payload)
-	if err := nsq.Publish(setting.TopicCronjob, pl); err != nil {
-		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+	err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
+		Payload:   string(pl),
+		QueueType: setting.TopicCronjob,
+	})
+	if err != nil {
+		log.Errorf("Failed to publish cron to MsgQueueCommon, the error is: %v", err)
 		return e.ErrUpsertCronjob.AddDesc(err.Error())
 	}
 	if err := commonrepo.NewCronjobColl().Delete(&commonrepo.CronjobDeleteOption{IDList: []string{cronID}}); err != nil {
@@ -1997,21 +2010,47 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	return resp, nil
 }
 
-func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, images []string, isProduction, updateServiceRevision bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, images []string, isProduction, updateServiceRevision, isHelmChartDeploy bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
+	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
+	}
+
+	if isHelmChartDeploy {
+		renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+			Name:        prod.Render.Name,
+			ProductTmpl: prod.Render.ProductTmpl,
+			Revision:    prod.Render.Revision,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find render set name: %s, revision: %s, err: %s", prod.Render.Name, prod.Render.ProductTmpl, err)
+		}
+
+		currentYaml := ""
+		for _, chartInfo := range renderSet.ChartInfos {
+			if chartInfo.IsHelmChartDeploy && chartInfo.ReleaseName == serviceName {
+				currentYaml, err = helmtool.MergeOverrideValues("", "", chartInfo.GetOverrideYaml(), chartInfo.OverrideValues, nil)
+				if err != nil {
+					return nil, fmt.Errorf("failed to merge override values, err: %s", err)
+				}
+				break
+			}
+		}
+		return &GetHelmValuesDifferenceResp{
+			Current: currentYaml,
+			Latest:  variableYaml,
+		}, nil
+	}
+
 	// first we get the current yaml in the current environment
 	currentYaml := ""
-	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, isProduction)
+	resp, err := commonservice.GetChartValues(projectName, envName, serviceName, false, isProduction)
 	if err != nil {
 		log.Infof("failed to get the current service[%s] values from project: %s, env: %s", serviceName, projectName, envName)
 		currentYaml = ""
 	} else {
 		currentYaml = resp.ValuesYaml
-	}
-
-	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
-	prod, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find project: %s, err: %s", projectName, err)
 	}
 
 	param := &kube.ResourceApplyParam{

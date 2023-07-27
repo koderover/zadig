@@ -30,10 +30,10 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -97,9 +97,12 @@ func HandleCronjob(testing *commonmodels.Testing, log *zap.SugaredLogger) error 
 			payload.Action = setting.TypeDisableCronjob
 		}
 		pl, _ := json.Marshal(payload)
-		err := nsq.Publish(setting.TopicCronjob, pl)
+		err := commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
+			Payload:   string(pl),
+			QueueType: setting.TopicCronjob,
+		})
 		if err != nil {
-			log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+			log.Errorf("Failed to publish cron to MsgQueueCommon, the error is: %v", err)
 			return e.ErrUpsertCronjob.AddDesc(err.Error())
 		}
 	}

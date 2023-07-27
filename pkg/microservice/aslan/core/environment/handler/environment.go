@@ -47,6 +47,10 @@ type DeleteProductServicesRequest struct {
 	ServiceNames []string `json:"service_names"`
 }
 
+type DeleteProductHelmReleaseRequest struct {
+	ReleaseNames []string `json:"release_names"`
+}
+
 type ChartInfoArgs struct {
 	ChartInfos []*template.ServiceRender `json:"chart_infos"`
 }
@@ -147,6 +151,20 @@ func UpdateMultiProducts(c *gin.Context) {
 	updateMultiEnvWrapper(c, request, false, ctx)
 }
 
+// @Summary Update Multi production products
+// @Description Update Multi production products
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	type 			query		string								false	"type"
+// @Param 	force 			query		bool								true	"is force"
+// @Param 	k8s_body 		body 		[]service.UpdateEnv 				true 	"updateMultiK8sEnv body"
+// @Param 	helm_body 		body 		service.UpdateMultiHelmProductArg 	true 	"updateMultiHelmEnv body"
+// @Param 	helm_chart_body body 		service.UpdateMultiHelmProductArg 	true 	"updateMultiHelmChartEnv body"
+// @Param 	pm_body 		body 		[]service.UpdateEnv				 	true 	"updateMultiCvmEnv body"
+// @Success 200
+// @Router /api/aslan/environment/production/environments [put]
 func UpdateMultiProductionProducts(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -731,9 +749,21 @@ func EstimatedValues(c *gin.Context) {
 	}
 	arg.Production = false
 
-	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, false, ctx.Logger)
 }
 
+// @Summary Get Production Estimated Values
+// @Description Get Production Estimated Values
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 				path		string								true	"env name"
+// @Param 	projectName			query		string								true	"project name"
+// @Param 	serviceName			query		string								true	"service name or release name"
+// @Param 	isHelmChartDeploy	query		string								true	"is helm chart deploy"
+// @Param 	body 				body 		service.EstimateValuesArg			true 	"body"
+// @Success 200 				{object} 	service.RawYamlResp
+// @Router /api/aslan/environment/production/environments/{name}/estimated-values [post]
 func ProductionEstimatedValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -751,6 +781,12 @@ func ProductionEstimatedValues(c *gin.Context) {
 		return
 	}
 
+	isHelmChartDeploy := c.Query("isHelmChartDeploy")
+	if isHelmChartDeploy == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("isHelmChartDeploy can't be empty!")
+		return
+	}
+
 	arg := new(service.EstimateValuesArg)
 	if err := c.ShouldBind(arg); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -758,7 +794,8 @@ func ProductionEstimatedValues(c *gin.Context) {
 	}
 	arg.Production = true
 
-	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"),
+		arg, isHelmChartDeploy == "true", ctx.Logger)
 }
 
 func SyncHelmProductRenderset(c *gin.Context) {
@@ -1256,6 +1293,16 @@ func UpdateProductionEnvK8sProductGlobalVariables(c *gin.Context) {
 	ctx.Err = service.UpdateProductGlobalVariables(projectKey, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, ctx.Logger)
 }
 
+// @Summary Update helm product charts
+// @Description Update helm product charts
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	name			path		string							true	"env name"
+// @Param 	body 			body 		service.EnvRendersetArg 		true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/helm/charts [put]
 func UpdateHelmProductCharts(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1384,7 +1431,11 @@ func updateMultiEnvWrapper(c *gin.Context, request *service.UpdateEnvRequest, pr
 	case setting.PMDeployType:
 		updateMultiCvmEnv(c, request, ctx)
 	case setting.HelmDeployType:
-		updateMultiHelmEnv(c, request, production, ctx)
+		if request.Type == setting.HelmChartDeployType {
+			updateMultiHelmChartEnv(c, request, production, ctx)
+		} else {
+			updateMultiHelmEnv(c, request, production, ctx)
+		}
 	case setting.K8SDeployType:
 		updateMultiK8sEnv(c, request, production, ctx)
 	}
@@ -1449,6 +1500,35 @@ func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, produ
 	)
 }
 
+// TODO: fix header
+func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, production bool, ctx *internalhandler.Context) {
+	args := new(service.UpdateMultiHelmProductArg)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateProduct c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
+	}
+	args.ProductName = request.ProjectName
+
+	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
+	if found {
+		allowedSet := sets.NewString(allowedEnvs...)
+		currentSet := sets.NewString(args.EnvNames...)
+		if !allowedSet.IsSuperset(currentSet) {
+			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
+			return
+		}
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger, args.EnvNames...)
+
+	ctx.Resp, ctx.Err = service.UpdateMultipleHelmChartEnv(
+		ctx.RequestID, ctx.UserName, args, production, ctx.Logger,
+	)
+}
+
 func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *internalhandler.Context) {
 	args := make([]*service.UpdateEnv, 0)
 	data, err := c.GetRawData()
@@ -1471,6 +1551,15 @@ func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 	ctx.Resp, ctx.Err = service.UpdateMultiCVMProducts(envNames, request.ProjectName, ctx.UserName, ctx.RequestID, ctx.Logger)
 }
 
+// @Summary Get Product
+// @Description Get Product
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Success 200 		{object} 	service.ProductResp
+// @Router /api/aslan/environment/production/environments/{name} [get]
 func GetEnvironment(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1645,7 +1734,12 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectKey, envName, c.Query("serviceName"), false, ctx.Logger)
+	arg := &commonservice.GetSvcRenderRequest{}
+	if err := c.ShouldBindJSON(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectKey, envName, arg.GetSvcRendersArgs, false, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectKey, ctx.Err)
 	}
@@ -1687,7 +1781,12 @@ func GetProductionEstimatedRenderCharts(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectKey, envName, c.Query("serviceName"), true, ctx.Logger)
+	arg := &commonservice.GetSvcRenderRequest{}
+	if err := c.ShouldBindJSON(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(projectKey, envName, arg.GetSvcRendersArgs, true, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, projectKey, ctx.Err)
 	}
@@ -1876,6 +1975,50 @@ func DeleteProductionProductServices(c *gin.Context) {
 	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, true, ctx.Logger)
 }
 
+// @Summary Delete production helm release from envrionment
+// @Description Delete production helm release from envrionment
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	name			path		string							true	"env name"
+// @Param 	releaseNames	query		string							true	"release names"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/:name/helm/releases [delete]
+func DeleteProductionHelmReleases(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	releaseNames := c.Query("releaseNames")
+	envName := c.Param("name")
+	releaseNameArr := strings.Split(releaseNames, ",")
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的helm release", fmt.Sprintf("%s:[%s]", envName, releaseNames), "", ctx.Logger, envName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectKey, releaseNameArr, true, ctx.Logger)
+}
+
 func ListGroups(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -2037,6 +2180,14 @@ type workloadQueryArgs struct {
 	Filter      string `json:"filter"  form:"filter"`
 }
 
+// @Summary List Workloads In Env
+// @Description List Workloads In Env
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string										true	"env name"
+// @Success 200 		{array} 	commonservice.ServiceResp
+// @Router /api/aslan/environment/production/environments/{name}/workloads [get]
 func ListWorkloadsInEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

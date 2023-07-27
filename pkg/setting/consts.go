@@ -26,7 +26,6 @@ const (
 	ENVSystemAddress           = "ADDRESS"
 	ENVEnterprise              = "ENTERPRISE"
 	ENVMode                    = "MODE"
-	ENVNsqLookupAddrs          = "NSQLOOKUP_ADDRS"
 	ENVMongoDBConnectionString = "MONGODB_CONNECTION_STRING"
 	ENVAslanDBName             = "ASLAN_DB"
 	ENVHubAgentImage           = "HUB_AGENT_IMAGE"
@@ -87,6 +86,7 @@ const (
 
 	// warpdrive
 	WarpDrivePodName    = "WD_POD_NAME"
+	WarpDriveNamespace  = "BE_POD_NAMESPACE"
 	ReleaseImageTimeout = "RELEASE_IMAGE_TIMEOUT"
 
 	// reaper
@@ -237,7 +237,8 @@ const (
 	// K8SDeployType Containerized Deployment
 	K8SDeployType = "k8s"
 	// helm deployment
-	HelmDeployType = "helm"
+	HelmDeployType      = "helm"
+	HelmChartDeployType = "helm_chart"
 	// PMDeployType physical machine deploy method
 	PMDeployType          = "pm"
 	TrusteeshipDeployType = "trusteeship"
@@ -443,6 +444,7 @@ const (
 	GerritDefaultOwner = "dafault"
 	// YamlFileSeperator ...
 	YamlFileSeperator = "\n---\n"
+	HelmChartDeployStrategySuffix = "<+helm_chart>"
 )
 
 const MaskValue = "********"

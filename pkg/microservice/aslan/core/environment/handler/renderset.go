@@ -31,6 +31,16 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+// @Summary Get Service render charts
+// @Description Get service render charts
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	envName		query		string										false	"env name"
+// @Param 	body 		body 		commonservice.GetSvcRenderRequest 			true 	"body"
+// @Success 200 		{array} 	commonservice.HelmSvcRenderArg
+// @Router /api/aslan/environment/production/rendersets/renderchart [post]
 func GetServiceRenderCharts(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -71,7 +81,13 @@ func GetServiceRenderCharts(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(projectKey, envName, c.Query("serviceName"), ctx.Logger)
+	arg := &commonservice.GetSvcRenderRequest{}
+	if err := c.ShouldBindJSON(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, _, ctx.Err = commonservice.GetSvcRenderArgs(projectKey, envName, arg.GetSvcRendersArgs, ctx.Logger)
 }
 
 // @Summary Get service variables

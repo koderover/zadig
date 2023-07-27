@@ -43,22 +43,26 @@ type KVPair struct {
 }
 
 type ValuesDataArgs struct {
-	YamlSource    string      `json:"yamlSource,omitempty"`
-	SourceID      string      `json:"source_id,omitempty"`
-	AutoSync      bool        `json:"autoSync,omitempty"`
-	GitRepoConfig *RepoConfig `json:"gitRepoConfig,omitempty"`
+	YamlSource    string      `json:"yamlSource"`
+	SourceID      string      `json:"source_id"`
+	AutoSync      bool        `json:"autoSync"`
+	GitRepoConfig *RepoConfig `json:"gitRepoConfig"`
 }
 
 type HelmSvcRenderArg struct {
-	EnvName        string                     `json:"envName,omitempty"`
-	ServiceName    string                     `json:"serviceName,omitempty"`
-	ChartVersion   string                     `json:"chartVersion,omitempty"`
-	OverrideValues []*KVPair                  `json:"overrideValues,omitempty"`
-	OverrideYaml   string                     `json:"overrideYaml,omitempty"`
-	ValuesData     *ValuesDataArgs            `json:"valuesData,omitempty"`
-	YamlData       *templatemodels.CustomYaml `json:"yaml_data,omitempty"`
+	EnvName        string                     `json:"envName"`
+	ServiceName    string                     `json:"serviceName"`
+	IsChartDeploy  bool                       `json:"is_chart_deploy"`
+	ReleaseName    string                     `json:"release_name"`
+	ChartRepo      string                     `json:"chart_repo"`
+	ChartName      string                     `json:"chart_name"`
+	ChartVersion   string                     `json:"chartVersion"`
+	OverrideValues []*KVPair                  `json:"overrideValues"`
+	OverrideYaml   string                     `json:"overrideYaml"`
+	ValuesData     *ValuesDataArgs            `json:"valuesData"`
+	YamlData       *templatemodels.CustomYaml `json:"yaml_data"`
 	VariableYaml   string                     `json:"variable_yaml"`
-	DeployStrategy string                     `json:"deploy_strategy,omitempty"` // New since 1.16.0, used to determine if the service will be installed
+	DeployStrategy string                     `json:"deploy_strategy"` // New since 1.16.0, used to determine if the service will be installed
 }
 
 type K8sSvcRenderArg struct {
@@ -149,7 +153,11 @@ func (args *HelmSvcRenderArg) FillRenderChartModel(chart *templatemodels.Service
 // LoadFromRenderChartModel load from render chart model
 func (args *HelmSvcRenderArg) LoadFromRenderChartModel(chart *templatemodels.ServiceRender) {
 	args.ServiceName = chart.ServiceName
+	args.ChartName = chart.ChartName
+	args.ChartRepo = chart.ChartRepo
 	args.ChartVersion = chart.ChartVersion
+	args.ReleaseName = chart.ReleaseName
+	args.IsChartDeploy = chart.IsHelmChartDeploy
 	args.fromOverrideValueString(chart.OverrideValues)
 	args.fromCustomValueYaml(chart.OverrideYaml)
 }

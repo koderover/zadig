@@ -117,8 +117,8 @@ func (grc *GitRepoConfig) GetNamespace() string {
 }
 
 type CustomYaml struct {
-	YamlContent       string                          `bson:"yaml_content,omitempty"            json:"yaml_content,omitempty"`
-	RenderVariableKVs []*commontypes.RenderVariableKV `bson:"render_variable_kvs,omitempty"     json:"render_variable_kvs,omitempty"`
+	YamlContent       string                          `bson:"yaml_content"                      json:"yaml_content"`
+	RenderVariableKVs []*commontypes.RenderVariableKV `bson:"render_variable_kvs"               json:"render_variable_kvs"`
 	Source            string                          `bson:"source"                            json:"source"`
 	AutoSync          bool                            `bson:"auto_sync"                         json:"auto_sync"`
 	SourceDetail      interface{}                     `bson:"source_detail"                     json:"source_detail"`
@@ -127,9 +127,13 @@ type CustomYaml struct {
 
 // ServiceRender used for helm product service ...
 type ServiceRender struct {
-	ServiceName string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+	ServiceName       string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+	ReleaseName       string `bson:"release_name,omitempty"    json:"release_name,omitempty"`
+	IsHelmChartDeploy bool   `bson:"is_helm_chart_deploy,omitempty"    json:"is_helm_chart_deploy,omitempty"`
 
 	// ---- for helm services begin ----
+	ChartRepo      string `bson:"chart_repo,omitempty"   json:"chart_repo,omitempty"`
+	ChartName      string `bson:"chart_name,omitempty"   json:"chart_name,omitempty"`
 	ChartVersion   string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
 	ValuesYaml     string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
 	OverrideValues string `bson:"override_values,omitempty"   json:"override_values,omitempty"` // used for helm services, json-encoded string of kv value
@@ -138,6 +142,10 @@ type ServiceRender struct {
 	// OverrideYaml will be used in both helm and k8s projects
 	// In k8s this is variable_yaml
 	OverrideYaml *CustomYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
+}
+
+func (rc *ServiceRender) DeployedFromZadig() bool {
+	return !rc.IsHelmChartDeploy
 }
 
 type ProductFeature struct {

@@ -26,7 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nsqio/go-nsq"
 	"github.com/rfyiamcool/cronlib"
 
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
@@ -125,30 +124,24 @@ func InitExistedCronjob(client *client.Client, scheduler *cronlib.CronSchduler) 
 }
 
 // HandleMessage ...
-func (h *CronjobHandler) HandleMessage(message *nsq.Message) error {
-	fmt.Printf("MESSAGE IN: %s, ATTEMPT: %d\n", message.Body, message.Attempts)
-
-	var msg *service.CronjobPayload
-	if err := json.Unmarshal(message.Body, &msg); err != nil {
-		log.Errorf("unmarshal CancelMessage error: %v", err)
-		return nil
-	}
-
-	switch msg.Action {
-	case setting.TypeEnableCronjob:
-		err := h.updateCronjob(msg.Name, msg.ProductName, msg.JobType, msg.JobList, msg.DeleteList)
-		if err != nil {
-			log.Errorf("Failed to update cronjob, the error is: %v", err)
-			return err
+func (h *CronjobHandler) HandleMessage(msgs []*service.CronjobPayload) error {
+	for _, msg := range msgs {
+		switch msg.Action {
+		case setting.TypeEnableCronjob:
+			err := h.updateCronjob(msg.Name, msg.ProductName, msg.JobType, msg.JobList, msg.DeleteList)
+			if err != nil {
+				log.Errorf("Failed to update cronjob, the error is: %v", err)
+				return err
+			}
+		case setting.TypeDisableCronjob:
+			err := h.stopCronjob(msg.Name, msg.JobType)
+			if err != nil {
+				log.Errorf("Failed to stop all cron job, the error is: %v", err)
+				return err
+			}
+		default:
+			log.Errorf("unsupported cronjob action: NOT RECONSUMING")
 		}
-	case setting.TypeDisableCronjob:
-		err := h.stopCronjob(msg.Name, msg.JobType)
-		if err != nil {
-			log.Errorf("Failed to stop all cron job, the error is: %v", err)
-			return err
-		}
-	default:
-		log.Errorf("unsupported cronjob action: NOT RECONSUMING")
 	}
 
 	return nil

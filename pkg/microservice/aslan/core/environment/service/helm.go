@@ -63,15 +63,19 @@ type ReleaseFilter struct {
 }
 
 type HelmReleaseResp struct {
-	ReleaseName    string        `json:"releaseName"`
-	ServiceName    string        `json:"serviceName"`
-	Revision       int           `json:"revision"`
-	Chart          string        `json:"chart"`
-	AppVersion     string        `json:"appVersion"`
-	Status         ReleaseStatus `json:"status"`
-	Updatable      bool          `json:"updatable"`
-	DeployStrategy string        `json:"deploy_strategy"`
-	Error          string        `json:"error"`
+	ReleaseName       string        `json:"releaseName"`
+	ServiceName       string        `json:"serviceName"`
+	Revision          int           `json:"revision"`
+	ChartRepo         string        `json:"chartRepo"`
+	Chart             string        `json:"chart"`
+	AppVersion        string        `json:"appVersion"`
+	OverrideValues    string        `json:"overrideValues"`
+	OverrideYaml      string        `json:"overrideYaml"`
+	Status            ReleaseStatus `json:"status"`
+	Updatable         bool          `json:"updatable"`
+	IsHelmChartDeploy bool          `json:"isHelmChartDeploy"`
+	DeployStrategy    string        `json:"deployStrategy"`
+	Error             string        `json:"error"`
 }
 
 type ChartInfo struct {
@@ -187,21 +191,32 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 		releaseMap[re.Name] = re
 	}
 
-	releaseNameMap, err := commonservice.GetServiceNameToReleaseNameMap(prod)
+	svcToReleaseNameMap, err := commonutil.GetServiceNameToReleaseNameMap(prod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build release-service map: %s", err)
 	}
-
 	svcDatSetMap := make(map[string]*SvcDataSet)
 	svcDataList := make([]*SvcDataSet, 0)
 
 	for _, prodSvc := range prod.GetServiceMap() {
 		serviceName := prodSvc.ServiceName
-		releaseName := releaseNameMap[serviceName]
+		releaseName := svcToReleaseNameMap[serviceName]
 		svcDataSet := &SvcDataSet{
 			ProdSvc:    prodSvc,
 			SvcRelease: releaseMap[releaseName],
 		}
+
+		svcDatSetMap[serviceName] = svcDataSet
+		svcDataList = append(svcDataList, svcDataSet)
+	}
+	for _, prodSvc := range prod.GetChartServiceMap() {
+		serviceName := prodSvc.ServiceName
+		releaseName := prodSvc.ReleaseName
+		svcDataSet := &SvcDataSet{
+			ProdSvc:    prodSvc,
+			SvcRelease: releaseMap[releaseName],
+		}
+
 		svcDatSetMap[serviceName] = svcDataSet
 		svcDataList = append(svcDataList, svcDataSet)
 	}
@@ -249,6 +264,15 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 
 	ret := make([]*HelmReleaseResp, 0)
 
+	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		Name:     prod.Render.Name,
+		Revision: prod.Render.Revision,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find renderset: %s:%v, err: %s", prod.Render.Name, prod.Render.Revision, err)
+	}
+	chartInfoMap := renderset.GetChartRenderMap()
+	chartDeployInfoMap := renderset.GetChartDeployRenderMap()
 	for _, svcDataSet := range svcDataList {
 		if !filterFunc(svcDataSet) {
 			continue
@@ -256,7 +280,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 
 		updatable := false
 		if svcDataSet.TmplSvc != nil {
-			if svcDataSet.ProdSvc.Revision != svcDataSet.TmplSvc.Revision {
+			if svcDataSet.ProdSvc.FromZadig() && svcDataSet.ProdSvc.Revision != svcDataSet.TmplSvc.Revision {
 				updatable = true
 			}
 		}
@@ -268,6 +292,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			DeployStrategy: prod.ServiceDeployStrategy[svcDataSet.ProdSvc.ServiceName],
 			Error:          svcDataSet.ProdSvc.Error,
 		}
+		respObj.Updatable = updatable
 
 		if svcDataSet.SvcRelease != nil {
 			respObj.ReleaseName = svcDataSet.SvcRelease.Name
@@ -275,6 +300,30 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 			respObj.Chart = svcDataSet.SvcRelease.Chart.Name()
 			respObj.AppVersion = svcDataSet.SvcRelease.Chart.AppVersion()
 			respObj.Status = getReleaseStatus(svcDataSet.SvcRelease)
+		} else if svcDataSet.TmplSvc != nil {
+			// service template deploy
+			respObj.ReleaseName = util.GeneReleaseName(svcDataSet.TmplSvc.GetReleaseNaming(), svcDataSet.TmplSvc.ProductName, prod.Namespace, prod.EnvName, svcDataSet.TmplSvc.ServiceName)
+			respObj.ChartRepo = svcDataSet.TmplSvc.HelmChart.Repo
+			respObj.Chart = svcDataSet.TmplSvc.HelmChart.Name
+			respObj.AppVersion = svcDataSet.TmplSvc.HelmChart.Version
+		} else if svcDataSet.ProdSvc != nil {
+			// chart deploy
+			respObj.ReleaseName = svcDataSet.ProdSvc.ReleaseName
+		}
+
+		if svcDataSet.ProdSvc.FromZadig() {
+			if chartInfo, ok := chartInfoMap[respObj.ReleaseName]; ok {
+				respObj.OverrideYaml = chartInfo.GetOverrideYaml()
+				respObj.OverrideValues = chartInfo.OverrideValues
+			}
+		} else {
+			if chartDeployInfo, ok := chartDeployInfoMap[respObj.ReleaseName]; ok {
+				respObj.ChartRepo = chartDeployInfo.ChartRepo
+				respObj.OverrideYaml = chartDeployInfo.GetOverrideYaml()
+				respObj.OverrideValues = chartDeployInfo.OverrideValues
+			}
+			respObj.IsHelmChartDeploy = true
+			respObj.DeployStrategy = prod.ServiceDeployStrategy[commonutil.GetReleaseDeployStrategyKey(svcDataSet.ProdSvc.ReleaseName)]
 		}
 
 		if svcDataSet.ProdSvc.Error != "" {
@@ -288,7 +337,7 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 }
 
 func loadChartFilesInfo(productName, serviceName string, revision int64, dir string) ([]*types.FileInfo, error) {
-	base := config.LocalTestServicePathWithRevision(productName, serviceName, revision)
+	base := config.LocalTestServicePathWithRevision(productName, serviceName, fmt.Sprint(revision))
 
 	var fis []*types.FileInfo
 	files, err := os.ReadDir(filepath.Join(base, serviceName, dir))
@@ -324,7 +373,7 @@ func loadChartFilesInfo(productName, serviceName string, revision int64, dir str
 func prepareChartVersionData(prod *models.Product, serviceObj *models.Service) error {
 	productName := prod.ProductName
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
-	base := config.LocalTestServicePathWithRevision(productName, serviceName, revision)
+	base := config.LocalTestServicePathWithRevision(productName, serviceName, fmt.Sprint(revision))
 	if err := commonutil.PreloadServiceManifestsByRevision(base, serviceObj, prod.Production); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version", revision, serviceName)
 		// use the latest version when it fails to download the specific version
@@ -482,7 +531,7 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 
 	// filter releases, only list releases deployed by zadig
 	serviceMap := prod.GetServiceMap()
-	templateSvcs, err := commonservice.GetProductUsedTemplateSvcs(prod)
+	templateSvcs, err := commonutil.GetProductUsedTemplateSvcs(prod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service tempaltes,  err: %s", err)
 	}
@@ -546,7 +595,7 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 				Tag:   container.ImagePath.Tag,
 			}
 			pattern := imageSearchRule.GetSearchingPattern()
-			imageUrl, err := commonservice.GeneImageURI(pattern, flatMap)
+			imageUrl, err := commonutil.GeneImageURI(pattern, flatMap)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get image url for container:%s", container.Image)
 			}

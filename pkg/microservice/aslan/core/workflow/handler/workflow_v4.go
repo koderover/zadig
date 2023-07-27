@@ -52,6 +52,7 @@ type getHelmValuesDifferenceReq struct {
 	VariableYaml          string            `json:"variable_yaml"`
 	EnvName               string            `json:"env_name"`
 	IsProduction          bool              `json:"production"`
+	IsHelmChartDeploy     bool              `json:"is_helm_chart_deploy"`
 	UpdateServiceRevision bool              `json:"update_service_revision"`
 	ServiceModules        []*ModuleAndImage `json:"service_modules"`
 }
@@ -613,6 +614,14 @@ func GetFilteredEnvServices(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.GetFilteredEnvServices(req.WorkflowName, req.JobName, req.EnvName, req.ServiceNames, ctx.Logger)
 }
 
+// @Summary Compare Helm Service Yaml In Env
+// @Description Compare Helm Service Yaml In Env
+// @Tags 	workflow
+// @Accept 	json
+// @Produce json
+// @Param 	body 		body 		getHelmValuesDifferenceReq	 	true 	"body"
+// @Success 200 		{object} 	workflow.GetHelmValuesDifferenceResp
+// @Router /api/aslan/workflow/v4/yamlComparison [post]
 func CompareHelmServiceYamlInEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -627,7 +636,7 @@ func CompareHelmServiceYamlInEnv(c *gin.Context) {
 	for _, imageInfos := range req.ServiceModules {
 		images = append(images, imageInfos.Image)
 	}
-	ctx.Resp, ctx.Err = workflow.CompareHelmServiceYamlInEnv(req.ServiceName, req.VariableYaml, req.EnvName, projectName, images, req.IsProduction, req.UpdateServiceRevision, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.CompareHelmServiceYamlInEnv(req.ServiceName, req.VariableYaml, req.EnvName, projectName, images, req.IsProduction, req.UpdateServiceRevision, req.IsHelmChartDeploy, ctx.Logger)
 }
 
 type MseResponse struct {

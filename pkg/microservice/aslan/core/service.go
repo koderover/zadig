@@ -40,7 +40,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
@@ -63,6 +62,7 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
+	"github.com/koderover/zadig/pkg/tool/klock"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
@@ -141,6 +141,7 @@ func Start(ctx context.Context) {
 	})
 
 	initDatabase()
+	initKlock()
 
 	initService()
 	initDinD()
@@ -218,9 +219,7 @@ func initService() {
 		}
 	}()
 
-	nsq.Init(config.PodName(), config.NsqLookupAddrs())
-
-	if err := workflowservice.SubScribeNSQ(); err != nil {
+	if err := workflowservice.InitMongodbMsgQueueHandler(); err != nil {
 		errors = multierror.Append(errors, err)
 	}
 }
@@ -332,6 +331,10 @@ func initDinD() {
 	}
 }
 
+func initKlock() {
+	_ = klock.Init(config.Namespace())
+}
+
 func initDatabase() {
 	// old user service initialization
 	InitializeUserDBAndTables()
@@ -437,6 +440,10 @@ func initDatabase() {
 		commonrepo.NewStatDashboardConfigColl(),
 		commonrepo.NewProjectManagementColl(),
 		commonrepo.NewImageTagsCollColl(),
+
+		// msg queue
+		commonrepo.NewMsgQueueCommonColl(),
+		commonrepo.NewMsgQueuePipelineTaskColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

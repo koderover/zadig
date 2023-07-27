@@ -18,29 +18,28 @@ package taskcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"log"
-	"os"
+	"math/rand"
 	"time"
 
-	"github.com/nsqio/go-nsq"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/klock"
 	"github.com/koderover/zadig/pkg/tool/kube/client"
-	"github.com/koderover/zadig/pkg/tool/nsqcli"
+	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type controller struct {
-	consumers []*nsq.Consumer
-	producers []*nsq.Producer
 }
 
 func NewController() ControllerI {
-	return &controller{
-		consumers: []*nsq.Consumer{},
-		producers: []*nsq.Producer{},
-	}
+	return &controller{}
 }
 
 func (c *controller) Init(ctx context.Context) error {
@@ -49,72 +48,118 @@ func (c *controller) Init(ctx context.Context) error {
 			panic(err)
 		}
 	}()
+	initMongoDB()
 
-	cfg := nsq.NewConfig()
-	cfg.UserAgent = config.WarpDrivePodName()
-	cfg.MaxAttempts = 50
-	cfg.LookupdPollInterval = 1 * time.Second
-	cfg.MsgTimeout = 1 * time.Minute
-	nsqClient := nsqcli.NewNsqClient(config.NSQLookupAddrs(), "127.0.0.1:4151")
+	time.Sleep(time.Duration(rand.Intn(500)) * time.Millisecond)
+	_ = klock.Init(config.WarpDriveNamespace())
+	log.Debugf("init lock successfully, ns: %s", config.WarpDriveNamespace())
 
-	processor, err := nsq.NewConsumer(setting.TopicProcess, "process", cfg)
-	if err != nil {
-		return fmt.Errorf("init nsq processor error: %v", err)
-	}
+	// handle pipeline task
+	go func() {
+		for {
+			time.Sleep(2 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				func() {
+					klock.Lock(config.ProcessLock)
+					resp, err := mongodb.NewMsgQueuePipelineTaskColl().List(&mongodb.ListMsgQueuePipelineTaskOption{
+						QueueType: setting.TopicProcess,
+					})
+					// unlock process lock at first
+					if err := klock.UnlockWithRetry(config.ProcessLock, 3); err != nil {
+						log.Errorf("unlock process lock error: %v", err)
+					}
+					// check list error
+					if err != nil {
+						log.Warnf("list queue error: %v", err)
+						return
+					}
 
-	processor.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
-	c.consumers = append(c.consumers, processor)
+					if len(resp) == 0 {
+						return
+					}
+					if err = mongodb.NewMsgQueuePipelineTaskColl().Delete(resp[0].ID); err != nil {
+						log.Errorf("delete queue error: %v", err)
+					}
+					if err := commonmodels.IToi(resp[0].Task, &pipelineTask); err != nil {
+						log.Errorf("convert interface to struct error: %v", err)
+						return
+					}
+					log.Infof("receiving pipeline task %s:%d message", pipelineTask.PipelineName, pipelineTask.TaskID)
+					h := &ExecHandler{
+						AckID: 0,
+					}
+					initTaskPlugins(h)
+					h.PipelineTaskHandler()
+				}()
 
-	canceller, err := nsq.NewConsumer(setting.TopicCancel, cfg.UserAgent, cfg)
-	if err != nil {
-		return fmt.Errorf("init nsq canceller error: %v", err)
-	}
+			}
+		}
+	}()
 
-	canceller.SetLogger(log.New(os.Stdout, "nsq consumer:", 0), nsq.LogLevelError)
-	c.consumers = append(c.consumers, canceller)
+	// handle cancel pipeline task
+	go func() {
+		// filter duplicate cancel message
+		cancelMsgMap := sets.NewString()
+		for {
+			time.Sleep(1 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				func() {
+					resp, err := mongodb.NewMsgQueueCommonColl().List(&mongodb.ListMsgQueueCommonOption{
+						QueueType: setting.TopicCancel,
+					})
+					if err != nil {
+						log.Warnf("list cancel queue error: %v", err)
+						return
+					}
+					if len(resp) == 0 {
+						return
+					}
+					for _, common := range resp {
+						msg := new(CancelMessage)
+						if err := json.Unmarshal([]byte(common.Payload), msg); err != nil {
+							log.Errorf("convert interface to struct error: %v", err)
+							return
+						}
+						if cancelMsgMap.Has(fmt.Sprintf("%s:%d", msg.PipelineName, msg.TaskID)) {
+							continue
+						}
+						log.Infof("receiving cancel task %s:%d message", msg.PipelineName, msg.TaskID)
+						cancelMsgMap.Insert(fmt.Sprintf("%s:%d", msg.PipelineName, msg.TaskID))
 
-	nsqdAddr := "127.0.0.1:4150"
-	sender, err := nsq.NewProducer(nsqdAddr, cfg)
-	if err != nil {
-		return fmt.Errorf("init nsq sender error: %v", err)
-	}
+						// 如果存在处理的 PipelineTask 并且匹配 PipelineName, 则取消PipelineTask
+						if pipelineTask != nil && pipelineTask.PipelineName == msg.PipelineName && pipelineTask.TaskID == msg.TaskID {
+							log.Infof("cancelling message: %+v", msg)
+							pipelineTask.TaskRevoker = msg.Revoker
 
-	sender.SetLogger(log.New(os.Stdout, "nsq producer:", 0), nsq.LogLevelError)
-	c.producers = append(c.producers, sender)
-
-	err = nsqClient.EnsureNsqdTopics([]string{setting.TopicAck, setting.TopicItReport, setting.TopicNotification})
-	if err != nil {
-		return fmt.Errorf("ensure nsq topic error: %v", err)
-	}
-
-	execHandler := &ExecHandler{
-		Sender: sender,
-	}
-	processor.AddHandler(execHandler)
-	// Add task plugin initiators to exec Handler.
-	initTaskPlugins(execHandler)
-
-	cancelHandler := &CancelHandler{}
-	canceller.AddHandler(cancelHandler)
-
-	if err := processor.ConnectToNSQLookupds(config.NSQLookupAddrs()); err != nil {
-		return fmt.Errorf("processor could not connect to %v", config.NSQLookupAddrs())
-	}
-	if err := canceller.ConnectToNSQLookupds(config.NSQLookupAddrs()); err != nil {
-		return fmt.Errorf("canceller could not connect to %v", config.NSQLookupAddrs())
-	}
+							//取消pipelineTask
+							cancel()
+							if err = mongodb.NewMsgQueueCommonColl().Delete(resp[0].ID); err != nil {
+								log.Errorf("delete cancel queue error: %v", err)
+							}
+							break
+						}
+					}
+				}()
+			}
+		}
+	}()
 
 	return nil
 }
 
 func (c *controller) Stop(ctx context.Context) error {
-	for _, consumer := range c.consumers {
-		consumer.Stop()
-	}
-
-	for _, producer := range c.producers {
-		producer.Stop()
-	}
-
 	return nil
+}
+
+func initMongoDB() {
+	mongotool.Init(ctx, config.MongoURI())
+	if err := mongotool.Ping(ctx); err != nil {
+		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
+	}
 }

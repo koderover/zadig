@@ -131,9 +131,22 @@ func GetChartValues(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, serviceName, false)
+	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, serviceName, false, false)
 }
 
+// @Summary Get Production Chart Values
+// @Description Get Production Chart Values
+// @Tags    environment
+// @Accept 	json
+// @Produce json
+// @Param 	name				path		string									true	"env name"
+// @Param 	projectName			query		string									true	"project name"
+// @Param 	serviceName			query		string									false	"service name"
+// @Param 	releaseName			query		string									false	"release name"
+// @Param 	isHelmChartDeploy	query		string									true	"isHelmChartDeploy"
+// @Param 	body 				body 		service.SyncCollaborationInstanceArgs 	true 	"body"
+// @Success 200 				{object} 	commonservice.ValuesResp
+// @Router /api/aslan/environment/production/environments/{name}/helm/values [get]
 func GetProductionChartValues(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -148,6 +161,8 @@ func GetProductionChartValues(c *gin.Context) {
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
 	serviceName := c.Query("serviceName")
+	isHelmChartDeploy := c.Query("isHelmChartDeploy")
+	releaseName := c.Query("releaseName")
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -162,7 +177,11 @@ func GetProductionChartValues(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, serviceName, true)
+	if isHelmChartDeploy == "false" {
+		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, serviceName, false, true)
+	} else {
+		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, releaseName, true, true)
+	}
 }
 
 func GetChartInfos(c *gin.Context) {

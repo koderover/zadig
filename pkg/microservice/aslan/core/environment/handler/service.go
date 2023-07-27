@@ -107,9 +107,21 @@ func GetService(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, false, workLoadType, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, false, workLoadType, false, ctx.Logger)
 }
 
+// @Summary Get Production Service
+// @Description Get Production Service
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 				path		string										true	"env name"
+// @Param 	serviceName 		path		string										true	"service name or release name"
+// @Param 	projectName			query		string										true	"project name"
+// @Param 	isHelmChartDeploy	query		bool										true	"is helm chart deploy"
+// @Param 	workLoadType		query		string										true	"workload type"
+// @Success 200 				{object} 	service.SvcResp
+// @Router /api/aslan/environment/environments/{name}/services/{serviceName} [get]
 func GetProductionService(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -124,6 +136,7 @@ func GetProductionService(c *gin.Context) {
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
 	serviceName := c.Param("serviceName")
+	isHelmChartDeploy := c.Query("isHelmChartDeploy")
 	workLoadType := c.Query("workLoadType")
 
 	// authorization checks
@@ -139,7 +152,7 @@ func GetProductionService(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, true, workLoadType, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, true, workLoadType, isHelmChartDeploy == "true", ctx.Logger)
 }
 
 func RestartService(c *gin.Context) {

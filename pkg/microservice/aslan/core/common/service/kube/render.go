@@ -269,20 +269,13 @@ func buildContainerMap(cs []*models.Container) map[string]*models.Container {
 // calculateContainer calculates containers to be applied into environments for helm and k8s projects
 // if image has no change since last deploy, containers in latest service will be used
 // if image hse been change since lase deploy (eg. workflow), current values will be remained
-func CalculateContainer(productSvc *commonmodels.ProductService, latestContainers []*models.Container, productInfo *commonmodels.Product) []*models.Container {
+func CalculateContainer(productSvc *commonmodels.ProductService, curUsedSvc *commonmodels.Service, latestContainers []*models.Container, productInfo *commonmodels.Product) []*models.Container {
 	resp := make([]*models.Container, 0)
 
 	if productInfo == nil {
 		return latestContainers
 	}
-
-	curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-		ServiceName: productSvc.ServiceName,
-		Revision:    productSvc.Revision,
-		ProductName: productSvc.ProductName,
-	}, productInfo.Production)
-	if err != nil {
-		log.Errorf("QueryTemplateService error: %v", err)
+	if curUsedSvc == nil {
 		return productSvc.Containers
 	}
 
@@ -586,7 +579,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	curContainers := latestSvcTemplate.Containers
 	if curProductSvc != nil {
 		curContainers = curProductSvc.Containers
-		svcContainersInProduct = CalculateContainer(curProductSvc, latestSvcTemplate.Containers, productInfo)
+		svcContainersInProduct = CalculateContainer(curProductSvc, prodSvcTemplate, latestSvcTemplate.Containers, productInfo)
 	}
 
 	renderVariableKVs := []*commontypes.RenderVariableKV{}

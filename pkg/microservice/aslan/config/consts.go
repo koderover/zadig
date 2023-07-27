@@ -194,6 +194,7 @@ const (
 	JobCustomDeploy         JobType = "custom-deploy"
 	JobZadigDeploy          JobType = "zadig-deploy"
 	JobZadigHelmDeploy      JobType = "zadig-helm-deploy"
+	JobZadigHelmChartDeploy JobType = "zadig-helm-chart-deploy"
 	JobFreestyle            JobType = "freestyle"
 	JobPlugin               JobType = "plugin"
 	JobK8sBlueGreenDeploy   JobType = "k8s-blue-green-deploy"

@@ -60,8 +60,10 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 				continue
 			}
 			envServiceNames := sets.String{}
-			for _, serviceNames := range envObj.Services {
-				envServiceNames.Insert(serviceNames...)
+			for _, serviceGroup := range envObj.Services {
+				for _, svc := range serviceGroup {
+					envServiceNames.Insert(svc.ServiceName)
+				}
 			}
 			svc, _ := c.AslanCli.GetService(serviceRevision.ServiceName, env.ProductName, setting.PMDeployType, serviceRevision.CurrentRevision, log)
 			if svc == nil || len(svc.HealthChecks) == 0 || len(svc.EnvConfigs) == 0 || !envServiceNames.Has(serviceRevision.ServiceName) {

@@ -17,8 +17,6 @@ limitations under the License.
 package config
 
 import (
-	"strings"
-
 	"github.com/spf13/viper"
 
 	// init the config first
@@ -30,12 +28,16 @@ func WarpDrivePodName() string {
 	return viper.GetString(setting.WarpDrivePodName)
 }
 
-func ExecutorImage() string {
-	return viper.GetString(setting.ENVExecutorImage)
+func WarpDriveNamespace() string {
+	return viper.GetString(setting.WarpDriveNamespace)
 }
 
-func NSQLookupAddrs() []string {
-	return strings.Split(viper.GetString(setting.ENVNsqLookupAddrs), ",")
+func MongoURI() string {
+	return viper.GetString(setting.ENVMongoDBConnectionString)
+}
+
+func ExecutorImage() string {
+	return viper.GetString(setting.ENVExecutorImage)
 }
 
 func ReleaseImageTimeout() string {

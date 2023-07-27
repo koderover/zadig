@@ -264,3 +264,26 @@ func GetReleaseDeployStatus(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.GetReleaseDeployStatus(c.Query("projectName"), request)
 }
+
+// @Summary Get Release Instance Deploy Status
+// @Description Get Release Instance Deploy Status
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string										true	"project name"
+// @Param 	body 			body 		service.HelmDeployStatusCheckRequest 		true 	"body"
+// @Success 200 			{array}  	service.GetReleaseInstanceDeployStatusResponse
+// @Router /api/aslan/environment/kube/helm/releaseInstances [post]
+func GetReleaseInstanceDeployStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	request := &service.HelmDeployStatusCheckRequest{}
+	err := c.BindJSON(request)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetReleaseInstanceDeployStatus(c.Query("projectName"), request)
+}

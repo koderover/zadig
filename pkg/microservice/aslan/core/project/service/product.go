@@ -954,7 +954,7 @@ func GetCustomMatchRules(productName string, log *zap.SugaredLogger) ([]*ImagePa
 
 	rules := productInfo.ImageSearchingRules
 	if len(rules) == 0 {
-		rules = commonservice.GetPresetRules()
+		rules = commonutil.GetPresetRules()
 	}
 
 	ret := make([]*ImageParseData, 0, len(rules))
@@ -1055,7 +1055,7 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 			break
 		}
 
-		serviceTmpl.Containers, err = commonservice.ParseImagesByRules(valuesMap, matchRules)
+		serviceTmpl.Containers, err = commonutil.ParseImagesByRules(valuesMap, matchRules)
 		if err != nil {
 			break
 		}
