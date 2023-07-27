@@ -165,14 +165,14 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return
 	}
 
-	param, errBuildParam := buildInstallParam(renderInfo.DefaultValues, productInfo, renderChart, productSvc)
-	if errBuildParam != nil {
-		err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, errBuildParam)
+	err = updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
+	if err != nil {
 		return
 	}
 
-	err = updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
-	if err != nil {
+	param, errBuildParam := buildInstallParam(renderInfo.DefaultValues, productInfo, renderChart, productSvc)
+	if errBuildParam != nil {
+		err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, errBuildParam)
 		return
 	}
 
