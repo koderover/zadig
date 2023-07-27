@@ -143,6 +143,18 @@ func ListAuthorizedProjects(uid string) ([]string, bool, error) {
 	return user.New().ListAuthorizedProjects(uid)
 }
 
+func ListAuthorizedWorkflows(uid, projectKey string) (authorizedWorkflow, authorizedWorkflowV4 []string, enableFilter bool, err error) {
+	authorizedWorkflow = make([]string, 0)
+	authorizedWorkflowV4 = make([]string, 0)
+	enableFilter = true
+	if uid == "" {
+		err = errors.New("empty user ID")
+		return
+	}
+	authorizedWorkflow, authorizedWorkflowV4, err = user.New().ListAuthorizedWorkflows(uid, projectKey)
+	return
+}
+
 func getUserFromJWT(token string) (jwtClaims, error) {
 	cs := jwtClaims{}
 

@@ -20,6 +20,8 @@ package types
 const (
 	ResourceTypeWorkflow    = "workflow"
 	ResourceTypeEnvironment = "environment"
+
+	WorkflowTypeCustomeWorkflow = "common_workflow"
 )
 
 // collaboration mode resource actions
@@ -53,4 +55,15 @@ type ListAuthorizedProjectResp struct {
 	ProjectList []string `json:"project_list"`
 	Found       bool     `json:"found"`
 	Error       string   `json:"error"`
+}
+
+type ListAuthorizedWorkflowsReq struct {
+	UID        string `json:"uid" form:"uid"`
+	ProjectKey string `json:"project_key" form:"project_key"`
+}
+
+type ListAuthorizedWorkflowsResp struct {
+	WorkflowList       []string `json:"workflow_list"`
+	CustomWorkflowList []string `json:"custom_workflow_list"`
+	Error              string   `json:"error"`
 }

@@ -170,6 +170,35 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 	return respSet.List(), nil
 }
 
+// ListAuthorizedWorkflow lists all workflows authorized by collaboration mode
+func ListAuthorizedWorkflow(uid, projectKey string, logger *zap.SugaredLogger) ([]string, []string, error) {
+	collaborationInstance, err := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	if err != nil {
+		logger.Errorf("failed to find user collaboration mode, error: %s", err)
+		return nil, nil, fmt.Errorf("failed to find user collaboration mode, error: %s", err)
+	}
+
+	authorizedWorkflows := make([]string, 0)
+	authorizedCustomWorkflows := make([]string, 0)
+
+	for _, workflow := range collaborationInstance.Workflows {
+		for _, verb := range workflow.Verbs {
+			// if the user actually has view permission
+			if verb == types.WorkflowActionView {
+				switch workflow.WorkflowType {
+				case types.WorkflowTypeCustomeWorkflow:
+					authorizedCustomWorkflows = append(authorizedCustomWorkflows, workflow.Name)
+				default:
+					// if a workflow does not have a type, it is a product workflow.
+					authorizedWorkflows = append(authorizedWorkflows, workflow.Name)
+				}
+			}
+		}
+	}
+
+	return authorizedWorkflows, authorizedCustomWorkflows, nil
+}
+
 func checkWorkflowPermission(list []models.WorkflowCIItem, workflowName, action string) bool {
 	for _, workflow := range list {
 		if workflow.Name == workflowName {
@@ -201,7 +230,6 @@ func generateAdminRoleResource() *AuthorizedResources {
 		IsSystemAdmin:   true,
 		ProjectAuthInfo: nil,
 		SystemActions:   nil,
-		//AdditionalResource: nil,
 	}
 }
 

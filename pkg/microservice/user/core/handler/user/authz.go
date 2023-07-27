@@ -80,3 +80,29 @@ func ListAuthorizedProject(c *gin.Context) {
 	}
 	ctx.Resp = resp
 }
+
+func ListAuthorizedWorkflows(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &types.ListAuthorizedWorkflowsReq{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	authorizedWorkflow, authorizedWorkflowV4, err := userservice.ListAuthorizedWorkflow(args.UID, args.ProjectKey, ctx.Logger)
+	if err != nil {
+		ctx.Resp = &types.ListAuthorizedWorkflowsResp{
+			WorkflowList:       []string{},
+			CustomWorkflowList: []string{},
+			Error:              err.Error(),
+		}
+		return
+	}
+	ctx.Resp = &types.ListAuthorizedWorkflowsResp{
+		WorkflowList:       authorizedWorkflow,
+		CustomWorkflowList: authorizedWorkflowV4,
+		Error:              "",
+	}
+}

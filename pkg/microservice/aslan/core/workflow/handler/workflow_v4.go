@@ -19,8 +19,8 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
@@ -68,8 +68,15 @@ type listWorkflowV4Resp struct {
 }
 
 func CreateWorkflowV4(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(commonmodels.WorkflowV4)
 	data := getBody(c)
@@ -79,15 +86,38 @@ func CreateWorkflowV4(c *gin.Context) {
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新增", "自定义工作流", args.Name, data, ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.Project]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[args.Project].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.Project].Workflow.Create {
+			// check if the permission is given by collaboration mode
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = workflow.CreateWorkflowV4(ctx.UserName, args, ctx.Logger)
 }
 
 func SetWorkflowTasksCustomFields(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	workflowName := c.Param("name")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	args := new(commonmodels.CustomField)
 	data, err := c.GetRawData()
 	if err != nil {
@@ -101,7 +131,21 @@ func SetWorkflowTasksCustomFields(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = workflow.SetWorkflowTasksCustomFields(projectName, workflowName, args, ctx.Logger)
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = workflow.SetWorkflowTasksCustomFields(projectKey, workflowName, args, ctx.Logger)
 }
 
 func GetWorkflowTasksCustomFields(c *gin.Context) {
@@ -137,25 +181,60 @@ func LintWorkflowV4(c *gin.Context) {
 }
 
 func ListWorkflowV4(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := &listWorkflowV4Query{}
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = err
 		return
 	}
-	workflowNames, found := internalhandler.GetResourcesInHeader(c)
 
-	ctx.Logger.Infof("workflowNames:%s found:%v", workflowNames, found)
-	var workflowV4Names, names []string
-	for _, name := range workflowNames {
-		if strings.HasPrefix(name, "common##") {
-			workflowV4Names = append(workflowV4Names, strings.Split(name, "##")[1])
-		} else {
-			names = append(names, name)
-		}
+	var authorizedWorkflow, authorizedWorkflowV4 []string
+	var enableFilter bool
+
+	// authorization checks
+	if ctx.Resources.IsSystemAdmin {
+		enableFilter = false
+		authorizedWorkflow = make([]string, 0)
+		authorizedWorkflowV4 = make([]string, 0)
 	}
-	workflowList, err := workflow.ListWorkflowV4(args.Project, args.ViewName, ctx.UserID, names, workflowV4Names, found, ctx.Logger)
+
+	if projectAuth, ok := ctx.Resources.ProjectAuthInfo[args.Project]; ok {
+		if projectAuth.IsProjectAdmin || projectAuth.Workflow.View {
+			enableFilter = false
+			authorizedWorkflow = make([]string, 0)
+			authorizedWorkflowV4 = make([]string, 0)
+		} else {
+			var err error
+			authorizedWorkflow, authorizedWorkflowV4, enableFilter, err = internalhandler.ListAuthorizedWorkflows(ctx.UserID, args.Project)
+			if err != nil {
+				// something wrong when getting workflow authorization info, returning empty
+				ctx.Resp = listWorkflowV4Resp{
+					WorkflowList: make([]*workflow.Workflow, 0),
+					Total:        0,
+				}
+				return
+			}
+		}
+	} else {
+		// if a user does not have a role in a project, it must also not have a collaboration mode
+		// thus return nothing
+		ctx.Resp = listWorkflowV4Resp{
+			WorkflowList: make([]*workflow.Workflow, 0),
+			Total:        0,
+		}
+		return
+	}
+
+	workflowList, err := workflow.ListWorkflowV4(args.Project, args.ViewName, ctx.UserID, authorizedWorkflow, authorizedWorkflowV4, enableFilter, ctx.Logger)
 	resp := listWorkflowV4Resp{
 		WorkflowList: workflowList,
 		Total:        0,
@@ -168,7 +247,7 @@ func ListWorkflowV4CanTrigger(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListWorkflowV4CanTrigger(c.Request.Header, c.Query("projectName"))
+	ctx.Resp, ctx.Err = workflow.ListWorkflowV4CanTrigger(ctx)
 }
 
 func UpdateWorkflowV4(c *gin.Context) {
