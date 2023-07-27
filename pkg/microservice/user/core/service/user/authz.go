@@ -83,6 +83,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 			// TODO: this might be compromised if there is a role called project admin
 			// special case for project admins
 			if role == ProjectAdminRole {
+				logger.Infof("user is admin for project: %s", project)
 				projectActionMap[project].IsProjectAdmin = true
 			}
 		}
