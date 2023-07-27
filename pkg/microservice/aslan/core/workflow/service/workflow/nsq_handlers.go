@@ -200,7 +200,7 @@ func (h *TaskAckHandler) handle(pt *task.Task) error {
 	for _, deploy := range deploys {
 		if deploy.Enabled && !pt.ResetImage {
 			containerName := strings.TrimSuffix(deploy.ContainerName, "_"+deploy.ServiceName)
-			if err := h.updateProductImageByNs(deploy.Namespace, deploy.ProductName, deploy.ServiceName, containerName, deploy.Image); err != nil {
+			if err := h.updateProductImageByNs(deploy.Namespace, deploy.ProductName, deploy.ServiceName, containerName, deploy.Image, deploy.EnvName); err != nil {
 				h.log.Errorf("updateProductImage %v error: %v", deploy, err)
 				continue
 			} else {
@@ -779,13 +779,15 @@ func (h *TaskAckHandler) getDeployTasks(subTasks []map[string]interface{}) ([]*t
 }
 
 // 更新subtasks中的所有容器部署任务对应服务的镜像
-func (h *TaskAckHandler) updateProductImageByNs(namespace, productName, serviceName, containerName, imageName string) error {
-	opt := &commonrepo.ProductEnvFindOptions{
+func (h *TaskAckHandler) updateProductImageByNs(namespace, productName, serviceName, containerName, imageName, envName string) error {
+	opt := &commonrepo.ProductFindOptions{
 		Name:      productName,
 		Namespace: namespace,
+		EnvName:   envName,
 	}
+	log.Infof("updateProductImageByNs %s", envName)
 
-	prod, err := h.productColl.FindEnv(opt)
+	prod, err := h.productColl.Find(opt)
 
 	if err != nil {
 		h.log.Errorf("find product namespace error: %v", err)
