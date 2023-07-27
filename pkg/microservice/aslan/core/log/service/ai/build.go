@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	openapi "github.com/sashabaranov/go-openai"
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/tool/llm"
 	"github.com/koderover/zadig/pkg/util"
-	"go.uber.org/zap"
 )
 
 type BuildLogAnalysisArgs struct {
@@ -26,14 +28,12 @@ func AnalyzeBuildLog(args *BuildLogAnalysisArgs, project, pipeline, job string, 
 	log := args.Log
 	prompt := fmt.Sprintf("%s; 构建日志数据: \"\"\"%s\"\"\"", BuildLogAnalysisPrompt, util.RemoveExtraSpaces(splitBuildLogByRowNum(log, 500)))
 
-	answer, err := client.GetCompletion(ctx, prompt)
+	answer, err := client.GetCompletion(ctx, prompt, llm.WithModel(openapi.GPT3Dot5Turbo16K))
 	if err != nil {
 		logger.Errorf("failed to get answer from ai: %v, the error is: %+v", client.GetName(), err)
 		return "", err
 	}
-	logger.Infof("start to analysis build log [project: %s, pipeline: %s, job: %s, taskID: %d], the prompt is: %s", project, pipeline, job, taskID, prompt)
 
-	logger.Infof("get analysis build log answer from ai: %v, the answer is: %s", client.GetName(), answer)
 	return answer, nil
 }
 
@@ -65,10 +65,6 @@ func splitBuildLogByRowNum(log string, num int) string {
 		result = append(result, logs[i])
 	}
 
-	stepLog := splitBuildLogByStep(log)
-	if stepLog != "" {
-		return fmt.Sprintf("构建日志各阶段耗时:%s 构建日志最后 %d 行日志:%s", stepLog, num, strings.Join(result, ";"))
-	}
 	return fmt.Sprintf("构建日志最后 %d 行日志:%s", num, strings.Join(result, ";"))
 }
 
