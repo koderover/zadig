@@ -40,7 +40,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/user"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
@@ -487,19 +486,6 @@ func initDatabase() {
 
 	if err := commonrepo.NewS3StorageColl().InitData(); err != nil {
 		log.Warnf("Failed to init S3 data: %s", err)
-	}
-
-	//init default admin user
-	log.Infof("============================ start to init default admin user ============================", commonconfig.AdminPassword())
-	uid, err := user.PresetSystemAdmin(commonconfig.AdminEmail(), commonconfig.AdminPassword(), commonconfig.SystemAddress())
-	if err != nil {
-		log.Errorf("aslan preset system admin err:%s", err)
-		return
-	}
-	err = user.PresetRoleBinding(uid)
-	if err != nil {
-		log.Errorf("aslan preset role binding err:%s", err)
-		return
 	}
 }
 
