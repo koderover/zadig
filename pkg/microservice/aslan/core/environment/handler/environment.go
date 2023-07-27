@@ -1581,7 +1581,7 @@ func GetEnvironment(c *gin.Context) {
 			return
 		}
 
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin ||
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
 			// check if the permission is given by collaboration mode
 			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
