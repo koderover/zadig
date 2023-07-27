@@ -46,24 +46,6 @@ func ListSvcsInEnv(c *gin.Context) {
 	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, productName, nil, ctx.Logger)
 }
 
-// @Summary List services in production env
-// @Description List services in production env
-// @Tags 	environment
-// @Accept 	json
-// @Produce json
-// @Param 	name 			path 		string 						 	true 	"env name"
-// @Param 	projectName 	query 		string 						 	true 	"project name"
-// @Success 200 			{object} 	commonservice.EnvServices
-// @Router /api/aslan/environment/production/environments/{name}/servicesForUpdate [get]
-func ListSvcsInProductionEnv(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	envName := c.Param("name")
-	productName := c.Query("projectName")
-
-	ctx.Resp, ctx.Err = commonservice.ListServicesInProductionEnv(envName, productName, nil, ctx.Logger)
-}
-
 func GetService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

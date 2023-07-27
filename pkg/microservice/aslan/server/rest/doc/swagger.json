@@ -1405,45 +1405,6 @@
                 }
             }
         },
-        "/api/aslan/environment/production/environments/{name}/servicesForUpdate": {
-            "get": {
-                "description": "List services in production env",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "List services in production env",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.EnvServices"
-                        }
-                    }
-                }
-            }
-        },
         "/api/aslan/environment/production/environments/{name}/workloads": {
             "get": {
                 "description": "List Workloads In Env",

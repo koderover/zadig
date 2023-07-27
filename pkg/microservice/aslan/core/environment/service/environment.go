@@ -27,9 +27,9 @@ import (
 	"sync"
 	"time"
 
-
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -61,7 +61,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/imnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
@@ -4048,7 +4047,11 @@ func UpsertEnvAnalysisCron(projectName, envName string, production *bool, req *E
 	}
 
 	pl, _ := json.Marshal(payload)
-	if err := nsq.Publish(setting.TopicCronjob, pl); err != nil {
+	err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
+		Payload:   string(pl),
+		QueueType: setting.TopicCronjob,
+	})
+	if err != nil {
 		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
 		return e.ErrUpsertCronjob.AddDesc(err.Error())
 	}
