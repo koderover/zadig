@@ -110,7 +110,6 @@ func updateServiceRevisionInProduct(productInfo *commonmodels.Product, serviceNa
 
 // reInstallHelmServiceInEnv uninstall the service and reinstall to update releaseNaming rule
 func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *commonmodels.Service) (finalError error) {
-	log.Infof("------------ start reinstall service: %s in envL %s", templateSvc.ServiceName, productInfo.EnvName)
 	productSvcMap, serviceName := productInfo.GetServiceMap(), templateSvc.ServiceName
 	productSvc, ok := productSvcMap[serviceName]
 	// service not applied in this environment
@@ -156,14 +155,11 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return
 	}
 
-	log.Infof("----- current release naming: %s, new release naming: %s", prodSvcTemp.GetReleaseNaming(), templateSvc.GetReleaseNaming())
-
 	// nothing would happen if release naming rule are same
 	if prodSvcTemp.GetReleaseNaming() == templateSvc.GetReleaseNaming() {
 		return nil
 	}
 
-	log.Infof("--- start  uninstall service: %s in namespace: %s", serviceName, productInfo.Namespace)
 	if err = kube.UninstallService(helmClient, productInfo, prodSvcTemp, true); err != nil {
 		err = fmt.Errorf("helm uninstall service: %s in namespace: %s, err: %s", serviceName, productInfo.Namespace, err)
 		return
@@ -179,8 +175,6 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, errBuildParam)
 		return
 	}
-
-	log.Infof("------ start install service: %s in namespace: %s, releaseName: %s", templateSvc.ServiceName, productInfo.Namespace, param.ReleaseName)
 
 	err = InstallService(helmClient, param)
 	if err != nil {

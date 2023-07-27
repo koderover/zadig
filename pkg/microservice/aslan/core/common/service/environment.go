@@ -651,7 +651,6 @@ func (f *workloadFilter) UnmarshalJSON(data []byte) error {
 }
 
 func (f *workloadFilter) Match(workload *Workload) bool {
-	log.Infof("----- filter data: %v %v %v", f.Name, f.ReleaseNameList.List(), f.ChartNameList.List())
 	if len(f.Name) > 0 {
 		if !strings.Contains(workload.Name, f.Name) {
 			return false
@@ -701,7 +700,6 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 		return nil
 	}
 	releaseChartNameMap, err := commonutil.GetReleaseNameToChartNameMap(productInfo)
-	log.Infof("------------ release chart map: %v, workload count: %v", releaseChartNameMap, len(workloads))
 	if err != nil {
 		return err
 	}
@@ -709,7 +707,6 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 		if chartRelease, ok := wl.Annotation[setting.HelmReleaseNameAnnotation]; ok {
 			wl.ReleaseName = chartRelease
 			wl.ChartName = releaseChartNameMap[wl.ReleaseName]
-			log.Infof("-------- release name: %s, chartName：%s", wl.ReleaseName, wl.ChartName)
 		}
 	}
 	return nil

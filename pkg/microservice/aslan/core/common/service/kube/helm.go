@@ -428,7 +428,6 @@ func UninstallServiceByName(helmClient helmclient.Client, serviceName string, en
 func UninstallService(helmClient helmclient.Client, env *commonmodels.Product, revisionSvc *commonmodels.Service, force bool) error {
 	releaseName := util.GeneReleaseName(revisionSvc.GetReleaseNaming(), env.ProductName, env.Namespace, env.EnvName, revisionSvc.ServiceName)
 
-	log.Infof("-------- uninstalling release: %s", releaseName)
 	err := EnsureDeleteZadigServiceByHelmRelease(context.TODO(), env, releaseName, helmClient)
 	if err != nil {
 		return fmt.Errorf("failed to ensure delete Zadig Service by helm release: %s", err)
