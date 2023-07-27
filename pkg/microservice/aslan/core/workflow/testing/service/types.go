@@ -48,7 +48,7 @@ type Scanning struct {
 
 type OpenAPICreateScanningReq struct {
 	Name        string                    `json:"name"`
-	ProjectName string                    `json:"project_name"`
+	ProjectName string                    `json:"project_key"`
 	Description string                    `json:"description"`
 	ScannerType string                    `json:"scanner_type"`
 	ImageName   string                    `json:"image_name"`
@@ -70,7 +70,7 @@ type OpenAPICreateScanningTaskReq struct {
 
 func (s *OpenAPICreateScanningTaskReq) Validate() (bool, error) {
 	if s.ProjectName == "" {
-		return false, fmt.Errorf("project name cannot be empty")
+		return false, fmt.Errorf("project key cannot be empty")
 	}
 	if s.ScanName == "" {
 		return false, fmt.Errorf("scan name cannot be empty")
@@ -93,7 +93,7 @@ func (req *OpenAPICreateScanningReq) Validate() (bool, error) {
 		return false, fmt.Errorf("scanning name cannot be empty")
 	}
 	if req.ProjectName == "" {
-		return false, fmt.Errorf("project name cannot be empty")
+		return false, fmt.Errorf("project key cannot be empty")
 	}
 	if req.ImageName == "" {
 		return false, fmt.Errorf("image name cannot be empty")
@@ -210,7 +210,7 @@ type OpenAPICreateTestTaskReq struct {
 
 func (t *OpenAPICreateTestTaskReq) Validate() (bool, error) {
 	if t.ProjectName == "" {
-		return false, fmt.Errorf("project name cannot be empty")
+		return false, fmt.Errorf("project key cannot be empty")
 	}
 	if t.TestName == "" {
 		return false, fmt.Errorf("test name cannot be empty")

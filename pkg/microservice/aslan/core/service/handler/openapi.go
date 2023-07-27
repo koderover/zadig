@@ -59,20 +59,20 @@ func CreateRawYamlServicesOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectKey := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
 	req := new(svcservice.OpenAPICreateYamlServiceReq)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid create raw yaml service json args")
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid request body")
 		return
 	}
 	if err = json.Unmarshal(data, req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid create raw yaml service json args")
+		ctx.Err = e.ErrInvalidParam.AddDesc("failed to unmarshal request body")
 		return
 	}
 
@@ -84,20 +84,20 @@ func CreateRawProductionYamlServicesOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectKey := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = fmt.Errorf("projectName cannot be empty")
+		ctx.Err = fmt.Errorf("projectKey cannot be empty")
 		return
 	}
 
 	req := new(svcservice.OpenAPICreateYamlServiceReq)
 	data, err := c.GetRawData()
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid create raw yaml service json args")
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid request body")
 		return
 	}
 	if err = json.Unmarshal(data, req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid create raw yaml service json args")
+		ctx.Err = e.ErrInvalidParam.AddDesc("failed to unmarshal request body")
 		return
 	}
 	req.Production = true
@@ -115,7 +115,7 @@ func UpdateServiceConfigOpenAPI(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid update service config json args")
 		return
 	}
-	args.ProjectName = c.Query("projectName")
+	args.ProjectName = c.Query("projectKey")
 	args.ServiceName = c.Param("name")
 	if err := args.Validate(); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -137,7 +137,7 @@ func UpdateProductionServiceConfigOpenAPI(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid update service config json args")
 		return
 	}
-	args.ProjectName = c.Query("projectName")
+	args.ProjectName = c.Query("projectKey")
 	args.ServiceName = c.Param("name")
 	if err := args.Validate(); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -160,9 +160,9 @@ func UpdateServiceVariableOpenAPI(c *gin.Context) {
 		return
 	}
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 	serviceName := c.Param("name")
@@ -171,9 +171,9 @@ func UpdateServiceVariableOpenAPI(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "(OpenAPI)"+"更新测试服务变量", "项目管理-服务", fmt.Sprintf("服务名称:%s", serviceName), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"更新测试服务变量", "项目管理-服务", fmt.Sprintf("服务名称:%s", serviceName), "", ctx.Logger)
 
-	ctx.Err = svcservice.OpenAPIUpdateServiceVariable(ctx.UserName, projectName, serviceName, req, ctx.Logger)
+	ctx.Err = svcservice.OpenAPIUpdateServiceVariable(ctx.UserName, projectKey, serviceName, req, ctx.Logger)
 }
 
 func UpdateProductionServiceVariableOpenAPI(c *gin.Context) {
@@ -186,9 +186,9 @@ func UpdateProductionServiceVariableOpenAPI(c *gin.Context) {
 		return
 	}
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 	serviceName := c.Param("name")
@@ -197,18 +197,18 @@ func UpdateProductionServiceVariableOpenAPI(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "(OpenAPI)"+"更新生产服务变量", "项目管理-服务", fmt.Sprintf("服务名称:%s", serviceName), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"更新生产服务变量", "项目管理-服务", fmt.Sprintf("服务名称:%s", serviceName), "", ctx.Logger)
 
-	ctx.Err = svcservice.OpenAPIUpdateProductionServiceVariable(ctx.UserName, projectName, serviceName, req, ctx.Logger)
+	ctx.Err = svcservice.OpenAPIUpdateProductionServiceVariable(ctx.UserName, projectKey, serviceName, req, ctx.Logger)
 }
 
 func DeleteYamlServicesOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 	serviceName := c.Param("name")
@@ -217,17 +217,17 @@ func DeleteYamlServicesOpenAPI(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "OpenAPI"+"删除", "项目管理-测试服务", serviceName, "", ctx.Logger)
-	ctx.Err = svcservice.DeleteServiceTemplate(serviceName, "k8s", projectName, c.DefaultQuery("isEnvTemplate", "true"), "private", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "OpenAPI"+"删除", "项目管理-测试服务", serviceName, "", ctx.Logger)
+	ctx.Err = svcservice.DeleteServiceTemplate(serviceName, "k8s", projectKey, c.DefaultQuery("isEnvTemplate", "true"), "private", ctx.Logger)
 }
 
 func DeleteProductionServicesOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 	serviceName := c.Param("name")
@@ -235,18 +235,18 @@ func DeleteProductionServicesOpenAPI(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName cannot be empty")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "OpenAPI"+"删除", "项目管理-生产服务", serviceName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "OpenAPI"+"删除", "项目管理-生产服务", serviceName, "", ctx.Logger)
 
-	ctx.Err = svcservice.DeleteProductionServiceTemplate(serviceName, projectName, ctx.Logger)
+	ctx.Err = svcservice.DeleteProductionServiceTemplate(serviceName, projectKey, ctx.Logger)
 }
 
 func GetYamlServiceOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectKey := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
@@ -263,9 +263,9 @@ func GetProductionYamlServiceOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectKey := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
@@ -282,13 +282,31 @@ func ListYamlServicesOpenAPI(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
-	resp, err := svcservice.ListServiceTemplateOpenAPI(projectName, ctx.Logger)
+	resp, err := svcservice.ListServiceTemplateOpenAPI(projectKey, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = resp
+}
+
+func ListProductionYamlServicesOpenAPI(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
+		return
+	}
+
+	resp, err := svcservice.ListProductionServiceTemplateOpenAPI(projectKey, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return

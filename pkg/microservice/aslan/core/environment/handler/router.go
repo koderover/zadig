@@ -320,6 +320,8 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 
 	production := router.Group("production")
 	{
+		production.GET("", OpenAPIListProductionEnvs)
+
 		production.DELETE("/:name", OpenAPIDeleteProductionEnv)
 		production.POST("", OpenAPICreateProductionEnv)
 		production.GET("/:name", OpenAPIGetProductionEnvDetail)

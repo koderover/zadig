@@ -49,7 +49,7 @@ func GetDeployStat(c *gin.Context) {
 type OpenAPIGetDeployStatArgs struct {
 	StartDate int64  `json:"startDate"      form:"startDate,default:0"`
 	EndDate   int64  `json:"endDate"        form:"endDate,default:0"`
-	Project   string `json:"project"        form:"project"`
+	Project   string `json:"project"        form:"projectKey"`
 }
 
 func GetDeployStatsOpenAPI(c *gin.Context) {

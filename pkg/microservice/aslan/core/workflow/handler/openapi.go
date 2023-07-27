@@ -40,33 +40,11 @@ func CreateCustomWorkflowTask(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflowservice.CreateCustomWorkflowTask(ctx.UserName, args, ctx.Logger)
 }
 
-type openAPICreateWorkflowViewReq struct {
-	ProjectName  string                             `json:"project_name"`
-	Name         string                             `json:"name"`
-	WorkflowList []*commonmodels.WorkflowViewDetail `json:"workflow_list"`
-}
-
-func (req *openAPICreateWorkflowViewReq) Validate() (bool, error) {
-	if req.ProjectName == "" {
-		return false, fmt.Errorf("project name cannot be empty")
-	}
-	if req.Name == "" {
-		return false, fmt.Errorf("view name cannot be empty")
-	}
-
-	for _, workflow := range req.WorkflowList {
-		if workflow.WorkflowType != "product" && workflow.WorkflowType != "custom" {
-			return false, fmt.Errorf("workflow type must be custom or product")
-		}
-	}
-	return true, nil
-}
-
 func OpenAPICreateWorkflowView(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(openAPICreateWorkflowViewReq)
+	args := new(workflowservice.OpenAPICreateWorkflowViewReq)
 	err := c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -85,13 +63,13 @@ func OpenAPIGetWorkflowViews(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("project name is required")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetWorkflowViews(projectName, ctx.Logger)
+	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetWorkflowViews(projectKey, ctx.Logger)
 }
 
 func OpenAPIUpdateWorkflowView(c *gin.Context) {
@@ -103,13 +81,13 @@ func OpenAPIUpdateWorkflowView(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("view name is required")
 		return
 	}
-	args := new(openAPICreateWorkflowViewReq)
+	args := new(workflowservice.OpenAPICreateWorkflowViewReq)
 	err := c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 	}
 	args.Name = viewName
-	args.ProjectName = c.Query("projectName")
+	args.ProjectName = c.Query("projectKey")
 	isValid, err := args.Validate()
 	if !isValid {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -117,7 +95,17 @@ func OpenAPIUpdateWorkflowView(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "(OpenAPI)"+"更新", "工作流视图", viewName, "", ctx.Logger)
 
-	ctx.Err = workflowservice.UpdateWorkflowViewOpenAPI(viewName, args.ProjectName, args.WorkflowList, ctx.UserName, ctx.Logger)
+	list := make([]*commonmodels.WorkflowViewDetail, 0)
+	for _, workflowInfo := range args.WorkflowList {
+		list = append(list, &commonmodels.WorkflowViewDetail{
+			WorkflowName:        workflowInfo.WorkflowName,
+			WorkflowDisplayName: workflowInfo.WorkflowDisplayName,
+			WorkflowType:        workflowInfo.WorkflowType,
+			Enabled:             workflowInfo.Enabled,
+		})
+	}
+
+	ctx.Err = workflowservice.UpdateWorkflowViewOpenAPI(viewName, args.ProjectName, list, ctx.UserName, ctx.Logger)
 }
 
 func OpenAPIDeleteWorkflowView(c *gin.Context) {
@@ -130,19 +118,19 @@ func OpenAPIDeleteWorkflowView(c *gin.Context) {
 		return
 	}
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("project name is required")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "(OpenAPI)"+"删除", "工作流视图", viewName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "工作流视图", viewName, "", ctx.Logger)
 
-	ctx.Err = workflowservice.DeleteWorkflowView(projectName, viewName, ctx.Logger)
+	ctx.Err = workflowservice.DeleteWorkflowView(projectKey, viewName, ctx.Logger)
 }
 
 type getworkflowTaskReq struct {
-	TaskID       int64  `json:"task_id"       form:"task_id"`
-	WorkflowName string `json:"workflow_name" form:"workflow_name"`
+	TaskID       int64  `json:"task_id"       form:"taskId"`
+	WorkflowName string `json:"workflow_key" form:"workflowKey"`
 }
 
 func OpenAPIGetWorkflowTaskV4(c *gin.Context) {
@@ -195,15 +183,15 @@ func OpenAPIDeleteCustomWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	workflowName := c.Query("workflowName")
-	projectName := c.Query("projectName")
-	if workflowName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflow name is required")
+	workflowKey := c.Query("workflowKey")
+	projectKey := c.Query("projectKey")
+	if workflowKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "(OpenAPI)"+"删除", "自定义工作流", workflowName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "自定义工作流", workflowKey, "", ctx.Logger)
 
-	ctx.Err = workflowservice.OpenAPIDeleteCustomWorkflowV4(workflowName, projectName, ctx.Logger)
+	ctx.Err = workflowservice.OpenAPIDeleteCustomWorkflowV4(workflowKey, projectKey, ctx.Logger)
 }
 
 func OpenAPIGetCustomWorkflowV4(c *gin.Context) {
@@ -211,13 +199,13 @@ func OpenAPIGetCustomWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	workflowName := c.Param("name")
-	projectName := c.Query("projectName")
+	projectName := c.Query("projectKey")
 	if workflowName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflow name is required")
+		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("project name is required")
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
 
@@ -228,29 +216,29 @@ func OpenAPIDeleteProductWorkflowV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	workflowName := c.Query("workflowName")
-	projectName := c.Query("projectName")
-	if workflowName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflow name is required")
+	workflowKey := c.Query("workflowKey")
+	projectKey := c.Query("projectKey")
+	if workflowKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "(OpenAPI)"+"删除", "产品工作流", workflowName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "产品工作流", workflowKey, "", ctx.Logger)
 
-	ctx.Err = workflowservice.OpenAPIDeleteProductWorkflowV4(workflowName, ctx.RequestID, ctx.RequestID, ctx.Logger)
+	ctx.Err = workflowservice.OpenAPIDeleteProductWorkflowV4(workflowKey, ctx.RequestID, ctx.RequestID, ctx.Logger)
 }
 
 func OpenAPIGetProductWorkflowTasksV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("project name is required")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
-	workflowName := c.Param("name")
-	if workflowName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflow name is required")
+	workflowKey := c.Param("name")
+	if workflowKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
 
@@ -261,21 +249,21 @@ func OpenAPIGetProductWorkflowTasksV4(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetProductWorkflowTasksV4(projectName, workflowName, args.PageNum, args.PageSize, ctx.Logger)
+	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetProductWorkflowTasksV4(projectKey, workflowKey, args.PageNum, args.PageSize, ctx.Logger)
 }
 
 func OpenAPIGetProductWorkflowTaskV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("project name is required")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
 	workflowName := c.Param("name")
 	if workflowName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflow name is required")
+		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
@@ -284,7 +272,7 @@ func OpenAPIGetProductWorkflowTaskV4(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetProductWorkflowTaskV4(projectName, workflowName, taskID, ctx.Logger)
+	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetProductWorkflowTaskV4(projectKey, workflowName, taskID, ctx.Logger)
 }
 
 func OpenAPIGetWorkflowV4List(c *gin.Context) {
@@ -297,8 +285,8 @@ func OpenAPIGetWorkflowV4List(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	if args.ProjectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("project name is required")
+	if args.ProjectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is required")
 		return
 	}
 
@@ -314,18 +302,18 @@ func OpenAPIRetryCustomWorkflowTaskV4(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "OpenAPI"+"重试", "自定义工作流任务", name, fmt.Sprintf("%d", taskID), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectKey"), "OpenAPI"+"重试", "自定义工作流任务", name, fmt.Sprintf("%d", taskID), ctx.Logger)
 
-	ctx.Err = workflowservice.OpenAPIRetryCustomWorkflowTaskV4(name, c.Query("projectName"), taskID, ctx.Logger)
+	ctx.Err = workflowservice.OpenAPIRetryCustomWorkflowTaskV4(name, c.Query("projectKey"), taskID, ctx.Logger)
 }
 
 func OpenAPIGetCustomWorkflowTaskV4(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	workflowName := c.Param("name")
-	if workflowName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflow name is required")
+	workflowKey := c.Param("name")
+	if workflowKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("workflowKey is required")
 		return
 	}
 
@@ -336,7 +324,32 @@ func OpenAPIGetCustomWorkflowTaskV4(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetCustomWorkflowTaskV4(workflowName, c.Query("projectName"), args.PageNum, args.PageSize, ctx.Logger)
+	ctx.Resp, ctx.Err = workflowservice.OpenAPIGetCustomWorkflowTaskV4(workflowKey, args.ProjectKey, args.PageNum, args.PageSize, ctx.Logger)
+}
+
+func OpenAPIApproveStage(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := &workflowservice.OpenAPIApproveRequest{}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to get raw data from request, error: %s", err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Err = fmt.Errorf("failed to unmarshal request data, error: %s", err)
+		return
+	}
+
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Err = workflowservice.ApproveStage(args.WorkflowName, args.StageName, ctx.UserName, ctx.UserID, args.Comment, args.TaskID, args.Approve, ctx.Logger)
 }
 
 func generalRequestValidate(c *gin.Context) (string, int64, error) {

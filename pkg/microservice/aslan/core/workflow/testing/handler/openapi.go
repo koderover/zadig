@@ -56,7 +56,7 @@ func OpenAPICreateScanningTask(c *gin.Context) {
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 	}
-	args.ProjectName = c.Query("projectName")
+	args.ProjectName = c.Query("projectKey")
 	args.ScanName = c.Param("scanName")
 	isValid, err := args.Validate()
 	if !isValid {
@@ -67,7 +67,7 @@ func OpenAPICreateScanningTask(c *gin.Context) {
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "OpenAPI"+"新增", "代码扫描任务", args.ScanName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "OpenAPI"+"新增", "代码扫描任务", args.ScanName, string(data), ctx.Logger)
 
 	taskID, err := testingservice.OpenAPICreateScanningTask(ctx.UserName, args, ctx.Logger)
 	ctx.Resp = testingservice.OpenAPICreateScanningTaskResp{
@@ -81,19 +81,18 @@ func OpenAPIGetScanningTaskDetail(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	scanName := c.Param("scanName")
-	// projectName is display name in db and productName is project unique key in db
-	productName := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param taskID")
 		return
 	}
-	if taskID == 0 || productName == "" || scanName == "" {
+	if taskID == 0 || projectKey == "" || scanName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid params")
 		return
 	}
 
-	ctx.Resp, ctx.Err = testingservice.OpenAPIGetScanningTaskDetail(taskID, productName, scanName, ctx.Logger)
+	ctx.Resp, ctx.Err = testingservice.OpenAPIGetScanningTaskDetail(taskID, projectKey, scanName, ctx.Logger)
 }
 
 func OpenAPICreateTestTask(c *gin.Context) {
@@ -128,18 +127,17 @@ func OpenAPIGetTestTaskResult(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	// projectName is display name in db and productName is project unique key in db
-	productName := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 	testName := c.Param("testName")
 	taskID, err := strconv.ParseInt(c.Param("taskID"), 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param taskID")
 		return
 	}
-	if taskID == 0 || productName == "" || testName == "" {
+	if taskID == 0 || projectKey == "" || testName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid params")
 		return
 	}
 
-	ctx.Resp, ctx.Err = testingservice.OpenAPIGetTestTaskResult(taskID, productName, testName, ctx.Logger)
+	ctx.Resp, ctx.Err = testingservice.OpenAPIGetTestTaskResult(taskID, projectKey, testName, ctx.Logger)
 }

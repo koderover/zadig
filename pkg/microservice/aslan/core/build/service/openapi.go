@@ -316,36 +316,38 @@ func OpenAPIGetBuildModule(name, projectName string, logger *zap.SugaredLogger) 
 		return nil, e.ErrGetBuildModule.AddErr(err)
 	}
 
-	template, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
-		ID: build.TemplateID,
-	})
-	if err != nil {
-		logger.Errorf("feailed to find build template, templateID:%s, err: %s", build.TemplateID, err)
-		return nil, e.ErrGetBuildModule.AddErr(err)
-	}
 	resp := &OpenAPIBuildDetailResp{
-		Name:         build.Name,
-		ProjectName:  build.ProductName,
-		BuildScript:  build.Scripts,
-		TemplateName: template.Name,
+		Name:        build.Name,
+		ProjectName: build.ProductName,
+		BuildScript: build.Scripts,
+		Source:      build.Source,
+		UpdateTime:  build.UpdateTime,
+		UpdateBy:    build.UpdateBy,
+	}
+	if build.TemplateID != "" {
+		template, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+			ID: build.TemplateID,
+		})
+		if err != nil {
+			logger.Errorf("feailed to find build template, templateID:%s, err: %s", build.TemplateID, err)
+			return nil, e.ErrGetBuildModule.AddErr(err)
+		}
+		resp.TemplateName = template.Name
 	}
 
 	resp.Repos = make([]*OpenAPIRepo, 0)
-	for _, targetRepo := range build.TargetRepos {
-		for _, rp := range targetRepo.Repos {
-			repo := &OpenAPIRepo{
-				RepoName:     rp.RepoName,
-				Branch:       rp.Branch,
-				Source:       rp.Source,
-				RepoOwner:    rp.RepoOwner,
-				RemoteName:   rp.RemoteName,
-				CheckoutPath: rp.CheckoutPath,
-				Submodules:   rp.SubModules,
-				Hidden:       rp.Hidden,
-			}
-			resp.Repos = append(resp.Repos, repo)
+	for _, rp := range build.Repos {
+		repo := &OpenAPIRepo{
+			RepoName:     rp.RepoName,
+			Branch:       rp.Branch,
+			Source:       rp.Source,
+			RepoOwner:    rp.RepoOwner,
+			RemoteName:   rp.RemoteName,
+			CheckoutPath: rp.CheckoutPath,
+			Submodules:   rp.SubModules,
+			Hidden:       rp.Hidden,
 		}
-
+		resp.Repos = append(resp.Repos, repo)
 	}
 
 	resp.TargetServices = make([]*ServiceModule, 0)
@@ -376,6 +378,7 @@ func OpenAPIGetBuildModule(name, projectName string, logger *zap.SugaredLogger) 
 			Enabled:  build.CacheEnable,
 			CacheDir: build.CacheUserDir,
 		},
+		UseHostDockerDaemon: build.PreBuild.UseHostDockerDaemon,
 	}
 	resp.AdvancedSetting.CacheSetting = &types.OpenAPICacheSetting{
 		Enabled:  build.CacheEnable,

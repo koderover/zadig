@@ -477,6 +477,7 @@ func ListProjectOpenAPI(pageSize, pageNum int64, logger *zap.SugaredLogger) (*Op
 			ProjectName: p.Alias,
 			ProjectKey:  p.Name,
 			Description: p.Desc,
+			DeployType:  p.DeployType,
 		})
 	}
 	return list, nil

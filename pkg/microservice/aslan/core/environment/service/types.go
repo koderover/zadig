@@ -221,7 +221,7 @@ type MatchedEnv struct {
 
 type OpenAPIScaleServiceReq struct {
 	ProjectKey     string `json:"project_key"`
-	EnvName        string `json:"env_name"`
+	EnvName        string `json:"env_key"`
 	WorkloadName   string `json:"workload_name"`
 	WorkloadType   string `json:"workload_type"`
 	TargetReplicas int    `json:"target_replicas"`
@@ -232,7 +232,7 @@ func (req *OpenAPIScaleServiceReq) Validate() error {
 		return fmt.Errorf("project_key is required")
 	}
 	if req.EnvName == "" {
-		return fmt.Errorf("env_name is required")
+		return fmt.Errorf("env_key is required")
 	}
 	if req.WorkloadName == "" {
 		return fmt.Errorf("workload_name is required")
@@ -255,7 +255,7 @@ func (req *OpenAPIScaleServiceReq) Validate() error {
 }
 
 type OpenAPIApplyYamlServiceReq struct {
-	EnvName     string               `json:"env_name"`
+	EnvName     string               `json:"env_key"`
 	ServiceList []*YamlServiceWithKV `json:"service_list"`
 }
 
@@ -266,7 +266,7 @@ type YamlServiceWithKV struct {
 
 func (req *OpenAPIApplyYamlServiceReq) Validate() error {
 	if req.EnvName == "" {
-		return fmt.Errorf("env_name is required")
+		return fmt.Errorf("env_key is required")
 	}
 
 	for _, serviceDef := range req.ServiceList {
@@ -278,13 +278,13 @@ func (req *OpenAPIApplyYamlServiceReq) Validate() error {
 }
 
 type OpenAPIDeleteYamlServiceFromEnvReq struct {
-	EnvName      string   `json:"env_name"`
+	EnvName      string   `json:"env_key"`
 	ServiceNames []string `json:"service_names"`
 }
 
 func (req *OpenAPIDeleteYamlServiceFromEnvReq) Validate() error {
 	if req.EnvName == "" {
-		return fmt.Errorf("env_name is required")
+		return fmt.Errorf("env_key is required")
 	}
 
 	return nil
@@ -306,7 +306,7 @@ type OpenAPIEnvCfgArgs struct {
 	CreatedTime          int64                        `json:"created_time,omitempty"`
 	UpdateBy             string                       `json:"update_by,omitempty"`
 	UpdateTime           int64                        `json:"update_time,omitempty"`
-	EnvName              string                       `json:"env_name"`
+	EnvName              string                       `json:"env_key"`
 	ProductName          string                       `json:"product_name"`
 	ServiceName          string                       `json:"service_name,omitempty"`
 	Services             []string                     `json:"services,omitempty"`
@@ -325,8 +325,8 @@ type OpenAPIEnvCfgDetail struct {
 
 type OpenAPIEnvCfgIngressDetail struct {
 	Name             string                  `json:"name"`
-	ProjectName      string                  `json:"project_name"`
-	EnvName          string                  `json:"env_name"`
+	ProjectName      string                  `json:"project_key"`
+	EnvName          string                  `json:"env_key"`
 	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
 	CreatedBy        string                  `json:"created_by,omitempty"`
 	CreatedTime      int64                   `json:"created_time,omitempty"`
@@ -351,14 +351,13 @@ type GitRepoConfig struct {
 	Owner       string   `json:"owner"`
 	Repo        string   `json:"repo"`
 	Branch      string   `json:"branch"`
-	Namespace   string   `json:"namespace"` // records the actual namespace of repo, used to generate correct project name
 	ValuesPaths []string `json:"values_paths,omitempty"`
 }
 
 type OpenAPIEnvCfgSecretDetail struct {
 	Name             string                  `json:"name"`
-	ProjectName      string                  `json:"project_name"`
-	EnvName          string                  `json:"env_name"`
+	ProjectName      string                  `json:"project_key"`
+	EnvName          string                  `json:"env_key"`
 	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
 	CreatedBy        string                  `json:"created_by,omitempty"`
 	CreatedTime      int64                   `json:"created_time,omitempty"`
@@ -372,8 +371,8 @@ type OpenAPIEnvCfgSecretDetail struct {
 
 type OpenAPIEnvCfgPvcDetail struct {
 	Name             string                  `json:"name"`
-	ProjectName      string                  `json:"project_name"`
-	EnvName          string                  `json:"env_name"`
+	ProjectName      string                  `json:"project_key"`
+	EnvName          string                  `json:"env_key"`
 	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
 	CreatedBy        string                  `json:"created_by,omitempty"`
 	CreatedTime      int64                   `json:"created_time,omitempty"`
@@ -391,8 +390,8 @@ type OpenAPIEnvCfgPvcDetail struct {
 
 type OpenAPIEnvCfgConfigMapDetail struct {
 	Name             string                  `json:"name"`
-	ProjectName      string                  `json:"project_name"`
-	EnvName          string                  `json:"env_name"`
+	ProjectName      string                  `json:"project_key"`
+	EnvName          string                  `json:"env_key"`
 	CommonEnvCfgType config.CommonEnvCfgType `json:"common_env_cfg_type"`
 	CreatedBy        string                  `json:"created_by,omitempty"`
 	CreatedTime      int64                   `json:"created_time,omitempty"`
@@ -410,10 +409,10 @@ func (req *OpenAPIEnvCfgArgs) Validate() error {
 		return fmt.Errorf("name is required")
 	}
 	if req.EnvName == "" {
-		return fmt.Errorf("env_name is required")
+		return fmt.Errorf("env_key is required")
 	}
 	if req.ProductName == "" {
-		return fmt.Errorf("project_name is required")
+		return fmt.Errorf("projectKey is required")
 	}
 	if req.CommonEnvCfgType == "" {
 		return fmt.Errorf("common_env_cfg_type is required")
@@ -426,12 +425,12 @@ func (req *OpenAPIEnvCfgArgs) Validate() error {
 
 type OpenAPICreateEnvArgs struct {
 	Production      bool                              `json:"production"`
-	ProjectName     string                            `json:"project_name"`
-	EnvName         string                            `json:"env_name"`
+	ProjectName     string                            `json:"project_key"`
+	EnvName         string                            `json:"env_key"`
 	ClusterID       string                            `json:"cluster_id"`
 	Namespace       string                            `json:"namespace"`
 	RegistryID      string                            `json:"registry_id"`
-	Alias           string                            `json:"alias"`
+	Alias           string                            `json:"env_name"`
 	GlobalVariables []*commontypes.GlobalVariableKV   `json:"global_variables"`
 	ChartValues     []*ProductHelmServiceCreationInfo `json:"chart_values"`
 	Services        []*OpenAPICreateServiceArgs       `json:"services"`
@@ -465,10 +464,10 @@ type OpenAPIServiceDetail struct {
 
 func (env *OpenAPICreateEnvArgs) Validate() error {
 	if env.ProjectName == "" {
-		return fmt.Errorf("project_name is required")
+		return fmt.Errorf("project key is required")
 	}
 	if env.EnvName == "" {
-		return fmt.Errorf("env_name is required")
+		return fmt.Errorf("env key is required")
 	}
 	if env.ClusterID == "" {
 		return fmt.Errorf("cluster_id is required")
@@ -488,14 +487,14 @@ func (env *OpenAPICreateEnvArgs) Validate() error {
 }
 
 type OpenAPIEnvDetail struct {
-	ProjectName     string                            `json:"project_name"`
-	EnvName         string                            `json:"env_name"`
+	ProjectName     string                            `json:"project_key"`
+	EnvName         string                            `json:"env_key"`
 	UpdateBy        string                            `json:"update_by"`
 	UpdateTime      int64                             `json:"update_time"`
 	ClusterID       string                            `json:"cluster_id"`
 	Namespace       string                            `json:"namespace"`
 	RegistryID      string                            `json:"registry_id"`
-	Alias           string                            `json:"alias"`
+	Alias           string                            `json:"env_name,omitempty"`
 	GlobalVariables []*commontypes.GlobalVariableKV   `json:"global_variables"`
 	ChartValues     []*ProductHelmServiceCreationInfo `json:"chart_values,omitempty"`
 	Services        []*OpenAPIServiceDetail           `json:"services"`
@@ -504,18 +503,12 @@ type OpenAPIEnvDetail struct {
 
 type EnvBasicInfoArgs struct {
 	RegistryID string `json:"registry_id"`
-	Alias      string `json:"alias"`
+	Alias      string `json:"env_name"`
 }
 
-type OpenAPIListEnvsResp struct {
-	Total          int64       `json:"total"`
-	TestEnvs       []*EnvBrief `json:"test_envs"`
-	ProductionEnvs []*EnvBrief `json:"production_envs"`
-}
-
-type EnvBrief struct {
-	Alias      string `json:"alias,omitempty"`
-	EnvName    string `json:"env_name"`
+type OpenAPIListEnvBrief struct {
+	Alias      string `json:"envName,omitempty"`
+	EnvName    string `json:"env_key"`
 	ClusterID  string `json:"cluster_id"`
 	Namespace  string `json:"namespace"`
 	Production bool   `json:"production"`
