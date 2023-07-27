@@ -120,21 +120,6 @@ type ProductEnvFindOptions struct {
 	Namespace string
 }
 
-func (c *ProductColl) FindEnv(opt *ProductEnvFindOptions) (*models.Product, error) {
-	query := bson.M{}
-	if opt.Name != "" {
-		query["product_name"] = opt.Name
-	}
-
-	if opt.Namespace != "" {
-		query["namespace"] = opt.Namespace
-	}
-
-	ret := new(models.Product)
-	err := c.FindOne(context.TODO(), query).Decode(ret)
-	return ret, err
-}
-
 func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 	res := &models.Product{}
 	query := bson.M{}
