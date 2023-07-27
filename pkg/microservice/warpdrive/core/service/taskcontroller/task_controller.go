@@ -21,9 +21,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
-
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -33,6 +32,12 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+)
+
+// filter duplicate cancel message
+var (
+	cancelMsgMap     = make(map[string]string)
+	cancelMsgMapLock = sync.RWMutex{}
 )
 
 type controller struct {
@@ -99,10 +104,8 @@ func (c *controller) Init(ctx context.Context) error {
 		}
 	}()
 
-	// handle cancel pipeline task
+	// handle cancel pipeline task message
 	go func() {
-		// filter duplicate cancel message
-		cancelMsgMap := sets.NewString()
 		for {
 			time.Sleep(1 * time.Second)
 			select {
@@ -126,11 +129,13 @@ func (c *controller) Init(ctx context.Context) error {
 							log.Errorf("convert interface to struct error: %v", err)
 							return
 						}
-						if cancelMsgMap.Has(fmt.Sprintf("%s:%d", msg.PipelineName, msg.TaskID)) {
+						if _, ok := cancelMsgMap[fmt.Sprintf("%s:%d", msg.PipelineName, msg.TaskID)]; ok {
 							continue
 						}
 						log.Infof("receiving cancel task %s:%d message", msg.PipelineName, msg.TaskID)
-						cancelMsgMap.Insert(fmt.Sprintf("%s:%d", msg.PipelineName, msg.TaskID))
+						cancelMsgMapLock.Lock()
+						cancelMsgMap[fmt.Sprintf("%s:%d", msg.PipelineName, msg.TaskID)] = msg.Revoker
+						cancelMsgMapLock.Unlock()
 
 						// 如果存在处理的 PipelineTask 并且匹配 PipelineName, 则取消PipelineTask
 						if pipelineTask != nil && pipelineTask.PipelineName == msg.PipelineName && pipelineTask.TaskID == msg.TaskID {
@@ -146,6 +151,29 @@ func (c *controller) Init(ctx context.Context) error {
 						}
 					}
 				}()
+			}
+		}
+	}()
+
+	// cancel pipeline task
+	// blocked task maybe sent to warpdrive after receving cancel msg
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				cancelMsgMapLock.RLock()
+				if pipelineTask != nil {
+					if revoker, ok := cancelMsgMap[fmt.Sprintf("%s:%d", pipelineTask.PipelineName, pipelineTask.TaskID)]; ok {
+						log.Infof("cancel task %s %d", pipelineTask.PipelineName, pipelineTask.TaskID)
+						pipelineTask.TaskRevoker = revoker
+						//取消pipelineTask
+						cancel()
+					}
+				}
+				cancelMsgMapLock.RUnlock()
 			}
 		}
 	}()
