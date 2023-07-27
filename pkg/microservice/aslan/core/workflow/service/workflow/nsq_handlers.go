@@ -785,7 +785,6 @@ func (h *TaskAckHandler) updateProductImageByNs(namespace, productName, serviceN
 		Namespace: namespace,
 		EnvName:   envName,
 	}
-	log.Infof("updateProductImageByNs %s", envName)
 
 	prod, err := h.productColl.Find(opt)
 
