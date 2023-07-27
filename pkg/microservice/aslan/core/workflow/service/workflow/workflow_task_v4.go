@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
@@ -44,8 +45,6 @@ import (
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
-	"github.com/koderover/zadig/pkg/microservice/user/core"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -243,7 +242,7 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 		log.Errorf("cannot find workflow %s, the error is: %v", workflowName, err)
 		return e.ErrFindWorkflow.AddErr(err)
 	}
-	userInfo, err := orm.GetUserByUid(uid, core.DB)
+	userInfo, err := user.New().GetUserByID(uid)
 	if err != nil || userInfo == nil {
 		return errors.New("failed to get user info by id")
 	}
@@ -348,7 +347,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 
 	// if user info exists, get user email and put it to workflow task info
 	if args.UserID != "" {
-		userInfo, err := orm.GetUserByUid(args.UserID, core.DB)
+		userInfo, err := user.New().GetUserByID(args.UserID)
 		if err != nil || userInfo == nil {
 			return resp, errors.New("failed to get user info by uid")
 		}
@@ -833,28 +832,6 @@ FOR:
 	ack = w.Ack
 	logger.Infof("stop workflowTaskV4 debug shell success: %s-%d", workflowName, taskID)
 	return nil
-}
-
-func UpdateWorkflowTaskV4(id string, workflowTask *commonmodels.WorkflowTask, logger *zap.SugaredLogger) error {
-	err := commonrepo.NewworkflowTaskv4Coll().Update(
-		id,
-		workflowTask,
-	)
-	if err != nil {
-		logger.Errorf("update workflowTaskV4 error: %s", err)
-		return e.ErrCreateTask.AddErr(err)
-	}
-	return nil
-}
-
-func ListWorkflowTaskV4(workflowName string, pageNum, pageSize int64, logger *zap.SugaredLogger) ([]*commonmodels.WorkflowTask, int64, error) {
-	resp, total, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{WorkflowName: workflowName, Limit: int(pageSize), Skip: int((pageNum - 1) * pageSize)})
-	if err != nil {
-		logger.Errorf("list workflowTaskV4 error: %s", err)
-		return resp, total, err
-	}
-	cleanWorkflowV4Tasks(resp)
-	return resp, total, nil
 }
 
 type TaskHistoryFilter struct {

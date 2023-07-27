@@ -177,7 +177,7 @@ func (c *Client) CheckUserAuthInfoForCollaborationMode(uid, projectKey, resource
 }
 
 func (c *Client) ListAuthorizedProjects(uid string) ([]string, bool, error) {
-	url := "/authorized-project"
+	url := "/authorized-projects"
 
 	resp := &types.ListAuthorizedProjectResp{}
 
@@ -196,7 +196,7 @@ func (c *Client) ListAuthorizedProjects(uid string) ([]string, bool, error) {
 }
 
 func (c *Client) ListAuthorizedWorkflows(uid, projectKey string) ([]string, []string, error) {
-	url := "/authorized-workflow"
+	url := "/authorized-workflows"
 
 	resp := &types.ListAuthorizedWorkflowsResp{}
 

@@ -94,6 +94,15 @@ type workflowCreateArgs struct {
 	argsMap     map[string]*workflowCreateArg
 }
 
+func FindWorkflowRaw(name string, logger *zap.SugaredLogger) (*commonmodels.Workflow, error) {
+	workflow, err := commonrepo.NewWorkflowColl().Find(name)
+	if err != nil {
+		logger.Errorf("Failed to find Product Workflow: %s, the error is: %v", name, err)
+		return workflow, e.ErrFindWorkflow.AddErr(err)
+	}
+	return workflow, err
+}
+
 func (args *workflowCreateArgs) addWorkflowArg(envName string, buildStageEnabled, artifactStageEnabled bool) {
 	wName := fmt.Sprintf("%s-workflow-%s", args.productName, envName)
 	if artifactStageEnabled {

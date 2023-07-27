@@ -53,39 +53,39 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	// Pipeline 管理接口
 	// ---------------------------------------------------------------------------------------
-	pipeline := router.Group("v2/pipelines")
-	{
-		pipeline.GET("", ListPipelines)
-		pipeline.GET("/:name", GetPipeline)
-		pipeline.POST("", GetPipelineProductName, UpsertPipeline)
-		pipeline.POST("/old/:old/new/:new", GetProductNameByPipeline, CopyPipeline)
-		pipeline.PUT("/rename/:old/:new", GetProductNameByPipeline, RenamePipeline)
-		pipeline.DELETE("/:name", GetProductNameByPipeline, DeletePipeline)
-	}
+	//pipeline := router.Group("v2/pipelines")
+	//{
+	//	pipeline.GET("", ListPipelines)
+	//	pipeline.GET("/:name", GetPipeline)
+	//	pipeline.POST("", GetPipelineProductName, UpsertPipeline)
+	//	pipeline.POST("/old/:old/new/:new", GetProductNameByPipeline, CopyPipeline)
+	//	pipeline.PUT("/rename/:old/:new", GetProductNameByPipeline, RenamePipeline)
+	//	pipeline.DELETE("/:name", GetProductNameByPipeline, DeletePipeline)
+	//}
 
 	// ---------------------------------------------------------------------------------------
 	// Pipeline 状态接口
 	// ---------------------------------------------------------------------------------------
-	statusV2 := router.Group("v2/status")
-	{
-		statusV2.GET("/preview", ListPipelinesPreview)
-		statusV2.GET("/task/info", FindTasks)
-	}
+	//statusV2 := router.Group("v2/status")
+	//{
+	//	statusV2.GET("/preview", ListPipelinesPreview)
+	//	statusV2.GET("/task/info", FindTasks)
+	//}
 
 	// ---------------------------------------------------------------------------------------
 	// Pipeline 任务管理接口
 	// ---------------------------------------------------------------------------------------
-	taskV2 := router.Group("v2/tasks")
-	{
-		taskV2.POST("", GetProductNameByPipelineTask, CreatePipelineTask)
-		taskV2.GET("/max/:max/start/:start/pipelines/:name", ListPipelineTasksResult)
-		taskV2.GET("/id/:id/pipelines/:name", GetPipelineTask)
-		taskV2.POST("/id/:id/pipelines/:name/restart", GetProductNameByPipeline, RestartPipelineTask)
-		taskV2.DELETE("/id/:id/pipelines/:name", GetProductNameByPipeline, CancelTaskV2)
-		taskV2.GET("/pipelines/:name/products", ListPipelineUpdatableProductNames)
-		taskV2.GET("/file", GetPackageFile)
-		taskV2.GET("/workflow/:pipelineName/taskId/:taskId", GetArtifactFile)
-	}
+	//taskV2 := router.Group("v2/tasks")
+	//{
+	//	taskV2.POST("", GetProductNameByPipelineTask, CreatePipelineTask)
+	//	taskV2.GET("/max/:max/start/:start/pipelines/:name", ListPipelineTasksResult)
+	//	taskV2.GET("/id/:id/pipelines/:name", GetPipelineTask)
+	//	taskV2.POST("/id/:id/pipelines/:name/restart", GetProductNameByPipeline, RestartPipelineTask)
+	//	taskV2.DELETE("/id/:id/pipelines/:name", GetProductNameByPipeline, CancelTaskV2)
+	//	taskV2.GET("/pipelines/:name/products", ListPipelineUpdatableProductNames)
+	//	taskV2.GET("/file", GetPackageFile)
+	//	taskV2.GET("/workflow/:pipelineName/taskId/:taskId", GetArtifactFile)
+	//}
 
 	// ---------------------------------------------------------------------------------------
 	// Pipeline Favorite 接口
@@ -106,7 +106,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflow.POST("", GetWorkflowProductName, CreateWorkflow)
 		workflow.PUT("/:workflowName", GetWorkflowProductName, UpdateWorkflow)
 		workflow.GET("", ListWorkflows)
-		workflow.GET("/testName/:testName", ListTestWorkflows)
 		workflow.GET("/find/:name", FindWorkflow)
 		workflow.DELETE("/:name", GetProductNameByWorkflow, DeleteWorkflow)
 		workflow.GET("/preset/:productName", PreSetWorkflow)
@@ -140,28 +139,28 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	// 新版本 通用工作流（暂命名） 接口
 	// ---------------------------------------------------------------------------------------
-	workflowV3 := router.Group("v3")
-	{
-		workflowV3.POST("", CreateWorkflowV3)
-		workflowV3.GET("", ListWorkflowsV3)
-		workflowV3.GET("/:id", GetWorkflowV3Detail)
-		workflowV3.PUT("/:id", UpdateWorkflowV3)
-		workflowV3.DELETE("/:id", DeleteWorkflowV3)
-		workflowV3.GET("/:id/args", GetWorkflowV3Args)
-	}
+	//workflowV3 := router.Group("v3")
+	//{
+	//	workflowV3.POST("", CreateWorkflowV3)
+	//	workflowV3.GET("", ListWorkflowsV3)
+	//	workflowV3.GET("/:id", GetWorkflowV3Detail)
+	//	workflowV3.PUT("/:id", UpdateWorkflowV3)
+	//	workflowV3.DELETE("/:id", DeleteWorkflowV3)
+	//	workflowV3.GET("/:id/args", GetWorkflowV3Args)
+	//}
 
 	// ---------------------------------------------------------------------------------------
 	// workflow v3 任务接口
 	// ---------------------------------------------------------------------------------------
-	taskV3 := router.Group("v3/workflowtask")
-	{
-		taskV3.POST("", CreateWorkflowTaskV3)
-		taskV3.POST("/id/:id/name/:name/restart", RestartWorkflowTaskV3)
-		taskV3.DELETE("/id/:id/name/:name", CancelWorkflowTaskV3)
-		taskV3.GET("/max/:max/start/:start/name/:name", ListWorkflowV3TasksResult)
-		taskV3.GET("/id/:id/name/:name", GetWorkflowTaskV3)
-		taskV3.GET("/callback/id/:id/name/:name", GetWorkflowTaskV3Callback)
-	}
+	//taskV3 := router.Group("v3/workflowtask")
+	//{
+	//	taskV3.POST("", CreateWorkflowTaskV3)
+	//	taskV3.POST("/id/:id/name/:name/restart", RestartWorkflowTaskV3)
+	//	taskV3.DELETE("/id/:id/name/:name", CancelWorkflowTaskV3)
+	//	taskV3.GET("/max/:max/start/:start/name/:name", ListWorkflowV3TasksResult)
+	//	taskV3.GET("/id/:id/name/:name", GetWorkflowTaskV3)
+	//	taskV3.GET("/callback/id/:id/name/:name", GetWorkflowTaskV3Callback)
+	//}
 
 	// ---------------------------------------------------------------------------------------
 	// 新版本 通用工作流（暂命名） 接口
@@ -256,8 +255,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		plugin.GET("/template", ListPluginTemplates)
 		plugin.POST("", UpsertUserPluginRepository)
-		plugin.POST("/enterprise", UpsertEnterprisePluginRepository)
-		plugin.GET("", ListUnofficalPluginRepositories)
+		//plugin.POST("/enterprise", UpsertEnterprisePluginRepository)
+		//plugin.GET("", ListUnofficalPluginRepositories)
 		plugin.DELETE("/:id", DeletePluginRepo)
 	}
 
