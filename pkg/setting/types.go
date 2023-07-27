@@ -137,6 +137,7 @@ const (
 	OPA                  // 10
 	Policy               // 11
 	Vendor
+	JioNlp
 )
 
 type ServiceInfo struct {
@@ -192,5 +193,9 @@ var Services = map[int]*ServiceInfo{
 	Vendor: {
 		Name: "plutus-vendor",
 		Port: 29000,
+	},
+	JioNlp: {
+		Name: "124.221.18.196",
+		Port: 9090,
 	},
 }
