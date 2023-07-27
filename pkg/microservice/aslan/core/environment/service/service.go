@@ -208,15 +208,16 @@ func GetService(envName, productName, serviceName string, production bool, workL
 				CronJobs:    make([]*internalresource.CronJob, 0),
 			}
 		}
-		mseResp, err := GetMseServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
-		if err != nil {
-			return nil, e.ErrGetService.AddErr(errors.Wrap(err, "failed to get mse service"))
+		if env.Source == setting.SourceFromZadig {
+			mseResp, err := GetMseServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+			if err != nil {
+				return nil, e.ErrGetService.AddErr(errors.Wrap(err, "failed to get mse service"))
+			}
+			ret.Scales = append(ret.Scales, mseResp.Scales...)
+			ret.Services = append(ret.Services, mseResp.Services...)
+			ret.Workloads = nil
+			ret.Namespace = env.Namespace
 		}
-		ret.Scales = append(ret.Scales, mseResp.Scales...)
-		ret.Services = append(ret.Services, mseResp.Services...)
-		ret.Workloads = nil
-		ret.Namespace = env.Namespace
-
 	default:
 		ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
 		if err != nil {
