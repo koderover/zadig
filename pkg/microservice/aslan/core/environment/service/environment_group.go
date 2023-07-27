@@ -158,18 +158,20 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 	for _, serviceResp := range resp {
 		respMap[serviceResp.ServiceName] = serviceResp
 	}
-	mseService, err := listZadigXMseReleaseServices(productInfo.Namespace, productName, envName, kubeClient)
-	if err != nil {
-		return resp, count, e.ErrListGroups.AddErr(errors.Wrap(err, "list mse release services"))
-	}
-	log.Debugf("mse release services num: %d", len(mseService))
-	for _, serviceResp := range mseService {
-		if svc, ok := respMap[serviceResp.ServiceName]; !ok {
-			resp = append(resp, serviceResp)
-		} else {
-			// when zadigx release resource exists, should set ZadigXReleaseType field too
-			svc.ZadigXReleaseType = serviceResp.ZadigXReleaseType
-			svc.ZadigXReleaseTag = serviceResp.ZadigXReleaseTag
+	if projectType == setting.K8SDeployType {
+		mseService, err := listZadigXMseReleaseServices(productInfo.Namespace, productName, envName, kubeClient)
+		if err != nil {
+			return resp, count, e.ErrListGroups.AddErr(errors.Wrap(err, "list mse release services"))
+		}
+		log.Debugf("mse release services num: %d", len(mseService))
+		for _, serviceResp := range mseService {
+			if svc, ok := respMap[serviceResp.ServiceName]; !ok {
+				resp = append(resp, serviceResp)
+			} else {
+				// when zadigx release resource exists, should set ZadigXReleaseType field too
+				svc.ZadigXReleaseType = serviceResp.ZadigXReleaseType
+				svc.ZadigXReleaseTag = serviceResp.ZadigXReleaseTag
+			}
 		}
 	}
 	return resp, count, nil
