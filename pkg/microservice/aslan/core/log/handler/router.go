@@ -36,6 +36,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		log.GET("/v3/workflow/:workflowName/tasks/:taskId", GetWorkflowBuildV3JobContainerLogs)
 		log.GET("/scanning/:id/task/:scan_id", GetScanningContainerLogs)
 		log.GET("/v4/workflow/:workflowName/tasks/:taskID/jobs/:jobName", GetWorkflowV4JobContainerLogs)
+		log.POST("/ai/workflow/:workflowName/tasks/:taskID/jobs/:jobName", AIAnalyzeBuildLog)
 	}
 
 	sse := router.Group("sse")
