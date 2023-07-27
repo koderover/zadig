@@ -2724,7 +2724,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		args.Revision = productTmpl.Revision
 	}
 
-	// 检查产品是否存在，envName和productName唯一
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: envName}
 	if _, err := commonrepo.NewProductColl().Find(opt); err == nil {
 		log.Errorf("[%s][P:%s] duplicate product", envName, args.ProductName)
