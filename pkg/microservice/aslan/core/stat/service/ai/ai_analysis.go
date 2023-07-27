@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package ai
 
 import (
@@ -12,16 +28,17 @@ import (
 	"sync"
 	"time"
 
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util"
+	openapi "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
 
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/llm"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type AiAnalysisResp struct {
@@ -60,7 +77,6 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 		return nil, err
 	}
 
-	// if data token over 3500, it will be split into multiple requests
 	promptInput, err := json.Marshal(data)
 	if err != nil {
 		logger.Errorf("failed to marshal data, the error is: %+v", err)
@@ -100,7 +116,7 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 			"分析要求:%s;你的回答需要使用text格式输出,输出内容不要包含\"三重引号分割的项目数据\"这个名称,也不要复述分析要求中的内容,在你的回答中禁止包含 "+
 			"\\\"data_description\\\"、\\\"jenkins\\\" 等字段; 项目数据：\"\"\"%s\"\"\"", args.Prompt, overAllInput)
 	}
-	answer, err := client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.2)), llm.WithLogitBias(map[string]int{"44875": -100, "5331": -100}))
+	answer, err := client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.2)), llm.WithModel(openapi.GPT3Dot5Turbo16K))
 	if err != nil {
 		logger.Errorf("failed to get answer from ai: %v, the error is: %+v", client.GetName(), err)
 		return nil, err
@@ -125,7 +141,7 @@ func AnalyzeProject(userPrompt string, project *ProjectData, client llm.ILLM, an
 	}
 
 	prompt := fmt.Sprintf("假设你是资深Devops专家，我需要你根据以下分析要求来分析用三重引号分割的项目数据，最后根据你的分析来生成分析报告，分析要求：%s； 项目数据：\"\"\"%s\"\"\";你的回答不能超过400个汉字，同时回答内容要符合text格式，不要存在换行和空行;", util.RemoveExtraSpaces(EveryProjectAnalysisPrompt), string(pData))
-	answer, err := client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.1)))
+	answer, err := client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.1)), llm.WithModel(openapi.GPT3Dot5Turbo16K))
 	if err != nil {
 		logger.Errorf("failed to get answer from ai: %v, the error is: %+v", client.GetName(), err)
 		return
@@ -164,9 +180,6 @@ func combineAiAnswer(projects []*ProjectData, ans map[string]string, startTime, 
 // parseUserPrompt parse the user prompt to prepare the input data of projects stat
 func parseUserPrompt(args *AiAnalysisReq, aiClient llm.ILLM, logger *zap.SugaredLogger) (*UserPromptParseInput, error) {
 	input := &UserPromptParseInput{}
-	// get all project name from db
-	// projectList, err := template.NewProductColl().ListAllName()
-	//projectList, err := commonrepo.NewJobInfoCollFromOther().GetAllProjectNameByTypeName(0, 0, "")
 	projectList, err := commonrepo.NewJobInfoColl().GetAllProjectNameByTypeName(0, 0, "")
 	if err != nil {
 		return input, err
@@ -188,9 +201,7 @@ func parseUserPrompt(args *AiAnalysisReq, aiClient llm.ILLM, logger *zap.Sugared
 	}
 	prompt := fmt.Sprintf("%s;\"\"\"%s\"\"\"", util.RemoveExtraSpaces(ParseUserPromptPrompt), args.Prompt)
 
-	start := time.Now()
 	resp, err := aiClient.GetCompletion(context.TODO(), prompt)
-	logger.Infof("=====> Finished Request AI in parseUserPrompt method,  Duration: %.2f seconds\n; the response is: \n%s\n", time.Since(start).Seconds(), resp)
 	if err != nil {
 		return input, err
 	}
@@ -205,15 +216,9 @@ func parseUserPrompt(args *AiAnalysisReq, aiClient llm.ILLM, logger *zap.Sugared
 		return nil, err
 	}
 
-	// parse time in user prompt by restful api
-	if (input.StartTime == 0 && input.EndTime == 0) && (args.StartTime > 0 && args.EndTime > 0) {
-		input.StartTime = args.StartTime
-		input.EndTime = args.EndTime
-	} else if (input.StartTime == 0 && input.EndTime == 0) && (args.StartTime == 0 && args.EndTime == 0) {
-		err = getTimeParseResult(args.Prompt, input, logger)
-		if err != nil {
-			return nil, err
-		}
+	err = getTimeParseResult(args.Prompt, input, logger)
+	if err != nil {
+		return nil, err
 	}
 	return input, nil
 }
@@ -275,7 +280,7 @@ func getTimeParseResult(prompt string, input *UserPromptParseInput, logger *zap.
 	if err != nil {
 		return err
 	}
-	logger.Infof("======>Finished Request NLP in getTimeParseResult method, the response is: \n%s", string(responseBody))
+	logger.Infof("finished Request NLP in getTimeParseResult method, the response is: \n%s", string(responseBody))
 
 	result := &UserPromptTimeParseResult{}
 	err = json.Unmarshal(responseBody, result)
@@ -422,14 +427,8 @@ func GetAiPrompts(logger *zap.SugaredLogger) (*ExamplePrompt, error) {
 	list = append(list, fmt.Sprintf("分析 %s 项目近一个月的质量和效率，并给出优化建议", projects[rand.Intn(len(projects))]))
 	list = append(list, fmt.Sprintf("分析所有项目近一个月的整体表现，并给出优化建议"))
 	list = append(list, fmt.Sprintf("分析 %s 项目近一个月的质量数据，预测未来的趋势和潜在问题", projects[rand.Intn(len(projects))]))
-	//list = append(list, fmt.Sprintf("通过历史数据，请用简洁的文字总结%s项目最近一个月的整体表现。", projects[rand.Intn(len(projects))]))
-	//list = append(list, fmt.Sprintf("请根据项目%s的构建、部署、测试和发布等数据，分析项目最近一个月的现状，并基于历史数据，分析未来的趋势和潜在问题，并提出改进建议。", projects[rand.Intn(len(projects))]))
-	//list = append(list, fmt.Sprintf("根据%s项目最近一个月每周的构建，部署，测试等数据的变化，以此分析该项目最近一段时间的发展趋势，如果存在问题则分析原因并给出合理的解决方案。", projects[rand.Intn(len(projects))]))
-	//list = append(list, fmt.Sprintf("通过历史数据，分析%s项目的最大短板是什么？并针对这些短板提供一些解决办法。", projects[rand.Intn(len(projects))]))
-	//if len(projects) > 5 {
-	//	list = append(list, fmt.Sprintf("从项目质量和效率两个角度分析项目%s最近一个月的情况，并分析这些项目的最近一个月的构建和部署趋势，对比构建趋势分析这些项目发展情况。", projects[1]+"、"+projects[2]+"、"+projects[3]))
-	//	list = append(list, fmt.Sprintf("分析这些项目%s在最近一个月的整体表现，选出质量和效率最高的一个项目和最差的一个项目,并分析这两个项目产生差距的原因。", projects[1]+"、"+projects[2]+"、"+projects[3]))
-	//}
+	list = append(list, fmt.Sprintf("通过历史数据，请用简洁的文字总结%s项目最近一个月的整体表现。", projects[rand.Intn(len(projects))]))
+	list = append(list, fmt.Sprintf("请根据项目%s的构建、部署、测试和发布等数据，分析项目最近一个月的现状，并基于历史数据，分析未来的趋势和潜在问题，并提出改进建议。", projects[rand.Intn(len(projects))]))
 
 	return &ExamplePrompt{
 		Prompts: list,
@@ -467,7 +466,7 @@ func AnalyzeMonthAttention(start, end int64, data []*service2.MonthAttention, lo
 	retryTime := 0
 	answer := ""
 	for retryTime < 3 {
-		answer, err = client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.2)))
+		answer, err = client.GetCompletion(context.TODO(), util.RemoveExtraSpaces(prompt), llm.WithTemperature(float32(0.2)), llm.WithModel(openapi.GPT3Dot5Turbo16K))
 		if err != nil {
 			retryTime++
 			if strings.Contains(err.Error(), "create chat completion failed") && retryTime < 3 {

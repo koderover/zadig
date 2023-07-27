@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service/ai"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service/ai"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -153,11 +153,9 @@ func GetProjectsOverview(c *gin.Context) {
 
 	if args.StartTime == 0 && args.EndTime == 0 {
 		now := time.Now()
-		args.StartTime = now.AddDate(0, 0, -30).Unix()
+		args.StartTime = now.AddDate(0, -1, 0).Unix()
 		args.EndTime = now.Unix()
 	}
-	//args.EndTime = time.Unix(args.EndTime, 0).AddDate(0, -3, 0).Unix()
-	//args.StartTime = time.Unix(args.EndTime, 0).AddDate(0, -1, 0).Unix()
 
 	ctx.Resp, ctx.Err = service.GetProjectsOverview(args.StartTime, args.EndTime, ctx.Logger)
 }

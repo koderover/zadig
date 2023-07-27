@@ -21,12 +21,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"math/rand"
 	"sort"
 	"strconv"
 	"time"
 
-	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -35,6 +33,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	repo "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func CreateStatDashboardConfig(args *StatDashboardConfig, logger *zap.SugaredLogger) error {
@@ -385,7 +384,6 @@ func GetProjectsOverview(start, end int64, logger *zap.SugaredLogger) ([]*DailyJ
 		data: make([]*currently30DayOverview, 0),
 	}
 
-	logger.Infof(">>>>>>>> get project overview data %d", len(result))
 	for i := 0; i < len(result); i++ {
 		start := util.GetMidnightTimestamp(result[i].StartTime)
 		end := time.Unix(start, 0).Add(time.Hour*24 - time.Second).Unix()
@@ -422,16 +420,6 @@ func GetProjectsOverview(start, end int64, logger *zap.SugaredLogger) ([]*DailyJ
 	}
 	resp := make([]*DailyJobInfo, 0)
 	resp = append(resp, reBuildData(start, end, buildJobs), reBuildData(start, end, testJobs), reBuildData(start, end, deployJobs))
-	rand.Seed(time.Now().UnixNano())
-	for _, item := range resp {
-		for i := 0; i < 30; i++ {
-			if item.Data[i] > 250 {
-				item.Data[i] -= rand.Intn(180) + 100
-				continue
-			}
-			item.Data[i] += rand.Intn(80) + 10
-		}
-	}
 	return resp, nil
 }
 

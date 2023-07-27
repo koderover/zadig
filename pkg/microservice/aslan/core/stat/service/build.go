@@ -20,10 +20,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/models"
 	repo "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/mongodb"
 )

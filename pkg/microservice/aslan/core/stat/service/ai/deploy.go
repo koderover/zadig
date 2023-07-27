@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package ai
 
 import (
@@ -5,8 +21,9 @@ import (
 	"fmt"
 	"time"
 
-	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
 	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
 )
 
 type DeployData struct {
@@ -36,7 +53,7 @@ func getDeployData(project string, startTime, endTime int64, log *zap.SugaredLog
 		Details:     &DeployDetails{},
 	}
 	// get deploy data from mongo
-	deployJobList, err := service2.GetProjectDeployStat(startTime, endTime, project)
+	deployJobList, err := service.GetProjectDeployStat(startTime, endTime, project)
 	if err != nil {
 		return deploy, err
 	}
@@ -49,20 +66,12 @@ func getDeployData(project string, startTime, endTime int64, log *zap.SugaredLog
 	deploy.Details.DeployWeeklyMeasureData = &DeployDetail{}
 	getDeployWeeklyMeasure(project, startTime, endTime, deploy.Details.DeployWeeklyMeasureData, log)
 
-	// TODO: DeployTopFiveHigherMeasureData is old method, need to be upgrade
-	//deploy.Details.DeployTopFiveHigherMeasureData = &DeployDetail{}
-	//getDeployTopFiveHigherMeasure(project, startTime, endTime, deploy.Details.DeployTopFiveHigherMeasureData, log)
-
-	// TODO: DeployTopFiveFailureMeasureData is old method, need to be upgrade
-	//deploy.Details.DeployTopFiveFailureMeasureData = &DeployDetail{}
-	//getDeployTopFiveFailureMeasure(project, startTime, endTime, deploy.Details.DeployTopFiveFailureMeasureData, log)
-
 	return deploy, nil
 }
 
 func getDeployHealthMeasure(project string, startTime, endTime int64, detail *DeployDetail, log *zap.SugaredLogger) {
 	// get deploy health measure data
-	DeployHealthMeasure, err := service2.GetDeployHealthMeasure(startTime, endTime, []string{project}, log)
+	DeployHealthMeasure, err := service.GetDeployHealthMeasure(startTime, endTime, []string{project}, log)
 	if err != nil {
 		log.Errorf("Failed to get deploy health measure data, the error is: %+v", err)
 	}
@@ -77,7 +86,7 @@ func getDeployHealthMeasure(project string, startTime, endTime int64, detail *De
 
 func getDeployWeeklyMeasure(project string, startTime, endTime int64, detail *DeployDetail, log *zap.SugaredLogger) {
 	// get deploy weekly measure data
-	DeployWeeklyMeasure, err := service2.GetProjectsWeeklyDeployStat(startTime, endTime, []string{project})
+	DeployWeeklyMeasure, err := service.GetProjectsWeeklyDeployStat(startTime, endTime, []string{project})
 	if err != nil {
 		log.Errorf("Failed to get deploy weekly measure data, the error is: %+v", err)
 	}
@@ -92,7 +101,7 @@ func getDeployWeeklyMeasure(project string, startTime, endTime int64, detail *De
 
 func getDeployTopFiveHigherMeasure(project string, startTime, endTime int64, detail *DeployDetail, log *zap.SugaredLogger) {
 	// get deploy top five higher measure data
-	DeployTopFiveHigherMeasure, err := service2.GetDeployTopFiveHigherMeasure(startTime, endTime, []string{project}, log)
+	DeployTopFiveHigherMeasure, err := service.GetDeployTopFiveHigherMeasure(startTime, endTime, []string{project}, log)
 	if err != nil {
 		log.Errorf("Failed to get deploy top five higher measure data, the error is: %+v", err)
 	}
@@ -107,7 +116,7 @@ func getDeployTopFiveHigherMeasure(project string, startTime, endTime int64, det
 
 func getDeployTopFiveFailureMeasure(project string, startTime, endTime int64, detail *DeployDetail, log *zap.SugaredLogger) {
 	// get deploy top five failure measure data
-	DeployTopFiveFailureMeasure, err := service2.GetDeployTopFiveFailureMeasure(startTime, endTime, []string{project}, log)
+	DeployTopFiveFailureMeasure, err := service.GetDeployTopFiveFailureMeasure(startTime, endTime, []string{project}, log)
 	if err != nil {
 		log.Errorf("Failed to get deploy top five failure measure data, the error is: %+v", err)
 	}
