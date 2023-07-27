@@ -110,6 +110,7 @@ func updateServiceRevisionInProduct(productInfo *commonmodels.Product, serviceNa
 
 // reInstallHelmServiceInEnv uninstall the service and reinstall to update releaseNaming rule
 func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *commonmodels.Service) (finalError error) {
+	log.Infof("------------ start reinstall service: %s in envL %s", templateSvc.ServiceName, productInfo.EnvName)
 	productSvcMap, serviceName := productInfo.GetServiceMap(), templateSvc.ServiceName
 	productSvc, ok := productSvcMap[serviceName]
 	// service not applied in this environment
@@ -154,6 +155,8 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		err = fmt.Errorf("failed to get service: %s with revision: %d, err: %s", serviceName, productSvc.Revision, errFindProd)
 		return
 	}
+
+	log.Infof("----- current release naming: %s, new release naming: %s", prodSvcTemp.GetReleaseNaming(), templateSvc.GetReleaseNaming())
 
 	// nothing would happen if release naming rule are same
 	if prodSvcTemp.GetReleaseNaming() == templateSvc.GetReleaseNaming() {
