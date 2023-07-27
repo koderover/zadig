@@ -205,17 +205,18 @@ func ListWorkflowV4(c *gin.Context) {
 		enableFilter = false
 		authorizedWorkflow = make([]string, 0)
 		authorizedWorkflowV4 = make([]string, 0)
-	}
-
-	if projectAuth, ok := ctx.Resources.ProjectAuthInfo[args.Project]; ok {
+		ctx.Logger.Infof("user is admin, disabling filter")
+	} else if projectAuth, ok := ctx.Resources.ProjectAuthInfo[args.Project]; ok {
 		if projectAuth.IsProjectAdmin || projectAuth.Workflow.View {
 			enableFilter = false
 			authorizedWorkflow = make([]string, 0)
 			authorizedWorkflowV4 = make([]string, 0)
+			ctx.Logger.Infof("user is project admin or has workflow view authorization, disabling filter")
 		} else {
 			var err error
 			authorizedWorkflow, authorizedWorkflowV4, enableFilter, err = internalhandler.ListAuthorizedWorkflows(ctx.UserID, args.Project)
 			if err != nil {
+				ctx.Logger.Errorf("failed to list authorized workflow resource, error: %s", err)
 				// something wrong when getting workflow authorization info, returning empty
 				ctx.Resp = listWorkflowV4Resp{
 					WorkflowList: make([]*workflow.Workflow, 0),
@@ -223,6 +224,8 @@ func ListWorkflowV4(c *gin.Context) {
 				}
 				return
 			}
+			ctx.Logger.Infof("authorized workflow length: %d", len(authorizedWorkflow))
+			ctx.Logger.Infof("authorized custom workflow length: %d", len(authorizedWorkflowV4))
 		}
 	} else {
 		// if a user does not have a role in a project, it must also not have a collaboration mode
@@ -239,6 +242,7 @@ func ListWorkflowV4(c *gin.Context) {
 		WorkflowList: workflowList,
 		Total:        0,
 	}
+	ctx.Logger.Infof("final workflow resp length: %d", len(workflowList))
 	ctx.Resp = resp
 	ctx.Err = err
 }
