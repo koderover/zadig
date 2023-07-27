@@ -163,8 +163,14 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return nil
 	}
 
+	log.Infof("--- start  uninstall service: %s in namespace: %s", serviceName, productInfo.Namespace)
 	if err = kube.UninstallService(helmClient, productInfo, prodSvcTemp, true); err != nil {
 		err = fmt.Errorf("helm uninstall service: %s in namespace: %s, err: %s", serviceName, productInfo.Namespace, err)
+		return
+	}
+
+	err = updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
+	if err != nil {
 		return
 	}
 
@@ -174,10 +180,7 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return
 	}
 
-	err = updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
-	if err != nil {
-		return
-	}
+	log.Infof("------ start install service: %s in namespace: %s, releaseName: %s", templateSvc.ServiceName, productInfo.Namespace, param.ReleaseName)
 
 	err = InstallService(helmClient, param)
 	if err != nil {
