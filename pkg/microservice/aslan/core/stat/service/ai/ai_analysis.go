@@ -66,9 +66,6 @@ func AnalyzeProjectStats(args *AiAnalysisReq, logger *zap.SugaredLogger) (*AiAna
 		logger.Errorf("failed to parse user prompt, the error is: %+v", err)
 		return nil, err
 	}
-	if len(args.ProjectList) > 0 {
-		inputData.ProjectList = args.ProjectList
-	}
 
 	// get analysis data from db with parameters projectList, jobList and timeRange
 	data, err := GetStatsAnalysisData(inputData, logger)
@@ -192,15 +189,7 @@ func parseUserPrompt(args *AiAnalysisReq, aiClient llm.ILLM, logger *zap.Sugared
 		"release",
 	}
 
-	if len(args.ProjectList) > 0 && args.StartTime > 0 && args.EndTime > 0 {
-		input.ProjectList = args.ProjectList
-		input.StartTime = args.StartTime
-		input.EndTime = args.EndTime
-		input.JobList = jobs
-		return input, nil
-	}
 	prompt := fmt.Sprintf("%s;\"\"\"%s\"\"\"", util.RemoveExtraSpaces(ParseUserPromptPrompt), args.Prompt)
-
 	resp, err := aiClient.GetCompletion(context.TODO(), prompt)
 	if err != nil {
 		return input, err
@@ -268,7 +257,7 @@ func getTimeParseResult(prompt string, input *UserPromptParseInput, logger *zap.
 		return err
 	}
 
-	host := setting.Services[setting.JioNlp]
+	host := setting.Services[setting.TimeNlp]
 	url := fmt.Sprintf("http://%s:%d/%s", host.Name, host.Port, "api/prompt/time")
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
