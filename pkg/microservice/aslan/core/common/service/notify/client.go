@@ -186,9 +186,6 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 		if err = json.Unmarshal(b, &ctx); err != nil {
 			return fmt.Errorf("[%s] convert content error: %v", notify.Receiver, err)
 		}
-		//debug
-		b, _ = json.MarshalIndent(ctx, "", "  ")
-		log.Infof("notify content: %s", string(b))
 
 		task, err := c.taskColl.Find(ctx.TaskID, ctx.PipelineName, ctx.Type)
 		if err != nil {

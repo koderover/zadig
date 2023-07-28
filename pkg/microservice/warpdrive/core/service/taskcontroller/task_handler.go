@@ -248,10 +248,6 @@ func (h *ExecHandler) SendNotification() {
 		return
 	}
 
-	//debug
-	b, _ := json.MarshalIndent(notify, "", "  ")
-	log.Infof("SendNotification: %s", string(b))
-
 	if err := mongodb.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
 		Payload:   string(nb),
 		QueueType: setting.TopicNotification,
