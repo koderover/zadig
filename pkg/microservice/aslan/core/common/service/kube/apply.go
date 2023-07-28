@@ -529,6 +529,10 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Rende
 	productInfo := applyParam.ProductInfo
 	productService := applyParam.ProductInfo.GetServiceMap()[applyParam.ServiceName]
 	if productService == nil {
+		if !applyParam.UpdateServiceRevision {
+			return nil, nil, nil, fmt.Errorf("First time online service %s needs to check the update service configuration", applyParam.ServiceName)
+		}
+
 		productService = &commonmodels.ProductService{
 			ProductName: applyParam.ProductInfo.ProductName,
 			ServiceName: applyParam.ServiceName,
