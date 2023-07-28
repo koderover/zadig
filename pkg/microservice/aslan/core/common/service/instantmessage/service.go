@@ -424,13 +424,19 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
 								return fmt.Sprintf("%s/%d", baseURL, prID)
 							}
+						default:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return ""
+							}
 						}
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 						prInfoList = []string{}
 						sort.Ints(buildRepo.PRs)
 						for _, id := range buildRepo.PRs {
 							link := prLinkBuilder(buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, id)
-							prInfoList = append(prInfoList, fmt.Sprintf("[#%d](%s)", id, link))
+							if link != "" {
+								prInfoList = append(prInfoList, fmt.Sprintf("[#%d](%s)", id, link))
+							}
 						}
 					}
 				}

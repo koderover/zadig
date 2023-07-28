@@ -225,12 +225,18 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
 								return fmt.Sprintf("%s/%d", baseURL, prID)
 							}
+						default:
+							prLinkBuilder = func(baseURL, owner, repoName string, prID int) string {
+								return ""
+							}
 						}
 						prInfoList = []string{}
 						sort.Ints(buildRepo.PRs)
 						for _, id := range buildRepo.PRs {
 							link := prLinkBuilder(buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, id)
-							prInfoList = append(prInfoList, fmt.Sprintf("[#%d](%s)", id, link))
+							if link != "" {
+								prInfoList = append(prInfoList, fmt.Sprintf("[#%d](%s)", id, link))
+							}
 						}
 						commitMsg := strings.Trim(buildRepo.CommitMessage, "\n")
 						commitMsgs = strings.Split(commitMsg, "\n")
