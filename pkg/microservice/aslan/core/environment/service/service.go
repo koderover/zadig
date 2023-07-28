@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -40,6 +38,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
@@ -230,14 +229,6 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		ret.Workloads = nil
 		ret.Namespace = env.Namespace
 	}
-
-	//projectType := getProjectType(productName)
-	//switch projectType {
-	//case setting.K8SDeployType:
-	//
-	//default:
-	//
-	//}
 
 	return ret, nil
 }
