@@ -337,7 +337,6 @@ func imagesProcessor(repos *registry.ReposResp, registryInfo *commonmodels.Regis
 			errChan <- err
 			return
 		}
-		logger.Infof("get image[%s] %d tags from db, get image[%s] %d tags from registry", repo.Name, len(dbTags), repo.Name, len(repo.Tags))
 
 		tags := ImageListGetter(repo, registryInfo, dbTags, regService, logger)
 		// update all imageTags to db,
