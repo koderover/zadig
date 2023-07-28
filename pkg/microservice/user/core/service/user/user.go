@@ -262,6 +262,19 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 	}, nil
 }
 
+func CheckUserExist(logger *zap.SugaredLogger) (bool, error) {
+	userCount, err := orm.GetUserCount(core.DB)
+	if err != nil {
+		logger.Errorf("failed to get user count, error msg:%s", err.Error())
+		return false, err
+	}
+	if userCount == 0 {
+		return false, nil
+	}
+	logger.Infof("get user count fron db:%d", userCount)
+	return true, nil
+}
+
 func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
 	count, err := orm.GetUsersCount(args.Name)
 	if err != nil {
