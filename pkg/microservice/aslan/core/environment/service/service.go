@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -176,10 +178,12 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	projectType := getProjectType(productName)
+	projectInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find project %s", productName))
+	}
 	var serviceTmpl *commonmodels.Service
-	switch projectType {
-	case setting.K8SDeployType:
+	if projectInfo.IsK8sYamlProduct() {
 		productSvc := env.GetServiceMap()[serviceName]
 		if productSvc != nil {
 			serviceTmpl, err = repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -218,7 +222,7 @@ func GetService(envName, productName, serviceName string, production bool, workL
 			ret.Workloads = nil
 			ret.Namespace = env.Namespace
 		}
-	default:
+	} else {
 		ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
 		if err != nil {
 			return nil, e.ErrGetService.AddErr(err)
@@ -226,6 +230,14 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		ret.Workloads = nil
 		ret.Namespace = env.Namespace
 	}
+
+	//projectType := getProjectType(productName)
+	//switch projectType {
+	//case setting.K8SDeployType:
+	//
+	//default:
+	//
+	//}
 
 	return ret, nil
 }
