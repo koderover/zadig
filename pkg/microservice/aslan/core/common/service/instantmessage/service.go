@@ -428,8 +428,12 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 						prInfoList = []string{}
 						sort.Ints(buildRepo.PRs)
+						log.Infof("len of prs: %d", len(buildRepo.PRs))
 						for _, id := range buildRepo.PRs {
+							log.Infof("pr id: %d", id)
+							log.Infof("address: %s, owner: %s, repo: %s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName)
 							link := prLinkBuilder(buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, id)
+							log.Infof("pr link builder done")
 							prInfoList = append(prInfoList, fmt.Sprintf("[#%d](%s)", id, link))
 						}
 					}
