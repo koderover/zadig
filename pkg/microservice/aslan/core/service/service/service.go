@@ -1105,6 +1105,14 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 		return err
 	}
 
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:       projectName,
+		Production: util.GetBoolPointer(false),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list envs for product: %s, err: %s", projectName, err)
+	}
+
 	// check if namings rule changes for services deployed in envs
 	if serviceTemplate.GetReleaseNaming() == args.NamingRule {
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
@@ -1123,6 +1131,18 @@ func UpdateReleaseNamingRule(userName, requestID, projectName string, args *Rele
 		}
 		if !modified {
 			return nil
+		}
+	}
+
+	// check if the release name already exists
+	for _, product := range products {
+		releaseName := util.GeneReleaseName(args.NamingRule, product.ProductName, product.Namespace, product.EnvName, args.ServiceName)
+		releaseNameMap, err := commonutil.GetReleaseNameToChartNameMap(product)
+		if err != nil {
+			return fmt.Errorf("failed to get release name to chart name map, err: %s", err)
+		}
+		if chartOrSvcName, ok := releaseNameMap[releaseName]; ok && chartOrSvcName != args.ServiceName {
+			return fmt.Errorf("release name %s already exists for chart or service %s in environment: %s", releaseName, chartOrSvcName, product.EnvName)
 		}
 	}
 
@@ -1174,15 +1194,16 @@ func UpdateProductionServiceReleaseNamingRule(userName, requestID, projectName s
 		return err
 	}
 
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:       projectName,
+		Production: util.GetBoolPointer(true),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list envs for product: %s, err: %s", projectName, err)
+	}
+
 	// check if namings rule changes for services deployed in envs
 	if serviceTemplate.GetReleaseNaming() == args.NamingRule {
-		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-			Name:       projectName,
-			Production: util.GetBoolPointer(true),
-		})
-		if err != nil {
-			return fmt.Errorf("failed to list envs for product: %s, err: %s", projectName, err)
-		}
 		modified := false
 		for _, product := range products {
 			if pSvc, ok := product.GetServiceMap()[args.ServiceName]; ok && pSvc.Revision != serviceTemplate.Revision {
@@ -1192,6 +1213,18 @@ func UpdateProductionServiceReleaseNamingRule(userName, requestID, projectName s
 		}
 		if !modified {
 			return nil
+		}
+	}
+
+	// check if the release name already exists
+	for _, product := range products {
+		releaseName := util.GeneReleaseName(args.NamingRule, product.ProductName, product.Namespace, product.EnvName, args.ServiceName)
+		releaseNameMap, err := commonutil.GetReleaseNameToChartNameMap(product)
+		if err != nil {
+			return fmt.Errorf("failed to get release name to chart name map, err: %s", err)
+		}
+		if chartOrSvcName, ok := releaseNameMap[releaseName]; ok && chartOrSvcName != args.ServiceName {
+			return fmt.Errorf("release name %s already exists for chart or service %s in environment: %s", releaseName, chartOrSvcName, product.EnvName)
 		}
 	}
 
