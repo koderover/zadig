@@ -1027,7 +1027,6 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 			return nil, nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceOrReleaseName)
 		}
 
-		prodSvc = productInfo.GetServiceMap()[serviceOrReleaseName]
 		if prodSvc == nil {
 			prodSvc = &commonmodels.ProductService{
 				ServiceName: serviceOrReleaseName,
@@ -1046,6 +1045,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 			}
 			renderSet.ChartInfos = append(renderSet.ChartInfos, targetChart)
 		}
+		targetChart.ValuesYaml = templateService.HelmChart.ValuesYaml
 	}
 
 	return prodSvc, templateService, productInfo, renderSet, nil
@@ -1106,6 +1106,7 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 	switch scene {
 	case usageScenarioCreateEnv:
 		productSvc, latestSvc, renderSet, err = prepareEstimateDataForEnvCreation(productName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
+		renderSet.DefaultValues = arg.DefaultValues
 	default:
 		productSvc, latestSvc, productInfo, renderSet, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene, arg.Production, isHelmChartDeploy, log)
 	}
@@ -1115,7 +1116,6 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 	}
 
 	var targetChart *templatemodels.ServiceRender
-	renderSet.DefaultValues = arg.DefaultValues
 	if isHelmChartDeploy {
 		targetChart = renderSet.GetChartDeployRenderMap()[serviceOrReleaseName]
 		if targetChart == nil {
@@ -2724,7 +2724,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		args.Revision = productTmpl.Revision
 	}
 
-	// 检查产品是否存在，envName和productName唯一
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: envName}
 	if _, err := commonrepo.NewProductColl().Find(opt); err == nil {
 		log.Errorf("[%s][P:%s] duplicate product", envName, args.ProductName)
