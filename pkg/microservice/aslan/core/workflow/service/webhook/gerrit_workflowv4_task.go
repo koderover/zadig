@@ -19,6 +19,7 @@ package webhook
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -35,7 +36,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -56,10 +56,20 @@ func (gruem *gerritChangeMergedEventMatcherForWorkflowV4) Match(hookRepo *common
 	if event == nil {
 		return false, fmt.Errorf("event doesn't match")
 	}
-	b, _ := json.MarshalIndent(event, "", "  ")
-	log.Infof("gerrit raw: %s", string(b))
 
-	if event.Project.Name == gruem.Item.MainRepo.RepoName && strings.Contains(event.RefName, gruem.Item.MainRepo.Branch) {
+	if event.Project.Name == gruem.Item.MainRepo.RepoName {
+		refName := getBranchFromRef(event.RefName)
+		isRegular := gruem.Item.MainRepo.IsRegular
+		if !isRegular && hookRepo.Branch != refName {
+			return false, nil
+		}
+		if isRegular {
+			// Do not use regexp.MustCompile to avoid panic
+			matched, err := regexp.MatchString(gruem.Item.MainRepo.Branch, refName)
+			if err != nil || !matched {
+				return false, nil
+			}
+		}
 		existEventNames := make([]string, 0)
 		for _, eventName := range gruem.Item.MainRepo.Events {
 			existEventNames = append(existEventNames, string(eventName))
@@ -95,10 +105,20 @@ func (gpcem *gerritPatchsetCreatedEventMatcherForWorkflowV4) Match(hookRepo *com
 	if event == nil {
 		return false, fmt.Errorf("event doesn't match")
 	}
-	b, _ := json.MarshalIndent(event, "", "  ")
-	log.Infof("gerrit raw: %s", string(b))
 
-	if event.Project.Name == gpcem.Item.MainRepo.RepoName && strings.Contains(event.RefName, gpcem.Item.MainRepo.Branch) {
+	if event.Project.Name == gpcem.Item.MainRepo.RepoName {
+		refName := getBranchFromRef(event.RefName)
+		isRegular := gpcem.Item.MainRepo.IsRegular
+		if !isRegular && hookRepo.Branch != refName {
+			return false, nil
+		}
+		if isRegular {
+			// Do not use regexp.MustCompile to avoid panic
+			matched, err := regexp.MatchString(gpcem.Item.MainRepo.Branch, refName)
+			if err != nil || !matched {
+				return false, nil
+			}
+		}
 		existEventNames := make([]string, 0)
 		for _, eventName := range gpcem.Item.MainRepo.Events {
 			existEventNames = append(existEventNames, string(eventName))

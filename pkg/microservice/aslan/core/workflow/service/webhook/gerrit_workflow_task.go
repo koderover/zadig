@@ -19,6 +19,7 @@ package webhook
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -176,7 +177,19 @@ func (gruem *gerritChangeMergedEventMatcher) Match(hookRepo *commonmodels.MainHo
 	b, _ := json.MarshalIndent(event, "", "  ")
 	log.Infof("gerrit raw: %s", string(b))
 
-	if event.Project.Name == gruem.Item.MainRepo.RepoName && strings.Contains(event.RefName, gruem.Item.MainRepo.Branch) {
+	if event.Project.Name == gruem.Item.MainRepo.RepoName {
+		refName := getBranchFromRef(event.RefName)
+		isRegular := gruem.Item.MainRepo.IsRegular
+		if !isRegular && hookRepo.Branch != refName {
+			return false, nil
+		}
+		if isRegular {
+			// Do not use regexp.MustCompile to avoid panic
+			matched, err := regexp.MatchString(gruem.Item.MainRepo.Branch, refName)
+			if err != nil || !matched {
+				return false, nil
+			}
+		}
 		existEventNames := make([]string, 0)
 		for _, eventName := range gruem.Item.MainRepo.Events {
 			existEventNames = append(existEventNames, string(eventName))
@@ -221,7 +234,19 @@ func (gpcem *gerritPatchsetCreatedEventMatcher) Match(hookRepo *commonmodels.Mai
 		return false, fmt.Errorf("event doesn't match")
 	}
 
-	if event.Project.Name == gpcem.Item.MainRepo.RepoName && strings.Contains(event.RefName, gpcem.Item.MainRepo.Branch) {
+	if event.Project.Name == gpcem.Item.MainRepo.RepoName {
+		refName := getBranchFromRef(event.RefName)
+		isRegular := gpcem.Item.MainRepo.IsRegular
+		if !isRegular && hookRepo.Branch != refName {
+			return false, nil
+		}
+		if isRegular {
+			// Do not use regexp.MustCompile to avoid panic
+			matched, err := regexp.MatchString(gpcem.Item.MainRepo.Branch, refName)
+			if err != nil || !matched {
+				return false, nil
+			}
+		}
 		existEventNames := make([]string, 0)
 		for _, eventName := range gpcem.Item.MainRepo.Events {
 			existEventNames = append(existEventNames, string(eventName))
