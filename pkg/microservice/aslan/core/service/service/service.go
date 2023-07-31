@@ -1216,7 +1216,7 @@ func UpdateProductionServiceReleaseNamingRule(userName, requestID, projectName s
 		}
 	}
 
-	log.Info("-------- product count: %v", len(products))
+	log.Infof("-------- product count: %v", len(products))
 	// check if the release name already exists
 	for _, product := range products {
 		releaseName := util.GeneReleaseName(args.NamingRule, product.ProductName, product.Namespace, product.EnvName, args.ServiceName)
