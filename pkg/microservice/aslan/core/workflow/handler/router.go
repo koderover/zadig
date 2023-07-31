@@ -106,6 +106,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflow.POST("", GetWorkflowProductName, CreateWorkflow)
 		workflow.PUT("/:workflowName", GetWorkflowProductName, UpdateWorkflow)
 		workflow.GET("", ListWorkflows)
+		workflow.GET("/testName/:testName", ListTestWorkflows)
 		workflow.GET("/find/:name", FindWorkflow)
 		workflow.DELETE("/:name", GetProductNameByWorkflow, DeleteWorkflow)
 		workflow.GET("/preset/:productName", PreSetWorkflow)

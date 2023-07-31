@@ -167,6 +167,9 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 		respSet.Insert(collabMode.ProjectName)
 	}
 
+	// removing * from the authorized project since it is a special case
+	respSet.Delete("*")
+
 	return respSet.List(), nil
 }
 

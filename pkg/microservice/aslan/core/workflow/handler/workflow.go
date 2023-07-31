@@ -215,6 +215,13 @@ func ListWorkflows(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.ListWorkflows(projects, ctx.UserID, workflowNames, ctx.Logger)
 }
 
+func ListTestWorkflows(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = workflow.ListTestWorkflows(c.Param("testName"), c.QueryArray("projects"), ctx.Logger)
+}
+
 // FindWorkflow find a workflow
 func FindWorkflow(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
