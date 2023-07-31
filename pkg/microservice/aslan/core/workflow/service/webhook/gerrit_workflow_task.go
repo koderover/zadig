@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -172,6 +173,8 @@ func (gruem *gerritChangeMergedEventMatcher) Match(hookRepo *commonmodels.MainHo
 	if event == nil {
 		return false, fmt.Errorf("event doesn't match")
 	}
+	b, _ := json.MarshalIndent(event, "", "  ")
+	log.Infof("gerrit raw: %s", string(b))
 
 	if event.Project.Name == gruem.Item.MainRepo.RepoName && strings.Contains(event.RefName, gruem.Item.MainRepo.Branch) {
 		existEventNames := make([]string, 0)
@@ -401,7 +404,7 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 	return errorList.ErrorOrNil()
 }
 
-//add webHook user
+// add webHook user
 func addWebHookUser(match gerritEventMatcher, domain string) {
 	if merge, ok := match.(*gerritChangeMergedEventMatcher); ok {
 		webhookUser := &commonmodels.WebHookUser{
