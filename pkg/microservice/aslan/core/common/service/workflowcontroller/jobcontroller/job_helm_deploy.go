@@ -214,7 +214,7 @@ func (c *HelmDeployJobCtl) SaveInfo(ctx context.Context) error {
 		ServiceName:   c.jobTaskSpec.ServiceName,
 		TargetEnv:     c.jobTaskSpec.Env,
 		ServiceModule: moduleList,
-		// helm deploy does not have production deploy now
+		Production:    c.jobTaskSpec.IsProduction,
 	})
 }
 
