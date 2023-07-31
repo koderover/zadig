@@ -70,6 +70,7 @@ func (gruem *gerritChangeMergedEventMatcherForWorkflowV4) Match(hookRepo *common
 				return false, nil
 			}
 		}
+		hookRepo.Branch = refName
 		existEventNames := make([]string, 0)
 		for _, eventName := range gruem.Item.MainRepo.Events {
 			existEventNames = append(existEventNames, string(eventName))
@@ -119,6 +120,7 @@ func (gpcem *gerritPatchsetCreatedEventMatcherForWorkflowV4) Match(hookRepo *com
 				return false, nil
 			}
 		}
+		hookRepo.Branch = refName
 		existEventNames := make([]string, 0)
 		for _, eventName := range gpcem.Item.MainRepo.Events {
 			existEventNames = append(existEventNames, string(eventName))

@@ -37,7 +37,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -174,8 +173,6 @@ func (gruem *gerritChangeMergedEventMatcher) Match(hookRepo *commonmodels.MainHo
 	if event == nil {
 		return false, fmt.Errorf("event doesn't match")
 	}
-	b, _ := json.MarshalIndent(event, "", "  ")
-	log.Infof("gerrit raw: %s", string(b))
 
 	if event.Project.Name == gruem.Item.MainRepo.RepoName {
 		refName := getBranchFromRef(event.RefName)
@@ -190,6 +187,7 @@ func (gruem *gerritChangeMergedEventMatcher) Match(hookRepo *commonmodels.MainHo
 				return false, nil
 			}
 		}
+		hookRepo.Branch = refName
 		existEventNames := make([]string, 0)
 		for _, eventName := range gruem.Item.MainRepo.Events {
 			existEventNames = append(existEventNames, string(eventName))
@@ -247,6 +245,7 @@ func (gpcem *gerritPatchsetCreatedEventMatcher) Match(hookRepo *commonmodels.Mai
 				return false, nil
 			}
 		}
+		hookRepo.Branch = refName
 		existEventNames := make([]string, 0)
 		for _, eventName := range gpcem.Item.MainRepo.Events {
 			existEventNames = append(existEventNames, string(eventName))
