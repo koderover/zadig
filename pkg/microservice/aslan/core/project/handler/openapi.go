@@ -138,22 +138,22 @@ func OpenAPIGetProjectDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetProjectDetailOpenAPI(projectName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetProjectDetailOpenAPI(projectKey, ctx.Logger)
 }
 
 func OpenAPIDeleteProject(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param projectName")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
 		return
 	}
 	isDelete, err := strconv.ParseBool(c.Query("isDelete"))
@@ -161,20 +161,20 @@ func OpenAPIDeleteProject(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param isDelete")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "OpenAPI"+"删除", "项目管理-项目", projectName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "OpenAPI"+"删除", "项目管理-项目", projectKey, "", ctx.Logger)
 
-	ctx.Err = service.DeleteProjectOpenAPI(ctx.UserName, ctx.RequestID, projectName, isDelete, ctx.Logger)
+	ctx.Err = service.DeleteProjectOpenAPI(ctx.UserName, ctx.RequestID, projectKey, isDelete, ctx.Logger)
 }
 
 func OpenAPIGetGlobalVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.OpenAPIGetGlobalVariables(projectName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.OpenAPIGetGlobalVariables(projectKey, ctx.Logger)
 }

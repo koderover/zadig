@@ -48,7 +48,8 @@ type OpenAPIAdvancedSetting struct {
 	Spec        setting.RequestSpec    `json:"resource_spec"`
 	Webhooks    *OpenAPIWebhookSetting `json:"webhooks,omitempty"`
 	// Cache settings is for build only for now, remove this line if there are further changes
-	CacheSetting *OpenAPICacheSetting `json:"cache_setting"`
+	CacheSetting        *OpenAPICacheSetting `json:"cache_setting"`
+	UseHostDockerDaemon bool                 `json:"use_host_docker_daemon"`
 }
 
 type OpenAPIWebhookSetting struct {

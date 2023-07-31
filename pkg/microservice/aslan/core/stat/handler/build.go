@@ -49,7 +49,7 @@ func GetBuildStat(c *gin.Context) {
 type OpenAPIGetBuildStatArgs struct {
 	StartDate int64  `json:"startDate"      form:"startDate,default:0"`
 	EndDate   int64  `json:"endDate"        form:"endDate,default:0"`
-	Project   string `json:"project"        form:"project"`
+	Project   string `json:"project"        form:"projectKey"`
 }
 
 func GetBuildStatForOpenAPI(c *gin.Context) {

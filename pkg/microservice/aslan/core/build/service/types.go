@@ -31,7 +31,7 @@ type OpenAPIPageParamsFromReq struct {
 type OpenAPIBuildCreationReq struct {
 	Name            string                           `json:"name"`
 	Description     string                           `json:"description"`
-	ProjectName     string                           `json:"project_name"`
+	ProjectName     string                           `json:"project_key"`
 	ImageName       string                           `json:"image_name"`
 	RepoInfo        []*types.OpenAPIRepoInput        `json:"repo_info"`
 	AdvancedSetting *types.OpenAPIAdvancedSetting    `json:"advanced_settings"`
@@ -49,7 +49,7 @@ func (req *OpenAPIBuildCreationReq) Validate() (bool, error) {
 		return false, fmt.Errorf("build name cannot be empty")
 	}
 	if req.ProjectName == "" {
-		return false, fmt.Errorf("project name cannot be empty")
+		return false, fmt.Errorf("project key cannot be empty")
 	}
 	if req.ImageName == "" {
 		return false, fmt.Errorf("image name cannot be empty")
@@ -62,7 +62,7 @@ func (req *OpenAPIBuildCreationReq) Validate() (bool, error) {
 
 type OpenAPIBuildCreationFromTemplateReq struct {
 	Name           string                           `json:"name"`
-	ProjectName    string                           `json:"project_name"`
+	ProjectName    string                           `json:"project_key"`
 	TemplateName   string                           `json:"template_name"`
 	TargetServices []*types.OpenAPIServiceBuildArgs `json:"target_services"`
 }
@@ -72,7 +72,7 @@ func (req *OpenAPIBuildCreationFromTemplateReq) Validate() (bool, error) {
 		return false, fmt.Errorf("build name cannot be empty")
 	}
 	if req.ProjectName == "" {
-		return false, fmt.Errorf("project name cannot be empty")
+		return false, fmt.Errorf("project key cannot be empty")
 	}
 	if req.TemplateName == "" {
 		return false, fmt.Errorf("template name cannot be empty")
@@ -90,7 +90,7 @@ type OpenAPIBuildListResp struct {
 
 type OpenAPIBuildBrief struct {
 	Name           string           `json:"name"`
-	ProjectName    string           `json:"project_name"`
+	ProjectName    string           `json:"project_key"`
 	Source         string           `json:"source"`
 	UpdateBy       string           `json:"update_by"`
 	UpdateTime     int64            `json:"update_time"`
@@ -103,7 +103,7 @@ type ServiceModule struct {
 }
 
 type OpenAPIBuildDetailResp struct {
-	ProjectName     string                        `json:"project_name"`
+	ProjectName     string                        `json:"project_key"`
 	Name            string                        `json:"name"`
 	Source          string                        `json:"source"`
 	TargetServices  []*ServiceModule              `json:"target_services"`

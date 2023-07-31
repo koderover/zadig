@@ -242,12 +242,7 @@ type OpenAPIGetYamlServiceResp struct {
 	ServiceVariableKvs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
 }
 
-type OpenAPIListYamlServiceResp struct {
-	Service           []*ServiceBrief `json:"service"`
-	ProductionService []*ServiceBrief `json:"production_service"`
-}
-
-type ServiceBrief struct {
+type OpenAPIServiceBrief struct {
 	ServiceName string            `json:"service_name"`
 	Source      string            `json:"source"`
 	Type        string            `json:"type"`

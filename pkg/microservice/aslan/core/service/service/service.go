@@ -1447,19 +1447,16 @@ func createGerritWebhookByService(codehostID int, serviceName, repoName, branchN
 	return nil
 }
 
-func ListServiceTemplateOpenAPI(projectName string, logger *zap.SugaredLogger) (*OpenAPIListYamlServiceResp, error) {
-	services, err := commonservice.ListServiceTemplate(projectName, logger)
+func ListServiceTemplateOpenAPI(projectKey string, logger *zap.SugaredLogger) ([]*OpenAPIServiceBrief, error) {
+	services, err := commonservice.ListServiceTemplate(projectKey, logger)
 	if err != nil {
-		log.Errorf("ListServiceTemplateOpenAPI ListServiceTemplate err:%v", err)
-		return nil, err
+		log.Errorf("failed to list service from db, projectKey: %s, err:%v", projectKey, err)
+		return nil, fmt.Errorf("failed to list service from db, projectKey: %s, error:%v", projectKey, err)
 	}
 
-	resp := &OpenAPIListYamlServiceResp{
-		Service:           make([]*ServiceBrief, 0),
-		ProductionService: make([]*ServiceBrief, 0),
-	}
+	resp := make([]*OpenAPIServiceBrief, 0)
 	for _, s := range services.Data {
-		serv := &ServiceBrief{
+		serv := &OpenAPIServiceBrief{
 			ServiceName: s.Service,
 			Source:      s.Source,
 			Type:        s.Type,
@@ -1473,17 +1470,22 @@ func ListServiceTemplateOpenAPI(projectName string, logger *zap.SugaredLogger) (
 			})
 		}
 		serv.Containers = container
-		resp.Service = append(resp.Service, serv)
+		resp = append(resp, serv)
 	}
 
-	productionServices, err := ListProductionServices(projectName, logger)
+	return resp, nil
+}
+
+func ListProductionServiceTemplateOpenAPI(projectKey string, logger *zap.SugaredLogger) ([]*OpenAPIServiceBrief, error) {
+	productionServices, err := ListProductionServices(projectKey, logger)
 	if err != nil {
-		log.Errorf("ListServiceTemplateOpenAPI ListProductionServices err:%v", err)
-		return nil, err
+		log.Errorf("failed to list service from db, projectKey: %s, err:%v", projectKey, err)
+		return nil, fmt.Errorf("failed to list service from db, projectKey: %s, error:%v", projectKey, err)
 	}
 
+	resp := make([]*OpenAPIServiceBrief, 0)
 	for _, s := range productionServices.Data {
-		serv := &ServiceBrief{
+		serv := &OpenAPIServiceBrief{
 			ServiceName: s.Service,
 			Source:      s.Source,
 			Type:        s.Type,
@@ -1497,7 +1499,7 @@ func ListServiceTemplateOpenAPI(projectName string, logger *zap.SugaredLogger) (
 			})
 		}
 		serv.Containers = container
-		resp.ProductionService = append(resp.ProductionService, serv)
+		resp = append(resp, serv)
 	}
 
 	return resp, nil
