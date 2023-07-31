@@ -17,9 +17,9 @@ limitations under the License.
 package orm
 
 import (
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"gorm.io/gorm"
 
-	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -157,7 +157,7 @@ func GetUsersCount(name string) (int64, error) {
 		count int64
 	)
 
-	err = core.DB.Where("name LIKE ?", "%"+name+"%").Find(&users).Count(&count).Error
+	err = repository.DB.Where("name LIKE ?", "%"+name+"%").Find(&users).Count(&count).Error
 
 	if err != nil {
 		return 0, err

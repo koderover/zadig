@@ -23,27 +23,23 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/koderover/zadig/pkg/config"
+	configbase "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/user/config"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/pkg/setting"
+	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
-	"gorm.io/gorm"
-
-	config2 "github.com/koderover/zadig/pkg/microservice/user/config"
-	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 )
-
-var DB *gorm.DB
-var DexDB *gorm.DB
 
 func Start(_ context.Context) {
 	log.Init(&log.Config{
-		Level:       config.LogLevel(),
-		Filename:    config.LogFile(),
-		SendToFile:  config.SendLogToFile(),
-		Development: config.Mode() != setting.ReleaseMode,
+		Level:       configbase.LogLevel(),
+		Filename:    configbase.LogFile(),
+		SendToFile:  configbase.SendLogToFile(),
+		Development: configbase.Mode() != setting.ReleaseMode,
 	})
 
 	initDatabase()
@@ -51,25 +47,25 @@ func Start(_ context.Context) {
 }
 
 func initDatabase() {
-	err := gormtool.Open(config.MysqlUser(),
-		config.MysqlPassword(),
-		config.MysqlHost(),
-		config2.MysqlUserDB(),
+	err := gormtool.Open(configbase.MysqlUser(),
+		configbase.MysqlPassword(),
+		configbase.MysqlHost(),
+		config.MysqlUserDB(),
 	)
 	if err != nil {
-		log.Panicf("Failed to open database %s", config2.MysqlUserDB())
+		log.Panicf("Failed to open database %s", config.MysqlUserDB())
 	}
 
-	err = gormtool.Open(config.MysqlUser(),
-		config.MysqlPassword(),
-		config.MysqlHost(),
-		config2.MysqlDexDB(),
+	err = gormtool.Open(configbase.MysqlUser(),
+		configbase.MysqlPassword(),
+		configbase.MysqlHost(),
+		config.MysqlDexDB(),
 	)
 
-	DB = gormtool.DB(config2.MysqlUserDB())
-	DexDB = gormtool.DB(config2.MysqlDexDB())
+	repository.DB = gormtool.DB(config.MysqlUserDB())
+	repository.DexDB = gormtool.DB(config.MysqlDexDB())
 
-	err = gormtool.DB(config2.MysqlDexDB()).AutoMigrate(&models.Connector{})
+	err = gormtool.DB(config.MysqlDexDB()).AutoMigrate(&models.Connector{})
 	if err != nil {
 		panic(err)
 	}
@@ -78,7 +74,7 @@ func initDatabase() {
 	defer cancel()
 
 	// mongodb initialization
-	mongotool.Init(ctx, config.MongoURI())
+	mongotool.Init(ctx, configbase.MongoURI())
 	if err := mongotool.Ping(ctx); err != nil {
 		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
 	}
@@ -99,7 +95,7 @@ func Stop(_ context.Context) {
 }
 
 func Healthz() error {
-	userDB, err := DB.DB()
+	userDB, err := repository.DB.DB()
 	if err != nil {
 		log.Errorf("Healthz get db error:%s", err.Error())
 		return err
@@ -108,7 +104,7 @@ func Healthz() error {
 		return err
 	}
 
-	dexDB, err := DexDB.DB()
+	dexDB, err := repository.DexDB.DB()
 	if err != nil {
 		log.Errorf("Healthz get dex db error:%s", err.Error())
 		return err

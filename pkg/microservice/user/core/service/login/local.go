@@ -21,13 +21,13 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/mojocn/base64Captcha"
 	"github.com/patrickmn/go-cache"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/koderover/zadig/pkg/microservice/user/config"
-	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
@@ -59,7 +59,7 @@ type CheckSignatureRes struct {
 }
 
 func CheckSignature(ifLoggedIn bool, logger *zap.SugaredLogger) error {
-	userNum, err := orm.CountUser(core.DB)
+	userNum, err := orm.CountUser(repository.DB)
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ var (
 )
 
 func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) {
-	user, err := orm.GetUser(args.Account, config.SystemIdentityType, core.DB)
+	user, err := orm.GetUser(args.Account, config.SystemIdentityType, repository.DB)
 	if err != nil {
 		logger.Errorf("InternalLogin get user account:%s error", args.Account)
 		return nil, 0, err
@@ -95,7 +95,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 	if user == nil {
 		return nil, 0, fmt.Errorf("user not exist")
 	}
-	userLogin, err := orm.GetUserLogin(user.UID, args.Account, config.AccountLoginType, core.DB)
+	userLogin, err := orm.GetUserLogin(user.UID, args.Account, config.AccountLoginType, repository.DB)
 	if err != nil {
 		logger.Errorf("LocalLogin get user:%s user login not exist, error msg:%s", args.Account, err.Error())
 		return nil, 0, err
@@ -150,7 +150,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 	}
 
 	userLogin.LastLoginTime = time.Now().Unix()
-	err = orm.UpdateUserLogin(userLogin.UID, userLogin, core.DB)
+	err = orm.UpdateUserLogin(userLogin.UID, userLogin, repository.DB)
 	if err != nil {
 		logger.Errorf("LocalLogin user:%s update user login password error, error msg:%s", args.Account, err.Error())
 		return nil, 0, err
@@ -187,7 +187,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 }
 
 func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error) {
-	userInfo, err := orm.GetUserByUid(userID, core.DB)
+	userInfo, err := orm.GetUserByUid(userID, repository.DB)
 	if err != nil {
 		logger.Errorf("LocalLogout get user:%s error, error msg:%s", userID, err.Error())
 		return false, "", err
@@ -201,7 +201,7 @@ func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error)
 
 	// if we found a user with ouath login type, we check if the connector is still there
 	// if the connector exist, we check if the logout configuration is enabled and return.
-	connectorInfo, err := orm.GetConnectorInfo(config.OauthIdentityType, core.DexDB)
+	connectorInfo, err := orm.GetConnectorInfo(config.OauthIdentityType, repository.DexDB)
 	if err != nil {
 		logger.Errorf("LocalLogout get connector info error, error msg:%s", err.Error())
 		return false, "", err
