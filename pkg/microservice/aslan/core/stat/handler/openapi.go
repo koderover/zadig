@@ -25,14 +25,14 @@ import (
 )
 
 type getStatReqV2 struct {
-	StartTime   int64  `form:"start_time"`
-	EndTime     int64  `form:"end_time"`
-	ProjectName string `form:"project_name"`
+	StartTime   int64  `form:"startTime"`
+	EndTime     int64  `form:"endTime"`
+	ProjectName string `form:"projectKey"`
 }
 
 func (req *getStatReqV2) Validate() error {
 	if req.StartTime == 0 || req.EndTime == 0 {
-		return e.ErrInvalidParam.AddDesc("start_time and end_time is empty")
+		return e.ErrInvalidParam.AddDesc("starTime and endTime is empty")
 	}
 
 	if req.EndTime < req.StartTime {

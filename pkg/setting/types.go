@@ -138,6 +138,7 @@ const (
 	Policy               // 11
 	Vendor
 	User
+	TimeNlp
 )
 
 type ServiceInfo struct {
@@ -197,5 +198,9 @@ var Services = map[int]*ServiceInfo{
 	User: {
 		Name: "user",
 		Port: 80,
+	},
+	TimeNlp: {
+		Name: "time-nlp",
+		Port: 8000,
 	},
 }

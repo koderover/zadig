@@ -90,7 +90,7 @@ func CreateCustomWorkflowTask(username string, args *OpenAPICreateCustomWorkflow
 	}, workflow, log)
 }
 
-func CreateWorkflowViewOpenAPI(name, projectName string, workflowList []*commonmodels.WorkflowViewDetail, username string, logger *zap.SugaredLogger) error {
+func CreateWorkflowViewOpenAPI(name, projectName string, workflowList []*OpenAPIWorkflowViewDetail, username string, logger *zap.SugaredLogger) error {
 	// the list we got in openAPI is slightly different from the normal version, adding the missing field for workflowList
 	for _, workflowInfo := range workflowList {
 		workflowInfo.Enabled = true
@@ -106,7 +106,17 @@ func CreateWorkflowViewOpenAPI(name, projectName string, workflowList []*commonm
 		}
 	}
 
-	return CreateWorkflowView(name, projectName, workflowList, username, logger)
+	list := make([]*commonmodels.WorkflowViewDetail, 0)
+	for _, workflowInfo := range workflowList {
+		list = append(list, &commonmodels.WorkflowViewDetail{
+			WorkflowName:        workflowInfo.WorkflowName,
+			WorkflowDisplayName: workflowInfo.WorkflowDisplayName,
+			WorkflowType:        workflowInfo.WorkflowType,
+			Enabled:             workflowInfo.Enabled,
+		})
+	}
+
+	return CreateWorkflowView(name, projectName, list, username, logger)
 }
 
 func UpdateWorkflowViewOpenAPI(name, projectName string, workflowList []*commonmodels.WorkflowViewDetail, username string, logger *zap.SugaredLogger) error {
@@ -420,7 +430,6 @@ func OpenAPIGetCustomWorkflowV4(workflowName, projectName string, logger *zap.Su
 		CreatedBy:        workflow.CreatedBy,
 		CreateTime:       workflow.CreateTime,
 		UpdateTime:       workflow.UpdateTime,
-		KeyVals:          workflow.KeyVals,
 		Params:           workflow.Params,
 		NotifyCtls:       workflow.NotifyCtls,
 		ShareStorages:    workflow.ShareStorages,
@@ -673,11 +682,11 @@ func OpenAPIGetCustomWorkflowV4List(args *OpenAPIWorkflowV4ListReq, logger *zap.
 	customWorkflowNames := make([]string, 0)
 	productWorkflowNames := make([]string, 0)
 	if args.ViewName != "" {
-		view, err := commonrepo.NewWorkflowViewColl().Find(args.ProjectName, args.ViewName)
+		view, err := commonrepo.NewWorkflowViewColl().Find(args.ProjectKey, args.ViewName)
 		if err != nil {
 			if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
-				logger.Errorf("Failed to find workflow view %s in project %s, error: %s", args.ViewName, args.ProjectName, err)
-				return nil, err
+				logger.Errorf("Failed to find workflow view %s in project %s, error: %s", args.ViewName, args.ProjectKey, err)
+				return nil, fmt.Errorf("failed to find workflow view %s in project %s", args.ViewName, args.ProjectKey)
 			}
 		} else {
 			for _, workflow := range view.Workflows {
@@ -692,20 +701,20 @@ func OpenAPIGetCustomWorkflowV4List(args *OpenAPIWorkflowV4ListReq, logger *zap.
 	}
 
 	customs, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
-		ProjectName: args.ProjectName,
+		ProjectName: args.ProjectKey,
 		Names:       customWorkflowNames,
 	}, 0, 0)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list custom workflow from db, error: %v", err)
 	}
 
 	products, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{
-		Projects: []string{args.ProjectName},
+		Projects: []string{args.ProjectKey},
 		Names:    productWorkflowNames,
 		IsSort:   true,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list product workflow from db, error: %v", err)
 	}
 
 	resp := &OpenAPIWorkflowListResp{

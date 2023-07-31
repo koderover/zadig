@@ -425,6 +425,19 @@ func (c *ProductColl) UpdateProductionServiceOrchestration(productName string, s
 	return err
 }
 
+func (c *ProductColl) ListAllName() ([]string, error) {
+	projects, err := c.List()
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]string, 0, len(projects))
+	for _, project := range projects {
+		resp = append(resp, project.ProductName)
+	}
+	return resp, nil
+}
+
 func (c *ProductColl) UpdateProductFeatureAndServices(productName string, productFeature *template.ProductFeature, services [][]string, updateBy string) error {
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{

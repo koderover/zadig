@@ -51,7 +51,7 @@ type OpenAPITestStatResp struct {
 type OpenAPIGetTestStatArgs struct {
 	StartDate int64  `json:"startDate,omitempty" form:"startDate,default:0"`
 	EndDate   int64  `json:"endDate,omitempty"   form:"endDate,default:0"`
-	Project   string `json:"project"        form:"project"`
+	Project   string `json:"project"        form:"projectKey"`
 }
 
 func GetTestStatOpenAPI(c *gin.Context) {

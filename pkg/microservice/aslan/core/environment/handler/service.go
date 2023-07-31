@@ -32,7 +32,7 @@ import (
 
 // @Summary List services in env
 // @Description List services in env
-// @Tags 	environments
+// @Tags 	environment
 // @Accept 	json
 // @Produce json
 // @Param 	name 			path 		string 						 	true 	"env name"

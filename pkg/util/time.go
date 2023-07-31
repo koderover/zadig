@@ -67,3 +67,41 @@ func GetDailyStartTimestamps(startTimestamp, endTimestamp int64) []int64 {
 
 	return dailyStartTimestamps
 }
+
+func GetMidnightTimestamp(timestamp int64) int64 {
+	t := time.Unix(timestamp, 0).Local()
+	midnight := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	return midnight.Unix()
+}
+
+func GetFirstOfMonthDay(now time.Time) int64 {
+	now = now.Local()
+	// get current year and month
+	year, month, _ := now.Date()
+
+	// build the firstOfMonth
+	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, now.Location())
+
+	// convert to unix timestamp
+	return firstOfMonth.Unix()
+}
+
+// GetDaysInCurrentMonth returns the number of days in the current month.
+func GetDaysInCurrentMonth(now time.Time) int {
+	now = now.Local()
+	// Get the next month's time
+	nextMonth := time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, now.Location())
+
+	// Get the number of days in the current month
+	daysInMonth := nextMonth.Day()
+
+	return daysInMonth
+}
+
+// IsSameDay checks if two timestamps represent the same day.
+func IsSameDay(timestamp1 int64, timestamp2 int64) bool {
+	t1 := time.Unix(timestamp1, 0).Local()
+	t2 := time.Unix(timestamp2, 0).Local()
+
+	return t1.Year() == t2.Year() && t1.Month() == t2.Month() && t1.Day() == t2.Day()
+}

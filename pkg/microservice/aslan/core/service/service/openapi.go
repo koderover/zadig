@@ -3,8 +3,6 @@ package service
 import (
 	"fmt"
 
-	"go.uber.org/zap"
-
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -12,13 +10,14 @@ import (
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"go.uber.org/zap"
 )
 
 func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadServiceFromYamlTemplateReq, force bool, logger *zap.SugaredLogger) error {
 	template, err := commonrepo.NewYamlTemplateColl().GetByName(req.TemplateName)
 	if err != nil {
 		logger.Errorf("Failed to find template of name: %s, err: %w", req.TemplateName, err)
-		return err
+		return fmt.Errorf("failed to find template of name: %s, err: %w", req.TemplateName, err)
 	}
 
 	mergedYaml, mergedKVs, err := commonutil.MergeServiceVariableKVsAndKVInput(template.ServiceVariableKVs, req.VariableYaml)
@@ -41,11 +40,11 @@ func OpenAPILoadServiceFromYamlTemplate(username string, req *OpenAPILoadService
 	return LoadServiceFromYamlTemplate(username, loadArgs, force, logger)
 }
 
-func CreateRawYamlServicesOpenAPI(userName, projectName string, req *OpenAPICreateYamlServiceReq, logger *zap.SugaredLogger) error {
+func CreateRawYamlServicesOpenAPI(userName, projectKey string, req *OpenAPICreateYamlServiceReq, logger *zap.SugaredLogger) error {
 	createArgs := &commonmodels.Service{
 		ServiceName:        req.ServiceName,
 		Type:               "k8s",
-		ProductName:        projectName,
+		ProductName:        projectKey,
 		Source:             "spock",
 		Yaml:               req.Yaml,
 		CreateBy:           userName,
@@ -177,8 +176,8 @@ func OpenAPIUpdateProductionServiceVariable(userName, projectName, serviceName s
 	for _, kv := range service.ServiceVariableKVs {
 		serviceKvs = append(serviceKvs, kv)
 	}
-	for _, kv := range serviceKvs {
-		for _, newKv := range args.ServiceVariableKVs {
+	for _, newKv := range args.ServiceVariableKVs {
+		for _, kv := range serviceKvs {
 			if kv.Key == newKv.Key {
 				kv.Value = newKv.Value
 				kv.Desc = newKv.Desc
@@ -187,6 +186,7 @@ func OpenAPIUpdateProductionServiceVariable(userName, projectName, serviceName s
 			}
 		}
 	}
+
 	yaml, err := commontypes.ServiceVariableKVToYaml(serviceKvs)
 	if err != nil {
 		logger.Errorf("failed to convert service variable kv to yaml, err: %v", err)
@@ -204,24 +204,24 @@ func OpenAPIUpdateProductionServiceVariable(userName, projectName, serviceName s
 	return UpdateProductionServiceVariables(servceTmplObjectargs)
 }
 
-func OpenAPIGetYamlService(projectName, serviceName string, logger *zap.SugaredLogger) (*OpenAPIGetYamlServiceResp, error) {
+func OpenAPIGetYamlService(projectKey, serviceName string, logger *zap.SugaredLogger) (*OpenAPIGetYamlServiceResp, error) {
 	var resp *OpenAPIGetYamlServiceResp
-
 	service, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-		ProductName: projectName,
+		ProductName: projectKey,
 		ServiceName: serviceName,
 	})
 	if err != nil {
-		logger.Errorf("failed to get service, err: %v", err)
-		return nil, err
+		msg := fmt.Errorf("failed to get service from db, projectKey: %s, serviceName: %s, error: %v", projectKey, serviceName, err)
+		logger.Errorf(msg.Error())
+		return nil, msg
 	}
 
 	template := &commonmodels.YamlTemplate{}
 	if service.Source == setting.ServiceSourceTemplate && service.TemplateID != "" {
 		template, err = commonrepo.NewYamlTemplateColl().GetById(service.TemplateID)
 		if err != nil {
-			logger.Errorf("failed to get template, id: %s, err: %v", service.TemplateID, err)
-			return nil, e.ErrGetTemplate.AddDesc(err.Error())
+			logger.Errorf("failed to get service template from db, id: %s, err: %v", service.TemplateID, err)
+			return nil, e.ErrGetTemplate.AddErr(fmt.Errorf("failed to get service template from db, err: %v", err))
 		}
 	}
 
@@ -240,29 +240,34 @@ func OpenAPIGetYamlService(projectName, serviceName string, logger *zap.SugaredL
 	return resp, nil
 }
 
-func GetProductionYamlServiceOpenAPI(projectName, serviceName string, logger *zap.SugaredLogger) (*OpenAPIGetYamlServiceResp, error) {
+func GetProductionYamlServiceOpenAPI(projectKey, serviceName string, logger *zap.SugaredLogger) (*OpenAPIGetYamlServiceResp, error) {
 	var resp *OpenAPIGetYamlServiceResp
-	service, err := GetProductionK8sService(serviceName, projectName, logger)
+	service, err := GetProductionK8sService(serviceName, projectKey, logger)
 	if err != nil {
-		logger.Errorf("failed to get production service, err: %v", err)
-		return nil, err
+		msg := fmt.Errorf("failed to get production service from db, projectKey: %s, serviceName: %s, error: %v", projectKey, serviceName, err)
+		logger.Errorf(msg.Error())
+		return nil, msg
 	}
 
-	template, err := commonrepo.NewYamlTemplateColl().GetById(service.TemplateID)
-	if err != nil {
-		logger.Errorf("failed to get template, id: %s, err: %v", service.TemplateID, err)
-		return nil, e.ErrGetTemplate.AddDesc(err.Error())
-	}
 	resp = &OpenAPIGetYamlServiceResp{
 		ServiceName:        service.ServiceName,
 		Source:             service.Source,
 		Type:               service.Type,
-		TemplateName:       template.Name,
 		CreatedBy:          service.CreateBy,
 		CreatedTime:        service.CreateTime,
 		Yaml:               service.Yaml,
 		ServiceVariableKvs: service.ServiceVariableKVs,
 		Containers:         service.Containers,
 	}
+
+	if service.Source == setting.ServiceSourceTemplate && service.TemplateID != "" {
+		template, err := commonrepo.NewYamlTemplateColl().GetById(service.TemplateID)
+		if err != nil {
+			logger.Errorf("failed to get template from db, id: %s, err: %v", service.TemplateID, err)
+			return nil, e.ErrGetTemplate.AddErr(fmt.Errorf("failed to get service template from db, err: %v", err))
+		}
+		resp.TemplateName = template.Name
+	}
+
 	return resp, nil
 }

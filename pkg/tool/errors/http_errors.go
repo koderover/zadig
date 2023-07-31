@@ -149,7 +149,8 @@ var (
 	// ErrListEnvs ...
 	ErrListEnvs = NewHTTPError(6075, "列出环境失败")
 	// ErrUpdateEnv ...
-	ErrUpdateEnv = NewHTTPError(6076, "更新环境失败")
+	ErrUpdateEnv    = NewHTTPError(6076, "更新环境失败")
+	ErrUpdateEnvCfg = NewHTTPError(6076, "更新环境资源配置失败")
 	// ErrDeleteEnv ...
 	ErrDeleteEnv = NewHTTPError(6077, "删除环境失败")
 	// ErrGetEnv ...
@@ -160,6 +161,10 @@ var (
 	ErrForkProduct = NewHTTPError(6060, "Fork开源项目失败")
 	// TODO: max error code reached, sharing error code with delete product
 	ErrUnForkProduct = NewHTTPError(6063, "删除Fork环境失败")
+	// TODO: max error code reached, sharing error code with get env
+	ErrGetEnvConfigs = NewHTTPError(6078, "获取环境配置失败")
+	// TODO: max error code reached, sharing error code with update env
+	ErrUpdateEnvConfigs = NewHTTPError(6076, "更新环境配置失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product Service APIs Range: 6080 - 6099 AND 6150 -6199
@@ -208,6 +213,7 @@ var (
 
 	ErrDeleteSvcHasSvcsInSubEnv = NewHTTPError(6094, "删除服务失败，待删除服务存在于子环境中")
 	ErrPreviewYaml              = NewHTTPError(6150, "预览Yaml失败")
+	ErrAnalysisEnvResource      = NewHTTPError(6151, "AI环境巡检失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// it report APIs Range: 6100 - 6149
@@ -690,6 +696,7 @@ var (
 	// Cronjob Error Range: 6810 - 6819
 	//-----------------------------------------------------------------------------------------------
 	ErrUpsertCronjob = NewHTTPError(6810, "更新定时器失败")
+	ErrGetCronjob    = NewHTTPError(6811, "获取定时器失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// dindClean Error Range: 6820 - 6829
@@ -844,4 +851,13 @@ var (
 	ErrUpdateStatisticsDashboardConfig = NewHTTPError(7002, "更新统计看板配置失败")
 	ErrDeleteStatisticsDashboardConfig = NewHTTPError(7003, "删除统计看板配置失败")
 	ErrGetStatisticsDashboard          = NewHTTPError(7004, "获取统计看板失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// llm integraton Error Range: 7010 - 7019
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateLLMIntegration = NewHTTPError(7010, "创建llm集成失败")
+	ErrListLLMIntegration   = NewHTTPError(7011, "获取llm集成列表失败")
+	ErrUpdateLLMIntegration = NewHTTPError(7012, "更新llm集成失败")
+	ErrDeleteLLMIntegration = NewHTTPError(7013, "删除llm集成失败")
+	ErrGetLLMIntegration    = NewHTTPError(7014, "获取llm集成详情失败")
 )
