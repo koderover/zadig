@@ -215,6 +215,7 @@ func ListWorkflows(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.ListWorkflows(projects, ctx.UserID, workflowNames, ctx.Logger)
 }
 
+// TODO: this API is used only by picket, should be removed later
 func ListTestWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
