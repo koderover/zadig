@@ -224,6 +224,9 @@ exemption_urls:
     - endpoint: api/aslan/system/theme
       methods:
         - GET
+    - endpoint: api/aslan/system/llm/integration/check
+      methods:
+        - GET
   system_admin:
     - endpoint: api/v1/features/?*
       methods:
