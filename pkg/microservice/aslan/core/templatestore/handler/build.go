@@ -18,6 +18,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 
@@ -28,15 +29,45 @@ import (
 )
 
 func GetBuildTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Resp, ctx.Err = templateservice.GetBuildTemplateByID(c.Param("id"))
 }
 
 func ListBuildTemplates(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	args := &listYamlQuery{}
 	if err := c.ShouldBindQuery(args); err != nil {
@@ -48,11 +79,18 @@ func ListBuildTemplates(c *gin.Context) {
 }
 
 func AddBuildTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := new(commonmodels.BuildTemplate)
-	err := c.BindJSON(args)
+	err = c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
 		return
@@ -61,15 +99,30 @@ func AddBuildTemplate(c *gin.Context) {
 	bs, _ := json.Marshal(args)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "模板-构建", args.Name, string(bs), ctx.Logger)
 
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = templateservice.AddBuildTemplate(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateBuildTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := new(commonmodels.BuildTemplate)
-	err := c.BindJSON(args)
+	err = c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Build args")
 		return
@@ -78,14 +131,37 @@ func UpdateBuildTemplate(c *gin.Context) {
 	bs, _ := json.Marshal(args)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板-构建", args.Name, string(bs), ctx.Logger)
 
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = templateservice.UpdateBuildTemplate(c.Param("id"), args, ctx.Logger)
 }
 
 func RemoveBuildTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板-构建", c.Param("id"), "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = templateservice.RemoveBuildTemplate(c.Param("id"), ctx.Logger)
 }

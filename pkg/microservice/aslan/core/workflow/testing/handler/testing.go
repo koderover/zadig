@@ -170,7 +170,7 @@ func ListTestModules(c *gin.Context) {
 			}
 
 			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Test.Edit {
+				!ctx.Resources.ProjectAuthInfo[projectKey].Test.View {
 				ctx.UnAuthorized = true
 				return
 			}

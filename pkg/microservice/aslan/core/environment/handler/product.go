@@ -95,9 +95,10 @@ func GetInitProduct(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.SystemActions.Project.Create ||
+		if !ctx.Resources.SystemActions.Project.Create &&
 			// this api is also used in creating testing env for some reason
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.Create {
+			!(ctx.Resources.ProjectAuthInfo[projectKey].Env.Create ||
+				ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
 			ctx.UnAuthorized = true
 			return
 		}

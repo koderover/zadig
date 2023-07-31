@@ -18,6 +18,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 
@@ -35,37 +36,104 @@ type addChartArgs struct {
 }
 
 func GetChartTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Resp, ctx.Err = templateservice.GetChartTemplate(c.Param("name"), ctx.Logger)
 }
 
 func GetTemplateVariables(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Resp, ctx.Err = templateservice.GetChartTemplateVariables(c.Param("name"), ctx.Logger)
 }
 
 func ListFiles(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	// TODO: support to return multiple files in a bulk
 	ctx.Resp, ctx.Err = templateservice.GetFileContentForTemplate(c.Param("name"), c.Query("filePath"), c.Query("fileName"), ctx.Logger)
 }
 
 func ListChartTemplates(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Resp, ctx.Err = templateservice.ListChartTemplates(ctx.Logger)
 }
 
 func AddChartTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := &addChartArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
@@ -76,12 +144,27 @@ func AddChartTemplate(c *gin.Context) {
 	bs, _ := json.Marshal(args)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新建", "模板库-Chart", args.Name, string(bs), ctx.Logger)
 
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = templateservice.AddChartTemplate(args.Name, args.DownloadFromSourceArgs, ctx.Logger)
 }
 
 func UpdateChartTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := &addChartArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
@@ -92,12 +175,35 @@ func UpdateChartTemplate(c *gin.Context) {
 	bs, _ := json.Marshal(args)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板库-Chart", args.Name, string(bs), ctx.Logger)
 
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = templateservice.UpdateChartTemplate(c.Param("name"), args.DownloadFromSourceArgs, ctx.Logger)
 }
 
 func UpdateChartTemplateVariables(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	args := make([]*commonmodels.Variable, 0)
 	if err := c.ShouldBindJSON(&args); err != nil {
@@ -116,19 +222,49 @@ func GetChartTemplateReference(c *gin.Context) {
 }
 
 func SyncChartTemplateReference(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "同步", "模板库-Chart", c.Param("name"), "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = templateservice.SyncHelmTemplateReference(ctx.UserName, c.Param("name"), ctx.Logger)
 }
 
 func RemoveChartTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板库-Chart", c.Param("name"), "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = templateservice.RemoveChartTemplate(c.Param("name"), ctx.Logger)
 }

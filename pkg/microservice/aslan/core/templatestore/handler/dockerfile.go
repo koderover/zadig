@@ -19,6 +19,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 
@@ -28,8 +29,15 @@ import (
 )
 
 func CreateDockerfileTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	req := &template.DockerfileTemplate{}
 
@@ -39,7 +47,7 @@ func CreateDockerfileTemplate(c *gin.Context) {
 	}
 
 	// some dockerfile validation stuff
-	err := templateservice.ValidateDockerfileTemplate(req.Content, ctx.Logger)
+	err = templateservice.ValidateDockerfileTemplate(req.Content, ctx.Logger)
 	if err != nil {
 		ctx.Err = errors.New("invalid dockerfile, please check")
 		return
@@ -48,12 +56,27 @@ func CreateDockerfileTemplate(c *gin.Context) {
 	bs, _ := json.Marshal(req)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新建", "模板库-Dockerfile", req.Name, string(bs), ctx.Logger)
 
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = templateservice.CreateDockerfileTemplate(req, ctx.Logger)
 }
 
 func UpdateDockerfileTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	req := &template.DockerfileTemplate{}
 
@@ -63,7 +86,7 @@ func UpdateDockerfileTemplate(c *gin.Context) {
 	}
 
 	// some dockerfile validation stuff
-	err := templateservice.ValidateDockerfileTemplate(req.Content, ctx.Logger)
+	err = templateservice.ValidateDockerfileTemplate(req.Content, ctx.Logger)
 	if err != nil {
 		ctx.Err = errors.New("invalid dockerfile, please check")
 		return
@@ -71,6 +94,14 @@ func UpdateDockerfileTemplate(c *gin.Context) {
 
 	bs, _ := json.Marshal(req)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板库-Dockerfile", req.Name, string(bs), ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = templateservice.UpdateDockerfileTemplate(c.Param("id"), req, ctx.Logger)
 }
@@ -86,8 +117,23 @@ type ListDockefileResp struct {
 }
 
 func ListDockerfileTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	// Query Verification
 	args := listDockerfileQuery{}
@@ -106,17 +152,47 @@ func ListDockerfileTemplate(c *gin.Context) {
 }
 
 func GetDockerfileTemplateDetail(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Resp, ctx.Err = template.GetDockerfileTemplateDetail(c.Param("id"), ctx.Logger)
 }
 
 func DeleteDockerfileTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板库-Dockerfile", c.Param("id"), "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = templateservice.DeleteDockerfileTemplate(c.Param("id"), ctx.Logger)
 }
