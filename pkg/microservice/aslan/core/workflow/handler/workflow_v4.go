@@ -249,8 +249,15 @@ func ListWorkflowV4(c *gin.Context) {
 }
 
 func ListWorkflowV4CanTrigger(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Resp, ctx.Err = workflow.ListWorkflowV4CanTrigger(ctx)
 }
