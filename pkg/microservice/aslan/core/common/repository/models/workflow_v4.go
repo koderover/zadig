@@ -404,6 +404,30 @@ type BlueGreenDeployJobSpec struct {
 	Targets          []*BlueGreenTarget `bson:"targets"                json:"targets"               yaml:"targets"`
 }
 
+type BlueGreenDeployV2JobSpec struct {
+	Version          string `bson:"version"               json:"version"              yaml:"version"`
+	Production       bool   `bson:"production"               json:"production"              yaml:"production"`
+	Env              string `bson:"env"               json:"env"              yaml:"env"`
+	Source           string `bson:"source"               json:"source"              yaml:"source"`
+	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
+}
+
+type MseGrayReleaseServiceModuleAndImage struct {
+	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
+	Image         string `bson:"image"          json:"image"          yaml:"image"`
+	// Following fields only save for frontend
+	ImageName   string `bson:"image_name"     json:"image_name"     yaml:"image_name"`
+	Name        string `bson:"name"           json:"name"           yaml:"name"`
+	ServiceName string `bson:"service_name"   json:"service_name"   yaml:"service_name"`
+	Value       string `bson:"value"          json:"value"          yaml:"value"`
+}
+
+type BlueGreenDeployV2Service struct {
+	ServiceName           string                                 `bson:"service_name" json:"service_name" yaml:"service_name"`
+	KubernetesServiceYaml string                                 `bson:"k8s_service_yaml" json:"k8s_service_yaml" yaml:"k8s_service_yaml"`
+	ServiceAndImage       []*MseGrayReleaseServiceModuleAndImage `bson:"service_and_image" json:"service_and_image" yaml:"service_and_image"`
+}
+
 type BlueGreenReleaseJobSpec struct {
 	FromJob string `bson:"from_job"               json:"from_job"              yaml:"from_job"`
 }
