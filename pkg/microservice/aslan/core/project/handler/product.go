@@ -535,8 +535,12 @@ func GetProductionGlobalVariables(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			// this api is called when the user is trying to
+			// a. view and edit the production service's global variables
+			// b. edit the value of the global variables in production env
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Edit &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View {
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
 			ctx.UnAuthorized = true
 			return
 		}

@@ -694,7 +694,8 @@ func UpdateProductAlias(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			// currently alias is only for production env, we are only giving the edit production env authorization
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
 			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
