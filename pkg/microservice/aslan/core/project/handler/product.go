@@ -493,7 +493,8 @@ func GetGlobalVariables(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
+			!ctx.Resources.ProjectAuthInfo[projectKey].Service.View &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
 			ctx.UnAuthorized = true
 			return
 		}
