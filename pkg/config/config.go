@@ -254,14 +254,6 @@ func MysqlHost() string {
 	return viper.GetString(setting.ENVMysqlHost)
 }
 
-func AdminEmail() string {
-	return viper.GetString(setting.ENVAdminEmail)
-}
-
-func AdminPassword() string {
-	return viper.GetString(setting.ENVAdminPassword)
-}
-
 func Namespace() string {
 	return viper.GetString(setting.ENVNamespace)
 }
