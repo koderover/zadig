@@ -405,14 +405,14 @@ type BlueGreenDeployJobSpec struct {
 }
 
 type BlueGreenDeployV2JobSpec struct {
-	Version          string `bson:"version"               json:"version"              yaml:"version"`
-	Production       bool   `bson:"production"               json:"production"              yaml:"production"`
-	Env              string `bson:"env"               json:"env"              yaml:"env"`
-	Source           string `bson:"source"               json:"source"              yaml:"source"`
-	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
+	Version    string                                    `bson:"version"               json:"version"              yaml:"version"`
+	Production bool                                      `bson:"production"               json:"production"              yaml:"production"`
+	Env        string                                    `bson:"env"               json:"env"              yaml:"env"`
+	Source     string                                    `bson:"source"               json:"source"              yaml:"source"`
+	Services   []*BlueGreenDeployV2ServiceModuleAndImage `bson:"services" json:"services" yaml:"services"`
 }
 
-type MseGrayReleaseServiceModuleAndImage struct {
+type BlueGreenDeployV2ServiceModuleAndImage struct {
 	ServiceModule string `bson:"service_module" json:"service_module" yaml:"service_module"`
 	Image         string `bson:"image"          json:"image"          yaml:"image"`
 	// Following fields only save for frontend
