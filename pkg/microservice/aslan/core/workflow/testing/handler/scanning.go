@@ -55,9 +55,34 @@ func GetScanningProductName(c *gin.Context) {
 	c.Next()
 }
 
-func CreateScanningModule(c *gin.Context) {
+func FindScanningProjectNameFromID(c *gin.Context) {
+	scanningID := c.Param("id")
+
 	ctx := internalhandler.NewContext(c)
+
+	if scanningID == "" {
+		ctx.Err = MissingIDError
+		return
+	}
+
+	scanning, err := service.GetScanningModuleByID(scanningID, ctx.Logger)
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to find scanning module of id: %s, error: %s", scanningID, err)
+	}
+	c.Set("projectKey", scanning.ProjectName)
+	c.Next()
+}
+
+func CreateScanningModule(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(service.Scanning)
 	data, err := c.GetRawData()
@@ -70,17 +95,33 @@ func CreateScanningModule(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "项目管理-代码扫描", args.Name, string(data), ctx.Logger)
 
-	if err != nil {
-		ctx.Err = fmt.Errorf("create scanning module err : %s", err)
-		return
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Scanning.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = service.CreateScanningModule(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateScanningModule(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(service.Scanning)
 	data, err := c.GetRawData()
@@ -93,9 +134,18 @@ func UpdateScanningModule(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "修改", "项目管理-代码扫描", args.Name, string(data), ctx.Logger)
 
-	if err != nil {
-		ctx.Err = fmt.Errorf("update scanning module err : %s", err)
-		return
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Scanning.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	id := c.Param("id")
@@ -108,17 +158,47 @@ func UpdateScanningModule(c *gin.Context) {
 }
 
 func ListScanningModule(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	resp, _, err := service.ListScanningModule(c.Query("projectName"), ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	resp, _, err := service.ListScanningModule(projectKey, ctx.Logger)
 	ctx.Resp = resp
 	ctx.Err = err
 }
 
 func GetScanningModule(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	id := c.Param("id")
 	if id == "" {
@@ -126,14 +206,55 @@ func GetScanningModule(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetScanningModuleByID(id, ctx.Logger)
+	resp, err := service.GetScanningModuleByID(id, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[resp.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[resp.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[resp.ProjectName].Scanning.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp = resp
 }
 
 func DeleteScanningModule(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", "项目管理-测试", c.Param("name"), "", ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "项目管理-测试", c.Param("name"), "", ctx.Logger)
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	id := c.Param("id")
 	if id == "" {
@@ -149,14 +270,18 @@ type createScanningTaskResp struct {
 }
 
 func CreateScanningTask(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	id := c.Param("id")
-	if id == "" {
-		ctx.Err = MissingIDError
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
 		return
 	}
+
+	projectKey := c.GetString("projectKey")
+	scanningID := c.Param("id")
 
 	req := make([]*service.ScanningRepoInfo, 0)
 	data, err := c.GetRawData()
@@ -167,9 +292,22 @@ func CreateScanningTask(c *gin.Context) {
 		log.Errorf("Create scanning task json.Unmarshal err : %v", err)
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "代码扫描任务", id, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "代码扫描任务", scanningID, string(data), ctx.Logger)
 
-	resp, err := service.CreateScanningTask(id, req, "", ctx.UserName, ctx.Logger)
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.Execute {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	resp, err := service.CreateScanningTask(scanningID, req, "", ctx.UserName, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -183,13 +321,30 @@ type listQuery struct {
 }
 
 func ListScanningTask(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	id := c.Param("id")
-	if id == "" {
-		ctx.Err = MissingIDError
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
 		return
+	}
+
+	projectKey := c.GetString("projectKey")
+	scanningID := c.Param("id")
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	// Query Verification
@@ -199,17 +354,34 @@ func ListScanningTask(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListScanningTask(id, args.PageNum, args.PageSize, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListScanningTask(scanningID, args.PageNum, args.PageSize, ctx.Logger)
 }
 
 func GetScanningTask(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	id := c.Param("id")
-	if id == "" {
-		ctx.Err = MissingIDError
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
 		return
+	}
+
+	projectKey := c.GetString("projectKey")
+	scanningID := c.Param("id")
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	taskIDStr := c.Param("scan_id")
@@ -224,19 +396,22 @@ func GetScanningTask(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetScanningTaskInfo(id, taskID, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetScanningTaskInfo(scanningID, taskID, ctx.Logger)
 }
 
 func CancelScanningTask(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	id := c.Param("id")
-	if id == "" {
-		ctx.Err = MissingIDError
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
 		return
 	}
 
+	projectKey := c.GetString("projectKey")
+	scanningID := c.Param("id")
 	taskIDStr := c.Param("scan_id")
 	if taskIDStr == "" {
 		ctx.Err = fmt.Errorf("scan_id must be provided")
@@ -249,19 +424,49 @@ func CancelScanningTask(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, "", "取消", "代码扫描任务", id, taskIDStr, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "代码扫描任务", scanningID, taskIDStr, ctx.Logger)
 
-	ctx.Err = service.CancelScanningTask(ctx.UserName, id, taskID, config.ScanningType, ctx.RequestID, ctx.Logger)
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.Execute {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.CancelScanningTask(ctx.UserName, scanningID, taskID, config.ScanningType, ctx.RequestID, ctx.Logger)
 }
 
 func GetScanningTaskSSE(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	id := c.Param("id")
-	if id == "" {
-		ctx.Err = MissingIDError
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
 		return
+	}
+
+	projectKey := c.GetString("projectKey")
+	scanningID := c.Param("id")
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	taskIDStr := c.Param("scan_id")
@@ -278,7 +483,7 @@ func GetScanningTaskSSE(c *gin.Context) {
 
 	internalhandler.Stream(c, func(ctx1 context.Context, msgChan chan interface{}) {
 		err := wait.PollImmediateUntil(time.Second, func() (bool, error) {
-			res, err := service.GetScanningTaskInfo(id, taskID, ctx.Logger)
+			res, err := service.GetScanningTaskInfo(scanningID, taskID, ctx.Logger)
 			if err != nil {
 				ctx.Logger.Errorf("[%s] Get scanning task info error: %s", ctx.UserName, err)
 				return false, err

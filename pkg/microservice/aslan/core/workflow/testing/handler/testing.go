@@ -19,6 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strconv"
 
@@ -50,8 +51,15 @@ func GetTestProductName(c *gin.Context) {
 }
 
 func CreateTestModule(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(commonmodels.Testing)
 	data, err := c.GetRawData()
@@ -61,8 +69,23 @@ func CreateTestModule(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateTestModule json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-测试", args.Name, string(data), ctx.Logger)
+	projectKey := args.ProductName
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "项目管理-测试", args.Name, string(data), ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Test.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	err = c.BindJSON(args)
 	if err != nil {
@@ -74,8 +97,15 @@ func CreateTestModule(c *gin.Context) {
 }
 
 func UpdateTestModule(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(commonmodels.Testing)
 	data, err := c.GetRawData()
@@ -85,8 +115,23 @@ func UpdateTestModule(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateTestModule json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-测试", args.Name, string(data), ctx.Logger)
+	projectKey := args.ProductName
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "更新", "项目管理-测试", args.Name, string(data), ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Test.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	err = c.BindJSON(args)
 	if err != nil {
@@ -98,19 +143,69 @@ func UpdateTestModule(c *gin.Context) {
 }
 
 func ListTestModules(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	projects := c.QueryArray("projects")
 	projectName := c.Query("projectName")
 	if len(projects) == 0 && len(projectName) > 0 {
 		projects = []string{projectName}
 	}
+
+	// TODO: projects query is used in picket, which probably won't be working now, fix it.
+	// we need to have authorizations to ALL the projects given
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		for _, projectKey := range projects {
+			if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+				ctx.UnAuthorized = true
+				return
+			}
+
+			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectKey].Test.Edit {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
 	ctx.Resp, ctx.Err = service.ListTestingOpt(projects, c.Query("testType"), ctx.Logger)
 }
 
 func GetTestModule(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Test.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	name := c.Param("name")
 
@@ -118,14 +213,37 @@ func GetTestModule(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty Name")
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetTesting(name, c.Query("projectName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetTesting(name, projectKey, ctx.Logger)
 }
 
 func DeleteTestModule(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", "项目管理-测试", c.Param("name"), "", ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "删除", "项目管理-测试", c.Param("name"), "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Test.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	name := c.Param("name")
 	if name == "" {
@@ -133,7 +251,7 @@ func DeleteTestModule(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = commonservice.DeleteTestModule(name, c.Query("projectName"), ctx.RequestID, ctx.Logger)
+	ctx.Err = commonservice.DeleteTestModule(name, projectKey, ctx.RequestID, ctx.Logger)
 }
 
 func GetHTMLTestReport(c *gin.Context) {
