@@ -1216,16 +1216,13 @@ func UpdateProductionServiceReleaseNamingRule(userName, requestID, projectName s
 		}
 	}
 
-	log.Infof("-------- product count: %v", len(products))
 	// check if the release name already exists
 	for _, product := range products {
 		releaseName := util.GeneReleaseName(args.NamingRule, product.ProductName, product.Namespace, product.EnvName, args.ServiceName)
-		log.Infof("releaseName: %s", releaseName)
 		releaseNameMap, err := commonutil.GetReleaseNameToChartNameMap(product)
 		if err != nil {
 			return fmt.Errorf("failed to get release name to chart name map, err: %s", err)
 		}
-		log.Infof("releaseNameMap: %v", releaseNameMap)
 		if chartOrSvcName, ok := releaseNameMap[releaseName]; ok && chartOrSvcName != args.ServiceName {
 			return fmt.Errorf("release name %s already exists for chart or service %s in environment: %s", releaseName, chartOrSvcName, product.EnvName)
 		}
