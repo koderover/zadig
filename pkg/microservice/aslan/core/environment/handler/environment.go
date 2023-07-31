@@ -403,7 +403,7 @@ func CreateProductionProduct(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[createParam.ProjectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[createParam.ProjectName].Env.Create {
+			!ctx.Resources.ProjectAuthInfo[createParam.ProjectName].ProductionEnv.Create {
 			ctx.UnAuthorized = true
 			return
 		}
