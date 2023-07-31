@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/ai"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -40,6 +41,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util/boolptr"
 )
 
 type DeleteProductServicesRequest struct {
@@ -1306,4 +1308,376 @@ func GetGlobalVariableCandidates(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.GetGlobalVariableCandidate(c.Query("projectName"), c.Param("name"), ctx.Logger)
+}
+
+// @Summary Get enviroment configs
+// @Description Get environment configs
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Success 200 		{object} 	service.EnvConfigsArgs
+// @Router /api/aslan/environment/environments/{name}/configs [get]
+func GetEnvConfigs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvConfigs(projectName, envName, boolptr.False(), ctx.Logger)
+}
+
+// @Summary Update enviroment configs
+// @Description Update environment configs
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Param 	body 		body 		service.EnvConfigsArgs	 		true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/configs [put]
+func UpdateEnvConfigs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpateEnvConfigs c.GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新环境配置", envName, string(data), ctx.Logger, envName)
+
+	arg := new(service.EnvConfigsArgs)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.UpdateEnvConfigs(projectName, envName, arg, boolptr.False(), ctx.Logger)
+}
+
+// @Summary Get production enviroment configs
+// @Description Get production environment configs
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Param 	name 		path		string										true	"env name"
+// @Success 200 		{object} 	service.EnvConfigsArgs
+// @Router /api/aslan/environment/production/environments/{name}/configs [get]
+func GetProductionEnvConfigs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetProductionEnvConfigs(projectName, envName, ctx.Logger)
+}
+
+// @Summary Update production enviroment configs
+// @Description Update production environment configs
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Param 	body 		body 		service.EnvConfigsArgs 			true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/configs [put]
+func UpdateProductionEnvConfigs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpateEnvConfigs c.GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "更新环境配置", envName, string(data), ctx.Logger, envName)
+
+	arg := new(service.EnvConfigsArgs)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.UpdateProductionEnvConfigs(projectName, envName, arg, ctx.Logger)
+}
+
+// @Summary Run Enviroment Analysis
+// @Description Run Enviroment Analysis
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200 		{object}    service.EnvAnalysisRespone
+// @Router /api/aslan/environment/environments/{name}/analysis [post]
+func RunAnalysis(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.False(), c.Query("triggerName"), ctx.UserName, ctx.Logger)
+}
+
+// @Summary Run Production Enviroment Analysis
+// @Description Run Production Enviroment Analysis
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200 		{object}    service.EnvAnalysisRespone
+// @Router /api/aslan/environment/production/environments/{name}/analysis [post]
+func RunProductionAnalysis(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.True(), c.Query("triggerName"), ctx.UserName, ctx.Logger)
+}
+
+// @Summary Upsert Env Analysis Cron
+// @Description Upsert Env Analysis Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Param 	body 		body 		service.EnvAnalysisCronArg 		true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/analysis/cron [put]
+func UpsertEnvAnalysisCron(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateEnvAnalysisCron c.GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境巡检-cron", envName, string(data), ctx.Logger)
+
+	arg := new(service.EnvAnalysisCronArg)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.UpsertEnvAnalysisCron(projectName, envName, boolptr.False(), arg, ctx.Logger)
+}
+
+// @Summary Get Env Analysis Cron
+// @Description Get Env Analysis Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/analysis/cron [get]
+func GetEnvAnalysisCron(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvAnalysisCron(projectName, envName, boolptr.False(), ctx.Logger)
+}
+
+// @Summary Upsert Production Env Analysis Cron
+// @Description Upsert Production Env Analysis Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Param 	body 		body 		service.EnvAnalysisCronArg 		true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/analysis/cron [put]
+func UpsertProductionEnvAnalysisCron(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateProductionEnvAnalysisCron c.GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境巡检-cron", envName, string(data), ctx.Logger)
+
+	arg := new(service.EnvAnalysisCronArg)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.UpsertEnvAnalysisCron(projectName, envName, boolptr.True(), arg, ctx.Logger)
+}
+
+// @Summary Get Production Env Analysis Cron
+// @Description Get Production Env Analysis Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/analysis/cron [get]
+func GetProductionEnvAnalysisCron(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvAnalysisCron(projectName, envName, boolptr.True(), ctx.Logger)
+}
+
+type EnvAnalysisHistoryReq struct {
+	ProjectName string `json:"projectName" form:"projectName"`
+	Production  bool   `json:"production" form:"production"`
+	EnvName     string `json:"envName" form:"envName"`
+	PageNum     int    `json:"pageNum" form:"pageNum"`
+	PageSize    int    `json:"pageSize" form:"pageSize"`
+}
+
+type EnvAnalysisHistoryResp struct {
+	Total  int64               `json:"total"`
+	Result []*ai.EnvAIAnalysis `json:"result"`
+}
+
+func GetEnvAnalysisHistory(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := &EnvAnalysisHistoryReq{}
+	err := c.ShouldBindQuery(req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	result, count, err := service.GetEnvAnalysisHistory(req.ProjectName, req.Production, req.EnvName, req.PageNum, req.PageSize, ctx.Logger)
+	ctx.Resp = &EnvAnalysisHistoryResp{
+		Total:  count,
+		Result: result,
+	}
+	ctx.Err = err
 }

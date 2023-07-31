@@ -68,9 +68,54 @@ type Product struct {
 	// New Since v1.16.0, used to determine whether to install resources
 	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
 
+	// New Since v.1.19.0, env configs
+	AnalysisConfig      *AnalysisConfig       `bson:"analysis_config"      json:"analysis_config"`
+	NotificationConfigs []*NotificationConfig `bson:"notification_configs" json:"notification_configs"`
+
 	// For production environment
 	Production bool   `json:"production" bson:"production"`
 	Alias      string `json:"alias" bson:"alias"`
+}
+
+type NotificationEvent string
+
+const (
+	NotificationEventAnalyzerNoraml   NotificationEvent = "notification_event_analyzer_normal"
+	NotificationEventAnalyzerAbnormal NotificationEvent = "notification_event_analyzer_abnormal"
+)
+
+type WebHookType string
+
+const (
+	WebHookTypeFeishu   WebHookType = "feishu"
+	WebHookTypeDingding WebHookType = "dingding"
+	WebHookTypeWeChat   WebHookType = "wechat"
+)
+
+type NotificationConfig struct {
+	WebHookType WebHookType         `bson:"webhook_type" json:"webhook_type"`
+	WebHookURL  string              `bson:"webhook_url"  json:"webhook_url"`
+	Events      []NotificationEvent `bson:"events"       json:"events"`
+}
+
+type ResourceType string
+
+const (
+	ResourceTypePod           ResourceType = "Pod"
+	ResourceTypeDeployment    ResourceType = "Deployment"
+	ResourceTypeReplicaSet    ResourceType = "ReplicaSet"
+	ResourceTypePVC           ResourceType = "PersistentVolumeClaim"
+	ResourceTypeService       ResourceType = "Service"
+	ResourceTypeIngress       ResourceType = "Ingress"
+	ResourceTypeStatefulSet   ResourceType = "StatefulSet"
+	ResourceTypeCronJob       ResourceType = "CronJob"
+	ResourceTypeHPA           ResourceType = "HorizontalPodAutoScaler"
+	ResourceTypePDB           ResourceType = "PodDisruptionBudget"
+	ResourceTypeNetworkPolicy ResourceType = "NetworkPolicy"
+)
+
+type AnalysisConfig struct {
+	ResourceTypes []ResourceType `bson:"resource_types" json:"resource_types"`
 }
 
 type CreateUpdateCommonEnvCfgArgs struct {

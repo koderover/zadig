@@ -173,6 +173,21 @@ exemption_urls:
     - endpoint: mobile/**
       methods:
         - GET
+    - endpoint: ai
+      methods:
+        - GET
+    - endpoint: ai/**
+      methods:
+        - GET
+    - endpoint: ai
+      methods:
+        - GET
+    - endpoint: zadigx-ai/**
+      methods:
+        - GET
+    - endpoint: zadigx-ai
+      methods:
+        - GET
     - endpoint: workflows/**
       methods:
         - GET
@@ -290,6 +305,12 @@ exemption_urls:
     - endpoint: api/aslan/system/jenkins/integration/user/connection
       methods:
         - POST
+    - endpoint: api/aslan/system/llm/integration/?*
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
     - endpoint: api/aslan/system/basicImages
       methods:
         - POST
