@@ -370,7 +370,7 @@ func ListCommonEnvCfgHistory(c *gin.Context) {
 		}
 
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
 			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
@@ -410,7 +410,7 @@ func ListProductionCommonEnvCfgHistory(c *gin.Context) {
 		}
 
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
 			ctx.UnAuthorized = true
 			return
 		}
@@ -450,7 +450,7 @@ func ListLatestEnvCfg(c *gin.Context) {
 		}
 
 		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Env.EditConfig {
+			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Env.View {
 			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProjectName, types.ResourceTypeEnvironment, args.EnvName, types.EnvActionEditConfig)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
