@@ -2154,6 +2154,29 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/system/llm/integration/check": {
+            "get": {
+                "description": "Check llm integrations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Check llm integrations",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.checkLLMIntegrationResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/system/llm/integration/{id}": {
             "get": {
                 "description": "Get a llm integration",
@@ -2789,6 +2812,14 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "handler.checkLLMIntegrationResponse": {
+            "type": "object",
+            "properties": {
+                "check": {
+                    "type": "boolean"
                 }
             }
         },

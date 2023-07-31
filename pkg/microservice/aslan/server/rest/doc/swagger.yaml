@@ -167,6 +167,11 @@ definitions:
       name:
         type: string
     type: object
+  handler.checkLLMIntegrationResponse:
+    properties:
+      check:
+        type: boolean
+    type: object
   handler.createServiceTemplateRequest:
     properties:
       product_name:
@@ -3414,6 +3419,21 @@ paths:
         "200":
           description: OK
       summary: Update a llm integration
+      tags:
+      - system
+  /api/aslan/system/llm/integration/check:
+    get:
+      consumes:
+      - application/json
+      description: Check llm integrations
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.checkLLMIntegrationResponse'
+      summary: Check llm integrations
       tags:
       - system
   /api/aslan/system/webhook/config:
