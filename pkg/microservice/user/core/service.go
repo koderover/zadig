@@ -25,6 +25,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
@@ -46,6 +47,7 @@ func Start(_ context.Context) {
 	})
 
 	initDatabase()
+	initUser()
 }
 
 func initDatabase() {
@@ -80,7 +82,16 @@ func initDatabase() {
 	if err := mongotool.Ping(ctx); err != nil {
 		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
 	}
+}
 
+func initUser() {
+	//init default admin user
+	log.Infof("============================ start to init default admin user ============================")
+	err := user.InitializeAdmin()
+	if err != nil {
+		panic(fmt.Errorf("aslan preset system admin err:%s", err))
+		return
+	}
 }
 
 func Stop(_ context.Context) {

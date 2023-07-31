@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	newgoCron "github.com/go-co-op/gocron"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
@@ -41,7 +40,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	commonuser "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/user"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
@@ -70,7 +68,6 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/tool/rsa"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/util/ginzap"
 )
 
 const (
@@ -178,8 +175,6 @@ func Start(ctx context.Context) {
 	policyservice.MigratePolicyData()
 
 	initCron()
-
-	initUser()
 }
 
 func Stop(ctx context.Context) {
@@ -541,24 +536,5 @@ func InitializeUserDBAndTables() {
 
 	if err != nil {
 		log.Panic(err)
-	}
-}
-
-func initUser() {
-	//init default admin user
-	c := new(gin.Context)
-	logger := ginzap.WithContext(c).Sugar()
-	log.Infof("============================ start to init default admin user ============================")
-	uid, needBind, err := commonuser.PresetSystemAdmin(commonconfig.AdminEmail(), commonconfig.AdminPassword(), commonconfig.SystemAddress(), logger)
-	if err != nil {
-		log.Errorf("aslan preset system admin err:%s", err)
-		return
-	}
-	if needBind {
-		err = commonuser.PresetRoleBinding(c, uid, logger)
-		if err != nil {
-			log.Errorf("aslan preset role binding err:%s", err)
-			return
-		}
 	}
 }
