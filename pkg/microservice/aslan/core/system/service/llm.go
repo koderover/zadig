@@ -26,6 +26,21 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+func CheckLLMIntegration(ctx context.Context) (bool, error) {
+	count, err := commonrepo.NewLLMIntegrationColl().Count(ctx)
+	if err != nil {
+		fmtErr := fmt.Errorf("CheckLLMIntegration err: %w", err)
+		log.Error(fmtErr)
+		return false, e.ErrListLLMIntegration.AddErr(fmtErr)
+	}
+
+	if count == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func GetLLMIntegration(ctx context.Context, id string) (*commonmodels.LLMIntegration, error) {
 	llmIntegration, err := commonrepo.NewLLMIntegrationColl().FindByID(ctx, id)
 	if err != nil {
