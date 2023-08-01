@@ -356,12 +356,12 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	productSvcMap := newProductInfo.GetServiceMap()
 	productChartSvcMap := newProductInfo.GetChartServiceMap()
 	if productSvc.FromZadig() {
-		newProductInfo.ServiceDeployStrategy[productSvc.ServiceName] = setting.ServiceDeployStrategyDeploy
+		newProductInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(newProductInfo.ServiceDeployStrategy, productSvc.ServiceName)
 
 		chartMap[productSvc.ServiceName] = chartInfo
 		productSvcMap[productSvc.ServiceName] = product.GetServiceMap()[productSvc.ServiceName]
 	} else {
-		newProductInfo.ServiceDeployStrategy[commonutil.GetReleaseDeployStrategyKey(productSvc.ReleaseName)] = setting.ServiceDeployStrategyDeploy
+		newProductInfo.ServiceDeployStrategy = commonutil.SetChartServiceDeployStrategyDepoly(newProductInfo.ServiceDeployStrategy, productSvc.ReleaseName)
 
 		chartDeployMap[productSvc.ReleaseName] = chartInfo
 		productChartSvcMap[productSvc.ReleaseName] = product.GetChartServiceMap()[productSvc.ReleaseName]

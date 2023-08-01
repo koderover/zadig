@@ -271,9 +271,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		}
 	}
 
-	if exitedProd.ServiceDeployStrategy != nil {
-		exitedProd.ServiceDeployStrategy[args.ServiceName] = setting.ServiceDeployStrategyDeploy
-	}
+	exitedProd.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(exitedProd.ServiceDeployStrategy, args.ServiceName)
 
 	// Note update logic need to be optimized since we only need to update one service
 	if err := commonrepo.NewProductColl().Update(exitedProd); err != nil {
