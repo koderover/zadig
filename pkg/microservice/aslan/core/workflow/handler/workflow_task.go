@@ -227,7 +227,7 @@ func ListWorkflowTasksResult(c *gin.Context) {
 			if !ctx.Resources.ProjectAuthInfo[w.ProductTmplName].IsProjectAdmin &&
 				!ctx.Resources.ProjectAuthInfo[w.ProductTmplName].Workflow.View {
 				// check if the permission is given by collaboration mode
-				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, w.ProductTmplName, types.ResourceTypeWorkflow, workflowName, types.WorkflowActionRun)
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, w.ProductTmplName, types.ResourceTypeWorkflow, workflowName, types.WorkflowActionView)
 				if err != nil || !permitted {
 					ctx.UnAuthorized = true
 					return
