@@ -257,7 +257,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		plugin.GET("/template", ListPluginTemplates)
 		plugin.POST("", UpsertUserPluginRepository)
 		//plugin.POST("/enterprise", UpsertEnterprisePluginRepository)
-		//plugin.GET("", ListUnofficalPluginRepositories)
+		plugin.GET("", ListUnofficalPluginRepositories)
 		plugin.DELETE("/:id", DeletePluginRepo)
 	}
 
