@@ -23,6 +23,7 @@ import (
 	"io"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/types"
 
 	buildservice "github.com/koderover/zadig/pkg/microservice/aslan/core/build/service"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -102,14 +103,34 @@ func ListBuildModulesByServiceModule(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 
-	// authorization checks
+	// TODO: Authorization leak
+	// this API is sometimes used in edit workflow scenario, thus giving the edit workflow permission
+	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
+		authorized := false
+		if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+			// first check if the user is projectAdmin
+			if projectAuthInfo.IsProjectAdmin {
+				authorized = true
+			}
+
+			// then check if the user has view test permission
+			if projectAuthInfo.Build.View {
+				authorized = true
+			}
+
+			// then check if user has edit workflow permission
+			if projectAuthInfo.Workflow.Edit {
+				authorized = true
+			}
+
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorized, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionView)
+			if err == nil {
+				authorized = collaborationAuthorized
+			}
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Build.View {
+		if !authorized {
 			ctx.UnAuthorized = true
 			return
 		}
