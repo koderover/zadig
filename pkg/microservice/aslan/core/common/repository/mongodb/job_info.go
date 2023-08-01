@@ -70,9 +70,12 @@ func (c *JobInfoColl) GetProductionDeployJobs(startTime, endTime int64, projectN
 	query := bson.M{}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
 	query["production"] = true
-	// TODO: currently the only job type with production env update function is zadig-deploy
-	// if we added production update for helm-deploy type job, we need to update this query
-	query["type"] = config.JobZadigDeploy
+	query["type"] = bson.M{"$in": []string{
+		string(config.JobZadigDeploy),
+		string(config.JobZadigHelmDeploy),
+		string(config.JobZadigHelmChartDeploy),
+		string(config.JobDeploy),
+	}}
 	if len(projectName) != 0 {
 		query["product_name"] = projectName
 	}
@@ -131,7 +134,12 @@ func (c *JobInfoColl) GetBuildJobs(startTime, endTime int64, projectName string)
 func (c *JobInfoColl) GetDeployJobs(startTime, endTime int64, projectName string) ([]*models.JobInfo, error) {
 	query := bson.M{}
 	query["start_time"] = bson.M{"$gte": startTime, "$lt": endTime}
-	query["type"] = bson.M{"$in": []string{string(config.JobZadigDeploy), string(config.JobZadigHelmDeploy), string(config.JobDeploy)}}
+	query["type"] = bson.M{"$in": []string{
+		string(config.JobZadigDeploy),
+		string(config.JobZadigHelmDeploy),
+		string(config.JobZadigHelmChartDeploy),
+		string(config.JobDeploy),
+	}}
 
 	if len(projectName) != 0 {
 		query["product_name"] = projectName

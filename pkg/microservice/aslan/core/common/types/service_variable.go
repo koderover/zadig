@@ -178,6 +178,10 @@ func ServiceVariableKVToYaml(kvs []*ServiceVariableKV) (string, error) {
 // not suitable for flatten kv
 // ServiceVariableKV is a kv which aggregate complicated struct to the first layer
 func YamlToServiceVariableKV(yamlStr string, origKVs []*ServiceVariableKV) ([]*ServiceVariableKV, error) {
+	if yamlStr == "null" || yamlStr == "null\n" {
+		return nil, nil
+	}
+
 	node := &yaml.Node{}
 	err := yaml.Unmarshal([]byte(yamlStr), node)
 	if err != nil {

@@ -98,6 +98,26 @@ func ListLLMIntegration(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListLLMIntegration(context.TODO())
 }
 
+type checkLLMIntegrationResponse struct {
+	Check bool `json:"check"`
+}
+
+// @Summary Check llm integrations
+// @Description Check llm integrations
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Success 200 		{object} 		checkLLMIntegrationResponse
+// @Router /api/aslan/system/llm/integration/check [get]
+func CheckLLMIntegration(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	resp := &checkLLMIntegrationResponse{}
+	resp.Check, ctx.Err = service.CheckLLMIntegration(context.TODO())
+	ctx.Resp = resp
+}
+
 // @Summary Update a llm integration
 // @Description Update a llm integration
 // @Tags 	system

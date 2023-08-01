@@ -79,6 +79,11 @@ B: a string`,
 		},
 	}
 
+	nullYamlStr = `null
+`
+	expectNullYamlStr = `{}
+`
+
 	yamlStr = `strInt: 1
 strStr: a string
 strBool: true
@@ -202,6 +207,11 @@ var _ = Describe("Service", func() {
 			origKVs  []*types.ServiceVariableKV
 			expected string
 		}{
+			{
+				yamlStr:  nullYamlStr,
+				origKVs:  nil,
+				expected: expectNullYamlStr,
+			},
 			{
 				yamlStr:  yamlStr,
 				origKVs:  nil,
