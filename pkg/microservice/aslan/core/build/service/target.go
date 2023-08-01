@@ -115,7 +115,8 @@ func ListBuildForProduct(productName string, containerList []*commonmodels.Servi
 		return nil, e.ErrListBuildModule.AddErr(err)
 	}
 
-	log.Info("---------- containerList count is %d", len(containerList))
+	log.Infof("---------- containerList count is %d", len(containerList))
+	log.Infof("---------- currentProductBuilds count is %d", len(currentProductBuilds))
 
 	containerMap := make(map[string]*commonmodels.ServiceModuleTarget)
 	for _, container := range containerList {

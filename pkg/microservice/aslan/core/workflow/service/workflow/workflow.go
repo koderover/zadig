@@ -322,12 +322,12 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 		buildModules := []*commonmodels.BuildModule{}
 		for _, serviceTmpl := range services {
 			switch serviceTmpl.Type {
-			case setting.PMDeployType:
-				// PM service does not have such logic
-				buildModules = resp.BuildStage.Modules
-				break
+			//case setting.PMDeployType:
+			//	// PM service does not have such logic
+			//	buildModules = resp.BuildStage.Modules
+			//	break
 
-			case setting.K8SDeployType, setting.HelmDeployType:
+			case setting.K8SDeployType, setting.HelmDeployType, setting.PMDeployType:
 				for _, container := range serviceTmpl.Containers {
 					key := fmt.Sprintf("%s-%s-%s", serviceTmpl.ProductName, serviceTmpl.ServiceName, container.Name)
 					// if no target info is found for this container, meaning that this is a new service for that workflow
