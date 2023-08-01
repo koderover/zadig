@@ -95,7 +95,7 @@ func (c *FreestyleJobCtl) Run(ctx context.Context) {
 
 func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
 	for _, env := range c.jobTaskSpec.Properties.Envs {
-		if strings.HasPrefix(env.Value, "{{") && strings.HasSuffix(env.Value, "}}") {
+		if strings.HasPrefix(env.Value, "{{.job") && strings.HasSuffix(env.Value, "}}") {
 			env.Value = ""
 		}
 	}
