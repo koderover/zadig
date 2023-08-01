@@ -321,6 +321,13 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 
 		buildModules := []*commonmodels.BuildModule{}
 		for _, serviceTmpl := range services {
+
+			if serviceTmpl.Type == setting.PMDeployType {
+				serviceTmpl.Containers = append(serviceTmpl.Containers, &commonmodels.Container{
+					Name: serviceTmpl.ServiceName,
+				})
+			}
+
 			switch serviceTmpl.Type {
 			//case setting.PMDeployType:
 			//	// PM service does not have such logic
