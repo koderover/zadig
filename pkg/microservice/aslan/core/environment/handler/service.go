@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -26,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 // @Summary List services in env
@@ -55,6 +57,12 @@ func GetService(c *gin.Context) {
 	workLoadType := c.Query("workLoadType")
 
 	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, false, workLoadType, false, ctx.Logger)
+	bytes, err := json.Marshal(ctx.Resp)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	log.Debugf("GetService resp: %s", string(bytes))
 }
 
 // @Summary Get Production Service
