@@ -99,6 +99,38 @@ func DeployStrategyChanged(serviceName string, strategyMapOld map[string]string,
 	return ServiceDeployed(serviceName, strategyMapOld) != ServiceDeployed(serviceName, strategyMapNew)
 }
 
+func SetServiceDeployStrategyDepoly(strategyMap map[string]string, serviceName string) map[string]string {
+	if strategyMap == nil {
+		strategyMap = make(map[string]string)
+	}
+	strategyMap[serviceName] = setting.ServiceDeployStrategyDeploy
+	return strategyMap
+}
+
+func SetServiceDeployStrategyImport(strategyMap map[string]string, serviceName string) map[string]string {
+	if strategyMap == nil {
+		strategyMap = make(map[string]string)
+	}
+	strategyMap[serviceName] = setting.ServiceDeployStrategyImport
+	return strategyMap
+}
+
+func SetChartServiceDeployStrategyDepoly(strategyMap map[string]string, releaseName string) map[string]string {
+	if strategyMap == nil {
+		strategyMap = make(map[string]string)
+	}
+	strategyMap[GetReleaseDeployStrategyKey(releaseName)] = setting.ServiceDeployStrategyDeploy
+	return strategyMap
+}
+
+func SetChartServiceDeployStrategyImport(strategyMap map[string]string, releaseName string) map[string]string {
+	if strategyMap == nil {
+		strategyMap = make(map[string]string)
+	}
+	strategyMap[GetReleaseDeployStrategyKey(releaseName)] = setting.ServiceDeployStrategyImport
+	return strategyMap
+}
+
 func SetCurrentContainerImages(args *commonmodels.Service) error {
 	var srvContainers []*commonmodels.Container
 	for _, data := range args.KubeYamls {
