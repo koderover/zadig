@@ -845,6 +845,13 @@ func waitJobStart(ctx context.Context, namespace, jobName string, kubeClient crC
 					continue
 				}
 				for _, pod := range podList {
+					if pod.Status.Phase == corev1.PodFailed {
+						msg := ""
+						for _, condition := range pod.Status.Conditions {
+							msg += fmt.Sprintf("type:%s, status:%s, reason:%s, message:%s\n", condition.Type, condition.Status, condition.Reason, condition.Message)
+						}
+						return config.StatusFailed, fmt.Errorf("waitJobStart: pod failed, jobName:%s, podName:%s\nconditions info: %s", jobName, pod.Name, msg)
+					}
 					if pod.Status.Phase != corev1.PodPending {
 						xl.Infof("waitJobStart: pod status %s namespace:%s, jobName:%s podList num %d", pod.Status.Phase, namespace, jobName, len(podList))
 						return config.StatusRunning, nil
