@@ -214,3 +214,24 @@ func (c *Client) ListAuthorizedWorkflows(uid, projectKey string) ([]string, []st
 	}
 	return resp.WorkflowList, resp.CustomWorkflowList, nil
 }
+
+func (c *Client) CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action string) (bool, error) {
+	url := "/collaboration-action"
+	resp := &types.CheckCollaborationModePermissionResp{}
+
+	queries := make(map[string]string)
+	queries["uid"] = uid
+	queries["project_key"] = projectKey
+	queries["resource"] = resource
+	queries["action"] = action
+
+	_, err := c.Get(url, httpclient.SetQueryParams(queries), httpclient.SetResult(resp))
+	if err != nil {
+		return false, err
+	}
+	if len(resp.Error) > 0 {
+		return resp.HasPermission, errors.New(resp.Error)
+	}
+
+	return resp.HasPermission, nil
+}

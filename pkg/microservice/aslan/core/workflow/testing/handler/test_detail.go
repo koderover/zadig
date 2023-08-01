@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/types"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -38,15 +39,34 @@ func ListDetailTestModules(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 
+	// TODO: Authorization leak
+	// this API is sometimes used in edit workflow scenario, thus giving the edit workflow permission
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
+		authorized := false
+		if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+			// first check if the user is projectAdmin
+			if projectAuthInfo.IsProjectAdmin {
+				authorized = true
+			}
 
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Test.View {
+			// then check if the user has view test permission
+			if projectAuthInfo.Test.View {
+				authorized = true
+			}
+
+			// then check if user has edit workflow permission
+			if projectAuthInfo.Workflow.Edit {
+				authorized = true
+			}
+
+			// finally check if the permission is given by collaboration mode
+			collaborationAuthorized, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionView)
+			if err == nil {
+				authorized = collaborationAuthorized
+			}
+		}
+		if !authorized {
 			ctx.UnAuthorized = true
 			return
 		}

@@ -136,6 +136,36 @@ func CheckCollaborationModePermission(uid, projectKey, resource, resourceName, a
 	return
 }
 
+func CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action string) (hasPermission bool, err error) {
+	hasPermission = false
+	collabInstance, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	if findErr != nil {
+		err = findErr
+		return
+	}
+
+	if resource == types.ResourceTypeWorkflow {
+		for _, workflow := range collabInstance.Workflows {
+			for _, verb := range workflow.Verbs {
+				if action == verb {
+					hasPermission = true
+					return
+				}
+			}
+		}
+	} else if resource == types.ResourceTypeEnvironment {
+		for _, env := range collabInstance.Products {
+			for _, verb := range env.Verbs {
+				if action == verb {
+					hasPermission = true
+					return
+				}
+			}
+		}
+	}
+	return
+}
+
 func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, error) {
 	respSet := sets.NewString()
 

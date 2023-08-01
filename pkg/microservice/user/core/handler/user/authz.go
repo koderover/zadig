@@ -57,6 +57,27 @@ func CheckCollaborationModePermission(c *gin.Context) {
 	ctx.Resp = resp
 }
 
+func CheckPermissionGivenByCollaborationMode(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &types.CheckCollaborationModePermissionReq{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	hasPermission, err := userservice.CheckPermissionGivenByCollaborationMode(args.UID, args.ProjectKey, args.Resource, args.Action)
+	resp := &types.CheckCollaborationModePermissionResp{
+		HasPermission: hasPermission,
+	}
+	if err != nil {
+		resp.Error = err.Error()
+	}
+
+	ctx.Resp = resp
+}
+
 func ListAuthorizedProject(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

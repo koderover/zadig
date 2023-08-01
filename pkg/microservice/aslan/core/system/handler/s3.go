@@ -44,10 +44,16 @@ func ListS3Storage(c *gin.Context) {
 	}
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
+	// TODO: Authorization leak
+	// This API is used in some workflow edit case, but we don't have projectKey in this API
+	// making the authorization of the API hard.
+	// The correct solution to this problem is to provide another API with the function of listing
+	// s3 storage but not returning all the AK/SK.
+
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {

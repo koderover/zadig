@@ -143,6 +143,21 @@ func ListAuthorizedProjects(uid string) ([]string, bool, error) {
 	return user.New().ListAuthorizedProjects(uid)
 }
 
+// CheckPermissionGivenByCollaborationMode checks if a user is permitted to perform specific action in a given project.
+// Although collaboration mode is used to control the action to specific resources, under some circumstances, there are
+// leaks/designs that allows user with resource permission not related to the corresponding resource to access.
+// e.g. ListTest API will allow anyone with edit workflow permission to call it. In this case, we need to check if the permission
+// is granted by collaboration mode.
+// AVOID USING THIS !!!
+// FIXME: This function shouldn't exist. The only reason it exists is the incompetent of the system designer.
+func CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action string) (bool, error) {
+	if uid == "" {
+		return false, errors.New("empty user ID")
+	}
+
+	return user.New().CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action)
+}
+
 func ListAuthorizedWorkflows(uid, projectKey string) (authorizedWorkflow, authorizedWorkflowV4 []string, enableFilter bool, err error) {
 	authorizedWorkflow = make([]string, 0)
 	authorizedWorkflowV4 = make([]string, 0)
