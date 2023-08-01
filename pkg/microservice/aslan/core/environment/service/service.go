@@ -218,9 +218,9 @@ func GetService(envName, productName, serviceName string, production bool, workL
 			}
 			ret.Scales = append(ret.Scales, mseResp.Scales...)
 			ret.Services = append(ret.Services, mseResp.Services...)
-			ret.Workloads = nil
-			ret.Namespace = env.Namespace
 		}
+		ret.Workloads = nil
+		ret.Namespace = env.Namespace
 	} else {
 		ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
 		if err != nil {
