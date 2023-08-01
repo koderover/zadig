@@ -54,6 +54,7 @@ type WorkflowTask struct {
 	IsRestart           bool               `bson:"is_restart"                json:"is_restart"`
 	IsDebug             bool               `bson:"is_debug"                  json:"is_debug"`
 	ShareStorages       []*ShareStorage    `bson:"share_storages"            json:"share_storages"`
+	EmptyValue          []*KeyVal          `bson:"empty_value"               json:"empty_value"`
 }
 
 func (WorkflowTask) TableName() string {

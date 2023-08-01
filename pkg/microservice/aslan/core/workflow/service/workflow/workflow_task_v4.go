@@ -443,6 +443,14 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 
 		for _, job := range stage.Jobs {
 			if jobctl.JobSkiped(job) {
+				jobs, _ := jobctl.ToJobs(job, workflow, nextTaskID)
+				for _, jobTask := range jobs {
+					for _, output := range jobTask.Outputs {
+						workflowTask.EmptyValue = append(workflowTask.EmptyValue, &commonmodels.KeyVal{
+							Key: output.Name,
+						})
+					}
+				}
 				continue
 			}
 			jobs, err := jobctl.ToJobs(job, workflow, nextTaskID)
