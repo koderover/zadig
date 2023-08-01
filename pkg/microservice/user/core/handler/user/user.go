@@ -17,6 +17,8 @@ limitations under the License.
 package user
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/user/config"
@@ -29,6 +31,22 @@ import (
 func SyncLdapUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// this is local, so we simply generate user auth info from service
+	err := GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
 	ldapID := c.Param("ldapId")
 
 	ctx.Err = user.SearchAndSyncUser(ldapID, ctx.Logger)
@@ -44,12 +62,45 @@ func CountSystemUsers(c *gin.Context) {
 func GetUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// this is local, so we simply generate user auth info from service
+	err := GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if ctx.UserID != c.Param("uid") {
+			ctx.UnAuthorized = true
+			ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+			return
+		}
+	}
+
 	ctx.Resp, ctx.Err = user.GetUser(c.Param("uid"), ctx.Logger)
 }
 
 func DeleteUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// this is local, so we simply generate user auth info from service
+	err := GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	ctx.Err = user.DeleteUserByUID(c.Param("uid"), ctx.Logger)
 }
 
@@ -78,6 +129,21 @@ func GetUserSetting(c *gin.Context) {
 func ListUsers(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// this is local, so we simply generate user auth info from service
+	err := GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := &user.QueryArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
@@ -98,6 +164,21 @@ func ListUsers(c *gin.Context) {
 func CreateUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// this is local, so we simply generate user auth info from service
+	err := GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := &user.User{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
@@ -109,6 +190,21 @@ func CreateUser(c *gin.Context) {
 func UpdateUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// this is local, so we simply generate user auth info from service
+	err := GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := &user.UpdateUserInfo{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err

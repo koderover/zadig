@@ -54,6 +54,12 @@ func UpdateOrCreateFeature(c *gin.Context) {
 		return
 	}
 
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	req := new(service.FeatureReq)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err

@@ -94,7 +94,7 @@ func NewContext(c *gin.Context) *Context {
 }
 
 // NewContextWithAuthorization returns a context with user authorization info.
-// This function should only be called wnen
+// This function should only be called when one need authorization information for api caller.
 func NewContextWithAuthorization(c *gin.Context) (*Context, error) {
 	logger := ginzap.WithContext(c).Sugar()
 	var resourceAuthInfo *user.AuthorizedResources

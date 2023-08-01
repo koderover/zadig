@@ -17,8 +17,12 @@ limitations under the License.
 package user
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	userservice "github.com/koderover/zadig/pkg/microservice/user/core/service/user"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -105,4 +109,23 @@ func ListAuthorizedWorkflows(c *gin.Context) {
 		CustomWorkflowList: authorizedWorkflowV4,
 		Error:              "",
 	}
+}
+
+func GenerateUserAuthInfo(ctx *internalhandler.Context) error {
+	resourceAuthInfo, err := userservice.GetUserAuthInfo(ctx.UserID, ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("Failed to generate user auth info for userID: %s, error is: %s", ctx.UserID, err)
+		return err
+	}
+	authInfo := new(user.AuthorizedResources)
+	bytes, err := json.Marshal(resourceAuthInfo)
+	if err != nil {
+		return fmt.Errorf("marshal auth info error: %s", err)
+	}
+
+	if err := json.Unmarshal(bytes, authInfo); err != nil {
+		return fmt.Errorf("unmarshal auth info error: %s", err)
+	}
+	ctx.Resources = authInfo
+	return nil
 }
