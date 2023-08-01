@@ -176,7 +176,7 @@ func UpdateWorkflow(c *gin.Context) {
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Edit {
 			// check if the permission is given by collaboration mode
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeWorkflow, args.ProductTmplName, types.WorkflowActionEdit)
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeWorkflow, args.Name, types.WorkflowActionEdit)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
