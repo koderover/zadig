@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -189,10 +190,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		productInfo.Render.Revision = curRenderset.Revision
 		log.Infof("UpdateServiceRevision : %v, sevOnline: %v, variableYamlNil %v, serviceName: %s", deployInfo.UpdateServiceRevision, sevOnline, variableYamlNil(deployInfo.VariableYaml), deployInfo.ServiceName)
 		if deployInfo.UpdateServiceRevision || sevOnline || !variableYamlNil(deployInfo.VariableYaml) {
-			if productInfo.ServiceDeployStrategy == nil {
-				productInfo.ServiceDeployStrategy = make(map[string]string)
-			}
-			productInfo.ServiceDeployStrategy[deployInfo.ServiceName] = setting.ServiceDeployStrategyDeploy
+			productInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(productInfo.ServiceDeployStrategy, deployInfo.ServiceName)
 		}
 	} else {
 		// uninstall service
