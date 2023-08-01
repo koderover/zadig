@@ -16,22 +16,26 @@
 package job
 
 import (
-	"regexp"
+	"bytes"
 	"strings"
 
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/cli-runtime/pkg/printers"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
+	serializer2 "github.com/koderover/zadig/pkg/tool/kube/serializer"
 )
 
 type BlueGreenDeployV2Job struct {
@@ -76,7 +80,6 @@ func (j *BlueGreenDeployV2Job) MergeArgs(args *commonmodels.Job) error {
 }
 
 func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
-	logger := log.SugaredLogger()
 	resp := []*commonmodels.JobTask{}
 	j.spec = &commonmodels.BlueGreenDeployV2JobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
@@ -84,13 +87,20 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 	}
 
 	for _, target := range j.spec.Services {
-		if target.KubernetesServiceYaml != "" {
-			svc := &corev1.Service{}
+		var (
+			deployment     *v1.Deployment
+			deploymentYaml string
+			service        *corev1.Service
+			serviceYaml    string
+		)
+		if target.BlueServiceYaml != "" {
+			service = &corev1.Service{}
 			decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDecoder()
-			err := runtime.DecodeInto(decoder, []byte(target.KubernetesServiceYaml), svc)
+			err := runtime.DecodeInto(decoder, []byte(target.BlueServiceYaml), service)
 			if err != nil {
 				return resp, errors.Errorf("failed to decode %s k8s service yaml, err: %s", target.ServiceName, err)
 			}
+			serviceYaml = target.BlueServiceYaml
 		}
 
 		yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
@@ -101,38 +111,95 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 		if err != nil {
 			return resp, errors.Errorf("failed to fetch %s current applied yaml, err: %s", target.ServiceName, err)
 		}
-		var yamls []string
 		resources := make([]*unstructured.Unstructured, 0)
 		manifests := releaseutil.SplitManifests(yamlContent)
 		for _, item := range manifests {
-			u, err := runtime.Serializer.Decode().ToUnstructured(&item)
+			u, err := serializer2.NewDecoder().YamlToUnstructured([]byte(item))
 			if err != nil {
 				return resp, errors.Errorf("failed to decode service %s yaml to unstructured: %v", target.ServiceName, err)
 			}
 			resources = append(resources, u)
 		}
 
+		for _, resource := range resources {
+			switch resource.GetKind() {
+			case setting.Deployment:
+				if deployment != nil {
+					return resp, errors.Errorf("service %s has more than one deployment", target.ServiceName)
+				}
+				deployment = &v1.Deployment{}
+				err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, deployment)
+				if err != nil {
+					return resp, errors.Errorf("failed to convert service %s deployment to deployment object: %v", target.ServiceName, err)
+				}
+				deployment.Name = deployment.Name + "-blue"
+				deploymentYaml, err = toYaml(deployment)
+				if err != nil {
+					return resp, errors.Errorf("failed to marshal service %s deployment object: %v", target.ServiceName, err)
+				}
+				var newImages []*commonmodels.Container
+				for _, image := range target.ServiceAndImage {
+					newImages = append(newImages, &commonmodels.Container{
+						Name:  image.ServiceModule,
+						Image: image.Image,
+					})
+				}
+				deploymentYaml, _, err = kube.ReplaceWorkloadImages(deploymentYaml, newImages)
+				if err != nil {
+					return resp, errors.Errorf("failed to replace service %s deployment image: %v", target.ServiceName, err)
+				}
+			case setting.Service:
+				if target.BlueServiceYaml != "" {
+					continue
+				}
+				if service != nil {
+					return resp, errors.Errorf("service %s has more than one service", target.ServiceName)
+				}
+				service = &corev1.Service{}
+				err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, service)
+				if err != nil {
+					return resp, errors.Errorf("failed to convert service %s service to service object: %v", target.ServiceName, err)
+				}
+				service.Name = service.Name + "-blue"
+				serviceYaml, err = toYaml(service)
+				if err != nil {
+					return resp, errors.Errorf("failed to marshal service %s service object: %v", target.ServiceName, err)
+				}
+			default:
+			}
+		}
+		if deployment == nil || service == nil {
+			return resp, errors.Errorf("service %s has no deployment or service", target.ServiceName)
+		}
+		if service.Spec.Selector == nil || deployment.Spec.Template.Labels == nil {
+			return resp, errors.Errorf("service %s has no selector or deployment has no labels", target.ServiceName)
+		}
+		selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(service.Spec.Selector))
+		if err != nil {
+			return resp, errors.Errorf("service %s k8s service convert to selector err: %v", target.ServiceName, err)
+		}
+		if !selector.Matches(labels.Set(deployment.Spec.Template.Labels)) {
+			return resp, errors.Errorf("service %s k8s service selector not match deployment.spec.template labels", target.ServiceName)
+		}
 		task := &commonmodels.JobTask{
 			Name: jobNameFormat(j.job.Name + "-" + target.ServiceName),
-			Key:  strings.Join([]string{j.job.Name, target.K8sServiceName}, "."),
+			Key:  strings.Join([]string{j.job.Name, target.ServiceName}, "."),
 			JobInfo: map[string]string{
-				JobNameKey:         j.job.Name,
-				"k8s_service_name": target.K8sServiceName,
+				JobNameKey:     j.job.Name,
+				"service_name": target.ServiceName,
 			},
-			JobType: string(config.JobK8sBlueGreenDeploy),
+			JobType: string(config.JobK8sBlueGreenDeployV2),
 			Spec: &commonmodels.JobTaskBlueGreenDeployV2Spec{
-				Namespace:          j.spec.Namespace,
-				ClusterID:          j.spec.ClusterID,
-				DockerRegistryID:   j.spec.DockerRegistryID,
-				DeployTimeout:      target.DeployTimeout,
-				K8sServiceName:     target.K8sServiceName,
-				BlueK8sServiceName: target.BlueK8sServiceName,
-				WorkloadType:       setting.Deployment,
-				WorkloadName:       deployment.Name,
-				BlueWorkloadName:   target.BlueWorkloadName,
-				ContainerName:      target.ContainerName,
-				Image:              target.Image,
-				Version:            version,
+				Production: j.spec.Production,
+				Env:        j.spec.Env,
+				Service: &commonmodels.BlueGreenDeployV2Service{
+					ServiceName:        target.ServiceName,
+					BlueServiceYaml:    serviceYaml,
+					BlueServiceName:    service.Name,
+					BlueDeploymentYaml: deploymentYaml,
+					BlueDeploymentName: deployment.Name,
+					ServiceAndImage:    target.ServiceAndImage,
+				},
 			},
 		}
 		resp = append(resp, task)
@@ -150,10 +217,10 @@ func (j *BlueGreenDeployV2Job) LintJob() error {
 	quoteJobs := []*commonmodels.Job{}
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
-			if job.JobType != config.JobK8sBlueGreenRelease {
+			if job.JobType != config.JobK8sBlueGreenReleaseV2 {
 				continue
 			}
-			releaseJobSpec := &commonmodels.BlueGreenReleaseJobSpec{}
+			releaseJobSpec := &commonmodels.BlueGreenReleaseV2JobSpec{}
 			if err := commonmodels.IToiYaml(job.Spec, releaseJobSpec); err != nil {
 				return err
 			}
@@ -175,11 +242,12 @@ func (j *BlueGreenDeployV2Job) LintJob() error {
 	return nil
 }
 
-func getBlueWorkloadName(name, version string) string {
-	reg, _ := regexp.Compile("v[0-9]{10}$")
-	blueWorkfloadName := reg.ReplaceAllString(name, version)
-	if blueWorkfloadName == name {
-		blueWorkfloadName = name + "-" + version
+func toYaml(obj runtime.Object) (string, error) {
+	y := printers.YAMLPrinter{}
+	writer := bytes.NewBuffer(nil)
+	err := y.PrintObj(obj, writer)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to marshal object to yaml")
 	}
-	return blueWorkfloadName
+	return writer.String(), nil
 }

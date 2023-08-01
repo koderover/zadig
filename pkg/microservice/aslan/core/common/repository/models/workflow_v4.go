@@ -423,12 +423,19 @@ type BlueGreenDeployV2ServiceModuleAndImage struct {
 }
 
 type BlueGreenDeployV2Service struct {
-	ServiceName           string                                 `bson:"service_name" json:"service_name" yaml:"service_name"`
-	KubernetesServiceYaml string                                 `bson:"k8s_service_yaml" json:"k8s_service_yaml" yaml:"k8s_service_yaml"`
-	ServiceAndImage       []*MseGrayReleaseServiceModuleAndImage `bson:"service_and_image" json:"service_and_image" yaml:"service_and_image"`
+	ServiceName        string                                 `bson:"service_name" json:"service_name" yaml:"service_name"`
+	BlueServiceYaml    string                                 `bson:"blue_service_yaml" json:"blue_service_yaml" yaml:"blue_service_yaml"`
+	BlueServiceName    string                                 `bson:"blue_service_name,omitempty" json:"blue_service_name,omitempty" yaml:"blue_service_name,omitempty"`
+	BlueDeploymentYaml string                                 `bson:"blue_deployment_yaml,omitempty" json:"blue_deployment_yaml,omitempty" yaml:"blue_deployment_yaml,omitempty"`
+	BlueDeploymentName string                                 `bson:"blue_deployment_name,omitempty" json:"blue_deployment_name,omitempty" yaml:"blue_deployment_name,omitempty"`
+	ServiceAndImage    []*MseGrayReleaseServiceModuleAndImage `bson:"service_and_image" json:"service_and_image" yaml:"service_and_image"`
 }
 
 type BlueGreenReleaseJobSpec struct {
+	FromJob string `bson:"from_job"               json:"from_job"              yaml:"from_job"`
+}
+
+type BlueGreenReleaseV2JobSpec struct {
 	FromJob string `bson:"from_job"               json:"from_job"              yaml:"from_job"`
 }
 
