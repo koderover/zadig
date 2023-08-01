@@ -329,11 +329,6 @@ func FindWorkflow(workflowName string, log *zap.SugaredLogger) (*commonmodels.Wo
 			}
 
 			switch serviceTmpl.Type {
-			//case setting.PMDeployType:
-			//	// PM service does not have such logic
-			//	buildModules = resp.BuildStage.Modules
-			//	break
-
 			case setting.K8SDeployType, setting.HelmDeployType, setting.PMDeployType:
 				for _, container := range serviceTmpl.Containers {
 					key := fmt.Sprintf("%s-%s-%s", serviceTmpl.ProductName, serviceTmpl.ServiceName, container.Name)

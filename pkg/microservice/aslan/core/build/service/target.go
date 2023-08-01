@@ -115,14 +115,10 @@ func ListBuildForProduct(productName string, containerList []*commonmodels.Servi
 		return nil, e.ErrListBuildModule.AddErr(err)
 	}
 
-	log.Infof("---------- containerList count is %d", len(containerList))
-	log.Infof("---------- currentProductBuilds count is %d", len(currentProductBuilds))
-
 	containerMap := make(map[string]*commonmodels.ServiceModuleTarget)
 	for _, container := range containerList {
 		target := fmt.Sprintf("%s-%s-%s", container.ProductName, container.ServiceName, container.ServiceModule)
 		containerMap[target] = container
-		log.Infof("---------- single target is %s", target)
 	}
 
 	resp := make([]*buildPreviewResp, 0)
