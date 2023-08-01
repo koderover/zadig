@@ -160,11 +160,6 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		ClusterIDAdd:                c.addCluterID,
 		SetStatus:                   c.setWorkflowStatus,
 	}
-
-	for _, kv := range c.workflowTask.EmptyValue {
-		workflowCtx.GlobalContextSet(kv.Key, "")
-	}
-
 	defer jobcontroller.CleanWorkflowJobs(ctx, c.workflowTask, workflowCtx, c.logger, c.ack)
 	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(c.workflowTask, c.logger); err != nil {
 		log.Warnf("Failed to update comment for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
@@ -172,7 +167,6 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	if err := scmnotify.NewService().UpdateGitCheckForWorkflowV4(c.workflowTask.WorkflowArgs, c.workflowTask.TaskID, c.logger); err != nil {
 		log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", c.workflowTask.WorkflowName, c.workflowTask.TaskID, err)
 	}
-
 	RunStages(ctx, c.workflowTask.Stages, workflowCtx, concurrency, c.logger, c.ack)
 	updateworkflowStatus(c.workflowTask)
 }
