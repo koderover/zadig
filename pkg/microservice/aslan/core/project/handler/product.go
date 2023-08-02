@@ -485,19 +485,38 @@ func GetGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+	// TODO: Authorization leak
+	// Authorization checks
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		if projectedAuthInfo.IsProjectAdmin {
+			permitted = true
+		}
+
+		if projectedAuthInfo.Service.Edit ||
+			projectedAuthInfo.Service.View ||
+			projectedAuthInfo.Env.EditConfig ||
+			projectedAuthInfo.Env.Create {
+			permitted = true
+		}
+
+		permittedByCollaborationMode, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+		if err != nil {
 			ctx.UnAuthorized = true
 			return
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Edit &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Service.View &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
-			ctx.UnAuthorized = true
-			return
-		}
+
+		permitted = permittedByCollaborationMode
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	ctx.Resp, ctx.Err = projectservice.GetGlobalVariables(projectKey, false, ctx.Logger)

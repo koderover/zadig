@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/types"
 
 	buildservice "github.com/koderover/zadig/pkg/microservice/aslan/core/build/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -70,20 +71,33 @@ func ListBuildModulesForProduct(c *gin.Context) {
 
 	projectKey := c.Param("productName")
 
+	// TODO: Authorization leak
 	// authorization checks
-	// FIX ME LATER: return empty when not authorized
-	// FIX ME LATER 2: the authorization requirement for this api has been changed from
-	// View Build -> View Service. If this is ok remove the TODO, if not just do a rollback
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		if projectedAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Build.View {
-			ctx.UnAuthorized = true
-			return
+
+		if projectedAuthInfo.Build.View ||
+			projectedAuthInfo.Workflow.Execute {
+			permitted = true
 		}
+
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionRun)
+		if err == nil {
+			permitted = collaborationAuthorizedEdit
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	containerList, err := buildservice.ListContainers(projectKey, ctx.Logger)

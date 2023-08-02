@@ -61,7 +61,7 @@ func ListDetailTestModules(c *gin.Context) {
 			}
 
 			// finally check if the permission is given by collaboration mode
-			collaborationAuthorized, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionView)
+			collaborationAuthorized, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
 			if err == nil {
 				authorized = collaborationAuthorized
 			}

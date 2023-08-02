@@ -164,13 +164,17 @@ func ListYamlTemplate(c *gin.Context) {
 		return
 	}
 
+	// TODO: Authorization leak
+	// comment: since currently there are multiple functionalities that wish to used this API without authorization,
+	// we temporarily disabled the permission checks for this API.
+
 	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.Template.View {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
+	//if !ctx.Resources.IsSystemAdmin {
+	//	if !ctx.Resources.SystemActions.Template.View {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//}
 
 	// Query Verification
 	args := &listYamlQuery{}

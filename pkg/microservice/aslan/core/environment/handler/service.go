@@ -53,23 +53,41 @@ func ListSvcsInEnv(c *gin.Context) {
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
 
+	// TODO: Authorization leak
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		if projectedAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+
+		if projectedAuthInfo.Env.View ||
+			projectedAuthInfo.Workflow.Execute {
+			permitted = true
+		}
+
+		collaborationViewEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+		if err != nil {
 			ctx.UnAuthorized = true
 			return
 		}
 
-		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-		if err != nil || !permitted {
-			ctx.UnAuthorized = true
-			return
+		permitted = collaborationViewEnvPermitted
+
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionRun)
+		if err == nil {
+			permitted = collaborationAuthorizedEdit
 		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, projectKey, nil, ctx.Logger)

@@ -106,39 +106,35 @@ func ListBuildModulesByServiceModule(c *gin.Context) {
 	// TODO: Authorization leak
 	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
 	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		authorized := false
-		if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
-			// first check if the user is projectAdmin
-			if projectAuthInfo.IsProjectAdmin {
-				authorized = true
-			}
+	permitted := false
 
-			// then check if the user has view test permission
-			if projectAuthInfo.Build.View {
-				authorized = true
-			}
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
 
-			// then check if user has edit workflow permission
-			if projectAuthInfo.Workflow.Edit {
-				authorized = true
-			}
-
-			if projectAuthInfo.Workflow.Create {
-				authorized = true
-			}
-
-			// finally check if the permission is given by collaboration mode
-			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
-			if err == nil {
-				authorized = collaborationAuthorizedEdit
-			}
+	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
 
-		if !authorized {
-			ctx.UnAuthorized = true
-			return
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Workflow.Edit ||
+			projectAuthInfo.Workflow.Create ||
+			projectAuthInfo.Build.View {
+			permitted = true
 		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
+		if err == nil {
+			permitted = collaborationAuthorizedEdit
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	var excludeJenkins, updateServiceRevision bool

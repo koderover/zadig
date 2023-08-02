@@ -138,14 +138,18 @@ func CreateK8sProductionService(c *gin.Context) {
 	rawArg, _ := json.Marshal(args)
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", args.ServiceName), string(rawArg), ctx.Logger)
 
+	// TODO: Authorization leak
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
+
+		// split create and update API to make life easier
 		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionService.Create {
+			!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionService.Create &&
+			!ctx.Resources.ProjectAuthInfo[args.ProductName].ProductionEnv.EditConfig {
 			ctx.UnAuthorized = true
 			return
 		}
