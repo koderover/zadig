@@ -81,10 +81,12 @@ type K8SCluster struct {
 }
 
 type AdvancedConfig struct {
-	Strategy     string   `json:"strategy,omitempty"        bson:"strategy,omitempty"`
-	NodeLabels   []string `json:"node_labels,omitempty"     bson:"node_labels,omitempty"`
-	ProjectNames []string `json:"project_names"             bson:"project_names"`
-	Tolerations  string   `json:"tolerations"               bson:"tolerations"`
+	Strategy          string   `json:"strategy,omitempty"        bson:"strategy,omitempty"`
+	NodeLabels        []string `json:"node_labels,omitempty"     bson:"node_labels,omitempty"`
+	ProjectNames      []string `json:"project_names"             bson:"project_names"`
+	Tolerations       string   `json:"tolerations"               bson:"tolerations"`
+	ClusterAccessYaml string   `json:"cluster_access_yaml"       bson:"cluster_access_yaml"`
+	ScheduleWorkflow  bool     `json:"schedule_workflow"         bson:"schedule_workflow"`
 }
 
 func (k *K8SCluster) Clean() error {
@@ -131,10 +133,18 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 		var advancedConfig *AdvancedConfig
 		if c.AdvancedConfig != nil {
 			advancedConfig = &AdvancedConfig{
-				Strategy:     c.AdvancedConfig.Strategy,
-				NodeLabels:   convertToNodeLabels(c.AdvancedConfig.NodeLabels),
-				ProjectNames: getProjectNames(c.ID.Hex(), logger),
-				Tolerations:  c.AdvancedConfig.Tolerations,
+				Strategy:          c.AdvancedConfig.Strategy,
+				NodeLabels:        convertToNodeLabels(c.AdvancedConfig.NodeLabels),
+				ProjectNames:      getProjectNames(c.ID.Hex(), logger),
+				Tolerations:       c.AdvancedConfig.Tolerations,
+				ClusterAccessYaml: c.AdvancedConfig.ClusterAccessYaml,
+			}
+			if advancedConfig.ClusterAccessYaml != "" {
+				advancedConfig.ScheduleWorkflow = c.AdvancedConfig.ScheduleWorkflow
+				advancedConfig.ClusterAccessYaml = c.AdvancedConfig.ClusterAccessYaml
+			} else {
+				advancedConfig.ScheduleWorkflow = true
+				advancedConfig.ClusterAccessYaml = kube.ClusterAccessYamlTemplate
 			}
 		}
 
@@ -248,6 +258,18 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 			ProjectNames: args.AdvancedConfig.ProjectNames,
 			Tolerations:  args.AdvancedConfig.Tolerations,
 		}
+		if args.AdvancedConfig.ClusterAccessYaml == "" {
+			advancedConfig.ClusterAccessYaml = kube.ClusterAccessYamlTemplate
+			advancedConfig.ScheduleWorkflow = true
+		} else {
+			// check the cluster access yaml
+			err = kube.ValidateClusterRoleYAML(args.AdvancedConfig.ClusterAccessYaml, logger)
+			if err != nil {
+				return nil, fmt.Errorf("invalid cluster access yaml: %s", err)
+			}
+			advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
+			advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
+		}
 	}
 
 	err = buildConfigs(args)
@@ -285,6 +307,20 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		advancedConfig.Strategy = args.AdvancedConfig.Strategy
 		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels)
 		advancedConfig.Tolerations = args.AdvancedConfig.Tolerations
+
+		if args.AdvancedConfig.ClusterAccessYaml == "" || args.Local {
+			advancedConfig.ClusterAccessYaml = kube.ClusterAccessYamlTemplate
+			advancedConfig.ScheduleWorkflow = true
+		} else {
+			// check the cluster access yaml
+			err = kube.ValidateClusterRoleYAML(args.AdvancedConfig.ClusterAccessYaml, logger)
+			if err != nil {
+				return nil, fmt.Errorf("invalid cluster access yaml: %s", err)
+			}
+			advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
+			advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
+		}
+
 		// Delete all projects associated with clusterID
 		err := commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: id})
 		if err != nil {
@@ -338,12 +374,15 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		ShareStorage:   args.ShareStorage,
 		Provider:       args.Provider,
 	}
-
 	cluster, err = s.UpdateCluster(id, cluster, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
 	}
 
+	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
+	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+		return cluster, nil
+	}
 	return cluster, UpgradeAgent(id, logger)
 }
 
@@ -443,7 +482,15 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 
 	for _, u := range resources {
 		if u.GetKind() == "StatefulSet" && u.GetName() == types.DindStatefulSetName {
-			err = UpgradeDind(kubeClient, clusterInfo, setting.AttachedClusterNamespace)
+			if err = kubeClient.Get(context.TODO(), client.ObjectKey{
+				Name:      types.DindStatefulSetName,
+				Namespace: setting.AttachedClusterNamespace,
+			}, &appsv1.StatefulSet{}); err != nil {
+				logger.Infof("failed to get dind from %s, start to create dind", setting.AttachedClusterNamespace)
+				err = updater.CreateOrPatchUnstructured(u, kubeClient)
+			} else {
+				err = UpgradeDind(kubeClient, clusterInfo, setting.AttachedClusterNamespace)
+			}
 		} else {
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 		}

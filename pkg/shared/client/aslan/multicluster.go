@@ -101,7 +101,16 @@ type ClusterDetail struct {
 	KubeConfig string `json:"kube_config"    bson:"kube_config"`
 
 	// Deprecated field, it should be deleted in version 1.15 since no more namespace settings is used
-	Namespace string `json:"namespace"                 bson:"namespace"`
+	Namespace      string          `json:"namespace"                 bson:"namespace"`
+	AdvancedConfig *AdvancedConfig `json:"advanced_config"           bson:"advanced_config"`
+}
+
+type AdvancedConfig struct {
+	Strategy          string   `json:"strategy,omitempty"       bson:"strategy,omitempty"`
+	ProjectNames      []string `json:"-"                        bson:"-"`
+	Tolerations       string   `json:"tolerations"              bson:"tolerations"`
+	ClusterAccessYaml string   `json:"cluster_access_yaml"      bson:"cluster_access_yaml"`
+	ScheduleWorkflow  bool     `json:"schedule_workflow"        bson:"schedule_workflow"`
 }
 
 func (c *Client) GetClusterInfo(clusterID string) (*ClusterDetail, error) {
@@ -120,6 +129,5 @@ func (c *Client) GetClusterInfo(clusterID string) (*ClusterDetail, error) {
 		}
 		return nil, fmt.Errorf("Failed to get cluster, error: %s", err)
 	}
-
 	return clusterResp, nil
 }
