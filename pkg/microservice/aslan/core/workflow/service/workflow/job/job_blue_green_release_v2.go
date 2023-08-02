@@ -20,8 +20,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 )
 
 type BlueGreenReleaseV2Job struct {
@@ -77,20 +80,27 @@ func (j *BlueGreenReleaseV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, e
 	if !found {
 		return resp, fmt.Errorf("no blue-green release job: %s found, please check workflow configuration", j.spec.FromJob)
 	}
+
+	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	if err != nil {
+		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
+	}
+	timeout := templateProduct.Timeout * 60
+
 	for _, target := range deployJobSpec.Services {
 		task := &commonmodels.JobTask{
 			Name: jobNameFormat(j.job.Name + "-" + target.ServiceName),
-			Key:  strings.Join([]string{j.job.Name, target.K8sServiceName}, "."),
+			Key:  strings.Join([]string{j.job.Name, target.ServiceName}, "."),
 			JobInfo: map[string]string{
-				JobNameKey:         j.job.Name,
-				"k8s_service_name": target.K8sServiceName,
+				JobNameKey:     j.job.Name,
+				"service_name": target.ServiceName,
 			},
 			JobType: string(config.JobK8sBlueGreenReleaseV2),
 			Spec: &commonmodels.JobTaskBlueGreenReleaseV2Spec{
-				Production: false,
-				Env:        "",
-				Service:    nil,
-				Events:     nil,
+				Production:    deployJobSpec.Production,
+				Env:           deployJobSpec.Env,
+				Service:       target,
+				DeployTimeout: timeout,
 			},
 		}
 		resp = append(resp, task)
@@ -104,6 +114,9 @@ func (j *BlueGreenReleaseV2Job) LintJob() error {
 	j.spec = &commonmodels.BlueGreenReleaseV2JobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
+	}
+	if j.spec.Version == "" {
+		return errors.Errorf("job %s version is too old and not supported, please remove it and create a new one", j.job.Name)
 	}
 	jobRankMap := getJobRankMap(j.workflow.Stages)
 	buildJobRank, ok := jobRankMap[j.spec.FromJob]

@@ -18,11 +18,18 @@ package jobcontroller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+	v1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/labels"
+
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/kubernetes/scheme"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -84,7 +91,7 @@ func (c *BlueGreenDeployV2JobCtl) run(ctx context.Context) error {
 	if err != nil {
 		msg := fmt.Sprintf("find project error: %v", err)
 		logError(c.job, msg, c.logger)
-		return
+		return errors.New(msg)
 	}
 	c.namespace = env.Namespace
 	clusterID := env.ClusterID
@@ -97,48 +104,89 @@ func (c *BlueGreenDeployV2JobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	blueService := service.DeepCopy()
-	blueService.Name = c.jobTaskSpec.BlueK8sServiceName
-	c.jobTaskSpec.BlueK8sServiceName = blueService.Name
-	blueService.Spec.Selector[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
-	// clean service extra infos may confilict.
-	blueService.Spec.ClusterIPs = []string{}
-	if blueService.Spec.ClusterIP != "None" {
-		blueService.Spec.ClusterIP = ""
+	// get raw green
+	greenDeployment, found, err := getter.GetDeployment(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, c.kubeClient)
+	if err != nil || !found {
+		msg := fmt.Sprintf("get green deployment: %s error: %v", c.jobTaskSpec.Service.GreenDeploymentName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
-	for i := range blueService.Spec.Ports {
-		blueService.Spec.Ports[i].NodePort = 0
+	greenService, found, err := getter.GetService(c.namespace, c.jobTaskSpec.Service.GreenServiceName, c.kubeClient)
+	if err != nil || !found {
+		msg := fmt.Sprintf("get green service: %s error: %v", c.jobTaskSpec.Service.GreenServiceName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
 	}
-	blueService.ObjectMeta.ResourceVersion = ""
+	if greenService.Spec.Selector == nil {
+		msg := fmt.Sprintf("blue service %s selector is nil", c.jobTaskSpec.Service.GreenServiceName)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
 
-	if err := updater.CreateOrPatchService(blueService, c.kubeClient); err != nil {
-		msg := fmt.Sprintf("create blue serivce: %s error: %v", c.jobTaskSpec.BlueK8sServiceName, err)
+	// raw pods list add original version label
+	pods, err := getter.ListPods(c.namespace, labels.Set(greenDeployment.Spec.Selector.MatchLabels).AsSelector(), c.kubeClient)
+	if err != nil {
+		msg := fmt.Sprintf("list green deployment %s pods error: %v", c.jobTaskSpec.Service.GreenDeploymentName, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
 	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("blue service: %s created", c.jobTaskSpec.BlueK8sServiceName))
-	c.ack()
-	blueDeployment := deployment.DeepCopy()
-	blueDeployment.Name = c.jobTaskSpec.BlueWorkloadName
-	for i, container := range blueDeployment.Spec.Template.Spec.Containers {
-		if container.Name != c.jobTaskSpec.ContainerName {
-			continue
+	for _, pod := range pods {
+		addlabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`, config.BlueGreenVerionLabelName, config.OriginVersion)
+		if err := updater.PatchPod(c.namespace, pod.Name, []byte(addlabelPatch), c.kubeClient); err != nil {
+			msg := fmt.Sprintf("add origin label to pod error: %v", err)
+			logError(c.job, msg, c.logger)
+			c.jobTaskSpec.Events.Error(msg)
+			return errors.New(msg)
 		}
-		blueDeployment.Spec.Template.Spec.Containers[i].Image = c.jobTaskSpec.Image
 	}
-	blueDeployment.Labels[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
-	blueDeployment.Spec.Selector.MatchLabels[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
-	blueDeployment.Spec.Template.Labels[config.BlueGreenVerionLabelName] = c.jobTaskSpec.Version
-	blueDeployment.ObjectMeta.ResourceVersion = ""
-	if err := updater.CreateOrPatchDeployment(blueDeployment, c.kubeClient); err != nil {
-		msg := fmt.Sprintf("create blue deployment: %s error: %v", c.jobTaskSpec.BlueWorkloadName, err)
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("add origin label to %d pods", len(pods)))
+	c.ack()
+
+	// green service selector add original version label
+	greenService.Spec.Selector[config.BlueGreenVerionLabelName] = config.OriginVersion
+	if err := updater.CreateOrPatchService(greenService, c.kubeClient); err != nil {
+		msg := fmt.Sprintf("add origin label selector to green serivce: %s error: %v", greenService.Name, err)
 		logError(c.job, msg, c.logger)
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
 	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("blue deployment: %s created", c.jobTaskSpec.BlueWorkloadName))
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("add origin label selector to service: %s", c.jobTaskSpec.Service.ServiceName))
 	c.ack()
+
+	decoder := serializer.NewCodecFactory(scheme.Scheme).UniversalDecoder()
+
+	// create blue service
+	service := &corev1.Service{}
+	err = runtime.DecodeInto(decoder, []byte(c.jobTaskSpec.Service.BlueServiceYaml), service)
+	if err != nil {
+		return errors.Errorf("failed to decode %s k8s service yaml, err: %s", c.jobTaskSpec.Service.ServiceName, err)
+	}
+	if err := c.kubeClient.Create(ctx, service); err != nil {
+		msg := fmt.Sprintf("create blue serivce: %s error: %v", c.jobTaskSpec.Service.ServiceName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("create blue serivce: %s success", service.Name))
+
+	// create blue deployment
+	deployment := &v1.Deployment{}
+	err = runtime.DecodeInto(decoder, []byte(c.jobTaskSpec.Service.BlueDeploymentYaml), deployment)
+	if err != nil {
+		return errors.Errorf("failed to decode %s k8s deployment yaml, err: %s", c.jobTaskSpec.Service.ServiceName, err)
+	}
+	if err := c.kubeClient.Create(ctx, deployment); err != nil {
+		msg := fmt.Sprintf("create blue deployment: %s error: %v", c.jobTaskSpec.Service.ServiceName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("create blue deployment: %s success", deployment.Name))
+
 	return nil
 }
 
@@ -152,24 +200,24 @@ func (c *BlueGreenDeployV2JobCtl) wait(ctx context.Context) {
 
 		case <-timeout:
 			c.job.Status = config.StatusTimeout
-			msg := fmt.Sprintf("timeout waiting for the blue deployment: %s to run", c.jobTaskSpec.BlueWorkloadName)
+			msg := fmt.Sprintf("timeout waiting for the blue deployment: %s to run", c.jobTaskSpec.Service.BlueDeploymentName)
 			c.jobTaskSpec.Events.Info(msg)
 			return
 
 		default:
 			time.Sleep(time.Second * 2)
-			d, found, err := getter.GetDeployment(c.jobTaskSpec.Namespace, c.jobTaskSpec.BlueWorkloadName, c.kubeClient)
+			d, found, err := getter.GetDeployment(c.namespace, c.jobTaskSpec.Service.BlueDeploymentYaml, c.kubeClient)
 			if err != nil || !found {
 				c.logger.Errorf(
 					"failed to check deployment ready status %s/%s - %v",
-					c.jobTaskSpec.Namespace,
-					c.jobTaskSpec.BlueWorkloadName,
+					c.namespace,
+					c.jobTaskSpec.Service.BlueDeploymentName,
 					err,
 				)
 			} else {
 				if wrapper.Deployment(d).Ready() {
 					c.job.Status = config.StatusPassed
-					msg := fmt.Sprintf("blue-green deployment: %s create successfully", c.jobTaskSpec.BlueWorkloadName)
+					msg := fmt.Sprintf("blue-green deployment: %s create successfully", c.jobTaskSpec.Service.BlueDeploymentName)
 					c.jobTaskSpec.Events.Info(msg)
 					return
 				}
@@ -178,7 +226,7 @@ func (c *BlueGreenDeployV2JobCtl) wait(ctx context.Context) {
 	}
 }
 
-func (c *BlueGreenDeployV2JobCtl) timeout() int64 {
+func (c *BlueGreenDeployV2JobCtl) timeout() int {
 	if c.jobTaskSpec.DeployTimeout == 0 {
 		c.jobTaskSpec.DeployTimeout = setting.DeployTimeout
 	} else {

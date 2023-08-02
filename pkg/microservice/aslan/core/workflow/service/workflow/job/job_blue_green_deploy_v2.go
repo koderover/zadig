@@ -17,6 +17,7 @@ package job
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -33,9 +34,11 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	serializer2 "github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type BlueGreenDeployV2Job struct {
@@ -57,6 +60,50 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 	j.spec = &commonmodels.BlueGreenDeployV2JobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
+	}
+	for _, target := range j.spec.Services {
+		if target.BlueServiceYaml == "" {
+			yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+				ProductName: j.workflow.Project,
+				EnvName:     j.spec.Env,
+				ServiceName: target.ServiceName,
+			})
+			if err != nil {
+				return errors.Errorf("failed to fetch %s current applied yaml, err: %s", target.ServiceName, err)
+			}
+			resources := make([]*unstructured.Unstructured, 0)
+			manifests := releaseutil.SplitManifests(yamlContent)
+			for _, item := range manifests {
+				u, err := serializer2.NewDecoder().YamlToUnstructured([]byte(item))
+				if err != nil {
+					return errors.Errorf("failed to decode service %s yaml to unstructured: %v", target.ServiceName, err)
+				}
+				resources = append(resources, u)
+			}
+
+			serviceNum := 0
+			for _, resource := range resources {
+				switch resource.GetKind() {
+				case setting.Service:
+					if serviceNum > 0 {
+						return errors.Errorf("service %s has more than one service", target.ServiceName)
+					}
+					serviceNum++
+					service := &corev1.Service{}
+					err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, service)
+					if err != nil {
+						return errors.Errorf("failed to convert service %s service to service object: %v", target.ServiceName, err)
+					}
+					target.GreenServiceName = service.Name
+					service.Name = service.Name + "-blue"
+					service.Spec.Selector[config.BlueGreenVerionLabelName] = config.BlueVersion
+					target.BlueServiceYaml, err = toYaml(service)
+					if err != nil {
+						return errors.Errorf("failed to marshal service %s service object: %v", target.ServiceName, err)
+					}
+				}
+			}
+		}
 	}
 	j.job.Spec = j.spec
 	return nil
@@ -86,12 +133,20 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 		return resp, err
 	}
 
+	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
+	if err != nil {
+		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
+	}
+	timeout := templateProduct.Timeout * 60
+
 	for _, target := range j.spec.Services {
 		var (
-			deployment     *v1.Deployment
-			deploymentYaml string
-			service        *corev1.Service
-			serviceYaml    string
+			deployment          *v1.Deployment
+			deploymentYaml      string
+			service             *corev1.Service
+			serviceYaml         string
+			greenDeploymentName string
+			greenServiceName    string
 		)
 		if target.BlueServiceYaml != "" {
 			service = &corev1.Service{}
@@ -132,7 +187,18 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 				if err != nil {
 					return resp, errors.Errorf("failed to convert service %s deployment to deployment object: %v", target.ServiceName, err)
 				}
+				greenDeploymentName = deployment.Name
 				deployment.Name = deployment.Name + "-blue"
+				deployment.Labels = addLabels(deployment.Labels, map[string]string{
+					types.ZadigReleaseTypeLabelKey:        types.ZadigReleaseTypeBlueGreen,
+					types.ZadigReleaseServiceNameLabelKey: target.ServiceName,
+				})
+				deployment.Spec.Selector.MatchLabels = addLabels(deployment.Spec.Selector.MatchLabels, map[string]string{
+					config.BlueGreenVerionLabelName: config.BlueVersion,
+				})
+				deployment.Spec.Template.Labels = addLabels(deployment.Spec.Template.Labels, map[string]string{
+					config.BlueGreenVerionLabelName: config.BlueVersion,
+				})
 				deploymentYaml, err = toYaml(deployment)
 				if err != nil {
 					return resp, errors.Errorf("failed to marshal service %s deployment object: %v", target.ServiceName, err)
@@ -148,24 +214,26 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 				if err != nil {
 					return resp, errors.Errorf("failed to replace service %s deployment image: %v", target.ServiceName, err)
 				}
-			case setting.Service:
-				if target.BlueServiceYaml != "" {
-					continue
-				}
-				if service != nil {
-					return resp, errors.Errorf("service %s has more than one service", target.ServiceName)
-				}
-				service = &corev1.Service{}
-				err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, service)
-				if err != nil {
-					return resp, errors.Errorf("failed to convert service %s service to service object: %v", target.ServiceName, err)
-				}
-				service.Name = service.Name + "-blue"
-				serviceYaml, err = toYaml(service)
-				if err != nil {
-					return resp, errors.Errorf("failed to marshal service %s service object: %v", target.ServiceName, err)
-				}
-			default:
+				//case setting.Service:
+				//	if target.BlueServiceYaml != "" {
+				//		continue
+				//	}
+				//	if service != nil {
+				//		return resp, errors.Errorf("service %s has more than one service", target.ServiceName)
+				//	}
+				//	service = &corev1.Service{}
+				//	err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, service)
+				//	if err != nil {
+				//		return resp, errors.Errorf("failed to convert service %s service to service object: %v", target.ServiceName, err)
+				//	}
+				//	greenServiceName = service.Name
+				//	service.Name = service.Name + "-blue"
+				//	service.Spec.Selector[config.BlueGreenVerionLabelName] = config.BlueVersion
+				//	serviceYaml, err = toYaml(service)
+				//	if err != nil {
+				//		return resp, errors.Errorf("failed to marshal service %s service object: %v", target.ServiceName, err)
+				//	}
+				//default:
 			}
 		}
 		if deployment == nil || service == nil {
@@ -193,13 +261,16 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 				Production: j.spec.Production,
 				Env:        j.spec.Env,
 				Service: &commonmodels.BlueGreenDeployV2Service{
-					ServiceName:        target.ServiceName,
-					BlueServiceYaml:    serviceYaml,
-					BlueServiceName:    service.Name,
-					BlueDeploymentYaml: deploymentYaml,
-					BlueDeploymentName: deployment.Name,
-					ServiceAndImage:    target.ServiceAndImage,
+					ServiceName:         target.ServiceName,
+					BlueServiceYaml:     serviceYaml,
+					BlueServiceName:     service.Name,
+					BlueDeploymentYaml:  deploymentYaml,
+					BlueDeploymentName:  deployment.Name,
+					GreenServiceName:    greenServiceName,
+					GreenDeploymentName: greenDeploymentName,
+					ServiceAndImage:     target.ServiceAndImage,
 				},
+				DeployTimeout: timeout,
 			},
 		}
 		resp = append(resp, task)
@@ -213,6 +284,9 @@ func (j *BlueGreenDeployV2Job) LintJob() error {
 	j.spec = &commonmodels.BlueGreenDeployV2JobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
+	}
+	if j.spec.Version == "" {
+		return errors.Errorf("job %s version is too old and not supported, please remove it and create a new one", j.job.Name)
 	}
 	quoteJobs := []*commonmodels.Job{}
 	for _, stage := range j.workflow.Stages {
@@ -250,4 +324,14 @@ func toYaml(obj runtime.Object) (string, error) {
 		return "", errors.Wrapf(err, "failed to marshal object to yaml")
 	}
 	return writer.String(), nil
+}
+
+func addLabels(labels, newLabels map[string]string) map[string]string {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	for k, v := range newLabels {
+		labels[k] = v
+	}
+	return labels
 }

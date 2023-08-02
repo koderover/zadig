@@ -275,8 +275,9 @@ type JobTaskBlueGreenDeployV2Spec struct {
 	//DeploymentYaml     string  `bson:"deployment_yaml"               json:"deployment_yaml"              yaml:"deployment_yaml"`
 	//BlueDeploymentName string  `bson:"blue_deployment_name"               json:"blue_deployment_name"              yaml:"blue_deployment_name"`
 	//Image              string  `bson:"image"                       json:"image"                      yaml:"image"`
-	Service *BlueGreenDeployV2Service `bson:"service"                      json:"service"                     yaml:"service"`
-	Events  *Events                   `bson:"events"                      json:"events"                     yaml:"events"`
+	Service       *BlueGreenDeployV2Service `bson:"service"                      json:"service"                     yaml:"service"`
+	Events        *Events                   `bson:"events"                      json:"events"                     yaml:"events"`
+	DeployTimeout int                       `bson:"deploy_timeout"              json:"deploy_timeout"             yaml:"deploy_timeout"`
 }
 
 type JobTaskBlueGreenReleaseSpec struct {
@@ -294,10 +295,11 @@ type JobTaskBlueGreenReleaseSpec struct {
 }
 
 type JobTaskBlueGreenReleaseV2Spec struct {
-	Production bool                      `bson:"production"               json:"production"              yaml:"production"`
-	Env        string                    `bson:"env"               json:"env"              yaml:"env"`
-	Service    *BlueGreenDeployV2Service `bson:"service"                      json:"service"                     yaml:"service"`
-	Events     *Events                   `bson:"events"                 json:"events"                yaml:"events"`
+	Production    bool                      `bson:"production"               json:"production"              yaml:"production"`
+	Env           string                    `bson:"env"               json:"env"              yaml:"env"`
+	Service       *BlueGreenDeployV2Service `bson:"service"                      json:"service"                     yaml:"service"`
+	Events        *Events                   `bson:"events"                 json:"events"                yaml:"events"`
+	DeployTimeout int                       `bson:"deploy_timeout"              json:"deploy_timeout"             yaml:"deploy_timeout"`
 }
 
 type JobTaskCanaryDeploySpec struct {

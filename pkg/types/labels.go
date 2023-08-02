@@ -37,5 +37,12 @@ const (
 
 const (
 	ZadigReleaseVersionOriginal = "original"
-	ZadigReleaseTypeMseGray     = "mse-gray"
+
+	ZadigReleaseTypeMseGray   = "mse-gray"
+	ZadigReleaseTypeBlueGreen = "blue-green"
 )
+
+var ZadigReleaseTypeList = []string{
+	ZadigReleaseTypeMseGray,
+	ZadigReleaseTypeBlueGreen,
+}

@@ -1,0 +1,235 @@
+/*
+Copyright 2023 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package jobcontroller
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	crClient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
+)
+
+type BlueGreenReleaseV2JobCtl struct {
+	job         *commonmodels.JobTask
+	workflowCtx *commonmodels.WorkflowTaskCtx
+	logger      *zap.SugaredLogger
+	kubeClient  crClient.Client
+	namespace   string
+	jobTaskSpec *commonmodels.JobTaskBlueGreenReleaseV2Spec
+	ack         func()
+}
+
+func NewBlueGreenReleaseV2JobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *BlueGreenReleaseV2JobCtl {
+	jobTaskSpec := &commonmodels.JobTaskBlueGreenReleaseV2Spec{}
+	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
+		logger.Error(err)
+	}
+	if jobTaskSpec.Events == nil {
+		jobTaskSpec.Events = &commonmodels.Events{}
+	}
+	job.Spec = jobTaskSpec
+	return &BlueGreenReleaseV2JobCtl{
+		job:         job,
+		workflowCtx: workflowCtx,
+		logger:      logger,
+		ack:         ack,
+		jobTaskSpec: jobTaskSpec,
+	}
+}
+
+func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
+	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
+		Name:    c.workflowCtx.ProjectName,
+		EnvName: c.jobTaskSpec.Env,
+	})
+	if err != nil {
+		c.logger.Errorf("find project error: %v", err)
+		return
+	}
+	c.namespace = env.Namespace
+	clusterID := env.ClusterID
+
+	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		c.logger.Errorf("can't init k8s client: %v", err)
+		return
+	}
+	// ensure delete blue deployment and service
+	err = updater.DeleteDeploymentAndWait(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
+	if err != nil {
+		c.logger.Warnf("can't delete blue deployment %s, err: %v", c.jobTaskSpec.Service.BlueDeploymentName, err)
+	}
+	err = updater.DeleteService(c.namespace, c.jobTaskSpec.Service.BlueServiceName, c.kubeClient)
+	if err != nil {
+		c.logger.Warnf("can't delete blue service %s, err: %v", c.jobTaskSpec.Service.BlueServiceName, err)
+	}
+	return
+}
+
+func (c *BlueGreenReleaseV2JobCtl) Run(ctx context.Context) {
+	c.job.Status = config.StatusRunning
+	c.ack()
+	if err := c.run(ctx); err != nil {
+		return
+	}
+	c.wait(ctx)
+}
+
+func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
+	var err error
+
+	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
+		Name:    c.workflowCtx.ProjectName,
+		EnvName: c.jobTaskSpec.Env,
+	})
+	if err != nil {
+		msg := fmt.Sprintf("find project error: %v", err)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+	c.namespace = env.Namespace
+	clusterID := env.ClusterID
+
+	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		msg := fmt.Sprintf("can't init k8s client: %v", err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
+
+	// offline blue service and deployment first
+	err = updater.DeleteDeploymentAndWait(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
+	if err != nil {
+		msg := fmt.Sprintf("can't delete blue deployment %s, err: %v", c.jobTaskSpec.Service.BlueDeploymentName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
+	err = updater.DeleteService(c.namespace, c.jobTaskSpec.Service.BlueServiceName, c.kubeClient)
+	if err != nil {
+		msg := fmt.Sprintf("can't delete blue service %s, err: %v", c.jobTaskSpec.Service.BlueServiceName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
+
+	// rollback green service selector
+	greenService, found, err := getter.GetService(c.namespace, c.jobTaskSpec.Service.GreenServiceName, c.kubeClient)
+	if err != nil || !found {
+		msg := fmt.Sprintf("can't get green service %s, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
+	delete(greenService.Spec.Selector, config.BlueGreenVerionLabelName)
+	err = updater.CreateOrPatchService(greenService, c.kubeClient)
+	if err != nil {
+		msg := fmt.Sprintf("can't update green service %s selector, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
+
+	// update green deployment image
+	for _, v := range c.jobTaskSpec.Service.ServiceAndImage {
+		err := updater.UpdateDeploymentImage(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, c.kubeClient)
+		if err != nil {
+			msg := fmt.Sprintf("can't update deployment %s container %s image %s, err: %v",
+				c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, err)
+			logError(c.job, msg, c.logger)
+			c.jobTaskSpec.Events.Error(msg)
+			return errors.New(msg)
+		}
+	}
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("update deployment %s image success", c.jobTaskSpec.Service.GreenDeploymentName))
+
+	return nil
+}
+
+func (c *BlueGreenReleaseV2JobCtl) wait(ctx context.Context) {
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("wait for deployment %s ready", c.jobTaskSpec.Service.GreenDeploymentName))
+
+	timeout := time.After(time.Duration(c.timeout()) * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			c.job.Status = config.StatusCancelled
+			return
+
+		case <-timeout:
+			c.job.Status = config.StatusTimeout
+			msg := fmt.Sprintf("timeout waiting for deployment %s ready", c.jobTaskSpec.Service.GreenDeploymentName)
+			c.jobTaskSpec.Events.Info(msg)
+			return
+
+		default:
+			time.Sleep(time.Second * 2)
+			d, found, err := getter.GetDeployment(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, c.kubeClient)
+			if err != nil || !found {
+				c.logger.Errorf(
+					"failed to check deployment ready status %s/%s - %v",
+					c.namespace,
+					c.jobTaskSpec.Service.GreenDeploymentName,
+					err,
+				)
+			} else {
+				if wrapper.Deployment(d).Ready() {
+					c.job.Status = config.StatusPassed
+					msg := fmt.Sprintf("blue-green deployment: %s release successfully", c.jobTaskSpec.Service.GreenDeploymentName)
+					c.jobTaskSpec.Events.Info(msg)
+					return
+				}
+			}
+		}
+	}
+}
+
+func (c *BlueGreenReleaseV2JobCtl) timeout() int {
+	if c.jobTaskSpec.DeployTimeout == 0 {
+		c.jobTaskSpec.DeployTimeout = setting.DeployTimeout
+	} else {
+		c.jobTaskSpec.DeployTimeout = c.jobTaskSpec.DeployTimeout * 60
+	}
+	return c.jobTaskSpec.DeployTimeout
+}
+
+func (c *BlueGreenReleaseV2JobCtl) SaveInfo(ctx context.Context) error {
+	return mongodb.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
+		Type:                c.job.JobType,
+		WorkflowName:        c.workflowCtx.WorkflowName,
+		WorkflowDisplayName: c.workflowCtx.WorkflowDisplayName,
+		TaskID:              c.workflowCtx.TaskID,
+		ProductName:         c.workflowCtx.ProjectName,
+		StartTime:           c.job.StartTime,
+		EndTime:             c.job.EndTime,
+		Duration:            c.job.EndTime - c.job.StartTime,
+		Status:              string(c.job.Status),
+	})
+}
