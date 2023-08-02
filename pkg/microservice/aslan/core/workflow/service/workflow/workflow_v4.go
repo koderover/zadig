@@ -2407,6 +2407,50 @@ func GetMseOfflineResources(grayTag, envName, projectName string) ([]string, err
 	return services, nil
 }
 
+func GetBlueGreenServiceK8sServiceYaml(projectName, envName, serviceName string) (string, error) {
+	yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+		ProductName: projectName,
+		EnvName:     envName,
+		ServiceName: serviceName,
+	})
+	if err != nil {
+		return "", errors.Errorf("failed to fetch %s current applied yaml, err: %s", serviceName, err)
+	}
+	resources := make([]*unstructured.Unstructured, 0)
+	manifests := releaseutil.SplitManifests(yamlContent)
+	for _, item := range manifests {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			return "", errors.Errorf("failed to decode service %s yaml to unstructured: %v", target.ServiceName, err)
+		}
+		resources = append(resources, u)
+	}
+	var (
+		service     *corev1.Service
+		serviceYaml string
+	)
+	for _, resource := range resources {
+		switch resource.GetKind() {
+		case setting.Service:
+			if service != nil {
+				return "", errors.Errorf("service %s has more than one service", serviceName)
+			}
+			service = &corev1.Service{}
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, service)
+			if err != nil {
+				return "", errors.Errorf("failed to convert service %s service to service object: %v", serviceName, err)
+			}
+			service.Name = service.Name + "-blue"
+			service.Spec.Selector[config.BlueGreenVerionLabelName] = config.BlueVersion
+			serviceYaml, err = toYaml(service)
+			if err != nil {
+				return "", errors.Errorf("failed to marshal service %s service object: %v", serviceName, err)
+			}
+		}
+	}
+	return serviceYaml, nil
+}
+
 func GetMseTagsInEnv(envName, projectName string) ([]string, error) {
 	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    projectName,

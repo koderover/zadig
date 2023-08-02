@@ -256,7 +256,7 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 				JobNameKey:     j.job.Name,
 				"service_name": target.ServiceName,
 			},
-			JobType: string(config.JobK8sBlueGreenDeployV2),
+			JobType: string(config.JobK8sBlueGreenDeploy),
 			Spec: &commonmodels.JobTaskBlueGreenDeployV2Spec{
 				Production: j.spec.Production,
 				Env:        j.spec.Env,
@@ -291,7 +291,7 @@ func (j *BlueGreenDeployV2Job) LintJob() error {
 	quoteJobs := []*commonmodels.Job{}
 	for _, stage := range j.workflow.Stages {
 		for _, job := range stage.Jobs {
-			if job.JobType != config.JobK8sBlueGreenReleaseV2 {
+			if job.JobType != config.JobK8sBlueGreenRelease {
 				continue
 			}
 			releaseJobSpec := &commonmodels.BlueGreenReleaseV2JobSpec{}

@@ -639,7 +639,7 @@ func CompareHelmServiceYamlInEnv(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.CompareHelmServiceYamlInEnv(req.ServiceName, req.VariableYaml, req.EnvName, projectName, images, req.IsProduction, req.UpdateServiceRevision, req.IsHelmChartDeploy, ctx.Logger)
 }
 
-type MseResponse struct {
+type YamlResponse struct {
 	Yaml string `json:"yaml"`
 }
 
@@ -666,7 +666,7 @@ func RenderMseServiceYaml(c *gin.Context) {
 			ctx.Err = err
 			return
 		}
-		ctx.Resp = MseResponse{Yaml: mseServiceYaml}
+		ctx.Resp = YamlResponse{Yaml: mseServiceYaml}
 		return
 	}
 
@@ -675,7 +675,7 @@ func RenderMseServiceYaml(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp = MseResponse{Yaml: mseServiceYaml}
+	ctx.Resp = YamlResponse{Yaml: mseServiceYaml}
 }
 
 func GetMseOfflineResources(c *gin.Context) {
@@ -692,6 +692,18 @@ func GetMseOfflineResources(c *gin.Context) {
 	}{
 		Services: services,
 	}
+}
+
+func GetBlueGreenServiceK8sServiceYaml(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	blueGreenServiceYaml, err := workflow.GetBlueGreenServiceK8sServiceYaml(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), c.Query("serviceType"), c.Query("serviceVersion"))
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = YamlResponse{Yaml: blueGreenServiceYaml}
 }
 
 func GetMseTagsInEnv(c *gin.Context) {

@@ -95,7 +95,7 @@ func (j *BlueGreenReleaseV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, e
 				JobNameKey:     j.job.Name,
 				"service_name": target.ServiceName,
 			},
-			JobType: string(config.JobK8sBlueGreenReleaseV2),
+			JobType: string(config.JobK8sBlueGreenRelease),
 			Spec: &commonmodels.JobTaskBlueGreenReleaseV2Spec{
 				Production:    deployJobSpec.Production,
 				Env:           deployJobSpec.Env,
