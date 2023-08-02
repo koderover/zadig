@@ -62,8 +62,19 @@ type ListAuthorizedWorkflowsReq struct {
 	ProjectKey string `json:"project_key" form:"project_key"`
 }
 
+type ListAuthorizedEnvsReq struct {
+	UID        string `json:"uid" form:"uid"`
+	ProjectKey string `json:"project_key" form:"project_key"`
+}
+
 type ListAuthorizedWorkflowsResp struct {
 	WorkflowList       []string `json:"workflow_list"`
 	CustomWorkflowList []string `json:"custom_workflow_list"`
 	Error              string   `json:"error"`
+}
+
+type CollaborationEnvPermission struct {
+	Error       string   `json:"error"`
+	ReadEnvList []string `json:"read_env_list"`
+	EditEnvList []string `json:"edit_env_list"`
 }

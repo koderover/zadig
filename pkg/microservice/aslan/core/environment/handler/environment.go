@@ -137,19 +137,7 @@ func UpdateMultiProducts(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
+	// this function has several implementations, we do the authorization checks in the individual function.
 	updateMultiEnvWrapper(c, request, false, ctx)
 }
 
@@ -1461,17 +1449,52 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 	for _, arg := range args {
 		envNames = append(envNames, arg.EnvName)
 	}
-	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
-	if found {
-		allowedSet := sets.NewString(allowedEnvs...)
-		currentSet := sets.NewString(envNames...)
-		if !allowedSet.IsSuperset(currentSet) {
-			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
-			return
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
+
+	// authorization checks
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin {
+		permitted = true
+	}
+
+	if production {
+		if ctx.Resources.ProjectAuthInfo[request.ProjectName].ProductionEnv.EditConfig {
+			permitted = true
+		}
+	} else {
+		if ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
+			permitted = true
 		}
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
+	// if the user does not have the overall edit env permission, check the individual
+	envAuthorization, err := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, request.ProjectName)
+	if err == nil {
+		allowedSet := sets.NewString(envAuthorization.EditEnvList...)
+		currentSet := sets.NewString(envNames...)
+		if allowedSet.IsSuperset(currentSet) {
+			permitted = true
+		}
+	}
+
+	ctx.UnAuthorized = !permitted
+
+	if ctx.UnAuthorized {
+		ctx.Err = fmt.Errorf("not all input envs are allowed, allowed envs are %v", envAuthorization.EditEnvList)
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.UpdateMultipleK8sEnv(args, envNames, request.ProjectName, ctx.RequestID, request.Force, production, ctx.Logger)
 }
 
@@ -1486,24 +1509,56 @@ func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, produ
 	}
 	args.ProductName = request.ProjectName
 
-	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
-	if found {
-		allowedSet := sets.NewString(allowedEnvs...)
-		currentSet := sets.NewString(args.EnvNames...)
-		if !allowedSet.IsSuperset(currentSet) {
-			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
-			return
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger, args.EnvNames...)
+
+	// authorization checks
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin {
+		permitted = true
+	}
+
+	if production {
+		if ctx.Resources.ProjectAuthInfo[request.ProjectName].ProductionEnv.EditConfig {
+			permitted = true
+		}
+	} else {
+		if ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
+			permitted = true
 		}
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger, args.EnvNames...)
+	// if the user does not have the overall edit env permission, check the individual
+	envAuthorization, err := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, request.ProjectName)
+	if err == nil {
+		allowedSet := sets.NewString(envAuthorization.EditEnvList...)
+		currentSet := sets.NewString(args.EnvNames...)
+		if allowedSet.IsSuperset(currentSet) {
+			permitted = true
+		}
+	}
+
+	ctx.UnAuthorized = !permitted
+
+	if ctx.UnAuthorized {
+		ctx.Err = fmt.Errorf("not all input envs are allowed, allowed envs are %v", envAuthorization.EditEnvList)
+		return
+	}
 
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
 		ctx.RequestID, ctx.UserName, args, production, ctx.Logger,
 	)
 }
 
-// TODO: fix header
 func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, production bool, ctx *internalhandler.Context) {
 	args := new(service.UpdateMultiHelmProductArg)
 	data, err := c.GetRawData()
@@ -1515,17 +1570,50 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 	}
 	args.ProductName = request.ProjectName
 
-	allowedEnvs, found := internalhandler.GetResourcesInHeader(c)
-	if found {
-		allowedSet := sets.NewString(allowedEnvs...)
-		currentSet := sets.NewString(args.EnvNames...)
-		if !allowedSet.IsSuperset(currentSet) {
-			c.String(http.StatusForbidden, "not all input envs are allowed, allowed envs are %v", allowedEnvs)
-			return
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger, args.EnvNames...)
+
+	// authorization checks
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin {
+		permitted = true
+	}
+
+	if production {
+		if ctx.Resources.ProjectAuthInfo[request.ProjectName].ProductionEnv.EditConfig {
+			permitted = true
+		}
+	} else {
+		if ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
+			permitted = true
 		}
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger, args.EnvNames...)
+	// if the user does not have the overall edit env permission, check the individual
+	envAuthorization, err := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, request.ProjectName)
+	if err == nil {
+		allowedSet := sets.NewString(envAuthorization.EditEnvList...)
+		currentSet := sets.NewString(args.EnvNames...)
+		if allowedSet.IsSuperset(currentSet) {
+			permitted = true
+		}
+	}
+
+	ctx.UnAuthorized = !permitted
+
+	if ctx.UnAuthorized {
+		ctx.Err = fmt.Errorf("not all input envs are allowed, allowed envs are %v", envAuthorization.EditEnvList)
+		return
+	}
 
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmChartEnv(
 		ctx.RequestID, ctx.UserName, args, production, ctx.Logger,
@@ -1551,6 +1639,21 @@ func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 	}
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, request.ProjectName, setting.OperationSceneEnv, "更新", "环境", strings.Join(envNames, ","), string(data), ctx.Logger, envNames...)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Resp, ctx.Err = service.UpdateMultiCVMProducts(envNames, request.ProjectName, ctx.UserName, ctx.RequestID, ctx.Logger)
 }
 
@@ -1620,8 +1723,11 @@ func GetProductionEnv(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -2105,8 +2211,11 @@ func ListProductionGroups(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].ProductionEnv.View {
-			ctx.UnAuthorized = true
-			return
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, envGroupRequest.ProjectName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 

@@ -232,6 +232,35 @@ func ListAuthorizedWorkflow(uid, projectKey string, logger *zap.SugaredLogger) (
 	return authorizedWorkflows, authorizedCustomWorkflows, nil
 }
 
+func ListAuthorizedEnvs(uid, projectKey string, logger *zap.SugaredLogger) (readEnvList, editEnvList []string, err error) {
+	readEnvList = make([]string, 0)
+	editEnvList = make([]string, 0)
+
+	readEnvSet := sets.NewString()
+	editEnvSet := sets.NewString()
+	collaborationInstance, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	if findErr != nil {
+		logger.Errorf("failed to find user collaboration mode, error: %s", err)
+		err = fmt.Errorf("failed to find user collaboration mode, error: %s", err)
+		return
+	}
+
+	for _, env := range collaborationInstance.Products {
+		for _, verb := range env.Verbs {
+			if verb == types.EnvActionView {
+				readEnvSet.Insert(env.Name)
+			}
+			if verb == types.EnvActionEditConfig {
+				editEnvSet.Insert(env.Name)
+			}
+		}
+	}
+
+	readEnvList = readEnvSet.List()
+	editEnvList = editEnvSet.List()
+	return
+}
+
 func checkWorkflowPermission(list []models.WorkflowCIItem, workflowName, action string) bool {
 	for _, workflow := range list {
 		if workflow.Name == workflowName {

@@ -132,6 +132,32 @@ func ListAuthorizedWorkflows(c *gin.Context) {
 	}
 }
 
+func ListAuthorizedEnvs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &types.ListAuthorizedEnvsReq{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	readEnvList, editEnvList, err := userservice.ListAuthorizedEnvs(args.UID, args.ProjectKey, ctx.Logger)
+	if err != nil {
+		ctx.Resp = &types.CollaborationEnvPermission{
+			ReadEnvList: []string{},
+			EditEnvList: []string{},
+			Error:       err.Error(),
+		}
+		return
+	}
+	ctx.Resp = &types.CollaborationEnvPermission{
+		ReadEnvList: readEnvList,
+		EditEnvList: editEnvList,
+		Error:       "",
+	}
+}
+
 func GenerateUserAuthInfo(ctx *internalhandler.Context) error {
 	resourceAuthInfo, err := userservice.GetUserAuthInfo(ctx.UserID, ctx.Logger)
 	if err != nil {

@@ -215,6 +215,26 @@ func (c *Client) ListAuthorizedWorkflows(uid, projectKey string) ([]string, []st
 	return resp.WorkflowList, resp.CustomWorkflowList, nil
 }
 
+func (c *Client) ListCollaborationEnvironmentsPermission(uid, projectKey string) (*types.CollaborationEnvPermission, error) {
+	url := "/authorized-envs"
+
+	resp := &types.CollaborationEnvPermission{}
+
+	queries := map[string]string{
+		"uid":         uid,
+		"project_key": projectKey,
+	}
+
+	_, err := c.Get(url, httpclient.SetQueryParams(queries), httpclient.SetResult(resp))
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Error) > 0 {
+		return nil, errors.New(resp.Error)
+	}
+	return resp, nil
+}
+
 func (c *Client) CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action string) (bool, error) {
 	url := "/collaboration-action"
 	resp := &types.CheckCollaborationModePermissionResp{}

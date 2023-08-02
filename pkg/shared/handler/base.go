@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/user"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util/ginzap"
 	"go.uber.org/zap"
 )
@@ -167,6 +168,15 @@ func ListAuthorizedWorkflows(uid, projectKey string) (authorizedWorkflow, author
 		return
 	}
 	authorizedWorkflow, authorizedWorkflowV4, err = user.New().ListAuthorizedWorkflows(uid, projectKey)
+	return
+}
+
+func ListCollaborationEnvironmentsPermission(uid, projectKey string) (authorizedEnv *types.CollaborationEnvPermission, err error) {
+	if uid == "" {
+		err = errors.New("empty user ID")
+		return
+	}
+	authorizedEnv, err = user.New().ListCollaborationEnvironmentsPermission(uid, projectKey)
 	return
 }
 
