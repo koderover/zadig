@@ -59,10 +59,13 @@ func SearchUsers(c *gin.Context) {
 	}
 
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
+	// TODO: Authorization leak
+	// comment: this API should only be used when the use's full information is required, including contact info
+	// however this is currently used in multiple situation, thus having serious security leaks.
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	req := &user.SearchArgs{}
 

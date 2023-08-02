@@ -104,7 +104,7 @@ func ListBuildModulesByServiceModule(c *gin.Context) {
 	projectKey := c.Query("projectName")
 
 	// TODO: Authorization leak
-	// this API is sometimes used in edit workflow scenario, thus giving the edit workflow permission
+	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
 		authorized := false
@@ -124,12 +124,17 @@ func ListBuildModulesByServiceModule(c *gin.Context) {
 				authorized = true
 			}
 
+			if projectAuthInfo.Workflow.Create {
+				authorized = true
+			}
+
 			// finally check if the permission is given by collaboration mode
-			collaborationAuthorized, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionView)
+			collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
 			if err == nil {
-				authorized = collaborationAuthorized
+				authorized = collaborationAuthorizedEdit
 			}
 		}
+
 		if !authorized {
 			ctx.UnAuthorized = true
 			return

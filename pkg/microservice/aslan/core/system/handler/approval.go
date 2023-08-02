@@ -38,11 +38,14 @@ func ListIMApp(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
+	// TODO: Authorization leak
+	// comment: this API should only be used when the user requires IM app's full information, including AK/SK
+	// however this is currently used in multiple situation, thus having serious security leaks.
+
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	ctx.Resp, ctx.Err = service.ListIMApp(c.Query("type"), ctx.Logger)
 }
