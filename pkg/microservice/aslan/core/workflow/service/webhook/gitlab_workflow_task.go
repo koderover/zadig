@@ -232,15 +232,25 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 		return false, err
 	}
 
-	// compare接口获取两个commit之间的最终的改动
-	diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
-	if err != nil {
-		gpem.log.Errorf("Failed to get push event diffs, error: %s", err)
-		return false, err
-	}
-	for _, diff := range diffs {
-		changedFiles = append(changedFiles, diff.NewPath)
-		changedFiles = append(changedFiles, diff.OldPath)
+	// When push a new branch, ev.Before will be a lot of "0"
+	// So we should not use Compare
+	if strings.Count(ev.Before, "0") == len(ev.Before) {
+		for _, commit := range ev.Commits {
+			changedFiles = append(changedFiles, commit.Added...)
+			changedFiles = append(changedFiles, commit.Removed...)
+			changedFiles = append(changedFiles, commit.Modified...)
+		}
+	} else {
+		// compare接口获取两个commit之间的最终的改动
+		diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
+		if err != nil {
+			gpem.log.Errorf("Failed to get push event diffs, error: %s", err)
+			return false, err
+		}
+		for _, diff := range diffs {
+			changedFiles = append(changedFiles, diff.NewPath)
+			changedFiles = append(changedFiles, diff.OldPath)
+		}
 	}
 	if gpem.isYaml {
 		serviceChangeds := ServicesMatchChangesFiles(gpem.trigger.Rules.MatchFolders, changedFiles)
