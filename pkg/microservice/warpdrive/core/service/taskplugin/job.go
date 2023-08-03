@@ -878,6 +878,8 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 			return config.StatusTimeout, fmt.Errorf("wait job ready timeout")
 		case <-waitPodReadyTimeout:
 			podReadyTimeout = true
+		case <-ctx.Done():
+			return config.StatusCancelled, fmt.Errorf("cancel")
 		default:
 			time.Sleep(time.Second)
 
