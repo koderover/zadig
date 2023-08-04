@@ -208,7 +208,7 @@ func (c *BlueGreenDeployV2JobCtl) wait(ctx context.Context) {
 
 		default:
 			time.Sleep(time.Second * 2)
-			d, found, err := getter.GetDeployment(c.namespace, c.jobTaskSpec.Service.BlueDeploymentYaml, c.kubeClient)
+			d, found, err := getter.GetDeployment(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
 			if err != nil || !found {
 				c.logger.Errorf(
 					"failed to check deployment ready status %s/%s - %v",
