@@ -83,6 +83,7 @@ const (
 	Token                 = "X-API-Tunnel-Token"
 	Params                = "X-API-Tunnel-Params"
 	AslanBaseAddr         = "ASLAN_BASE_ADDR"
+	ScheduleWorkflow      = "SCHEDULE_WORKFLOW"
 
 	// warpdrive
 	WarpDrivePodName    = "WD_POD_NAME"
@@ -443,7 +444,7 @@ const (
 	// GerritDefaultOwner
 	GerritDefaultOwner = "dafault"
 	// YamlFileSeperator ...
-	YamlFileSeperator = "\n---\n"
+	YamlFileSeperator             = "\n---\n"
 	HelmChartDeployStrategySuffix = "<+helm_chart>"
 )
 
