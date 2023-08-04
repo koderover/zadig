@@ -159,6 +159,8 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 				return resp, errors.Errorf("failed to decode %s k8s service yaml, err: %s", target.ServiceName, err)
 			}
 			serviceYaml = target.BlueServiceYaml
+		} else {
+			return resp, errors.Errorf("service %s blue service yaml is empty", target.ServiceName)
 		}
 
 		yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
