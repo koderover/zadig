@@ -178,6 +178,7 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue deployment %s success", c.jobTaskSpec.Service.BlueDeploymentName))
+	c.ack()
 	err = updater.DeleteService(c.namespace, c.jobTaskSpec.Service.BlueServiceName, c.kubeClient)
 	if err != nil {
 		msg := fmt.Sprintf("can't delete blue service %s, err: %v", c.jobTaskSpec.Service.BlueServiceName, err)

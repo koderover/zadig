@@ -285,8 +285,10 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 			return resp, errors.Errorf("service %s k8s green service selector not match deployment.spec.template labels", target.ServiceName)
 		}
 
+		// set target value for blue_green_release ToJobs get these
 		target.BlueDeploymentName = deployment.Name
 		target.BlueServiceName = service.Name
+		target.GreenDeploymentName = greenDeploymentName
 
 		task := &commonmodels.JobTask{
 			Name: jobNameFormat(j.job.Name + "-" + target.ServiceName),
