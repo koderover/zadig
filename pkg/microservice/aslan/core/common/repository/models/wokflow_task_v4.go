@@ -297,6 +297,7 @@ type JobTaskBlueGreenReleaseSpec struct {
 type JobTaskBlueGreenReleaseV2Spec struct {
 	Production    bool                      `bson:"production"               json:"production"              yaml:"production"`
 	Env           string                    `bson:"env"               json:"env"              yaml:"env"`
+	Namespace     string                    `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	Service       *BlueGreenDeployV2Service `bson:"service"                      json:"service"                     yaml:"service"`
 	Events        *Events                   `bson:"events"                 json:"events"                yaml:"events"`
 	DeployTimeout int                       `bson:"deploy_timeout"              json:"deploy_timeout"             yaml:"deploy_timeout"`

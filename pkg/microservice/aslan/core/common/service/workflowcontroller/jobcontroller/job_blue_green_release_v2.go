@@ -158,6 +158,7 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 	c.namespace = env.Namespace
+	c.jobTaskSpec.Namespace = env.Namespace
 	clusterID := env.ClusterID
 
 	c.kubeClient, err = kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
