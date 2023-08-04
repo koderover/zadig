@@ -23,6 +23,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/labels"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -57,7 +58,7 @@ func NewBlueGreenReleaseV2JobCtl(job *commonmodels.JobTask, workflowCtx *commonm
 	return &BlueGreenReleaseV2JobCtl{
 		job:         job,
 		workflowCtx: workflowCtx,
-		logger:      logger,
+		logger:      logger.With("ctl", "BlueGreenReleaseV2"),
 		ack:         ack,
 		jobTaskSpec: jobTaskSpec,
 	}
@@ -80,6 +81,7 @@ func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
 		c.logger.Errorf("can't init k8s client: %v", err)
 		return
 	}
+
 	// ensure delete blue deployment and service
 	err = updater.DeleteDeploymentAndWait(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
 	if err != nil {
@@ -89,6 +91,48 @@ func (c *BlueGreenReleaseV2JobCtl) Clean(ctx context.Context) {
 	if err != nil {
 		c.logger.Warnf("can't delete blue service %s, err: %v", c.jobTaskSpec.Service.BlueServiceName, err)
 	}
+
+	// ensure green service and pods not contain release label
+	greenDeployment, found, err := getter.GetDeployment(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, c.kubeClient)
+	if err != nil || !found {
+		c.logger.Errorf("get green deployment: %s error: %v", c.jobTaskSpec.Service.GreenDeploymentName, err)
+		return
+	}
+	greenService, found, err := getter.GetService(c.namespace, c.jobTaskSpec.Service.GreenServiceName, c.kubeClient)
+	if err != nil || !found {
+		c.logger.Errorf("get green service: %s error: %v", c.jobTaskSpec.Service.GreenServiceName, err)
+		return
+	}
+	if greenService.Spec.Selector == nil {
+		c.logger.Errorf("blue service %s selector is nil", c.jobTaskSpec.Service.GreenServiceName)
+		return
+	}
+	// must remove service selector before remove pods labels
+	if _, ok := greenService.Spec.Selector[config.BlueGreenVerionLabelName]; ok {
+		delete(greenService.Spec.Selector, config.BlueGreenVerionLabelName)
+		if err := updater.CreateOrPatchService(greenService, c.kubeClient); err != nil {
+			c.logger.Errorf("delete origin label for service error: %v", err)
+			return
+		}
+	}
+	pods, err := getter.ListPods(c.namespace, labels.Set(greenDeployment.Spec.Selector.MatchLabels).AsSelector(), c.kubeClient)
+	if err != nil {
+		c.logger.Errorf("list green deployment %s pods error: %v", c.jobTaskSpec.Service.GreenDeploymentName, err)
+		return
+	}
+	for _, pod := range pods {
+		if pod.Labels == nil {
+			continue
+		}
+		if _, ok := pod.Labels[config.BlueGreenVerionLabelName]; ok {
+			removeLabelPatch := fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`, config.BlueGreenVerionLabelName)
+			if err := updater.PatchPod(c.namespace, pod.Name, []byte(removeLabelPatch), c.kubeClient); err != nil {
+				c.logger.Errorf("remove origin label to pod error: %v", err)
+				continue
+			}
+		}
+	}
+
 	return
 }
 
@@ -132,6 +176,7 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
 	}
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue deployment %s success", c.jobTaskSpec.Service.BlueDeploymentName))
 	err = updater.DeleteService(c.namespace, c.jobTaskSpec.Service.BlueServiceName, c.kubeClient)
 	if err != nil {
 		msg := fmt.Sprintf("can't delete blue service %s, err: %v", c.jobTaskSpec.Service.BlueServiceName, err)
@@ -139,6 +184,8 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
 	}
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue service %s success", c.jobTaskSpec.Service.BlueServiceName))
+	c.ack()
 
 	// rollback green service selector
 	greenService, found, err := getter.GetService(c.namespace, c.jobTaskSpec.Service.GreenServiceName, c.kubeClient)
@@ -156,6 +203,8 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		c.jobTaskSpec.Events.Error(msg)
 		return errors.New(msg)
 	}
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("update green service %s selector success", c.jobTaskSpec.Service.GreenServiceName))
+	c.ack()
 
 	// update green deployment image
 	for _, v := range c.jobTaskSpec.Service.ServiceAndImage {
