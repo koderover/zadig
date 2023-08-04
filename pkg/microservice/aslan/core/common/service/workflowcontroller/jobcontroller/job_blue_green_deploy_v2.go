@@ -165,6 +165,7 @@ func (c *BlueGreenDeployV2JobCtl) run(ctx context.Context) error {
 	if err != nil {
 		return errors.Errorf("failed to decode %s k8s service yaml, err: %s", c.jobTaskSpec.Service.ServiceName, err)
 	}
+	service.Namespace = c.namespace
 	if err := c.kubeClient.Create(ctx, service); err != nil {
 		msg := fmt.Sprintf("create blue serivce: %s error: %v", c.jobTaskSpec.Service.ServiceName, err)
 		logError(c.job, msg, c.logger)
@@ -179,6 +180,7 @@ func (c *BlueGreenDeployV2JobCtl) run(ctx context.Context) error {
 	if err != nil {
 		return errors.Errorf("failed to decode %s k8s deployment yaml, err: %s", c.jobTaskSpec.Service.ServiceName, err)
 	}
+	deployment.Namespace = c.namespace
 	if err := c.kubeClient.Create(ctx, deployment); err != nil {
 		msg := fmt.Sprintf("create blue deployment: %s error: %v", c.jobTaskSpec.Service.ServiceName, err)
 		logError(c.job, msg, c.logger)
