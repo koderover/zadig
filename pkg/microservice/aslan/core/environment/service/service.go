@@ -212,15 +212,17 @@ func GetService(envName, productName, serviceName string, production bool, workL
 			}
 		}
 		if env.Source == setting.SourceFromZadig {
-			mseResp, err := GetMseServiceImpl(serviceName, workLoadType, env, kubeClient, clientset, inf, log)
-			if err != nil {
-				return nil, e.ErrGetService.AddErr(errors.Wrap(err, "failed to get mse service"))
+			for _, releaseType := range types.ZadigReleaseTypeList {
+				releaseService, err := GetZadigReleaseServiceImpl(releaseType, serviceName, workLoadType, env, kubeClient, clientset, inf, log)
+				if err != nil {
+					return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to get %s release service", releaseType))
+				}
+				ret.Scales = append(ret.Scales, releaseService.Scales...)
+				ret.Services = append(ret.Services, releaseService.Services...)
+				ret.Workloads = nil
+				ret.Namespace = env.Namespace
 			}
-			ret.Scales = append(ret.Scales, mseResp.Scales...)
-			ret.Services = append(ret.Services, mseResp.Services...)
 		}
-		ret.Workloads = nil
-		ret.Namespace = env.Namespace
 	} else {
 		ret, err = GetServiceImpl(serviceName, serviceTmpl, workLoadType, env, clientset, inf, log)
 		if err != nil {
@@ -505,7 +507,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 	return
 }
 
-func GetMseServiceImpl(serviceName string, workLoadType string, env *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+func GetZadigReleaseServiceImpl(releaseType, serviceName string, workLoadType string, env *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
 	envName, productName := env.EnvName, env.ProductName
 	ret = &SvcResp{
 		ServiceName: serviceName,
@@ -525,7 +527,7 @@ func GetMseServiceImpl(serviceName string, workLoadType string, env *commonmodel
 	default:
 		selector := labels.SelectorFromSet(map[string]string{
 			types.ZadigReleaseServiceNameLabelKey: serviceName,
-			types.ZadigReleaseTypeLabelKey:        types.ZadigReleaseTypeMseGray,
+			types.ZadigReleaseTypeLabelKey:        releaseType,
 		})
 		deployments, err := getter.ListDeployments(namespace, selector, kubeClient)
 		if err != nil {
@@ -533,7 +535,7 @@ func GetMseServiceImpl(serviceName string, workLoadType string, env *commonmodel
 		}
 		for _, deployment := range deployments {
 			ret.Scales = append(ret.Scales, getDeploymentWorkloadResource(deployment, inf, log))
-			ret.Scales[len(ret.Scales)-1].ZadigXReleaseType = config.ZadigXMseGrayRelease
+			ret.Scales[len(ret.Scales)-1].ZadigXReleaseType = releaseType
 			ret.Scales[len(ret.Scales)-1].ZadigXReleaseTag = deployment.Labels[types.ZadigReleaseVersionLabelKey]
 			ret.Workloads = append(ret.Workloads, toDeploymentWorkload(deployment))
 		}
