@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/koderover/zadig/pkg/config"
@@ -47,7 +48,8 @@ func Serve(ctx context.Context) error {
 	engine := rest.NewEngine()
 	server := &http.Server{Addr: ":80", Handler: engine}
 
-	initDinD()
+	// need to get cluster config to init k8s resource
+	initResource()
 
 	go func() {
 		<-ctx.Done()
@@ -75,36 +77,45 @@ func Serve(ctx context.Context) error {
 	return nil
 }
 
-func initDinD() {
+func initResource() {
 	client := aslan.NewExternal(config2.AslanBaseAddr(), "")
 
-	ls, err := client.ListRegistries()
+	// get cluster info from zadig
+	schedule, err := strconv.ParseBool(config2.ScheduleWorkflow())
 	if err != nil {
-		log.Fatalf("failed to get information from zadig server to set DinD, err: %s", err)
+		log.Fatalf("failed to parse ScheduleWorkflow, the error is: %s", err)
+		schedule = true
 	}
-
-	regList := make([]*registrytool.RegistryInfoForDinDUpdate, 0)
-	for _, reg := range ls {
-		regItem := &registrytool.RegistryInfoForDinDUpdate{
-			ID:      reg.ID,
-			RegAddr: reg.RegAddr,
+	if schedule {
+		ls, err := client.ListRegistries()
+		if err != nil {
+			log.Fatalf("failed to get information from zadig server to set DinD, err: %s", err)
 		}
-		if reg.AdvancedSetting != nil {
-			regItem.AdvancedSetting = &registrytool.RegistryAdvancedSetting{
-				TLSEnabled: reg.AdvancedSetting.TLSEnabled,
-				TLSCert:    reg.AdvancedSetting.TLSCert,
+
+		regList := make([]*registrytool.RegistryInfoForDinDUpdate, 0)
+		for _, reg := range ls {
+			regItem := &registrytool.RegistryInfoForDinDUpdate{
+				ID:      reg.ID,
+				RegAddr: reg.RegAddr,
 			}
+			if reg.AdvancedSetting != nil {
+				regItem.AdvancedSetting = &registrytool.RegistryAdvancedSetting{
+					TLSEnabled: reg.AdvancedSetting.TLSEnabled,
+					TLSCert:    reg.AdvancedSetting.TLSCert,
+				}
+			}
+			regList = append(regList, regItem)
 		}
-		regList = append(regList, regItem)
+
+		dynamicClient, err := kubeclient.GetDynamicKubeClient(config2.AslanBaseAddr(), setting.LocalClusterID)
+		if err != nil {
+			log.Fatalf("failed to create dynamic kubernetes clientset for clusterID: %s, the error is: %s", setting.LocalClusterID, err)
+		}
+
+		err = registrytool.PrepareDinD(dynamicClient, "koderover-agent", regList)
+		if err != nil {
+			log.Fatalf("failed to update dind, the error is: %s", err)
+		}
 	}
 
-	dynamicClient, err := kubeclient.GetDynamicKubeClient(config2.AslanBaseAddr(), setting.LocalClusterID)
-	if err != nil {
-		log.Fatalf("failed to create dynamic kubernetes clientset for clusterID: %s, the error is: %s", setting.LocalClusterID, err)
-	}
-
-	err = registrytool.PrepareDinD(dynamicClient, "koderover-agent", regList)
-	if err != nil {
-		log.Fatalf("failed to update dind, the error is: %s", err)
-	}
 }

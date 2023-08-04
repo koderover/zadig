@@ -43,3 +43,7 @@ func KubernetesServicePort() string {
 func AslanBaseAddr() string {
 	return viper.GetString(setting.AslanBaseAddr)
 }
+
+func ScheduleWorkflow() string {
+	return viper.GetString(setting.ScheduleWorkflow)
+}

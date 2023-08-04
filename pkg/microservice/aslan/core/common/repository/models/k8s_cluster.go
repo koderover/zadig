@@ -69,10 +69,12 @@ type K8SClusterInfo struct {
 }
 
 type AdvancedConfig struct {
-	Strategy     string                     `json:"strategy,omitempty"       bson:"strategy,omitempty"`
-	NodeLabels   []*NodeSelectorRequirement `json:"node_labels,omitempty"    bson:"node_labels,omitempty"`
-	ProjectNames []string                   `json:"-"                        bson:"-"`
-	Tolerations  string                     `json:"tolerations"              bson:"tolerations"`
+	Strategy          string                     `json:"strategy,omitempty"       bson:"strategy,omitempty"`
+	NodeLabels        []*NodeSelectorRequirement `json:"node_labels,omitempty"    bson:"node_labels,omitempty"`
+	ProjectNames      []string                   `json:"-"                        bson:"-"`
+	Tolerations       string                     `json:"tolerations"              bson:"tolerations"`
+	ClusterAccessYaml string                     `json:"cluster_access_yaml"      bson:"cluster_access_yaml"`
+	ScheduleWorkflow  bool                       `json:"schedule_workflow"        bson:"schedule_workflow"`
 }
 
 type NodeSelectorRequirement struct {
