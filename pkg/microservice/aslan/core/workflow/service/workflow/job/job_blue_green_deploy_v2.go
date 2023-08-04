@@ -34,11 +34,13 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	serializer2 "github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type BlueGreenDeployV2Job struct {
@@ -61,7 +63,26 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: j.spec.Env, Name: j.workflow.Project, Production: util.GetBoolPointer(j.spec.Production)})
+	if err != nil {
+		return errors.Errorf("failed to find product %s, env %s, err: %s", j.workflow.Project, j.spec.Env, err)
+	}
 	for _, target := range j.spec.Services {
+	L:
+		for _, services := range product.Services {
+			for _, productService := range services {
+				if productService.ServiceName == target.ServiceName {
+					for _, container := range productService.Containers {
+						target.ServiceAndImage = append(target.ServiceAndImage, &commonmodels.BlueGreenDeployV2ServiceModuleAndImage{
+							ServiceModule: container.Name,
+						})
+					}
+					break L
+				}
+			}
+		}
+
 		if target.BlueServiceYaml == "" {
 			yamlContent, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 				ProductName: j.workflow.Project,

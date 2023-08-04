@@ -424,14 +424,14 @@ type BlueGreenDeployV2ServiceModuleAndImage struct {
 
 type BlueGreenDeployV2Service struct {
 	// ServiceName is zadig service name
-	ServiceName         string                                 `bson:"service_name" json:"service_name" yaml:"service_name"`
-	BlueServiceYaml     string                                 `bson:"blue_service_yaml" json:"blue_service_yaml" yaml:"blue_service_yaml"`
-	BlueServiceName     string                                 `bson:"blue_service_name,omitempty" json:"blue_service_name,omitempty" yaml:"blue_service_name,omitempty"`
-	BlueDeploymentYaml  string                                 `bson:"blue_deployment_yaml,omitempty" json:"blue_deployment_yaml,omitempty" yaml:"blue_deployment_yaml,omitempty"`
-	BlueDeploymentName  string                                 `bson:"blue_deployment_name,omitempty" json:"blue_deployment_name,omitempty" yaml:"blue_deployment_name,omitempty"`
-	GreenDeploymentName string                                 `bson:"green_deployment_name,omitempty" json:"green_deployment_name,omitempty" yaml:"green_deployment_name,omitempty"`
-	GreenServiceName    string                                 `bson:"green_service_name,omitempty" json:"green_service_name,omitempty" yaml:"green_service_name,omitempty"`
-	ServiceAndImage     []*MseGrayReleaseServiceModuleAndImage `bson:"service_and_image" json:"service_and_image" yaml:"service_and_image"`
+	ServiceName         string                                    `bson:"service_name" json:"service_name" yaml:"service_name"`
+	BlueServiceYaml     string                                    `bson:"blue_service_yaml" json:"blue_service_yaml" yaml:"blue_service_yaml"`
+	BlueServiceName     string                                    `bson:"blue_service_name,omitempty" json:"blue_service_name,omitempty" yaml:"blue_service_name,omitempty"`
+	BlueDeploymentYaml  string                                    `bson:"blue_deployment_yaml,omitempty" json:"blue_deployment_yaml,omitempty" yaml:"blue_deployment_yaml,omitempty"`
+	BlueDeploymentName  string                                    `bson:"blue_deployment_name,omitempty" json:"blue_deployment_name,omitempty" yaml:"blue_deployment_name,omitempty"`
+	GreenDeploymentName string                                    `bson:"green_deployment_name,omitempty" json:"green_deployment_name,omitempty" yaml:"green_deployment_name,omitempty"`
+	GreenServiceName    string                                    `bson:"green_service_name,omitempty" json:"green_service_name,omitempty" yaml:"green_service_name,omitempty"`
+	ServiceAndImage     []*BlueGreenDeployV2ServiceModuleAndImage `bson:"service_and_image" json:"service_and_image" yaml:"service_and_image"`
 }
 
 type BlueGreenReleaseJobSpec struct {
