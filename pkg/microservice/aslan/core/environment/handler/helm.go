@@ -46,6 +46,7 @@ func ListReleases(c *gin.Context) {
 		return
 	}
 
+	// TODO: Authorization leak
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
@@ -53,7 +54,8 @@ func ListReleases(c *gin.Context) {
 			return
 		}
 		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Env.View {
+			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Env.View &&
+			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Version.Create {
 			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProjectName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
