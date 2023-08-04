@@ -130,6 +130,9 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 					}
 				}
 			}
+			if serviceNum == 0 {
+				return errors.Errorf("service %s has no service", target.ServiceName)
+			}
 		}
 	}
 	j.job.Spec = j.spec
