@@ -506,12 +506,9 @@ func GetGlobalVariables(c *gin.Context) {
 		}
 
 		permittedByCollaborationMode, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-		if err != nil {
-			ctx.UnAuthorized = true
-			return
+		if err == nil {
+			permitted = permittedByCollaborationMode
 		}
-
-		permitted = permittedByCollaborationMode
 	}
 
 	if !permitted {

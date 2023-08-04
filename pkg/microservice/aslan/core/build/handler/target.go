@@ -91,7 +91,6 @@ func ListBuildModulesForProduct(c *gin.Context) {
 
 		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionRun)
 		if err == nil {
-			fmt.Printf("collaborationAuthorizedEdit is: %v", collaborationAuthorizedEdit)
 			permitted = collaborationAuthorizedEdit
 		}
 	}
