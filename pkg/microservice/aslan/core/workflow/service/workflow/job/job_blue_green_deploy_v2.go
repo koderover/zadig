@@ -76,6 +76,10 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 					for _, container := range productService.Containers {
 						target.ServiceAndImage = append(target.ServiceAndImage, &commonmodels.BlueGreenDeployV2ServiceModuleAndImage{
 							ServiceModule: container.Name,
+							Image:         container.Image,
+							ImageName:     container.ImageName,
+							Name:          container.Name,
+							ServiceName:   target.ServiceName,
 						})
 					}
 					break L
