@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -115,9 +113,7 @@ func (j *BlueGreenReleaseV2Job) LintJob() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	if j.spec.Version == "" {
-		return errors.Errorf("job %s version is too old and not supported, please remove it and create a new one", j.job.Name)
-	}
+
 	jobRankMap := getJobRankMap(j.workflow.Stages)
 	buildJobRank, ok := jobRankMap[j.spec.FromJob]
 	if !ok || buildJobRank >= jobRankMap[j.job.Name] {

@@ -439,7 +439,6 @@ type BlueGreenReleaseJobSpec struct {
 }
 
 type BlueGreenReleaseV2JobSpec struct {
-	Version string `bson:"version"               json:"version"              yaml:"version"`
 	FromJob string `bson:"from_job"               json:"from_job"              yaml:"from_job"`
 }
 
