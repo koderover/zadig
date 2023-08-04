@@ -172,12 +172,13 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 
 	for _, target := range j.spec.Services {
 		var (
-			deployment          *v1.Deployment
-			deploymentYaml      string
-			service             *corev1.Service
-			greenService        *corev1.Service
-			serviceYaml         string
-			greenDeploymentName string
+			deployment              *v1.Deployment
+			deploymentYaml          string
+			greenDeploymentSelector map[string]string
+			service                 *corev1.Service
+			greenService            *corev1.Service
+			serviceYaml             string
+			greenDeploymentName     string
 		)
 		if target.BlueServiceYaml != "" {
 			service = &corev1.Service{}
@@ -221,6 +222,10 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 					return resp, errors.Errorf("failed to convert service %s deployment to deployment object: %v", target.ServiceName, err)
 				}
 				greenDeploymentName = deployment.Name
+				if deployment.Spec.Selector == nil {
+					return resp, errors.Errorf("service %s deployment selector is empty", target.ServiceName)
+				}
+				greenDeploymentSelector = deployment.Spec.Selector.MatchLabels
 				deployment.Name = deployment.Name + "-blue"
 				deployment.Labels = addLabels(deployment.Labels, map[string]string{
 					types.ZadigReleaseTypeLabelKey:        types.ZadigReleaseTypeBlueGreen,
@@ -276,7 +281,7 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 		if err != nil {
 			return resp, errors.Errorf("service %s k8s green service convert to selector err: %v", target.ServiceName, err)
 		}
-		if !greenSelector.Matches(labels.Set(deployment.Spec.Template.Labels)) {
+		if !greenSelector.Matches(labels.Set(greenDeploymentSelector)) {
 			return resp, errors.Errorf("service %s k8s green service selector not match deployment.spec.template labels", target.ServiceName)
 		}
 
