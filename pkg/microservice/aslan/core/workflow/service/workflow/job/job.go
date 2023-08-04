@@ -70,9 +70,9 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 	case config.JobCustomDeploy:
 		resp = &CustomDeployJob{job: job, workflow: workflow}
 	case config.JobK8sBlueGreenDeploy:
-		resp = &BlueGreenDeployJob{job: job, workflow: workflow}
+		resp = &BlueGreenDeployV2Job{job: job, workflow: workflow}
 	case config.JobK8sBlueGreenRelease:
-		resp = &BlueGreenReleaseJob{job: job, workflow: workflow}
+		resp = &BlueGreenReleaseV2Job{job: job, workflow: workflow}
 	case config.JobK8sCanaryDeploy:
 		resp = &CanaryDeployJob{job: job, workflow: workflow}
 	case config.JobK8sCanaryRelease:
