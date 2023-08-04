@@ -2441,6 +2441,9 @@ func GetBlueGreenServiceK8sServiceYaml(projectName, envName, serviceName string)
 				return "", errors.Errorf("failed to convert service %s service to service object: %v", serviceName, err)
 			}
 			service.Name = service.Name + "-blue"
+			if service.Spec.Selector == nil {
+				service.Spec.Selector = make(map[string]string)
+			}
 			service.Spec.Selector[config.BlueGreenVerionLabelName] = config.BlueVersion
 			serviceYaml, err = toYaml(service)
 			if err != nil {
