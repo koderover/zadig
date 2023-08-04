@@ -698,7 +698,7 @@ func GetBlueGreenServiceK8sServiceYaml(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	blueGreenServiceYaml, err := workflow.GetBlueGreenServiceK8sServiceYaml(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"))
+	blueGreenServiceYaml, err := workflow.GetBlueGreenServiceK8sServiceYaml(c.Query("projectName"), c.Param("envName"), c.Param("serviceName"))
 	if err != nil {
 		ctx.Err = err
 		return
