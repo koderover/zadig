@@ -343,6 +343,27 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		return nil, err
 	}
 
+	cluster := &commonmodels.K8SCluster{
+		Name:           args.Name,
+		Description:    args.Description,
+		AdvancedConfig: advancedConfig,
+		Production:     args.Production,
+		Cache:          args.Cache,
+		DindCfg:        args.DindCfg,
+		Type:           args.Type,
+		KubeConfig:     args.KubeConfig,
+		ShareStorage:   args.ShareStorage,
+		Provider:       args.Provider,
+	}
+	cluster, err = s.UpdateCluster(id, cluster, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
+	}
+	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
+	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
+		return cluster, nil
+	}
+
 	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
 	// TODO: If the PVC is not successfully bound to the PV, it is necessary to consider how to expose this abnormal information.
 	//       Depends on product design.
@@ -362,27 +383,6 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		}
 	}
 
-	cluster := &commonmodels.K8SCluster{
-		Name:           args.Name,
-		Description:    args.Description,
-		AdvancedConfig: advancedConfig,
-		Production:     args.Production,
-		Cache:          args.Cache,
-		DindCfg:        args.DindCfg,
-		Type:           args.Type,
-		KubeConfig:     args.KubeConfig,
-		ShareStorage:   args.ShareStorage,
-		Provider:       args.Provider,
-	}
-	cluster, err = s.UpdateCluster(id, cluster, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
-	}
-
-	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
-	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
-		return cluster, nil
-	}
 	return cluster, UpgradeAgent(id, logger)
 }
 
