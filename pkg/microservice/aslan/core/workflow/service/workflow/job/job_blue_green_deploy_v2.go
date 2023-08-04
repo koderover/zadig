@@ -119,7 +119,6 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 					if err != nil {
 						return errors.Errorf("failed to convert service %s service to service object: %v", target.ServiceName, err)
 					}
-					target.GreenServiceName = service.Name
 					service.Name = service.Name + "-blue"
 					if service.Spec.Selector == nil {
 						service.Spec.Selector = make(map[string]string)
@@ -176,6 +175,7 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 			deployment          *v1.Deployment
 			deploymentYaml      string
 			service             *corev1.Service
+			greenService        *corev1.Service
 			serviceYaml         string
 			greenDeploymentName string
 		)
@@ -247,33 +247,20 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 				if err != nil {
 					return resp, errors.Errorf("failed to replace service %s deployment image: %v", target.ServiceName, err)
 				}
-				//case setting.Service:
-				//	if target.BlueServiceYaml != "" {
-				//		continue
-				//	}
-				//	if service != nil {
-				//		return resp, errors.Errorf("service %s has more than one service", target.ServiceName)
-				//	}
-				//	service = &corev1.Service{}
-				//	err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, service)
-				//	if err != nil {
-				//		return resp, errors.Errorf("failed to convert service %s service to service object: %v", target.ServiceName, err)
-				//	}
-				//	greenServiceName = service.Name
-				//	service.Name = service.Name + "-blue"
-				//	service.Spec.Selector[config.BlueGreenVerionLabelName] = config.BlueVersion
-				//	serviceYaml, err = toYaml(service)
-				//	if err != nil {
-				//		return resp, errors.Errorf("failed to marshal service %s service object: %v", target.ServiceName, err)
-				//	}
-				//default:
+			case setting.Service:
+				greenService = &corev1.Service{}
+				err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, greenService)
+				if err != nil {
+					return resp, errors.Errorf("failed to convert service %s service to service object: %v", target.ServiceName, err)
+				}
+				target.GreenServiceName = greenService.Name
 			}
 		}
 		if deployment == nil || service == nil {
 			return resp, errors.Errorf("service %s has no deployment or service", target.ServiceName)
 		}
 		if service.Spec.Selector == nil || deployment.Spec.Template.Labels == nil {
-			return resp, errors.Errorf("service %s has no selector or deployment has no labels", target.ServiceName)
+			return resp, errors.Errorf("service %s has no service selector or deployment has no labels", target.ServiceName)
 		}
 		selector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(service.Spec.Selector))
 		if err != nil {
@@ -282,6 +269,17 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 		if !selector.Matches(labels.Set(deployment.Spec.Template.Labels)) {
 			return resp, errors.Errorf("service %s k8s service selector not match deployment.spec.template labels", target.ServiceName)
 		}
+		if greenService == nil {
+			return resp, errors.Errorf("service %s has no k8s service", target.ServiceName)
+		}
+		greenSelector, err := metav1.LabelSelectorAsSelector(metav1.SetAsLabelSelector(greenService.Spec.Selector))
+		if err != nil {
+			return resp, errors.Errorf("service %s k8s green service convert to selector err: %v", target.ServiceName, err)
+		}
+		if !greenSelector.Matches(labels.Set(deployment.Spec.Template.Labels)) {
+			return resp, errors.Errorf("service %s k8s green service selector not match deployment.spec.template labels", target.ServiceName)
+		}
+
 		task := &commonmodels.JobTask{
 			Name: jobNameFormat(j.job.Name + "-" + target.ServiceName),
 			Key:  strings.Join([]string{j.job.Name, target.ServiceName}, "."),
