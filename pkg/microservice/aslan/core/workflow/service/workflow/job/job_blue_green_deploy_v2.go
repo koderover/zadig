@@ -96,6 +96,9 @@ func (j *BlueGreenDeployV2Job) SetPreset() error {
 					}
 					target.GreenServiceName = service.Name
 					service.Name = service.Name + "-blue"
+					if service.Spec.Selector == nil {
+						service.Spec.Selector = make(map[string]string)
+					}
 					service.Spec.Selector[config.BlueGreenVerionLabelName] = config.BlueVersion
 					target.BlueServiceYaml, err = toYaml(service)
 					if err != nil {
