@@ -2421,7 +2421,7 @@ func GetBlueGreenServiceK8sServiceYaml(projectName, envName, serviceName string)
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
 		if err != nil {
-			return "", errors.Errorf("failed to decode service %s yaml to unstructured: %v", target.ServiceName, err)
+			return "", errors.Errorf("failed to decode service %s yaml to unstructured: %v", serviceName, err)
 		}
 		resources = append(resources, u)
 	}
