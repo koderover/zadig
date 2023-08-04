@@ -178,7 +178,6 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 			service             *corev1.Service
 			serviceYaml         string
 			greenDeploymentName string
-			greenServiceName    string
 		)
 		if target.BlueServiceYaml != "" {
 			service = &corev1.Service{}
@@ -300,7 +299,7 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 					BlueServiceName:     service.Name,
 					BlueDeploymentYaml:  deploymentYaml,
 					BlueDeploymentName:  deployment.Name,
-					GreenServiceName:    greenServiceName,
+					GreenServiceName:    target.GreenServiceName,
 					GreenDeploymentName: greenDeploymentName,
 					ServiceAndImage:     target.ServiceAndImage,
 				},
