@@ -215,6 +215,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/mse/render", RenderMseServiceYaml)
 		workflowV4.GET("/mse/offline", GetMseOfflineResources)
 		workflowV4.GET("/mse/:envName/tag", GetMseTagsInEnv)
+		workflowV4.GET("/bluegreen/:envName/:serviceName", GetBlueGreenServiceK8sServiceYaml)
 	}
 
 	// ---------------------------------------------------------------------------------------

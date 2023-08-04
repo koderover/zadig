@@ -372,6 +372,7 @@ const (
 	BlueGreenVerionLabelName = "zadig-blue-green-version"
 	BlueServiceNameSuffix    = "-zadig-blue"
 	OriginVersion            = "origin"
+	BlueVersion              = "blue"
 )
 
 // for custom gray release job
@@ -482,10 +483,4 @@ const (
 
 const (
 	CUSTOME_THEME = "custom"
-)
-
-type ZadigXReleaseType string
-
-var (
-	ZadigXMseGrayRelease ZadigXReleaseType = "mse-gray"
 )

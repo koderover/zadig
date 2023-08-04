@@ -159,26 +159,28 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 		respMap[serviceResp.ServiceName] = serviceResp
 	}
 	if projectType == setting.K8SDeployType {
-		mseService, err := listZadigXMseReleaseServices(productInfo.Namespace, productName, envName, kubeClient)
-		if err != nil {
-			return resp, count, e.ErrListGroups.AddErr(errors.Wrap(err, "list mse release services"))
-		}
-		log.Debugf("mse release services num: %d", len(mseService))
-		for _, serviceResp := range mseService {
-			if svc, ok := respMap[serviceResp.ServiceName]; !ok {
-				resp = append(resp, serviceResp)
-			} else {
-				// when zadigx release resource exists, should set ZadigXReleaseType field too
-				svc.ZadigXReleaseType = serviceResp.ZadigXReleaseType
-				svc.ZadigXReleaseTag = serviceResp.ZadigXReleaseTag
+		for _, releaseType := range types.ZadigReleaseTypeList {
+			releaseService, err := listZadigXReleaseServices(releaseType, productInfo.Namespace, productName, envName, kubeClient)
+			if err != nil {
+				return resp, count, e.ErrListGroups.AddErr(errors.Wrapf(err, "list zadigx %s release services", releaseType))
+			}
+			log.Debugf("%s release services num: %d", releaseType, len(releaseService))
+			for _, serviceResp := range releaseService {
+				if svc, ok := respMap[serviceResp.ServiceName]; !ok {
+					resp = append(resp, serviceResp)
+				} else {
+					// when zadigx release resource exists, should set ZadigXReleaseType field too
+					svc.ZadigXReleaseType = serviceResp.ZadigXReleaseType
+					svc.ZadigXReleaseTag = serviceResp.ZadigXReleaseTag
+				}
 			}
 		}
 	}
 	return resp, count, nil
 }
 
-func listZadigXMseReleaseServices(namespace, productName, envName string, client client.Client) ([]*commonservice.ServiceResp, error) {
-	selector := labels.Set{types.ZadigReleaseTypeLabelKey: types.ZadigReleaseTypeMseGray}.AsSelector()
+func listZadigXReleaseServices(releaseType, namespace, productName, envName string, client client.Client) ([]*commonservice.ServiceResp, error) {
+	selector := labels.Set{types.ZadigReleaseTypeLabelKey: releaseType}.AsSelector()
 	deployments, err := getter.ListDeployments(namespace, selector, client)
 	if err != nil {
 		return nil, err
@@ -188,7 +190,7 @@ func listZadigXMseReleaseServices(namespace, productName, envName string, client
 	for _, deployment := range deployments {
 		serviceName := deployment.GetLabels()[types.ZadigReleaseServiceNameLabelKey]
 		if serviceName == "" {
-			log.Warnf("listZadigXMseReleaseServices: deployment %s/%s has no service name label", deployment.Namespace, deployment.Name)
+			log.Warnf("listZadigXReleaseServices: deployment %s/%s has no service name label", deployment.Namespace, deployment.Name)
 			continue
 		}
 		if resp, ok := serviceSets[serviceName]; ok {
@@ -215,7 +217,7 @@ func listZadigXMseReleaseServices(namespace, productName, envName string, client
 			ProductName:       productName,
 			EnvName:           envName,
 			DeployStrategy:    "deploy",
-			ZadigXReleaseType: config.ZadigXMseGrayRelease,
+			ZadigXReleaseType: releaseType,
 			ZadigXReleaseTag:  deployment.GetLabels()[types.ZadigReleaseVersionLabelKey],
 		}
 		serviceSets[serviceName] = svcResp

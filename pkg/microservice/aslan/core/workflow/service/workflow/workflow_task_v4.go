@@ -1500,44 +1500,6 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				sepc.ClusterName = cluster.Name
 			}
 			jobPreview.Spec = sepc
-		case string(config.JobK8sBlueGreenDeploy):
-			taskJobSpec := &commonmodels.JobTaskBlueGreenDeploySpec{}
-			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
-				continue
-			}
-			sepc := K8sBlueGreenDeployJobSpec{
-				Image:          taskJobSpec.Image,
-				K8sServiceName: taskJobSpec.K8sServiceName,
-				Namespace:      taskJobSpec.Namespace,
-				ContainerName:  taskJobSpec.ContainerName,
-				Events:         taskJobSpec.Events,
-			}
-			cluster, err := commonrepo.NewK8SClusterColl().Get(taskJobSpec.ClusterID)
-			if err != nil {
-				log.Errorf("cluster id: %s not found", taskJobSpec.ClusterID)
-			} else {
-				sepc.ClusterName = cluster.Name
-			}
-			jobPreview.Spec = sepc
-		case string(config.JobK8sBlueGreenRelease):
-			taskJobSpec := &commonmodels.JobTaskBlueGreenReleaseSpec{}
-			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
-				continue
-			}
-			sepc := K8sBlueGreenReleaseJobSpec{
-				Image:          taskJobSpec.Image,
-				K8sServiceName: taskJobSpec.K8sServiceName,
-				Namespace:      taskJobSpec.Namespace,
-				ContainerName:  taskJobSpec.ContainerName,
-				Events:         taskJobSpec.Events,
-			}
-			cluster, err := commonrepo.NewK8SClusterColl().Get(taskJobSpec.ClusterID)
-			if err != nil {
-				log.Errorf("cluster id: %s not found", taskJobSpec.ClusterID)
-			} else {
-				sepc.ClusterName = cluster.Name
-			}
-			jobPreview.Spec = sepc
 		default:
 			jobPreview.Spec = job.Spec
 		}
