@@ -142,6 +142,10 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 	}
 	timeout := templateProduct.Timeout * 60
 
+	if len(j.spec.Services) == 0 {
+		return resp, errors.Errorf("target services is empty")
+	}
+
 	for _, target := range j.spec.Services {
 		var (
 			deployment          *v1.Deployment
