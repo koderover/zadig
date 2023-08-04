@@ -66,25 +66,25 @@ func OpenAPIDeleteBuildModule(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	name := c.Query("name")
-	productName := c.Query("projectName")
-	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "(OpenAPI)"+"删除", "项目管理-构建", name, "", ctx.Logger)
+	buildName := c.Query("buildName")
+	projectKey := c.Query("projectKey")
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "项目管理-构建", buildName, "", ctx.Logger)
 
-	if name == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty env name.")
+	if buildName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty build name.")
 		return
 	}
 
-	ctx.Err = buildservice.DeleteBuild(name, productName, ctx.Logger)
+	ctx.Err = buildservice.DeleteBuild(buildName, projectKey, ctx.Logger)
 }
 
 func OpenAPIListBuildModules(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty project name.")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty project key.")
 		return
 	}
 
@@ -95,7 +95,7 @@ func OpenAPIListBuildModules(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = buildservice.OpenAPIListBuildModules(projectName, args.PageNum, args.PageSize, ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.OpenAPIListBuildModules(projectKey, args.PageNum, args.PageSize, ctx.Logger)
 }
 
 func OpenAPIGetBuildModule(c *gin.Context) {
@@ -107,11 +107,11 @@ func OpenAPIGetBuildModule(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty buildName.")
 		return
 	}
-	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty projectName.")
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty projectKey.")
 		return
 	}
 
-	ctx.Resp, ctx.Err = buildservice.OpenAPIGetBuildModule(name, projectName, ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.OpenAPIGetBuildModule(name, projectKey, ctx.Logger)
 }

@@ -540,9 +540,10 @@ const (
 	FixedGapCronjob     = "gap"
 	CrontabCronjob      = "crontab"
 
-	WorkflowCronjob   = "workflow"
-	WorkflowV4Cronjob = "workflow_v4"
-	TestingCronjob    = "test"
+	WorkflowCronjob    = "workflow"
+	WorkflowV4Cronjob  = "workflow_v4"
+	TestingCronjob     = "test"
+	EnvAnalysisCronjob = "env_analysis"
 
 	TopicProcess      = "task.process"
 	TopicCancel       = "task.cancel"
@@ -779,3 +780,9 @@ const (
 )
 
 var ServiceVarWildCard = []string{"*"}
+
+const (
+	// AI analyze env result status
+	AIEnvAnalysisStatusSuccess = "success"
+	AIEnvAnalysisStatusFailed  = "failed"
+)

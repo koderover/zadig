@@ -136,7 +136,7 @@ func GetReleaseNameToChartNameMap(prod *models.Product) (map[string]string, erro
 	renderMap := rendersetObj.GetChartDeployRenderMap()
 
 	for _, svc := range prod.GetChartServiceMap() {
-		if renderInfo, ok := renderMap[svc.ServiceName]; ok {
+		if renderInfo, ok := renderMap[svc.ReleaseName]; ok {
 			releaseNameMap[svc.ReleaseName] = renderInfo.ChartName
 		}
 	}

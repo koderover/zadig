@@ -17,18 +17,19 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -44,16 +45,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/ai"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	airepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/ai"
 	mongotemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/imnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
@@ -63,6 +68,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/pkg/tool/analysis"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/helmclient"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
@@ -70,8 +76,10 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/boolptr"
 	"github.com/koderover/zadig/pkg/util/converter"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
@@ -2735,6 +2743,24 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		tmpRenderInfo.Revision = args.Render.Revision
 	}
 
+	if productTmpl.ProductFeature.DeployType == setting.HelmDeployType || productTmpl.ProductFeature.DeployType == setting.K8SDeployType {
+		args.AnalysisConfig = &commonmodels.AnalysisConfig{
+			ResourceTypes: []commonmodels.ResourceType{
+				commonmodels.ResourceTypePod,
+				commonmodels.ResourceTypeDeployment,
+				commonmodels.ResourceTypeReplicaSet,
+				commonmodels.ResourceTypePVC,
+				commonmodels.ResourceTypeService,
+				commonmodels.ResourceTypeIngress,
+				commonmodels.ResourceTypeStatefulSet,
+				commonmodels.ResourceTypeCronJob,
+				commonmodels.ResourceTypeHPA,
+				commonmodels.ResourceTypePDB,
+				commonmodels.ResourceTypeNetworkPolicy,
+			},
+		}
+	}
+
 	args.Render = tmpRenderInfo
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
 		return ensureKubeEnv(args.Namespace, args.RegistryID, map[string]string{setting.ProductLabel: args.ProductName}, args.ShareEnv.Enable, kubeClient, log)
@@ -3759,6 +3785,482 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		}
 	}
 	return UpdateProductVariable(productRenderset.ProductTmpl, productRenderset.EnvName, userName, requestID, updatedSvcList, productRenderset, setting.K8SDeployType, log)
+}
+
+type EnvConfigsArgs struct {
+	AnalysisConfig      *models.AnalysisConfig       `json:"analysis_config"`
+	NotificationConfigs []*models.NotificationConfig `json:"notification_configs"`
+}
+
+func GetEnvConfigs(projectName, envName string, production *bool, logger *zap.SugaredLogger) (*EnvConfigsArgs, error) {
+	opt := &commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       projectName,
+		Production: production,
+	}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, e.ErrGetEnvConfigs.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
+	}
+
+	analysisConfig := &models.AnalysisConfig{}
+	if env.AnalysisConfig != nil {
+		analysisConfig = env.AnalysisConfig
+	}
+	notificationConfigs := []*models.NotificationConfig{}
+	if env.NotificationConfigs != nil {
+		notificationConfigs = env.NotificationConfigs
+	}
+
+	configs := &EnvConfigsArgs{
+		AnalysisConfig:      analysisConfig,
+		NotificationConfigs: notificationConfigs,
+	}
+	return configs, nil
+}
+
+func UpdateEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, production *bool, logger *zap.SugaredLogger) error {
+	opt := &commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       projectName,
+		Production: production,
+	}
+	_, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return e.ErrUpdateEnvConfigs.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
+	}
+
+	_, analyzerMap := analysis.GetAnalyzerMap()
+	for _, resourceType := range arg.AnalysisConfig.ResourceTypes {
+		if _, ok := analyzerMap[string(resourceType)]; !ok {
+			return e.ErrUpdateEnvConfigs.AddErr(fmt.Errorf("invalid analyzer %s", resourceType))
+		}
+	}
+
+	err = commonrepo.NewProductColl().UpdateConfigs(envName, projectName, arg.AnalysisConfig, arg.NotificationConfigs)
+	if err != nil {
+		return e.ErrUpdateEnvConfigs.AddErr(fmt.Errorf("failed to update environment %s/%s, err: %w", projectName, envName, err))
+	}
+
+	return nil
+}
+
+func GetProductionEnvConfigs(projectName, envName string, logger *zap.SugaredLogger) (*EnvConfigsArgs, error) {
+	return GetEnvConfigs(projectName, envName, boolptr.True(), logger)
+}
+
+func UpdateProductionEnvConfigs(projectName, envName string, arg *EnvConfigsArgs, logger *zap.SugaredLogger) error {
+	return UpdateEnvConfigs(projectName, envName, arg, boolptr.True(), logger)
+}
+
+type EnvAnalysisRespone struct {
+	Result string `json:"result"`
+}
+
+func EnvAnalysis(projectName, envName string, production *bool, triggerName string, userName string, logger *zap.SugaredLogger) (*EnvAnalysisRespone, error) {
+	var err error
+	start := time.Now()
+	// get project detail
+	project, err := templaterepo.NewProductColl().Find(projectName)
+	if err != nil {
+		return nil, err
+	}
+	result := &ai.EnvAIAnalysis{
+		ProjectName: projectName,
+		DeployType:  project.ProductFeature.DeployType,
+		EnvName:     envName,
+		TriggerName: triggerName,
+		CreatedBy:   userName,
+		Production:  *production,
+		StartTime:   start.Unix(),
+	}
+	defer func() {
+		if err != nil {
+			result.Err = err.Error()
+			result.Status = setting.AIEnvAnalysisStatusFailed
+		} else {
+			result.Status = setting.AIEnvAnalysisStatusSuccess
+		}
+		result.EndTime = time.Now().Unix()
+		err = airepo.NewEnvAIAnalysisColl().Create(result)
+		if err != nil {
+			logger.Errorf("failed to add env ai analysis result to db, err: %s", err)
+		}
+	}()
+
+	resp := &EnvAnalysisRespone{}
+	opt := &commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       projectName,
+		Production: production,
+	}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
+	}
+
+	filters := []string{}
+	if env.AnalysisConfig != nil {
+		if len(env.AnalysisConfig.ResourceTypes) == 0 {
+			return resp, nil
+		} else {
+			for _, resourceType := range env.AnalysisConfig.ResourceTypes {
+				filters = append(filters, string(resourceType))
+			}
+		}
+	}
+
+	ctx := context.TODO()
+	llmClient, err := commonservice.GetDefaultLLMClient(ctx)
+	if err != nil {
+		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get llm client, err: %w", err))
+	}
+
+	analysiser, err := analysis.NewAnalysis(
+		ctx,
+		config.HubServerAddress(), env.ClusterID,
+		llmClient,
+		filters, env.GetNamespace(),
+		false, // noCache bool
+		true,  // explain bool
+		10,    // maxConcurrency int
+		false, // withDoc bool
+	)
+	if err != nil {
+		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to create analysiser, err: %w", err))
+	}
+
+	analysiser.RunAnalysis(filters)
+	err = analysiser.GetAIResults(true)
+	if err != nil {
+		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get analysis result, err: %w", err))
+	}
+
+	analysisResult, err := analysiser.PrintOutput("text")
+	if err != nil {
+		return resp, e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to print analysis result, err: %w", err))
+	}
+
+	if triggerName == setting.CronTaskCreator {
+		util.Go(func() {
+			err := EnvAnalysisNotification(projectName, envName, string(analysisResult), env.NotificationConfigs)
+			if err != nil {
+				log.Errorf("failed to send notification, err: %w", err)
+			} else {
+				log.Infof("send env analysis notification successfully")
+			}
+		})
+	}
+	result.Result = string(analysisResult)
+
+	resp.Result = string(analysisResult)
+	return resp, nil
+}
+
+type EnvAnalysisCronArg struct {
+	Enable bool   `json:"enable"`
+	Cron   string `json:"cron"`
+}
+
+func UpsertEnvAnalysisCron(projectName, envName string, production *bool, req *EnvAnalysisCronArg, logger *zap.SugaredLogger) error {
+	opt := &commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       projectName,
+		Production: production,
+	}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
+	}
+
+	found := false
+	name := getEnvAnalysisCronName(projectName, envName)
+	cron, err := commonrepo.NewCronjobColl().GetByName(name, config.EnvAnalysisCronjob)
+	if err != nil {
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get cron job %s, err: %w", name, err))
+		}
+	} else {
+		found = true
+	}
+
+	var payload *commonservice.CronjobPayload
+	if found {
+		origEnabled := cron.Enabled
+		cron.Enabled = req.Enable
+		cron.Cron = req.Cron
+		err = commonrepo.NewCronjobColl().Upsert(cron)
+		if err != nil {
+			fmtErr := fmt.Errorf("Failed to upsert cron job, error: %w", err)
+			log.Error(fmtErr)
+			return err
+		}
+
+		if origEnabled && !req.Enable {
+			// need to disable cronjob
+			payload = &commonservice.CronjobPayload{
+				Name:       name,
+				JobType:    config.EnvAnalysisCronjob,
+				Action:     setting.TypeEnableCronjob,
+				DeleteList: []string{cron.ID.Hex()},
+			}
+		} else if !origEnabled && req.Enable || origEnabled && req.Enable {
+			payload = &commonservice.CronjobPayload{
+				Name:    name,
+				JobType: config.EnvAnalysisCronjob,
+				Action:  setting.TypeEnableCronjob,
+				JobList: []*commonmodels.Schedule{cronJobToSchedule(cron)},
+			}
+		} else {
+			// !origEnabled && !req.Enable
+			return nil
+		}
+	} else {
+		input := &commonmodels.Cronjob{
+			Name:    name,
+			Enabled: req.Enable,
+			Type:    config.EnvAnalysisCronjob,
+			Cron:    req.Cron,
+			EnvAnalysisArgs: &commonmodels.EnvAnalysisArgs{
+				ProductName: env.ProductName,
+				EnvName:     env.EnvName,
+				Production:  env.Production,
+			},
+		}
+
+		err = commonrepo.NewCronjobColl().Upsert(input)
+		if err != nil {
+			fmtErr := fmt.Errorf("Failed to upsert cron job, error: %w", err)
+			log.Error(fmtErr)
+			return err
+		}
+		if !input.Enabled {
+			return nil
+		}
+
+		payload = &commonservice.CronjobPayload{
+			Name:    name,
+			JobType: config.EnvAnalysisCronjob,
+			Action:  setting.TypeEnableCronjob,
+			JobList: []*commonmodels.Schedule{cronJobToSchedule(input)},
+		}
+	}
+
+	pl, _ := json.Marshal(payload)
+	err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
+		Payload:   string(pl),
+		QueueType: setting.TopicCronjob,
+	})
+	if err != nil {
+		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
+		return e.ErrUpsertCronjob.AddDesc(err.Error())
+	}
+
+	return nil
+}
+
+func getEnvAnalysisCronName(projectName, envName string) string {
+	return fmt.Sprintf("%s-%s-%s", envName, projectName, config.EnvAnalysisCronjob)
+}
+
+func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
+	return &commonmodels.Schedule{
+		ID:              input.ID,
+		Number:          input.Number,
+		Frequency:       input.Frequency,
+		Time:            input.Time,
+		MaxFailures:     input.MaxFailure,
+		EnvAnalysisArgs: input.EnvAnalysisArgs,
+		Type:            config.ScheduleType(input.JobType),
+		Cron:            input.Cron,
+		Enabled:         input.Enabled,
+	}
+}
+
+func GetEnvAnalysisCron(projectName, envName string, production *bool, logger *zap.SugaredLogger) (*EnvAnalysisCronArg, error) {
+	name := getEnvAnalysisCronName(projectName, envName)
+	crons, err := commonrepo.NewCronjobColl().List(&commonrepo.ListCronjobParam{
+		ParentName: name,
+		ParentType: config.EnvAnalysisCronjob,
+	})
+	if err != nil {
+		fmtErr := fmt.Errorf("Failed to list env analysis cron jobs, project name %s, env name: %s, error: %w", projectName, envName, err)
+		logger.Error(fmtErr)
+		return nil, e.ErrGetCronjob.AddErr(fmtErr)
+	}
+	if len(crons) == 0 {
+		return &EnvAnalysisCronArg{}, nil
+	}
+
+	resp := &EnvAnalysisCronArg{
+		Enable: crons[0].Enabled,
+		Cron:   crons[0].Cron,
+	}
+	return resp, nil
+}
+
+// GetEnvAnalysisHistory get env AI analysis history
+func GetEnvAnalysisHistory(projectName string, production bool, envName string, pageNum, pageSize int, log *zap.SugaredLogger) ([]*ai.EnvAIAnalysis, int64, error) {
+	result, count, err := airepo.NewEnvAIAnalysisColl().ListByOptions(airepo.EnvAIAnalysisListOption{
+		EnvName:     envName,
+		ProjectName: projectName,
+		Production:  production,
+		PageNum:     int64(pageNum),
+		PageSize:    int64(pageSize),
+	})
+	if err != nil {
+		log.Errorf("Failed to list env ai analysis, project name: %s, env name: %s, error: %v", projectName, envName, err)
+		return nil, 0, err
+	}
+	return result, count, nil
+}
+
+func EnvAnalysisNotification(projectName, envName, result string, configs []*commonmodels.NotificationConfig) error {
+	for _, config := range configs {
+		eventSet := sets.NewString()
+		for _, event := range config.Events {
+			eventSet.Insert(string(event))
+		}
+
+		status := commonmodels.NotificationEventAnalyzerNoraml
+		if result != "" {
+			status = commonmodels.NotificationEventAnalyzerAbnormal
+		}
+		if !eventSet.Has(string(status)) {
+			return nil
+		}
+
+		title, content, larkCard, err := getNotificationContent(projectName, envName, result, imnotify.IMNotifyType(config.WebHookType))
+		if err != nil {
+			return fmt.Errorf("failed to get notification content, err: %w", err)
+		}
+
+		imnotifyClient := imnotify.NewIMNotifyClient()
+
+		switch imnotify.IMNotifyType(config.WebHookType) {
+		case imnotify.IMNotifyTypeDingDing:
+			if err := imnotifyClient.SendDingDingMessage(config.WebHookURL, title, content, nil, false); err != nil {
+				return err
+			}
+		case imnotify.IMNotifyTypeLark:
+			if err := imnotifyClient.SendFeishuMessage(config.WebHookURL, larkCard); err != nil {
+				return err
+			}
+		case imnotify.IMNotifyTypeWeChat:
+			if err := imnotifyClient.SendWeChatWorkMessage(imnotify.WeChatTextTypeMarkdown, config.WebHookURL, content); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+type envAnalysisNotification struct {
+	BaseURI     string                   `json:"base_uri"`
+	WebHookType imnotify.IMNotifyType    `json:"web_hook_type"`
+	Time        int64                    `json:"time"`
+	ProjectName string                   `json:"project_name"`
+	EnvName     string                   `json:"env_name"`
+	Status      envAnalysisNotifiyStatus `json:"status"`
+	Result      string                   `json:"result"`
+}
+
+type envAnalysisNotifiyStatus string
+
+const (
+	envAnalysisNotifiyStatusNormal   envAnalysisNotifiyStatus = "normal"
+	envAnalysisNotifiyStatusAbnormal envAnalysisNotifiyStatus = "abnormal"
+)
+
+func getNotificationContent(projectName, envName, result string, webHookType imnotify.IMNotifyType) (string, string, *imnotify.LarkCard, error) {
+	tplTitle := "{{if ne .WebHookType \"feishu\"}}### {{end}}{{getIcon .Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Status }}\">{{.ProjectName}}/{{.EnvName}} 环境巡检{{ getStatus .Status }}</font>{{else}} {{.ProjectName}} / {{.EnvName}} 环境巡检{{ getStatus .Status }}{{end}} \n"
+	tplContent := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**巡检时间：{{getTime}}** \n",
+		"{{.Result}} \n",
+	}
+
+	buttonContent := "点击查看更多信息"
+	envDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.ProjectName}}/envs/detail?envName={{.EnvName}}"
+	moreInformation := fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n{{end}}[%s](%s)", buttonContent, envDetailURL)
+
+	status := envAnalysisNotifiyStatusAbnormal
+	if strings.Contains(result, analysis.NormalResultOutput) {
+		status = envAnalysisNotifiyStatusNormal
+	}
+
+	envAnalysisNotifyArg := &envAnalysisNotification{
+		BaseURI:     configbase.SystemAddress(),
+		WebHookType: webHookType,
+		Time:        time.Now().Unix(),
+		ProjectName: projectName,
+		EnvName:     envName,
+		Status:      status,
+		Result:      result,
+	}
+
+	title, err := getEnvAnalysisTplExec(tplTitle, envAnalysisNotifyArg)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	if webHookType != imnotify.IMNotifyTypeLark {
+		tplContent := strings.Join(tplContent, "")
+		tplContent = fmt.Sprintf("%s%s%s", title, tplContent, moreInformation)
+		content, err := getEnvAnalysisTplExec(tplContent, envAnalysisNotifyArg)
+		if err != nil {
+			return "", "", nil, err
+		}
+		return title, content, nil, nil
+	} else {
+		lc := imnotify.NewLarkCard()
+		lc.SetConfig(true)
+		lc.SetHeader(imnotify.GetColorTemplateWithStatus(config.Status(envAnalysisNotifyArg.Status)), title, "plain_text")
+		for idx, feildContent := range tplContent {
+			feildExecContent, _ := getEnvAnalysisTplExec(feildContent, envAnalysisNotifyArg)
+			lc.AddI18NElementsZhcnFeild(feildExecContent, idx == 0)
+		}
+		envDetailURL, _ = getEnvAnalysisTplExec(envDetailURL, envAnalysisNotifyArg)
+		lc.AddI18NElementsZhcnAction(buttonContent, envDetailURL)
+		return "", "", lc, nil
+	}
+}
+
+func getEnvAnalysisTplExec(tplcontent string, args *envAnalysisNotification) (string, error) {
+	tmpl := template.Must(template.New("notify").Funcs(template.FuncMap{
+		"getColor": func(status envAnalysisNotifiyStatus) string {
+			if status == envAnalysisNotifiyStatusNormal {
+				return "info"
+			} else if status == envAnalysisNotifiyStatusAbnormal {
+				return "warning"
+			}
+			return "warning"
+		},
+		"getStatus": func(status envAnalysisNotifiyStatus) string {
+			if status == envAnalysisNotifiyStatusNormal {
+				return "正常"
+			} else if status == envAnalysisNotifiyStatusAbnormal {
+				return "异常"
+			}
+			return "异常"
+		},
+		"getIcon": func(status envAnalysisNotifiyStatus) string {
+			if status == envAnalysisNotifiyStatusNormal {
+				return "👍"
+			}
+			return "⚠️"
+		},
+		"getTime": func() string {
+			return time.Now().Format("2006-01-02 15:04:05")
+		},
+	}).Parse(tplcontent))
+
+	buffer := bytes.NewBufferString("")
+	if err := tmpl.Execute(buffer, args); err != nil {
+		log.Errorf("getTplExec Execute err:%s", err)
+		return "", fmt.Errorf("getTplExec Execute err:%s", err)
+
+	}
+	return buffer.String(), nil
 }
 
 func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, productRenderset *models.RenderSet, args []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) ([]*SvcDiffResult, error) {

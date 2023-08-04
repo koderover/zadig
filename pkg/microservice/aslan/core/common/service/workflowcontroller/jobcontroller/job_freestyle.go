@@ -94,6 +94,11 @@ func (c *FreestyleJobCtl) Run(ctx context.Context) {
 }
 
 func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
+	for _, env := range c.jobTaskSpec.Properties.Envs {
+		if strings.HasPrefix(env.Value, "{{.job") && strings.HasSuffix(env.Value, "}}") {
+			env.Value = ""
+		}
+	}
 	// set default timeout
 	if c.jobTaskSpec.Properties.Timeout <= 0 {
 		c.jobTaskSpec.Properties.Timeout = 600

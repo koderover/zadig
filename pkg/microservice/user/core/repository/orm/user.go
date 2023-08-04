@@ -45,6 +45,19 @@ func GetUser(account string, identityType string, db *gorm.DB) (*models.User, er
 	return &user, nil
 }
 
+func GetUserCount(db *gorm.DB) (int64, error) {
+	var count int64
+	err := db.Table("user").Count(&count).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	return count, nil
+}
+
 // GetUserByUid Get a user based on uid
 func GetUserByUid(uid string, db *gorm.DB) (*models.User, error) {
 	var user models.User

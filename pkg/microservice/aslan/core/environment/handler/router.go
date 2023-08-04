@@ -171,6 +171,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/helm/values", GetProductionChartValues)
 		production.GET("/environments/:name/workloads", ListWorkloadsInEnv)
 
+		production.GET("/environments/:name/configs", GetProductionEnvConfigs)
+		production.PUT("/environments/:name/configs", UpdateProductionEnvConfigs)
+		production.POST("/environments/:name/analysis", RunProductionAnalysis)
+		production.GET("/environments/:name/analysis/cron", GetProductionEnvAnalysisCron)
+		production.PUT("/environments/:name/analysis/cron", UpsertProductionEnvAnalysisCron)
 		production.PUT("/environments/:name/k8s/globalVariables", UpdateK8sProductGlobalVariables)
 		production.POST("/environments/:name/k8s/globalVariables/preview", PreviewGlobalVariables)
 
@@ -260,6 +265,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/services/:serviceName/devmode/patch", PatchWorkload)
 		environments.POST("/:name/services/:serviceName/devmode/recover", RecoverWorkload)
 
+		environments.GET("/:name/configs", GetEnvConfigs)
+		environments.PUT("/:name/configs", UpdateEnvConfigs)
+		environments.POST("/:name/analysis", RunAnalysis)
+		environments.GET("/:name/analysis/cron", GetEnvAnalysisCron)
+		environments.PUT("/:name/analysis/cron", UpsertEnvAnalysisCron)
+		environments.GET("/analysis/history", GetEnvAnalysisHistory)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -320,6 +331,8 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 
 	production := router.Group("production")
 	{
+		production.GET("", OpenAPIListProductionEnvs)
+
 		production.DELETE("/:name", OpenAPIDeleteProductionEnv)
 		production.POST("", OpenAPICreateProductionEnv)
 		production.GET("/:name", OpenAPIGetProductionEnvDetail)
@@ -328,6 +341,7 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 		production.POST("/service/yaml", OpenAPIApplyProductionYamlService)
 		production.DELETE("/service/yaml", OpenAPIDeleteProductionYamlServiceFromEnv)
 
+		production.PUT("/envcfgs", OpenAPIUpdateProductionCommonEnvCfg)
 		production.POST("/:name/envcfgs", OpenAPICreateCommonEnvCfg)
 		production.GET("/:name/envcfgs", OpenAPIListProductionCommonEnvCfg)
 		production.GET("/:name/envcfg/:cfgName", OpenAPIGetProductionCommonEnvCfg)

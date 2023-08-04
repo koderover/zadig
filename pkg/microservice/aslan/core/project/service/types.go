@@ -102,6 +102,7 @@ type ProjectBrief struct {
 	ProjectName string `json:"project_name"`
 	ProjectKey  string `json:"project_key"`
 	Description string `json:"description"`
+	DeployType  string `json:"deploy_type"`
 }
 
 type EnvInfo struct {

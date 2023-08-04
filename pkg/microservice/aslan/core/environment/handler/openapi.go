@@ -19,6 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,6 +34,19 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
+
+func generalOpenAPIRequestValidate(c *gin.Context) (string, string, error) {
+	projectName := c.Query("projectKey")
+	if projectName == "" {
+		return "", "", errors.New("projectKey can't be empty")
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		return "", "", errors.New("envKey can't be empty")
+	}
+	return projectName, envName, nil
+}
 
 func OpenAPIScaleWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -82,10 +96,10 @@ func OpenAPIApplyYamlService(c *gin.Context) {
 		return
 	}
 
-	projectKey := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
@@ -124,7 +138,7 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 	req := new(service.OpenAPIDeleteYamlServiceFromEnvReq)
 
 	if err := c.BindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid request body")
 		return
 	}
 
@@ -135,10 +149,10 @@ func OpenAPIDeleteYamlServiceFromEnv(c *gin.Context) {
 		return
 	}
 
-	projectKey := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
@@ -168,7 +182,7 @@ func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
 
 	req := new(service.OpenAPIDeleteYamlServiceFromEnvReq)
 	if err := c.BindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid request body")
 		return
 	}
 	// input validation for OpenAPI
@@ -178,9 +192,9 @@ func OpenAPIDeleteProductionYamlServiceFromEnv(c *gin.Context) {
 		return
 	}
 
-	projectKey := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
@@ -204,9 +218,9 @@ func OpenAPIApplyProductionYamlService(c *gin.Context) {
 		return
 	}
 
-	projectKey := c.Query("projectName")
+	projectKey := c.Query("projectKey")
 	if projectKey == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName cannot be empty")
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey cannot be empty")
 		return
 	}
 
@@ -232,28 +246,58 @@ func OpenAPIApplyProductionYamlService(c *gin.Context) {
 func OpenAPIUpdateCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	log := ctx.Logger
 
 	args := new(service.OpenAPIEnvCfgArgs)
 
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("UpdateCommonEnvCfg c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrUpdateEnvCfg.AddErr(fmt.Errorf("failed to get request data err : %v", err))
+		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateCommonEnvCfg json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrUpdateEnvCfg.AddErr(fmt.Errorf("failed to unmarshal request data err : %v", err))
+		return
 	}
-	projectName := c.Query("projectName")
-	args.ProductName = projectName
+	projectKey := c.Query("projectKey")
+	args.ProductName = projectKey
 	if err := args.Validate(); err != nil {
-		log.Errorf("UpdateCommonEnvCfg args.Validate err : %v", err)
-		ctx.Err = err
+		ctx.Err = e.ErrUpdateEnvCfg.AddErr(fmt.Errorf("failed to validate request data err : %v", err))
 		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, args.Name)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, args.Name)
 
-	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectName, args, ctx.UserName, ctx.Logger)
+	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectKey, args, ctx.UserName, ctx.Logger)
+}
+
+func OpenAPIUpdateProductionCommonEnvCfg(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.OpenAPIEnvCfgArgs)
+
+	data, err := c.GetRawData()
+	if err != nil {
+		msg := fmt.Errorf("failed to get request data err : %v", err)
+		ctx.Err = e.ErrUpdateEnvCfg.AddErr(msg)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		msg := fmt.Errorf("failed to unmarshal request data err : %v", err)
+		ctx.Err = e.ErrUpdateEnvCfg.AddErr(msg)
+		return
+	}
+	projectKey := c.Query("projectKey")
+	args.ProductName = projectKey
+	if err := args.Validate(); err != nil {
+		msg := fmt.Errorf("failed to validate request data err : %v", err)
+		ctx.Err = e.ErrUpdateEnvCfg.AddErr(msg)
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "(OpenAPI)"+"更新", "生产环境配置", fmt.Sprintf("%s:%s:%s", args.EnvName, args.CommonEnvCfgType, args.Name), string(data), ctx.Logger, args.Name)
+
+	ctx.Err = service.OpenAPIUpdateCommonEnvCfg(projectKey, args, ctx.UserName, ctx.Logger)
 }
 
 func OpenAPICreateCommonEnvCfg(c *gin.Context) {
@@ -270,7 +314,7 @@ func OpenAPICreateCommonEnvCfg(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	args.ProductName, args.EnvName, err = generalRequestValidate(c)
+	args.ProductName, args.EnvName, err = generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -293,7 +337,7 @@ func OpenAPIListProductionCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -306,7 +350,7 @@ func OpenAPIGetProductionCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -324,7 +368,7 @@ func OpenAPIListCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -337,7 +381,7 @@ func OpenAPIGetCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -355,7 +399,7 @@ func OpenAPIDeleteCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -379,7 +423,7 @@ func OpenAPIDeleteProductionEnvCommonEnvCfg(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -414,7 +458,7 @@ func OpenAPICreateK8sEnv(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	args.ProjectName = c.Query("projectName")
+	args.ProjectName = c.Query("projectKey")
 	if err := args.Validate(); err != nil {
 		ctx.Err = err
 		return
@@ -429,7 +473,7 @@ func OpenAPIDeleteProductionEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -454,7 +498,7 @@ func OpenAPICreateProductionEnv(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	args.ProjectName = c.Query("projectName")
+	args.ProjectName = c.Query("projectKey")
 	args.Production = true
 	if err := args.Validate(); err != nil {
 		ctx.Err = err
@@ -470,7 +514,7 @@ func OpenAPIDeleteEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrDeleteResource.AddErr(err)
 		return
@@ -489,7 +533,7 @@ func OpenAPIGetEnvDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -502,7 +546,7 @@ func OpenAPIGetProductionEnvDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -526,7 +570,7 @@ func OpenAPIUpdateEnvBasicInfo(c *gin.Context) {
 		return
 	}
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -551,7 +595,7 @@ func OpenAPIUpdateYamlServices(c *gin.Context) {
 		return
 	}
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -565,7 +609,7 @@ func OpenAPIGetEnvGlobalVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -578,7 +622,7 @@ func OpenAPIGetProductionEnvGlobalVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -602,7 +646,7 @@ func OpenAPIUpdateGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -627,7 +671,7 @@ func OpenAPIUpdateProductionYamlServices(c *gin.Context) {
 		return
 	}
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -652,7 +696,7 @@ func OpenAPIUpdateProductionGlobalVariables(c *gin.Context) {
 		return
 	}
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -677,7 +721,7 @@ func OpenAPIUpdateProductionEnvBasicInfo(c *gin.Context) {
 		return
 	}
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -691,14 +735,31 @@ func OpenAPIListEnvs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.OpenAPIListEnvs(c.Query("projectName"), ctx.Logger)
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		return
+	}
+	ctx.Resp, ctx.Err = service.OpenAPIListEnvs(projectKey, ctx.Logger)
+}
+
+func OpenAPIListProductionEnvs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectKey := c.Query("projectKey")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		return
+	}
+	ctx.Resp, ctx.Err = service.OpenAPIListProductionEnvs(projectKey, ctx.Logger)
 }
 
 func OpenAPIRestartService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName, envName, err := generalRequestValidate(c)
+	projectName, envName, err := generalOpenAPIRequestValidate(c)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return

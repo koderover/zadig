@@ -74,8 +74,8 @@ type CreateTaskV4Resp struct {
 
 type WorkflowTaskPreview struct {
 	TaskID              int64                 `bson:"task_id"                   json:"task_id"`
-	WorkflowName        string                `bson:"workflow_name"             json:"workflow_name"`
-	WorkflowDisplayName string                `bson:"workflow_display_name"     json:"workflow_display_name"`
+	WorkflowName        string                `bson:"workflow_name"             json:"workflow_key"`
+	WorkflowDisplayName string                `bson:"workflow_display_name"     json:"workflow_name"`
 	Params              []*commonmodels.Param `bson:"params"                    json:"params"`
 	Status              config.Status         `bson:"status"                    json:"status,omitempty"`
 	TaskCreator         string                `bson:"task_creator"              json:"task_creator,omitempty"`
@@ -84,7 +84,7 @@ type WorkflowTaskPreview struct {
 	StartTime           int64                 `bson:"start_time"                json:"start_time,omitempty"`
 	EndTime             int64                 `bson:"end_time"                  json:"end_time,omitempty"`
 	Stages              []*StageTaskPreview   `bson:"stages"                    json:"stages"`
-	ProjectName         string                `bson:"project_name"              json:"project_name"`
+	ProjectName         string                `bson:"project_name"              json:"project_key"`
 	Error               string                `bson:"error,omitempty"           json:"error,omitempty"`
 	IsRestart           bool                  `bson:"is_restart"                json:"is_restart"`
 	Debug               bool                  `bson:"debug"                     json:"debug"`

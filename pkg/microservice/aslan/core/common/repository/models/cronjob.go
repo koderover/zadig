@@ -21,21 +21,28 @@ import (
 )
 
 type Cronjob struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty"                       json:"id"`
-	Name           string             `bson:"name"                                json:"name"`
-	Type           string             `bson:"type"                                json:"type"`
-	Number         uint64             `bson:"number"                              json:"number"`
-	Frequency      string             `bson:"frequency"                           json:"frequency"`
-	Time           string             `bson:"time"                                json:"time"`
-	Cron           string             `bson:"cron"                                json:"cron"`
-	ProductName    string             `bson:"product_name,omitempty"              json:"product_name,omitempty"`
-	MaxFailure     int                `bson:"max_failures,omitempty"              json:"max_failures,omitempty"`
-	TaskArgs       *TaskArgs          `bson:"task_args,omitempty"                 json:"task_args,omitempty"`
-	WorkflowArgs   *WorkflowTaskArgs  `bson:"workflow_args,omitempty"             json:"workflow_args,omitempty"`
-	WorkflowV4Args *WorkflowV4        `bson:"workflow_v4_args"                    json:"workflow_v4_args"`
-	TestArgs       *TestTaskArgs      `bson:"test_args,omitempty"                 json:"test_args,omitempty"`
-	JobType        string             `bson:"job_type"                            json:"job_type"`
-	Enabled        bool               `bson:"enabled"                             json:"enabled"`
+	ID              primitive.ObjectID `bson:"_id,omitempty"                       json:"id"`
+	Name            string             `bson:"name"                                json:"name"`
+	Type            string             `bson:"type"                                json:"type"`
+	Number          uint64             `bson:"number"                              json:"number"`
+	Frequency       string             `bson:"frequency"                           json:"frequency"`
+	Time            string             `bson:"time"                                json:"time"`
+	Cron            string             `bson:"cron"                                json:"cron"`
+	ProductName     string             `bson:"product_name,omitempty"              json:"product_name,omitempty"`
+	MaxFailure      int                `bson:"max_failures,omitempty"              json:"max_failures,omitempty"`
+	TaskArgs        *TaskArgs          `bson:"task_args,omitempty"                 json:"task_args,omitempty"`
+	WorkflowArgs    *WorkflowTaskArgs  `bson:"workflow_args,omitempty"             json:"workflow_args,omitempty"`
+	WorkflowV4Args  *WorkflowV4        `bson:"workflow_v4_args"                    json:"workflow_v4_args"`
+	TestArgs        *TestTaskArgs      `bson:"test_args,omitempty"                 json:"test_args,omitempty"`
+	EnvAnalysisArgs *EnvAnalysisArgs   `bson:"env_analysis_args,omitempty"         json:"env_analysis_args,omitempty"`
+	JobType         string             `bson:"job_type"                            json:"job_type"`
+	Enabled         bool               `bson:"enabled"                             json:"enabled"`
+}
+
+type EnvAnalysisArgs struct {
+	ProductName string `bson:"product_name"            json:"product_name"`
+	EnvName     string `bson:"env_name"                json:"env_name"`
+	Production  bool   `bson:"production"              json:"production"`
 }
 
 func (Cronjob) TableName() string {

@@ -444,44 +444,52 @@ func OpenAPIUpdateGlobalVariables(args *OpenAPIEnvGlobalVariables, userName, req
 	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, logger)
 }
 
-func OpenAPIListEnvs(projectName string, logger *zap.SugaredLogger) (*OpenAPIListEnvsResp, error) {
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName})
+func OpenAPIListEnvs(projectName string, logger *zap.SugaredLogger) ([]*OpenAPIListEnvBrief, error) {
+	production := false
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, Production: &production})
 	if err != nil {
 		logger.Errorf("failed to list project:%s envs, err:%v", projectName, err)
-		return nil, err
+		return nil, fmt.Errorf("failed to list project:%s envs, err:%v", projectName, err)
 	}
 
-	resp := &OpenAPIListEnvsResp{
-		Total:          int64(len(envs)),
-		TestEnvs:       make([]*EnvBrief, 0),
-		ProductionEnvs: make([]*EnvBrief, 0),
-	}
+	resp := make([]*OpenAPIListEnvBrief, 0)
 	for _, env := range envs {
-		if env.Production {
-			resp.ProductionEnvs = append(resp.ProductionEnvs, &EnvBrief{
-				Production: env.Production,
-				EnvName:    env.EnvName,
-				Alias:      env.Alias,
-				Status:     env.Status,
-				ClusterID:  env.ClusterID,
-				Namespace:  env.Namespace,
-				RegistryID: env.RegistryID,
-				UpdateBy:   env.UpdateBy,
-				UpdateTime: env.UpdateTime,
-			})
-		} else {
-			resp.TestEnvs = append(resp.TestEnvs, &EnvBrief{
-				Production: env.Production,
-				EnvName:    env.EnvName,
-				Alias:      env.Alias,
-				Status:     env.Status,
-				ClusterID:  env.ClusterID,
-				Namespace:  env.Namespace,
-				RegistryID: env.RegistryID,
-				UpdateBy:   env.UpdateBy,
-				UpdateTime: env.UpdateTime,
-			})
-		}
+		resp = append(resp, &OpenAPIListEnvBrief{
+			Production: env.Production,
+			EnvName:    env.EnvName,
+			Alias:      env.Alias,
+			Status:     env.Status,
+			ClusterID:  env.ClusterID,
+			Namespace:  env.Namespace,
+			RegistryID: env.RegistryID,
+			UpdateBy:   env.UpdateBy,
+			UpdateTime: env.UpdateTime,
+		})
+	}
+	return resp, nil
+}
+
+func OpenAPIListProductionEnvs(projectName string, logger *zap.SugaredLogger) ([]*OpenAPIListEnvBrief, error) {
+	production := true
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, Production: &production})
+	if err != nil {
+		logger.Errorf("failed to list project:%s envs, err:%v", projectName, err)
+		return nil, fmt.Errorf("failed to list project:%s envs, err:%v", projectName, err)
+	}
+
+	resp := make([]*OpenAPIListEnvBrief, 0)
+	for _, env := range envs {
+		resp = append(resp, &OpenAPIListEnvBrief{
+			Production: env.Production,
+			EnvName:    env.EnvName,
+			Alias:      env.Alias,
+			Status:     env.Status,
+			ClusterID:  env.ClusterID,
+			Namespace:  env.Namespace,
+			RegistryID: env.RegistryID,
+			UpdateBy:   env.UpdateBy,
+			UpdateTime: env.UpdateTime,
+		})
 	}
 	return resp, nil
 }
@@ -671,7 +679,6 @@ func OpenAPIGetCommonEnvCfg(projectName, envName, cfgType, name string, logger *
 							Owner:       in.SourceDetail.GitRepoConfig.Owner,
 							Repo:        in.SourceDetail.GitRepoConfig.Repo,
 							Branch:      in.SourceDetail.GitRepoConfig.Branch,
-							Namespace:   in.SourceDetail.GitRepoConfig.Namespace,
 							ValuesPaths: in.SourceDetail.GitRepoConfig.ValuesPaths,
 							CodehostKey: codeSource.Alias,
 						},
@@ -716,7 +723,6 @@ func OpenAPIGetCommonEnvCfg(projectName, envName, cfgType, name string, logger *
 							Owner:       p.SourceDetail.GitRepoConfig.Owner,
 							Repo:        p.SourceDetail.GitRepoConfig.Repo,
 							Branch:      p.SourceDetail.GitRepoConfig.Branch,
-							Namespace:   p.SourceDetail.GitRepoConfig.Namespace,
 							ValuesPaths: p.SourceDetail.GitRepoConfig.ValuesPaths,
 							CodehostKey: codeSource.Alias,
 						},
@@ -762,7 +768,6 @@ func OpenAPIGetCommonEnvCfg(projectName, envName, cfgType, name string, logger *
 							Owner:       s.SourceDetail.GitRepoConfig.Owner,
 							Repo:        s.SourceDetail.GitRepoConfig.Repo,
 							Branch:      s.SourceDetail.GitRepoConfig.Branch,
-							Namespace:   s.SourceDetail.GitRepoConfig.Namespace,
 							ValuesPaths: s.SourceDetail.GitRepoConfig.ValuesPaths,
 							CodehostKey: codeSource.Alias,
 						},
@@ -808,7 +813,6 @@ func OpenAPIGetCommonEnvCfg(projectName, envName, cfgType, name string, logger *
 							Owner:       c.SourceDetail.GitRepoConfig.Owner,
 							Repo:        c.SourceDetail.GitRepoConfig.Repo,
 							Branch:      c.SourceDetail.GitRepoConfig.Branch,
-							Namespace:   c.SourceDetail.GitRepoConfig.Namespace,
 							ValuesPaths: c.SourceDetail.GitRepoConfig.ValuesPaths,
 							CodehostKey: codeSource.Alias,
 						},
