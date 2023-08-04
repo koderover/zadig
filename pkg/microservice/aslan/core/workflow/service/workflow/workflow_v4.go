@@ -2438,6 +2438,7 @@ func GetBlueGreenServiceK8sServiceYaml(projectName, envName, serviceName string)
 			service = &corev1.Service{}
 			err := runtime.DefaultUnstructuredConverter.FromUnstructured(resource.Object, service)
 			if err != nil {
+				log.Errorf("failed to convert service %s service to service object: %v\nyaml: %s", serviceName, err, yamlContent)
 				return "", errors.Errorf("failed to convert service %s service to service object: %v", serviceName, err)
 			}
 			service.Name = service.Name + "-blue"
