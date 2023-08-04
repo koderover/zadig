@@ -700,7 +700,8 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "blue-green-deploy",
 							JobType: config.JobK8sBlueGreenDeploy,
 							Spec: commonmodels.BlueGreenDeployV2JobSpec{
-								Version: "v2",
+								Version:    "v2",
+								Production: true,
 							},
 						},
 					},
