@@ -273,8 +273,6 @@ func (c *BlueGreenReleaseV2JobCtl) wait(ctx context.Context) {
 func (c *BlueGreenReleaseV2JobCtl) timeout() int {
 	if c.jobTaskSpec.DeployTimeout == 0 {
 		c.jobTaskSpec.DeployTimeout = setting.DeployTimeout
-	} else {
-		c.jobTaskSpec.DeployTimeout = c.jobTaskSpec.DeployTimeout * 60
 	}
 	return c.jobTaskSpec.DeployTimeout
 }

@@ -22,11 +22,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	v1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/labels"
-
 	"go.uber.org/zap"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -231,8 +230,6 @@ func (c *BlueGreenDeployV2JobCtl) wait(ctx context.Context) {
 func (c *BlueGreenDeployV2JobCtl) timeout() int {
 	if c.jobTaskSpec.DeployTimeout == 0 {
 		c.jobTaskSpec.DeployTimeout = setting.DeployTimeout
-	} else {
-		c.jobTaskSpec.DeployTimeout = c.jobTaskSpec.DeployTimeout * 60
 	}
 	return c.jobTaskSpec.DeployTimeout
 }
