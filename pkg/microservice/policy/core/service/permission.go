@@ -239,30 +239,30 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 			for _, rule := range role.Rules {
 				if role.Name != string(setting.ReadProjectOnly) {
 					projectVerbSetMap[rolebinding.Namespace].Insert(rule.Verbs...)
-				} else {
-					// read-project-only is a special role that does not have rule and verbs, we manually check if the user is permitted to
-					// get workflow and environment
-					workflowReadPermission, err := internalhandler.CheckPermissionGivenByCollaborationMode(uid, rolebinding.Namespace, types.ResourceTypeWorkflow, types.WorkflowActionView)
-					if err != nil {
-						return nil, fmt.Errorf("failed to read collaboration permission for project: %s, error: %s", rolebinding.Namespace, err)
-					}
-					if workflowReadPermission {
-						projectVerbSetMap[rolebinding.Namespace].Insert(types.WorkflowActionView)
-					}
-
-					envReadPermission, err := internalhandler.CheckPermissionGivenByCollaborationMode(uid, rolebinding.Namespace, types.ResourceTypeEnvironment, types.EnvActionView)
-					if err != nil {
-						return nil, fmt.Errorf("failed to read collaboration permission for project: %s, error: %s", rolebinding.Namespace, err)
-					}
-					if envReadPermission {
-						projectVerbSetMap[rolebinding.Namespace].Insert(types.EnvActionView)
-					}
 				}
 			}
 		}
 	}
 
 	for project, verbSet := range projectVerbSetMap {
+		// collaboration mode is a special that does not have rule and verbs, we manually check if the user is permitted to
+		// get workflow and environment
+		workflowReadPermission, err := internalhandler.CheckPermissionGivenByCollaborationMode(uid, project, types.ResourceTypeWorkflow, types.WorkflowActionView)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read collaboration permission for project: %s, error: %s", project, err)
+		}
+		if workflowReadPermission {
+			projectVerbSetMap[project].Insert(types.WorkflowActionView)
+		}
+
+		envReadPermission, err := internalhandler.CheckPermissionGivenByCollaborationMode(uid, project, types.ResourceTypeEnvironment, types.EnvActionView)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read collaboration permission for project: %s, error: %s", project, err)
+		}
+		if envReadPermission {
+			projectVerbSetMap[project].Insert(types.EnvActionView)
+		}
+
 		projectVerbMap[project] = verbSet.List()
 	}
 
