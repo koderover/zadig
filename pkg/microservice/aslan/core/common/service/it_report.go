@@ -216,6 +216,9 @@ func GetWorkflowV4LocalTestSuite(workflowName, jobName string, taskID int64, log
 			return testReport, fmt.Errorf("failed to create s3 client for download, error: %+v", err)
 		}
 		if err = client.Download(s3Storage.Bucket, objectKey, filename); err != nil {
+			if strings.Contains(err.Error(), "NoSuchKey") {
+				return testReport, fmt.Errorf("getLocalTestSuite s3 Download err: %v", err)
+			}
 			log.Errorf("GetLocalTestSuite s3 Download err:%v", err)
 			return testReport, fmt.Errorf("getLocalTestSuite s3 Download err: %v", err)
 		}
