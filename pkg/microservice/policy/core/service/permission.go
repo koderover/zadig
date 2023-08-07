@@ -249,7 +249,10 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 		// get workflow and environment
 		workflowReadPermission, err := internalhandler.CheckPermissionGivenByCollaborationMode(uid, project, types.ResourceTypeWorkflow, types.WorkflowActionView)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read collaboration permission for project: %s, error: %s", project, err)
+			// there are cases where the users do not have any collaboration modes, hence no instances found
+			// in these cases we just ignore the error, and set permission to false
+			log.Warnf("failed to read collaboration permission for project: %s, error: %s", project, err)
+			workflowReadPermission = false
 		}
 		if workflowReadPermission {
 			projectVerbSetMap[project].Insert(types.WorkflowActionView)
@@ -257,7 +260,10 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 
 		envReadPermission, err := internalhandler.CheckPermissionGivenByCollaborationMode(uid, project, types.ResourceTypeEnvironment, types.EnvActionView)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read collaboration permission for project: %s, error: %s", project, err)
+			// there are cases where the users do not have any collaboration modes, hence no instances found
+			// in these cases we just ignore the error, and set permission to false
+			log.Warnf("failed to read collaboration permission for project: %s, error: %s", project, err)
+			envReadPermission = false
 		}
 		if envReadPermission {
 			projectVerbSetMap[project].Insert(types.EnvActionView)
