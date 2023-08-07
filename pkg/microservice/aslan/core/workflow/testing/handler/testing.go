@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/types"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -153,28 +154,32 @@ func ListTestModules(c *gin.Context) {
 		return
 	}
 
-	projects := c.QueryArray("projects")
+	projects := make([]string, 0)
+	// if a specific projectName is given, we query for that
 	projectName := c.Query("projectName")
 	if len(projects) == 0 && len(projectName) > 0 {
-		projects = []string{projectName}
-	}
-
-	// TODO: projects query is used in picket, which probably won't be working now, fix it.
-	// we need to have authorizations to ALL the projects given
-	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		for _, projectKey := range projects {
-			if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+		// authorization check
+		if !ctx.Resources.IsSystemAdmin {
+			if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
 				ctx.UnAuthorized = true
 				return
 			}
 
-			if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[projectKey].Test.View {
+			if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+				!ctx.Resources.ProjectAuthInfo[projectName].Test.View {
 				ctx.UnAuthorized = true
 				return
 			}
 		}
+		projects = []string{projectName}
+	} else {
+		// otherwise all projects with the get testing permission will be added to the projects
+		allowedProjects, found, err := internalhandler.ListAuthorizedProjectsByResourceAndVerb(ctx.UserID, types.ResourceTypeTest, types.TestActionView)
+		if err != nil || !found {
+			ctx.Resp = make([]*service.TestingOpt, 0)
+			return
+		}
+		projects = allowedProjects
 	}
 
 	ctx.Resp, ctx.Err = service.ListTestingOpt(projects, c.Query("testType"), ctx.Logger)

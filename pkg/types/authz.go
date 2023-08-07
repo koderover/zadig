@@ -20,6 +20,7 @@ package types
 const (
 	ResourceTypeWorkflow    = "workflow"
 	ResourceTypeEnvironment = "environment"
+	ResourceTypeTest        = "test"
 
 	WorkflowTypeCustomeWorkflow = "common_workflow"
 )
@@ -36,6 +37,8 @@ const (
 	EnvActionEditConfig = "config_environment"
 	EnvActionManagePod  = "manage_environment"
 	EnvActionDebug      = "debug_pod"
+	// test actions
+	TestActionView = "get_test"
 )
 
 type CheckCollaborationModePermissionReq struct {

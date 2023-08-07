@@ -80,6 +80,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		router.GET("/authorized-projects", user.ListAuthorizedProject)
 
+		router.GET("/authorized-projects/verb", user.ListAuthorizedProjectByVerb)
+
 		router.GET("/authorized-workflows", user.ListAuthorizedWorkflows)
 
 		router.GET("/authorized-envs", user.ListAuthorizedEnvs)

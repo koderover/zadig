@@ -106,6 +106,37 @@ func ListAuthorizedProject(c *gin.Context) {
 	ctx.Resp = resp
 }
 
+func ListAuthorizedProjectByVerb(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	uid := c.Query("uid")
+	if uid == "" {
+		ctx.Resp = &types.ListAuthorizedProjectResp{ProjectList: []string{}}
+		return
+	}
+
+	resource := c.Query("resource")
+	verb := c.Query("verb")
+
+	authorizedProject, err := userservice.ListAuthorizedProjectByVerb(uid, resource, verb, ctx.Logger)
+	if err != nil {
+		ctx.Resp = &types.ListAuthorizedProjectResp{
+			ProjectList: []string{},
+			Error:       err.Error(),
+		}
+		return
+	}
+	resp := &types.ListAuthorizedProjectResp{
+		ProjectList: authorizedProject,
+		Found:       true,
+	}
+	if len(authorizedProject) == 0 {
+		resp.Found = false
+	}
+	ctx.Resp = resp
+}
+
 func ListAuthorizedWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

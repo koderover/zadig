@@ -117,6 +117,27 @@ func (c *RoleColl) ListBySpaceAndName(projectName string, name string) ([]*model
 	return res, nil
 }
 
+func (c *RoleColl) ListRoleByVerb(projectName, verb string) ([]*models.Role, error) {
+	var res []*models.Role
+
+	ctx := context.Background()
+	query := bson.M{
+		"namespace":  projectName,
+		"rules.verb": verb,
+	}
+
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (c *RoleColl) Create(obj *models.Role) error {
 	if obj == nil {
 		return fmt.Errorf("nil object")

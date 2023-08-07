@@ -193,6 +193,27 @@ func (c *Client) ListAuthorizedProjects(uid string) ([]string, bool, error) {
 	return resp.ProjectList, resp.Found, nil
 }
 
+func (c *Client) ListAuthorizedProjectsByResourceAndVerb(uid, resource, verb string) ([]string, bool, error) {
+	url := "/authorized-projects"
+
+	resp := &types.ListAuthorizedProjectResp{}
+
+	queries := map[string]string{
+		"uid":      uid,
+		"resource": resource,
+		"verb":     verb,
+	}
+
+	_, err := c.Get(url, httpclient.SetQueryParams(queries), httpclient.SetResult(resp))
+	if err != nil {
+		return []string{}, false, err
+	}
+	if len(resp.Error) > 0 {
+		return []string{}, false, errors.New(resp.Error)
+	}
+	return resp.ProjectList, resp.Found, nil
+}
+
 func (c *Client) ListAuthorizedWorkflows(uid, projectKey string) ([]string, []string, error) {
 	url := "/authorized-workflows"
 

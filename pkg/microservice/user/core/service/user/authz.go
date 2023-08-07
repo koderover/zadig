@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -187,8 +188,10 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 
 	collaborationModeList, err := mongodb.NewCollaborationModeColl().ListUserCollaborationMode(uid)
 	if err != nil {
-		logger.Errorf("failed to find user collaboration mode, error: %s", err)
-		return nil, fmt.Errorf("failed to find user collaboration mode, error: %s", err)
+		// this case is special, since the user might not have collaboration mode, we simply return the project list
+		// given by the role.
+		logger.Warnf("failed to find user collaboration mode, error: %s", err)
+		return respSet.List(), nil
 	}
 
 	// if user have collaboration mode, they must have access to this project.
@@ -198,6 +201,53 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 
 	// removing * from the authorized project since it is a special case
 	respSet.Delete("*")
+
+	return respSet.List(), nil
+}
+
+func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.SugaredLogger) ([]string, error) {
+	respSet := sets.NewString()
+
+	userRoleBindingList, err := mongodb.NewRoleBindingColl().ListUserRoleBinding(uid)
+	if err != nil {
+		logger.Errorf("failed to list user role binding, error: %s", err)
+		return nil, fmt.Errorf("failed to list user role binding, error: %s", err)
+	}
+
+	// generate a corresponding role list for each namespace(project)
+	namespacedRoleMap := make(map[string]sets.String)
+
+	for _, roleBinding := range userRoleBindingList {
+		if _, ok := namespacedRoleMap[roleBinding.Namespace]; !ok {
+			namespacedRoleMap[roleBinding.Namespace] = sets.NewString()
+		}
+		namespacedRoleMap[roleBinding.Namespace].Insert(roleBinding.RoleRef.Name)
+	}
+
+	for project, roleSet := range namespacedRoleMap {
+		// if user is  project-admin, they have every permission in this project
+		if roleSet.Has(string(setting.ProjectAdmin)) {
+			respSet.Insert(project)
+			continue
+		}
+
+		allowedActionRoleList, err := mongodb.NewRoleColl().ListRoleByVerb(project, verb)
+		if err != nil {
+			logger.Errorf("failed to list user role binding, error: %s", err)
+			return nil, fmt.Errorf("failed to list user role binding, error: %s", err)
+		}
+		allowedRoleList := make([]string, 0)
+		for _, allowedRole := range allowedActionRoleList {
+			allowedRoleList = append(allowedRoleList, allowedRole.Name)
+		}
+		if roleSet.HasAny(allowedRoleList...) {
+			respSet.Insert(project)
+		}
+	}
+
+	if resource == types.ResourceTypeWorkflow || resource == types.ResourceTypeEnvironment {
+		// TODO: after role-based permission is implemented, we should check for collaboration mode after, but just for workflow and envs.
+	}
 
 	return respSet.List(), nil
 }

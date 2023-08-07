@@ -144,6 +144,13 @@ func ListAuthorizedProjects(uid string) ([]string, bool, error) {
 	return user.New().ListAuthorizedProjects(uid)
 }
 
+func ListAuthorizedProjectsByResourceAndVerb(uid, resource, verb string) ([]string, bool, error) {
+	if uid == "" {
+		return []string{}, false, errors.New("empty user ID")
+	}
+	return user.New().ListAuthorizedProjectsByResourceAndVerb(uid, resource, verb)
+}
+
 // CheckPermissionGivenByCollaborationMode checks if a user is permitted to perform specific action in a given project.
 // Although collaboration mode is used to control the action to specific resources, under some circumstances, there are
 // leaks/designs that allows user with resource permission not related to the corresponding resource to access.
