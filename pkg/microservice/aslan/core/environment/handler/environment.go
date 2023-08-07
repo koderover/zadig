@@ -1683,6 +1683,7 @@ func GetEnvironment(c *gin.Context) {
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.Logger.Errorf("project %s not found", projectKey)
 			ctx.UnAuthorized = true
 			return
 		}

@@ -140,6 +140,7 @@ func ListUsers(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
+		ctx.Logger.Errorf("user %s is not system admin, can not list users", ctx.UserID)
 		ctx.UnAuthorized = true
 		return
 	}

@@ -104,33 +104,31 @@ const (
 )
 
 type AuthorizedResources struct {
-	IsSystemAdmin   bool
-	ProjectAuthInfo map[string]ProjectActions
-	SystemActions   *SystemActions
-	//AdditionalResource *AdditionalResources
-	//SystemAuthInfo
+	IsSystemAdmin   bool                      `json:"is_system_admin"`
+	ProjectAuthInfo map[string]ProjectActions `json:"project_auth_info"`
+	SystemActions   *SystemActions            `json:"system_actions"`
 }
 
 type ProjectActions struct {
-	IsProjectAdmin    bool
-	Workflow          *WorkflowActions
-	Env               *EnvActions
-	ProductionEnv     *ProductionEnvActions
-	Service           *ServiceActions
-	ProductionService *ProductionServiceActions
-	Build             *BuildActions
-	Test              *TestActions
-	Scanning          *ScanningActions
-	Version           *VersionActions
+	IsProjectAdmin    bool                      `json:"is_system_admin"`
+	Workflow          *WorkflowActions          `json:"workflow"`
+	Env               *EnvActions               `json:"env"`
+	ProductionEnv     *ProductionEnvActions     `json:"production_env"`
+	Service           *ServiceActions           `json:"service"`
+	ProductionService *ProductionServiceActions `json:"production_service"`
+	Build             *BuildActions             `json:"build"`
+	Test              *TestActions              `json:"test"`
+	Scanning          *ScanningActions          `json:"scanning"`
+	Version           *VersionActions           `json:"version"`
 }
 
 type SystemActions struct {
-	Project        *SystemProjectActions
-	Template       *TemplateActions
-	TestCenter     *TestCenterActions
-	ReleaseCenter  *ReleaseCenterActions
-	DeliveryCenter *DeliveryCenterActions
-	DataCenter     *DataCenterActions
+	Project        *SystemProjectActions  `json:"project"`
+	Template       *TemplateActions       `json:"template"`
+	TestCenter     *TestCenterActions     `json:"test_center"`
+	ReleaseCenter  *ReleaseCenterActions  `json:"release_center"`
+	DeliveryCenter *DeliveryCenterActions `json:"delivery_center"`
+	DataCenter     *DataCenterActions     `json:"data_center"`
 }
 
 type WorkflowActions struct {
