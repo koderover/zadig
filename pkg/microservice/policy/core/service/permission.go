@@ -208,6 +208,7 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 	isSystemAdmin := false
 	projectAdminSet := sets.NewString()
 	projectVerbMap := make(map[string][]string)
+	projectVerbSetMap := make(map[string]sets.String)
 	systemVerbSet := sets.NewString()
 	for _, rolebinding := range roleBindings {
 		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) && rolebinding.RoleRef.Namespace == "*" {
@@ -229,26 +230,20 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 				systemVerbSet.Insert(rule.Verbs...)
 			}
 		} else {
-			if verbs, ok := projectVerbMap[rolebinding.Namespace]; ok {
-				verbSet := sets.NewString(verbs...)
-				for _, rule := range role.Rules {
-					var ruleVerbs []string
-					ruleVerbs = rule.Verbs
-					verbSet.Insert(ruleVerbs...)
-				}
-				projectVerbMap[rolebinding.Namespace] = verbSet.List()
+			if _, ok := projectVerbSetMap[rolebinding.Namespace]; !ok {
+				projectVerbSetMap[rolebinding.Namespace] = sets.NewString()
+			}
 
-			} else {
-				verbSet := sets.NewString()
-				for _, rule := range role.Rules {
-					var ruleVerbs []string
-					ruleVerbs = rule.Verbs
-					verbSet.Insert(ruleVerbs...)
-				}
-				projectVerbMap[rolebinding.Namespace] = verbSet.List()
+			for _, rule := range role.Rules {
+				projectVerbSetMap[rolebinding.Namespace].Insert(rule.Verbs...)
 			}
 		}
 	}
+
+	for project, verbSet := range projectVerbSetMap {
+		projectVerbMap[project] = verbSet.List()
+	}
+
 	return &GetUserRulesResp{
 		IsSystemAdmin:    isSystemAdmin,
 		ProjectVerbMap:   projectVerbMap,
