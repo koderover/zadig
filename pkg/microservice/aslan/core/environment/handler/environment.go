@@ -67,39 +67,103 @@ type UpdateProductRegistryRequest struct {
 }
 
 func ListProducts(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	projectName := c.Query("projectName")
 	if projectName == "" {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
 
-	envNames, found := internalhandler.GetResourcesInHeader(c)
-	if found && len(envNames) == 0 {
+	hasPermission := false
+	envFilter := make([]string, 0)
+
+	if ctx.Resources.IsSystemAdmin {
+		hasPermission = true
+	}
+
+	if projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+		if projectInfo.IsProjectAdmin ||
+			projectInfo.Env.View {
+			hasPermission = true
+		}
+	}
+
+	permittedEnv, err := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
+	if err != nil {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if permittedEnv.ReadEnvList != nil && len(permittedEnv.ReadEnvList) > 0 {
+		hasPermission = true
+		envFilter = permittedEnv.ReadEnvList
+	}
+
+	if !hasPermission {
 		ctx.Resp = []*service.ProductResp{}
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListProducts(ctx.UserID, projectName, envNames, false, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProducts(ctx.UserID, projectName, envFilter, false, ctx.Logger)
 }
 
 func ListProductionEnvs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	projectName := c.Query("projectName")
 	if projectName == "" {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
 
-	envNames, found := internalhandler.GetResourcesInHeader(c)
-	if found && len(envNames) == 0 {
+	hasPermission := false
+	envFilter := make([]string, 0)
+
+	if ctx.Resources.IsSystemAdmin {
+		hasPermission = true
+	}
+
+	if projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+		if projectInfo.IsProjectAdmin ||
+			projectInfo.Env.View {
+			hasPermission = true
+		}
+	}
+
+	permittedEnv, err := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
+	if err != nil {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if permittedEnv.ReadEnvList != nil && len(permittedEnv.ReadEnvList) > 0 {
+		hasPermission = true
+		envFilter = permittedEnv.ReadEnvList
+	}
+
+	if !hasPermission {
 		ctx.Resp = []*service.ProductResp{}
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envNames, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envFilter, ctx.Logger)
 }
 
 // @Summary Update Multi products
@@ -1683,14 +1747,9 @@ func GetEnvironment(c *gin.Context) {
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.Logger.Errorf("project %s not found", projectKey)
 			ctx.UnAuthorized = true
 			return
 		}
-
-		ctx.Logger.Infof("env name: %s", envName)
-		ctx.Logger.Infof("Is project admin: %+v", ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin)
-		ctx.Logger.Infof("permitted to view env: %+v", ctx.Resources.ProjectAuthInfo[projectKey].Env.View)
 
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
