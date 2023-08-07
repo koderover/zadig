@@ -225,8 +225,6 @@ func ListWorkflowV4(c *gin.Context) {
 				}
 				return
 			}
-			ctx.Logger.Infof("authorized workflow length: %d", len(authorizedWorkflow))
-			ctx.Logger.Infof("authorized custom workflow length: %d", len(authorizedWorkflowV4))
 		}
 	} else {
 		// if a user does not have a role in a project, it must also not have a collaboration mode
@@ -241,9 +239,8 @@ func ListWorkflowV4(c *gin.Context) {
 	workflowList, err := workflow.ListWorkflowV4(args.Project, args.ViewName, ctx.UserID, authorizedWorkflow, authorizedWorkflowV4, enableFilter, ctx.Logger)
 	resp := listWorkflowV4Resp{
 		WorkflowList: workflowList,
-		Total:        0,
+		Total:        int64(len(workflowList)),
 	}
-	ctx.Logger.Infof("final workflow resp length: %d", len(workflowList))
 	ctx.Resp = resp
 	ctx.Err = err
 }

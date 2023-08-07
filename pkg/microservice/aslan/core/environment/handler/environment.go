@@ -97,12 +97,7 @@ func ListProducts(c *gin.Context) {
 		}
 	}
 
-	permittedEnv, err := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
-	if err != nil {
-		ctx.UnAuthorized = true
-		return
-	}
-
+	permittedEnv, _ := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
 	if permittedEnv.ReadEnvList != nil && len(permittedEnv.ReadEnvList) > 0 {
 		hasPermission = true
 		envFilter = permittedEnv.ReadEnvList
@@ -147,12 +142,7 @@ func ListProductionEnvs(c *gin.Context) {
 		}
 	}
 
-	permittedEnv, err := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
-	if err != nil {
-		ctx.UnAuthorized = true
-		return
-	}
-
+	permittedEnv, _ := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
 	if permittedEnv.ReadEnvList != nil && len(permittedEnv.ReadEnvList) > 0 {
 		hasPermission = true
 		envFilter = permittedEnv.ReadEnvList
