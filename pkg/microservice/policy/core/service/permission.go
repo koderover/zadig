@@ -251,7 +251,7 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 		if err != nil {
 			// there are cases where the users do not have any collaboration modes, hence no instances found
 			// in these cases we just ignore the error, and set permission to false
-			log.Warnf("failed to read collaboration permission for project: %s, error: %s", project, err)
+			//log.Warnf("failed to read collaboration permission for project: %s, error: %s", project, err)
 			workflowReadPermission = false
 		}
 		if workflowReadPermission {
@@ -262,7 +262,7 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 		if err != nil {
 			// there are cases where the users do not have any collaboration modes, hence no instances found
 			// in these cases we just ignore the error, and set permission to false
-			log.Warnf("failed to read collaboration permission for project: %s, error: %s", project, err)
+			//log.Warnf("failed to read collaboration permission for project: %s, error: %s", project, err)
 			envReadPermission = false
 		}
 		if envReadPermission {
