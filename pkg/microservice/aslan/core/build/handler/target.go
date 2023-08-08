@@ -39,20 +39,40 @@ func ListDeployTarget(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 
+	// TODO: Authorization leak
+	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
 	// authorization checks
 	// FIX ME LATER: return empty when not authorized
 	// FIX ME LATER 2: the authorization requirement for this api has been changed from
 	// View Build -> View Service. If this is ok remove the TODO, if not just do a rollback
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
-			ctx.UnAuthorized = true
-			return
+
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Service.View ||
+			projectAuthInfo.Env.EditConfig {
+			permitted = true
 		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+		if err == nil {
+			permitted = collaborationAuthorizedEdit
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	ctx.Resp, ctx.Err = buildservice.ListDeployTarget(projectKey, ctx.Logger)

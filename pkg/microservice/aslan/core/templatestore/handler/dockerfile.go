@@ -127,13 +127,14 @@ func ListDockerfileTemplate(c *gin.Context) {
 		return
 	}
 
+	// TODO: Authorization leak
 	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.Template.View {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
+	//if !ctx.Resources.IsSystemAdmin {
+	//	if !ctx.Resources.SystemActions.Template.View {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//}
 
 	// Query Verification
 	args := listDockerfileQuery{}

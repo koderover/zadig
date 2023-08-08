@@ -61,13 +61,14 @@ func ListBuildTemplates(c *gin.Context) {
 		return
 	}
 
+	// TODO: Authorization leak
 	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.Template.View {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
+	//if !ctx.Resources.IsSystemAdmin {
+	//	if !ctx.Resources.SystemActions.Template.View {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//}
 
 	args := &listYamlQuery{}
 	if err := c.ShouldBindQuery(args); err != nil {

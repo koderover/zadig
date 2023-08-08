@@ -25,6 +25,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -143,17 +144,37 @@ func GetServiceTemplateOption(c *gin.Context) {
 		return
 	}
 
+	// TODO: Authorization leak
+	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
 	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Service.View {
-			ctx.UnAuthorized = true
-			return
+
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Env.EditConfig ||
+			projectAuthInfo.Service.View {
+			permitted = true
 		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+		if err == nil {
+			permitted = collaborationAuthorizedEdit
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
