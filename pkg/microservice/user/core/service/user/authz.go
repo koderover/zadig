@@ -38,6 +38,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		logger.Errorf("failed to list user role binding, error: %s", err)
 		return nil, err
 	}
+
 	// generate a corresponding role list for each namespace(project)
 	namespacedRoleMap := make(map[string][]string)
 
@@ -87,6 +88,28 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 				projectActionMap[project].IsProjectAdmin = true
 			}
 		}
+	}
+
+	// get all the public projects, if we didn't get one, simply skip it
+	publicRBList, err := mongodb.NewRoleBindingColl().ListPublicProjectRB("")
+	if err != nil {
+		logger.Debugf("No public project found, err: %s", err)
+	}
+
+	// user have all public project's read permission
+	for _, rb := range publicRBList {
+		if _, ok := projectActionMap[rb.Namespace]; !ok {
+			projectActionMap[rb.Namespace] = generateDefaultProjectActions()
+		}
+
+		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.WorkflowActionView)
+		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.EnvActionView)
+		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ProductionEnvActionView)
+		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.TestActionView)
+		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ScanActionView)
+		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ServiceActionView)
+		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.BuildActionView)
+		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.DeliveryActionView)
 	}
 
 	for _, role := range namespacedRoleMap[GeneralNamespace] {

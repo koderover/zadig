@@ -37,8 +37,18 @@ const (
 	EnvActionEditConfig = "config_environment"
 	EnvActionManagePod  = "manage_environment"
 	EnvActionDebug      = "debug_pod"
+	// production env actions
+	ProductionEnvActionView = "get_production_environment"
 	// test actions
 	TestActionView = "get_test"
+	// scan actions
+	ScanActionView = "get_scan"
+	// service actions
+	ServiceActionView = "get_service"
+	// build actions
+	BuildActionView = "get_build"
+	// delivery actions
+	DeliveryActionView = "get_delivery"
 )
 
 type CheckCollaborationModePermissionReq struct {

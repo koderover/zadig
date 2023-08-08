@@ -229,6 +229,7 @@ func ListWorkflowV4(c *gin.Context) {
 	} else {
 		// if a user does not have a role in a project, it must also not have a collaboration mode
 		// thus return nothing
+		ctx.Logger.Warnf("failed to get project auth info, returning empty workflow")
 		ctx.Resp = listWorkflowV4Resp{
 			WorkflowList: make([]*workflow.Workflow, 0),
 			Total:        0,
