@@ -106,7 +106,7 @@ func (c *RoleBindingColl) ListPublicProjectRB(projectName string) ([]*models.Rol
 
 	ctx := context.Background()
 	query := bson.M{}
-	if projectName == "" {
+	if projectName != "" {
 		query["namespace"] = projectName
 	}
 	query["subjects.uid"] = "*"

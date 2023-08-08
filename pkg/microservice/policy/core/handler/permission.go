@@ -34,7 +34,7 @@ func GetUserRulesByProject(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetUserRulesByProject(ctx.UserID, c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetUserPermissionByProject(ctx.UserID, c.Param("name"), ctx.Logger)
 }
 
 func GetUserReleaseWorkflows(c *gin.Context) {

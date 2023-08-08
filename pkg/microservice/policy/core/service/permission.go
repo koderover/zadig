@@ -37,6 +37,110 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger) (*GetUserRulesByProjectResp, error) {
+	var isProjectAdmin, isSystemAdmin bool
+	projectVerbSet := sets.NewString()
+	roleBindings, err := mongodb.NewRoleBindingColl().ListBy(projectName, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	roles, err := ListUserAllRolesByRoleBindings(roleBindings)
+	if err != nil {
+		return nil, err
+	}
+	roleMap := make(map[string]*models.Role)
+	for _, role := range roles {
+		roleMap[role.Name] = role
+	}
+	// roles controls all the permissions, with an exception of collaboration mode handling the additional workflow and env read verb.
+	for _, rolebinding := range roleBindings {
+		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) && rolebinding.RoleRef.Namespace == "*" {
+			isSystemAdmin = true
+			continue
+		} else if rolebinding.RoleRef.Name == string(setting.ProjectAdmin) {
+			isProjectAdmin = true
+			continue
+		}
+		if role, ok := roleMap[rolebinding.RoleRef.Name]; ok {
+			for _, rule := range role.Rules {
+				for _, verb := range rule.Verbs {
+					projectVerbSet.Insert(verb)
+				}
+			}
+		} else {
+			log.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
+			return nil, fmt.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
+		}
+	}
+
+	// special case for public project
+	publicRoleBindings, err := mongodb.NewRoleBindingColl().ListBy(projectName, "*")
+	if err != nil {
+		return nil, err
+	}
+	// if the project is public, give all read permission
+	if len(publicRoleBindings) > 0 {
+		projectVerbSet.Insert(types.WorkflowActionView)
+		projectVerbSet.Insert(types.EnvActionView)
+		projectVerbSet.Insert(types.ProductionEnvActionView)
+		projectVerbSet.Insert(types.TestActionView)
+		projectVerbSet.Insert(types.ScanActionView)
+		projectVerbSet.Insert(types.ServiceActionView)
+		projectVerbSet.Insert(types.BuildActionView)
+		projectVerbSet.Insert(types.DeliveryActionView)
+	}
+
+	// finally check the collaboration instance, set all the permission granted by collaboration instance to the corresponding map
+	collaborationInstance, err := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectName)
+	if err != nil {
+		// if no collaboration mode is found, simple return the result without error logs since this is not an error
+		return &GetUserRulesByProjectResp{
+			IsSystemAdmin:       isSystemAdmin,
+			IsProjectAdmin:      isProjectAdmin,
+			ProjectVerbs:        projectVerbSet.List(),
+			WorkflowVerbsMap:    nil,
+			EnvironmentVerbsMap: nil,
+		}, nil
+	}
+
+	workflowMap := make(map[string][]string)
+	envMap := make(map[string][]string)
+
+	// TODO: currently this map will have some problems when there is a naming conflict between product workflow and common workflow. fix it.
+	for _, workflow := range collaborationInstance.Workflows {
+		workflowVerbs := make([]string, 0)
+		for _, verb := range workflow.Verbs {
+			// special case: if the user have workflow view permission in collaboration mode, we add read workflow permission in the resp
+			if verb == types.WorkflowActionView {
+				projectVerbSet.Insert(types.WorkflowActionView)
+			}
+			workflowVerbs = append(workflowVerbs, verb)
+		}
+		workflowMap[workflow.Name] = workflowVerbs
+	}
+
+	for _, env := range collaborationInstance.Products {
+		envVerbs := make([]string, 0)
+		for _, verb := range env.Verbs {
+			// special case: if the user have env view permission in collaboration mode, we add read env permission in the resp
+			if verb == types.EnvActionView {
+				projectVerbSet.Insert(types.EnvActionView)
+			}
+			envVerbs = append(envVerbs, verb)
+		}
+		envMap[env.Name] = envVerbs
+	}
+
+	return &GetUserRulesByProjectResp{
+		IsSystemAdmin:       isSystemAdmin,
+		IsProjectAdmin:      isProjectAdmin,
+		ProjectVerbs:        projectVerbSet.List(),
+		WorkflowVerbsMap:    workflowMap,
+		EnvironmentVerbsMap: envMap,
+	}, nil
+}
+
 func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogger) (*GetUserRulesByProjectResp, error) {
 	roleBindings, err := mongodb.NewRoleBindingColl().ListBy(projectName, uid)
 	if err != nil {

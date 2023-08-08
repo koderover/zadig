@@ -198,6 +198,12 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 		return nil, fmt.Errorf("failed to list user role binding, error: %s", err)
 	}
 
+	// get all the public projects, if we didn't get one, simply skip it
+	publicRBList, err := mongodb.NewRoleBindingColl().ListPublicProjectRB("")
+	if err != nil {
+		logger.Debugf("No public project found, err: %s", err)
+	}
+
 	// generate a corresponding role list for each namespace(project)
 	namespacedRoleMap := make(map[string][]string)
 
@@ -207,6 +213,11 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 
 	for project, _ := range namespacedRoleMap {
 		respSet.Insert(project)
+	}
+
+	// the user can see public projects
+	for _, rb := range publicRBList {
+		respSet.Insert(rb.Namespace)
 	}
 
 	collaborationModeList, err := mongodb.NewCollaborationModeColl().ListUserCollaborationMode(uid)
