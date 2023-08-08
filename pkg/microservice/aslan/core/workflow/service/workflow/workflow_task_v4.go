@@ -529,22 +529,21 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 		return errors.New("工作流任务数据异常, 无法重试")
 	}
 
-	getStageAllJobTask := func(workflow *commonmodels.WorkflowV4, stageIndex int, taskID int64) (map[string]*commonmodels.JobTask, error) {
-		resp := make(map[string]*commonmodels.JobTask)
-		for _, job := range workflow.Stages[stageIndex].Jobs {
-			jobCtl, err := jobctl.InitJobCtl(job, workflow)
+	jobTaskMap := make(map[string]*commonmodels.JobTask)
+	for _, stage := range task.WorkflowArgs.Stages {
+		for _, job := range stage.Jobs {
+			jobCtl, err := jobctl.InitJobCtl(job, task.WorkflowArgs)
 			if err != nil {
-				return nil, errors.Errorf("init jobCtl %s error: %s", job.Name, err)
+				return errors.Errorf("init jobCtl %s error: %s", job.Name, err)
 			}
 			jobTasks, err := jobCtl.ToJobs(taskID)
 			if err != nil {
-				return nil, errors.Errorf("job %s toJobs error: %s", job.Name, err)
+				return errors.Errorf("job %s toJobs error: %s", job.Name, err)
 			}
 			for _, jobTask := range jobTasks {
-				resp[jobTask.Key] = jobTask
+				jobTaskMap[jobTask.Key] = jobTask
 			}
 		}
-		return resp, nil
 	}
 
 	for i, stage := range task.Stages {
@@ -561,10 +560,6 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			stage.Approval = task.OriginWorkflowArgs.Stages[i].Approval
 		}
 
-		m, err := getStageAllJobTask(task.WorkflowArgs, i, task.TaskID)
-		if err != nil {
-			return errors.Errorf("get stage %d all job task error: %s", i, err)
-		}
 		for _, jobTask := range stage.Jobs {
 			if jobTask.Status == config.StatusPassed {
 				continue
@@ -573,7 +568,7 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 			jobTask.StartTime = 0
 			jobTask.EndTime = 0
 			jobTask.Error = ""
-			if t, ok := m[jobTask.Key]; ok {
+			if t, ok := jobTaskMap[jobTask.Key]; ok {
 				jobTask.Spec = t.Spec
 			} else {
 				return errors.Errorf("failed to get jobTask %s origin spec", jobTask.Name)

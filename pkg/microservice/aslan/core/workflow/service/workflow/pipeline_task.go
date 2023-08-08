@@ -215,7 +215,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 
 		t, err := base.ToDeployTask(t)
 		if err == nil && t.Enabled {
-			env, err := commonrepo.NewProductColl().FindEnv(&commonrepo.ProductEnvFindOptions{
+			env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 				Namespace: pt.TaskArgs.Deploy.Namespace,
 				Name:      pt.ProductName,
 			})
