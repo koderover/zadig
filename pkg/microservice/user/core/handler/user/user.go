@@ -138,12 +138,13 @@ func ListUsers(c *gin.Context) {
 		return
 	}
 
+	// TODO: Authorization leaks
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.Logger.Errorf("user %s is not system admin, can not list users", ctx.UserID)
-		ctx.UnAuthorized = true
-		return
-	}
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.Logger.Errorf("user %s is not system admin, can not list users", ctx.UserID)
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	args := &user.QueryArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {

@@ -400,13 +400,14 @@ func GetChartVersionFromRepo(c *gin.Context) {
 		return
 	}
 
+	// TODO: Authorization leak
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
+	//if !ctx.Resources.IsSystemAdmin {
+	//	if !ctx.Resources.SystemActions.DeliveryCenter.ViewVersion {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//}
 
 	chartName := c.Query("chartName")
 	chartRepoName := c.Query("chartRepoName")
