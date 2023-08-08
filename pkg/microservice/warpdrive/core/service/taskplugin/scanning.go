@@ -151,7 +151,14 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	}
 
 	log.Infof("------------------  ScanningTask builder Start  ------------------")
-	log.Infof("---------- jobctx vars count: %d", len(p.Task.JobCtx.EnvVars))
+
+	envVars := make([]*task.KeyVal, 0)
+	if len(repoList) > 0 {
+		envVars = append(envVars, &task.KeyVal{
+			Key:   "BRANCH",
+			Value: repoList[0].Branch,
+		})
+	}
 
 	jobCtx := JobCtxBuilder{
 		JobName:     p.JobName,
@@ -159,7 +166,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		Installs:    p.Task.InstallCtx,
 		JobCtx: task.JobCtx{
 			Builds:  repoList,
-			EnvVars: p.Task.JobCtx.EnvVars,
+			EnvVars: envVars,
 		},
 	}
 
