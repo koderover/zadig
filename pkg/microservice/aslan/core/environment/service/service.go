@@ -72,6 +72,9 @@ func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
 	if err != nil {
 		return e.ErrScaleService.AddErr(err)
 	}
+	if prod.IsSleeping() {
+		return e.ErrScaleService.AddErr(fmt.Errorf("environment is sleeping"))
+	}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
@@ -113,6 +116,9 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return err
+	}
+	if prod.IsSleeping() {
+		return e.ErrScaleService.AddErr(fmt.Errorf("environment is sleeping"))
 	}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
@@ -422,6 +428,10 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	if err != nil {
 		return err
 	}
+	if productObj.IsSleeping() {
+		return e.ErrScaleService.AddErr(fmt.Errorf("environment is sleeping"))
+	}
+
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productObj.ClusterID)
 	if err != nil {
 		return err

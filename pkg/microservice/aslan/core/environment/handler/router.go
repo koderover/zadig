@@ -147,6 +147,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name", GetProductionEnv)
 		production.PUT("/environments/:name/registry", UpdateProductionProductRegistry)
 		production.GET("/environments/:name/groups", ListProductionGroups)
+		production.POST("/environments/:name/sleep", ProductionEnvSleep)
 
 		// used for production deploy workflows
 		production.GET("/environmentsForUpdate", ListProductionEnvs)
@@ -272,6 +273,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/analysis/cron", GetEnvAnalysisCron)
 		environments.PUT("/:name/analysis/cron", UpsertEnvAnalysisCron)
 		environments.GET("/analysis/history", GetEnvAnalysisHistory)
+
+		environments.GET("/:name/sleep/cron", GetEnvAnalysisCron)
+		environments.PUT("/:name/sleep/cron", UpsertEnvAnalysisCron)
 	}
 
 	// ---------------------------------------------------------------------------------------

@@ -111,6 +111,9 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		k.log.Error(err)
 		return errors.New(e.UpsertServiceErrMsg)
 	}
+	if exitedProd.IsSleeping() {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("Environment is sleeping"))
+	}
 
 	currentProductSvc := exitedProd.GetServiceMap()[svc.ServiceName]
 	if currentProductSvc == nil {

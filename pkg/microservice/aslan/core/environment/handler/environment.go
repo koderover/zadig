@@ -2636,7 +2636,7 @@ func UpsertEnvAnalysisCron(c *gin.Context) {
 // @Produce json
 // @Param 	name 		path		string							true	"env name"
 // @Param 	projectName	query		string							true	"project name"
-// @Success 200
+// @Success 200 		{object}    EnvAnalysisCronArg
 // @Router /api/aslan/environment/environments/{name}/analysis/cron [get]
 func GetEnvAnalysisCron(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -2707,7 +2707,7 @@ func UpsertProductionEnvAnalysisCron(c *gin.Context) {
 // @Produce json
 // @Param 	name 		path		string							true	"env name"
 // @Param 	projectName	query		string							true	"project name"
-// @Success 200
+// @Success 200 		{object}    EnvAnalysisCronArg
 // @Router /api/aslan/environment/production/environments/{name}/analysis/cron [get]
 func GetProductionEnvAnalysisCron(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -2792,4 +2792,62 @@ func EnvSleep(c *gin.Context) {
 	}
 
 	ctx.Err = service.EnvSleep(projectName, envName, arg.IsEnable, false, ctx.Logger)
+}
+
+// @Summary Production Environment Sleep
+// @Description Production Environment Sleep
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 				path		string						true	"env name"
+// @Param 	projectName			query		string						true	"project name"
+// @Param 	body 				body 		EnvSleepRequest				true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/sleep [post]
+func ProductionEnvSleep(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		return
+	}
+
+	arg := new(EnvSleepRequest)
+	if err := c.ShouldBind(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Err = service.EnvSleep(projectName, envName, arg.IsEnable, true, ctx.Logger)
+}
+
+// @Summary Get Env Sleep Cron
+// @Description Get Env Sleep Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200 		{object}    EnvSleepCronArg
+// @Router /api/aslan/environment/environments/{name}/sleep/cron [get]
+func GetEnvSleepCron(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, boolptr.False(), ctx.Logger)
 }

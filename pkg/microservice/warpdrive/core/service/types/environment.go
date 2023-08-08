@@ -20,6 +20,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Product struct {
@@ -115,4 +116,8 @@ func (p *Product) GetServiceMap() map[string]*Service {
 		}
 	}
 	return ret
+}
+
+func (p *Product) IsSleeping() bool {
+	return p.Status == setting.ProductStatusSleeping
 }

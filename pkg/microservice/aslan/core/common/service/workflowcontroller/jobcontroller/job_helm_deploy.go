@@ -79,6 +79,12 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		logError(c.job, msg, c.logger)
 		return
 	}
+	if productInfo.IsSleeping() {
+		msg := fmt.Sprintf("Environment %s/%s is sleeping", productInfo.ProductName, productInfo.EnvName)
+		logError(c.job, msg, c.logger)
+		return
+	}
+
 	c.namespace = productInfo.Namespace
 	c.jobTaskSpec.ClusterID = productInfo.ClusterID
 

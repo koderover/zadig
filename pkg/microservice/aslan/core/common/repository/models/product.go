@@ -243,3 +243,7 @@ func (p *Product) EnsureRenderInfo() {
 	}
 	p.Render = &RenderInfo{ProductTmpl: p.ProductName, Name: p.Namespace}
 }
+
+func (p *Product) IsSleeping() bool {
+	return p.Status == setting.ProductStatusSleeping
+}
