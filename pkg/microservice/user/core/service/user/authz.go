@@ -330,10 +330,10 @@ func ListAuthorizedEnvs(uid, projectKey string, logger *zap.SugaredLogger) (read
 
 	for _, env := range collaborationInstance.Products {
 		for _, verb := range env.Verbs {
-			if verb == types.EnvActionView {
+			if verb == types.EnvActionView || verb == types.ProductionEnvActionView {
 				readEnvSet.Insert(env.Name)
 			}
-			if verb == types.EnvActionEditConfig {
+			if verb == types.EnvActionEditConfig || verb == types.ProductionEnvActionEditConfig {
 				editEnvSet.Insert(env.Name)
 			}
 		}

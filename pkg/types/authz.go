@@ -38,7 +38,8 @@ const (
 	EnvActionManagePod  = "manage_environment"
 	EnvActionDebug      = "debug_pod"
 	// production env actions
-	ProductionEnvActionView = "get_production_environment"
+	ProductionEnvActionView       = "get_production_environment"
+	ProductionEnvActionEditConfig = "edit_production_environment"
 	// test actions
 	TestActionView = "get_test"
 	// scan actions
