@@ -2759,3 +2759,37 @@ func GetEnvAnalysisHistory(c *gin.Context) {
 	}
 	ctx.Err = err
 }
+
+type EnvSleepRequest struct {
+	IsEnable bool `json:"isEnable"`
+}
+
+// @Summary Environment Sleep
+// @Description Environment Sleep
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 				path		string						true	"env name"
+// @Param 	projectName			query		string						true	"project name"
+// @Param 	body 				body 		EnvSleepRequest				true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/sleep [post]
+func EnvSleep(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		return
+	}
+
+	arg := new(EnvSleepRequest)
+	if err := c.ShouldBind(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Err = service.EnvSleep(projectName, envName, arg.IsEnable, false, ctx.Logger)
+}

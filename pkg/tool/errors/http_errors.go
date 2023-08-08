@@ -165,6 +165,8 @@ var (
 	ErrGetEnvConfigs = NewHTTPError(6078, "获取环境配置失败")
 	// TODO: max error code reached, sharing error code with update env
 	ErrUpdateEnvConfigs = NewHTTPError(6076, "更新环境配置失败")
+	// TODO: max error code reached, sharing error code with update env
+	ErrEnvSleep = NewHTTPError(6076, "环境睡眠失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product Service APIs Range: 6080 - 6099 AND 6150 -6199

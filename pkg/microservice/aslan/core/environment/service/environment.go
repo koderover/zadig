@@ -4401,3 +4401,215 @@ func EnsureProductionNamespace(createArgs []*CreateSingleProductArg) error {
 	}
 	return nil
 }
+
+func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap.SugaredLogger) error {
+	tempProd, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to find template product %s, err: %s", productName, err))
+	}
+
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to find product %s/%s, err: %s", productName, envName, err))
+	}
+	if prod.Production != isProduction {
+		return e.ErrEnvSleep.AddErr(fmt.Errorf("Insufficient permissions: %s/%s, is production %v", productName, envName, prod.Production))
+	}
+	if prod.Status == setting.ProductStatusSleeping && isEnable {
+		return e.ErrEnvSleep.AddErr(fmt.Errorf("product %s/%s is already sleeping", productName, envName))
+	}
+	if prod.Status != setting.ProductStatusSleeping && !isEnable {
+		return e.ErrEnvSleep.AddErr(fmt.Errorf("product %s/%s is already running", productName, envName))
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	if err != nil {
+		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to get kube client, err: %s", err))
+	}
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), prod.ClusterID)
+	if err != nil {
+		wrapErr := fmt.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", prod.ClusterID, err)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+	informer, err := informer.NewInformer(prod.ClusterID, prod.Namespace, clientset)
+	if err != nil {
+		wrapErr := fmt.Errorf("[%s][%s] error: %v", envName, prod.Namespace, err)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+	version, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		wrapErr := fmt.Errorf("Failed to get server version info for cluster: %s, the error is: %s", prod.ClusterID, err)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+
+	oldScaleNumMap := make(map[string]int)
+	newScaleNumMap := make(map[string]int)
+	prod.Status = setting.ProductStatusSleeping
+	if !isEnable {
+		oldScaleNumMap = prod.PreSleepStatus
+		prod.Status = setting.ProductStatusSuccess
+	}
+
+	// if tempProd.IsK8sYamlProduct() {
+	// 	svcs, err := commonutil.GetProductUsedTemplateSvcs(prod)
+	// 	if err != nil {
+	// 		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to get product used template services, err: %s", err))
+	// 	}
+
+	// 	usedRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+	// 		ProductTmpl: prod.ProductName,
+	// 		EnvName:     prod.EnvName,
+	// 		Revision:    prod.Render.Revision,
+	// 		Name:        prod.Render.Name,
+	// 	})
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to find renderset for %s/%s", prod.ProductName, prod.EnvName)
+	// 	}
+
+	// 	for _, svc := range svcs {
+	// 	fullRenderedYaml, err := kube.RenderServiceYaml(svc.Yaml, prod.ProductName, svc.ServiceName, usedRenderset)
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to render service yaml, svcName: %s, err: %s", svc.ServiceName, err)
+	// 	}
+
+	// 	fullRenderedYaml = kube.ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, svc.ServiceName, fullRenderedYaml)
+	// 	manifests := releaseutil.SplitManifests(fullRenderedYaml)
+	// 	for _, data := range manifests {
+	// 		yamlDataArray := util.SplitYaml(data)
+	// 		for index, yamlData := range yamlDataArray {
+	// 			resKind := new(types.KubeResourceKind)
+	// 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
+	// 				return fmt.Errorf("unmarshal ResourceKind error: %v", err)
+	// 			}
+
+	// 			if resKind == nil {
+	// 				if index == 0 {
+	// 					continue
+	// 				}
+	// 				return e.ErrEnvSleep.AddErr(errors.New("nil Resource Kind"))
+	// 			}
+
+	// 		}
+	// 	}
+
+	// 	ret, err = commonservice.GetServiceImpl(svc.ServiceName, svc, workLoadType, prod, clientset, informer, log)
+	// 	if err != nil {
+	// 		return e.ErrGetService.AddErr(err)
+	// 	}
+
+	// 	scaleNum := 0
+	// 	if num, ok := scaleNumMap[resKind.Metadata.Name]; ok {
+	// 		scaleNum = num
+	// 	}
+	// 	if !isEnable {
+	// 		// get current scale num
+	// 		scaleNumMap[resKind.Metadata.Name] = 10
+	// 	}
+
+	// 	switch resKind.Kind {
+	// 	case setting.Deployment:
+	// 		err := updater.ScaleDeployment(prod.Namespace, resKind.Metadata.Name, scaleNum, kubeClient)
+	// 		if err != nil {
+	// 			log.Errorf("failed to scale %s/deploy/%s to %d", prod.Namespace, resKind.Metadata.Name, scaleNum)
+	// 		}
+	// 	case setting.StatefulSet:
+	// 		err := updater.ScaleStatefulSet(prod.Namespace, resKind.Metadata.Name, scaleNum, kubeClient)
+	// 		if err != nil {
+	// 			log.Errorf("failed to scale %s/sts/%s to %d", prod.Namespace, resKind.Metadata.Name, scaleNum)
+	// 		}
+	// 	}
+
+	// }
+	// } else {
+	// filters := func(workloads []*commonservice.Workload) []*commonservice.Workload {
+	// 	releaseNameMap, err := commonutil.GetReleaseNameToServiceNameMap(prod)
+	// 	if err != nil {
+	// 		log.Errorf("failed to generate relase map for product: %s:%s", prod.ProductName, prod.EnvName)
+	// 		return workloads
+	// 	}
+
+	// 	var res []*commonservice.Workload
+	// 	for _, workload := range workloads {
+	// 		if len(workload.Annotation) == 0 {
+	// 			continue
+	// 		}
+	// 		releaseName := workload.Annotation[setting.HelmReleaseNameAnnotation]
+	// 		if _, ok := releaseNameMap[releaseName]; ok {
+	// 			res = append(res, workload)
+	// 		}
+	// 	}
+	// 	return res
+	// }
+
+	filterArray, err := commonservice.BuildWorkloadFilterFunc(prod, tempProd, "", log)
+	if err != nil {
+		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to build workload filter func, err: %s", err))
+	}
+
+	count, workLoads, err := commonservice.ListWorkloads(envName, productName, 999, 1, informer, version, log, filterArray...)
+	if err != nil {
+		wrapErr := fmt.Errorf("failed to list workloads, [%s][%s], error: %v", prod.Namespace, envName, err)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+	if count > 999 {
+		log.Warnf("project %s env %s: workloads count > 999", productName, envName)
+	}
+
+	svcs, err := commonutil.GetProductUsedTemplateSvcs(prod)
+	if err != nil {
+		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to get product used template services, err: %s", err))
+	}
+	svcMap := make(map[string]*commonmodels.Service)
+	for _, svc := range svcs {
+		svcMap[svc.ServiceName] = svc
+	}
+
+	for _, workload := range workLoads {
+		if isEnable {
+			// save current scale num
+			svc, ok := svcMap[workload.Name]
+			if !ok && tempProd.IsK8sYamlProduct() {
+				log.Warnf("service %s not found in template servicess", workload.Name)
+				continue
+			}
+
+			svcImpl, err := commonservice.GetServiceImpl(workload.Name, svc, workload.Type, prod, clientset, informer, log)
+			if err != nil {
+				return e.ErrGetService.AddErr(err)
+			}
+
+			for _, scale := range svcImpl.Scales {
+				newScaleNumMap[scale.Name] = int(scale.Replicas)
+			}
+		}
+
+		scaleNum := 0
+		if num, ok := oldScaleNumMap[workload.Name]; ok {
+			// restore previous scale num
+			scaleNum = num
+		}
+
+		switch workload.Type {
+		case setting.Deployment:
+			err := updater.ScaleDeployment(prod.Namespace, workload.Name, scaleNum, kubeClient)
+			if err != nil {
+				log.Errorf("failed to scale %s/deploy/%s to %d", prod.Namespace, workload.Name, scaleNum)
+			}
+		case setting.StatefulSet:
+			err := updater.ScaleStatefulSet(prod.Namespace, workload.Name, scaleNum, kubeClient)
+			if err != nil {
+				log.Errorf("failed to scale %s/sts/%s to %d", prod.Namespace, workload.Name, scaleNum)
+			}
+		}
+	}
+	// }
+
+	prod.PreSleepStatus = newScaleNumMap
+	err = commonrepo.NewProductColl().Update(prod)
+	if err != nil {
+		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to update product, err: %w", err))
+	}
+
+	return nil
+}

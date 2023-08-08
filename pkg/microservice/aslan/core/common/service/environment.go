@@ -463,7 +463,7 @@ func fillServiceInfo(svcList []*ServiceResp, productInfo *models.Product) {
 
 // ListWorkloadDetailsInEnv returns all workloads in the given env which meet the filter.
 // this function is used for two scenarios: 1. calculate product status 2. list workflow details
-func buildWorkloadFilterFunc(productInfo *models.Product, projectInfo *templatemodels.Product, filter string, log *zap.SugaredLogger) ([]FilterFunc, error) {
+func BuildWorkloadFilterFunc(productInfo *models.Product, projectInfo *templatemodels.Product, filter string, log *zap.SugaredLogger) ([]FilterFunc, error) {
 	productName, envName := productInfo.ProductName, productInfo.EnvName
 	filterArray := []FilterFunc{
 		func(workloads []*Workload) []*Workload {
@@ -565,7 +565,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	filterArray, err := buildWorkloadFilterFunc(productInfo, projectInfo, filter, log)
+	filterArray, err := BuildWorkloadFilterFunc(productInfo, projectInfo, filter, log)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -605,7 +605,7 @@ func ListWorkloadDetailsInEnv(envName, productName, filter string, perPage, page
 		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	filterArray, err := buildWorkloadFilterFunc(productInfo, projectInfo, filter, log)
+	filterArray, err := BuildWorkloadFilterFunc(productInfo, projectInfo, filter, log)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -712,6 +712,7 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 	return nil
 }
 
+// @note list workloads
 func ListWorkloads(envName, productName string, perPage, page int, informer informers.SharedInformerFactory, version *version.Info, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*Workload, error) {
 	var workLoads []*Workload
 	listDeployments, err := getter.ListDeploymentsWithCache(nil, informer)

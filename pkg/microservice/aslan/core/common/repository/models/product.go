@@ -68,9 +68,12 @@ type Product struct {
 	// New Since v1.16.0, used to determine whether to install resources
 	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
 
-	// New Since v.1.19.0, env configs
+	// New Since v.1.18.0, env configs
 	AnalysisConfig      *AnalysisConfig       `bson:"analysis_config"      json:"analysis_config"`
 	NotificationConfigs []*NotificationConfig `bson:"notification_configs" json:"notification_configs"`
+
+	// New Since v1.19.0, env sleep configs
+	PreSleepStatus map[string]int `bson:"pre_sleep_status" json:"pre_sleep_status"`
 
 	// For production environment
 	Production bool   `json:"production" bson:"production"`

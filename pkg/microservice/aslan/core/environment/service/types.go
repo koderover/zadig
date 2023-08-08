@@ -102,20 +102,6 @@ type ScaleArgs struct {
 	Number      int    `json:"number"`
 }
 
-// SvcResp struct 产品-服务详情页面Response
-type SvcResp struct {
-	ServiceName string                       `json:"service_name"`
-	Scales      []*internalresource.Workload `json:"scales"`
-	Ingress     []*internalresource.Ingress  `json:"ingress"`
-	Services    []*internalresource.Service  `json:"service_endpoints"`
-	CronJobs    []*internalresource.CronJob  `json:"cron_jobs"`
-	Namespace   string                       `json:"namespace"`
-	EnvName     string                       `json:"env_name"`
-	ProductName string                       `json:"product_name"`
-	GroupName   string                       `json:"group_name"`
-	Workloads   []*commonservice.Workload    `json:"-"`
-}
-
 func (pr *ProductRevision) GroupsUpdated() bool {
 	if pr.ServiceRevisions == nil || len(pr.ServiceRevisions) == 0 {
 		return false

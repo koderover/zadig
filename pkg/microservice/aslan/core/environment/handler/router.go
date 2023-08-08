@@ -221,6 +221,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/affectedservices", AffectedServices)
 		environments.POST("/:name/estimated-values", EstimatedValues)
 		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
+		environments.POST("/:name/sleep", EnvSleep)
 
 		environments.PUT("/:name/helm/default-values", UpdateHelmProductDefaultValues)
 		environments.POST("/:name/helm/default-values/preview", PreviewHelmProductDefaultValues)

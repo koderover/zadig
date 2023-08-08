@@ -160,6 +160,11 @@ definitions:
           type: string
         type: array
     type: object
+  handler.EnvSleepRequest:
+    properties:
+      isEnable:
+        type: boolean
+    type: object
   handler.ModuleAndImage:
     properties:
       image:
@@ -2411,6 +2416,36 @@ paths:
           schema:
             $ref: '#/definitions/service.SvcDiffResult'
       summary: Preview service
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/sleep:
+    post:
+      consumes:
+      - application/json
+      description: Environment Sleep
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.EnvSleepRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Environment Sleep
       tags:
       - environment
   /api/aslan/environment/init_info/{name}:

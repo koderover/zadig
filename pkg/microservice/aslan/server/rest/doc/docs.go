@@ -733,6 +733,51 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}/sleep": {
+            "post": {
+                "description": "Environment Sleep",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Environment Sleep",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.EnvSleepRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/init_info/{name}": {
             "get": {
                 "description": "Get init product",
@@ -2801,6 +2846,14 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "handler.EnvSleepRequest": {
+            "type": "object",
+            "properties": {
+                "isEnable": {
+                    "type": "boolean"
                 }
             }
         },
