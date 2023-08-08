@@ -26,6 +26,7 @@ import (
 	"time"
 
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/gin-gonic/gin"
@@ -178,10 +179,45 @@ func ListScanningModule(c *gin.Context) {
 		}
 
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.View {
+			!ctx.Resources.ProjectAuthInfo[projectKey].Scanning.View &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Edit {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	// TODO: Authorization leak
+	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
+	// authorization check
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
+		}
+
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Workflow.Edit ||
+			projectAuthInfo.Workflow.Create ||
+			projectAuthInfo.Scanning.View {
+			permitted = true
+		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
+		if err == nil {
+			permitted = collaborationAuthorizedEdit
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	resp, _, err := service.ListScanningModule(projectKey, ctx.Logger)

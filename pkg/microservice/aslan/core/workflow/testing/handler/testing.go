@@ -198,18 +198,38 @@ func GetTestModule(c *gin.Context) {
 
 	projectKey := c.Query("projectName")
 
+	// TODO: Authorization leak
+	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
 	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
 
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Test.View {
-			ctx.UnAuthorized = true
-			return
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Workflow.Edit ||
+			projectAuthInfo.Workflow.Create ||
+			projectAuthInfo.Test.View {
+			permitted = true
 		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
+		if err == nil {
+			permitted = collaborationAuthorizedEdit
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	name := c.Param("name")

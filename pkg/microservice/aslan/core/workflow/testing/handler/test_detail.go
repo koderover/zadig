@@ -56,7 +56,8 @@ func ListDetailTestModules(c *gin.Context) {
 			}
 
 			// then check if user has edit workflow permission
-			if projectAuthInfo.Workflow.Edit {
+			if projectAuthInfo.Workflow.Edit ||
+				projectAuthInfo.Workflow.Create {
 				authorized = true
 			}
 

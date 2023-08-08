@@ -56,11 +56,15 @@ func ListPrivateKeys(c *gin.Context) {
 		return
 	}
 
+	// TODO: Authorization leak
+	// comment: since currently there are multiple functionalities that wish to used this API without authorization,
+	// we temporarily disabled the permission checks for this API.
+
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	ctx.Resp, ctx.Err = service.ListPrivateKeys(encryptedKey, "", c.Query("keyword"), true, ctx.Logger)
 }

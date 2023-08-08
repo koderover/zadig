@@ -180,12 +180,6 @@ func ListApolloApps(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
-
 	ctx.Resp, ctx.Err = service.ListApolloApps(c.Param("id"), ctx.Logger)
 }
 
@@ -200,12 +194,6 @@ func ListApolloEnvAndClusters(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
-
 	ctx.Resp, ctx.Err = service.ListApolloEnvAndClusters(c.Param("id"), c.Param("app_id"), ctx.Logger)
 }
 
@@ -216,12 +204,6 @@ func ListApolloNamespaces(c *gin.Context) {
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
 		return
 	}
