@@ -23,10 +23,9 @@ import (
 	"strings"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -148,12 +147,21 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		repoList = append(repoList, repo)
 	}
 
+	envVars := make([]*task.KeyVal, 0)
+	if len(repoList) > 0 {
+		envVars = append(envVars, &task.KeyVal{
+			Key:   "BRANCH",
+			Value: repoList[0].Branch,
+		})
+	}
+
 	jobCtx := JobCtxBuilder{
 		JobName:     p.JobName,
 		PipelineCtx: pipelineCtx,
 		Installs:    p.Task.InstallCtx,
 		JobCtx: task.JobCtx{
-			Builds: repoList,
+			Builds:  repoList,
+			EnvVars: envVars,
 		},
 	}
 
