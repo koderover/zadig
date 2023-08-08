@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"go.uber.org/zap"
@@ -148,16 +150,23 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		repoList = append(repoList, repo)
 	}
 
+	log.Infof("------------------  ScanningTask builder Start  ------------------")
+	log.Infof("---------- jobctx vars count: %d", len(p.Task.JobCtx.EnvVars))
+
 	jobCtx := JobCtxBuilder{
 		JobName:     p.JobName,
 		PipelineCtx: pipelineCtx,
 		Installs:    p.Task.InstallCtx,
 		JobCtx: task.JobCtx{
-			Builds: repoList,
+			Builds:  repoList,
+			EnvVars: p.Task.JobCtx.EnvVars,
 		},
 	}
 
 	reaperContext := jobCtx.BuildReaperContext(pipelineTask, serviceName)
+
+	log.Infof("--------- reaperContext env vars count: %v", len(reaperContext.Envs))
+	log.Infof("--------- reaperContext env vars: %v", reaperContext.Envs)
 
 	// if the scanning task is of sonar type, then we add the sonar parameter to the context
 	if p.Task.SonarInfo != nil {

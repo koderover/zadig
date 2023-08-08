@@ -46,4 +46,6 @@ type Scanning struct {
 	PreScript        string     `bson:"pre_script"            json:"pre_script"`
 	CheckQualityGate bool       `bson:"check_quality_gate"    json:"check_quality_gate"`
 	InstallCtx       []*Install `bson:"-"                     json:"install_ctx"`
+
+	JobCtx JobCtx `bson:"job_ctx"                         json:"job_ctx"`
 }
