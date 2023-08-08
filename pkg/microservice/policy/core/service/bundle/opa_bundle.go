@@ -24,7 +24,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/yamlconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/opa"
@@ -481,35 +480,9 @@ func generateOPAPolicyRego() []byte {
 }
 
 func GenerateOPABundle() error {
-	rs, err := mongodb.NewRoleColl().List()
-	if err != nil {
-		log.Errorf("Failed to list roles, err: %s", err)
-	}
-	bs, err := mongodb.NewRoleBindingColl().List()
-	if err != nil {
-		log.Errorf("Failed to list roleBindings, err: %s", err)
-	}
-
-	pbs, err := mongodb.NewPolicyBindingColl().List()
-	if err != nil {
-		log.Errorf("Failed to list roleBindings, err: %s", err)
-	}
-
-	policieMetas := yamlconfig.DefaultPolicyMetasConfig().Policies()
-
-	policies, err := mongodb.NewPolicyColl().List()
-	if err != nil {
-		log.Errorf("Failed to list policies, err: %s", err)
-	}
-
 	bundle := &opa.Bundle{
 		Data: []*opa.DataSpec{
 			{Data: generateOPAPolicyRego(), Path: policyRegoPath},
-			{Data: generateOPARoles(rs, policieMetas), Path: rolesPath},
-			{Data: generateOPAPolicies(policies, policieMetas), Path: policiesPath},
-			{Data: generateOPABindings(bs, pbs), Path: bindingsPath},
-			{Data: generateOPAExemptionURLs(policieMetas), Path: exemptionsPath},
-			{Data: generateResourceBundle(), Path: resourcesPath},
 		},
 		Roots: []string{policyRoot, rolesRoot, rolebindingsRoot, exemptionsRoot, resourcesRoot, policiesRoot},
 	}
