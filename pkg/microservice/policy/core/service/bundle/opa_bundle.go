@@ -480,9 +480,12 @@ func generateOPAPolicyRego() []byte {
 }
 
 func GenerateOPABundle() error {
+	policieMetas := yamlconfig.DefaultPolicyMetasConfig().Policies()
+
 	bundle := &opa.Bundle{
 		Data: []*opa.DataSpec{
 			{Data: generateOPAPolicyRego(), Path: policyRegoPath},
+			{Data: generateOPAExemptionURLs(policieMetas), Path: exemptionsPath},
 		},
 		Roots: []string{policyRoot, rolesRoot, rolebindingsRoot, exemptionsRoot, resourcesRoot, policiesRoot},
 	}
