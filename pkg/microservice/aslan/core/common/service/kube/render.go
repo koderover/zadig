@@ -279,7 +279,20 @@ func CalculateContainer(productSvc *commonmodels.ProductService, curUsedSvc *com
 	}
 
 	prodSvcContainers := buildContainerMap(productSvc.Containers)
+
+	for name, container := range prodSvcContainers {
+		log.Infof("prodSvcContainers: %s, %v", name, container.Image)
+	}
+
 	prodTmpContainers := buildContainerMap(curUsedSvc.Containers)
+
+	for name, container := range prodTmpContainers {
+		log.Infof("prodTmpContainers: %s, %v", name, container.Image)
+	}
+
+	for name, container := range latestContainers {
+		log.Infof("latestContainers: %s, %v", container.Name, container.Image)
+	}
 
 	for _, container := range latestContainers {
 		prodSvcContainer, _ := prodSvcContainers[container.Name]
