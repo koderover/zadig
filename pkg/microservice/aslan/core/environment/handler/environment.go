@@ -137,7 +137,7 @@ func ListProductionEnvs(c *gin.Context) {
 
 	if projectInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
 		if projectInfo.IsProjectAdmin ||
-			projectInfo.Env.View {
+			projectInfo.ProductionEnv.View {
 			hasPermission = true
 		}
 	}
@@ -1777,7 +1777,7 @@ func GetProductionEnv(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
@@ -2265,7 +2265,7 @@ func ListProductionGroups(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[envGroupRequest.ProjectName].ProductionEnv.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, envGroupRequest.ProjectName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, envGroupRequest.ProjectName, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
 			if err != nil || !permitted {
 				ctx.UnAuthorized = true
 				return
