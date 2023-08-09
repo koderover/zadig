@@ -16,16 +16,10 @@ limitations under the License.
 
 package handler
 
-import (
-	"github.com/gin-gonic/gin"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-)
-
-func ListTestStat(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.ListTestStat(ctx.Logger)
-}
+// TODO: Remove this file completely, it seems to be not in use
+//func ListTestStat(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//
+//	ctx.Resp, ctx.Err = service.ListTestStat(ctx.Logger)
+//}

@@ -35,6 +35,7 @@ var (
 		"nsqlookup",
 		"opa",
 		"plutus-vendor",
+		"user",
 		"vendor-portal",
 		"warpdrive",
 		"zadig-portal",

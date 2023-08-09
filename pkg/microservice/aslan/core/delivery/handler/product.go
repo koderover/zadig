@@ -24,6 +24,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+// GetProductByDeliveryInfo is not used by any API for now, disabling it in router and see if anything happens
 func GetProductByDeliveryInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

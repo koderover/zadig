@@ -335,12 +335,6 @@ metas:
             endpoint: /api/v1/users/search
           - method: GET
             endpoint: /api/aslan/cluster/clusters
-      - action: delete_project
-        alias: 删除
-        description: ""
-        rules:
-          - method: DELETE
-            endpoint: /api/v1/picket/projects/?*
   - resource: TestCenter
     alias: 测试中心
     description: ""

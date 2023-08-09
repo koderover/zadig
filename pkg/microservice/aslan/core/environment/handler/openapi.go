@@ -35,6 +35,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+// TODO: deal with openapi later
 func generalOpenAPIRequestValidate(c *gin.Context) (string, string, error) {
 	projectName := c.Query("projectKey")
 	if projectName == "" {

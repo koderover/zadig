@@ -18,6 +18,8 @@ package user
 
 import (
 	_ "embed"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -25,6 +27,7 @@ import (
 	"time"
 
 	"github.com/dexidp/dex/connector/ldap"
+	"github.com/gin-gonic/gin"
 	ldapv3 "github.com/go-ldap/ldap/v3"
 	"github.com/go-sql-driver/mysql"
 	"github.com/golang-jwt/jwt"
@@ -35,7 +38,7 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/config"
-	"github.com/koderover/zadig/pkg/microservice/user/core"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
@@ -43,8 +46,12 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/mail"
+	"github.com/koderover/zadig/pkg/tool/rsa"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util/ginzap"
 )
 
 type User struct {
@@ -162,8 +169,59 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 	return nil
 }
 
+func InitializeAdmin() error {
+	logger := ginzap.WithContext(new(gin.Context)).Sugar()
+	userCount, err := orm.GetUserCount(repository.DB)
+	if err != nil {
+		logger.Errorf("failed to get user count, error msg:%s", err.Error())
+		return err
+	}
+	if userCount != 0 {
+		logger.Infof("User exists, skip creating default user.")
+		return nil
+	}
+
+	userArgs := &User{
+		Name:     setting.PresetAccount,
+		Password: config.AdminPassword(),
+		Account:  setting.PresetAccount,
+		Email:    config.AdminEmail(),
+	}
+	user, err := CreateUser(userArgs, logger)
+	if err != nil {
+		logger.Errorf("created  admin err:%s", err)
+		return err
+	}
+
+	// report register
+	err = reportRegister(config.SystemAddress(), config.AdminEmail())
+	if err != nil {
+		logger.Errorf("reportRegister err: %s", err)
+	}
+
+	role, found, err := mongodb.NewRoleColl().Get("*", string(setting.SystemAdmin))
+	if err != nil {
+		logger.Errorf("Failed to get role %s in namespace %s, err: %s", string(setting.SystemAdmin), "*", err)
+		return err
+	} else if !found {
+		logger.Errorf("Role %s is not found in namespace %s", string(setting.SystemAdmin), "*")
+		return fmt.Errorf("role %s not found", string(setting.SystemAdmin))
+	}
+
+	args := &models.RoleBinding{
+		Name:      configbase.RoleBindingNameFromUIDAndRole(user.UID, setting.SystemAdmin, "*"),
+		Namespace: "*",
+		Subjects:  []*models.Subject{{Kind: models.UserKind, UID: user.UID}},
+		RoleRef: &models.RoleRef{
+			Name:      role.Name,
+			Namespace: role.Namespace,
+		},
+	}
+	return mongodb.NewRoleBindingColl().UpdateOrCreate(args)
+}
+
 func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
-	user, err := orm.GetUserByUid(uid, core.DB)
+	user, err := orm.GetUserByUid(uid, repository.DB)
 	if err != nil {
 		logger.Errorf("GetUser getUserByUid:%s error, error msg:%s", uid, err.Error())
 		return nil, err
@@ -171,7 +229,7 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 	if user == nil {
 		return nil, nil
 	}
-	userLogin, err := orm.GetUserLogin(uid, user.Account, config.AccountLoginType, core.DB)
+	userLogin, err := orm.GetUserLogin(uid, user.Account, config.AccountLoginType, repository.DB)
 	if err != nil {
 		logger.Errorf("GetUser GetUserLogin:%s error, error msg:%s", uid, err.Error())
 		return nil, err
@@ -204,7 +262,7 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 		userWithToken := &models.User{
 			APIToken: token,
 		}
-		err = orm.UpdateUser(uid, userWithToken, core.DB)
+		err = orm.UpdateUser(uid, userWithToken, repository.DB)
 		if err != nil {
 			logger.Errorf("UpdateUser user:%s save token error:%s", user.Account, err.Error())
 			return nil, err
@@ -214,7 +272,7 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 }
 
 func GetUserSetting(uid string, logger *zap.SugaredLogger) (*types.UserSetting, error) {
-	user, err := orm.GetUserByUid(uid, core.DB)
+	user, err := orm.GetUserByUid(uid, repository.DB)
 	if err != nil {
 		logger.Errorf("GetUser getUserByUid:%s error, error msg:%s", uid, err.Error())
 		return nil, err
@@ -239,7 +297,7 @@ func GetUserSetting(uid string, logger *zap.SugaredLogger) (*types.UserSetting, 
 }
 
 func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
-	user, err := orm.GetUser(args.Account, args.IdentityType, core.DB)
+	user, err := orm.GetUser(args.Account, args.IdentityType, repository.DB)
 	if err != nil {
 		logger.Errorf("SearchUserByAccount GetUser By account:%s error, error msg:%s", args.Account, err.Error())
 		return nil, err
@@ -250,7 +308,7 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 			TotalCount: 0,
 		}, nil
 	}
-	userLogins, err := orm.ListUserLogins([]string{user.UID}, core.DB)
+	userLogins, err := orm.ListUserLogins([]string{user.UID}, repository.DB)
 	if err != nil {
 		logger.Errorf("SearchUserByAccount ListUserLogins By uid:%s error, error msg:%s", user.UID, err.Error())
 		return nil, err
@@ -260,19 +318,6 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*types.Use
 		Users:      usersInfo,
 		TotalCount: int64(len(usersInfo)),
 	}, nil
-}
-
-func CheckUserExist(logger *zap.SugaredLogger) (bool, error) {
-	userCount, err := orm.GetUserCount(core.DB)
-	if err != nil {
-		logger.Errorf("failed to get user count, error msg:%s", err.Error())
-		return false, err
-	}
-	if userCount == 0 {
-		return false, nil
-	}
-	logger.Infof("get user count fron db:%d", userCount)
-	return true, nil
 }
 
 func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, error) {
@@ -287,7 +332,7 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		}, nil
 	}
 
-	users, err := orm.ListUsers(args.Page, args.PerPage, args.Name, core.DB)
+	users, err := orm.ListUsers(args.Page, args.PerPage, args.Name, repository.DB)
 	if err != nil {
 		logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 		return nil, err
@@ -296,7 +341,7 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 	for _, user := range users {
 		uids = append(uids, user.UID)
 	}
-	userLogins, err := orm.ListUserLogins(uids, core.DB)
+	userLogins, err := orm.ListUserLogins(uids, repository.DB)
 	if err != nil {
 		logger.Errorf("SeachUsers ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
 		return nil, err
@@ -333,12 +378,12 @@ func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *
 }
 
 func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*types.UsersResp, error) {
-	users, err := orm.ListUsersByUIDs(uids, core.DB)
+	users, err := orm.ListUsersByUIDs(uids, repository.DB)
 	if err != nil {
 		logger.Errorf("SearchUsersByUIDs SeachUsers By uids:%s error, error msg:%s", uids, err.Error())
 		return nil, err
 	}
-	userLogins, err := orm.ListUserLogins(uids, core.DB)
+	userLogins, err := orm.ListUserLogins(uids, repository.DB)
 	if err != nil {
 		logger.Errorf("SearchUsersByUIDs ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
 		return nil, err
@@ -361,7 +406,7 @@ func getLoginId(user *models.User, loginType config.LoginType) string {
 }
 
 func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
-	tx := core.DB.Begin()
+	tx := repository.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -392,7 +437,7 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 var retrieveHemlTemplate []byte
 
 func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) {
-	user, err := orm.GetUser(account, config.SystemIdentityType, core.DB)
+	user, err := orm.GetUser(account, config.SystemIdentityType, repository.DB)
 	if err != nil {
 		logger.Errorf("Retrieve GetUser:%s error, error msg:%s ", account, err)
 		return nil, fmt.Errorf("Retrieve GetUser:%s error, error msg:%s ", account, err)
@@ -474,7 +519,7 @@ func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 		return nil, e.ErrCreateUser.AddDesc("密码必须包含大小写字母和数字，且长度不小于8位")
 	}
 
-	tx := core.DB.Begin()
+	tx := repository.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -513,7 +558,7 @@ func UpdateUser(uid string, args *UpdateUserInfo, _ *zap.SugaredLogger) error {
 		Email: args.Email,
 		Phone: args.Phone,
 	}
-	return orm.UpdateUser(uid, user, core.DB)
+	return orm.UpdateUser(uid, user, repository.DB)
 }
 
 func UpdateUserSetting(uid string, args *UserSetting) error {
@@ -539,7 +584,7 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 		return e.ErrCreateUser.AddDesc("密码必须包含大小写字母和数字，且长度不小于8位")
 	}
 
-	user, err := orm.GetUserByUid(args.Uid, core.DB)
+	user, err := orm.GetUserByUid(args.Uid, repository.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword GetUserByUid:%s error, error msg:%s", args.Uid, err.Error())
 		return err
@@ -547,7 +592,7 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 	if user == nil {
 		return fmt.Errorf("user not exist")
 	}
-	userLogin, err := orm.GetUserLogin(user.UID, user.Account, config.AccountLoginType, core.DB)
+	userLogin, err := orm.GetUserLogin(user.UID, user.Account, config.AccountLoginType, repository.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword GetUserLogin:%s error, error msg:%s", args.Uid, err.Error())
 		return err
@@ -571,7 +616,7 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 		UID:      user.UID,
 		Password: string(hashedPassword),
 	}
-	err = orm.UpdateUserLogin(user.UID, userLogin, core.DB)
+	err = orm.UpdateUserLogin(user.UID, userLogin, repository.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword UpdateUserLogin:%v error, error msg:%s", userLogin, err.Error())
 		return err
@@ -588,7 +633,7 @@ func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
 		return e.ErrCreateUser.AddDesc("密码必须包含大小写字母和数字，且长度不小于8位")
 	}
 
-	user, err := orm.GetUserByUid(args.Uid, core.DB)
+	user, err := orm.GetUserByUid(args.Uid, repository.DB)
 	if err != nil {
 		logger.Errorf("Reset GetUserByUid:%s error, error msg:%s", args.Uid, err)
 		return err
@@ -603,7 +648,7 @@ func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
 		UID:      user.UID,
 		Password: string(hashedPassword),
 	}
-	err = orm.UpdateUserLogin(user.UID, userLogin, core.DB)
+	err = orm.UpdateUserLogin(user.UID, userLogin, repository.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword UpdateUserLogin:%v error, error msg:%s", userLogin, err.Error())
 		return err
@@ -612,12 +657,12 @@ func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
 }
 
 func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.SugaredLogger) (*models.User, error) {
-	user, err := orm.GetUser(syncUserInfo.Account, syncUserInfo.IdentityType, core.DB)
+	user, err := orm.GetUser(syncUserInfo.Account, syncUserInfo.IdentityType, repository.DB)
 	if err != nil {
 		logger.Errorf("SyncUser get user:%s error, error msg:%s", syncUserInfo.Account, err.Error())
 		return nil, err
 	}
-	tx := core.DB.Begin()
+	tx := repository.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -700,13 +745,13 @@ func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.Su
 }
 
 func GetUserCount(logger *zap.SugaredLogger) (*types.UserStatistics, error) {
-	userCountByType, err := orm.CountUserByType(core.DB)
+	userCountByType, err := orm.CountUserByType(repository.DB)
 	if err != nil {
 		logger.Errorf("Failed to count user by type from db, the error is: %s", err.Error())
 		return nil, err
 	}
 
-	totalActiveUser, err := orm.CountUser(core.DB)
+	totalActiveUser, err := orm.CountUser(repository.DB)
 	if err != nil {
 		logger.Errorf("Failed to count user by type from db, the error is: %s", err.Error())
 		return nil, err
@@ -743,4 +788,34 @@ func isValidStrongPassword(password string) (bool, error) {
 	}
 
 	return hasUppercase && hasLowercase && hasDigit && hasValidLength, nil
+}
+
+type Register struct {
+	Domain    string `json:"domain"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+type Operation struct {
+	Data string `json:"data"`
+}
+
+func reportRegister(domain, email string) error {
+	register := Register{
+		Domain:    domain,
+		Username:  "admin",
+		Email:     email,
+		CreatedAt: time.Now().Unix(),
+	}
+	registerByte, _ := json.Marshal(register)
+	encrypt, err := rsa.EncryptByDefaultPublicKey(registerByte)
+	if err != nil {
+		log.Errorf("RSAEncrypt err: %s", err)
+		return err
+	}
+	encodeString := base64.StdEncoding.EncodeToString(encrypt)
+	reqBody := Operation{Data: encodeString}
+	_, err = httpclient.Post("https://api.koderover.com/api/operation/admin/user", httpclient.SetBody(reqBody))
+	return err
 }

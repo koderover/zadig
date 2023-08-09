@@ -66,18 +66,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		scanner.DELETE("/:id", DeleteScanningModule)
 
 		// code scan tasks apis
-		scanner.POST("/:id/task", CreateScanningTask)
-		scanner.GET("/:id/task", ListScanningTask)
-		scanner.GET("/:id/task/:scan_id", GetScanningTask)
-		scanner.DELETE("/:id/task/:scan_id", CancelScanningTask)
-		scanner.GET("/:id/task/:scan_id/sse", GetScanningTaskSSE)
+		scanner.POST("/:id/task", FindScanningProjectNameFromID, CreateScanningTask)
+		scanner.GET("/:id/task", FindScanningProjectNameFromID, ListScanningTask)
+		scanner.GET("/:id/task/:scan_id", FindScanningProjectNameFromID, GetScanningTask)
+		scanner.DELETE("/:id/task/:scan_id", FindScanningProjectNameFromID, CancelScanningTask)
+		scanner.GET("/:id/task/:scan_id/sse", FindScanningProjectNameFromID, GetScanningTaskSSE)
 	}
 
-	testStat := router.Group("teststat")
-	{
-		// 供aslanx的enterprise模块的数据统计调用
-		testStat.GET("", ListTestStat)
-	}
+	//testStat := router.Group("teststat")
+	//{
+	//	// 供aslanx的enterprise模块的数据统计调用
+	//	testStat.GET("", ListTestStat)
+	//}
 
 	testDetail := router.Group("testdetail")
 	{

@@ -21,8 +21,6 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -45,23 +43,13 @@ func ListExternalSystem(encryptedKey string, pageNum, pageSize int64, log *zap.S
 		log.Errorf("Failed to list external system from db, the error is: %s", err)
 		return nil, 0, err
 	}
-	aesKey, err := service.GetAesKeyFromEncryptedKey(encryptedKey, log)
-	if err != nil {
-		return nil, 0, err
-	}
 	systemList := make([]*ExternalSystemDetail, 0)
 	for _, item := range resp {
-		apiToken, err := crypto.AesEncryptByKey(item.APIToken, aesKey.PlainText)
-		if err != nil {
-			return nil, 0, err
-		}
 		systemList = append(systemList, &ExternalSystemDetail{
 			ID:      item.ID.Hex(),
 			Name:    item.Name,
 			Server:  item.Server,
 			Headers: item.Headers,
-			// TODO: this field is deprecated, for compatibility this field will be removed 2 versions later
-			APIToken: apiToken,
 		})
 	}
 	return systemList, length, nil
