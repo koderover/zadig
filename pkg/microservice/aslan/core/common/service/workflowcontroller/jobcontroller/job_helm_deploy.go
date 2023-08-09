@@ -129,7 +129,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			return
 		}
 		calculatedContainers := kube.CalculateContainer(productService, svcTemplate, latestSvc.Containers, productInfo)
-		images = kube.MergeImages(calculatedContainers, images)
+		param.Images = kube.MergeImages(calculatedContainers, param.Images)
 	}
 
 	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
