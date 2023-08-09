@@ -160,11 +160,6 @@ definitions:
           type: string
         type: array
     type: object
-  handler.EnvSleepRequest:
-    properties:
-      isEnable:
-        type: boolean
-    type: object
   handler.ModuleAndImage:
     properties:
       image:
@@ -1140,6 +1135,17 @@ definitions:
           $ref: '#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService'
         type: array
     type: object
+  service.EnvSleepCronArg:
+    properties:
+      awake_cron:
+        type: string
+      awake_cron_enable:
+        type: boolean
+      sleep_cron:
+        type: string
+      sleep_cron_enable:
+        type: boolean
+    type: object
   service.EstimateValuesArg:
     properties:
       chartName:
@@ -2106,6 +2112,8 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/service.EnvAnalysisCronArg'
       summary: Get Env Analysis Cron
       tags:
       - environment
@@ -2434,18 +2442,72 @@ paths:
         name: projectName
         required: true
         type: string
-      - description: body
-        in: body
-        name: body
+      - description: enable or disable
+        in: query
+        name: action
         required: true
-        schema:
-          $ref: '#/definitions/handler.EnvSleepRequest'
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
       summary: Environment Sleep
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/sleep/cron:
+    get:
+      consumes:
+      - application/json
+      description: Get Env Sleep Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvSleepCronArg'
+      summary: Get Env Sleep Cron
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Upsert Env Sleep Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.EnvSleepCronArg'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Upsert Env Sleep Cron
       tags:
       - environment
   /api/aslan/environment/init_info/{name}:
@@ -2700,6 +2762,8 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            $ref: '#/definitions/service.EnvAnalysisCronArg'
       summary: Get Production Env Analysis Cron
       tags:
       - environment
@@ -2902,6 +2966,90 @@ paths:
           schema:
             $ref: '#/definitions/service.ValuesResp'
       summary: Get Production Chart Values
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/sleep:
+    post:
+      consumes:
+      - application/json
+      description: Production Environment Sleep
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: enable or disable
+        in: query
+        name: action
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Production Environment Sleep
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/sleep/cron:
+    get:
+      consumes:
+      - application/json
+      description: Get Production Env Sleep Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.EnvSleepCronArg'
+      summary: Get Production Env Sleep Cron
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Upsert Production Env Sleep Cron
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.EnvSleepCronArg'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Upsert Production Env Sleep Cron
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/workloads:

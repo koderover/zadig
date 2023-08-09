@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -4071,6 +4072,7 @@ func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
 		Time:            input.Time,
 		MaxFailures:     input.MaxFailure,
 		EnvAnalysisArgs: input.EnvAnalysisArgs,
+		EnvArgs:         input.EnvArgs,
 		Type:            config.ScheduleType(input.JobType),
 		Cron:            input.Cron,
 		Enabled:         input.Enabled,
@@ -4441,6 +4443,11 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		return e.ErrEnvSleep.AddErr(fmt.Errorf("product %s/%s is already running", productName, envName))
 	}
 
+	templateProduct, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get template product %s, err: %w", productName, err))
+	}
+
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
 		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to get kube client, err: %s", err))
@@ -4491,23 +4498,57 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 	for _, svc := range svcs {
 		svcMap[svc.ServiceName] = svc
 	}
+	if templateProduct.IsK8sYamlProduct() {
+		bootOrderMap := make(map[string]int)
+		i := 0
+
+		for _, svcGroup := range prod.Services {
+			for _, svc := range svcGroup {
+				bootOrderMap[svc.ServiceName] = i
+				i++
+			}
+		}
+
+		if isEnable {
+			sort.Slice(workLoads, func(i, j int) bool {
+				order1, ok := bootOrderMap[workLoads[i].Name]
+				if !ok {
+					order1 = 999
+				}
+				order2, ok := bootOrderMap[workLoads[j].Name]
+				if !ok {
+					order2 = 999
+				}
+				return order1 > order2
+			})
+		} else {
+			sort.Slice(workLoads, func(i, j int) bool {
+				order1, ok := bootOrderMap[workLoads[i].Name]
+				if !ok {
+					order1 = 999
+				}
+				order2, ok := bootOrderMap[workLoads[j].Name]
+				if !ok {
+					order2 = 999
+				}
+				return order1 <= order2
+			})
+		}
+	}
 
 	for _, workload := range workLoads {
 		if isEnable {
 			// save current scale num
 			svc, ok := svcMap[workload.Name]
-			if !ok && tempProd.IsK8sYamlProduct() {
-				log.Warnf("service %s not found in template servicess", workload.Name)
-				continue
-			}
+			if ok {
+				svcImpl, err := commonservice.GetServiceImpl(workload.Name, svc, workload.Type, prod, clientset, informer, log)
+				if err != nil {
+					return e.ErrGetService.AddErr(err)
+				}
 
-			svcImpl, err := commonservice.GetServiceImpl(workload.Name, svc, workload.Type, prod, clientset, informer, log)
-			if err != nil {
-				return e.ErrGetService.AddErr(err)
-			}
-
-			for _, scale := range svcImpl.Scales {
-				newScaleNumMap[scale.Name] = int(scale.Replicas)
+				for _, scale := range svcImpl.Scales {
+					newScaleNumMap[scale.Name] = int(scale.Replicas)
+				}
 			}
 		}
 
@@ -4528,6 +4569,18 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 			if err != nil {
 				log.Errorf("failed to scale %s/sts/%s to %d", prod.Namespace, workload.Name, scaleNum)
 			}
+		case setting.CronJob:
+			if isEnable {
+				err := updater.SuspendCronJob(prod.Namespace, workload.Name, kubeClient, kubeclient.VersionLessThan121(version))
+				if err != nil {
+					log.Errorf("failed to suspend %s/cronjob/%s", prod.Namespace, workload.Name)
+				}
+			} else {
+				err := updater.ResumeCronJob(prod.Namespace, workload.Name, kubeClient, kubeclient.VersionLessThan121(version))
+				if err != nil {
+					log.Errorf("failed to resume %s/cronjob/%s", prod.Namespace, workload.Name)
+				}
+			}
 		}
 	}
 
@@ -4540,19 +4593,11 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 	return nil
 }
 
-func getEnvSleepCronName(projectName, envName string, isEnable bool) string {
-	suffix := "sleep"
-	if isEnable {
-		suffix = "awake"
-	}
-	return fmt.Sprintf("%s-%s-%s-%s", envName, projectName, config.EnvAnalysisCronjob, suffix)
-}
-
 func GetEnvSleepCron(projectName, envName string, production *bool, logger *zap.SugaredLogger) (*EnvSleepCronArg, error) {
 	resp := &EnvSleepCronArg{}
 
-	sleepName := getEnvSleepCronName(projectName, envName, true)
-	awakeName := getEnvSleepCronName(projectName, envName, false)
+	sleepName := util.GetEnvSleepCronName(projectName, envName, true)
+	awakeName := util.GetEnvSleepCronName(projectName, envName, false)
 	crons, err := commonrepo.NewCronjobColl().List(&commonrepo.ListCronjobParam{
 		ParentType: config.EnvSleepCronjob,
 	})
@@ -4589,7 +4634,7 @@ type EnvSleepCronArg struct {
 	AwakeCron       string `json:"awake_cron"`
 }
 
-func UpsertEnvSleepCron(projectName, envName string, production *bool, req *EnvAnalysisCronArg, logger *zap.SugaredLogger) error {
+func UpsertEnvSleepCron(projectName, envName string, production *bool, req *EnvSleepCronArg, logger *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{
 		EnvName:    envName,
 		Name:       projectName,
@@ -4600,87 +4645,116 @@ func UpsertEnvSleepCron(projectName, envName string, production *bool, req *EnvA
 		return e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
 	}
 
-	found := false
-	name := getEnvAnalysisCronName(projectName, envName)
-	cron, err := commonrepo.NewCronjobColl().GetByName(name, config.EnvAnalysisCronjob)
+	sleepName := util.GetEnvSleepCronName(projectName, envName, true)
+	awakeName := util.GetEnvSleepCronName(projectName, envName, false)
+	sleepCron, err := commonrepo.NewCronjobColl().GetByName(sleepName, config.EnvSleepCronjob)
 	if err != nil {
 		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
-			return e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get cron job %s, err: %w", name, err))
+			return e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get env sleep cron job for sleep, err: %w", err))
 		}
-	} else {
-		found = true
+	}
+	awakeCron, err := commonrepo.NewCronjobColl().GetByName(awakeName, config.EnvSleepCronjob)
+	if err != nil {
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get env sleep cron job for awake, err: %w", err))
+		}
+	}
+	cronMap := make(map[string]*commonmodels.Cronjob)
+	if sleepCron != nil {
+		cronMap[sleepCron.Name] = sleepCron
+	}
+	if awakeCron != nil {
+		cronMap[awakeCron.Name] = awakeCron
 	}
 
-	var payload *commonservice.CronjobPayload
-	if found {
-		origEnabled := cron.Enabled
-		cron.Enabled = req.Enable
-		cron.Cron = req.Cron
-		err = commonrepo.NewCronjobColl().Upsert(cron)
-		if err != nil {
-			fmtErr := fmt.Errorf("Failed to upsert cron job, error: %w", err)
-			log.Error(fmtErr)
-			return err
-		}
-
-		if origEnabled && !req.Enable {
-			// need to disable cronjob
-			payload = &commonservice.CronjobPayload{
-				Name:       name,
-				JobType:    config.EnvAnalysisCronjob,
-				Action:     setting.TypeEnableCronjob,
-				DeleteList: []string{cron.ID.Hex()},
+	for _, name := range []string{sleepName, awakeName} {
+		var payload *commonservice.CronjobPayload
+		if cron, ok := cronMap[name]; ok {
+			origSleepEnabled := cron.Enabled
+			if name == sleepName {
+				cron.Enabled = req.SleepCronEnable
+				cron.Cron = req.SleepCron
+			} else if name == awakeName {
+				cron.Enabled = req.AwakeCronEnable
+				cron.Cron = req.AwakeCron
 			}
-		} else if !origEnabled && req.Enable || origEnabled && req.Enable {
-			payload = &commonservice.CronjobPayload{
-				Name:    name,
-				JobType: config.EnvAnalysisCronjob,
-				Action:  setting.TypeEnableCronjob,
-				JobList: []*commonmodels.Schedule{cronJobToSchedule(cron)},
+
+			err = commonrepo.NewCronjobColl().Upsert(cron)
+			if err != nil {
+				fmtErr := fmt.Errorf("Failed to upsert cron job, error: %w", err)
+				log.Error(fmtErr)
+				return err
+			}
+
+			if origSleepEnabled && !req.SleepCronEnable {
+				// need to disable cronjob
+				payload = &commonservice.CronjobPayload{
+					Name:       name,
+					JobType:    config.EnvSleepCronjob,
+					Action:     setting.TypeEnableCronjob,
+					DeleteList: []string{cron.ID.Hex()},
+				}
+			} else if !origSleepEnabled && req.SleepCronEnable || origSleepEnabled && req.SleepCronEnable {
+				payload = &commonservice.CronjobPayload{
+					Name:    name,
+					JobType: config.EnvSleepCronjob,
+					Action:  setting.TypeEnableCronjob,
+					JobList: []*commonmodels.Schedule{cronJobToSchedule(cron)},
+				}
+			} else {
+				// !origEnabled && !req.Enable
+				continue
 			}
 		} else {
-			// !origEnabled && !req.Enable
-			return nil
-		}
-	} else {
-		input := &commonmodels.Cronjob{
-			Name:    name,
-			Enabled: req.Enable,
-			Type:    config.EnvAnalysisCronjob,
-			Cron:    req.Cron,
-			EnvAnalysisArgs: &commonmodels.EnvArgs{
-				ProductName: env.ProductName,
-				EnvName:     env.EnvName,
-				Production:  env.Production,
-			},
+			input := &commonmodels.Cronjob{
+				Name: name,
+				Type: config.EnvSleepCronjob,
+				EnvArgs: &commonmodels.EnvArgs{
+					Name:        name,
+					ProductName: env.ProductName,
+					EnvName:     env.EnvName,
+					Production:  env.Production,
+				},
+			}
+			if name == sleepName {
+				input.Enabled = req.SleepCronEnable
+				input.Cron = req.SleepCron
+			} else if name == awakeName {
+				input.Enabled = req.AwakeCronEnable
+				input.Cron = req.AwakeCron
+			}
+
+			err = commonrepo.NewCronjobColl().Upsert(input)
+			if err != nil {
+				fmtErr := fmt.Errorf("Failed to upsert cron job, error: %w", err)
+				log.Error(fmtErr)
+				return err
+			}
+			if !input.Enabled {
+				continue
+			}
+			payload = &commonservice.CronjobPayload{
+				Name:    name,
+				JobType: config.EnvSleepCronjob,
+				Action:  setting.TypeEnableCronjob,
+				JobList: []*commonmodels.Schedule{cronJobToSchedule(input)},
+			}
 		}
 
-		err = commonrepo.NewCronjobColl().Upsert(input)
+		pl, err := json.Marshal(payload)
 		if err != nil {
-			fmtErr := fmt.Errorf("Failed to upsert cron job, error: %w", err)
-			log.Error(fmtErr)
-			return err
+			log.Errorf("Failed to marshal cronjob payload, the error is: %v", err)
+			return e.ErrUpsertCronjob.AddDesc(err.Error())
 		}
-		if !input.Enabled {
-			return nil
+		log.Debugf("Publishing cronjob payload: %s", string(pl))
+		err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
+			Payload:   string(pl),
+			QueueType: setting.TopicCronjob,
+		})
+		if err != nil {
+			log.Errorf("Failed to publish to msg queue common: %s, the error is: %v", setting.TopicCronjob, err)
+			return e.ErrUpsertCronjob.AddDesc(err.Error())
 		}
-
-		payload = &commonservice.CronjobPayload{
-			Name:    name,
-			JobType: config.EnvAnalysisCronjob,
-			Action:  setting.TypeEnableCronjob,
-			JobList: []*commonmodels.Schedule{cronJobToSchedule(input)},
-		}
-	}
-
-	pl, _ := json.Marshal(payload)
-	err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
-		Payload:   string(pl),
-		QueueType: setting.TopicCronjob,
-	})
-	if err != nil {
-		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
-		return e.ErrUpsertCronjob.AddDesc(err.Error())
 	}
 
 	return nil

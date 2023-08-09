@@ -41,6 +41,7 @@ type Cronjob struct {
 }
 
 type EnvArgs struct {
+	Name        string `bson:"name"                    json:"name"`
 	ProductName string `bson:"product_name"            json:"product_name"`
 	EnvName     string `bson:"env_name"                json:"env_name"`
 	Production  bool   `bson:"production"              json:"production"`

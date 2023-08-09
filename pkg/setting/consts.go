@@ -546,6 +546,7 @@ const (
 	WorkflowV4Cronjob  = "workflow_v4"
 	TestingCronjob     = "test"
 	EnvAnalysisCronjob = "env_analysis"
+	EnvSleepCronjob    = "env_sleep"
 
 	TopicProcess      = "task.process"
 	TopicCancel       = "task.cancel"

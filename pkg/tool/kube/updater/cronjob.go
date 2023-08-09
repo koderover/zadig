@@ -71,3 +71,13 @@ func UpdateCronJobImage(ns, name, container, image string, cl client.Client, ver
 	patchBytes := []byte(fmt.Sprintf(`{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"name":"%s","image":"%s"}]}}}}}}`, container, image))
 	return PatchCronJob(ns, name, patchBytes, cl, versionLessThan121)
 }
+
+func SuspendCronJob(ns, name string, cl client.Client, versionLessThan121 bool) error {
+	patchBytes := []byte(`{"spec":{"suspend":true}}`)
+	return PatchCronJob(ns, name, patchBytes, cl, versionLessThan121)
+}
+
+func ResumeCronJob(ns, name string, cl client.Client, versionLessThan121 bool) error {
+	patchBytes := []byte(`{"spec":{"suspend":false}}`)
+	return PatchCronJob(ns, name, patchBytes, cl, versionLessThan121)
+}

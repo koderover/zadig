@@ -147,7 +147,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name", GetProductionEnv)
 		production.PUT("/environments/:name/registry", UpdateProductionProductRegistry)
 		production.GET("/environments/:name/groups", ListProductionGroups)
-		production.POST("/environments/:name/sleep", ProductionEnvSleep)
 
 		// used for production deploy workflows
 		production.GET("/environmentsForUpdate", ListProductionEnvs)
@@ -203,6 +202,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.PUT("/envcfgs/:name", UpdateProductionCommonEnvCfg)
 		production.POST("/envcfgs/:name", CreateProductionCommonEnvCfg)
 		production.DELETE("/envcfgs/:name/cfg/:objectName", DeleteProductionCommonEnvCfg)
+
+		production.POST("/environments/:name/sleep", ProductionEnvSleep)
+		production.GET("/:name/sleep/cron", GetProductionEnvSleepCron)
+		production.PUT("/:name/sleep/cron", UpsertProductionEnvSleepCron)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -222,7 +225,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/affectedservices", AffectedServices)
 		environments.POST("/:name/estimated-values", EstimatedValues)
 		environments.PUT("/:name/renderset", UpdateHelmProductRenderset)
-		environments.POST("/:name/sleep", EnvSleep)
 
 		environments.PUT("/:name/helm/default-values", UpdateHelmProductDefaultValues)
 		environments.POST("/:name/helm/default-values/preview", PreviewHelmProductDefaultValues)
@@ -274,8 +276,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name/analysis/cron", UpsertEnvAnalysisCron)
 		environments.GET("/analysis/history", GetEnvAnalysisHistory)
 
-		environments.GET("/:name/sleep/cron", GetEnvAnalysisCron)
-		environments.PUT("/:name/sleep/cron", UpsertEnvAnalysisCron)
+		environments.POST("/:name/sleep", EnvSleep)
+		environments.GET("/:name/sleep/cron", GetEnvSleepCron)
+		environments.PUT("/:name/sleep/cron", UpsertEnvSleepCron)
 	}
 
 	// ---------------------------------------------------------------------------------------

@@ -187,6 +187,11 @@ func (h *CronjobHandler) updateCronjob(name, productName, jobType string, jobLis
 			if err != nil {
 				return err
 			}
+		case setting.EnvSleepCronjob:
+			err := h.registerEnvSleepJob(name, cron, job)
+			if err != nil {
+				return err
+			}
 		default:
 			log.Errorf("unrecognized cron job type for job id: %s", job.ID)
 		}
@@ -464,6 +469,44 @@ func (h *CronjobHandler) registerEnvAnalysisJob(name, schedule string, job *serv
 			base = "environment/production/environments/"
 		}
 		url := base + fmt.Sprintf("%s/analysis?projectName=%s&triggerName=%s&userName=%s", job.EnvAnalysisArgs.EnvName, job.EnvAnalysisArgs.ProductName, setting.CronTaskCreator, setting.CronTaskCreator)
+
+		if err := h.aslanCli.ScheduleCall(url, nil, log.SugaredLogger()); err != nil {
+			log.Errorf("[%s]RunScheduledTask err: %v", name, err)
+		}
+	})
+	if err != nil {
+		log.Errorf("Failed to create job of ID: %s, the error is: %v", job.ID.Hex(), err)
+		return err
+	}
+
+	log.Infof("registering jobID: %s with cron: %s", job.ID.Hex(), schedule)
+	err = h.Scheduler.UpdateJobModel(job.ID.Hex(), scheduleJob)
+	if err != nil {
+		log.Errorf("Failed to register job of ID: %s to scheduler, the error is: %v", job.ID, err)
+		return err
+	}
+	return nil
+}
+
+func (h *CronjobHandler) registerEnvSleepJob(name, schedule string, job *service.Schedule) error {
+	if job.EnvArgs == nil {
+		return nil
+	}
+	scheduleJob, err := cronlib.NewJobModel(schedule, func() {
+		base := "environment/environments/"
+		if job.EnvArgs.Production {
+			base = "environment/production/environments/"
+		}
+
+		log.Debugf("job: %+v", job)
+		log.Debugf("job.EnvArgs: %+v", job.EnvArgs)
+
+		url := ""
+		if job.EnvArgs.Name == util.GetEnvSleepCronName(job.EnvArgs.ProductName, job.EnvArgs.EnvName, true) {
+			url = base + fmt.Sprintf("%s/sleep?projectName=%s&action=enable", job.EnvArgs.EnvName, job.EnvArgs.ProductName)
+		} else if job.EnvArgs.Name == util.GetEnvSleepCronName(job.EnvArgs.ProductName, job.EnvArgs.EnvName, false) {
+			url = base + fmt.Sprintf("%s/sleep?projectName=%s&action=disable", job.EnvArgs.EnvName, job.EnvArgs.ProductName)
+		}
 
 		if err := h.aslanCli.ScheduleCall(url, nil, log.SugaredLogger()); err != nil {
 			log.Errorf("[%s]RunScheduledTask err: %v", name, err)

@@ -17,11 +17,13 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"unicode"
 
 	ref "github.com/containers/image/docker/reference"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/mozillazg/go-pinyin"
 )
 
@@ -96,4 +98,12 @@ func GetPinyinFromChinese(han string) (string, string) {
 		}
 	}
 	return fullLetter, firstLetter
+}
+
+func GetEnvSleepCronName(projectName, envName string, isEnable bool) string {
+	suffix := "sleep"
+	if !isEnable {
+		suffix = "awake"
+	}
+	return fmt.Sprintf("%s-%s-%s-%s", envName, projectName, config.EnvSleepCronjob, suffix)
 }
