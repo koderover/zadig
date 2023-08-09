@@ -290,7 +290,7 @@ func CalculateContainer(productSvc *commonmodels.ProductService, curUsedSvc *com
 		log.Infof("prodTmpContainers: %s, %v", name, container.Image)
 	}
 
-	for name, container := range latestContainers {
+	for _, container := range latestContainers {
 		log.Infof("latestContainers: %s, %v", container.Name, container.Image)
 	}
 
