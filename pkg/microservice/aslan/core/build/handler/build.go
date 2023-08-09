@@ -81,9 +81,7 @@ func ListBuildModules(c *gin.Context) {
 
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
-	}
-
-	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
@@ -130,14 +128,10 @@ func ListBuildModulesByServiceModule(c *gin.Context) {
 
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
-	}
-
-	if ctx.Resources.SystemActions.Template.Create ||
+	} else if ctx.Resources.SystemActions.Template.Create ||
 		ctx.Resources.SystemActions.Template.Edit {
 		permitted = true
-	}
-
-	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true

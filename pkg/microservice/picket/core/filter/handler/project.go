@@ -56,9 +56,7 @@ func CreateProject(c *gin.Context) {
 
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
-	}
-
-	if ctx.Resources.SystemActions.Project.Create {
+	} else if ctx.Resources.SystemActions.Project.Create {
 		permitted = true
 	}
 
