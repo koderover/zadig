@@ -177,8 +177,24 @@ type KV struct {
 func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues string, imageKvs []*KV) (string, error) {
 
 	// merge files for helm -f option
-	// precedence from low to high: valuesYaml defaultValues overrideYaml
-	valuesMap, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(valuesYaml), []byte(defaultValues), []byte(overrideYaml)})
+	// precedence from low to high: images valuesYaml defaultValues overrideYaml
+
+	var imageRelatedValues []byte
+	if len(imageKvs) > 0 {
+		imageValuesMap := make(map[string]interface{})
+		imageKvStr := make([]string, 0)
+		// image related values
+		for _, imageKv := range imageKvs {
+			imageKvStr = append(imageKvStr, fmt.Sprintf("%s=%v", imageKv.Key, imageKv.Value))
+		}
+		err := strvals.ParseInto(strings.Join(imageKvStr, ","), imageValuesMap)
+		if err != nil {
+			return "", err
+		}
+		imageRelatedValues, err = yaml.Marshal(imageValuesMap)
+	}
+
+	valuesMap, err := yamlutil.MergeAndUnmarshal([][]byte{imageRelatedValues, []byte(valuesYaml), []byte(defaultValues), []byte(overrideYaml)})
 	if err != nil {
 		return "", err
 	}
@@ -196,10 +212,11 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 		}
 	}
 
-	// image related values
-	for _, imageKv := range imageKvs {
-		kvStr = append(kvStr, fmt.Sprintf("%s=%v", imageKv.Key, imageKv.Value))
-	}
+	//// image related values
+	//for _, imageKv := range imageKvs {
+	//	kvStr = append(kvStr, fmt.Sprintf("%s=%v", imageKv.Key, imageKv.Value))
+	//}
+	//
 
 	// override values for --set option
 	if len(kvStr) > 0 {
