@@ -2881,24 +2881,6 @@ func buildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 	return ret, nil
 }
 
-func buildChartInstallParam(namespace, envName, defaultValues string, renderChart *templatemodels.ServiceRender, serviceObj *commonmodels.Service, productSvc *commonmodels.ProductService) (*kube.ReleaseInstallParam, error) {
-	mergedValues, err := helmtool.MergeOverrideValues("", defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to merge release %s: override yaml %s and values %s, err: %s", renderChart.ReleaseName, renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
-	}
-	ret := &kube.ReleaseInstallParam{
-		ProductName:    productSvc.ProductName,
-		Namespace:      namespace,
-		ReleaseName:    renderChart.ReleaseName,
-		MergedValues:   mergedValues,
-		RenderChart:    renderChart,
-		ServiceObj:     serviceObj,
-		Production:     true,
-		IsChartInstall: true,
-	}
-	return ret, nil
-}
-
 func installProductHelmCharts(user, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient *helmtool.HelmClient,
 	kclient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) {
 	var (
