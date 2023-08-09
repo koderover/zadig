@@ -491,9 +491,7 @@ func GetGlobalVariables(c *gin.Context) {
 
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
-	}
-
-	if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+	} else if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
 		if projectedAuthInfo.IsProjectAdmin {
 			permitted = true
 		}
