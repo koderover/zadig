@@ -127,7 +127,19 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 			logError(c.job, msg, c.logger)
 			return
 		}
-		calculatedContainers := kube.CalculateContainer(productService, svcTemplate, latestSvc.Containers, productInfo)
+
+		curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ProductName: productInfo.ProductName,
+			ServiceName: c.jobTaskSpec.ServiceName,
+			Revision:    productService.Revision,
+		}, productInfo.Production)
+		if err != nil {
+			msg := fmt.Sprintf("failed to find service %s/%d in product %s, error: %v", productInfo.ProductName, productService.Revision, productInfo.ProductName, err)
+			logError(c.job, msg, c.logger)
+			return
+		}
+
+		calculatedContainers := kube.CalculateContainer(productService, curUsedSvc, latestSvc.Containers, productInfo)
 		param.Images = kube.MergeImages(calculatedContainers, param.Images)
 	}
 
