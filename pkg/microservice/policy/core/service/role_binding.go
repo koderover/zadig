@@ -64,7 +64,6 @@ func UpdateRoleBindings(ns string, rbs []*RoleBinding, userID string, logger *za
 }
 
 func CreateOrUpdateSystemRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) error {
-
 	obj, err := createRoleBindingObject(ns, rb, logger)
 	if err != nil {
 		return err

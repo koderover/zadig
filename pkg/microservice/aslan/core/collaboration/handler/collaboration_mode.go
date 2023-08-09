@@ -28,7 +28,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -164,7 +164,7 @@ func generateCollaborationDetailLog(username string, args *commonmodels.Collabor
 	detail := "协作模式名称：" + args.Name + "\n\n"
 
 	// user part
-	userResp, err := user.SearchUsersByUIDs(allUserIDSet.List(), logger)
+	userResp, err := user.New().SearchUsersByIDList(allUserIDSet.List())
 	if err != nil {
 		return "", fmt.Errorf("failed to search users by uids(%v), err: %v", args.Members, err)
 	}

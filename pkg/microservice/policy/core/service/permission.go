@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -35,16 +37,14 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogger) (*GetUserRulesByProjectResp, error) {
+func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger) (*GetUserRulesByProjectResp, error) {
+	var isProjectAdmin, isSystemAdmin bool
+	projectVerbSet := sets.NewString()
 	roleBindings, err := mongodb.NewRoleBindingColl().ListBy(projectName, uid)
 	if err != nil {
 		return nil, err
 	}
-	allUserRoleBingdins, err := mongodb.NewRoleBindingColl().ListBy(projectName, "*")
-	if err != nil {
-		return nil, err
-	}
-	roleBindings = append(roleBindings, allUserRoleBingdins...)
+
 	roles, err := ListUserAllRolesByRoleBindings(roleBindings)
 	if err != nil {
 		return nil, err
@@ -53,9 +53,7 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 	for _, role := range roles {
 		roleMap[role.Name] = role
 	}
-	isSystemAdmin := false
-	isProjectAdmin := false
-	projectVerbSet := sets.NewString()
+	// roles controls all the permissions, with an exception of collaboration mode handling the additional workflow and env read verb.
 	for _, rolebinding := range roleBindings {
 		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) && rolebinding.RoleRef.Namespace == "*" {
 			isSystemAdmin = true
@@ -64,110 +62,85 @@ func GetUserRulesByProject(uid string, projectName string, log *zap.SugaredLogge
 			isProjectAdmin = true
 			continue
 		}
-		var role *models.Role
-		if roleRef, ok := roleMap[rolebinding.RoleRef.Name]; ok {
-			role = roleRef
+		if role, ok := roleMap[rolebinding.RoleRef.Name]; ok {
+			for _, rule := range role.Rules {
+				for _, verb := range rule.Verbs {
+					projectVerbSet.Insert(verb)
+				}
+			}
 		} else {
 			log.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
 			return nil, fmt.Errorf("roleMap has no role:%s", rolebinding.RoleRef.Name)
 		}
-		for _, rule := range role.Rules {
-			var ruleVerbs []string
-			ruleVerbs = rule.Verbs
-			projectVerbSet.Insert(ruleVerbs...)
-		}
 	}
 
-	policyBindings, err := mongodb.NewPolicyBindingColl().ListBy(projectName, uid)
+	// special case for public project
+	publicRoleBindings, err := mongodb.NewRoleBindingColl().ListBy(projectName, "*")
 	if err != nil {
 		return nil, err
 	}
-	policies, err := ListUserAllPoliciesByPolicyBindings(policyBindings)
-	if err != nil {
-		return nil, err
+	// if the project is public, give all read permission
+	if len(publicRoleBindings) > 0 {
+		projectVerbSet.Insert(types.WorkflowActionView)
+		projectVerbSet.Insert(types.EnvActionView)
+		projectVerbSet.Insert(types.ProductionEnvActionView)
+		projectVerbSet.Insert(types.TestActionView)
+		projectVerbSet.Insert(types.ScanActionView)
+		projectVerbSet.Insert(types.ServiceActionView)
+		projectVerbSet.Insert(types.BuildActionView)
+		projectVerbSet.Insert(types.DeliveryActionView)
 	}
-	policyMap := make(map[string]*models.Policy)
-	for _, policy := range policies {
-		policyMap[policy.Name] = policy
-	}
-	labelVerbMap := make(map[string][]string)
 
-	for _, policyBinding := range policyBindings {
-		var policy *models.Policy
-		if policyRef, ok := policyMap[policyBinding.PolicyRef.Name]; ok {
-			policy = policyRef
-		} else {
-			log.Errorf("policyMap has no policy:%s", policyBinding.PolicyRef.Name)
-			return nil, fmt.Errorf("policyMap has no policy:%s", policyBinding.PolicyRef.Name)
-		}
-
-		for _, rule := range policy.Rules {
-			for _, matchAttribute := range rule.MatchAttributes {
-				labelKeyKey := rule.Resources[0] + ":" + matchAttribute.Key + ":" + matchAttribute.Value
-				if verbs, ok := labelVerbMap[labelKeyKey]; ok {
-					verbsSet := sets.NewString(verbs...)
-					verbsSet.Insert(rule.Verbs...)
-					labelVerbMap[labelKeyKey] = verbsSet.List()
-				} else {
-					labelVerbMap[labelKeyKey] = rule.Verbs
-				}
-			}
-		}
-	}
-	var labels []label.Label
-	for labelKey, _ := range labelVerbMap {
-		keySplit := strings.Split(labelKey, ":")
-		labels = append(labels, label.Label{
-			Type:  keySplit[0],
-			Key:   keySplit[1],
-			Value: keySplit[2],
-		})
-	}
-	req := label.ListResourcesByLabelsReq{
-		LabelFilters: labels,
-	}
-	resp, err := label.New().ListResourcesByLabels(req)
+	// finally check the collaboration instance, set all the permission granted by collaboration instance to the corresponding map
+	collaborationInstance, err := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectName)
 	if err != nil {
-		return nil, err
+		// if no collaboration mode is found, simple return the result without error logs since this is not an error
+		return &GetUserRulesByProjectResp{
+			IsSystemAdmin:       isSystemAdmin,
+			IsProjectAdmin:      isProjectAdmin,
+			ProjectVerbs:        projectVerbSet.List(),
+			WorkflowVerbsMap:    nil,
+			EnvironmentVerbsMap: nil,
+		}, nil
 	}
-	environmentVerbMap := make(map[string][]string)
-	workflowVerbMap := make(map[string][]string)
-	for labelKey, resources := range resp.Resources {
-		for _, resource := range resources {
-			resourceType := resource.Type
-			if resource.Type == "CommonWorkflow" {
-				resourceType = "Workflow"
+
+	workflowMap := make(map[string][]string)
+	envMap := make(map[string][]string)
+
+	// TODO: currently this map will have some problems when there is a naming conflict between product workflow and common workflow. fix it.
+	for _, workflow := range collaborationInstance.Workflows {
+		workflowVerbs := make([]string, 0)
+		for _, verb := range workflow.Verbs {
+			// special case: if the user have workflow view permission in collaboration mode, we add read workflow permission in the resp
+			if verb == types.WorkflowActionView {
+				projectVerbSet.Insert(types.WorkflowActionView)
 			}
-			if verbs, ok := labelVerbMap[resourceType+":"+labelKey]; ok {
-				if resourceType == string(config.ResourceTypeEnvironment) {
-					if resourceVerbs, rOK := environmentVerbMap[resource.Name]; rOK {
-						verbSet := sets.NewString(resourceVerbs...)
-						verbSet.Insert(verbs...)
-						environmentVerbMap[resource.Name] = verbSet.List()
-					} else {
-						environmentVerbMap[resource.Name] = verbs
-					}
-				}
-				if resourceType == string(config.ResourceTypeWorkflow) {
-					if resourceVerbs, rOK := workflowVerbMap[resource.Name]; rOK {
-						verbSet := sets.NewString(resourceVerbs...)
-						verbSet.Insert(verbs...)
-						workflowVerbMap[resource.Name] = verbSet.List()
-					} else {
-						workflowVerbMap[resource.Name] = verbs
-					}
-				}
-			} else {
-				log.Warnf("labelVerbMap key:%s not exist", resource.Type+":"+labelKey)
-			}
+			workflowVerbs = append(workflowVerbs, verb)
 		}
+		workflowMap[workflow.Name] = workflowVerbs
 	}
+
+	for _, env := range collaborationInstance.Products {
+		envVerbs := make([]string, 0)
+		for _, verb := range env.Verbs {
+			// special case: if the user have env view permission in collaboration mode, we add read env permission in the resp
+			if verb == types.EnvActionView {
+				projectVerbSet.Insert(types.EnvActionView)
+			}
+			if verb == types.ProductionEnvActionView {
+				projectVerbSet.Insert(types.ProductionEnvActionView)
+			}
+			envVerbs = append(envVerbs, verb)
+		}
+		envMap[env.Name] = envVerbs
+	}
+
 	return &GetUserRulesByProjectResp{
 		IsSystemAdmin:       isSystemAdmin,
-		ProjectVerbs:        projectVerbSet.List(),
 		IsProjectAdmin:      isProjectAdmin,
-		EnvironmentVerbsMap: environmentVerbMap,
-		WorkflowVerbsMap:    workflowVerbMap,
+		ProjectVerbs:        projectVerbSet.List(),
+		WorkflowVerbsMap:    workflowMap,
+		EnvironmentVerbsMap: envMap,
 	}, nil
 }
 
@@ -208,6 +181,7 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 	isSystemAdmin := false
 	projectAdminSet := sets.NewString()
 	projectVerbMap := make(map[string][]string)
+	projectVerbSetMap := make(map[string]sets.String)
 	systemVerbSet := sets.NewString()
 	for _, rolebinding := range roleBindings {
 		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) && rolebinding.RoleRef.Namespace == "*" {
@@ -229,26 +203,46 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 				systemVerbSet.Insert(rule.Verbs...)
 			}
 		} else {
-			if verbs, ok := projectVerbMap[rolebinding.Namespace]; ok {
-				verbSet := sets.NewString(verbs...)
-				for _, rule := range role.Rules {
-					var ruleVerbs []string
-					ruleVerbs = rule.Verbs
-					verbSet.Insert(ruleVerbs...)
-				}
-				projectVerbMap[rolebinding.Namespace] = verbSet.List()
+			if _, ok := projectVerbSetMap[rolebinding.Namespace]; !ok {
+				projectVerbSetMap[rolebinding.Namespace] = sets.NewString()
+			}
 
-			} else {
-				verbSet := sets.NewString()
-				for _, rule := range role.Rules {
-					var ruleVerbs []string
-					ruleVerbs = rule.Verbs
-					verbSet.Insert(ruleVerbs...)
+			for _, rule := range role.Rules {
+				if role.Name != string(setting.ReadProjectOnly) {
+					projectVerbSetMap[rolebinding.Namespace].Insert(rule.Verbs...)
 				}
-				projectVerbMap[rolebinding.Namespace] = verbSet.List()
 			}
 		}
 	}
+
+	for project, verbSet := range projectVerbSetMap {
+		// collaboration mode is a special that does not have rule and verbs, we manually check if the user is permitted to
+		// get workflow and environment
+		workflowReadPermission, err := internalhandler.CheckPermissionGivenByCollaborationMode(uid, project, types.ResourceTypeWorkflow, types.WorkflowActionView)
+		if err != nil {
+			// there are cases where the users do not have any collaboration modes, hence no instances found
+			// in these cases we just ignore the error, and set permission to false
+			//log.Warnf("failed to read collaboration permission for project: %s, error: %s", project, err)
+			workflowReadPermission = false
+		}
+		if workflowReadPermission {
+			projectVerbSetMap[project].Insert(types.WorkflowActionView)
+		}
+
+		envReadPermission, err := internalhandler.CheckPermissionGivenByCollaborationMode(uid, project, types.ResourceTypeEnvironment, types.EnvActionView)
+		if err != nil {
+			// there are cases where the users do not have any collaboration modes, hence no instances found
+			// in these cases we just ignore the error, and set permission to false
+			//log.Warnf("failed to read collaboration permission for project: %s, error: %s", project, err)
+			envReadPermission = false
+		}
+		if envReadPermission {
+			projectVerbSetMap[project].Insert(types.EnvActionView)
+		}
+
+		projectVerbMap[project] = verbSet.List()
+	}
+
 	return &GetUserRulesResp{
 		IsSystemAdmin:    isSystemAdmin,
 		ProjectVerbMap:   projectVerbMap,

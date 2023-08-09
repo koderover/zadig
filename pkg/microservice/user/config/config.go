@@ -60,3 +60,15 @@ func MysqlDexDB() string {
 func TokenExpiresAt() int {
 	return viper.GetInt(setting.ENVTokenExpiresAt)
 }
+
+func AdminPassword() string {
+	return viper.GetString(setting.ENVAdminPassword)
+}
+
+func AdminEmail() string {
+	return viper.GetString(setting.ENVAdminEmail)
+}
+
+func SystemAddress() string {
+	return viper.GetString(setting.ENVSystemAddress)
+}

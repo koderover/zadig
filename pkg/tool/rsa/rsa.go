@@ -161,6 +161,10 @@ const (
 	publicKeyPrefix  = "RSA PUBLIC KEY"
 )
 
+func EncryptByDefaultPublicKey(plainText []byte) (cryptText []byte, err error) {
+	return EncryptByPublicKey(plainText, defaultPublicKey)
+}
+
 func EncryptByPublicKey(plainText, key []byte) (cryptText []byte, err error) {
 	block, _ := pem.Decode(key)
 	defer func() {
@@ -237,7 +241,7 @@ func GetRsaKey() (error, []byte, []byte) {
 	return nil, publicKeyRes, privateKeyRes
 }
 
-//RSA解密
+// RSA解密
 // cipherText 需要解密的byte数据
 func Decrypt(cipherText []byte) ([]byte, error) {
 	if err := LoadPrivKey(""); err != nil {
@@ -249,7 +253,7 @@ func Decrypt(cipherText []byte) ([]byte, error) {
 	return plainText, err
 }
 
-//RSA加密
+// RSA加密
 // plainText 要加密的数据
 func Encrypt(plainText []byte) []byte {
 	if err := LoadPubKey(""); err != nil {
