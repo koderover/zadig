@@ -39,8 +39,15 @@ func ListExternalLinks(c *gin.Context) {
 }
 
 func CreateExternalLink(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(commonmodels.ExternalLink)
 	data, err := c.GetRawData()
@@ -51,6 +58,12 @@ func CreateExternalLink(c *gin.Context) {
 		log.Errorf("CreateExternalLink json.Unmarshal err : %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-快捷链接", fmt.Sprintf("name:%s url:%s", args.Name, args.URL), string(data), ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
@@ -64,8 +77,15 @@ func CreateExternalLink(c *gin.Context) {
 }
 
 func UpdateExternalLink(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(commonmodels.ExternalLink)
 	data, err := c.GetRawData()
@@ -76,6 +96,12 @@ func UpdateExternalLink(c *gin.Context) {
 		log.Errorf("UpdateExternal json.Unmarshal err : %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-快捷链接", fmt.Sprintf("name:%s url:%s", args.Name, args.URL), string(data), ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
@@ -89,9 +115,23 @@ func UpdateExternalLink(c *gin.Context) {
 }
 
 func DeleteExternalLink(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-快捷链接", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	ctx.Err = service.DeleteExternalLink(c.Param("id"), ctx.Logger)
 }

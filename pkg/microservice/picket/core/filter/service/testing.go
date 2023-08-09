@@ -23,27 +23,11 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
-	"github.com/koderover/zadig/pkg/microservice/picket/config"
 )
 
+// TODO: remove this, all the logic has been moved back to aslan
+
 func ListTestings(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
-	rules := []*rule{{
-		method:   "/api/aslan/testing/test",
-		endpoint: "GET",
-	}}
-	names, err := getAllowedProjects(header, rules, config.AND, logger)
-	if err != nil {
-		logger.Errorf("Failed to get allowed project names, err: %s", err)
-		return nil, err
-	}
-	if len(names) == 0 {
-		return nil, nil
-	}
-	if !(len(names) == 1 && names[0] == "*") {
-		for _, name := range names {
-			qs.Add("projects", name)
-		}
-	}
 	qs.Add("testType", "function")
 	return aslan.New().ListTestings(header, qs)
 }

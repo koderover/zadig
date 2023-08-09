@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/koderover/zadig/pkg/types"
+
 	"github.com/gin-gonic/gin"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
@@ -38,23 +40,91 @@ import (
 // @Success 200 			{object} 	commonservice.EnvServices
 // @Router /api/aslan/environment/environments/{name}/services [get]
 func ListSvcsInEnv(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	envName := c.Param("name")
-	productName := c.Query("projectName")
 
-	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, productName, nil, ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+
+	// TODO: Authorization leak
+	// authorization checks
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		if projectedAuthInfo.IsProjectAdmin {
+			permitted = true
+		}
+
+		if projectedAuthInfo.Env.View ||
+			projectedAuthInfo.Workflow.Execute {
+			permitted = true
+		}
+
+		collaborationViewEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+		if err == nil {
+			permitted = collaborationViewEnvPermitted
+		}
+
+		permitted = collaborationViewEnvPermitted
+
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionRun)
+		if err == nil {
+			permitted = collaborationAuthorizedEdit
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = commonservice.ListServicesInEnv(envName, projectKey, nil, ctx.Logger)
 }
 
 func GetService(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	serviceName := c.Param("serviceName")
 	workLoadType := c.Query("workLoadType")
 
-	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, false, workLoadType, false, ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, false, workLoadType, false, ctx.Logger)
 }
 
 // @Summary Get Production Service
@@ -70,28 +140,141 @@ func GetService(c *gin.Context) {
 // @Success 200 				{object} 	service.SvcResp
 // @Router /api/aslan/environment/environments/{name}/services/{serviceName} [get]
 func GetProductionService(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
+	projectKey := c.Query("projectName")
 	serviceName := c.Param("serviceName")
-	projectName := c.Query("projectName")
 	isHelmChartDeploy := c.Query("isHelmChartDeploy")
 	workLoadType := c.Query("workLoadType")
 
-	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, true, workLoadType, isHelmChartDeploy == "true", ctx.Logger)
+	// TODO: Authorization leak
+	// Authorization checks
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		if projectedAuthInfo.IsProjectAdmin {
+			permitted = true
+		}
+
+		if projectedAuthInfo.ProductionEnv.View ||
+			projectedAuthInfo.ProductionEnv.ManagePods {
+			permitted = true
+		}
+
+		readPermitted, _ := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+		if readPermitted {
+			permitted = true
+		}
+
+		editPermitted, _ := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+		if editPermitted {
+			permitted = true
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, true, workLoadType, isHelmChartDeploy == "true", ctx.Logger)
 }
 
 func RestartService(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.SvcOptArgs{
-		EnvName:     c.Param("name"),
-		ProductName: c.Query("projectName"),
-		ServiceName: c.Param("serviceName"),
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
 	}
 
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv,
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+	serviceName := c.Param("serviceName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	args := &service.SvcOptArgs{
+		EnvName:     envName,
+		ProductName: projectKey,
+		ServiceName: serviceName,
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
+		"重启", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Param("name"), c.Param("serviceName")),
+		"", ctx.Logger, args.EnvName)
+	ctx.Err = service.RestartService(args.EnvName, args, ctx.Logger)
+}
+
+func RestartProductionService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+	serviceName := c.Param("serviceName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+
+	}
+
+	args := &service.SvcOptArgs{
+		EnvName:     envName,
+		ProductName: projectKey,
+		ServiceName: serviceName,
+	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
 		"重启", "环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Param("name"), c.Param("serviceName")),
 		"", ctx.Logger, args.EnvName)
 	ctx.Err = service.RestartService(args.EnvName, args, ctx.Logger)
@@ -109,6 +292,7 @@ func RestartService(c *gin.Context) {
 // @Success 200 			{object} 	service.SvcDiffResult
 // @Router /api/aslan/environment/environments/{name}/services/{serviceName}/preview [post]
 func PreviewService(c *gin.Context) {
+	// TODO: add authorization probably
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -126,6 +310,7 @@ func PreviewService(c *gin.Context) {
 }
 
 func BatchPreviewServices(c *gin.Context) {
+	// TODO: add authorization probably
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -156,14 +341,37 @@ func BatchPreviewServices(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/environment/environments/{name}/services/{serviceName} [put]
 func UpdateService(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
-	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv,
+	projectKey := c.Query("projectName")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
 		"更新", "环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName")),
 		"", ctx.Logger, envName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
 
 	svcRev := new(service.SvcRevision)
 	if err := c.BindJSON(svcRev); err != nil {
@@ -178,7 +386,61 @@ func UpdateService(c *gin.Context) {
 
 	args := &service.SvcOptArgs{
 		EnvName:           envName,
-		ProductName:       projectName,
+		ProductName:       projectKey,
+		ServiceName:       c.Param("serviceName"),
+		ServiceType:       svcRev.Type,
+		ServiceRev:        svcRev,
+		UpdateBy:          ctx.UserName,
+		UpdateServiceTmpl: svcRev.UpdateServiceTmpl,
+	}
+
+	ctx.Err = service.UpdateService(args, ctx.Logger)
+}
+
+func UpdateProductionService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv,
+		"更新", "环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName")),
+		"", ctx.Logger, envName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	svcRev := new(service.SvcRevision)
+	if err := c.BindJSON(svcRev); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	if c.Param("serviceName") != svcRev.ServiceName {
+		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName not match")
+		return
+	}
+
+	args := &service.SvcOptArgs{
+		EnvName:           envName,
+		ProductName:       projectKey,
 		ServiceName:       c.Param("serviceName"),
 		ServiceType:       svcRev.Type,
 		ServiceRev:        svcRev,
@@ -190,20 +452,33 @@ func UpdateService(c *gin.Context) {
 }
 
 func RestartWorkload(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+	serviceName := c.Param("serviceName")
+	workloadType := c.Query("type")
+	workloadName := c.Query("name")
+
 	args := &service.RestartScaleArgs{
-		EnvName:     c.Param("name"),
-		ProductName: c.Query("projectName"),
-		ServiceName: c.Param("serviceName"),
-		Type:        c.Query("type"),
-		Name:        c.Query("name"),
+		EnvName:     envName,
+		ProductName: projectKey,
+		ServiceName: serviceName,
+		Type:        workloadType,
+		Name:        workloadName,
 	}
 
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName,
-		c.Query("projectName"),
+		projectKey,
 		setting.OperationSceneEnv,
 		"重启",
 		"环境-服务",
@@ -213,17 +488,96 @@ func RestartWorkload(c *gin.Context) {
 		"", ctx.Logger, args.EnvName,
 	)
 
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = service.RestartScale(args, ctx.Logger)
+}
+
+func RestartProductionWorkload(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+	serviceName := c.Param("serviceName")
+	workloadType := c.Query("type")
+	workloadName := c.Query("name")
+
+	args := &service.RestartScaleArgs{
+		EnvName:     envName,
+		ProductName: projectKey,
+		ServiceName: serviceName,
+		Type:        workloadType,
+		Name:        workloadName,
+	}
+
+	internalhandler.InsertDetailedOperationLog(
+		c, ctx.UserName,
+		projectKey,
+		setting.OperationSceneEnv,
+		"重启",
+		"环境-服务",
+		fmt.Sprintf(
+			"环境名称:%s,服务名称:%s,%s:%s", args.EnvName, args.ServiceName, args.Type, args.Name,
+		),
+		"", ctx.Logger, args.EnvName,
+	)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
 	ctx.Err = service.RestartScale(args, ctx.Logger)
 }
 
 func ScaleNewService(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(service.ScaleArgs)
 	args.Type = setting.Deployment
 
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	serviceName := c.Param("serviceName")
 	envName := c.Param("name")
 	resourceType := c.Query("type")
@@ -231,11 +585,27 @@ func ScaleNewService(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(
 		c, ctx.UserName,
-		projectName, setting.OperationSceneEnv,
+		projectKey, setting.OperationSceneEnv,
 		"伸缩",
 		"环境-服务",
 		fmt.Sprintf("环境名称:%s,%s:%s", envName, resourceType, name),
 		"", ctx.Logger, envName)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.ManagePods {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionManagePod)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
 
 	number, err := strconv.Atoi(c.Query("number"))
 	if err != nil {
@@ -245,7 +615,7 @@ func ScaleNewService(c *gin.Context) {
 
 	ctx.Err = service.Scale(&service.ScaleArgs{
 		Type:        resourceType,
-		ProductName: projectName,
+		ProductName: projectKey,
 		EnvName:     envName,
 		ServiceName: serviceName,
 		Name:        name,
@@ -254,13 +624,36 @@ func ScaleNewService(c *gin.Context) {
 }
 
 func GetServiceContainer(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	serviceName := c.Param("serviceName")
 	container := c.Param("container")
 
-	ctx.Err = service.GetServiceContainer(envName, projectName, serviceName, container, ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Err = service.GetServiceContainer(envName, projectKey, serviceName, container, ctx.Logger)
 }

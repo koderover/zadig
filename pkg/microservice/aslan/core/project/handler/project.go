@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	projectservice "github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
@@ -34,9 +36,21 @@ type projectListArgs struct {
 	Filter           string   `json:"filter"           form:"filter"`
 }
 
+type projectResp struct {
+	Projects []string `json:"projects"`
+	Total    int64    `json:"total"`
+}
+
 func ListProjects(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := &projectListArgs{}
 	if err := c.ShouldBindQuery(args); err != nil {
@@ -44,12 +58,33 @@ func ListProjects(c *gin.Context) {
 		return
 	}
 
+	var authorizedProjectList []string
+
+	if ctx.Resources.IsSystemAdmin {
+		authorizedProjectList = []string{}
+	} else {
+		var found bool
+		authorizedProjectList, found, err = internalhandler.ListAuthorizedProjects(ctx.UserID)
+		if err != nil {
+			ctx.Err = e.ErrInternalError.AddDesc(err.Error())
+			return
+		}
+
+		if !found {
+			ctx.Resp = &projectResp{
+				Projects: []string{},
+				Total:    0,
+			}
+			return
+		}
+	}
+
 	ctx.Resp, ctx.Err = projectservice.ListProjects(
 		&projectservice.ProjectListOptions{
 			IgnoreNoEnvs:     args.IgnoreNoEnvs,
 			IgnoreNoVersions: args.IgnoreNoVersions,
 			Verbosity:        projectservice.QueryVerbosity(args.Verbosity),
-			Names:            args.Names,
+			Names:            authorizedProjectList,
 			PageSize:         args.PageSize,
 			PageNum:          args.PageNum,
 			Filter:           args.Filter,

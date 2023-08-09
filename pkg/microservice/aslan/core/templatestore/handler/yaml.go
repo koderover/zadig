@@ -18,6 +18,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 
@@ -36,8 +37,15 @@ import (
 // @Success 200
 // @Router /api/aslan/template/yaml [post]
 func CreateYamlTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	req := &template.YamlTemplate{}
 
@@ -48,6 +56,14 @@ func CreateYamlTemplate(c *gin.Context) {
 
 	bs, _ := json.Marshal(req)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "创建", "模板-YAML", req.Name, string(bs), ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = templateservice.CreateYamlTemplate(req, ctx.Logger)
 }
@@ -62,8 +78,15 @@ func CreateYamlTemplate(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/template/yaml/{id} [put]
 func UpdateYamlTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	req := &template.YamlTemplate{}
 
@@ -88,8 +111,15 @@ func UpdateYamlTemplate(c *gin.Context) {
 // @Success 200
 // @Router /api/aslan/template/yaml/{id}/variable [put]
 func UpdateYamlTemplateVariable(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	req := &template.YamlTemplate{}
 
@@ -100,6 +130,14 @@ func UpdateYamlTemplateVariable(c *gin.Context) {
 
 	bs, _ := json.Marshal(req)
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "模板-YAML-变量", req.Name, string(bs), ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = templateservice.UpdateYamlTemplateVariable(c.Param("id"), req, ctx.Logger)
 }
@@ -116,8 +154,27 @@ type ListYamlResp struct {
 }
 
 func ListYamlTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// TODO: Authorization leak
+	// comment: since currently there are multiple functionalities that wish to used this API without authorization,
+	// we temporarily disabled the permission checks for this API.
+
+	// authorization check
+	//if !ctx.Resources.IsSystemAdmin {
+	//	if !ctx.Resources.SystemActions.Template.View {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//}
 
 	// Query Verification
 	args := &listYamlQuery{}
@@ -146,17 +203,51 @@ func ListYamlTemplate(c *gin.Context) {
 // @Success 200 	{object} 	template.YamlDetail
 // @Router /api/aslan/template/yaml/{id} [get]
 func GetYamlTemplateDetail(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// TODO: Authorization leak
+	// comment: since currently there are multiple functionalities that wish to used this API without authorization,
+	// we temporarily disabled the permission checks for this API.
+
+	// authorization check
+	//if !ctx.Resources.IsSystemAdmin {
+	//	if !ctx.Resources.SystemActions.Template.View {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//}
 
 	ctx.Resp, ctx.Err = templateservice.GetYamlTemplateDetail(c.Param("id"), ctx.Logger)
 }
 
 func DeleteYamlTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "模板-YAML", c.Param("id"), "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = templateservice.DeleteYamlTemplate(c.Param("id"), ctx.Logger)
 }
@@ -169,10 +260,25 @@ func GetYamlTemplateReference(c *gin.Context) {
 }
 
 func SyncYamlTemplateReference(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "同步", "模板-YAML", c.Param("id"), "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Template.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = templateservice.SyncYamlTemplateReference(ctx.UserName, c.Param("id"), ctx.Logger)
 }

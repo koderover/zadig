@@ -12,8 +12,15 @@ import (
 )
 
 func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	req := new(svcservice.OpenAPILoadServiceFromYamlTemplateReq)
 	if err := c.ShouldBindJSON(req); err != nil {
@@ -29,6 +36,19 @@ func LoadServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 
 	bs, _ := json.Marshal(req)
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(OpenAPI)", req.ProjectKey, "新增", "项目管理-测试服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(bs), ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[req.ProjectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[req.ProjectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[req.ProjectKey].Service.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = svcservice.OpenAPILoadServiceFromYamlTemplate(ctx.UserName, req, false, ctx.Logger)
 }
@@ -56,8 +76,15 @@ func LoadProductionServiceFromYamlTemplateOpenAPI(c *gin.Context) {
 }
 
 func CreateRawYamlServicesOpenAPI(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
@@ -77,12 +104,33 @@ func CreateRawYamlServicesOpenAPI(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openapi)", projectKey, "新增", "项目管理-测试服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(data), ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Service.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = svcservice.CreateRawYamlServicesOpenAPI(ctx.UserName, projectKey, req, ctx.Logger)
 }
 
 func CreateRawProductionYamlServicesOpenAPI(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
@@ -103,6 +151,20 @@ func CreateRawProductionYamlServicesOpenAPI(c *gin.Context) {
 	req.Production = true
 
 	internalhandler.InsertOperationLog(c, ctx.UserName+"(openapi)", projectKey, "新增", "项目管理-生产服务", fmt.Sprintf("服务名称:%s", req.ServiceName), string(data), ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = svcservice.CreateRawYamlServicesOpenAPI(ctx.UserName, projectKey, req, ctx.Logger)
 }
 
