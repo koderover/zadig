@@ -38,7 +38,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
@@ -266,7 +265,7 @@ func buildContainerMap(cs []*models.Container) map[string]*models.Container {
 	return containerMap
 }
 
-// calculateContainer calculates containers to be applied into environments for helm and k8s projects
+// CalculateContainer calculates containers to be applied into environments for helm and k8s projects
 // if image has no change since last deploy, containers in latest service will be used
 // if image hse been change since lase deploy (eg. workflow), current values will be remained
 func CalculateContainer(productSvc *commonmodels.ProductService, curUsedSvc *commonmodels.Service, latestContainers []*models.Container, productInfo *commonmodels.Product) []*models.Container {
@@ -313,60 +312,29 @@ func mergeContainers(curContainers []*commonmodels.Container, newContainers ...[
 	return containers
 }
 
-func FetchCurrentServiceVariable(option *GeneSvcYamlOption) ([]*commonmodels.VariableKV, error) {
-	_, err := templaterepo.NewProductColl().Find(option.ProductName)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find template product %s", option.ProductName)
+func MergeImages(curContainers []*models.Container, images []string) []string {
+	ret := make([]string, 0)
+	containerMap := make(map[string]string)
+	for _, container := range curContainers {
+		containerMap[container.ImageName] = container.Image
 	}
 
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		EnvName: option.EnvName,
-		Name:    option.ProductName,
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find product %s", option.ProductName)
+	imageMap := make(map[string]string)
+	for _, image := range images {
+		imageMap[util.ExtractImageName(image)] = image
 	}
 
-	curProductSvc := productInfo.GetServiceMap()[option.ServiceName]
-
-	productSvcRevision := int64(0)
-	if curProductSvc != nil {
-		productSvcRevision = curProductSvc.Revision
+	for imageName, image := range imageMap {
+		if len(imageName) == 0 {
+			continue
+		}
+		containerMap[imageName] = image
 	}
 
-	prodSvcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-		ProductName: option.ProductName,
-		ServiceName: option.ServiceName,
-		Revision:    productSvcRevision,
-	}, productInfo.Production)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, productSvcRevision)
+	for _, image := range containerMap {
+		ret = append(ret, image)
 	}
-
-	var usedRenderset *commonmodels.RenderSet
-	usedRenderset, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		ProductTmpl: productInfo.ProductName,
-		EnvName:     productInfo.EnvName,
-		IsDefault:   false,
-		Revision:    productInfo.Render.Revision,
-		Name:        productInfo.Render.Name,
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)
-	}
-
-	serviceVariableYaml := ""
-	serviceRender := usedRenderset.GetServiceRenderMap()[option.ServiceName]
-	if serviceRender != nil && serviceRender.OverrideYaml != nil {
-		serviceVariableYaml = serviceRender.OverrideYaml.YamlContent
-	}
-
-	variableYaml, _, err := commomtemplate.SafeMergeVariableYaml(prodSvcTemplate.VariableYaml, serviceVariableYaml)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to merge variable yaml for %s/%s", option.ProductName, option.ServiceName)
-	}
-
-	return GeneKVFromYaml(variableYaml)
+	return ret
 }
 
 // FetchCurrentAppliedYaml generates full yaml of some service currently applied in Zadig
