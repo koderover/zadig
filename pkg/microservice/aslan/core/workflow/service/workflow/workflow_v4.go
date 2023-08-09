@@ -2123,7 +2123,12 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		Timeout:               setting.DeployTimeout,
 	}
 
-	curProdSvc := prod.GetServiceMap()[serviceName]
+	curProdSvcRevision := func() int64 {
+		if prod.GetServiceMap()[serviceName] != nil {
+			return prod.GetServiceMap()[serviceName].Revision
+		}
+		return 0
+	}()
 
 	renderSet, productService, _, err := kube.PrepareHelmServiceData(param)
 	if err != nil {
@@ -2131,7 +2136,7 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		return nil, err
 	}
 
-	if updateServiceRevision && curProdSvc != nil {
+	if updateServiceRevision && curProdSvcRevision > int64(0) {
 		svcFindOption := &commonrepo.ServiceFindOption{
 			ProductName: prod.ProductName,
 			ServiceName: serviceName,
@@ -2144,7 +2149,7 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ProductName: prod.ProductName,
 			ServiceName: serviceName,
-			Revision:    curProdSvc.Revision,
+			Revision:    curProdSvcRevision,
 		}, prod.Production)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", serviceName, svcFindOption.Revision, prod.ProductName)
@@ -2152,7 +2157,7 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 
 		containers := kube.CalculateContainer(productService, curUsedSvc, latestSvc.Containers, prod)
 
-		log.Infof("-------- container count: %v", len(containers))
+		log.Infof("-------- container count: %v, curUsedSvc revision: %v", len(containers), curUsedSvc.Revision)
 		for _, calculatedContainer := range containers {
 			log.Infof("------- container info: %s", calculatedContainer.Image)
 		}
