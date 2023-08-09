@@ -120,9 +120,7 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 	permitted := false
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
-	}
-
-	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; ok {
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; ok {
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
 		}
@@ -189,9 +187,7 @@ func UpdateProductionDeploymentContainerImage(c *gin.Context) {
 	permitted := false
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
-	}
-
-	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; ok {
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; ok {
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
 		}
