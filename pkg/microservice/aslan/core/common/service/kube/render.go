@@ -312,6 +312,31 @@ func mergeContainers(curContainers []*commonmodels.Container, newContainers ...[
 	return containers
 }
 
+func MergeImages(curContainers []*models.Container, images []string) []string {
+	ret := make([]string, 0)
+	containerMap := make(map[string]string)
+	for _, container := range curContainers {
+		containerMap[container.Name] = container.Image
+	}
+
+	imageMap := make(map[string]string)
+	for _, image := range images {
+		imageMap[util.ExtractImageName(image)] = image
+	}
+
+	for imageName, image := range imageMap {
+		if len(imageName) == 0 {
+			continue
+		}
+		containerMap[imageName] = image
+	}
+
+	for _, image := range containerMap {
+		ret = append(ret, image)
+	}
+	return ret
+}
+
 // FetchCurrentAppliedYaml generates full yaml of some service currently applied in Zadig
 // and returns the service yaml, currently used service revision
 func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {

@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -113,6 +115,21 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		msg := fmt.Sprintf("prepare helm service data error: %v", err)
 		logError(c.job, msg, c.logger)
 		return
+	}
+
+	if updateServiceRevision {
+		svcFindOption := &commonrepo.ServiceFindOption{
+			ProductName: productInfo.ProductName,
+			ServiceName: c.jobTaskSpec.ServiceName,
+		}
+		latestSvc, err := repository.QueryTemplateService(svcFindOption, productInfo.Production)
+		if err != nil {
+			msg := fmt.Sprintf("failed to find service %s/%d in product %s, error: %v", productInfo.ProductName, svcFindOption.Revision, productInfo.ProductName, err)
+			logError(c.job, msg, c.logger)
+			return
+		}
+		calculatedContainers := kube.CalculateContainer(productService, svcTemplate, latestSvc.Containers, productInfo)
+		images = kube.MergeImages(calculatedContainers, images)
 	}
 
 	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
