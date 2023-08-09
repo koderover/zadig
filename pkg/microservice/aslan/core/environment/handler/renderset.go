@@ -350,15 +350,13 @@ func GetGlobalVariables(c *gin.Context) {
 		}
 
 		collaborationViewEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-		if err == nil {
-			permitted = collaborationViewEnvPermitted
+		if err == nil && collaborationViewEnvPermitted {
+			permitted = true
 		}
 
-		permitted = collaborationViewEnvPermitted
-
 		collaborationViewProductionEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
-		if err == nil {
-			permitted = collaborationViewProductionEnvPermitted
+		if err == nil && collaborationViewProductionEnvPermitted {
+			permitted = true
 		}
 	}
 
