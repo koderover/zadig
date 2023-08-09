@@ -316,7 +316,7 @@ func MergeImages(curContainers []*models.Container, images []string) []string {
 	ret := make([]string, 0)
 	containerMap := make(map[string]string)
 	for _, container := range curContainers {
-		containerMap[container.Name] = container.Image
+		containerMap[container.ImageName] = container.Image
 	}
 
 	imageMap := make(map[string]string)
