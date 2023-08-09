@@ -128,7 +128,7 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 				projectVerbSet.Insert(types.EnvActionView)
 			}
 			if verb == types.ProductionEnvActionView {
-				projectVerbSet.Insert(types.EnvActionView)
+				projectVerbSet.Insert(types.ProductionEnvActionView)
 			}
 			envVerbs = append(envVerbs, verb)
 		}

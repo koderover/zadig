@@ -73,20 +73,6 @@ func AutoCreateWorkflow(c *gin.Context) {
 
 	projectKey := c.Param("productName")
 
-	// authorization check
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Create {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
 	// TODO: Authorization leak
 	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
 	// authorization check
