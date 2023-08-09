@@ -42,9 +42,6 @@ func ListDeployTarget(c *gin.Context) {
 	// TODO: Authorization leak
 	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
 	// authorization checks
-	// FIX ME LATER: return empty when not authorized
-	// FIX ME LATER 2: the authorization requirement for this api has been changed from
-	// View Build -> View Service. If this is ok remove the TODO, if not just do a rollback
 	permitted := false
 
 	if ctx.Resources.IsSystemAdmin {
