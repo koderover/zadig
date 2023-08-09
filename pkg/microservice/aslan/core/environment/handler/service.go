@@ -157,17 +157,38 @@ func GetProductionService(c *gin.Context) {
 	isHelmChartDeploy := c.Query("isHelmChartDeploy")
 	workLoadType := c.Query("workLoadType")
 
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
+	// TODO: Authorization leak
+	// Authorization checks
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	}
+
+	if projectedAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; ok {
+		if projectedAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
-			ctx.UnAuthorized = true
-			return
+
+		if projectedAuthInfo.ProductionEnv.View ||
+			projectedAuthInfo.ProductionEnv.ManagePods {
+			permitted = true
 		}
+
+		readPermitted, _ := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionView)
+		if readPermitted {
+			permitted = true
+		}
+
+		editPermitted, _ := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+		if editPermitted {
+			permitted = true
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, true, workLoadType, isHelmChartDeploy == "true", ctx.Logger)
