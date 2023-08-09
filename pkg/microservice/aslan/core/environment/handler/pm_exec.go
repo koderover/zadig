@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -26,14 +27,21 @@ import (
 )
 
 func ConnectSshPmExec(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	projectName := c.Query("projectName")
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
 	ip := c.Query("ip")
 	hostId := c.Query("hostId")
 	name := c.Param("name")
-	if projectName == "" || ip == "" || name == "" || hostId == "" {
+	if projectKey == "" || ip == "" || name == "" || hostId == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("param projectName or ip or name or hostId is empty")
 	}
 	colsStr := c.DefaultQuery("cols", "135")
@@ -47,5 +55,18 @@ func ConnectSshPmExec(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 	}
 
-	ctx.Err = service.ConnectSshPmExec(c, ctx.UserName, name, projectName, ip, hostId, cols, rows, ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.SSH {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.ConnectSshPmExec(c, ctx.UserName, name, projectKey, ip, hostId, cols, rows, ctx.Logger)
 }

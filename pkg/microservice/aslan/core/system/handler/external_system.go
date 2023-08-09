@@ -32,8 +32,15 @@ import (
 )
 
 func CreateExternalSystem(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(service.ExternalSystemDetail)
 	data, err := c.GetRawData()
@@ -44,6 +51,12 @@ func CreateExternalSystem(c *gin.Context) {
 		log.Errorf("CreateExternalSystem Unmarshal err : %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-外部系统", fmt.Sprintf("name:%s server:%s", args.Name, args.Server), string(data), ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
@@ -93,15 +106,35 @@ func ListExternalSystem(c *gin.Context) {
 }
 
 func GetExternalSystemDetail(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Resp, ctx.Err = service.GetExternalSystemDetail(c.Param("id"), ctx.Logger)
 }
 
 func UpdateExternalSystem(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	req := new(service.ExternalSystemDetail)
 	data, err := c.GetRawData()
@@ -112,6 +145,12 @@ func UpdateExternalSystem(c *gin.Context) {
 		log.Errorf("UpdateExternalSystem Unmarshal err : %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-外部系统", fmt.Sprintf("name:%s server:%s", req.Name, req.Server), string(data), ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
@@ -124,10 +163,23 @@ func UpdateExternalSystem(c *gin.Context) {
 }
 
 func DeleteExternalSystem(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统配置-外部系统", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Err = service.DeleteExternalSystem(c.Param("id"), ctx.Logger)
 }

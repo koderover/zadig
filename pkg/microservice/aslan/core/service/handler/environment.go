@@ -44,6 +44,8 @@ func GetDeployableEnvs(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetDeployableEnvs(c.Param("name"), c.Query("projectName"))
 }
 
+// GetKubeWorkloads api used to force user to have get environments privilege to use, now it is removed.
+// Revert if necessary
 func GetKubeWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -52,8 +54,15 @@ func GetKubeWorkloads(c *gin.Context) {
 }
 
 func LoadKubeWorkloadsYaml(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(service.LoadKubeWorkloadsYamlReq)
 	data, err := c.GetRawData()
@@ -73,6 +82,19 @@ func LoadKubeWorkloadsYaml(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-服务", fmt.Sprintf("服务名称:%s", strings.Join(serviceNames, ",")), string(data), ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = service.LoadKubeWorkloadsYaml(ctx.UserName, args, false, ctx.Logger)
 }

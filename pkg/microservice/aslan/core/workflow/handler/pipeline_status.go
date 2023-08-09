@@ -16,25 +16,18 @@ limitations under the License.
 
 package handler
 
-import (
-	"github.com/gin-gonic/gin"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-)
-
-// ListPipelinesPreview return all pipelines task status
-func ListPipelinesPreview(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = workflow.ListPipelinesPreview(ctx.UserID, ctx.Logger)
-}
-
-// find task by commitId
-func FindTasks(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = workflow.FindTasks(c.Query("commitId"), ctx.Logger)
-}
+//// ListPipelinesPreview return all pipelines task status
+//func ListPipelinesPreview(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//
+//	ctx.Resp, ctx.Err = workflow.ListPipelinesPreview(ctx.UserID, ctx.Logger)
+//}
+//
+//// find task by commitId
+//func FindTasks(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//
+//	ctx.Resp, ctx.Err = workflow.FindTasks(c.Query("commitId"), ctx.Logger)
+//}

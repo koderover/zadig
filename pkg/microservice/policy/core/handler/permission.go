@@ -21,7 +21,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func GetUserRules(c *gin.Context) {
@@ -35,7 +34,7 @@ func GetUserRulesByProject(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetUserRulesByProject(ctx.UserID, c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetUserPermissionByProject(ctx.UserID, c.Param("name"), ctx.Logger)
 }
 
 func GetUserReleaseWorkflows(c *gin.Context) {
@@ -50,24 +49,4 @@ func ListTesting(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = service.ListTesting(ctx.UserID, ctx.Logger)
-}
-
-type GetUserResourcesPermissionReq struct {
-	ProjectName  string   `json:"project_name"      form:"project_name"`
-	Uid          string   `json:"uid"               form:"uid"`
-	Resources    []string `json:"resources"         form:"resources"`
-	ResourceType string   `json:"resource_type"     form:"resource_type"`
-}
-
-func GetUserResourcesPermission(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	req := new(GetUserResourcesPermissionReq)
-
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-	ctx.Resp, ctx.Err = service.GetResourcesPermission(req.Uid, req.ProjectName, req.ResourceType, req.Resources, ctx.Logger)
 }

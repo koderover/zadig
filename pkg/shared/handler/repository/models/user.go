@@ -14,28 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package user
+package models
 
-import (
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-)
-
-type Client struct {
-	*httpclient.Client
-
-	host string
+type User struct {
+	UID          string `json:"uid"`
+	Name         string `json:"name"`
+	IdentityType string `gorm:"default:'unknown'" json:"identity_type"`
+	Email        string `json:"email"`
+	Phone        string `json:"phone"`
+	Account      string `json:"account"`
+	APIToken     string `gorm:"api_token" json:"api_token"`
+	CreatedAt    int64  `json:"created_at"`
+	UpdatedAt    int64  `json:"updated_at"`
 }
 
-func New() *Client {
-	host := config.AslanServiceAddress()
-
-	c := httpclient.New(
-		httpclient.SetHostURL(host + "/api/v1"),
-	)
-
-	return &Client{
-		Client: c,
-		host:   host,
-	}
+// TableName sets the insert table name for this struct type
+func (User) TableName() string {
+	return "user"
 }

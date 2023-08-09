@@ -31,8 +31,23 @@ import (
 )
 
 func ListDeliveryArtifacts(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewArtifact {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	args := new(commonrepo.DeliveryArtifactArgs)
 	args.Type = c.Query("type")
@@ -46,7 +61,6 @@ func ListDeliveryArtifacts(c *gin.Context) {
 	perPageStr := c.Query("per_page")
 	pageStr := c.Query("page")
 	var (
-		err     error
 		perPage int
 		page    int
 	)
@@ -78,8 +92,23 @@ func ListDeliveryArtifacts(c *gin.Context) {
 }
 
 func GetDeliveryArtifactIDByImage(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewArtifact {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	image := c.Query("image")
 	if image == "" {
@@ -94,8 +123,23 @@ func GetDeliveryArtifactIDByImage(c *gin.Context) {
 }
 
 func GetDeliveryArtifact(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewArtifact {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	id := c.Param("id")
 	if id == "" {
@@ -109,6 +153,7 @@ func GetDeliveryArtifact(c *gin.Context) {
 	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryArtifact(args, ctx.Logger)
 }
 
+// CreateDeliveryArtifacts is not used by any API for now, disabling it in router and see if anything happens
 func CreateDeliveryArtifacts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -129,6 +174,7 @@ type deliveryArtifactUpdate struct {
 	ImageTag    string `json:"image_tag"`
 }
 
+// UpdateDeliveryArtifact is not used by any API for now, disabling it in router and see if anything happens
 func UpdateDeliveryArtifact(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -149,8 +195,23 @@ func UpdateDeliveryArtifact(c *gin.Context) {
 }
 
 func CreateDeliveryActivities(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DeliveryCenter.ViewArtifact {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	var deliveryActivity commonmodels.DeliveryActivity
 	if err := c.ShouldBindWith(&deliveryActivity, binding.JSON); err != nil {

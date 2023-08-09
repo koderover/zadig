@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"net/url"
 
 	"github.com/gin-gonic/gin"
@@ -29,13 +30,32 @@ import (
 )
 
 func ListHelmRepos(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
+
+	// TODO: Authorization leak
+	// comment: since currently there are multiple functionalities that wish to used this API without authorization,
+	// we temporarily disabled the permission checks for this API.
+
+	// authorization checks
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
+
 	ctx.Resp, ctx.Err = commonservice.ListHelmRepos(encryptedKey, ctx.Logger)
 }
 
@@ -47,14 +67,28 @@ func ListHelmReposPublic(c *gin.Context) {
 }
 
 func CreateHelmRepo(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(commonmodels.HelmRepo)
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
 		return
 	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args.UpdateBy = ctx.UserName
 	if _, err := url.Parse(args.URL); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid url")
@@ -65,21 +99,48 @@ func CreateHelmRepo(c *gin.Context) {
 }
 
 func UpdateHelmRepo(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(commonmodels.HelmRepo)
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
 		return
 	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args.UpdateBy = ctx.UserName
 	ctx.Err = service.UpdateHelmRepo(c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteHelmRepo(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Err = service.DeleteHelmRepo(c.Param("id"), ctx.Logger)
 }

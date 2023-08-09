@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
@@ -24,8 +26,21 @@ import (
 )
 
 func GetPolicyRegistrationDefinitions(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
 	scope := c.Query("scope")
 	envType := c.Query("env_type")
 	ctx.Resp, ctx.Err = service.GetPolicyRegistrationDefinitions(scope, envType, ctx.Logger)
