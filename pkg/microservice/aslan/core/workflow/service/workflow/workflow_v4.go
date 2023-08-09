@@ -2156,16 +2156,8 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		}
 
 		containers := kube.CalculateContainer(productService, curUsedSvc, latestSvc.Containers, prod)
-
-		log.Infof("-------- container count: %v, curUsedSvc revision: %v", len(containers), curUsedSvc.Revision)
-		for _, calculatedContainer := range containers {
-			log.Infof("------- container info: %s", calculatedContainer.Image)
-		}
-
-		log.Infof("------------ before merge image: %v", images)
 		images = kube.MergeImages(containers, images)
 		param.Images = images
-		log.Infof("------------ after merge image: %v", images)
 	}
 
 	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
