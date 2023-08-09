@@ -24,6 +24,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+// TODO: no authorization, fix this
 func ListVariableSets(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

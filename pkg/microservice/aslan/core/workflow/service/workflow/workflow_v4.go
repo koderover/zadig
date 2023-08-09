@@ -28,8 +28,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
-
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -60,6 +58,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
@@ -67,6 +66,8 @@ import (
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/user"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
@@ -477,23 +478,59 @@ type NameWithParams struct {
 	Params      []*commonmodels.Param `json:"params"`
 }
 
-func ListWorkflowV4CanTrigger(headers http.Header, projectName string) ([]*NameWithParams, error) {
-	projects, err := getAllowedProjects(headers)
-	if err != nil {
-		return nil, errors.New("failed to get allowed projects")
-	}
+func ListWorkflowV4CanTrigger(ctx *internalhandler.Context) ([]*NameWithParams, error) {
+	var workflowList []*models.WorkflowV4
+	var err error
 
-	if projectName != "" {
-		if lo.Contains(projects, projectName) || (len(projects) > 0 && projects[0] == "*") {
-			projects = []string{projectName}
-		} else {
-			return nil, errors.New("project not found")
+	if ctx.Resources.IsSystemAdmin {
+		// if a user is system admin, we simply list all custom workflows
+		workflowList, _, err = commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{}, 0, 0)
+		if err != nil {
+			ctx.Logger.Errorf("Failed to list all custom workflows from system, err: %s", err)
+			return nil, errors.Errorf("failed to list workflow v4, the error is: %s", err)
+		}
+	} else {
+		projects, _, projectFindErr := user.New().ListAuthorizedProjects(ctx.UserID)
+		if projectFindErr != nil {
+			ctx.Logger.Errorf("failed to list authorized project for normal user, err: %s", projectFindErr)
+			return nil, errors.New("failed to get allowed projects")
+		}
+
+		for _, authorizedProject := range projects {
+			// since it is in authorized project list, it either has a role in this project, or it is in a collaboration mode.
+			if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[authorizedProject]; ok {
+				// if it has a project role, check it
+				if projectAuthInfo.IsProjectAdmin || projectAuthInfo.Workflow.View {
+					projectedWorkflowList, _, workflowFindErr := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
+						ProjectName: authorizedProject,
+					}, 0, 0)
+					if workflowFindErr != nil {
+						ctx.Logger.Errorf("failed to find authorized workflows for project: %s, error is: %s", authorizedProject, workflowFindErr)
+						return nil, errors.New("failed to get allowed workflows")
+					}
+					workflowList = append(workflowList, projectedWorkflowList...)
+				} else {
+					// if it does not have any kind of authz from role, we check from collaboration mode anyway.
+					authorizedProjectedCustomWorkflow, findErr := getAuthorizedCustomWorkflowFromCollaborationMode(ctx, authorizedProject)
+					if findErr != nil {
+						ctx.Logger.Errorf("failed to find authorized workflows for project: %s, error is: %s", authorizedProject, findErr)
+						return nil, errors.New("failed to get allowed workflows")
+					}
+					workflowList = append(workflowList, authorizedProjectedCustomWorkflow...)
+				}
+			} else {
+				// otherwise simply check for collaboration mode will suffice
+				authorizedProjectedCustomWorkflow, findErr := getAuthorizedCustomWorkflowFromCollaborationMode(ctx, authorizedProject)
+				if findErr != nil {
+					ctx.Logger.Errorf("failed to find authorized workflows for project: %s, error is: %s", authorizedProject, findErr)
+					return nil, errors.New("failed to get allowed workflows")
+				}
+				workflowList = append(workflowList, authorizedProjectedCustomWorkflow...)
+			}
+
 		}
 	}
-	workflowList, err := commonrepo.NewWorkflowV4Coll().ListByProjectNames(projects)
-	if err != nil {
-		return nil, errors.Errorf("failed to list workflow v4, the error is: %s", err)
-	}
+
 	var result []*NameWithParams
 LOOP:
 	for _, workflowV4 := range workflowList {
@@ -520,6 +557,27 @@ LOOP:
 		})
 	}
 	return result, nil
+}
+
+func getAuthorizedCustomWorkflowFromCollaborationMode(ctx *internalhandler.Context, projectKey string) ([]*models.WorkflowV4, error) {
+	_, authorizedCustomWorkflow, workflowFindErr := user.New().ListAuthorizedWorkflows(ctx.UserID, projectKey)
+	if workflowFindErr != nil {
+		ctx.Logger.Errorf("failed to find authorized workflows for project: %s, error is: %s", projectKey, workflowFindErr)
+		return nil, errors.New("failed to get allowed workflows")
+	}
+	if len(authorizedCustomWorkflow) > 0 {
+		// if there are authorized workflow, we get the details out of it
+		projectedWorkflowList, _, workflowFindErr := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
+			ProjectName: projectKey,
+			Names:       authorizedCustomWorkflow,
+		}, 0, 0)
+		if workflowFindErr != nil {
+			ctx.Logger.Errorf("failed to find authorized workflows for project: %s, error is: %s", projectKey, workflowFindErr)
+			return nil, errors.New("failed to get allowed workflows")
+		}
+		return projectedWorkflowList, nil
+	}
+	return make([]*models.WorkflowV4, 0), nil
 }
 
 func filterWorkflowNamesByView(projectName, viewName string, workflowNames, workflowV4Names []string, policyFound bool) ([]string, []string, error) {

@@ -137,6 +137,7 @@ const (
 	OPA                  // 10
 	Policy               // 11
 	Vendor
+	User
 	TimeNlp
 )
 
@@ -193,6 +194,10 @@ var Services = map[int]*ServiceInfo{
 	Vendor: {
 		Name: "plutus-vendor",
 		Port: 29000,
+	},
+	User: {
+		Name: "user",
+		Port: 80,
 	},
 	TimeNlp: {
 		Name: "time-nlp",

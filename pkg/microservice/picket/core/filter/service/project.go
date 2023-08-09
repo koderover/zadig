@@ -114,22 +114,6 @@ func UpdateProject(header http.Header, qs url.Values, body []byte, projectName s
 }
 
 func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
-	names, err := getVisibleProjects(header, logger)
-	if err != nil {
-		logger.Errorf("Failed to get allowed project names, err: %s", err)
-		return nil, err
-	}
-
-	if len(names) == 0 {
-		return []byte("{\"projects\":[],\"total\":0}"), nil
-	}
-
-	if !(len(names) == 1 && names[0] == "*") {
-		for _, name := range names {
-			qs.Add("names", name)
-		}
-	}
-
 	aslanClient := aslan.New()
 
 	return aslanClient.ListProjects(header, qs)

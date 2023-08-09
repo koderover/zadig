@@ -17,7 +17,10 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/types"
 
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
@@ -25,22 +28,56 @@ import (
 )
 
 func ListReleases(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
 
 	args := &service.HelmReleaseQueryArgs{}
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = err
 		return
+	}
+
+	// TODO: Authorization leak
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Env.View &&
+			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Version.Create {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProjectName, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
 	}
 
 	ctx.Resp, ctx.Err = service.ListReleases(args, envName, false, ctx.Logger)
 }
 
 func ListProductionReleases(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
 
 	args := &service.HelmReleaseQueryArgs{}
@@ -49,17 +86,54 @@ func ListProductionReleases(c *gin.Context) {
 		return
 	}
 
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProjectName].ProductionEnv.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Resp, ctx.Err = service.ListReleases(args, envName, true, ctx.Logger)
 }
 
 func GetChartValues(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	serviceName := c.Query("serviceName")
 
-	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, serviceName, false, false)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, serviceName, false, false)
 }
 
 // @Summary Get Production Chart Values
@@ -76,35 +150,106 @@ func GetChartValues(c *gin.Context) {
 // @Success 200 				{object} 	commonservice.ValuesResp
 // @Router /api/aslan/environment/production/environments/{name}/helm/values [get]
 func GetProductionChartValues(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	serviceName := c.Query("serviceName")
 	isHelmChartDeploy := c.Query("isHelmChartDeploy")
 	releaseName := c.Query("releaseName")
 
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	if isHelmChartDeploy == "false" {
-		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, serviceName, false, true)
+		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, serviceName, false, true)
 	} else {
-		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectName, envName, releaseName, true, true)
+		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, releaseName, true, true)
 	}
 }
 
 func GetChartInfos(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
 	servicesName := c.Query("serviceName")
-	projectName := c.Query("projectName")
-	ctx.Resp, ctx.Err = service.GetChartInfos(projectName, envName, servicesName, ctx.Logger)
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetChartInfos(projectKey, envName, servicesName, ctx.Logger)
 }
 
 func GetImageInfos(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	envName := c.Param("name")
-	projectName := c.Query("projectName")
+	projectKey := c.Query("projectName")
 	servicesName := c.Query("serviceName")
-	ctx.Resp, ctx.Err = service.GetImageInfos(projectName, envName, servicesName, ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetImageInfos(projectKey, envName, servicesName, ctx.Logger)
 }

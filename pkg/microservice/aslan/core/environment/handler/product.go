@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
+// CleanProductCronJob is called from cron
 func CleanProductCronJob(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -36,7 +37,7 @@ func CleanProductCronJob(c *gin.Context) {
 	service.CleanProductCronJob(ctx.RequestID, ctx.Logger)
 }
 
-type getInitProductRespone struct {
+type getInitProductResponse struct {
 	ProductName    string                           `json:"product_name"`
 	CreateTime     int64                            `json:"create_time"`
 	Revision       int64                            `json:"revision"`
@@ -59,10 +60,17 @@ type getInitProductRespone struct {
 // @Success 200 			{object} 	getInitProductRespone
 // @Router /api/aslan/environment/init_info/{name} [get]
 func GetInitProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	productTemplateName := c.Param("name")
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Param("name")
 
 	envType := types.EnvType(c.Query("envType"))
 	isBaseEnvStr := c.Query("isBaseEnv")
@@ -73,7 +81,6 @@ func GetInitProduct(c *gin.Context) {
 	}
 
 	var isBaseEnv bool
-	var err error
 	if envType == types.ShareEnv {
 		isBaseEnv, err = strconv.ParseBool(isBaseEnvStr)
 		if err != nil {
@@ -82,13 +89,28 @@ func GetInitProduct(c *gin.Context) {
 		}
 	}
 
-	product, err := service.GetInitProduct(productTemplateName, envType, isBaseEnv, baseEnvName, false, ctx.Logger)
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.SystemActions.Project.Create &&
+			// this api is also used in creating testing env for some reason
+			!(ctx.Resources.ProjectAuthInfo[projectKey].Env.Create ||
+				ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	product, err := service.GetInitProduct(projectKey, envType, isBaseEnv, baseEnvName, false, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
 	}
 
-	ctx.Resp = getInitProductRespone{
+	ctx.Resp = getInitProductResponse{
 		ProductName:    product.ProductName,
 		CreateTime:     product.CreateTime,
 		Revision:       product.Revision,

@@ -17,24 +17,55 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/client/user"
 	"github.com/koderover/zadig/pkg/microservice/picket/core/filter/service"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
 func DeleteUser(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	uid := c.Param("id")
 	ctx.Resp, ctx.Err = service.DeleteUser(uid, c.Request.Header, c.Request.URL.Query(), ctx.Logger)
 }
 
 func SearchUsers(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	// TODO: Authorization leak
+	// comment: this API should only be used when the use's full information is required, including contact info
+	// however this is currently used in multiple situation, thus having serious security leaks.
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	req := &user.SearchArgs{}
 

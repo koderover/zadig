@@ -69,5 +69,21 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		router.GET("retrieve", user.Retrieve)
 
 		router.POST("reset", user.Reset)
+
+		router.GET("/healthz", Healthz)
+
+		router.GET("/auth-info", user.GetUserAuthInfo)
+
+		router.GET("/collaboration-permission", user.CheckCollaborationModePermission)
+
+		router.GET("/collaboration-action", user.CheckPermissionGivenByCollaborationMode)
+
+		router.GET("/authorized-projects", user.ListAuthorizedProject)
+
+		router.GET("/authorized-projects/verb", user.ListAuthorizedProjectByVerb)
+
+		router.GET("/authorized-workflows", user.ListAuthorizedWorkflows)
+
+		router.GET("/authorized-envs", user.ListAuthorizedEnvs)
 	}
 }
