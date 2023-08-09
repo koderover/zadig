@@ -2123,13 +2123,15 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		Timeout:               setting.DeployTimeout,
 	}
 
+	curProdSvc := prod.GetServiceMap()[serviceName]
+
 	renderSet, productService, _, err := kube.PrepareHelmServiceData(param)
 	if err != nil {
 		log.Errorf("prepare helm service data error: %v", err)
 		return nil, err
 	}
 
-	if updateServiceRevision {
+	if updateServiceRevision && curProdSvc != nil {
 		svcFindOption := &commonrepo.ServiceFindOption{
 			ProductName: prod.ProductName,
 			ServiceName: serviceName,
@@ -2142,7 +2144,7 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ProductName: prod.ProductName,
 			ServiceName: serviceName,
-			Revision:    productService.Revision,
+			Revision:    curProdSvc.Revision,
 		}, prod.Production)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", serviceName, svcFindOption.Revision, prod.ProductName)

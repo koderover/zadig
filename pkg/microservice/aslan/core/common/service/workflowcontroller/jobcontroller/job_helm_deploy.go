@@ -109,6 +109,8 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		Timeout:               c.timeout(),
 	}
 
+	curProdSvc := productInfo.GetServiceMap()[c.jobTaskSpec.ServiceName]
+
 	renderSet, productService, svcTemplate, err := kube.PrepareHelmServiceData(param)
 	if err != nil {
 		msg := fmt.Sprintf("prepare helm service data error: %v", err)
@@ -116,7 +118,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 
-	if updateServiceRevision {
+	if updateServiceRevision && curProdSvc != nil {
 		svcFindOption := &commonrepo.ServiceFindOption{
 			ProductName: productInfo.ProductName,
 			ServiceName: c.jobTaskSpec.ServiceName,
@@ -131,7 +133,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ProductName: productInfo.ProductName,
 			ServiceName: c.jobTaskSpec.ServiceName,
-			Revision:    productService.Revision,
+			Revision:    curProdSvc.Revision,
 		}, productInfo.Production)
 		if err != nil {
 			msg := fmt.Sprintf("failed to find service %s/%d in product %s, error: %v", productInfo.ProductName, productService.Revision, productInfo.ProductName, err)
