@@ -28,6 +28,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/util"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -2010,6 +2014,31 @@ func GetFilteredEnvServices(workflowName, jobName, envName string, serviceNames 
 	return resp, nil
 }
 
+func mergeImages(curContainers []*models.Container, images []string) []string {
+	ret := make([]string, 0)
+	containerMap := make(map[string]string)
+	for _, container := range curContainers {
+		containerMap[container.Name] = container.Image
+	}
+
+	imageMap := make(map[string]string)
+	for _, image := range images {
+		imageMap[util.ExtractImageName(image)] = image
+	}
+
+	for imageName, image := range imageMap {
+		if len(imageName) == 0 {
+			continue
+		}
+		containerMap[imageName] = image
+	}
+
+	for _, image := range containerMap {
+		ret = append(ret, image)
+	}
+	return ret
+}
+
 func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName string, images []string, isProduction, updateServiceRevision, isHelmChartDeploy bool, log *zap.SugaredLogger) (*GetHelmValuesDifferenceResp, error) {
 	opt := &commonrepo.ProductFindOptions{Name: projectName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
@@ -2063,10 +2092,24 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		Timeout:               setting.DeployTimeout,
 	}
 
-	renderSet, productService, _, err := kube.PrepareHelmServiceData(param)
+	renderSet, productService, curUsedSvc, err := kube.PrepareHelmServiceData(param)
 	if err != nil {
 		log.Errorf("prepare helm service data error: %v", err)
 		return nil, err
+	}
+
+	if updateServiceRevision {
+		svcFindOption := &commonrepo.ServiceFindOption{
+			ProductName: prod.ProductName,
+			ServiceName: serviceName,
+		}
+		latestSvc, err := repository.QueryTemplateService(svcFindOption, prod.Production)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", serviceName, svcFindOption.Revision, prod.ProductName)
+		}
+		containers := kube.CalculateContainer(productService, curUsedSvc, latestSvc.Containers, prod)
+		images = mergeImages(containers, images)
+		param.Images = images
 	}
 
 	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
