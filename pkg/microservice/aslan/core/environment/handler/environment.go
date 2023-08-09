@@ -1513,22 +1513,19 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 		permitted = true
 	}
 
-	if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
-		ctx.UnAuthorized = true
-		return
-	}
-
-	if ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin {
-		permitted = true
-	}
-
-	if production {
-		if ctx.Resources.ProjectAuthInfo[request.ProjectName].ProductionEnv.EditConfig {
+	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; ok {
+		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
 		}
-	} else {
-		if ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
-			permitted = true
+
+		if production {
+			if projectAuthInfo.ProductionEnv.EditConfig {
+				permitted = true
+			}
+		} else {
+			if projectAuthInfo.Env.EditConfig {
+				permitted = true
+			}
 		}
 	}
 
@@ -1572,22 +1569,19 @@ func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, produ
 		permitted = true
 	}
 
-	if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
-		ctx.UnAuthorized = true
-		return
-	}
-
-	if ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin {
-		permitted = true
-	}
-
-	if production {
-		if ctx.Resources.ProjectAuthInfo[request.ProjectName].ProductionEnv.EditConfig {
+	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; ok {
+		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
 		}
-	} else {
-		if ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
-			permitted = true
+
+		if production {
+			if projectAuthInfo.ProductionEnv.EditConfig {
+				permitted = true
+			}
+		} else {
+			if projectAuthInfo.Env.EditConfig {
+				permitted = true
+			}
 		}
 	}
 
@@ -1633,22 +1627,19 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 		permitted = true
 	}
 
-	if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
-		ctx.UnAuthorized = true
-		return
-	}
-
-	if ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin {
-		permitted = true
-	}
-
-	if production {
-		if ctx.Resources.ProjectAuthInfo[request.ProjectName].ProductionEnv.EditConfig {
+	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; ok {
+		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
 		}
-	} else {
-		if ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
-			permitted = true
+
+		if production {
+			if projectAuthInfo.ProductionEnv.EditConfig {
+				permitted = true
+			}
+		} else {
+			if projectAuthInfo.Env.EditConfig {
+				permitted = true
+			}
 		}
 	}
 
