@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -108,11 +109,45 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		Timeout:               c.timeout(),
 	}
 
+	curProdSvcRevision := func() int64 {
+		if productInfo.GetServiceMap()[c.jobTaskSpec.ServiceName] != nil {
+			return productInfo.GetServiceMap()[c.jobTaskSpec.ServiceName].Revision
+		}
+		return 0
+	}()
+
 	renderSet, productService, svcTemplate, err := kube.PrepareHelmServiceData(param)
 	if err != nil {
 		msg := fmt.Sprintf("prepare helm service data error: %v", err)
 		logError(c.job, msg, c.logger)
 		return
+	}
+
+	if updateServiceRevision && curProdSvcRevision > int64(0) {
+		svcFindOption := &commonrepo.ServiceFindOption{
+			ProductName: productInfo.ProductName,
+			ServiceName: c.jobTaskSpec.ServiceName,
+		}
+		latestSvc, err := repository.QueryTemplateService(svcFindOption, productInfo.Production)
+		if err != nil {
+			msg := fmt.Sprintf("failed to find service %s/%d in product %s, error: %v", productInfo.ProductName, svcFindOption.Revision, productInfo.ProductName, err)
+			logError(c.job, msg, c.logger)
+			return
+		}
+
+		curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ProductName: productInfo.ProductName,
+			ServiceName: c.jobTaskSpec.ServiceName,
+			Revision:    curProdSvcRevision,
+		}, productInfo.Production)
+		if err != nil {
+			msg := fmt.Sprintf("failed to find service %s/%d in product %s, error: %v", productInfo.ProductName, productService.Revision, productInfo.ProductName, err)
+			logError(c.job, msg, c.logger)
+			return
+		}
+
+		calculatedContainers := kube.CalculateContainer(productService, curUsedSvc, latestSvc.Containers, productInfo)
+		param.Images = kube.MergeImages(calculatedContainers, param.Images)
 	}
 
 	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]

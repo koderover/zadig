@@ -28,8 +28,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/shared/client/user"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -60,6 +58,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
@@ -67,6 +66,8 @@ import (
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/user"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
@@ -2122,10 +2123,41 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		Timeout:               setting.DeployTimeout,
 	}
 
+	curProdSvcRevision := func() int64 {
+		if prod.GetServiceMap()[serviceName] != nil {
+			return prod.GetServiceMap()[serviceName].Revision
+		}
+		return 0
+	}()
+
 	renderSet, productService, _, err := kube.PrepareHelmServiceData(param)
 	if err != nil {
 		log.Errorf("prepare helm service data error: %v", err)
 		return nil, err
+	}
+
+	if updateServiceRevision && curProdSvcRevision > int64(0) {
+		svcFindOption := &commonrepo.ServiceFindOption{
+			ProductName: prod.ProductName,
+			ServiceName: serviceName,
+		}
+		latestSvc, err := repository.QueryTemplateService(svcFindOption, prod.Production)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", serviceName, svcFindOption.Revision, prod.ProductName)
+		}
+
+		curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ProductName: prod.ProductName,
+			ServiceName: serviceName,
+			Revision:    curProdSvcRevision,
+		}, prod.Production)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", serviceName, svcFindOption.Revision, prod.ProductName)
+		}
+
+		containers := kube.CalculateContainer(productService, curUsedSvc, latestSvc.Containers, prod)
+		images = kube.MergeImages(containers, images)
+		param.Images = images
 	}
 
 	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
