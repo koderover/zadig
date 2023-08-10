@@ -53,11 +53,6 @@ const (
 	DeliveryActionView = "get_delivery"
 )
 
-// special role definition
-const (
-	SystemRoleProjectAdmin = ""
-)
-
 type CheckCollaborationModePermissionReq struct {
 	UID          string `json:"uid" form:"uid"`
 	ProjectKey   string `json:"project_key" form:"project_key"`
