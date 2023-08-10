@@ -20,10 +20,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -32,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -86,6 +90,12 @@ func V1170ToV1180() error {
 	log.Infof("-------- start migrate project name pinyin --------")
 	if err := migrateProjectNamePinyin(); err != nil {
 		log.Errorf("migrateProjectNamePinyin err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate package dependencies --------")
+	if err := updateNewPackageDependencies(); err != nil {
+		log.Errorf("updateNewPackageDependencies err: %v", err)
 		return err
 	}
 
@@ -535,5 +545,57 @@ func migrateProjectNamePinyin() error {
 		}
 	}
 
+	return nil
+}
+
+var newPackageDependenciesInV1180 = map[string][]string{
+	"java": {"1.8.20", "1.9.0.1", "1.11.0.2"},
+}
+
+func updateNewPackageDependencies() error {
+	c := mongodb.NewInstallColl()
+	installMap := systemservice.InitInstallMap()
+
+	for name, versionList := range newPackageDependenciesInV1180 {
+		for _, version := range versionList {
+			fullName := fmt.Sprintf("%s-%s", name, version)
+			installInfo, ok := installMap[fullName]
+			if !ok {
+				log.Infof("can't find %s install info from install map, skip", fullName)
+				continue
+			}
+			pkgInfo := &models.Install{
+				Name:         installInfo.Name,
+				Version:      installInfo.Version,
+				Scripts:      installInfo.Scripts,
+				UpdateTime:   time.Now().Unix(),
+				UpdateBy:     installInfo.UpdateBy,
+				Envs:         installInfo.Envs,
+				BinPath:      installInfo.BinPath,
+				Enabled:      installInfo.Enabled,
+				DownloadPath: installInfo.DownloadPath,
+			}
+
+			oid, err := primitive.ObjectIDFromHex(installInfo.ObjectIDHex)
+			if err != nil {
+				log.Errorf("failed to get %s ObjectID from hex, skip and err: %v", fullName, err)
+				continue
+			}
+			query := bson.M{"_id": oid}
+			change := bson.M{"$set": pkgInfo}
+
+			result, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
+			if err != nil {
+				if !mongo.IsDuplicateKeyError(err) {
+					return fmt.Errorf("update %s failed, err: %v", fullName, err)
+				}
+				log.Warnf("find %s has been existed, skip install", fullName)
+				continue
+			}
+			if result.UpsertedCount > 0 {
+				log.Infof("create %s install info success", fullName)
+			}
+		}
+	}
 	return nil
 }
