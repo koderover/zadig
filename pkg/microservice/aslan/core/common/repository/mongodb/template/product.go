@@ -138,18 +138,12 @@ type ProductListByFilterOpt struct {
 }
 
 func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*ProjectInfo, int, error) {
-	fullFindOptions := []bson.M{
-		{"public": true},
-	}
+	findOption := bson.M{}
 
 	if len(opt.Names) > 0 {
-		fullFindOptions = append(fullFindOptions, bson.M{"product_name": bson.M{"$in": opt.Names}})
+		findOption = bson.M{"product_name": bson.M{"$in": opt.Names}}
 	} else {
-		fullFindOptions = append(fullFindOptions, bson.M{"product_name": bson.M{"$ne": ""}})
-	}
-
-	findOption := bson.M{
-		"$or": fullFindOptions,
+		findOption = bson.M{"product_name": bson.M{"$ne": ""}}
 	}
 
 	finalSearchCondition := []bson.M{
@@ -259,25 +253,11 @@ func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error
 }
 
 func (c *ProductColl) listProjects(inNames []string, projection bson.M) ([]*ProjectInfo, error) {
-	filter := []bson.M{
-		{"public": true},
-	}
+	query := bson.M{}
 	if len(inNames) > 0 {
-		filter = append(filter, bson.M{
-			"product_name": bson.M{
-				"$in": inNames,
-			},
-		})
+		query["product_name"] = bson.M{"$in": inNames}
 	} else {
-		filter = append(filter, bson.M{
-			"product_name": bson.M{
-				"$ne": "",
-			},
-		})
-	}
-
-	query := bson.M{
-		"$or": filter,
+		query["product_name"] = bson.M{"$ne": ""}
 	}
 
 	pipeline := []bson.M{
