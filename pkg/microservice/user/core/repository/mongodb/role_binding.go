@@ -101,7 +101,7 @@ func (c *RoleBindingColl) ListBy(projectName, uid string) ([]*models.RoleBinding
 	return res, nil
 }
 
-func (c *RoleBindingColl) ListPublicProjectRB(projectName string) ([]*models.RoleBinding, error) {
+func (c *RoleBindingColl) ListAllUserRB(projectName string) ([]*models.RoleBinding, error) {
 	var res []*models.RoleBinding
 
 	ctx := context.Background()
