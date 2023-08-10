@@ -21,6 +21,7 @@ const (
 
 	AdminRole        = "admin"
 	ProjectAdminRole = "project-admin"
+	ReadOnlyRole     = "read-only"
 )
 
 // Namespaced Resources Actions
