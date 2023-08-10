@@ -270,6 +270,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		imapp.POST("/validate", ValidateIMApp)
 	}
 
+	observability := router.Group("observability", isSystemAdmin)
+	{
+		observability.GET("", ListObservability)
+		observability.POST("", CreateObservability)
+		observability.PUT("/:id", UpdateObservability)
+		observability.DELETE("/:id", DeleteObservability)
+		observability.POST("/validate", ValidateObservability)
+	}
+
 	lark := router.Group("lark")
 	{
 		lark.GET("/:id/department/:department_id", GetLarkDepartment)

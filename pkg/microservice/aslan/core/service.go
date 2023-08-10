@@ -391,6 +391,7 @@ func initDatabase() {
 		commonrepo.NewDiffNoteColl(),
 		commonrepo.NewDindCleanColl(),
 		commonrepo.NewIMAppColl(),
+		commonrepo.NewObservabilityColl(),
 		commonrepo.NewFavoriteColl(),
 		commonrepo.NewGithubAppColl(),
 		commonrepo.NewHelmRepoColl(),
