@@ -574,7 +574,6 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		return "", 0, nil, err
 	}
 	fullRenderedYaml = ParseSysKeys(productInfo.Namespace, productInfo.EnvName, option.ProductName, option.ServiceName, fullRenderedYaml)
-	log.Infof("fullRenderedYaml is: %s", fullRenderedYaml)
 
 	// service may not be deployed in environment, we need to extract containers again, since image related variables may be changed
 	latestSvcTemplate.KubeYamls = util.SplitYaml(fullRenderedYaml)
