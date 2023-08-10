@@ -158,6 +158,7 @@ type WorkflowEnv struct {
 type JobTaskCustomDeploySpec struct {
 	Namespace          string     `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	ClusterID          string     `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	StrategyID         string     `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	Timeout            int64      `bson:"timeout"                json:"timeout"               yaml:"timeout"`
 	WorkloadType       string     `bson:"workload_type"          json:"workload_type"         yaml:"workload_type"`
 	WorkloadName       string     `bson:"workload_name"          json:"workload_name"         yaml:"workload_name"`
@@ -182,6 +183,7 @@ type JobTaskDeploySpec struct {
 	CreateEnvType      string                          `bson:"env_type"                         json:"env_type"                            yaml:"env_type"`
 	SkipCheckRunStatus bool                            `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
 	ClusterID          string                          `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	StrategyID         string                          `bson:"strategy_id"                      json:"strategy_id"                         yaml:"strategy_id"`
 	Timeout            int                             `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
 	ReplaceResources   []Resource                      `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
 	RelatedPodLabels   []map[string]string             `bson:"-"                                json:"-"                                   yaml:"-"`
@@ -221,6 +223,7 @@ type JobTaskHelmDeploySpec struct {
 	SkipCheckRunStatus bool                     `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
 	ImageAndModules    []*ImageAndServiceModule `bson:"image_and_service_modules"        json:"image_and_service_modules"           yaml:"image_and_service_modules"`
 	ClusterID          string                   `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	StrategyID         string                   `bson:"strategy_id"                      json:"strategy_id"                         yaml:"strategy_id"`
 	ReleaseName        string                   `bson:"release_name"                     json:"release_name"                        yaml:"release_name"`
 	Timeout            int                      `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
 	ReplaceResources   []Resource               `bson:"replace_resources"                json:"replace_resources"                   yaml:"replace_resources"`
@@ -231,6 +234,7 @@ type JobTaskHelmChartDeploySpec struct {
 	DeployHelmChart    *DeployHelmChart `bson:"deploy_helm_chart"       yaml:"deploy_helm_chart"          json:"deploy_helm_chart"`
 	SkipCheckRunStatus bool             `bson:"skip_check_run_status"            json:"skip_check_run_status"               yaml:"skip_check_run_status"`
 	ClusterID          string           `bson:"cluster_id"                       json:"cluster_id"                          yaml:"cluster_id"`
+	StrategyID         string           `bson:"strategy_id"                      json:"strategy_id"                         yaml:"strategy_id"`
 	Timeout            int              `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
 }
 
@@ -251,6 +255,7 @@ type JobTaskPluginSpec struct {
 
 type JobTaskBlueGreenDeploySpec struct {
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	StrategyID       string `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	Namespace        string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	// unit is minute.
@@ -300,6 +305,7 @@ type JobTaskBlueGreenReleaseV2Spec struct {
 
 type JobTaskCanaryDeploySpec struct {
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	StrategyID       string `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	Namespace        string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	// unit is minute.
@@ -318,6 +324,7 @@ type JobTaskCanaryDeploySpec struct {
 
 type JobTaskCanaryReleaseSpec struct {
 	ClusterID          string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
+	StrategyID         string `bson:"strategy_id"            json:"strategy_id"            yaml:"strategy_id"`
 	Namespace          string `bson:"namespace"              json:"namespace"              yaml:"namespace"`
 	K8sServiceName     string `bson:"k8s_service_name"       json:"k8s_service_name"       yaml:"k8s_service_name"`
 	WorkloadType       string `bson:"workload_type"          json:"workload_type"          yaml:"workload_type"`
@@ -333,6 +340,7 @@ type JobTaskCanaryReleaseSpec struct {
 
 type JobTaskGrayReleaseSpec struct {
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
+	StrategyID       string `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	ClusterName      string `bson:"cluster_name"           json:"cluster_name"           yaml:"cluster_name"`
 	Namespace        string `bson:"namespace"              json:"namespace"              yaml:"namespace"`
 	WorkloadType     string `bson:"workload_type"          json:"workload_type"          yaml:"workload_type"`
@@ -353,6 +361,7 @@ type JobIstioReleaseSpec struct {
 	FirstJob          bool            `bson:"first_job"          json:"first_job"          yaml:"first_job"`
 	Timeout           int64           `bson:"timeout"            json:"timeout"            yaml:"timeout"`
 	ClusterID         string          `bson:"cluster_id"         json:"cluster_id"         yaml:"cluster_id"`
+	StrategyID        string          `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	ClusterName       string          `bson:"cluster_name"       json:"cluster_name"       yaml:"cluster_name"`
 	Namespace         string          `bson:"namespace"          json:"namespace"          yaml:"namespace"`
 	Weight            int64           `bson:"weight"             json:"weight"             yaml:"weight"`
@@ -365,6 +374,7 @@ type JobIstioReleaseSpec struct {
 type JobIstioRollbackSpec struct {
 	Namespace   string          `json:"namespace"    bson:"namespace"    yaml:"namespace"`
 	ClusterID   string          `json:"cluster_id"   bson:"cluster_id"   yaml:"cluster_id"`
+	StrategyID  string          `bson:"strategy_id"  json:"strategy_id"  yaml:"strategy_id"`
 	ClusterName string          `json:"cluster_name" bson:"cluster_name" yaml:"cluster_name"`
 	Image       string          `json:"image"        bson:"image"        yaml:"image"`
 	Replicas    int             `json:"replicas"     bson:"replicas"     yaml:"replicas"`
@@ -384,6 +394,7 @@ type MeegoTransitionSpec struct {
 
 type JobTaskGrayRollbackSpec struct {
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
+	StrategyID       string `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	ClusterName      string `bson:"cluster_name"           json:"cluster_name"           yaml:"cluster_name"`
 	Namespace        string `bson:"namespace"              json:"namespace"              yaml:"namespace"`
 	WorkloadType     string `bson:"workload_type"          json:"workload_type"          yaml:"workload_type"`
@@ -399,8 +410,9 @@ type JobTaskGrayRollbackSpec struct {
 
 type JobTasK8sPatchSpec struct {
 	ClusterID  string           `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
+	StrategyID string           `bson:"strategy_id"            json:"strategy_id"            yaml:"strategy_id"`
 	Namespace  string           `bson:"namespace"              json:"namespace"              yaml:"namespace"`
-	PatchItems []*PatchTaskItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
+	PatchItems []*PatchTaskItem `bson:"patch_items"            json:"patch_items"            yaml:"patch_items"`
 }
 
 type IssueID struct {

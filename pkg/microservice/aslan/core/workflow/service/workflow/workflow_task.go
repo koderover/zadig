@@ -1667,6 +1667,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 			testTask.JobCtx.EnableProxy = testModule.PreTest.EnableProxy
 			testTask.Namespace = testModule.PreTest.Namespace
 			testTask.ClusterID = testModule.PreTest.ClusterID
+			testTask.StrategyID = testModule.PreTest.StrategyID
 
 			envs := testModule.PreTest.Envs[:]
 
@@ -2117,6 +2118,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		ProductName:         args.ProductName,
 		Namespace:           module.PreBuild.Namespace,
 		ClusterID:           module.PreBuild.ClusterID,
+		StrategyID:          module.PreBuild.StrategyID,
 		UseHostDockerDaemon: module.PreBuild.UseHostDockerDaemon,
 	}
 

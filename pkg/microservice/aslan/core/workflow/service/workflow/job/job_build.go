@@ -217,6 +217,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, fmt.Errorf("find build: %s error: %v", build.BuildName, err)
 		}
+		// it only fills build detail created by template
 		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
 			return resp, err
 		}
@@ -249,6 +250,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ResReqSpec:          buildInfo.PreBuild.ResReqSpec,
 			CustomEnvs:          renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
 			ClusterID:           buildInfo.PreBuild.ClusterID,
+			StrategyID:          buildInfo.PreBuild.StrategyID,
 			BuildOS:             basicImage.Value,
 			ImageFrom:           buildInfo.PreBuild.ImageFrom,
 			Registries:          registries,

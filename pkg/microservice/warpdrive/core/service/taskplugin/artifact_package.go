@@ -176,7 +176,7 @@ func (p *ArtifactPackageTaskPlugin) Run(ctx context.Context, pipelineTask *task.
 	}
 	p.Log.Infof("succeed to create cm for artifact package job %s", p.JobName)
 
-	job, err := buildJob(p.Type(), pipelineTask.ConfigPayload.Release.PackagerImage, p.JobName, serviceName, "", pipelineTask.ConfigPayload.Build.KubeNamespace, setting.MinRequest, setting.LowRequestSpec, pipelineCtx, pipelineTask, []*task.RegistryNamespace{})
+	job, err := buildJob(p.Type(), pipelineTask.ConfigPayload.Release.PackagerImage, p.JobName, serviceName, "", "", pipelineTask.ConfigPayload.Build.KubeNamespace, setting.MinRequest, setting.LowRequestSpec, pipelineCtx, pipelineTask, []*task.RegistryNamespace{})
 	if err != nil {
 		msg := fmt.Sprintf("create release artifact package job context error: %v", err)
 		p.Log.Error(msg)

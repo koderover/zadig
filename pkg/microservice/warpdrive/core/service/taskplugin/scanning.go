@@ -258,7 +258,7 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		p.Task.Registries = getMatchedRegistries(p.Task.ImageInfo, p.Task.Registries)
 		// search namespace should also include desired namespace
 		job, err := buildJobWithLinkedNs(
-			p.Type(), p.Task.ImageInfo, p.JobName, serviceName, p.Task.ClusterID, pipelineTask.ConfigPayload.Test.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries,
+			p.Type(), p.Task.ImageInfo, p.JobName, serviceName, p.Task.ClusterID, p.Task.StrategyID, pipelineTask.ConfigPayload.Test.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries,
 		)
 
 		job.Namespace = p.KubeNamespace

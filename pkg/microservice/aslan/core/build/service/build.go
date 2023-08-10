@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	goerrors "github.com/pkg/errors"
 
 	"go.uber.org/zap"
@@ -68,6 +69,16 @@ func FindBuild(name, productName string, log *zap.SugaredLogger) (*commonmodels.
 	if err != nil {
 		log.Errorf("[Build.Find] %s error: %v", name, err)
 		return nil, e.ErrGetBuildModule.AddErr(err)
+	}
+
+	if resp.PreBuild != nil && resp.PreBuild.StrategyID == "" {
+		strategy, err := cluster.GetClusterDefaultStrategy(resp.PreBuild.ClusterID)
+		if err != nil {
+			msg := fmt.Errorf("failed to get cluster default strategy, clusterID:%s, error: %v", resp.PreBuild.ClusterID, err)
+			log.Errorf(msg.Error())
+			return nil, msg
+		}
+		resp.PreBuild.StrategyID = strategy.StrategyID
 	}
 
 	commonservice.EnsureResp(resp)
@@ -579,6 +590,18 @@ func correctFields(build *commonmodels.Build) error {
 			modifyAuthType(repo)
 		}
 	}
+
+	if build.PreBuild == nil {
+		return fmt.Errorf("build prebuild is nil")
+	} else {
+		if build.PreBuild.ClusterID == "" {
+			return fmt.Errorf("build prebuild clusterid is empty")
+		}
+		if build.PreBuild.StrategyID == "" {
+			return fmt.Errorf("build prebuild strategyid is empty")
+		}
+	}
+
 	return nil
 }
 

@@ -583,11 +583,12 @@ var (
 
 	// K8SCluster Manage APIs Range: 6640 - 6650
 	//-----------------------------------------------------------------------------------------------
-	ErrListK8SCluster  = NewHTTPError(6640, "列出集群列表失败")
-	ErrCreateCluster   = NewHTTPError(6641, "创建集群失败")
-	ErrUpdateCluster   = NewHTTPError(6642, "更新集群失败")
-	ErrClusterNotFound = NewHTTPError(6643, "未找到指定集群")
-	ErrDeleteCluster   = NewHTTPError(6644, "删除集群失败")
+	ErrListK8SCluster        = NewHTTPError(6640, "列出集群列表失败")
+	ErrCreateCluster         = NewHTTPError(6641, "创建集群失败")
+	ErrUpdateCluster         = NewHTTPError(6642, "更新集群失败")
+	ErrClusterNotFound       = NewHTTPError(6643, "未找到指定集群")
+	ErrDeleteCluster         = NewHTTPError(6644, "删除集群失败")
+	ErrDeleteClusterStrategy = NewHTTPError(6645, "删除集群调度策略失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// operation APIs Range: 6650 - 6659

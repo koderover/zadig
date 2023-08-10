@@ -177,6 +177,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ResourceRequest:     scanningInfo.AdvancedSetting.ResReq,
 			ResReqSpec:          scanningInfo.AdvancedSetting.ResReqSpec,
 			ClusterID:           scanningInfo.AdvancedSetting.ClusterID,
+			StrategyID:          scanningInfo.AdvancedSetting.StrategyID,
 			BuildOS:             scanningImage,
 			ImageFrom:           setting.ImageFromCustom,
 			Envs:                []*commonmodels.KeyVal{scanningNameKV},

@@ -90,8 +90,9 @@ func (j *K8sPacthJob) LintJob() error {
 
 func patchJobToTaskJob(job *commonmodels.K8sPatchJobSpec) *commonmodels.JobTasK8sPatchSpec {
 	resp := &commonmodels.JobTasK8sPatchSpec{
-		ClusterID: job.ClusterID,
-		Namespace: job.Namespace,
+		ClusterID:  job.ClusterID,
+		StrategyID: job.StrategyID,
+		Namespace:  job.Namespace,
 	}
 	for _, patch := range job.PatchItems {
 		patchTaskItem := &commonmodels.PatchTaskItem{

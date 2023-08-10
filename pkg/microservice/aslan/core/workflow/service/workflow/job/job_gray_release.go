@@ -133,6 +133,7 @@ func (j *GrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			JobType: string(config.JobK8sGrayRelease),
 			Spec: &commonmodels.JobTaskGrayReleaseSpec{
 				ClusterID:        j.spec.ClusterID,
+				StrategyID:       j.spec.StrategyID,
 				ClusterName:      cluster.Name,
 				Namespace:        j.spec.Namespace,
 				WorkloadType:     target.WorkloadType,

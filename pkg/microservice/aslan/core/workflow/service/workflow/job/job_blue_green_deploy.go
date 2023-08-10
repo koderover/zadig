@@ -132,6 +132,7 @@ func (j *BlueGreenDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			Spec: &commonmodels.JobTaskBlueGreenDeploySpec{
 				Namespace:          j.spec.Namespace,
 				ClusterID:          j.spec.ClusterID,
+				StrategyID:         j.spec.StrategyID,
 				DockerRegistryID:   j.spec.DockerRegistryID,
 				DeployTimeout:      target.DeployTimeout,
 				K8sServiceName:     target.K8sServiceName,

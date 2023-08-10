@@ -434,7 +434,7 @@ func createJobConfigMap(namespace, jobName string, jobLabel *label.JobLabel, job
 // "s-job":  pipelinename-taskid-tasktype-servicename,
 // "s-task": pipelinename-taskid,
 // "s-type": tasktype,
-func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx,
+func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, strategyID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx,
 	pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	return buildJobWithLinkedNs(
 		taskType,
@@ -442,6 +442,7 @@ func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterI
 		jobName,
 		serviceName,
 		clusterID,
+		strategyID,
 		currentNamespace,
 		resReq,
 		resReqSpec,
@@ -451,7 +452,7 @@ func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterI
 	)
 }
 
-func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
+func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, strategyID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	var reaperBootingScript string
 
 	reaperBootingScript = executorVolumePath + "/reaper"
@@ -561,11 +562,11 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 
 	clusterConfig := findClusterConfig(clusterID, pipelineTask.ConfigPayload.K8SClusters)
 
-	if affinity := addNodeAffinity(clusterConfig); affinity != nil {
+	if affinity := addNodeAffinity(clusterConfig, strategyID); affinity != nil {
 		job.Spec.Template.Spec.Affinity = affinity
 	}
 
-	if tolerations := buildTolerations(clusterConfig); len(tolerations) > 0 {
+	if tolerations := buildTolerations(clusterConfig, strategyID); len(tolerations) > 0 {
 		job.Spec.Template.Spec.Tolerations = tolerations
 	}
 
@@ -1085,13 +1086,24 @@ func checkDogFoodExistsInContainer(clientset kubernetes.Interface, restConfig *r
 	return commontypes.JobStatus(stdout), success, err
 }
 
-func buildTolerations(clusterConfig *task.AdvancedConfig) []corev1.Toleration {
+func buildTolerations(clusterConfig *task.AdvancedConfig, strategyID string) []corev1.Toleration {
 	ret := make([]corev1.Toleration, 0)
-	if clusterConfig == nil || len(clusterConfig.Tolerations) == 0 {
+	if clusterConfig == nil || len(clusterConfig.ScheduleStrategy) == 0 {
 		return ret
 	}
 
-	err := yaml.Unmarshal([]byte(clusterConfig.Tolerations), &ret)
+	var tolerations string
+	for _, strategy := range clusterConfig.ScheduleStrategy {
+		if strategyID != "" && strategy.StrategyID == strategyID {
+			tolerations = strategy.Tolerations
+			break
+		} else if strategyID == "" && strategy.Default {
+			tolerations = strategy.Tolerations
+			break
+		}
+	}
+
+	err := yaml.Unmarshal([]byte(tolerations), &ret)
 	if err != nil {
 		log.Errorf("failed to parse toleration config, err: %s", err)
 		return nil
@@ -1099,15 +1111,29 @@ func buildTolerations(clusterConfig *task.AdvancedConfig) []corev1.Toleration {
 	return ret
 }
 
-func addNodeAffinity(clusterConfig *task.AdvancedConfig) *corev1.Affinity {
-	if clusterConfig == nil || len(clusterConfig.NodeLabels) == 0 {
+func addNodeAffinity(clusterConfig *task.AdvancedConfig, strategyID string) *corev1.Affinity {
+	if clusterConfig == nil || len(clusterConfig.ScheduleStrategy) == 0 {
 		return nil
 	}
 
-	switch clusterConfig.Strategy {
+	var strategy *task.ScheduleStrategy
+	for _, s := range clusterConfig.ScheduleStrategy {
+		if strategyID != "" && s.StrategyID == strategyID {
+			strategy = s
+			break
+		} else if strategyID == "" && s.Default {
+			strategy = s
+			break
+		}
+	}
+	if strategy == nil {
+		return nil
+	}
+
+	switch strategy.Strategy {
 	case setting.RequiredSchedule:
 		nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
-		for _, nodeLabel := range clusterConfig.NodeLabels {
+		for _, nodeLabel := range strategy.NodeLabels {
 			var matchExpressions []corev1.NodeSelectorRequirement
 			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
 				Key:      nodeLabel.Key,
@@ -1129,7 +1155,7 @@ func addNodeAffinity(clusterConfig *task.AdvancedConfig) *corev1.Affinity {
 		return affinity
 	case setting.PreferredSchedule:
 		preferredScheduleTerms := make([]corev1.PreferredSchedulingTerm, 0)
-		for _, nodeLabel := range clusterConfig.NodeLabels {
+		for _, nodeLabel := range strategy.NodeLabels {
 			var matchExpressions []corev1.NodeSelectorRequirement
 			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
 				Key:      nodeLabel.Key,

@@ -48,6 +48,7 @@ type Testing struct {
 	IsRestart      bool                 `bson:"is_restart"                      json:"is_restart"`
 	Registries     []*RegistryNamespace `bson:"-"                               json:"registries"`
 	ClusterID      string               `bson:"cluster_id"                      json:"cluster_id"`
+	StrategyID     string               `bson:"strategy_id"                     json:"strategy_id"`
 	Namespace      string               `bson:"namespace"                       json:"namespace"`
 
 	// New since V1.10.0.

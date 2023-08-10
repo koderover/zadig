@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -272,6 +273,16 @@ func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels
 			Items:   scheduleList,
 		}
 		resp.Schedules = &schedule
+	}
+
+	if resp.PreTest != nil && resp.PreTest.StrategyID == "" {
+		strategy, err := cluster.GetClusterDefaultStrategy(resp.PreTest.ClusterID)
+		if err != nil {
+			msg := fmt.Errorf("failed to get cluster default strategy, clusterID:%s, error: %v", resp.PreTest.ClusterID, err)
+			log.Errorf(msg.Error())
+			return nil, msg
+		}
+		resp.PreTest.StrategyID = strategy.StrategyID
 	}
 
 	workflowservice.EnsureTestingResp(resp)

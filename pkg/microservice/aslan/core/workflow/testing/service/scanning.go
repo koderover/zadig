@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -159,6 +160,17 @@ func GetScanningModuleByID(id string, log *zap.SugaredLogger) (*Scanning, error)
 		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
 		return nil, err
 	}
+
+	if scanning.AdvancedSetting != nil && scanning.AdvancedSetting.StrategyID == "" {
+		strategy, err := cluster.GetClusterDefaultStrategy(scanning.AdvancedSetting.ClusterID)
+		if err != nil {
+			msg := fmt.Errorf("failed to get cluster default strategy, clusterID:%s, error: %v", scanning.AdvancedSetting, err)
+			log.Errorf(msg.Error())
+			return nil, msg
+		}
+		scanning.AdvancedSetting.StrategyID = strategy.StrategyID
+	}
+
 	return ConvertDBScanningModule(scanning), nil
 }
 
@@ -274,6 +286,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		// the timeout we save is measured in minute
 		Timeout:          scanningInfo.AdvancedSetting.Timeout * 60,
 		ClusterID:        scanningInfo.AdvancedSetting.ClusterID,
+		StrategyID:       scanningInfo.AdvancedSetting.StrategyID,
 		Repos:            repos,
 		InstallItems:     scanningInfo.Installs,
 		PreScript:        scanningInfo.PreScript,

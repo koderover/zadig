@@ -124,6 +124,7 @@ func (j *GrayRollbackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			JobType: string(config.JobK8sGrayRollback),
 			Spec: &commonmodels.JobTaskGrayRollbackSpec{
 				ClusterID:        j.spec.ClusterID,
+				StrategyID:       j.spec.StrategyID,
 				ClusterName:      cluster.Name,
 				Namespace:        j.spec.Namespace,
 				WorkloadType:     target.WorkloadType,

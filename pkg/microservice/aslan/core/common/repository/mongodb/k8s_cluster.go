@@ -89,6 +89,13 @@ func (c *K8SClusterColl) Update(cluster *models.K8SCluster) error {
 	return err
 }
 
+func (c *K8SClusterColl) UpdateScheduleStrategy(cluster *models.K8SCluster) error {
+	_, err := c.UpdateOne(context.TODO(), bson.M{"_id": cluster.ID}, bson.M{"$set": bson.M{
+		"advanced_config.schedule_strategy": cluster.AdvancedConfig.ScheduleStrategy,
+	}})
+	return err
+}
+
 // Get ...
 func (c *K8SClusterColl) Get(id string) (*models.K8SCluster, error) {
 	oid, err := primitive.ObjectIDFromHex(id)
@@ -205,6 +212,22 @@ func (c *K8SClusterColl) FindByID(ID string) (*models.K8SCluster, error) {
 	err = c.FindOne(context.TODO(), bson.M{"_id": clusterID}).Decode(res)
 
 	return res, err
+}
+
+func (c *K8SClusterColl) FindStrategyByIds(clusterID, strategyID string) (*models.ScheduleStrategy, error) {
+	id, err := primitive.ObjectIDFromHex(clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	strategy := &models.ScheduleStrategy{}
+	query := bson.M{"_id": id, "advanced_config.schedule_strategy.strategy_id": strategyID}
+
+	err = c.FindOne(context.Background(), query).Decode(strategy)
+	if err != nil {
+		return nil, err
+	}
+	return strategy, nil
 }
 
 func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster, id string) error {

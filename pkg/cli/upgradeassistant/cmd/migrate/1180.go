@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -95,6 +96,12 @@ func V1170ToV1180() error {
 
 	log.Infof("-------- start migrate package dependencies --------")
 	if err := updateNewPackageDependencies(); err != nil {
+		log.Errorf("updateNewPackageDependencies err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate cluster workflow schedule strategy --------")
+	if err := migrateClusterScheduleStrategy(); err != nil {
 		log.Errorf("updateNewPackageDependencies err: %v", err)
 		return err
 	}
@@ -595,6 +602,59 @@ func updateNewPackageDependencies() error {
 			if result.UpsertedCount > 0 {
 				log.Infof("create %s install info success", fullName)
 			}
+		}
+	}
+	return nil
+}
+
+func migrateClusterScheduleStrategy() error {
+	coll := mongodb.NewK8SClusterColl()
+	clusters, err := coll.List(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get all cluster from db, err: %v", err)
+	}
+
+	for _, cluster := range clusters {
+		if cluster.AdvancedConfig != nil && cluster.AdvancedConfig.ScheduleStrategy != nil {
+			continue
+		}
+
+		if cluster.AdvancedConfig == nil {
+			cluster.AdvancedConfig = &models.AdvancedConfig{
+				ClusterAccessYaml: kube.ClusterAccessYamlTemplate,
+				ScheduleWorkflow:  true,
+				ScheduleStrategy: []*models.ScheduleStrategy{
+					{
+						StrategyID:   primitive.NewObjectID().String(),
+						StrategyName: setting.NormalScheduleName,
+						Strategy:     setting.NormalSchedule,
+						Default:      true,
+					},
+				},
+			}
+		} else {
+			cluster.AdvancedConfig.ScheduleStrategy = make([]*models.ScheduleStrategy, 0)
+			strategy := &models.ScheduleStrategy{
+				StrategyID:  primitive.NewObjectID().String(),
+				Strategy:    cluster.AdvancedConfig.Strategy,
+				NodeLabels:  cluster.AdvancedConfig.NodeLabels,
+				Tolerations: cluster.AdvancedConfig.Tolerations,
+				Default:     true,
+			}
+			switch strategy.Strategy {
+			case setting.NormalSchedule:
+				strategy.StrategyName = setting.NormalScheduleName
+			case setting.RequiredSchedule:
+				strategy.StrategyName = setting.RequiredScheduleName
+			case setting.PreferredSchedule:
+				strategy.StrategyName = setting.PreferredScheduleName
+			}
+			cluster.AdvancedConfig.ScheduleStrategy = append(cluster.AdvancedConfig.ScheduleStrategy, strategy)
+
+		}
+		err := coll.UpdateScheduleStrategy(cluster)
+		if err != nil {
+			return fmt.Errorf("failed to update cluster in ua method migrateClusterScheduleStrategy, err: %v", err)
 		}
 	}
 	return nil

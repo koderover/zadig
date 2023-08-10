@@ -96,6 +96,19 @@ func DeleteCluster(c *gin.Context) {
 	ctx.Err = service.DeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
+func DeleteClusterStrategy(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	clusterID, strategyID := c.Param("clusterID"), c.Param("strategyID")
+	if strings.TrimSpace(clusterID) == "" || strings.TrimSpace(strategyID) == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid clusterID or strategyID")
+		return
+	}
+
+	ctx.Err = service.DeleteClusterStrategy(ctx.UserName, clusterID, strategyID, ctx.Logger)
+}
+
 func DisconnectCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
