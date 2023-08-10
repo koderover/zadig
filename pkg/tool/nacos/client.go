@@ -69,7 +69,7 @@ const (
 func NewNacosClient(serverAddr, userName, password string) (*Client, error) {
 	host, err := url.Parse(serverAddr)
 	if err != nil {
-		return nil, errors.New("parse nacos server address failed")
+		return nil, errors.Wrap(err, "parse nacos server address failed")
 	}
 	// add default context path
 	if host.Path == "" {
@@ -82,7 +82,7 @@ func NewNacosClient(serverAddr, userName, password string) (*Client, error) {
 		SetResult(&result).
 		Post(loginURL)
 	if err != nil {
-		return nil, errors.New("login nacos failed")
+		return nil, errors.Wrap(err, "login nacos failed")
 	}
 	if !resp.IsSuccess() {
 		return nil, errors.New("login nacos failed")
@@ -120,7 +120,7 @@ func (c *Client) ListNamespaces() ([]*types.NacosNamespace, error) {
 	url := "/v1/console/namespaces"
 	res := &namespaceResp{}
 	if _, err := c.Client.Get(url, httpclient.SetResult(res)); err != nil {
-		return nil, errors.New("list nacos namespace failed")
+		return nil, errors.Wrap(err, "list nacos namespace failed")
 	}
 	resp := []*types.NacosNamespace{}
 	for _, namespace := range res.Data {
@@ -152,7 +152,7 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 			"tenant":   namespaceID,
 		})
 		if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
-			return nil, errors.New("list nacos config failed")
+			return nil, errors.Wrap(err, "list nacos config failed")
 		}
 		for _, conf := range res.PageItems {
 			resp = append(resp, &types.NacosConfig{
@@ -181,7 +181,7 @@ func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfi
 		"show":   "all",
 	})
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
-		return nil, errors.New("get nacos config failed")
+		return nil, errors.Wrap(err, "get nacos config failed")
 	}
 	return &types.NacosConfig{
 		DataID:  res.DataID,
@@ -202,7 +202,7 @@ func (c *Client) UpdateConfig(dataID, group, namespaceID, content, format string
 		"type":    setFormat(format),
 	}
 	if _, err := c.Client.Post(path, httpclient.SetFormData(formValues)); err != nil {
-		return errors.New("update nacos config failed")
+		return errors.Wrap(err, "update nacos config failed")
 	}
 	return nil
 }
