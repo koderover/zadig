@@ -375,13 +375,15 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 
 	workflow := []*Workflow{}
 
-	// distribute center only surpport custom workflow.
+	log.Infof("-------- projectName: %s,  names: %v", projectName, names)
+	// distribute center only support custom workflow.
 	if !ignoreWorkflow && projectName != setting.EnterpriseProject {
 		workflow, err = ListWorkflows([]string{projectName}, userID, names, logger)
 		if err != nil {
 			return resp, err
 		}
 	}
+	log.Infof("-------- origin workflow count: %d", len(workflow))
 
 	workflowList := []string{}
 	for _, wV4 := range workflowV4List {
