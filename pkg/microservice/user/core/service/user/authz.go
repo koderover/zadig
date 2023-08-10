@@ -90,8 +90,8 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		}
 	}
 
-	// get all the public projects, if we didn't get one, simply skip it
-	publicRBList, err := mongodb.NewRoleBindingColl().ListPublicProjectRB("")
+	// get the roles given to all users (for now), when we have user groups, this should be replaced by user groups
+	publicRBList, err := mongodb.NewRoleBindingColl().ListAllUserRB("")
 	if err != nil {
 		logger.Debugf("No public project found, err: %s", err)
 	}
@@ -102,14 +102,32 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 			projectActionMap[rb.Namespace] = generateDefaultProjectActions()
 		}
 
-		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.WorkflowActionView)
-		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.EnvActionView)
-		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ProductionEnvActionView)
-		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.TestActionView)
-		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ScanActionView)
-		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ServiceActionView)
-		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.BuildActionView)
-		modifyUserProjectAuth(projectActionMap[rb.Namespace], types.DeliveryActionView)
+		if rb.RoleRef.Name == ProjectAdminRole {
+			projectActionMap[rb.Namespace].IsProjectAdmin = true
+		} else if rb.RoleRef.Name == ReadOnlyRole {
+			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.WorkflowActionView)
+			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.EnvActionView)
+			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ProductionEnvActionView)
+			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.TestActionView)
+			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ScanActionView)
+			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ServiceActionView)
+			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.BuildActionView)
+			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.DeliveryActionView)
+		} else {
+			// otherwise search for the specific role and give the permission to user
+			roleDetailInfo, found, err := mongodb.NewRoleColl().Get(rb.RoleRef.Namespace, rb.RoleRef.Name)
+			if err != nil {
+				return nil, err
+			}
+			if found {
+				for _, rule := range roleDetailInfo.Rules {
+					// resources field is no longer required, the verb itself is sufficient to explain the authorization
+					for _, verb := range rule.Verbs {
+						modifyUserProjectAuth(projectActionMap[rb.Namespace], verb)
+					}
+				}
+			}
+		}
 	}
 
 	for _, role := range namespacedRoleMap[GeneralNamespace] {
@@ -198,8 +216,8 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 		return nil, fmt.Errorf("failed to list user role binding, error: %s", err)
 	}
 
-	// get all the public projects, if we didn't get one, simply skip it
-	publicRBList, err := mongodb.NewRoleBindingColl().ListPublicProjectRB("")
+	// get roles given to all users, if the get a role, they can see the project
+	publicRBList, err := mongodb.NewRoleBindingColl().ListAllUserRB("")
 	if err != nil {
 		logger.Debugf("No public project found, err: %s", err)
 	}
