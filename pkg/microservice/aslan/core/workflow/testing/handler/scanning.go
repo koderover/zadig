@@ -210,8 +210,8 @@ func ListScanningModule(c *gin.Context) {
 
 		// finally check if the permission is given by collaboration mode
 		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
-		if err == nil {
-			permitted = collaborationAuthorizedEdit
+		if err == nil && collaborationAuthorizedEdit {
+			permitted = true
 		}
 	}
 

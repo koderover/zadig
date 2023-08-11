@@ -95,12 +95,12 @@ func ListProducts(c *gin.Context) {
 			projectInfo.Env.View {
 			hasPermission = true
 		}
-	}
-
-	permittedEnv, _ := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
-	if permittedEnv != nil && len(permittedEnv.ReadEnvList) > 0 {
-		hasPermission = true
-		envFilter = permittedEnv.ReadEnvList
+	} else {
+		permittedEnv, _ := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
+		if permittedEnv != nil && len(permittedEnv.ReadEnvList) > 0 {
+			hasPermission = true
+			envFilter = permittedEnv.ReadEnvList
+		}
 	}
 
 	if !hasPermission {
