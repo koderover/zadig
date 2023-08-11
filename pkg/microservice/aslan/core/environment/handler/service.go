@@ -72,15 +72,13 @@ func ListSvcsInEnv(c *gin.Context) {
 		}
 
 		collaborationViewEnvPermitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-		if err == nil {
-			permitted = collaborationViewEnvPermitted
+		if err == nil && collaborationViewEnvPermitted {
+			permitted = true
 		}
 
-		permitted = collaborationViewEnvPermitted
-
 		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionRun)
-		if err == nil {
-			permitted = collaborationAuthorizedEdit
+		if err == nil && collaborationAuthorizedEdit {
+			permitted = true
 		}
 	}
 
