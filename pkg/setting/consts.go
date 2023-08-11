@@ -377,7 +377,7 @@ const (
 	ProductStatusCreating = "creating"
 	ProductStatusUpdating = "updating"
 	ProductStatusDeleting = "deleting"
-	ProductStatusSleeping = "sleeping"
+	ProductStatusSleeping = "Sleeping"
 	ProductStatusUnknown  = "unknown"
 	ProductStatusUnstable = "Unstable"
 )

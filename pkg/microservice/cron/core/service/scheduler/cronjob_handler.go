@@ -498,9 +498,6 @@ func (h *CronjobHandler) registerEnvSleepJob(name, schedule string, job *service
 			base = "environment/production/environments/"
 		}
 
-		log.Debugf("job: %+v", job)
-		log.Debugf("job.EnvArgs: %+v", job.EnvArgs)
-
 		url := ""
 		if job.EnvArgs.Name == util.GetEnvSleepCronName(job.EnvArgs.ProductName, job.EnvArgs.EnvName, true) {
 			url = base + fmt.Sprintf("%s/sleep?projectName=%s&action=enable", job.EnvArgs.EnvName, job.EnvArgs.ProductName)
