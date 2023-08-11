@@ -80,12 +80,17 @@ func Serve(ctx context.Context) error {
 func initResource() {
 	client := aslan.NewExternal(config2.AslanBaseAddr(), "")
 
-	// get cluster info from zadig
-	schedule, err := strconv.ParseBool(config2.ScheduleWorkflow())
+	scheduleWorkflow := config2.ScheduleWorkflow()
+	if scheduleWorkflow == "" {
+		log.Infof("failed to get scheduleWorkflow from env")
+		scheduleWorkflow = "true"
+	}
+	schedule, err := strconv.ParseBool(scheduleWorkflow)
 	if err != nil {
-		log.Fatalf("failed to parse ScheduleWorkflow, the error is: %s", err)
+		log.Errorf("failed to parse scheduleWorkflow, err: %s", err)
 		schedule = true
 	}
+
 	if schedule {
 		ls, err := client.ListRegistries()
 		if err != nil {
@@ -117,5 +122,4 @@ func initResource() {
 			log.Fatalf("failed to update dind, the error is: %s", err)
 		}
 	}
-
 }
