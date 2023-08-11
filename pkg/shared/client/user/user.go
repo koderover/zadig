@@ -39,7 +39,9 @@ type usersResp struct {
 }
 
 type SearchArgs struct {
-	UIDs []string `json:"uids"`
+	UIDs    []string `json:"uids"`
+	PerPage int      `json:"per_page,omitempty"`
+	Page    int      `json:"page,omitempty"`
 }
 
 func (c *Client) ListUsers(args *SearchArgs) ([]*User, error) {
