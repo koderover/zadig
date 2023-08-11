@@ -95,12 +95,12 @@ func ListProducts(c *gin.Context) {
 			projectInfo.Env.View {
 			hasPermission = true
 		}
-	} else {
-		permittedEnv, _ := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
-		if permittedEnv != nil && len(permittedEnv.ReadEnvList) > 0 {
-			hasPermission = true
-			envFilter = permittedEnv.ReadEnvList
-		}
+	}
+
+	permittedEnv, _ := internalhandler.ListCollaborationEnvironmentsPermission(ctx.UserID, projectName)
+	if !hasPermission && permittedEnv != nil && len(permittedEnv.ReadEnvList) > 0 {
+		hasPermission = true
+		envFilter = permittedEnv.ReadEnvList
 	}
 
 	if !hasPermission {
@@ -1511,9 +1511,7 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
-	}
-
-	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; ok {
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; ok {
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
 		}
@@ -1567,9 +1565,7 @@ func updateMultiHelmEnv(c *gin.Context, request *service.UpdateEnvRequest, produ
 
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
-	}
-
-	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; ok {
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; ok {
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
 		}
@@ -1625,9 +1621,7 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
-	}
-
-	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; ok {
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; ok {
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
 		}

@@ -151,9 +151,7 @@ func GetServiceTemplateOption(c *gin.Context) {
 
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
-	}
-
-	if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
 		// first check if the user is projectAdmin
 		if projectAuthInfo.IsProjectAdmin {
 			permitted = true
