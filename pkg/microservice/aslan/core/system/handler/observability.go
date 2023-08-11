@@ -19,20 +19,53 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListObservability(c *gin.Context) {
+func ListObservabilityDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListObservability()
+	ctx.Resp, ctx.Err = service.ListObservability(true)
+}
+
+func CreateObservability(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	var args commonmodels.Observability
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Err = service.CreateObservability(&args)
 }
 
 func UpdateObservability(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.UpdateObservability(c.Param("id"), ctx.Logger)
+	var args commonmodels.Observability
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Err = service.UpdateObservability(c.Param("id"), &args)
+}
+
+func DeleteObservability(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Err = service.DeleteObservability(c.Param("id"))
+}
+
+func ValidateObservability(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ValidateObservability(c.Param("id"))
 }

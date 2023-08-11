@@ -272,7 +272,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	observability := router.Group("observability", isSystemAdmin)
 	{
-		observability.GET("", ListObservability)
+		observability.GET("", ListObservabilityDetail)
 		observability.POST("", CreateObservability)
 		observability.PUT("/:id", UpdateObservability)
 		observability.DELETE("/:id", DeleteObservability)

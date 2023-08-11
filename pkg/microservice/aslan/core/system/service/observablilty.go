@@ -19,25 +19,48 @@ package service
 import (
 	"context"
 
-	"go.uber.org/zap"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListObservability() ([]*models.Observability, error) {
+func ListObservability(isAdmin bool) ([]*models.Observability, error) {
 	resp, err := mongodb.NewObservabilityColl().List(context.Background())
 	if err != nil {
 		return nil, e.ErrListObservabilityIntegration.AddErr(err)
 	}
+	if !isAdmin {
+		for _, v := range resp {
+			v.ApiKey = ""
+		}
+	}
 	return resp, nil
 }
 
-func UpdateObservability(id string, log *zap.SugaredLogger) error {
-	if err := mongodb.NewObservabilityColl().Update(context.Background(), id); err != nil {
-		log.Errorf("update observability error: %v", err)
+func CreateObservability(args *models.Observability) error {
+	if err := mongodb.NewObservabilityColl().Create(context.Background(), args); err != nil {
+		return e.ErrCreateObservabilityIntegration.AddErr(err)
+	}
+	return nil
+}
+
+func UpdateObservability(id string, args *models.Observability) error {
+	if err := mongodb.NewObservabilityColl().Update(context.Background(), id, args); err != nil {
 		return e.ErrUpdateObservabilityIntegration.AddErr(err)
+	}
+	return nil
+}
+
+func DeleteObservability(id string) error {
+	if err := mongodb.NewObservabilityColl().DeleteByID(context.Background(), id); err != nil {
+		return e.ErrDeleteObservabilityIntegration.AddErr(err)
+	}
+	return nil
+}
+
+func ValidateObservability(id string) error {
+	if _, err := mongodb.NewObservabilityColl().Find(context.Background(), id); err != nil {
+		return e.ErrValidateObservability.AddErr(err)
 	}
 	return nil
 }

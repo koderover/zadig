@@ -18,6 +18,7 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -62,15 +63,19 @@ func (c *ObservabilityColl) Create(ctx context.Context, args *models.Observabili
 	return err
 }
 
-func (c *ObservabilityColl) Update(ctx context.Context, args *models.Observability) error {
+func (c *ObservabilityColl) Update(ctx context.Context, idString string, args *models.Observability) error {
 	if args == nil {
 		return errors.New("observability is nil")
 	}
+	id, err := primitive.ObjectIDFromHex(idString)
+	if err != nil {
+		return fmt.Errorf("invalid id")
+	}
 	args.UpdateTime = time.Now().Unix()
 
-	query := bson.M{"_id": args.ID}
+	query := bson.M{"_id": id}
 	change := bson.M{"$set": args}
-	_, err := c.UpdateOne(ctx, query, change)
+	_, err = c.UpdateOne(ctx, query, change)
 	return err
 }
 
