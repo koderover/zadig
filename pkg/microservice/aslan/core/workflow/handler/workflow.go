@@ -96,8 +96,8 @@ func AutoCreateWorkflow(c *gin.Context) {
 
 		// finally check if the permission is given by collaboration mode
 		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-		if err == nil {
-			permitted = collaborationAuthorizedEdit
+		if err == nil && collaborationAuthorizedEdit {
+			permitted = true
 		}
 	}
 
