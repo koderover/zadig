@@ -95,8 +95,8 @@ func ListBuildModules(c *gin.Context) {
 
 		// finally check if the permission is given by collaboration mode
 		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
-		if err == nil {
-			permitted = collaborationAuthorizedEdit
+		if err == nil && collaborationAuthorizedEdit {
+			permitted = true
 		}
 	}
 
@@ -146,8 +146,8 @@ func ListBuildModulesByServiceModule(c *gin.Context) {
 
 		// finally check if the permission is given by collaboration mode
 		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectKey, types.ResourceTypeWorkflow, types.WorkflowActionEdit)
-		if err == nil {
-			permitted = collaborationAuthorizedEdit
+		if err == nil && collaborationAuthorizedEdit {
+			permitted = true
 		}
 	}
 
