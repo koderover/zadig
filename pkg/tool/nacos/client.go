@@ -144,12 +144,13 @@ func (c *Client) ListConfigs(namespaceID string) ([]*types.NacosConfig, error) {
 		numString := strconv.Itoa(pageNum)
 		sizeString := strconv.Itoa(pageSize)
 		params := httpclient.SetQueryParams(map[string]string{
-			"dataId":   "",
-			"group":    "",
-			"search":   "accurate",
-			"pageNo":   numString,
-			"pageSize": sizeString,
-			"tenant":   namespaceID,
+			"dataId":      "",
+			"group":       "",
+			"search":      "accurate",
+			"pageNo":      numString,
+			"pageSize":    sizeString,
+			"tenant":      namespaceID,
+			"accessToken": c.token,
 		})
 		if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
 			return nil, errors.New("list nacos config failed")
@@ -175,10 +176,11 @@ func (c *Client) GetConfig(dataID, group, namespaceID string) (*types.NacosConfi
 	url := "/v1/cs/configs"
 	res := &config{}
 	params := httpclient.SetQueryParams(map[string]string{
-		"dataId": dataID,
-		"group":  group,
-		"tenant": namespaceID,
-		"show":   "all",
+		"dataId":      dataID,
+		"group":       group,
+		"tenant":      namespaceID,
+		"show":        "all",
+		"accessToken": c.token,
 	})
 	if _, err := c.Client.Get(url, params, httpclient.SetResult(res)); err != nil {
 		return nil, errors.New("get nacos config failed")
@@ -195,11 +197,12 @@ func (c *Client) UpdateConfig(dataID, group, namespaceID, content, format string
 	namespaceID = getNamespaceID(namespaceID)
 	path := "/v1/cs/configs"
 	formValues := map[string]string{
-		"dataId":  dataID,
-		"group":   group,
-		"tenant":  namespaceID,
-		"content": content,
-		"type":    setFormat(format),
+		"dataId":      dataID,
+		"group":       group,
+		"tenant":      namespaceID,
+		"content":     content,
+		"type":        setFormat(format),
+		"accessToken": c.token,
 	}
 	if _, err := c.Client.Post(path, httpclient.SetFormData(formValues)); err != nil {
 		return errors.New("update nacos config failed")
