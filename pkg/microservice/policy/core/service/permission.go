@@ -207,7 +207,7 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 			if _, ok := projectVerbSetMap[rolebinding.Namespace]; !ok {
 				projectVerbSetMap[rolebinding.Namespace] = sets.NewString()
 			}
-
+			log.Infof("-------- adding role for project %v, rolebinding: %s, role: %s", rolebinding.Namespace, rolebinding.Name, role.Name)
 			for _, rule := range role.Rules {
 				if role.Name != string(setting.ReadProjectOnly) {
 					projectVerbSetMap[rolebinding.Namespace].Insert(rule.Verbs...)
