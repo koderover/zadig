@@ -40,9 +40,19 @@ func GetWorkflowTemplateByID(c *gin.Context) {
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.Template.View {
+		if ctx.Resources.SystemActions.Template.View {
 			ctx.UnAuthorized = true
-			internalhandler.JSONResponse(c, ctx)
+			return
+		}
+	} else {
+		projectKey := c.Param("productName")
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Create {
+			ctx.UnAuthorized = true
 			return
 		}
 	}
@@ -69,7 +79,18 @@ func ListWorkflowTemplate(c *gin.Context) {
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.Template.View {
+		if ctx.Resources.SystemActions.Template.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	} else {
+		projectKey := c.Param("productName")
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Create {
 			ctx.UnAuthorized = true
 			return
 		}
