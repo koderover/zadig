@@ -53,6 +53,11 @@ func geneCreateFromDetail(templateId string, variableYaml string) *commonmodels.
 
 func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemplateReq, force bool, logger *zap.SugaredLogger) error {
 	projectName, serviceName, templateID, autoSync := req.ProjectName, req.ServiceName, req.TemplateID, req.AutoSync
+	// check if serviceName has upper case
+	if strings.ToLower(serviceName) != serviceName {
+		return fmt.Errorf("service name should be lowercase")
+	}
+
 	template, err := commonrepo.NewYamlTemplateColl().GetById(templateID)
 	if err != nil {
 		logger.Errorf("Failed to find template of ID: %s, the error is: %s", templateID, err)
@@ -88,6 +93,11 @@ func LoadServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTempla
 
 func LoadProductionServiceFromYamlTemplate(username string, req *LoadServiceFromYamlTemplateReq, force bool, logger *zap.SugaredLogger) error {
 	projectName, serviceName, templateID, autoSync := req.ProjectName, req.ServiceName, req.TemplateID, req.AutoSync
+	// check if serviceName has upper case
+	if strings.ToLower(serviceName) != serviceName {
+		return fmt.Errorf("service name should be lowercase")
+	}
+
 	template, err := commonrepo.NewYamlTemplateColl().GetById(templateID)
 	if err != nil {
 		logger.Errorf("Failed to find template of ID: %s, the error is: %s", templateID, err)
