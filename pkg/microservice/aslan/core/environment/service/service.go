@@ -231,6 +231,8 @@ func GetService(envName, productName, serviceName string, production bool, workL
 		if err != nil {
 			return nil, e.ErrGetService.AddErr(err)
 		}
+		ret.Workloads = nil
+		ret.Namespace = env.Namespace
 	}
 
 	return ret, nil

@@ -673,6 +673,7 @@ type Workload struct {
 	EnvName     string                 `json:"env_name"`
 	Name        string                 `json:"name"`
 	Type        string                 `json:"type"`
+	ServiceName string                 `json:"-"`
 	ProductName string                 `json:"product_name"`
 	Spec        corev1.PodTemplateSpec `json:"-"`
 	Images      []string               `json:"-"`

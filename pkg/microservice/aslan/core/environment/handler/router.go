@@ -204,8 +204,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.DELETE("/envcfgs/:name/cfg/:objectName", DeleteProductionCommonEnvCfg)
 
 		production.POST("/environments/:name/sleep", ProductionEnvSleep)
-		production.GET("/:name/sleep/cron", GetProductionEnvSleepCron)
-		production.PUT("/:name/sleep/cron", UpsertProductionEnvSleepCron)
+		production.GET("/environments/:name/sleep/cron", GetProductionEnvSleepCron)
+		production.PUT("/environments/:name/sleep/cron", UpsertProductionEnvSleepCron)
 	}
 
 	// ---------------------------------------------------------------------------------------

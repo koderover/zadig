@@ -4429,46 +4429,63 @@ func EnsureProductionNamespace(createArgs []*CreateSingleProductArg) error {
 func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap.SugaredLogger) error {
 	tempProd, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
-		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to find template product %s, err: %s", productName, err))
+		err = fmt.Errorf("failed to find template product %s, err: %s", productName, err)
+		log.Error(err)
+		return e.ErrEnvSleep.AddErr(err)
 	}
 
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to find product %s/%s, err: %s", productName, envName, err))
+		err = fmt.Errorf("failed to find product %s/%s, err: %s", productName, envName, err)
+		log.Error(err)
+		return e.ErrEnvSleep.AddErr(err)
 	}
 	if prod.Production != isProduction {
-		return e.ErrEnvSleep.AddErr(fmt.Errorf("Insufficient permissions: %s/%s, is production %v", productName, envName, prod.Production))
+		err = fmt.Errorf("Insufficient permissions: %s/%s, is production %v", productName, envName, prod.Production)
+		log.Error(err)
+		return e.ErrEnvSleep.AddErr(err)
 	}
 	if prod.Status == setting.ProductStatusSleeping && isEnable {
-		return e.ErrEnvSleep.AddErr(fmt.Errorf("product %s/%s is already sleeping", productName, envName))
+		err = fmt.Errorf("product %s/%s is already sleeping", productName, envName)
+		log.Warn(err)
+		return e.ErrEnvSleep.AddErr(err)
 	}
 	if prod.Status != setting.ProductStatusSleeping && !isEnable {
-		return e.ErrEnvSleep.AddErr(fmt.Errorf("product %s/%s is already running", productName, envName))
+		err = fmt.Errorf("product %s/%s is already running", productName, envName)
+		log.Warn(err)
+		return e.ErrEnvSleep.AddErr(err)
 	}
 
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
-		return e.ErrAnalysisEnvResource.AddErr(fmt.Errorf("failed to get template product %s, err: %w", productName, err))
+		err = fmt.Errorf("failed to get template product %s, err: %w", productName, err)
+		log.Error(err)
+		return e.ErrAnalysisEnvResource.AddErr(err)
 	}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
-		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to get kube client, err: %s", err))
+		err = fmt.Errorf("failed to get kube client, err: %s", err)
+		log.Error(err)
+		return e.ErrEnvSleep.AddErr(err)
 	}
 	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
 		wrapErr := fmt.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", prod.ClusterID, err)
+		log.Error(wrapErr)
 		return e.ErrEnvSleep.AddErr(wrapErr)
 	}
 	informer, err := informer.NewInformer(prod.ClusterID, prod.Namespace, clientset)
 	if err != nil {
 		wrapErr := fmt.Errorf("[%s][%s] error: %v", envName, prod.Namespace, err)
+		log.Error(wrapErr)
 		return e.ErrEnvSleep.AddErr(wrapErr)
 	}
 	version, err := clientset.Discovery().ServerVersion()
 	if err != nil {
 		wrapErr := fmt.Errorf("Failed to get server version info for cluster: %s, the error is: %s", prod.ClusterID, err)
+		log.Error(wrapErr)
 		return e.ErrEnvSleep.AddErr(wrapErr)
 	}
 
@@ -4482,42 +4499,77 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 
 	filterArray, err := commonservice.BuildWorkloadFilterFunc(prod, tempProd, "", log)
 	if err != nil {
-		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to build workload filter func, err: %s", err))
+		err = fmt.Errorf("failed to build workload filter func, err: %s", err)
+		log.Error(err)
+		return e.ErrEnvSleep.AddErr(err)
 	}
 
 	count, workLoads, err := commonservice.ListWorkloads(envName, productName, 999, 1, informer, version, log, filterArray...)
 	if err != nil {
 		wrapErr := fmt.Errorf("failed to list workloads, [%s][%s], error: %v", prod.Namespace, envName, err)
+		log.Error(wrapErr)
 		return e.ErrEnvSleep.AddErr(wrapErr)
 	}
 	if count > 999 {
-		log.Warnf("project %s env %s: workloads count > 999", productName, envName)
+		log.Errorf("project %s env %s: workloads count > 999", productName, envName)
+	}
+	scaleMap := make(map[string]*commonservice.Workload)
+	cronjobMap := make(map[string]*commonservice.Workload)
+	for _, workLoad := range workLoads {
+		if workLoad.Type == setting.CronJob {
+			cronjobMap[workLoad.Name] = workLoad
+		} else {
+			scaleMap[workLoad.Name] = workLoad
+		}
 	}
 
 	svcs, err := commonutil.GetProductUsedTemplateSvcs(prod)
 	if err != nil {
-		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to get product used template services, err: %s", err))
+		wrapErr := fmt.Errorf("failed to get product used template services, err: %s", err)
+		log.Error(wrapErr)
+		return e.ErrEnvSleep.AddErr(wrapErr)
 	}
-	svcWorkloadMap := make(map[string]string)
 	for _, svc := range svcs {
 		if templateProduct.IsK8sYamlProduct() {
 			svcImpl, err := commonservice.GetServiceImpl(svc.ServiceName, svc, "", prod, clientset, informer, log)
 			if err != nil {
-				return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to get service impl %s, err: %s", svc.ServiceName, err))
+				wrapErr := fmt.Errorf("failed to get service impl %s, err: %s", svc.ServiceName, err)
+				log.Error(wrapErr)
+				return e.ErrEnvSleep.AddErr(wrapErr)
 			}
 			for _, scale := range svcImpl.Scales {
-				svcWorkloadMap[scale.Name] = svcImpl.ServiceName
 				newScaleNumMap[scale.Name] = int(scale.Replicas)
+				if workLoad, ok := scaleMap[scale.Name]; ok {
+					workLoad.ServiceName = svc.ServiceName
+				}
+			}
+			for _, cronjob := range svcImpl.CronJobs {
+				if workLoad, ok := cronjobMap[cronjob.Name]; ok {
+					workLoad.ServiceName = svc.ServiceName
+				}
 			}
 		} else if templateProduct.IsHelmProduct() && isEnable {
+			var svcImpl *commonservice.SvcResp
 			for _, workloadType := range []string{setting.Deployment, setting.StatefulSet} {
-				svcImpl, err := commonservice.GetServiceImpl(svc.ServiceName, svc, workloadType, prod, clientset, informer, log)
-				if err != nil {
-					return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to get service impl %s, err: %s", svc.ServiceName, err))
+				svcImpl, err = commonservice.GetServiceImpl(svc.ServiceName, svc, workloadType, prod, clientset, informer, log)
+				if err == nil && svcImpl != nil {
+					break
 				}
-
-				for _, scale := range svcImpl.Scales {
-					newScaleNumMap[scale.Name] = int(scale.Replicas)
+			}
+			if err != nil {
+				wrapErr := fmt.Errorf("failed to get service impl %s, err: %s", svc.ServiceName, err)
+				log.Error(wrapErr)
+				return e.ErrEnvSleep.AddErr(wrapErr)
+			}
+			for _, scale := range svcImpl.Scales {
+				newScaleNumMap[scale.Name] = int(scale.Replicas)
+				if workLoad, ok := scaleMap[scale.Name]; ok {
+					workLoad.ServiceName = svc.ServiceName
+				}
+			}
+			for _, cronjob := range svcImpl.CronJobs {
+				if workLoad, ok := cronjobMap[cronjob.Name]; ok {
+					workLoad.ServiceName = svc.ServiceName
 				}
 			}
 		}
@@ -4538,26 +4590,26 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		sort.Slice(workLoads, func(i, j int) bool {
 			order1 := 999
 			order2 := 999
-			svcName, ok := svcWorkloadMap[workLoads[i].Name]
+
+			svcName := workLoads[i].ServiceName
+			order, ok := bootOrderMap[svcName]
 			if ok {
-				order, ok := bootOrderMap[svcName]
-				if ok {
-					order1 = order
-				}
+				order1 = order
 			}
-			svcName, ok = svcWorkloadMap[workLoads[j].Name]
+
+			svcName = workLoads[j].ServiceName
+			order, ok = bootOrderMap[svcName]
 			if ok {
-				order, ok := bootOrderMap[svcName]
-				if ok {
-					order2 = order
-				}
+				order2 = order
 			}
 			return order1 <= order2
 		})
 	}
 
 	for _, workload := range workLoads {
-		log.Debugf("workload name %s, type %s", workload.Name, workload.Type)
+		if workload.ServiceName == "" {
+			continue
+		}
 
 		scaleNum := 0
 		if num, ok := oldScaleNumMap[workload.Name]; ok {
@@ -4567,22 +4619,26 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 
 		switch workload.Type {
 		case setting.Deployment:
+			log.Infof("scale workload %s(%s) to %d", workload.Name, workload.Type, scaleNum)
 			err := updater.ScaleDeployment(prod.Namespace, workload.Name, scaleNum, kubeClient)
 			if err != nil {
 				log.Errorf("failed to scale %s/deploy/%s to %d", prod.Namespace, workload.Name, scaleNum)
 			}
 		case setting.StatefulSet:
+			log.Infof("scale workload %s(%s) to %d", workload.Name, workload.Type, scaleNum)
 			err := updater.ScaleStatefulSet(prod.Namespace, workload.Name, scaleNum, kubeClient)
 			if err != nil {
 				log.Errorf("failed to scale %s/sts/%s to %d", prod.Namespace, workload.Name, scaleNum)
 			}
 		case setting.CronJob:
 			if isEnable {
+				log.Infof("suspend cronjob %s", workload.Name)
 				err := updater.SuspendCronJob(prod.Namespace, workload.Name, kubeClient, kubeclient.VersionLessThan121(version))
 				if err != nil {
 					log.Errorf("failed to suspend %s/cronjob/%s", prod.Namespace, workload.Name)
 				}
 			} else {
+				log.Infof("resume cronjob %s", workload.Name)
 				err := updater.ResumeCronJob(prod.Namespace, workload.Name, kubeClient, kubeclient.VersionLessThan121(version))
 				if err != nil {
 					log.Errorf("failed to resume %s/cronjob/%s", prod.Namespace, workload.Name)
@@ -4594,7 +4650,9 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 	prod.PreSleepStatus = newScaleNumMap
 	err = commonrepo.NewProductColl().Update(prod)
 	if err != nil {
-		return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to update product, err: %w", err))
+		wrapErr := fmt.Errorf("failed to update product, err: %w", err)
+		log.Error(wrapErr)
+		return e.ErrEnvSleep.AddErr(wrapErr)
 	}
 
 	return nil

@@ -1397,7 +1397,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 		case setting.StatefulSet:
 			statefulSet, err := getter.GetStatefulSetByNameWWithCache(serviceName, namespace, inf)
 			if err != nil {
-				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found for statuefulSet, err: %v", serviceName, err))
 			}
 			scale := getStatefulSetWorkloadResource(statefulSet, inf, log)
 			ret.Scales = append(ret.Scales, scale)
@@ -1412,7 +1412,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 		case setting.Deployment:
 			deploy, err := getter.GetDeploymentByNameWithCache(serviceName, namespace, inf)
 			if err != nil {
-				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found, err: %s", serviceName, err.Error()))
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found for deployment, err: %s", serviceName, err.Error()))
 			}
 			scale := GetDeploymentWorkloadResource(deploy, inf, log)
 			ret.Workloads = append(ret.Workloads, ToDeploymentWorkload(deploy))
@@ -1436,7 +1436,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 			}
 			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
 		default:
-			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found, unknow type", serviceName))
 		}
 	default:
 		service := env.GetServiceMap()[serviceName]
