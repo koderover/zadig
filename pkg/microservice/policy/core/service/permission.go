@@ -162,7 +162,7 @@ type GetUserRulesResp struct {
 func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error) {
 	roleBindings, err := mongodb.NewRoleBindingColl().ListRoleBindingsByUIDs([]string{uid, "*"})
 	if err != nil {
-		log.Errorf("ListRoleBindingsByUIDs err:%s")
+		log.Errorf("ListRoleBindingsByUIDs err: %s", err)
 		return &GetUserRulesResp{}, err
 	}
 	if len(roleBindings) == 0 {
@@ -184,6 +184,7 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 	projectVerbSetMap := make(map[string]sets.String)
 	systemVerbSet := sets.NewString()
 	for _, rolebinding := range roleBindings {
+		log.Infof("------- handling single rolebinding %v", rolebinding.Name)
 		if rolebinding.RoleRef.Name == string(setting.SystemAdmin) && rolebinding.RoleRef.Namespace == "*" {
 			isSystemAdmin = true
 			continue
@@ -214,6 +215,9 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 			}
 		}
 	}
+
+	log.Infof("--------- projectAdminSet is %v", projectAdminSet)
+	log.Infof("--------- projectVerbSetMap is +%v", projectVerbSetMap)
 
 	for project, verbSet := range projectVerbSetMap {
 		// collaboration mode is a special that does not have rule and verbs, we manually check if the user is permitted to
