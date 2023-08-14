@@ -41,7 +41,7 @@ func GetWorkflowTemplateByID(c *gin.Context) {
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
 		if !ctx.Resources.SystemActions.Template.View {
-			projectKey := c.Param("productName")
+			projectKey := c.Param("projectName")
 			if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 				ctx.UnAuthorized = true
 				return
@@ -77,7 +77,8 @@ func ListWorkflowTemplate(c *gin.Context) {
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
 		if !ctx.Resources.SystemActions.Template.View {
-			projectKey := c.Param("productName")
+			projectKey := c.Param("projectName")
+			ctx.Logger.Infof("productName: %s", projectKey)
 			if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 				ctx.UnAuthorized = true
 				return
