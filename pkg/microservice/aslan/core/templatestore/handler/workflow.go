@@ -78,7 +78,6 @@ func ListWorkflowTemplate(c *gin.Context) {
 	if !ctx.Resources.IsSystemAdmin {
 		if !ctx.Resources.SystemActions.Template.View {
 			projectKey := c.Param("projectName")
-			ctx.Logger.Infof("productName: %s", projectKey)
 			if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 				ctx.UnAuthorized = true
 				return
