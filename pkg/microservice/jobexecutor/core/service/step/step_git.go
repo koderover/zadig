@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -294,6 +295,11 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		return cmds
 	}
 
+	sleepCmd := exec.Command(
+		"sleep",
+		"600",
+	)
+	cmds = append(cmds, &c.Command{Cmd: sleepCmd})
 	cmds = append(cmds, &c.Command{Cmd: c.Fetch(repo.RemoteName, ref)}, &c.Command{Cmd: c.CheckoutHead()})
 
 	// PR rebase branch 请求
