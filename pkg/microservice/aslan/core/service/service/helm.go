@@ -677,6 +677,10 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		return nil, fmt.Errorf("invalid argument")
 	}
 
+	if strings.ToLower(args.Name) != args.Name {
+		return nil, fmt.Errorf("service name should be lowercase")
+	}
+
 	templateChartInfo, err := prepareChartTemplateData(templateArgs.TemplateName, logger)
 	if err != nil {
 		return nil, err
@@ -1260,6 +1264,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 	serviceName := filepath.Base(path)
 	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
 	serviceName = strings.TrimSpace(serviceName)
+	serviceName = strings.ToLower(serviceName)
 
 	to := filepath.Join(config.LocalTestServicePath(projectName, serviceName), serviceName)
 	// remove old files
