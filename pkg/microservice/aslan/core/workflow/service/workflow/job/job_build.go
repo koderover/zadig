@@ -217,7 +217,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err != nil {
 			return resp, fmt.Errorf("find build: %s error: %v", build.BuildName, err)
 		}
-		// it only fills build detail created by template
+		// it only fills build detail created from template
 		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceModule); err != nil {
 			return resp, err
 		}

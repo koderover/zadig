@@ -132,7 +132,6 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			Spec: &commonmodels.JobTaskCanaryDeploySpec{
 				Namespace:        j.spec.Namespace,
 				ClusterID:        j.spec.ClusterID,
-				StrategyID:       j.spec.StrategyID,
 				DockerRegistryID: j.spec.DockerRegistryID,
 				DeployTimeout:    target.DeployTimeout,
 				K8sServiceName:   target.K8sServiceName,

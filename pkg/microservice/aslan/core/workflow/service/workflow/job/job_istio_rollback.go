@@ -133,7 +133,6 @@ func (j *IstioRollBackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 			Spec: &commonmodels.JobIstioRollbackSpec{
 				Namespace:   j.spec.Namespace,
 				ClusterID:   j.spec.ClusterID,
-				StrategyID:  j.spec.StrategyID,
 				ClusterName: cluster.Name,
 				Image:       target.Image,
 				Targets:     target,

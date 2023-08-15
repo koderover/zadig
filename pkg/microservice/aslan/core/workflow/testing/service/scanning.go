@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -36,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"

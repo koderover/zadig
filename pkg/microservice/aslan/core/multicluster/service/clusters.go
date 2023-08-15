@@ -82,7 +82,10 @@ type K8SCluster struct {
 }
 
 type AdvancedConfig struct {
+	Strategy          string              `json:"strategy,omitempty"        bson:"strategy,omitempty"`
+	NodeLabels        []string            `json:"node_labels,omitempty"     bson:"node_labels,omitempty"`
 	ProjectNames      []string            `json:"project_names"             bson:"project_names"`
+	Tolerations       string              `json:"tolerations"               bson:"tolerations"`
 	ClusterAccessYaml string              `json:"cluster_access_yaml"       bson:"cluster_access_yaml"`
 	ScheduleWorkflow  bool                `json:"schedule_workflow"         bson:"schedule_workflow"`
 	ScheduleStrategy  []*ScheduleStrategy `json:"schedule_strategy"         bson:"schedule_strategy"`
@@ -110,7 +113,7 @@ func (s *ScheduleStrategy) Validate() error {
 		}
 	}
 	if len([]rune(s.StrategyName)) > 15 {
-		return fmt.Errorf("strategy name is invalid")
+		return fmt.Errorf("invalid strategy name, length of strategy name should be less than 15")
 	}
 	return nil
 }
@@ -159,7 +162,10 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 		var advancedConfig *AdvancedConfig
 		if c.AdvancedConfig != nil {
 			advancedConfig = &AdvancedConfig{
+				Strategy:          c.AdvancedConfig.Strategy,
+				NodeLabels:        convertToNodeLabels(c.AdvancedConfig.NodeLabels),
 				ProjectNames:      getProjectNames(c.ID.Hex(), logger),
+				Tolerations:       c.AdvancedConfig.Tolerations,
 				ClusterAccessYaml: c.AdvancedConfig.ClusterAccessYaml,
 			}
 			if advancedConfig.ClusterAccessYaml != "" {
@@ -290,11 +296,14 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 	var advancedConfig *commonmodels.AdvancedConfig
 	if args.AdvancedConfig != nil {
 		advancedConfig = &commonmodels.AdvancedConfig{
+			Strategy:     args.AdvancedConfig.Strategy,
+			NodeLabels:   convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels),
 			ProjectNames: args.AdvancedConfig.ProjectNames,
+			Tolerations:  args.AdvancedConfig.Tolerations,
 		}
 		advancedConfig.ScheduleStrategy = make([]*commonmodels.ScheduleStrategy, 0)
 		if args.AdvancedConfig.ScheduleStrategy != nil {
-			if checkStrategyNames(args.AdvancedConfig.ScheduleStrategy) {
+			if checkDuplicateStrategyName(args.AdvancedConfig.ScheduleStrategy) {
 				return nil, fmt.Errorf("create cluster failed, schedule strategy name is duplicated")
 			}
 			for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
@@ -319,8 +328,6 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 					Default:      strategy.Default,
 				})
 			}
-		} else {
-			return nil, fmt.Errorf("create cluster failed, schedule strategy is empty")
 		}
 
 		if args.AdvancedConfig.ClusterAccessYaml == "" {
@@ -340,9 +347,10 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		args.AdvancedConfig = &AdvancedConfig{
 			ClusterAccessYaml: kube.ClusterAccessYamlTemplate,
 			ScheduleWorkflow:  true,
+			Strategy:          setting.NormalSchedule,
 			ScheduleStrategy: []*ScheduleStrategy{
 				{
-					StrategyID:   primitive.NewObjectID().String(),
+					StrategyID:   primitive.NewObjectID().Hex(),
 					StrategyName: setting.NormalScheduleName,
 					Strategy:     setting.NormalSchedule,
 					Default:      true,
@@ -375,15 +383,15 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 	return s.CreateCluster(cluster, args.ID, logger)
 }
 
-func checkStrategyNames(strategies []*ScheduleStrategy) bool {
-	var names []string
+func checkDuplicateStrategyName(strategies []*ScheduleStrategy) bool {
+	names := make(map[string]struct{})
 	for _, strategy := range strategies {
-		if util.InStringArray(strategy.StrategyName, names) {
-			return false
+		if _, ok := names[strategy.StrategyName]; ok {
+			return true
 		}
-		names = append(names, strategy.StrategyName)
+		names[strategy.StrategyName] = struct{}{}
 	}
-	return true
+	return false
 }
 
 func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K8SCluster, error) {
@@ -394,33 +402,55 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 
 	advancedConfig := new(commonmodels.AdvancedConfig)
 	if args.AdvancedConfig != nil {
-		if args.AdvancedConfig.ScheduleStrategy != nil {
-			if checkStrategyNames(args.AdvancedConfig.ScheduleStrategy) {
-				return nil, fmt.Errorf("update cluster failed, schedule strategy name is duplicated")
+		advancedConfig.Strategy = args.AdvancedConfig.Strategy
+		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels)
+		advancedConfig.Tolerations = args.AdvancedConfig.Tolerations
+
+		// compatible with open source version
+		if args.AdvancedConfig.Strategy != "" {
+			var strategyID string
+			if len(args.AdvancedConfig.ScheduleStrategy) > 0 {
+				strategyID = args.AdvancedConfig.ScheduleStrategy[0].StrategyID
+			} else {
+				strategyID = primitive.NewObjectID().Hex()
 			}
-			for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
-				if err := strategy.Validate(); err != nil {
-					msg := fmt.Errorf("update cluster failed, schedule strategy is invalid, err: %s", err)
-					logger.Error(msg)
-					return nil, msg
-				}
-				if strategy.StrategyID == "" {
-					strategy.StrategyID = primitive.NewObjectID().Hex()
-				}
-				if len(advancedConfig.ScheduleStrategy) == 1 {
-					strategy.Default = true
-				}
-				advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
-					StrategyID:   strategy.StrategyID,
-					StrategyName: strategy.StrategyName,
-					Strategy:     strategy.Strategy,
-					NodeLabels:   convertToNodeSelectorRequirements(strategy.NodeLabels),
-					Tolerations:  strategy.Tolerations,
-					Default:      strategy.Default,
-				})
-			}
+			advancedConfig.ScheduleStrategy = make([]*commonmodels.ScheduleStrategy, 0)
+			advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
+				StrategyID:  strategyID,
+				Strategy:    advancedConfig.Strategy,
+				NodeLabels:  advancedConfig.NodeLabels,
+				Tolerations: advancedConfig.Tolerations,
+				Default:     true,
+			})
 		} else {
-			return nil, fmt.Errorf("update cluster failed, schedule strategy is empty")
+			if args.AdvancedConfig.ScheduleStrategy != nil {
+				if checkDuplicateStrategyName(args.AdvancedConfig.ScheduleStrategy) {
+					return nil, fmt.Errorf("update cluster failed, schedule strategy name is duplicated")
+				}
+				for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
+					if err := strategy.Validate(); err != nil {
+						msg := fmt.Errorf("update cluster failed, schedule strategy is invalid, err: %s", err)
+						logger.Error(msg)
+						return nil, msg
+					}
+
+					if strategy.StrategyID == "" {
+						strategy.StrategyID = primitive.NewObjectID().Hex()
+					}
+
+					if len(advancedConfig.ScheduleStrategy) == 1 {
+						strategy.Default = true
+					}
+					advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
+						StrategyID:   strategy.StrategyID,
+						StrategyName: strategy.StrategyName,
+						Strategy:     strategy.Strategy,
+						NodeLabels:   convertToNodeSelectorRequirements(strategy.NodeLabels),
+						Tolerations:  strategy.Tolerations,
+						Default:      strategy.Default,
+					})
+				}
+			}
 		}
 
 		if args.AdvancedConfig.ClusterAccessYaml == "" || args.Local {
@@ -729,6 +759,14 @@ func setClusterDind(cluster *K8SCluster) error {
 
 func validateTolerations(cluster *K8SCluster) error {
 	if cluster.AdvancedConfig != nil {
+		if cluster.AdvancedConfig.Tolerations != "" {
+			ts := make([]corev1.Toleration, 0)
+			err := yaml.Unmarshal([]byte(cluster.AdvancedConfig.Tolerations), &ts)
+			if err != nil {
+				return fmt.Errorf("tolerations is invalid, failed to unmarshal tolerations: %s", err)
+			}
+		}
+
 		if len(cluster.AdvancedConfig.ScheduleStrategy) > 0 {
 			for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
 				if strategy.Tolerations == "" {
@@ -1029,7 +1067,7 @@ func GetClusterDefaultStrategy(id string) (*commonmodels.ScheduleStrategy, error
 		return nil, err
 	}
 
-	var strategy *commonmodels.ScheduleStrategy
+	strategy := &commonmodels.ScheduleStrategy{}
 	if cluster.AdvancedConfig != nil {
 		for _, s := range cluster.AdvancedConfig.ScheduleStrategy {
 			if s.Default {
@@ -1060,6 +1098,11 @@ func GetClusterSchedulingPolicyReferences(clusterID string) ([]*ClusterStrategyR
 			return nil, fmt.Errorf("failed to get builds from db, error: %v", err)
 		}
 
+		buildTemplates, _, err := commonrepo.NewBuildTemplateColl().List(0, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get build templates from db, error: %v", err)
+		}
+
 		tests, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to get tests from db, error: %v", err)
@@ -1078,11 +1121,33 @@ func GetClusterSchedulingPolicyReferences(clusterID string) ([]*ClusterStrategyR
 			return nil, fmt.Errorf("failed to get workflows from db, error: %v", err)
 		}
 
+		workflowTemplates, err := commonrepo.NewWorkflowV4TemplateColl().List(&commonrepo.WorkflowTemplateListOption{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflow templates from db, error: %v", err)
+		}
+
 		for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
 			var reference *ClusterStrategyReference
 			// check build modules
 			for _, build := range builds {
 				if build.PreBuild != nil && build.PreBuild.ClusterID == clusterID && build.PreBuild.StrategyID == strategy.StrategyID {
+					reference = &ClusterStrategyReference{
+						HasReferences: true,
+						StrategyID:    strategy.StrategyID,
+						StrategyName:  strategy.StrategyName,
+					}
+					resp = append(resp, reference)
+					break
+				}
+			}
+
+			if reference != nil {
+				continue
+			}
+
+			// check build template
+			for _, buildTemplate := range buildTemplates {
+				if buildTemplate.PreBuild != nil && buildTemplate.PreBuild.ClusterID == clusterID && buildTemplate.PreBuild.StrategyID == strategy.StrategyID {
 					reference = &ClusterStrategyReference{
 						HasReferences: true,
 						StrategyID:    strategy.StrategyID,
@@ -1131,6 +1196,12 @@ func GetClusterSchedulingPolicyReferences(clusterID string) ([]*ClusterStrategyR
 				continue
 			}
 
+			// check workflow template
+			for _, workflowTemplate := range workflowTemplates {
+				workflows = append(workflows, &commonmodels.WorkflowV4{
+					Stages: workflowTemplate.Stages,
+				})
+			}
 			if ref, err := checkWorkflowClusterStrategyReferences(clusterID, strategy.StrategyID, workflows); err != nil {
 				return nil, err
 			} else if ref {

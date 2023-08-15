@@ -169,7 +169,10 @@ type K8SCluster struct {
 }
 
 type AdvancedConfig struct {
-	ScheduleStrategy []*ScheduleStrategy `json:"schedule_strategy"        bson:"schedule_strategy"`
+	Strategy         string                     `json:"strategy,omitempty"      bson:"strategy,omitempty"`
+	NodeLabels       []*NodeSelectorRequirement `json:"node_labels,omitempty"   bson:"node_labels,omitempty"`
+	Tolerations      string                     `json:"tolerations"             bson:"tolerations"`
+	ScheduleStrategy []*ScheduleStrategy        `json:"schedule_strategy"        bson:"schedule_strategy"`
 }
 
 type ScheduleStrategy struct {

@@ -254,7 +254,6 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 
 	p.Task.Registries = getMatchedRegistries(jobImage, p.Task.Registries)
 	// search namespace should also include desired namespace
-	p.Log.Infof("************************************* p.StrategyID: %s", p.Task.StrategyID)
 	job, err := buildJobWithLinkedNs(
 		p.Type(), jobImage, p.JobName, serviceName, p.Task.ClusterID, p.Task.StrategyID, pipelineTask.ConfigPayload.Test.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries,
 	)

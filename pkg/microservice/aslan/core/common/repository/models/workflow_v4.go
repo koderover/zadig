@@ -215,7 +215,6 @@ type WorkflowServiceModule struct {
 type CustomDeployJobSpec struct {
 	Namespace          string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	ClusterID          string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	StrategyID         string `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	DockerRegistryID   string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	SkipCheckRunStatus bool   `bson:"skip_check_run_status"  json:"skip_check_run_status" yaml:"skip_check_run_status"`
 	// support two sources, runtime/fixed.
@@ -339,10 +338,9 @@ type ZadigDistributeImageJobSpec struct {
 	TargetRegistryID string              `bson:"target_registry_id"             json:"target_registry_id"            yaml:"target_registry_id"`
 	Targets          []*DistributeTarget `bson:"targets"                        json:"targets"                       yaml:"targets"`
 	// unit is minute.
-	Timeout    int64  `bson:"timeout"                        json:"timeout"                       yaml:"timeout"`
-	ClusterID  string `bson:"cluster_id"                     json:"cluster_id"                    yaml:"cluster_id"`
-	StrategyID string `bson:"strategy_id"                    json:"strategy_id"                   yaml:"strategy_id"`
-
+	Timeout                  int64  `bson:"timeout"                        json:"timeout"                       yaml:"timeout"`
+	ClusterID                string `bson:"cluster_id"                     json:"cluster_id"                    yaml:"cluster_id"`
+	StrategyID               string `bson:"strategy_id"                    json:"strategy_id"                   yaml:"strategy_id"`
 	EnableTargetImageTagRule bool   `bson:"enable_target_image_tag_rule" json:"enable_target_image_tag_rule" yaml:"enable_target_image_tag_rule"`
 	TargetImageTagRule       string `bson:"target_image_tag_rule"        json:"target_image_tag_rule"        yaml:"target_image_tag_rule"`
 }
@@ -401,7 +399,6 @@ type ScanningModule struct {
 
 type BlueGreenDeployJobSpec struct {
 	ClusterID        string             `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	StrategyID       string             `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	Namespace        string             `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	DockerRegistryID string             `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	Targets          []*BlueGreenTarget `bson:"targets"                json:"targets"               yaml:"targets"`
@@ -460,7 +457,6 @@ type BlueGreenTarget struct {
 
 type CanaryDeployJobSpec struct {
 	ClusterID        string          `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	StrategyID       string          `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	Namespace        string          `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	DockerRegistryID string          `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	Targets          []*CanaryTarget `bson:"targets"                json:"targets"               yaml:"targets"`
@@ -485,7 +481,6 @@ type CanaryTarget struct {
 
 type GrayReleaseJobSpec struct {
 	ClusterID        string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	StrategyID       string `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	Namespace        string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	DockerRegistryID string `bson:"docker_registry_id"     json:"docker_registry_id"    yaml:"docker_registry_id"`
 	FromJob          string `bson:"from_job"               json:"from_job"              yaml:"from_job"`
@@ -505,7 +500,6 @@ type GrayReleaseTarget struct {
 
 type K8sPatchJobSpec struct {
 	ClusterID  string       `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	StrategyID string       `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	Namespace  string       `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	PatchItems []*PatchItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
 }
@@ -522,9 +516,8 @@ type PatchItem struct {
 }
 
 type GrayRollbackJobSpec struct {
-	ClusterID  string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
-	StrategyID string `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
-	Namespace  string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
+	ClusterID string `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	Namespace string `bson:"namespace"              json:"namespace"             yaml:"namespace"`
 	// unit is minute.
 	RollbackTimeout int64                 `bson:"rollback_timeout"       json:"rollback_timeout"      yaml:"rollback_timeout"`
 	Targets         []*GrayRollbackTarget `bson:"targets"                json:"targets"               yaml:"targets"`
@@ -553,7 +546,6 @@ type JiraJobSpec struct {
 type IstioJobSpec struct {
 	First             bool              `bson:"first"              json:"first"              yaml:"first"`
 	ClusterID         string            `bson:"cluster_id"         json:"cluster_id"         yaml:"cluster_id"`
-	StrategyID        string            `bson:"strategy_id"        json:"strategy_id"        yaml:"strategy_id"`
 	FromJob           string            `bson:"from_job"           json:"from_job"           yaml:"from_job"`
 	RegistryID        string            `bson:"registry_id"        json:"registry_id"        yaml:"registry_id"`
 	Namespace         string            `bson:"namespace"          json:"namespace"          yaml:"namespace"`
@@ -564,11 +556,10 @@ type IstioJobSpec struct {
 }
 
 type IstioRollBackJobSpec struct {
-	ClusterID  string            `bson:"cluster_id"  json:"cluster_id"  yaml:"cluster_id"`
-	StrategyID string            `bson:"strategy_id" json:"strategy_id" yaml:"strategy_id"`
-	Namespace  string            `bson:"namespace"   json:"namespace"   yaml:"namespace"`
-	Timeout    int64             `bson:"timeout"     json:"timeout"     yaml:"timeout"`
-	Targets    []*IstioJobTarget `bson:"targets"     json:"targets"     yaml:"targets"`
+	ClusterID string            `bson:"cluster_id"  json:"cluster_id"  yaml:"cluster_id"`
+	Namespace string            `bson:"namespace"   json:"namespace"   yaml:"namespace"`
+	Timeout   int64             `bson:"timeout"     json:"timeout"     yaml:"timeout"`
+	Targets   []*IstioJobTarget `bson:"targets"     json:"targets"     yaml:"targets"`
 }
 
 type ApolloJobSpec struct {
@@ -579,7 +570,6 @@ type ApolloJobSpec struct {
 type ApolloNamespace struct {
 	AppID      string      `bson:"appID"             json:"appID"             yaml:"appID"`
 	ClusterID  string      `bson:"clusterID"         json:"clusterID"         yaml:"clusterID"`
-	StrategyID string      `bson:"strategy_id"       json:"strategy_id"       yaml:"strategy_id"`
 	Env        string      `bson:"env"               json:"env"               yaml:"env"`
 	Namespace  string      `bson:"namespace"         json:"namespace"         yaml:"namespace"`
 	Type       string      `bson:"type"              json:"type"              yaml:"type"`

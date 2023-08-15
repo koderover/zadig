@@ -214,22 +214,6 @@ func (c *K8SClusterColl) FindByID(ID string) (*models.K8SCluster, error) {
 	return res, err
 }
 
-func (c *K8SClusterColl) FindStrategyByIds(clusterID, strategyID string) (*models.ScheduleStrategy, error) {
-	id, err := primitive.ObjectIDFromHex(clusterID)
-	if err != nil {
-		return nil, err
-	}
-
-	strategy := &models.ScheduleStrategy{}
-	query := bson.M{"_id": id, "advanced_config.schedule_strategy.strategy_id": strategyID}
-
-	err = c.FindOne(context.Background(), query).Decode(strategy)
-	if err != nil {
-		return nil, err
-	}
-	return strategy, nil
-}
-
 func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster, id string) error {
 	var err error
 	cluster.ID, err = primitive.ObjectIDFromHex(id)

@@ -22,9 +22,7 @@ import (
 	"strings"
 	"time"
 
-	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	goerrors "github.com/pkg/errors"
-
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -32,6 +30,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -598,7 +597,15 @@ func correctFields(build *commonmodels.Build) error {
 			return fmt.Errorf("build prebuild clusterid is empty")
 		}
 		if build.PreBuild.StrategyID == "" {
-			return fmt.Errorf("build prebuild strategyid is empty")
+			buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+				ID: build.TemplateID,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to find build template with id: %s, err: %s", build.TemplateID, err)
+			}
+			if buildTemplate.PreBuild != nil {
+				build.PreBuild.StrategyID = buildTemplate.PreBuild.StrategyID
+			}
 		}
 	}
 

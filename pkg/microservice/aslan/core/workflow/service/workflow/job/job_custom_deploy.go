@@ -85,7 +85,6 @@ func (j *CustomDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 		jobTaskSpec := &commonmodels.JobTaskCustomDeploySpec{
 			Namespace:          j.spec.Namespace,
 			ClusterID:          j.spec.ClusterID,
-			StrategyID:         j.spec.StrategyID,
 			Timeout:            j.spec.Timeout,
 			WorkloadType:       workloadType,
 			WorkloadName:       workloadName,

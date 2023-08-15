@@ -132,7 +132,6 @@ func (j *IstioReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 			Spec: &commonmodels.JobIstioReleaseSpec{
 				FirstJob:          firstJob,
 				ClusterID:         j.spec.ClusterID,
-				StrategyID:        j.spec.StrategyID,
 				ClusterName:       cluster.Name,
 				Namespace:         j.spec.Namespace,
 				Weight:            j.spec.Weight,
