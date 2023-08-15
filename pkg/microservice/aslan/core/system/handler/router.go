@@ -369,5 +369,6 @@ func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
 	cluster := router.Group("cluster")
 	{
 		cluster.GET("", OpenAPIListCluster)
+
 	}
 }

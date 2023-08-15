@@ -43,10 +43,11 @@ type OpenAPIWebhookConfigDetail struct {
 }
 
 type OpenAPIAdvancedSetting struct {
-	ClusterName string                 `json:"cluster_name"`
-	Timeout     int64                  `json:"timeout"`
-	Spec        setting.RequestSpec    `json:"resource_spec"`
-	Webhooks    *OpenAPIWebhookSetting `json:"webhooks,omitempty"`
+	ClusterName  string                 `json:"cluster_name"`
+	StrategyName string                 `json:"strategy_name"`
+	Timeout      int64                  `json:"timeout"`
+	Spec         setting.RequestSpec    `json:"resource_spec"`
+	Webhooks     *OpenAPIWebhookSetting `json:"webhooks,omitempty"`
 	// Cache settings is for build only for now, remove this line if there are further changes
 	CacheSetting        *OpenAPICacheSetting `json:"cache_setting"`
 	UseHostDockerDaemon bool                 `json:"use_host_docker_daemon"`

@@ -45,6 +45,7 @@ type ListWorkflowV4Option struct {
 	DisplayName string
 	Names       []string
 	Category    setting.WorkflowCategory
+	JobTypes    []config.JobType
 }
 
 func NewWorkflowV4Coll() *WorkflowV4Coll {
@@ -235,6 +236,9 @@ func (c *WorkflowV4Coll) List(opt *ListWorkflowV4Option, pageNum, pageSize int64
 	}
 	if opt.Category != "" {
 		query["category"] = opt.Category
+	}
+	if len(opt.JobTypes) > 0 {
+		query["stages.jobs.type"] = bson.M{"$in": opt.JobTypes}
 	}
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {

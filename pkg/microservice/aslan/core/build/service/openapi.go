@@ -76,6 +76,13 @@ func generateBuildModuleFromOpenAPIRequest(req *OpenAPIBuildCreationReq, log *za
 		return nil, fmt.Errorf("failed to find cluster of name: %s, the error is: %s", req.AdvancedSetting.ClusterName, err)
 	}
 	prebuildInfo.ClusterID = cluster.ID.Hex()
+	if cluster.AdvancedConfig != nil {
+		for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
+			if strategy.StrategyName == req.AdvancedSetting.StrategyName {
+				prebuildInfo.StrategyID = strategy.StrategyID
+			}
+		}
+	}
 
 	kvList := make([]*commonmodels.KeyVal, 0)
 	for _, kv := range req.Parameters {
@@ -370,10 +377,20 @@ func OpenAPIGetBuildModule(name, projectName string, logger *zap.SugaredLogger) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to find cluster of ID: %s, the error is: %s", build.PreBuild.ClusterID, err)
 	}
+
+	strategy := &commonmodels.ScheduleStrategy{}
+	if cluster.AdvancedConfig != nil {
+		for _, s := range cluster.AdvancedConfig.ScheduleStrategy {
+			if s.StrategyID == build.PreBuild.StrategyID {
+				strategy = s
+			}
+		}
+	}
 	resp.AdvancedSetting = &types.OpenAPIAdvancedSetting{
-		ClusterName: cluster.Name,
-		Timeout:     int64(build.Timeout),
-		Spec:        build.PreBuild.ResReqSpec,
+		ClusterName:  cluster.Name,
+		StrategyName: strategy.StrategyName,
+		Timeout:      int64(build.Timeout),
+		Spec:         build.PreBuild.ResReqSpec,
 		CacheSetting: &types.OpenAPICacheSetting{
 			Enabled:  build.CacheEnable,
 			CacheDir: build.CacheUserDir,

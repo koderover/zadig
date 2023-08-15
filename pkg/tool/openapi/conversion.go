@@ -31,6 +31,15 @@ func ToScanningAdvancedSetting(arg *types.OpenAPIAdvancedSetting) (*models.Scann
 		return nil, fmt.Errorf("failed to find cluster of name: %s, the error is: %s", arg.ClusterName, err)
 	}
 
+	strategy := &models.ScheduleStrategy{}
+	if cluster.AdvancedConfig != nil {
+		for _, s := range cluster.AdvancedConfig.ScheduleStrategy {
+			if s.StrategyName == arg.StrategyName {
+				strategy = s
+				break
+			}
+		}
+	}
 	scanninghooks, err := ToScanningHookCtl(arg.Webhooks)
 	if err != nil {
 		return nil, err
@@ -38,6 +47,7 @@ func ToScanningAdvancedSetting(arg *types.OpenAPIAdvancedSetting) (*models.Scann
 
 	return &models.ScanningAdvancedSetting{
 		ClusterID:  cluster.ID.Hex(),
+		StrategyID: strategy.StrategyID,
 		Timeout:    arg.Timeout,
 		ResReq:     arg.Spec.FindResourceRequestType(),
 		ResReqSpec: arg.Spec,

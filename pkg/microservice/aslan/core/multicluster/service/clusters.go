@@ -109,7 +109,7 @@ func (s *ScheduleStrategy) Validate() error {
 			return fmt.Errorf("node labels is empty")
 		}
 	}
-	if s.StrategyName == "" && len([]rune(s.StrategyName)) > 20 {
+	if len([]rune(s.StrategyName)) > 15 {
 		return fmt.Errorf("strategy name is invalid")
 	}
 	return nil
@@ -121,13 +121,6 @@ func (k *K8SCluster) Clean() error {
 
 	if !namePattern.MatchString(k.Name) {
 		return fmt.Errorf("The cluster name does not meet the rules")
-	}
-	if k.AdvancedConfig != nil && k.AdvancedConfig.ScheduleStrategy != nil {
-		for _, strategy := range k.AdvancedConfig.ScheduleStrategy {
-			if len([]rune(strategy.StrategyName)) > 20 {
-				return fmt.Errorf("the strategy name is too long")
-			}
-		}
 	}
 
 	return nil
@@ -301,6 +294,9 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		}
 		advancedConfig.ScheduleStrategy = make([]*commonmodels.ScheduleStrategy, 0)
 		if args.AdvancedConfig.ScheduleStrategy != nil {
+			if checkStrategyNames(args.AdvancedConfig.ScheduleStrategy) {
+				return nil, fmt.Errorf("create cluster failed, schedule strategy name is duplicated")
+			}
 			for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
 				err := strategy.Validate()
 				if err != nil {
@@ -309,7 +305,10 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 					return nil, msg
 				}
 				if strategy.StrategyID == "" {
-					strategy.StrategyID = primitive.NewObjectID().String()
+					strategy.StrategyID = primitive.NewObjectID().Hex()
+				}
+				if len(advancedConfig.ScheduleStrategy) == 1 {
+					strategy.Default = true
 				}
 				advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
 					StrategyID:   strategy.StrategyID,
@@ -320,6 +319,8 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 					Default:      strategy.Default,
 				})
 			}
+		} else {
+			return nil, fmt.Errorf("create cluster failed, schedule strategy is empty")
 		}
 
 		if args.AdvancedConfig.ClusterAccessYaml == "" {
@@ -333,6 +334,20 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 			}
 			advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
 			advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
+		}
+		// init local cluster
+	} else {
+		args.AdvancedConfig = &AdvancedConfig{
+			ClusterAccessYaml: kube.ClusterAccessYamlTemplate,
+			ScheduleWorkflow:  true,
+			ScheduleStrategy: []*ScheduleStrategy{
+				{
+					StrategyID:   primitive.NewObjectID().String(),
+					StrategyName: setting.NormalScheduleName,
+					Strategy:     setting.NormalSchedule,
+					Default:      true,
+				},
+			},
 		}
 	}
 
@@ -360,6 +375,17 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 	return s.CreateCluster(cluster, args.ID, logger)
 }
 
+func checkStrategyNames(strategies []*ScheduleStrategy) bool {
+	var names []string
+	for _, strategy := range strategies {
+		if util.InStringArray(strategy.StrategyName, names) {
+			return false
+		}
+		names = append(names, strategy.StrategyName)
+	}
+	return true
+}
+
 func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K8SCluster, error) {
 	s, err := kube.NewService("")
 	if err != nil {
@@ -369,6 +395,9 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	advancedConfig := new(commonmodels.AdvancedConfig)
 	if args.AdvancedConfig != nil {
 		if args.AdvancedConfig.ScheduleStrategy != nil {
+			if checkStrategyNames(args.AdvancedConfig.ScheduleStrategy) {
+				return nil, fmt.Errorf("update cluster failed, schedule strategy name is duplicated")
+			}
 			for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
 				if err := strategy.Validate(); err != nil {
 					msg := fmt.Errorf("update cluster failed, schedule strategy is invalid, err: %s", err)
@@ -376,7 +405,10 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 					return nil, msg
 				}
 				if strategy.StrategyID == "" {
-					strategy.StrategyID = primitive.NewObjectID().String()
+					strategy.StrategyID = primitive.NewObjectID().Hex()
+				}
+				if len(advancedConfig.ScheduleStrategy) == 1 {
+					strategy.Default = true
 				}
 				advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
 					StrategyID:   strategy.StrategyID,
@@ -387,6 +419,8 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 					Default:      strategy.Default,
 				})
 			}
+		} else {
+			return nil, fmt.Errorf("update cluster failed, schedule strategy is empty")
 		}
 
 		if args.AdvancedConfig.ClusterAccessYaml == "" || args.Local {
@@ -489,31 +523,15 @@ func DeleteCluster(username, clusterID string, logger *zap.SugaredLogger) error 
 	return s.DeleteCluster(username, clusterID, logger)
 }
 
-func DeleteClusterStrategy(userName, clusterID, strategyID string, logger *zap.SugaredLogger) error {
-	if ref, err := CheckClusterSchedulingPolicyHasReferences(clusterID, strategyID); err != nil {
-		msg := fmt.Errorf("failed to check cluster scheduling policy references, err: %v", err)
-		logger.Error(msg)
-		return msg
-	} else if err == nil && !ref {
-		return e.ErrDeleteClusterStrategy.AddDesc("该调度策略已被引用，无法删除")
-	}
-
-	cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
+func GetClusterStrategyReferences(clusterID string, logger *zap.SugaredLogger) ([]*ClusterStrategyReference, error) {
+	resp, err := GetClusterSchedulingPolicyReferences(clusterID)
+	var msg error
 	if err != nil {
-		return e.ErrDeleteClusterStrategy.AddErr(fmt.Errorf("failed to find cluster, clusterID: %s, err: %v", clusterID, err))
+		msg = fmt.Errorf("failed to get cluster scheduling strategy references, err: %s", err)
+		logger.Error(msg)
+		return nil, msg
 	}
-
-	if cluster.AdvancedConfig != nil {
-		var newScheduleStrategy []*commonmodels.ScheduleStrategy
-		for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
-			if strategy.StrategyID != strategyID {
-				newScheduleStrategy = append(newScheduleStrategy, strategy)
-			}
-		}
-		cluster.AdvancedConfig.ScheduleStrategy = newScheduleStrategy
-	}
-
-	return commonrepo.NewK8SClusterColl().UpdateScheduleStrategy(cluster)
+	return resp, nil
 }
 
 func DisconnectCluster(username string, clusterID string, logger *zap.SugaredLogger) error {
@@ -1023,76 +1041,148 @@ func GetClusterDefaultStrategy(id string) (*commonmodels.ScheduleStrategy, error
 	return strategy, nil
 }
 
-func CheckClusterSchedulingPolicyHasReferences(clusterID, strategyID string) (bool, error) {
-	strategy, err := commonrepo.NewK8SClusterColl().FindStrategyByIds(clusterID, strategyID)
+type ClusterStrategyReference struct {
+	HasReferences bool   `json:"has_references"`
+	StrategyID    string `json:"strategy_id"`
+	StrategyName  string `json:"strategy_name"`
+}
+
+func GetClusterSchedulingPolicyReferences(clusterID string) ([]*ClusterStrategyReference, error) {
+	cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get strategy by ids, clusterID: %s, strategyID: %s, err: %v", clusterID, strategyID, err)
+		return nil, fmt.Errorf("failed to get cluster by id, clusterID: %s, err: %v", clusterID, err)
 	}
 
-	// check test modules
-	builds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{})
-	if err != nil {
-		return false, fmt.Errorf("failed to get builds from db, error: %v", err)
-	}
-	for _, build := range builds {
-		if build.PreBuild != nil && build.PreBuild.ClusterID == clusterID && build.PreBuild.StrategyID == strategy.StrategyID {
-			return true, nil
+	resp := make([]*ClusterStrategyReference, 0)
+	if cluster.AdvancedConfig != nil && len(cluster.AdvancedConfig.ScheduleStrategy) > 0 {
+		builds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get builds from db, error: %v", err)
 		}
-	}
 
-	// check test modules
-	tests, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
-	if err != nil {
-		return false, fmt.Errorf("failed to get tests from db, error: %v", err)
-	}
-	for _, test := range tests {
-		if test.PreTest != nil && test.PreTest.ClusterID == clusterID && test.PreTest.StrategyID == strategy.StrategyID {
-			return true, nil
+		tests, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get tests from db, error: %v", err)
 		}
-	}
 
-	// check codescan modules
-	codescans, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{}, 0, 0)
-	if err != nil {
-		return false, fmt.Errorf("failed to get codescans from db, error: %v", err)
-	}
-	for _, codescan := range codescans {
-		if codescan.AdvancedSetting != nil && codescan.AdvancedSetting.ClusterID == clusterID && codescan.AdvancedSetting.StrategyID == strategy.StrategyID {
-			return true, nil
+		codescans, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{}, 0, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get codescans from db, error: %v", err)
 		}
+
+		workflows, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{JobTypes: []config.JobType{
+			config.JobPlugin,
+			config.JobFreestyle,
+		}}, 0, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflows from db, error: %v", err)
+		}
+
+		for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
+			var reference *ClusterStrategyReference
+			// check build modules
+			for _, build := range builds {
+				if build.PreBuild != nil && build.PreBuild.ClusterID == clusterID && build.PreBuild.StrategyID == strategy.StrategyID {
+					reference = &ClusterStrategyReference{
+						HasReferences: true,
+						StrategyID:    strategy.StrategyID,
+						StrategyName:  strategy.StrategyName,
+					}
+					resp = append(resp, reference)
+					break
+				}
+			}
+
+			if reference != nil {
+				continue
+			}
+
+			// check test modules
+			for _, test := range tests {
+				if test.PreTest != nil && test.PreTest.ClusterID == clusterID && test.PreTest.StrategyID == strategy.StrategyID {
+					reference = &ClusterStrategyReference{
+						HasReferences: true,
+						StrategyID:    strategy.StrategyID,
+						StrategyName:  strategy.StrategyName,
+					}
+					resp = append(resp, reference)
+					break
+				}
+			}
+
+			if reference != nil {
+				continue
+			}
+
+			// check codescan modules
+			for _, codescan := range codescans {
+				if codescan.AdvancedSetting != nil && codescan.AdvancedSetting.ClusterID == clusterID && codescan.AdvancedSetting.StrategyID == strategy.StrategyID {
+					reference = &ClusterStrategyReference{
+						HasReferences: true,
+						StrategyID:    strategy.StrategyID,
+						StrategyName:  strategy.StrategyName,
+					}
+					resp = append(resp, reference)
+					break
+				}
+			}
+
+			if reference != nil {
+				continue
+			}
+
+			if ref, err := checkWorkflowClusterStrategyReferences(clusterID, strategy.StrategyID, workflows); err != nil {
+				return nil, err
+			} else if ref {
+				resp = append(resp, &ClusterStrategyReference{
+					HasReferences: true,
+					StrategyID:    strategy.StrategyID,
+					StrategyName:  strategy.StrategyName,
+				})
+				continue
+			}
+
+			if reference == nil {
+				resp = append(resp, &ClusterStrategyReference{
+					HasReferences: false,
+					StrategyID:    strategy.StrategyID,
+					StrategyName:  strategy.StrategyName,
+				})
+			}
+		}
+
 	}
 
+	return resp, nil
+}
+
+func checkWorkflowClusterStrategyReferences(clusterID, strategyID string, workflows []*commonmodels.WorkflowV4) (bool, error) {
 	// check custom workflow
-	workflows, _, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{})
-	if err != nil {
-		return false, fmt.Errorf("failed to get workflows from db, error: %v", err)
-	}
 	for _, workflow := range workflows {
 		for _, stage := range workflow.Stages {
 			for _, job := range stage.Jobs {
 				switch job.JobType {
 				// Mainly checking MySQL data change job, DMS data change job, jira-issue job and jenkins job
-				case string(config.JobPlugin):
+				case config.JobPlugin:
 					spec := &commonmodels.PluginJobSpec{}
 					if err := commonmodels.IToi(job.Spec, spec); err != nil {
 						return false, fmt.Errorf("failed to convert job spec to plugin job spec, error: %v", err)
 					}
-					if spec.Properties != nil && spec.Properties.ClusterID == clusterID && spec.Properties.StrategyID == strategy.StrategyID {
+					if spec.Properties != nil && spec.Properties.ClusterID == clusterID && spec.Properties.StrategyID == strategyID {
 						return true, nil
 					}
 				// Mainly checking general job, custom job and image distribution job
-				case string(config.JobFreestyle):
+				case config.JobFreestyle:
 					spec := &commonmodels.FreestyleJobSpec{}
 					if err := commonmodels.IToi(job.Spec, spec); err != nil {
 						return false, fmt.Errorf("failed to convert job spec to freestyle job spec, error: %v", err)
 					}
-					if spec.Properties != nil && spec.Properties.ClusterID == clusterID && spec.Properties.StrategyID == strategy.StrategyID {
+					if spec.Properties != nil && spec.Properties.ClusterID == clusterID && spec.Properties.StrategyID == strategyID {
 						return true, nil
 					}
 				}
 			}
 		}
 	}
-
 	return false, nil
 }
