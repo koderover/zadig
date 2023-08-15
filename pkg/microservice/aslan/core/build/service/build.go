@@ -23,6 +23,7 @@ import (
 	"time"
 
 	goerrors "github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -30,7 +31,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -71,13 +71,20 @@ func FindBuild(name, productName string, log *zap.SugaredLogger) (*commonmodels.
 	}
 
 	if resp.PreBuild != nil && resp.PreBuild.StrategyID == "" {
-		strategy, err := cluster.GetClusterDefaultStrategy(resp.PreBuild.ClusterID)
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(resp.PreBuild.ClusterID)
 		if err != nil {
-			msg := fmt.Errorf("failed to get cluster default strategy, clusterID:%s, error: %v", resp.PreBuild.ClusterID, err)
-			log.Errorf(msg.Error())
-			return nil, msg
+			if err != mongo.ErrNoDocuments {
+				return nil, fmt.Errorf("failed to find cluster %s, error: %v", resp.PreBuild.ClusterID, err)
+			}
+		} else if cluster.AdvancedConfig != nil {
+			strategies := cluster.AdvancedConfig.ScheduleStrategy
+			for _, strategy := range strategies {
+				if strategy.Default {
+					resp.PreBuild.StrategyID = strategy.StrategyID
+					break
+				}
+			}
 		}
-		resp.PreBuild.StrategyID = strategy.StrategyID
 	}
 
 	commonservice.EnsureResp(resp)

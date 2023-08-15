@@ -303,8 +303,8 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		}
 		advancedConfig.ScheduleStrategy = make([]*commonmodels.ScheduleStrategy, 0)
 		if args.AdvancedConfig.ScheduleStrategy != nil {
-			if checkDuplicateStrategyName(args.AdvancedConfig.ScheduleStrategy) {
-				return nil, fmt.Errorf("create cluster failed, schedule strategy name is duplicated")
+			if err := validateStrategies(args.AdvancedConfig.ScheduleStrategy); err != nil {
+				return nil, err
 			}
 			for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
 				err := strategy.Validate()
@@ -315,9 +315,6 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 				}
 				if strategy.StrategyID == "" {
 					strategy.StrategyID = primitive.NewObjectID().Hex()
-				}
-				if len(advancedConfig.ScheduleStrategy) == 1 {
-					strategy.Default = true
 				}
 				advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
 					StrategyID:   strategy.StrategyID,
@@ -383,15 +380,22 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 	return s.CreateCluster(cluster, args.ID, logger)
 }
 
-func checkDuplicateStrategyName(strategies []*ScheduleStrategy) bool {
-	names := make(map[string]struct{})
+func validateStrategies(strategies []*ScheduleStrategy) error {
+	names := make(map[string]struct{}, len(strategies))
+	defaultCount := 0
 	for _, strategy := range strategies {
 		if _, ok := names[strategy.StrategyName]; ok {
-			return true
+			return fmt.Errorf("schedule strategy name %s is duplicated", strategy.StrategyName)
+		}
+		if strategy.Default {
+			defaultCount++
 		}
 		names[strategy.StrategyName] = struct{}{}
 	}
-	return false
+	if defaultCount > 1 {
+		return fmt.Errorf("default strategy must be unique")
+	}
+	return nil
 }
 
 func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K8SCluster, error) {
@@ -407,7 +411,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		advancedConfig.Tolerations = args.AdvancedConfig.Tolerations
 
 		// compatible with open source version
-		if args.AdvancedConfig.Strategy != "" {
+		if !configbase.Enterprise() {
 			var strategyID string
 			if len(args.AdvancedConfig.ScheduleStrategy) > 0 {
 				strategyID = args.AdvancedConfig.ScheduleStrategy[0].StrategyID
@@ -424,8 +428,8 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 			})
 		} else {
 			if args.AdvancedConfig.ScheduleStrategy != nil {
-				if checkDuplicateStrategyName(args.AdvancedConfig.ScheduleStrategy) {
-					return nil, fmt.Errorf("update cluster failed, schedule strategy name is duplicated")
+				if err := validateStrategies(args.AdvancedConfig.ScheduleStrategy); err != nil {
+					return nil, err
 				}
 				for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
 					if err := strategy.Validate(); err != nil {
@@ -438,9 +442,6 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 						strategy.StrategyID = primitive.NewObjectID().Hex()
 					}
 
-					if len(advancedConfig.ScheduleStrategy) == 1 {
-						strategy.Default = true
-					}
 					advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
 						StrategyID:   strategy.StrategyID,
 						StrategyName: strategy.StrategyName,

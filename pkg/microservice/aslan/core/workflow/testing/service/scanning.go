@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -35,7 +36,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -162,13 +162,20 @@ func GetScanningModuleByID(id string, log *zap.SugaredLogger) (*Scanning, error)
 	}
 
 	if scanning.AdvancedSetting != nil && scanning.AdvancedSetting.StrategyID == "" {
-		strategy, err := cluster.GetClusterDefaultStrategy(scanning.AdvancedSetting.ClusterID)
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(scanning.AdvancedSetting.ClusterID)
 		if err != nil {
-			msg := fmt.Errorf("failed to get cluster default strategy, clusterID:%s, error: %v", scanning.AdvancedSetting, err)
-			log.Errorf(msg.Error())
-			return nil, msg
+			if err != mongo.ErrNoDocuments {
+				return nil, fmt.Errorf("failed to find cluster %s, error: %v", scanning.AdvancedSetting.ClusterID, err)
+			}
+		} else if cluster.AdvancedConfig != nil {
+			strategies := cluster.AdvancedConfig.ScheduleStrategy
+			for _, strategy := range strategies {
+				if strategy.Default {
+					scanning.AdvancedSetting.StrategyID = strategy.StrategyID
+					break
+				}
+			}
 		}
-		scanning.AdvancedSetting.StrategyID = strategy.StrategyID
 	}
 
 	return ConvertDBScanningModule(scanning), nil

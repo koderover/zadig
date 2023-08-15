@@ -37,7 +37,7 @@ func init() {
 func V1180ToV1190() error {
 	log.Infof("-------- start migrate cluster workflow schedule strategy --------")
 	if err := migrateClusterScheduleStrategy(); err != nil {
-		log.Errorf("updateNewPackageDependencies err: %v", err)
+		log.Errorf("migrateClusterScheduleStrategy err: %v", err)
 		return err
 	}
 

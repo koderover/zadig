@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -37,7 +38,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -276,13 +276,20 @@ func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels
 	}
 
 	if resp.PreTest != nil && resp.PreTest.StrategyID == "" {
-		strategy, err := cluster.GetClusterDefaultStrategy(resp.PreTest.ClusterID)
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(resp.PreTest.ClusterID)
 		if err != nil {
-			msg := fmt.Errorf("failed to get cluster default strategy, clusterID:%s, error: %v", resp.PreTest.ClusterID, err)
-			log.Errorf(msg.Error())
-			return nil, msg
+			if err != mongo.ErrNoDocuments {
+				return nil, fmt.Errorf("failed to find cluster %s, error: %v", resp.PreTest.ClusterID, err)
+			}
+		} else if cluster.AdvancedConfig != nil {
+			strategies := cluster.AdvancedConfig.ScheduleStrategy
+			for _, strategy := range strategies {
+				if strategy.Default {
+					resp.PreTest.StrategyID = strategy.StrategyID
+					break
+				}
+			}
 		}
-		resp.PreTest.StrategyID = strategy.StrategyID
 	}
 
 	workflowservice.EnsureTestingResp(resp)
