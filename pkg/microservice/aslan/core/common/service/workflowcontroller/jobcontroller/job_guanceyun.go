@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"go.uber.org/zap"
@@ -63,6 +64,9 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 		logError(c.job, fmt.Sprintf("get observability info error: %v", err), c.logger)
 		return
 	}
+	link := func(checker string) string {
+		return info.ConsoleHost + "/keyevents/monitorChart?leftActiveKey=Events&activeName=Events&query=df_monitor_checker_name" + url.QueryEscape(":"+checker)
+	}
 
 	client := guanceyun.NewClient(info.Host, info.ApiKey)
 	timeout := time.After(time.Duration(c.jobTaskSpec.CheckTime) * time.Minute)
@@ -88,6 +92,7 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 			if checker, ok := checkMap[eventResp.CheckerID]; ok {
 				if guanceyun.LevelMap[eventResp.EventLevel] >= guanceyun.LevelMap[checker.Level] {
 					checker.Status = eventResp.EventLevel
+					checker.Url = link(eventResp.CheckerName)
 					triggered = true
 				}
 			} else {

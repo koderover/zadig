@@ -23,6 +23,8 @@ type Observability struct {
 	Type string             `json:"type" bson:"type" yaml:"type"`
 	Name string             `json:"name" bson:"name" yaml:"name"`
 	Host string             `json:"host" bson:"host" yaml:"host"`
+	// ConsoleHost is used for guanceyun console, Host is guanceyun OpenApi Addr
+	ConsoleHost string `json:"console_host" bson:"console_host" yaml:"console_host"`
 	// ApiKey is used for guanceyun
 	ApiKey string `json:"api_key" bson:"api_key" yaml:"api_key"`
 
