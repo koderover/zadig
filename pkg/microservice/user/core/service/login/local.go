@@ -59,7 +59,7 @@ type CheckSignatureRes struct {
 }
 
 func CheckSignature(ifLoggedIn bool, logger *zap.SugaredLogger) error {
-	userNum, err := orm.CountUser(repository.DB)
+	userNum, err := orm.CountActiveUser(repository.DB)
 	if err != nil {
 		return err
 	}

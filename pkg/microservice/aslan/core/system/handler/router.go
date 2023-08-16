@@ -312,6 +312,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dashboard.GET("/environment/:name", GetMyEnvironment)
 	}
 
+	// initialization apis
+	init := router.Group("initialization")
+	{
+		init.GET("/status", GetSystemInitializationStatus)
+		init.POST("/user", InitializeUser)
+	}
+
 	// get nacos info
 	nacos := router.Group("nacos")
 	{
