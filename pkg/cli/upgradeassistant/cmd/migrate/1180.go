@@ -94,8 +94,8 @@ func V1170ToV1180() error {
 	}
 
 	log.Infof("-------- start migrate package dependencies --------")
-	if err := updateNewPackageDependencies(); err != nil {
-		log.Errorf("updateNewPackageDependencies err: %v", err)
+	if err := updatePackageDependencies(); err != nil {
+		log.Errorf("updatePackageDependencies err: %v", err)
 		return err
 	}
 
@@ -550,12 +550,27 @@ func migrateProjectNamePinyin() error {
 
 var newPackageDependenciesInV1180 = map[string][]string{
 	"java": {"1.8.20", "1.9.0.1", "1.11.0.2"},
+	"go":   {"1.20.7"},
+	"node": {"12.22.12", "14.21.3", "16.20.2", "18.17.1"},
 }
 
-func updateNewPackageDependencies() error {
+var oldPackageDependenciesInV1180 = map[string][]string{
+	"dep":    {"0.4.1"},
+	"yarn":   {"1.3.2"},
+	"java":   {"1.6.6", "1.7.8", "1.9.0.1", "1.10.0.2"},
+	"go":     {"1.8.3", "1.8.5", "1.9", "1.9.7", "1.10.1", "1.10.2", "1.11", "1.11.5", "1.12.1", "1.12.9"},
+	"jMeter": {"3.2", "5.4.3"},
+	"ginkgo": {"1.4.0", "1.6.0", "2.2.0", "2.3.1", "2.4.0"},
+	"node":   {"6.11.2", "8.11.3"},
+	"php":    {"5.5", "7.0", "7.1", "7.2"},
+	"python": {"3.6.1", "3.7.0"},
+}
+
+func updatePackageDependencies() error {
 	c := mongodb.NewInstallColl()
 	installMap := systemservice.InitInstallMap()
 
+	// update old package dependencies
 	for name, versionList := range newPackageDependenciesInV1180 {
 		for _, version := range versionList {
 			fullName := fmt.Sprintf("%s-%s", name, version)
@@ -581,7 +596,10 @@ func updateNewPackageDependencies() error {
 				log.Errorf("failed to get %s ObjectID from hex, skip and err: %v", fullName, err)
 				continue
 			}
-			query := bson.M{"_id": oid}
+			query := bson.M{
+				"_id":       oid,
+				"update_by": setting.SystemUser,
+			}
 			change := bson.M{"$set": pkgInfo}
 
 			result, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
@@ -594,6 +612,21 @@ func updateNewPackageDependencies() error {
 			}
 			if result.UpsertedCount > 0 {
 				log.Infof("create %s install info success", fullName)
+			}
+		}
+	}
+
+	// delete old package dependencies
+	for name, versionList := range oldPackageDependenciesInV1180 {
+		for _, version := range versionList {
+			query := bson.M{
+				"name":      name,
+				"version":   version,
+				"update_by": setting.SystemUser,
+			}
+			_, err := c.DeleteOne(context.TODO(), query)
+			if err != nil {
+				return fmt.Errorf("failed to delete %s-%s package dependencies , err: %v", name, version, err)
 			}
 		}
 	}
