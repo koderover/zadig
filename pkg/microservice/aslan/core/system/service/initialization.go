@@ -1,11 +1,27 @@
+/*
+Copyright 2023 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package service
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
@@ -14,9 +30,6 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/tool/rsa"
-	"go.uber.org/zap"
 )
 
 type SystemInitializationStatus struct {
@@ -62,6 +75,16 @@ func GetSystemInitializationStatus(logger *zap.SugaredLogger) (*SystemInitializa
 }
 
 func InitializeUser(username, password, company, email string, phone int64, reason, address string, logger *zap.SugaredLogger) error {
+	userCountInfo, err := user.New().CountUsers()
+	if err != nil {
+		logger.Errorf("failed to get user count, error: %s", err)
+		return fmt.Errorf("failed to check if the user is initialized, error: %s", err)
+	}
+
+	if userCountInfo.TotalUser > 0 {
+		return fmt.Errorf("there are users in the system, cannot reinitialize")
+	}
+
 	userInfo, err := user.New().CreateUser(&user.CreateUserArgs{
 		Name:     username,
 		Password: password,
@@ -129,14 +152,6 @@ type Operation struct {
 }
 
 func reportRegister(info *InitializeInfo) error {
-	registerByte, _ := json.Marshal(info)
-	encrypt, err := rsa.EncryptByDefaultPublicKey(registerByte)
-	if err != nil {
-		log.Errorf("RSAEncrypt err: %s", err)
-		return err
-	}
-	encodeString := base64.StdEncoding.EncodeToString(encrypt)
-	reqBody := Operation{Data: encodeString}
-	_, err = httpclient.Post("https://api.koderover.com/api/operation/admin/user", httpclient.SetBody(reqBody))
+	_, err := httpclient.Post("https://api.koderover.com/api/operation/admin/user", httpclient.SetBody(info))
 	return err
 }
