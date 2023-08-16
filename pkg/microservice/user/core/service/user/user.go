@@ -18,8 +18,6 @@ package user
 
 import (
 	_ "embed"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -27,7 +25,6 @@ import (
 	"time"
 
 	"github.com/dexidp/dex/connector/ldap"
-	"github.com/gin-gonic/gin"
 	ldapv3 "github.com/go-ldap/ldap/v3"
 	"github.com/go-sql-driver/mysql"
 	"github.com/golang-jwt/jwt"
@@ -46,12 +43,8 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/mail"
-	"github.com/koderover/zadig/pkg/tool/rsa"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/util/ginzap"
 )
 
 type User struct {
@@ -167,57 +160,6 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		}
 	}
 	return nil
-}
-
-func InitializeAdmin() error {
-	logger := ginzap.WithContext(new(gin.Context)).Sugar()
-	userCount, err := orm.GetUserCount(repository.DB)
-	if err != nil {
-		logger.Errorf("failed to get user count, error msg:%s", err.Error())
-		return err
-	}
-	if userCount != 0 {
-		logger.Infof("User exists, skip creating default user.")
-		return nil
-	}
-
-	userArgs := &User{
-		Name:     setting.PresetAccount,
-		Password: config.AdminPassword(),
-		Account:  setting.PresetAccount,
-		Email:    config.AdminEmail(),
-	}
-	user, err := CreateUser(userArgs, logger)
-	if err != nil {
-		logger.Errorf("created  admin err:%s", err)
-		return err
-	}
-
-	// report register
-	err = reportRegister(config.SystemAddress(), config.AdminEmail())
-	if err != nil {
-		logger.Errorf("reportRegister err: %s", err)
-	}
-
-	role, found, err := mongodb.NewRoleColl().Get("*", string(setting.SystemAdmin))
-	if err != nil {
-		logger.Errorf("Failed to get role %s in namespace %s, err: %s", string(setting.SystemAdmin), "*", err)
-		return err
-	} else if !found {
-		logger.Errorf("Role %s is not found in namespace %s", string(setting.SystemAdmin), "*")
-		return fmt.Errorf("role %s not found", string(setting.SystemAdmin))
-	}
-
-	args := &models.RoleBinding{
-		Name:      configbase.RoleBindingNameFromUIDAndRole(user.UID, setting.SystemAdmin, "*"),
-		Namespace: "*",
-		Subjects:  []*models.Subject{{Kind: models.UserKind, UID: user.UID}},
-		RoleRef: &models.RoleRef{
-			Name:      role.Name,
-			Namespace: role.Namespace,
-		},
-	}
-	return mongodb.NewRoleBindingColl().UpdateOrCreate(args)
 }
 
 func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
@@ -751,14 +693,21 @@ func GetUserCount(logger *zap.SugaredLogger) (*types.UserStatistics, error) {
 		return nil, err
 	}
 
-	totalActiveUser, err := orm.CountUser(repository.DB)
+	totalActiveUser, err := orm.CountActiveUser(repository.DB)
 	if err != nil {
 		logger.Errorf("Failed to count user by type from db, the error is: %s", err.Error())
+		return nil, err
+	}
+
+	totalUser, err := orm.CountUser(repository.DB)
+	if err != nil {
+		logger.Errorf("Failed to count total user from db, the error is: %s", err.Error())
 		return nil, err
 	}
 	return &types.UserStatistics{
 		UserByType: userCountByType,
 		ActiveUser: totalActiveUser,
+		TotalUser:  totalUser,
 	}, nil
 }
 
@@ -788,34 +737,4 @@ func isValidStrongPassword(password string) (bool, error) {
 	}
 
 	return hasUppercase && hasLowercase && hasDigit && hasValidLength, nil
-}
-
-type Register struct {
-	Domain    string `json:"domain"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	CreatedAt int64  `json:"created_at"`
-}
-
-type Operation struct {
-	Data string `json:"data"`
-}
-
-func reportRegister(domain, email string) error {
-	register := Register{
-		Domain:    domain,
-		Username:  "admin",
-		Email:     email,
-		CreatedAt: time.Now().Unix(),
-	}
-	registerByte, _ := json.Marshal(register)
-	encrypt, err := rsa.EncryptByDefaultPublicKey(registerByte)
-	if err != nil {
-		log.Errorf("RSAEncrypt err: %s", err)
-		return err
-	}
-	encodeString := base64.StdEncoding.EncodeToString(encrypt)
-	reqBody := Operation{Data: encodeString}
-	_, err = httpclient.Post("https://api.koderover.com/api/operation/admin/user", httpclient.SetBody(reqBody))
-	return err
 }

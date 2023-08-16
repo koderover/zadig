@@ -27,7 +27,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/pkg/setting"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -43,7 +42,6 @@ func Start(_ context.Context) {
 	})
 
 	initDatabase()
-	initUser()
 }
 
 func initDatabase() {
@@ -77,16 +75,6 @@ func initDatabase() {
 	mongotool.Init(ctx, configbase.MongoURI())
 	if err := mongotool.Ping(ctx); err != nil {
 		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
-	}
-}
-
-func initUser() {
-	//init default admin user
-	log.Infof("============================ start to init default admin user ============================")
-	err := user.InitializeAdmin()
-	if err != nil {
-		panic(fmt.Errorf("aslan preset system admin err:%s", err))
-		return
 	}
 }
 
