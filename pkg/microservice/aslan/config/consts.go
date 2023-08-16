@@ -484,3 +484,20 @@ const (
 const (
 	CUSTOME_THEME = "custom"
 )
+
+type ReleasePlanStatus string
+
+const (
+	StatusPlanning       ReleasePlanStatus = "planning"
+	StatusWaitForApprove ReleasePlanStatus = "waitforapprove"
+	StatusExecuting      ReleasePlanStatus = "executing"
+	StatusSuccess        ReleasePlanStatus = "success"
+	StatusCancel         ReleasePlanStatus = "cancel"
+)
+
+type ReleasePlanJobType string
+
+const (
+	JobTypeText     = "text"
+	JobTypeWorkflow = "workflow"
+)
