@@ -54,6 +54,7 @@ type UserCountByType struct {
 type UserStatistics struct {
 	UserByType []*UserCountByType `json:"user_info"`
 	ActiveUser int64              `json:"active_user"`
+	TotalUser  int64              `json:"total_user"`
 }
 
 type UserSetting struct {
