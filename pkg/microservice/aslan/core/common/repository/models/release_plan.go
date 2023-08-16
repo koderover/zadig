@@ -37,6 +37,8 @@ type ReleasePlan struct {
 	UpdatedBy   string `bson:"updated_by"       yaml:"updated_by"                   json:"updated_by"`
 	UpdateTime  int64  `bson:"update_time"       yaml:"update_time"                   json:"update_time"`
 
+	Approval *Approval `bson:"approval"       yaml:"approval"                   json:"approval"`
+
 	Status config.ReleasePlanStatus `bson:"status"       yaml:"status"                   json:"status"`
 }
 
@@ -49,9 +51,11 @@ type ReleaseJob struct {
 
 type TextReleaseJobSpec struct {
 	Content string `bson:"content"       yaml:"content"                   json:"content"`
+	Remark  string `bson:"remark"       yaml:"remark"                   json:"remark"`
 }
 
 type WorkflowReleaseJobSpec struct {
-	ProjectName  string `bson:"project_name"       yaml:"project_name"                   json:"project_name"`
-	WorkflowName string `bson:"workflow_name"       yaml:"workflow_name"                   json:"workflow_name"`
+	ProjectName  string      `bson:"project_name"       yaml:"project_name"                   json:"project_name"`
+	WorkflowName string      `bson:"workflow_name"       yaml:"workflow_name"                   json:"workflow_name"`
+	Workflow     *WorkflowV4 `bson:"workflow"       yaml:"workflow"                   json:"workflow"`
 }
