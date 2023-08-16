@@ -416,7 +416,10 @@ func createNewPackageDependencies() error {
 				log.Errorf("failed to get %s ObjectID from hex, skip and err: %v", fullName, err)
 				continue
 			}
-			query := bson.M{"_id": oid}
+			query := bson.M{
+				"_id":       oid,
+				"update_by": setting.SystemUser,
+			}
 			change := bson.M{"$set": pkgInfo}
 
 			result, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
