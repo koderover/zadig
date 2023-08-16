@@ -25,6 +25,13 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+func ListObservability(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListObservability(c.Query("type"), false)
+}
+
 func ListObservabilityDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -67,5 +74,10 @@ func ValidateObservability(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ValidateObservability(c.Param("id"))
+	var args commonmodels.Observability
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Err = service.ValidateObservability(&args)
 }

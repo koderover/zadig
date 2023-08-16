@@ -79,9 +79,12 @@ func (c *ObservabilityColl) Update(ctx context.Context, idString string, args *m
 	return err
 }
 
-func (c *ObservabilityColl) List(ctx context.Context) ([]*models.Observability, error) {
+func (c *ObservabilityColl) List(ctx context.Context, _type string) ([]*models.Observability, error) {
 	resp := make([]*models.Observability, 0)
 	query := bson.M{}
+	if _type != "" {
+		query["type"] = _type
+	}
 	cursor, err := c.Collection.Find(ctx, query)
 	if err != nil {
 		return nil, err

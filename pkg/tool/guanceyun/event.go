@@ -146,17 +146,18 @@ type EventFilters struct {
 }
 
 type SearchEventByMonitorArg struct {
-	MonitorName string
-	MonitorID   string
+	CheckerName string
+	CheckerID   string
 }
 
 type EventResp struct {
-	MonitorName string
+	CheckerName string
+	CheckerID   string
 	EventLevel  Level
 }
 
-// SearchEventByMonitor startTime and endTime are Millisecond timestamps
-func (c *Client) SearchEventByMonitor(args []*SearchEventByMonitorArg, startTime, endTime int64) ([]*EventResp, error) {
+// SearchEventByChecker startTime and endTime are Millisecond timestamps
+func (c *Client) SearchEventByChecker(args []*SearchEventByMonitorArg, startTime, endTime int64) ([]*EventResp, error) {
 	body := SearchEventBody{
 		TimeRange: []int64{startTime, endTime},
 		Limit:     100,
@@ -166,7 +167,7 @@ func (c *Client) SearchEventByMonitor(args []*SearchEventByMonitorArg, startTime
 			Name:      "df_title",
 			Condition: "or",
 			Operation: "=",
-			Value:     []string{arg.MonitorName},
+			Value:     []string{arg.CheckerName},
 		})
 	}
 	resp := new(EventResponse)
@@ -181,15 +182,16 @@ func (c *Client) SearchEventByMonitor(args []*SearchEventByMonitorArg, startTime
 		meta := new(MonitorMeta)
 		err = json.Unmarshal([]byte(data.DfMeta), meta)
 		if err != nil {
-			return nil, errors.Wrapf(err, "SearchEventByMonitor unmarshal %s meta failed", data.DfTitle)
+			return nil, errors.Wrapf(err, "SearchEventByChecker unmarshal %s meta failed", data.DfTitle)
 		}
-		if e, ok := eventRespMap[meta.MonitorOpt.ID]; ok {
+		if e, ok := eventRespMap[meta.CheckerOpt.ID]; ok {
 			if LevelMap[e.EventLevel] < LevelMap[Level(data.DfStatus)] {
 				e.EventLevel = Level(data.DfStatus)
 			}
 		} else {
-			eventRespMap[meta.MonitorOpt.ID] = &EventResp{
-				MonitorName: data.DfTitle,
+			eventRespMap[meta.CheckerOpt.ID] = &EventResp{
+				CheckerName: data.DfTitle,
+				CheckerID:   meta.CheckerOpt.ID,
 				EventLevel:  Level(data.DfStatus),
 			}
 		}
@@ -198,7 +200,7 @@ func (c *Client) SearchEventByMonitor(args []*SearchEventByMonitorArg, startTime
 	result := make([]*EventResp, 0)
 	for id, eventResp := range eventRespMap {
 		for _, arg := range args {
-			if arg.MonitorID == id {
+			if arg.CheckerID == id {
 				result = append(result, eventResp)
 			}
 		}

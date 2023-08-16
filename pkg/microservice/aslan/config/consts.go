@@ -215,6 +215,7 @@ const (
 	JobOfflineService       JobType = "offline-service"
 	JobMseGrayRelease       JobType = "mse-gray-release"
 	JobMseGrayOffline       JobType = "mse-gray-offline"
+	JobGuanceyunCheck       JobType = "guanceyun-check"
 )
 
 const (

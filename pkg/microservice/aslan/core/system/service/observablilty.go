@@ -18,14 +18,16 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/guanceyun"
 )
 
-func ListObservability(isAdmin bool) ([]*models.Observability, error) {
-	resp, err := mongodb.NewObservabilityColl().List(context.Background())
+func ListObservability(_type string, isAdmin bool) ([]*models.Observability, error) {
+	resp, err := mongodb.NewObservabilityColl().List(context.Background(), _type)
 	if err != nil {
 		return nil, e.ErrListObservabilityIntegration.AddErr(err)
 	}
@@ -58,9 +60,16 @@ func DeleteObservability(id string) error {
 	return nil
 }
 
-func ValidateObservability(id string) error {
-	if _, err := mongodb.NewObservabilityColl().Find(context.Background(), id); err != nil {
-		return e.ErrValidateObservability.AddErr(err)
+func ValidateObservability(args *models.Observability) error {
+	switch args.Type {
+	case "guanceyun":
+		return validateGuanceyun(args)
+	default:
+		return errors.New("invalid observability type")
 	}
-	return nil
+}
+
+func validateGuanceyun(args *models.Observability) error {
+	_, _, err := guanceyun.NewClient(args.Host, args.ApiKey).ListMonitor("", 1, 1)
+	return err
 }

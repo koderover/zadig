@@ -157,7 +157,7 @@ func (c *Client) ListMonitor(search string, pageSize, pageIndex int) ([]MonitorC
 		params["search"] = search
 	}
 	_, err := c.R().SetQueryParams(params).SetSuccessResult(resp).
-		Get(c.BaseURL + "/api/v1/monitor/list")
+		Get(c.BaseURL + "/api/v1/monitor/check/list")
 	if err != nil {
 		return nil, 0, err
 	}

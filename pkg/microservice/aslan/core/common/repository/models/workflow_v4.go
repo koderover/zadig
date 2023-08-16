@@ -31,6 +31,7 @@ import (
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/dingtalk"
+	"github.com/koderover/zadig/pkg/tool/guanceyun"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -603,6 +604,23 @@ type IstioJobTarget struct {
 	Image              string `bson:"image"                     json:"image"                     yaml:"image,omitempty"`
 	CurrentReplica     int    `bson:"current_replica,omitempty" json:"current_replica,omitempty" yaml:"current_replica,omitempty"`
 	TargetReplica      int    `bson:"target_replica,omitempty"  json:"target_replica,omitempty"  yaml:"target_replica,omitempty"`
+}
+
+type GuanceyunCheckJobSpec struct {
+	ID   string `bson:"id" json:"id" yaml:"id"`
+	Name string `bson:"name" json:"name" yaml:"name"`
+	// CheckTime minute
+	CheckTime int64               `bson:"check_time" json:"check_time" yaml:"check_time"`
+	Monitors  []*GuanceyunMonitor `bson:"monitors" json:"monitors" yaml:"monitors"`
+}
+
+type GuanceyunMonitor struct {
+	ID   string `bson:"id" json:"id" yaml:"id"`
+	Name string `bson:"name" json:"name" yaml:"name"`
+	// Level is the lowest level to trigger alarm
+	Level  guanceyun.Level `bson:"level" json:"level" yaml:"level"`
+	Status guanceyun.Level `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
+	Url    string          `bson:"url,omitempty" json:"url,omitempty" yaml:"url,omitempty"`
 }
 
 type MseGrayReleaseJobSpec struct {
