@@ -79,16 +79,33 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 	if err != nil {
 		return nil, err
 	}
-	// if the project is public, give all read permission
-	if len(publicRoleBindings) > 0 {
-		projectVerbSet.Insert(types.WorkflowActionView)
-		projectVerbSet.Insert(types.EnvActionView)
-		projectVerbSet.Insert(types.ProductionEnvActionView)
-		projectVerbSet.Insert(types.TestActionView)
-		projectVerbSet.Insert(types.ScanActionView)
-		projectVerbSet.Insert(types.ServiceActionView)
-		projectVerbSet.Insert(types.BuildActionView)
-		projectVerbSet.Insert(types.DeliveryActionView)
+	for _, rb := range publicRoleBindings {
+		if rb.RoleRef.Name == string(setting.ProjectAdmin) {
+			isProjectAdmin = true
+		} else if rb.RoleRef.Name == string(setting.ReadOnly) {
+			projectVerbSet.Insert(types.WorkflowActionView)
+			projectVerbSet.Insert(types.EnvActionView)
+			projectVerbSet.Insert(types.ProductionEnvActionView)
+			projectVerbSet.Insert(types.TestActionView)
+			projectVerbSet.Insert(types.ScanActionView)
+			projectVerbSet.Insert(types.ServiceActionView)
+			projectVerbSet.Insert(types.BuildActionView)
+			projectVerbSet.Insert(types.DeliveryActionView)
+		} else {
+			// otherwise search for the specific role and give the permission to user
+			roleDetailInfo, found, err := mongodb.NewRoleColl().Get(rb.RoleRef.Namespace, rb.RoleRef.Name)
+			if err != nil {
+				return nil, err
+			}
+			if found {
+				for _, rule := range roleDetailInfo.Rules {
+					// resources field is no longer required, the verb itself is sufficient to explain the authorization
+					for _, verb := range rule.Verbs {
+						projectVerbSet.Insert(verb)
+					}
+				}
+			}
+		}
 	}
 
 	// finally check the collaboration instance, set all the permission granted by collaboration instance to the corresponding map

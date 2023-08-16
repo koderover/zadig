@@ -98,6 +98,13 @@ func (c *Client) SearchUser(args *SearchUserArgs) (*SearchUserResp, error) {
 	return resp, err
 }
 
+func (c *Client) CountUsers() (*types.UserStatistics, error) {
+	url := "/user/count"
+	resp := new(types.UserStatistics)
+	_, err := c.Get(url, httpclient.SetResult(resp))
+	return resp, err
+}
+
 func (c *Client) Healthz() error {
 	url := "/healthz"
 	_, err := c.Get(url)
