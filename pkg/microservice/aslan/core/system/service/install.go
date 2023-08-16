@@ -97,8 +97,8 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "5d11afca6bf097c0ea64bbcc",
 		Name:         "dep",
 		Version:      "0.5.0",
-		DownloadPath: "http://resource.koderover.com/dep-v0.5.0-linux-x64.tar.gz",
-		Scripts:      "mkdir -p $HOME/dep\ntar -C $HOME/dep -xzf ${FILEPATH}\nchmod +x $HOME/dep/dep",
+		DownloadPath: "https://github.com/golang/dep/releases/download/v0.5.0/dep-linux-amd64",
+		Scripts:      "mkdir -p $HOME/dep\ncp ${FILEPATH} $HOME/dep/dep\nchmod +x $HOME/dep/dep",
 		Envs:         []string{},
 		BinPath:      "$HOME/dep",
 		Enabled:      true,
@@ -109,8 +109,8 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "63722795351717b8ad70dd02",
 		Name:         "dep",
 		Version:      "0.5.3",
-		DownloadPath: "http://resource.koderover.com/dep-v0.5.3-linux-x64.tar.gz",
-		Scripts:      "mkdir -p $HOME/dep\ntar -C $HOME/dep -xzf ${FILEPATH}\nchmod +x $HOME/dep/dep",
+		DownloadPath: "https://github.com/golang/dep/releases/download/v0.5.3/dep-linux-amd64",
+		Scripts:      "mkdir -p $HOME/dep\ncp ${FILEPATH} $HOME/dep/dep\nchmod +x $HOME/dep/dep",
 		Envs:         []string{},
 		BinPath:      "$HOME/dep",
 		Enabled:      true,
@@ -121,8 +121,8 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "63722795351717b8ad70dd03",
 		Name:         "dep",
 		Version:      "0.5.4",
-		DownloadPath: "http://resource.koderover.com/dep-v0.5.4-linux-x64.tar.gz",
-		Scripts:      "mkdir -p $HOME/dep\ntar -C $HOME/dep -xzf ${FILEPATH}\nchmod +x $HOME/dep/dep",
+		DownloadPath: "https://github.com/golang/dep/releases/download/v0.5.4/dep-linux-amd64",
+		Scripts:      "mkdir -p $HOME/dep\ncp ${FILEPATH} $HOME/dep/dep\nchmod +x $HOME/dep/dep",
 		Envs:         []string{},
 		BinPath:      "$HOME/dep",
 		Enabled:      true,
@@ -133,7 +133,7 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "5d11afca6bf097c0ea64bbbe",
 		Name:         "glide",
 		Version:      "0.13.1",
-		DownloadPath: "http://resource.koderover.com/glide-v0.13.1-linux-amd64.tar.gz",
+		DownloadPath: "https://github.com/Masterminds/glide/releases/download/v0.13.1/glide-v0.13.1-linux-amd64.tar.gz",
 		Scripts:      "mkdir -p $HOME/glide\ntar -C $HOME/glide -xzf ${FILEPATH} --strip-components=1",
 		Envs:         []string{},
 		BinPath:      "$HOME/glide",
@@ -145,7 +145,7 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "63722795351717b8ad70dd04",
 		Name:         "glide",
 		Version:      "0.13.3",
-		DownloadPath: "http://resource.koderover.com/glide-v0.13.3-linux-amd64.tar.gz",
+		DownloadPath: "https://github.com/Masterminds/glide/releases/download/v0.13.3/glide-v0.13.3-linux-amd64.tar.gz",
 		Scripts:      "mkdir -p $HOME/glide\ntar -C $HOME/glide -xzf ${FILEPATH} --strip-components=1",
 		Envs:         []string{},
 		BinPath:      "$HOME/glide",
@@ -153,59 +153,41 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		UpdateBy:     setting.SystemUser,
 	}
 
-	installInfoPreset["yarn-1.3.2"] = &commonmodels.Install{
-		ObjectIDHex:  "5d11afca6bf097c0ea64bbbc",
-		Name:         "yarn",
-		Version:      "1.3.2",
-		DownloadPath: "http://resource.koderover.com/yarn-v1.3.2.tar.gz",
-		Scripts:      "mkdir -p $HOME/yarn\ntar -C $HOME/yarn -xzf ${FILEPATH} --strip-components=1",
-		Envs:         []string{},
-		BinPath:      "$HOME/yarn/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
 	installInfoPreset["yarn-1.15.2"] = &commonmodels.Install{
-		ObjectIDHex:  "5cc4294af92295138e2d8478",
-		Name:         "yarn",
-		Version:      "1.15.2",
-		DownloadPath: "http://resource.koderover.com/yarn-v1.15.2.tar.gz",
-		Scripts:      "mkdir -p $HOME/yarn\ntar -C $HOME/yarn -xzf ${FILEPATH} --strip-components=1",
-		Envs:         []string{},
-		BinPath:      "$HOME/yarn/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
+		ObjectIDHex: "5cc4294af92295138e2d8478",
+		Name:        "yarn",
+		Version:     "1.15.2",
+		Scripts:     "npm install -g yarn\nyarn set version 1.15.2",
+		Envs:        []string{},
+		Enabled:     true,
+		UpdateBy:    setting.SystemUser,
 	}
 
-	installInfoPreset["java-1.6.6"] = &commonmodels.Install{
-		ObjectIDHex:  "5d9dce1ac024b6d199bba7e6",
-		Name:         "java",
-		Version:      "1.6.6",
-		DownloadPath: "http://resource.koderover.com/jdk-6u6-p-linux-x64.tar.gz",
-		Scripts:      "mkdir -p $HOME/jdk\ntar -C $HOME/jdk -xzf ${FILEPATH} --strip-components=1",
-		Envs:         []string{},
-		BinPath:      "$HOME/jdk/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
+	installInfoPreset["yarn-3.2.0"] = &commonmodels.Install{
+		ObjectIDHex: "63722795351717b8ad70dd20",
+		Name:        "yarn",
+		Version:     "3.2.0",
+		Scripts:     "npm install -g yarn\nyarn set version 3.2.0",
+		Envs:        []string{},
+		Enabled:     true,
+		UpdateBy:    setting.SystemUser,
 	}
 
-	installInfoPreset["java-1.7.8"] = &commonmodels.Install{
-		ObjectIDHex:  "5d9dcf8ac024b6d199bc0bb4",
-		Name:         "java",
-		Version:      "1.7.8",
-		DownloadPath: "http://resource.koderover.com/jdk-7u80-linux-x64.tar.gz",
-		Scripts:      "mkdir -p $HOME/jdk\ntar -C $HOME/jdk -xzf ${FILEPATH} --strip-components=1",
-		Envs:         []string{},
-		BinPath:      "$HOME/jdk/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
+	installInfoPreset["yarn-3.2.4"] = &commonmodels.Install{
+		ObjectIDHex: "63722795351717b8ad70dd21",
+		Name:        "yarn",
+		Version:     "3.2.4",
+		Scripts:     "npm install -g yarn\nyarn set version 3.2.4",
+		Envs:        []string{},
+		Enabled:     true,
+		UpdateBy:    setting.SystemUser,
 	}
 
-	installInfoPreset["java-1.8.10"] = &commonmodels.Install{
+	installInfoPreset["java-1.8.20"] = &commonmodels.Install{
 		ObjectIDHex:  "5ca33d9ba24d76414eb277df",
 		Name:         "java",
-		Version:      "1.8.10",
-		DownloadPath: "http://resource.koderover.com/jdk-8u101-linux-x64.tar.gz",
+		Version:      "1.8.20",
+		DownloadPath: "https://repo.huaweicloud.com/java/jdk/8u201-b09/jdk-8u201-linux-x64.tar.gz",
 		Scripts:      "mkdir -p $HOME/jdk\ntar -C $HOME/jdk -xzf ${FILEPATH} --strip-components=1",
 		Envs:         []string{},
 		BinPath:      "$HOME/jdk/bin",
@@ -213,35 +195,11 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		UpdateBy:     setting.SystemUser,
 	}
 
-	installInfoPreset["java-1.9.0.4"] = &commonmodels.Install{
-		ObjectIDHex:  "5d9dcfd7c024b6d199bc1dc5",
-		Name:         "java",
-		Version:      "1.9.0.4",
-		DownloadPath: "http://resource.koderover.com/jdk-9.0.4_linux-x64_bin.tar.gz",
-		Scripts:      "mkdir -p $HOME/jdk\ntar -C $HOME/jdk -xzf ${FILEPATH} --strip-components=1",
-		Envs:         []string{},
-		BinPath:      "$HOME/jdk/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
-	installInfoPreset["java-1.10.0.2"] = &commonmodels.Install{
-		ObjectIDHex:  "5d9dd024c024b6d199bc2fb5",
-		Name:         "java",
-		Version:      "1.10.0.2",
-		DownloadPath: "http://resource.koderover.com/jdk-10.0.2_linux-x64_bin.tar.gz",
-		Scripts:      "mkdir -p $HOME/jdk\ntar -C $HOME/jdk -xzf ${FILEPATH} --strip-components=1",
-		Envs:         []string{},
-		BinPath:      "$HOME/jdk/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
-	installInfoPreset["java-1.11.0.3"] = &commonmodels.Install{
+	installInfoPreset["java-1.11.0.2"] = &commonmodels.Install{
 		ObjectIDHex:  "5d9dd09fc024b6d199bc5b08",
 		Name:         "java",
-		Version:      "1.11.0.3",
-		DownloadPath: "http://resource.koderover.com/jdk-11.0.3_linux-x64_bin.tar.gz",
+		Version:      "1.11.0.2",
+		DownloadPath: "https://repo.huaweicloud.com/java/jdk/11.0.2+9/jdk-11.0.2_linux-x64_bin.tar.gz",
 		Scripts:      "mkdir -p $HOME/jdk\ntar -C $HOME/jdk -xzf ${FILEPATH} --strip-components=1",
 		Envs:         []string{},
 		BinPath:      "$HOME/jdk/bin",
@@ -253,7 +211,7 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "5d9dd0e1c024b6d199bc6a45",
 		Name:         "java",
 		Version:      "1.12.0.1",
-		DownloadPath: "http://resource.koderover.com/jdk-12.0.1_linux-x64_bin.tar.gz",
+		DownloadPath: "https://repo.huaweicloud.com/java/jdk/12.0.1+12/jdk-12.0.1_linux-x64_bin.tar.gz",
 		Scripts:      "mkdir -p $HOME/jdk\ntar -C $HOME/jdk -xzf ${FILEPATH} --strip-components=1",
 		Envs:         []string{},
 		BinPath:      "$HOME/jdk/bin",
@@ -265,7 +223,7 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "63722795351717b8ad70dd10",
 		Name:         "java",
 		Version:      "17",
-		DownloadPath: "http://resource.koderover.com/jdk-17_linux-x64_bin.tar.gz",
+		DownloadPath: "https://download.oracle.com/java/17/latest/jdk-17_linux-x64_bin.tar.gz",
 		Scripts:      "mkdir -p $HOME/jdk\ntar -C $HOME/jdk -xzf ${FILEPATH} --strip-components=1",
 		Envs:         []string{},
 		BinPath:      "$HOME/jdk/bin",
@@ -277,70 +235,10 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "63722795351717b8ad70dd11",
 		Name:         "java",
 		Version:      "19",
-		DownloadPath: "http://resource.koderover.com/jdk-19_linux-x64_bin.tar.gz",
+		DownloadPath: "https://download.oracle.com/java/19/archive/jdk-19_linux-x64_bin.tar.gz",
 		Scripts:      "mkdir -p $HOME/jdk\ntar -C $HOME/jdk -xzf ${FILEPATH} --strip-components=1",
 		Envs:         []string{},
 		BinPath:      "$HOME/jdk/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
-	installInfoPreset["go-1.8.5"] = &commonmodels.Install{
-		ObjectIDHex:  "5d11afca6bf097c0ea64bbc7",
-		Name:         "go",
-		Version:      "1.8.5",
-		DownloadPath: "http://resource.koderover.com/go1.8.5.linux-amd64.tar.gz",
-		Scripts:      "tar -C $HOME -xzf ${FILEPATH}",
-		Envs:         []string{},
-		BinPath:      "$HOME/go/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
-	installInfoPreset["go-1.9.7"] = &commonmodels.Install{
-		ObjectIDHex:  "5d11afca6bf097c0ea64bbd4",
-		Name:         "go",
-		Version:      "1.9.7",
-		DownloadPath: "http://resource.koderover.com/go1.9.7.linux-amd64.tar.gz",
-		Scripts:      "tar -C $HOME -xzf ${FILEPATH}",
-		Envs:         []string{},
-		BinPath:      "$HOME/go/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
-	installInfoPreset["go-1.10.2"] = &commonmodels.Install{
-		ObjectIDHex:  "5d11afca6bf097c0ea64bbc5",
-		Name:         "go",
-		Version:      "1.10.2",
-		DownloadPath: "http://resource.koderover.com/go1.10.2.linux-amd64.tar.gz",
-		Scripts:      "tar -C $HOME -xzf ${FILEPATH}",
-		Envs:         []string{},
-		BinPath:      "$HOME/go/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
-	installInfoPreset["go-1.11.5"] = &commonmodels.Install{
-		ObjectIDHex:  "5d11afca6bf097c0ea64bbd5",
-		Name:         "go",
-		Version:      "1.11.5",
-		DownloadPath: "http://resource.koderover.com/go1.11.5.linux-amd64.tar.gz",
-		Scripts:      "tar -C $HOME -xzf ${FILEPATH}",
-		Envs:         []string{},
-		BinPath:      "$HOME/go/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
-	installInfoPreset["go-1.12.9"] = &commonmodels.Install{
-		ObjectIDHex:  "5d81aae86bf097c0ea64d96d",
-		Name:         "go",
-		Version:      "1.12.9",
-		DownloadPath: "http://resource.koderover.com/go1.12.9.linux-amd64.tar.gz",
-		Scripts:      "tar -C $HOME -xzf ${FILEPATH}",
-		Envs:         []string{},
-		BinPath:      "$HOME/go/bin",
 		Enabled:      true,
 		UpdateBy:     setting.SystemUser,
 	}
@@ -349,7 +247,7 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "5d81ad3b6bf097c0ea64d96e",
 		Name:         "go",
 		Version:      "1.13",
-		DownloadPath: "http://resource.koderover.com/go1.13.linux-amd64.tar.gz",
+		DownloadPath: "https://golang.google.cn/dl/go1.13.linux-amd64.tar.gz",
 		Scripts:      "tar -C $HOME -xzf ${FILEPATH}",
 		Envs:         []string{},
 		BinPath:      "$HOME/go/bin",
@@ -361,7 +259,7 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "63722795351717b8ad70dd00",
 		Name:         "go",
 		Version:      "1.18.8",
-		DownloadPath: "http://resource.koderover.com/go1.18.8.linux-amd64.tar.gz",
+		DownloadPath: "https://golang.google.cn/dl/go1.18.8.linux-amd64.tar.gz",
 		Scripts:      "tar -C $HOME -xzf ${FILEPATH}",
 		Envs:         []string{},
 		BinPath:      "$HOME/go/bin",
@@ -373,7 +271,19 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "63722795351717b8ad70dd01",
 		Name:         "go",
 		Version:      "1.19.3",
-		DownloadPath: "http://resource.koderover.com/go1.19.3.linux-amd64.tar.gz",
+		DownloadPath: "https://golang.google.cn/dl/go1.19.3.linux-amd64.tar.gz",
+		Scripts:      "tar -C $HOME -xzf ${FILEPATH}",
+		Envs:         []string{},
+		BinPath:      "$HOME/go/bin",
+		Enabled:      true,
+		UpdateBy:     setting.SystemUser,
+	}
+
+	installInfoPreset["go-1.20.7"] = &commonmodels.Install{
+		ObjectIDHex:  "64cc9658d2a0da06433d12fe",
+		Name:         "go",
+		Version:      "1.20.7",
+		DownloadPath: "https://golang.google.cn/dl/go1.20.7.linux-amd64.tar.gz",
 		Scripts:      "tar -C $HOME -xzf ${FILEPATH}",
 		Envs:         []string{},
 		BinPath:      "$HOME/go/bin",
@@ -382,22 +292,21 @@ func InitInstallMap() map[string]*commonmodels.Install {
 	}
 
 	installInfoPreset["phantomjs-2.1.1"] = &commonmodels.Install{
-		ObjectIDHex:  "5d11afca6bf097c0ea64bbbb",
-		Name:         "phantomjs",
-		Version:      "2.1.1",
-		DownloadPath: "http://resource.koderover.com/phantomjs-2.1.1-linux-x86_64.tar.bz2",
-		Scripts:      "sudo apt-get update\nsudo apt install software-properties-common -y\nmkdir -p $HOME/phantomjs\ntar -C $HOME/phantomjs -jxf ${FILEPATH} --strip-components=1",
-		Envs:         []string{},
-		BinPath:      "$HOME/phantomjs/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
+		ObjectIDHex: "5d11afca6bf097c0ea64bbbb",
+		Name:        "phantomjs",
+		Version:     "2.1.1",
+		Scripts:     "mkdir -p $HOME/phantomjs\n\twget -q https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2 -P $HOME/tmp\n\ttar -C $HOME/phantomjs -jxf $HOME/tmp/phantomjs-2.1.1-linux-x86_64.tar.bz2 --strip-components=1",
+		Envs:        []string{},
+		BinPath:     "$HOME/phantomjs/bin",
+		Enabled:     true,
+		UpdateBy:    setting.SystemUser,
 	}
 
 	installInfoPreset["python-2.7.16"] = &commonmodels.Install{
 		ObjectIDHex: "5d9ea003c024b6d199fcb61b",
 		Name:        "python",
 		Version:     "2.7.16",
-		Scripts:     "sudo apt-get install build-essential\ncurl -fsSl http://resource.koderover.com/Python-2.7.16.tgz -o /tmp/Python-2.7.16.tgz\nmkdir -p /opt/python\ntar  -C  /opt/python -zxf  /tmp/Python-2.7.16.tgz\ncd /opt/python/Python-2.7.16\n./configure --prefix=/usr/local/python && make  && make install",
+		Scripts:     "sudo apt-get install build-essential\ncurl -fsSl https://www.python.org/ftp/python/2.7.16/Python-2.7.16.tgz -o /tmp/Python-2.7.16.tgz\nmkdir -p /opt/python\ntar  -C  /opt/python -zxf  /tmp/Python-2.7.16.tgz\ncd /opt/python/Python-2.7.16\n./configure --prefix=/usr/local/python && make  && make install\nsudo ln -s /usr/local/python/bin/python2.7 /usr/local/bin/python2.7",
 		Envs:        []string{},
 		BinPath:     "/usr/local/python/bin",
 		Enabled:     true,
@@ -408,7 +317,7 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex: "5d9ea08ec024b6d199fd27d5",
 		Name:        "python",
 		Version:     "3.7.4",
-		Scripts:     "sudo apt-get install -y build-essential libffi-dev\ncurl -fsSl http://resource.koderover.com/Python-3.7.4.tgz -o /tmp/Python-3.7.4.tgz\nmkdir -p /opt/python\ntar  -C  /opt/python -zxf  /tmp/Python-3.7.4.tgz\ncd /opt/python/Python-3.7.4\n./configure --prefix=/usr/local/python && make  && make install",
+		Scripts:     "sudo apt-get install -y build-essential libffi-dev\ncurl -fsSl https://www.python.org/ftp/python/3.7.4/Python-3.7.4.tgz -o /tmp/Python-3.7.4.tgz\nmkdir -p /opt/python\ntar  -C  /opt/python -zxf  /tmp/Python-3.7.4.tgz\ncd /opt/python/Python-3.7.4\n./configure --prefix=/usr/local/python && make  && make install\nsudo ln -s /usr/local/python/bin/python3.7 /usr/local/bin/python3.7",
 		Envs:        []string{},
 		BinPath:     "/usr/local/python/bin",
 		Enabled:     true,
@@ -421,7 +330,6 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		Version:     "3.10.8",
 		Scripts:     "sudo apt-get update\nsudo apt install software-properties-common -y\nsudo add-apt-repository ppa:deadsnakes/ppa\nsudo apt install -y python3.10",
 		Envs:        []string{},
-		BinPath:     "",
 		Enabled:     true,
 		UpdateBy:    setting.SystemUser,
 	}
@@ -432,52 +340,26 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		Version:     "3.11",
 		Scripts:     "sudo apt-get update\nsudo apt install software-properties-common -y\nsudo add-apt-repository ppa:deadsnakes/ppa\nsudo apt install -y python3.11",
 		Envs:        []string{},
-		BinPath:     "",
 		Enabled:     true,
 		UpdateBy:    setting.SystemUser,
 	}
 
-	installInfoPreset["jMeter-3.2"] = &commonmodels.Install{
-		ObjectIDHex:  "5cc68b09f92295138ed398c2",
-		Name:         "jMeter",
-		Version:      "3.2",
-		DownloadPath: "http://resource.koderover.com/apach-jmeter-3.2.tar.gz",
-		Scripts:      "sudo apt-get update\nsudo apt install software-properties-common -y\nmkdir -p $HOME/jmeter\ntar -C $HOME/jmeter -xzf ${FILEPATH} --strip-components=1",
-		Envs:         []string{},
-		BinPath:      "$HOME/jmeter/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
-	installInfoPreset["jMeter-5.4.3"] = &commonmodels.Install{
-		ObjectIDHex:  "63722795351717b8ad70dd06",
-		Name:         "jMeter",
-		Version:      "5.4.3",
-		DownloadPath: "http://resource.koderover.com/apache-jmeter-5.4.3.tgz",
-		Scripts:      "sudo apt-get update\nsudo apt install software-properties-common -y\nmkdir -p $HOME/jmeter\ntar -C $HOME/jmeter -xzf ${FILEPATH} --strip-components=1",
-		Envs:         []string{},
-		BinPath:      "$HOME/jmeter/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
 	installInfoPreset["jMeter-5.5"] = &commonmodels.Install{
-		ObjectIDHex:  "63722795351717b8ad70dd07",
-		Name:         "jMeter",
-		Version:      "5.5",
-		DownloadPath: "http://resource.koderover.com/apache-jmeter-5.5.tgz",
-		Scripts:      "sudo apt-get update\nsudo apt install software-properties-common -y\nmkdir -p $HOME/jmeter\ntar -C $HOME/jmeter -xzf ${FILEPATH} --strip-components=1",
-		Envs:         []string{},
-		BinPath:      "$HOME/jmeter/bin",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
+		ObjectIDHex: "63722795351717b8ad70dd07",
+		Name:        "jMeter",
+		Version:     "5.5",
+		Scripts:     "mkdir -p $HOME/jmeter\nwget -q https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.5.tgz -P $HOME/tmp\ntar -C $HOME/jmeter -xzf $HOME/tmp/apache-jmeter-5.5.tgz --strip-components=1",
+		Envs:        []string{},
+		BinPath:     "$HOME/jmeter/bin",
+		Enabled:     true,
+		UpdateBy:    setting.SystemUser,
 	}
 
 	installInfoPreset["maven-3.3.9"] = &commonmodels.Install{
 		ObjectIDHex:  "5d11afca6bf097c0ea64bbc0",
 		Name:         "maven",
 		Version:      "3.3.9",
-		DownloadPath: "http://resource.koderover.com/apache-maven-3.3.9-bin.tar.gz",
+		DownloadPath: "https://archive.apache.org/dist/maven/maven-3/3.3.9/binaries/apache-maven-3.3.9-bin.tar.gz",
 		Scripts:      "mkdir -p $HOME/maven\ntar -C $HOME/maven -xzf ${FILEPATH} --strip-components=1\n\n# customize .m2 dir\nexport M2_HOME=$HOME/maven\nmkdir -p $WORKSPACE/.m2/repository\ncat >$HOME/maven/conf/settings.xml <<EOF\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<settings xmlns=\"http://maven.apache.org/SETTINGS/1.0.0\"\n          xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n          xsi:schemaLocation=\"http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd\">\n  <localRepository>$WORKSPACE/.m2/repository</localRepository>\n  <pluginGroups/>\n  <servers/>\n  <mirrors>\n    <mirror>\n      <id>repo1</id>\n      <mirrorOf>central</mirrorOf>\n      <name>repo1</name>\n      <url>http://repo1.maven.org/maven2</url>\n    </mirror>\n  </mirrors> \n  <profiles/>\n</settings>\nEOF",
 		Envs:         []string{},
 		BinPath:      "$HOME/maven/bin",
@@ -489,7 +371,7 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex:  "63722795351717b8ad70dd12",
 		Name:         "maven",
 		Version:      "3.8.6",
-		DownloadPath: "http://resource.koderover.com/apache-maven-3.8.6-bin.tar.gz",
+		DownloadPath: "https://archive.apache.org/dist/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz",
 		Scripts:      "mkdir -p $HOME/maven\ntar -C $HOME/maven -xzf ${FILEPATH} --strip-components=1\n\n# customize .m2 dir\nexport M2_HOME=$HOME/maven\nmkdir -p $WORKSPACE/.m2/repository\ncat >$HOME/maven/conf/settings.xml <<EOF\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<settings xmlns=\"http://maven.apache.org/SETTINGS/1.0.0\"\n          xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n          xsi:schemaLocation=\"http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd\">\n  <localRepository>$WORKSPACE/.m2/repository</localRepository>\n  <pluginGroups/>\n  <servers/>\n  <mirrors>\n    <mirror>\n      <id>repo1</id>\n      <mirrorOf>central</mirrorOf>\n      <name>repo1</name>\n      <url>http://repo1.maven.org/maven2</url>\n    </mirror>\n  </mirrors> \n  <profiles/>\n</settings>\nEOF",
 		Envs:         []string{},
 		BinPath:      "$HOME/maven/bin",
@@ -541,48 +423,48 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		UpdateBy:    setting.SystemUser,
 	}
 
-	installInfoPreset["node-8.11.4"] = &commonmodels.Install{
+	installInfoPreset["node-12.22.12"] = &commonmodels.Install{
 		ObjectIDHex:  "5d11afca6bf097c0ea64bbcd",
 		Name:         "node",
-		Version:      "8.11.4",
-		DownloadPath: "http://resource.koderover.com/node-v8.11.4-linux-x64.tar.gz",
-		Scripts:      "sudo apt-get update\nsudo apt install software-properties-common -y\nmkdir -p $HOME/node \ntar -C $HOME/node -xzf ${FILEPATH} --strip-components=1 \nnpm config --global set registry https://registry.npm.taobao.org",
+		Version:      "12.22.12",
+		DownloadPath: "https://nodejs.org/dist/v12.22.12/node-v12.22.12-linux-x64.tar.xz",
+		Scripts:      "mkdir -p $HOME/node \ntar -C $HOME/node -xJf ${FILEPATH} --strip-components=1 \nnpm config --global set registry https://registry.npm.taobao.org",
 		Envs:         []string{},
 		BinPath:      "$HOME/node/bin",
 		Enabled:      true,
 		UpdateBy:     setting.SystemUser,
 	}
 
-	installInfoPreset["node-8.15.0"] = &commonmodels.Install{
+	installInfoPreset["node-14.21.3"] = &commonmodels.Install{
 		ObjectIDHex:  "5cc429a2f92295138e2d8966",
 		Name:         "node",
-		Version:      "8.15.0",
-		DownloadPath: "http://resource.koderover.com/node-v8.15.0-linux-x64.tar.gz",
-		Scripts:      "sudo apt-get update\nsudo apt install software-properties-common -y\nmkdir -p $HOME/node \ntar -C $HOME/node -xzf ${FILEPATH} --strip-components=1 \nnpm config --global set registry https://registry.npm.taobao.org",
+		Version:      "14.21.3",
+		DownloadPath: "https://nodejs.org/dist/v14.21.3/node-v14.21.3-linux-x64.tar.xz",
+		Scripts:      "mkdir -p $HOME/node \ntar -C $HOME/node -xJf ${FILEPATH} --strip-components=1 \nnpm config --global set registry https://registry.npm.taobao.org",
 		Envs:         []string{},
 		BinPath:      "$HOME/node/bin",
 		Enabled:      true,
 		UpdateBy:     setting.SystemUser,
 	}
 
-	installInfoPreset["node-16.18.1"] = &commonmodels.Install{
+	installInfoPreset["node-16.20.2"] = &commonmodels.Install{
 		ObjectIDHex:  "63722795351717b8ad70dd08",
 		Name:         "node",
-		Version:      "16.18.1",
-		DownloadPath: "http://resource.koderover.com/node-v16.18.1-linux-x64.tar.gz",
-		Scripts:      "sudo apt-get update\nsudo apt install software-properties-common -y\nmkdir -p $HOME/node \ntar -C $HOME/node -xzf ${FILEPATH} --strip-components=1 \nnpm config --global set registry https://registry.npm.taobao.org",
+		Version:      "16.20.2",
+		DownloadPath: "https://nodejs.org/download/release/v16.20.2/node-v16.20.2-linux-x64.tar.xz",
+		Scripts:      "mkdir -p $HOME/node \ntar -C $HOME/node -xJf ${FILEPATH} --strip-components=1 \nnpm config --global set registry https://registry.npm.taobao.org",
 		Envs:         []string{},
 		BinPath:      "$HOME/node/bin",
 		Enabled:      true,
 		UpdateBy:     setting.SystemUser,
 	}
 
-	installInfoPreset["node-18.12.1"] = &commonmodels.Install{
+	installInfoPreset["node-18.17.1"] = &commonmodels.Install{
 		ObjectIDHex:  "63722795351717b8ad70dd09",
 		Name:         "node",
-		Version:      "18.12.1",
-		DownloadPath: "http://resource.koderover.com/node-v18.12.1-linux-x64.tar.gz",
-		Scripts:      "sudo apt-get update\nsudo apt install software-properties-common -y\nmkdir -p $HOME/node \ntar -C $HOME/node -xzf ${FILEPATH} --strip-components=1 \nnpm config --global set registry https://registry.npm.taobao.org",
+		Version:      "18.17.1",
+		DownloadPath: "https://nodejs.org/dist/v18.17.1/node-v18.17.1-linux-x64.tar.xz",
+		Scripts:      "mkdir -p $HOME/node \ntar -C $HOME/node -xJf ${FILEPATH} --strip-components=1 \nnpm config --global set registry https://registry.npm.taobao.org",
 		Envs:         []string{},
 		BinPath:      "$HOME/node/bin",
 		Enabled:      true,
@@ -593,71 +475,22 @@ func InitInstallMap() map[string]*commonmodels.Install {
 		ObjectIDHex: "5d11afca6bf097c0ea64bbba",
 		Name:        "bower",
 		Version:     "latest",
-		Scripts:     "sudo apt-get update\nsudo apt install npm -y\nnpm install -g bower",
+		Scripts:     "sudo apt-get update\nsudo apt install npm -y --no-install-recommends\nnpm install -g bower",
 		Envs:        []string{},
 		BinPath:     "",
 		Enabled:     true,
 		UpdateBy:    setting.SystemUser,
 	}
 
-	installInfoPreset["ginkgo-1.6.0"] = &commonmodels.Install{
-		ObjectIDHex:  "5d11afca6bf097c0ea64bbce",
-		Name:         "ginkgo",
-		Version:      "1.6.0",
-		DownloadPath: "http://resource.koderover.com/ginkgo-v1.6.0-Linux.tar.gz",
-		Scripts:      "mkdir -p $HOME/ginkgo\ntar -C $HOME/ginkgo -xzf ${FILEPATH}\nchmod +x $HOME/ginkgo/ginkgo",
-		Envs:         []string{},
-		BinPath:      "$HOME/ginkgo",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
-	installInfoPreset["ginkgo-2.2.0"] = &commonmodels.Install{
-		ObjectIDHex:  "63722795351717b8ad70dd05",
-		Name:         "ginkgo",
-		Version:      "2.2.0",
-		DownloadPath: "http://resource.koderover.com/ginkgo-v2.2.0-Linux.tar.gz",
-		Scripts:      "mkdir -p $HOME/ginkgo\ntar -C $HOME/ginkgo -xzf ${FILEPATH}\nchmod +x $HOME/ginkgo/ginkgo",
-		Envs:         []string{},
-		BinPath:      "$HOME/ginkgo",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
-	installInfoPreset["ginkgo-2.3.1"] = &commonmodels.Install{
-		ObjectIDHex:  "63722795351717b8ad70dd17",
-		Name:         "ginkgo",
-		Version:      "2.3.1",
-		DownloadPath: "http://resource.koderover.com/ginkgo-v2.3.1-Linux.tar.gz",
-		Scripts:      "mkdir -p $HOME/ginkgo\ntar -C $HOME/ginkgo -xzf ${FILEPATH}\nchmod +x $HOME/ginkgo/ginkgo",
-		Envs:         []string{},
-		BinPath:      "$HOME/ginkgo",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
-	installInfoPreset["ginkgo-2.4.0"] = &commonmodels.Install{
-		ObjectIDHex:  "63722795351717b8ad70dd18",
-		Name:         "ginkgo",
-		Version:      "2.4.0",
-		DownloadPath: "http://resource.koderover.com/ginkgo-v2.4.0-Linux.tar.gz",
-		Scripts:      "mkdir -p $HOME/ginkgo\ntar -C $HOME/ginkgo -xzf ${FILEPATH}\nchmod +x $HOME/ginkgo/ginkgo",
-		Envs:         []string{},
-		BinPath:      "$HOME/ginkgo",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
-	}
-
 	installInfoPreset["ginkgo-2.5.0"] = &commonmodels.Install{
-		ObjectIDHex:  "63722795351717b8ad70dd19",
-		Name:         "ginkgo",
-		Version:      "2.5.0",
-		DownloadPath: "http://resource.koderover.com/ginkgo-v2.5.0-Linux.tar.gz",
-		Scripts:      "mkdir -p $HOME/ginkgo\ntar -C $HOME/ginkgo -xzf ${FILEPATH}\nchmod +x $HOME/ginkgo/ginkgo",
-		Envs:         []string{},
-		BinPath:      "$HOME/ginkgo",
-		Enabled:      true,
-		UpdateBy:     setting.SystemUser,
+		ObjectIDHex: "63722795351717b8ad70dd19",
+		Name:        "ginkgo",
+		Version:     "2.5.0",
+		Scripts:     "go env -w GOPROXY=https://goproxy.cn,direct\ngo install github.com/onsi/ginkgo/v2/ginkgo@v2.5.0",
+		Envs:        []string{},
+		BinPath:     "$HOME/ginkgo",
+		Enabled:     true,
+		UpdateBy:    setting.SystemUser,
 	}
 
 	return installInfoPreset
