@@ -2797,6 +2797,19 @@ func EnvSleep(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", false, ctx.Logger)
 }
 
@@ -2837,6 +2850,19 @@ func ProductionEnvSleep(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", true, ctx.Logger)
 }
 
@@ -2870,6 +2896,19 @@ func GetEnvSleepCron(c *gin.Context) {
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, boolptr.False(), ctx.Logger)
@@ -2907,6 +2946,19 @@ func GetProductionEnvSleepCron(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, boolptr.True(), ctx.Logger)
 }
 
@@ -2941,6 +2993,19 @@ func UpsertEnvSleepCron(c *gin.Context) {
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
 		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	data, err := c.GetRawData()
@@ -3005,6 +3070,19 @@ func UpsertProductionEnvSleepCron(c *gin.Context) {
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = service.UpsertEnvSleepCron(projectName, envName, boolptr.True(), arg, ctx.Logger)
