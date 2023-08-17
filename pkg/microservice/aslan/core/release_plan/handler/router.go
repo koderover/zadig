@@ -23,6 +23,10 @@ type Router struct{}
 func (*Router) Inject(router *gin.RouterGroup) {
 	v1 := router.Group("v1")
 	{
-		v1.GET("/")
+		v1.GET("", ListReleasePlans)
+		v1.POST("", CreateReleasePlan)
+		v1.GET("/:id", GetReleasePlan)
+		v1.PUT("/:id", UpdateReleasePlan)
+		v1.DELETE("/:id", DeleteReleasePlan)
 	}
 }

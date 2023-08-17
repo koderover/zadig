@@ -24,7 +24,7 @@ import (
 
 type ReleasePlan struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
-	Index     int                `bson:"index"       yaml:"index"                   json:"index"`
+	Index     int64              `bson:"index"       yaml:"index"                   json:"index"`
 	Name      string             `bson:"name"       yaml:"name"                   json:"name"`
 	Principal string             `bson:"principal"       yaml:"principal"                   json:"principal"`
 	// PrincipalID is the user id of the principal
@@ -39,23 +39,46 @@ type ReleasePlan struct {
 
 	Approval *Approval `bson:"approval"       yaml:"approval"                   json:"approval"`
 
+	Jobs []*ReleaseJob `bson:"jobs"       yaml:"jobs"                   json:"jobs"`
+
+	Logs   []*ReleasePlanLog        `bson:"logs"       yaml:"logs"                   json:"logs"`
 	Status config.ReleasePlanStatus `bson:"status"       yaml:"status"                   json:"status"`
 }
 
+func (ReleasePlan) TableName() string {
+	return "release_plan"
+}
+
 type ReleaseJob struct {
+	UUID   string        `bson:"uuid"       yaml:"uuid"                   json:"uuid"`
 	Name   string        `bson:"name"       yaml:"name"                   json:"name"`
 	Type   string        `bson:"type"       yaml:"type"                   json:"type"`
-	Status config.Status `bson:"status"       yaml:"status"                   json:"status"`
+	Status config.Status `bson:"status"     yaml:"status"                 json:"status"`
 	Spec   interface{}   `bson:"spec"       yaml:"spec"                   json:"spec"`
+
+	// ReleasePlan can return to PlanningStatus when some release jobs have been executed
+	// So we need to record the last status of the release job
+	LastStatus config.Status `bson:"last_status"       yaml:"last_status"                   json:"last_status"`
+	// Updated is used to indicate whether the release job has been updated
+	Updated bool `bson:"updated"       yaml:"updated"                   json:"updated"`
 }
 
 type TextReleaseJobSpec struct {
-	Content string `bson:"content"       yaml:"content"                   json:"content"`
-	Remark  string `bson:"remark"       yaml:"remark"                   json:"remark"`
+	Content       string `bson:"content"       yaml:"content"                   json:"content"`
+	ReleaseRemark string `bson:"remark"       yaml:"remark"                   json:"remark"`
 }
 
 type WorkflowReleaseJobSpec struct {
-	ProjectName  string      `bson:"project_name"       yaml:"project_name"                   json:"project_name"`
-	WorkflowName string      `bson:"workflow_name"       yaml:"workflow_name"                   json:"workflow_name"`
-	Workflow     *WorkflowV4 `bson:"workflow"       yaml:"workflow"                   json:"workflow"`
+	//ProjectName  string      `bson:"project_name"       yaml:"project_name"                   json:"project_name"`
+	//WorkflowName string      `bson:"workflow_name"       yaml:"workflow_name"                   json:"workflow_name"`
+	Workflow *WorkflowV4 `bson:"workflow"       yaml:"workflow"                   json:"workflow"`
+}
+
+type ReleasePlanLog struct {
+	Username  string      `bson:"username"                    json:"username"`
+	Action    string      `bson:"action"                      json:"action"`
+	Target    string      `bson:"target"                      json:"target"`
+	Before    interface{} `bson:"before"                      json:"before"`
+	After     interface{} `bson:"after"                       json:"after"`
+	CreatedAt int64       `bson:"created_at"                  json:"created_at"`
 }

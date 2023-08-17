@@ -368,6 +368,7 @@ const (
 	TestTaskFmt       = "TestTask:%s"
 	ServiceTaskFmt    = "ServiceTask:%s"
 	ScanningTaskFmt   = "ScanningTask:%s"
+	ReleasePlanFmt    = "ReleasePlan"
 )
 
 // Product Status

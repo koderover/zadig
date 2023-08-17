@@ -24,12 +24,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/koderover/zadig/pkg/shared/client/user"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -231,6 +232,7 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
 		return workflow, err
 	}
+	clearWorkflowV4Triggers(workflow)
 	return workflow, nil
 }
 

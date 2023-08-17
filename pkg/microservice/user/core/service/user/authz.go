@@ -19,12 +19,13 @@ package user
 import (
 	"fmt"
 
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResources, error) {
@@ -613,5 +614,13 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.DataCenter.ViewInsight = true
 	case VerbEditDataCenterInsightConfig:
 		systemActions.DataCenter.EditInsightConfig = true
+	case VerbCreateReleasePlan:
+		systemActions.ReleasePlan.Create = true
+	case VerbEditReleasePlan:
+		systemActions.ReleasePlan.Edit = true
+	case VerbDeleteReleasePlan:
+		systemActions.ReleasePlan.Delete = true
+	case VerbGetReleasePlan:
+		systemActions.ReleasePlan.View = true
 	}
 }
