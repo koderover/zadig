@@ -2797,6 +2797,12 @@ func EnvSleep(c *gin.Context) {
 		return
 	}
 
+	method := "睡眠"
+	if action != "enable" {
+		method = "唤醒"
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, method, "环境", envName, "", ctx.Logger, envName)
+
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
 			ctx.UnAuthorized = true
@@ -2849,6 +2855,12 @@ func ProductionEnvSleep(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("action can't be empty!")
 		return
 	}
+
+	method := "睡眠"
+	if action != "enable" {
+		method = "唤醒"
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, method, "生产环境", envName, "", ctx.Logger, envName)
 
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
@@ -3013,7 +3025,7 @@ func UpsertEnvSleepCron(c *gin.Context) {
 		log.Errorf("UpsertEnvSleepCron c.GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境睡眠-cron", envName, string(data), ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "环境定时睡眠与唤醒", envName, string(data), ctx.Logger, envName)
 
 	arg := new(service.EnvSleepCronArg)
 	err = c.BindJSON(arg)
@@ -3063,7 +3075,7 @@ func UpsertProductionEnvSleepCron(c *gin.Context) {
 		log.Errorf("UpsertEnvSleepCron c.GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境睡眠-cron", envName, string(data), ctx.Logger)
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "生产环境定时睡眠与唤醒", envName, string(data), ctx.Logger, envName)
 
 	arg := new(service.EnvSleepCronArg)
 	err = c.BindJSON(arg)

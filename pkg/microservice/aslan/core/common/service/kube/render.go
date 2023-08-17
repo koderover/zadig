@@ -607,6 +607,10 @@ func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet
 		return "", err
 	}
 
+	return RenderEnvServiceWithTempl(prod, render, service, svcTmpl)
+}
+
+func RenderEnvServiceWithTempl(prod *commonmodels.Product, render *commonmodels.RenderSet, service *commonmodels.ProductService, svcTmpl *commonmodels.Service) (yaml string, err error) {
 	// Note only the keys in TemplateService.ServiceVar can work
 	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render)
 	if err != nil {

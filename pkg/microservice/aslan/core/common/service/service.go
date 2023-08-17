@@ -1384,6 +1384,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 	namespace := env.Namespace
 	switch env.Source {
 	case setting.SourceFromExternal, setting.SourceFromHelm:
+		// helm and external
 		if env.Source == setting.SourceFromExternal {
 			svcOpt := &commonrepo.ServiceFindOption{ProductName: productName, ServiceName: serviceName, Type: setting.K8SDeployType}
 			modelSvc, err := commonrepo.NewServiceColl().Find(svcOpt)
@@ -1439,6 +1440,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found, unknow type", serviceName))
 		}
 	default:
+		// k8s
 		service := env.GetServiceMap()[serviceName]
 		if service == nil {
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find service in environment: %s", envName))

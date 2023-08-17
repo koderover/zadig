@@ -4523,53 +4523,81 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 		}
 	}
 
-	svcs, err := commonutil.GetProductUsedTemplateSvcs(prod)
-	if err != nil {
-		wrapErr := fmt.Errorf("failed to get product used template services, err: %s", err)
-		log.Error(wrapErr)
-		return e.ErrEnvSleep.AddErr(wrapErr)
-	}
-	for _, svc := range svcs {
-		if templateProduct.IsK8sYamlProduct() {
-			svcImpl, err := commonservice.GetServiceImpl(svc.ServiceName, svc, "", prod, clientset, informer, log)
-			if err != nil {
-				wrapErr := fmt.Errorf("failed to get service impl %s, err: %s", svc.ServiceName, err)
+	if templateProduct.IsK8sYamlProduct() {
+		renderSetFindOpt := &commonrepo.RenderSetFindOption{
+			Name:        prod.Render.Name,
+			Revision:    prod.Render.Revision,
+			ProductTmpl: prod.ProductName,
+			EnvName:     envName,
+		}
+		rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
+		if err != nil {
+			wrapErr := fmt.Errorf("failed to find render set %s:%d, err: %s", prod.Render.Name, prod.Render.Revision, err)
+			return e.ErrEnvSleep.AddErr(wrapErr)
+		}
+
+		prodSvcMap := prod.GetServiceMap()
+		svcs, err := commonutil.GetProductUsedTemplateSvcs(prod)
+		if err != nil {
+			wrapErr := fmt.Errorf("failed to get product used template services, err: %s", err)
+			log.Error(wrapErr)
+			return e.ErrEnvSleep.AddErr(wrapErr)
+		}
+		for _, svc := range svcs {
+			prodSvc := prodSvcMap[svc.ServiceName]
+			if prodSvc == nil {
+				wrapErr := fmt.Errorf("service %s not found in product %s(%s)", svc.ServiceName, prod.ProductName, envName)
 				log.Error(wrapErr)
 				return e.ErrEnvSleep.AddErr(wrapErr)
 			}
-			for _, scale := range svcImpl.Scales {
-				newScaleNumMap[scale.Name] = int(scale.Replicas)
-				if workLoad, ok := scaleMap[scale.Name]; ok {
-					workLoad.ServiceName = svc.ServiceName
-				}
-			}
-			for _, cronjob := range svcImpl.CronJobs {
-				if workLoad, ok := cronjobMap[cronjob.Name]; ok {
-					workLoad.ServiceName = svc.ServiceName
-				}
-			}
-		} else if templateProduct.IsHelmProduct() && isEnable {
-			var svcImpl *commonservice.SvcResp
-			for _, workloadType := range []string{setting.Deployment, setting.StatefulSet} {
-				svcImpl, err = commonservice.GetServiceImpl(svc.ServiceName, svc, workloadType, prod, clientset, informer, log)
-				if err == nil && svcImpl != nil {
-					break
-				}
-			}
+
+			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, rs, prodSvc, svc)
 			if err != nil {
-				wrapErr := fmt.Errorf("failed to get service impl %s, err: %s", svc.ServiceName, err)
-				log.Error(wrapErr)
-				return e.ErrEnvSleep.AddErr(wrapErr)
+				return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to render service %s, err: %s", svc.ServiceName, err))
 			}
-			for _, scale := range svcImpl.Scales {
-				newScaleNumMap[scale.Name] = int(scale.Replicas)
-				if workLoad, ok := scaleMap[scale.Name]; ok {
-					workLoad.ServiceName = svc.ServiceName
+
+			manifests := releaseutil.SplitManifests(parsedYaml)
+			for _, item := range manifests {
+				u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+				if err != nil {
+					log.Warnf("Failed to decode yaml to Unstructured, err: %s", err)
+					continue
+				}
+
+				switch u.GetKind() {
+				case setting.Deployment, setting.StatefulSet:
+					if workLoad, ok := scaleMap[u.GetName()]; ok {
+						workLoad.ServiceName = svc.ServiceName
+						workLoad.DeployedFromZadig = true
+					}
+				case setting.CronJob:
+					if workLoad, ok := cronjobMap[u.GetName()]; ok {
+						workLoad.ServiceName = svc.ServiceName
+						workLoad.DeployedFromZadig = true
+					}
 				}
 			}
-			for _, cronjob := range svcImpl.CronJobs {
-				if workLoad, ok := cronjobMap[cronjob.Name]; ok {
-					workLoad.ServiceName = svc.ServiceName
+		}
+	} else if templateProduct.IsHelmProduct() {
+		svcToReleaseNameMap, err := commonutil.GetServiceNameToReleaseNameMap(prod)
+		if err != nil {
+			err = fmt.Errorf("failed to build release-service map: %s", err)
+			log.Error(err)
+			return e.ErrEnvSleep.AddErr(err)
+		}
+		for _, svcGroup := range prod.Services {
+			for _, svc := range svcGroup {
+				releaseName := svcToReleaseNameMap[svc.ServiceName]
+				if !svc.FromZadig() {
+					releaseName = svc.ReleaseName
+				}
+				for _, workload := range workLoads {
+					if workload.ReleaseName == releaseName {
+						if workload.Type != setting.CronJob {
+							newScaleNumMap[workload.Name] = int(workload.Replicas)
+						}
+					}
+					workload.DeployedFromZadig = true
 				}
 			}
 		}
@@ -4607,7 +4635,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 	}
 
 	for _, workload := range workLoads {
-		if workload.ServiceName == "" {
+		if !workload.DeployedFromZadig {
 			continue
 		}
 
