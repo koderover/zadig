@@ -38,6 +38,7 @@ type WorkflowTemplateQueryOption struct {
 }
 
 type WorkflowTemplateListOption struct {
+	CreatedBy      string
 	Category       string
 	ExcludeBuildIn bool
 }
@@ -124,8 +125,10 @@ func (c *WorkflowV4TemplateColl) Find(opt *WorkflowTemplateQueryOption) (*models
 
 func (c *WorkflowV4TemplateColl) List(option *WorkflowTemplateListOption) ([]*models.WorkflowV4Template, error) {
 	resp := make([]*models.WorkflowV4Template, 0)
-
 	query := bson.M{}
+	if option.CreatedBy != "" {
+		query["create_by"] = option.CreatedBy
+	}
 	if option.Category != "" {
 		query["category"] = option.Category
 	}
