@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -40,6 +41,7 @@ type ProjectListOptions struct {
 	PageSize         int64
 	PageNum          int64
 	Filter           string
+	ViewName         string
 }
 type ProjectDetailedResponse struct {
 	ProjectDetailedRepresentation []*ProjectDetailedRepresentation `json:"projects"`
@@ -72,6 +74,21 @@ type ProjectMinimalRepresentation struct {
 }
 
 func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interface{}, error) {
+	if opts.ViewName != "" {
+		opts.Names = make([]string, 0)
+		view, err := mongodb.NewProjectViewColl().Find(mongodb.ProjectViewOpts{Name: opts.ViewName})
+		if err != nil && (err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument) {
+			logger.Errorf("Failed to list projects, err: %s", err)
+			return nil, err
+		}
+
+		if view != nil && view.Projects != nil {
+			for _, project := range view.Projects {
+				opts.Names = append(opts.Names, project.ProjectKey)
+			}
+		}
+	}
+
 	switch opts.Verbosity {
 	case VerbosityDetailed:
 		return listDetailedProjectInfos(opts, logger)

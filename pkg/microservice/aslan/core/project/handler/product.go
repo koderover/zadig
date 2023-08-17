@@ -19,6 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -752,4 +753,140 @@ func GetProductionGlobalVariableCandidates(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = projectservice.GetGlobalVariableCandidates(c.Param("name"), true, ctx.Logger)
+}
+
+func CreateProjectView(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Project.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(projectservice.ProjectViewArgs)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Logger.Errorf("failed to get raw data from request, error: %v", err)
+		ctx.Err = e.ErrCreateProjectView.AddDesc(err.Error())
+		return
+	}
+
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Logger.Errorf("failed to unmarshal data, error: %v", err)
+		ctx.Err = e.ErrCreateProjectView.AddDesc(err.Error())
+		return
+	}
+	if err := args.Validate(); err != nil {
+		ctx.Err = e.ErrCreateProjectView.AddErr(err)
+		return
+	}
+
+	ctx.Err = projectservice.CreateProjectView(args, ctx.UserName, ctx.Logger)
+}
+
+func UpdateProjectView(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Project.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(projectservice.ProjectViewArgs)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Logger.Errorf("failed to get raw data from request, error: %v", err)
+		ctx.Err = e.ErrUpdateProjectView.AddDesc(err.Error())
+		return
+	}
+
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Logger.Errorf("failed to unmarshal data, error: %v", err)
+		ctx.Err = e.ErrUpdateProjectView.AddDesc(err.Error())
+		return
+	}
+	if err := args.Validate(); err != nil {
+		ctx.Err = e.ErrUpdateProjectView.AddErr(err)
+		return
+	}
+
+	ctx.Err = projectservice.UpdateProjectView(args, ctx.UserName, ctx.Logger)
+}
+
+func DeleteProjectView(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Project.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	viewName := c.Query("viewName")
+	if viewName == "" {
+		ctx.Err = e.ErrDeleteProjectView.AddErr(errors.New("view name is empty"))
+		return
+	}
+
+	ctx.Err = projectservice.DeleteProjectView(viewName, ctx.Logger)
+}
+
+func ListProjectViews(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.ListProjectViewNames()
+}
+
+func GetPresetProjectView(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.GetProjectViewRelation(c.Query("viewName"), ctx.Logger)
 }

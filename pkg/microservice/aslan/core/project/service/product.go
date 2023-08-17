@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -139,6 +140,15 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	if err != nil {
 		log.Errorf("ProductTmpl.Create error: %v", err)
 		return e.ErrCreateProduct.AddDesc(err.Error())
+	}
+
+	// add project to current project view
+	if args.ViewName != "" {
+		err = AddProject2CurrentView(args.ViewName, args.ProductName, args.ProjectName, args.UpdateBy, args.ProductFeature.DeployType)
+		if err != nil {
+			log.Errorf("failed to add project to current view, error: %v", err)
+			return e.ErrCreateProduct.AddErr(fmt.Errorf("create project successfully, but failed to add project to current view, please add the project %s to view %s manually, error: %v", args.ProductName, args.ViewName, err))
+		}
 	}
 	return
 }
@@ -1253,4 +1263,185 @@ func GetGlobalVariableCandidates(productName string, production bool, log *zap.S
 	}
 
 	return ret, nil
+}
+
+func CreateProjectView(args *ProjectViewArgs, user string, logger *zap.SugaredLogger) error {
+	projects, err := templaterepo.NewProductColl().List()
+	if err != nil {
+		errMsg := fmt.Errorf("failed to list projects, error: %v", err)
+		logger.Errorf(errMsg.Error())
+		return e.ErrCreateProjectView.AddErr(errMsg)
+	}
+
+	pm := make(map[string]*template.Product)
+	for _, project := range projects {
+		pm[project.ProductName] = project
+	}
+
+	view := &commonmodels.ProjectView{
+		Name:        args.ViewName,
+		CreatedTime: time.Now().Unix(),
+		UpdateTime:  time.Now().Unix(),
+		CreatedBy:   user,
+		UpdateBy:    user,
+		Projects:    make([]*commonmodels.ProjectDetail, 0),
+	}
+	for _, project := range args.ProjectKeys {
+		if p, ok := pm[project]; ok {
+			view.Projects = append(view.Projects, &commonmodels.ProjectDetail{
+				ProjectKey:        p.ProductName,
+				ProjectName:       p.ProjectName,
+				ProjectDeployType: p.ProductFeature.DeployType,
+			})
+		} else {
+			return e.ErrCreateProjectView.AddErr(fmt.Errorf("project Key %s not in current project list", project))
+		}
+	}
+
+	if err := commonrepo.NewProjectViewColl().Create(view); err != nil {
+		errMsg := fmt.Errorf("failed to create project view, error: %v", err)
+		logger.Errorf(errMsg.Error())
+		return e.ErrCreateProjectView.AddErr(errMsg)
+	}
+	return nil
+}
+
+func UpdateProjectView(args *ProjectViewArgs, user string, logger *zap.SugaredLogger) error {
+	if args.ViewID == "" {
+		return e.ErrUpdateProjectView.AddDesc("view id can not be empty")
+	}
+	projects, err := templaterepo.NewProductColl().List()
+	if err != nil {
+		errMsg := fmt.Errorf("failed to list projects, error: %v", err)
+		logger.Errorf(errMsg.Error())
+		return e.ErrUpdateProjectView.AddErr(errMsg)
+	}
+
+	pm := make(map[string]*template.Product)
+	for _, project := range projects {
+		pm[project.ProductName] = project
+	}
+	view := &commonmodels.ProjectView{
+		Name:       args.ViewName,
+		UpdateTime: time.Now().Unix(),
+		UpdateBy:   user,
+		Projects:   make([]*commonmodels.ProjectDetail, 0),
+	}
+	for _, project := range args.ProjectKeys {
+		if p, ok := pm[project]; ok {
+			view.Projects = append(view.Projects, &commonmodels.ProjectDetail{
+				ProjectKey:        p.ProductName,
+				ProjectName:       p.ProjectName,
+				ProjectDeployType: p.ProductFeature.DeployType,
+			})
+		} else {
+			return e.ErrUpdateProjectView.AddErr(fmt.Errorf("project Key %s not in current project list", project))
+		}
+	}
+
+	oldView, err := commonrepo.NewProjectViewColl().Find(commonrepo.ProjectViewOpts{ID: args.ViewID})
+	if err != nil {
+		return e.ErrUpdateProjectView.AddErr(fmt.Errorf("failed to find project view %s, error: %v", args.ViewName, err))
+	}
+	view.ID = oldView.ID
+	view.CreatedTime = oldView.CreatedTime
+	view.CreatedBy = oldView.CreatedBy
+
+	if err := commonrepo.NewProjectViewColl().Update(view); err != nil {
+		errMsg := fmt.Errorf("failed to update project view, viewName:%s, error: %v", oldView.Name, err)
+		logger.Errorf(errMsg.Error())
+		return e.ErrUpdateProjectView.AddErr(errMsg)
+	}
+	return nil
+}
+
+func DeleteProjectView(name string, logger *zap.SugaredLogger) error {
+	if err := commonrepo.NewProjectViewColl().Delete(name); err != nil {
+		return e.ErrDeleteProjectView.AddErr(fmt.Errorf("failed to delete project view %s, error: %v", name, err))
+	}
+	return nil
+}
+
+func ListProjectViewNames() ([]string, error) {
+	views, err := commonrepo.NewProjectViewColl().ListViewNames()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list project views, error: %v", err)
+	}
+
+	return views, nil
+}
+
+func GetProjectViewRelation(name string, logger *zap.SugaredLogger) (resp *ProjectViewPreset, err error) {
+	var view *commonmodels.ProjectView
+	if name != "" {
+		view, err = commonrepo.NewProjectViewColl().Find(commonrepo.ProjectViewOpts{Name: name})
+		if err != nil {
+			return nil, fmt.Errorf("failed to find project view %s, error: %v", name, err)
+		}
+	}
+
+	resp = &ProjectViewPreset{
+		Projects: make([]*ProjectViewRelation, 0),
+	}
+	if view != nil {
+		resp.ViewName = view.Name
+		resp.ViewID = view.ID.Hex()
+	}
+
+	keys := make(map[string]struct{}, 0)
+	if view != nil {
+		for _, project := range view.Projects {
+			keys[project.ProjectKey] = struct{}{}
+		}
+	}
+
+	projects, err := templaterepo.NewProductColl().List()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list projects, error: %v", err)
+	}
+
+	for _, project := range projects {
+		if _, ok := keys[project.ProductName]; ok {
+			resp.Projects = append(resp.Projects, &ProjectViewRelation{
+				ProjectKey:  project.ProductName,
+				ProjectName: project.ProjectName,
+				DeployType:  project.ProductFeature.DeployType,
+				Enabled:     true,
+			})
+		} else {
+			resp.Projects = append(resp.Projects, &ProjectViewRelation{
+				ProjectKey:  project.ProductName,
+				ProjectName: project.ProjectName,
+				DeployType:  project.ProductFeature.DeployType,
+				Enabled:     false,
+			})
+		}
+	}
+	return resp, nil
+}
+
+func AddProject2CurrentView(viewName, projectKey, projectDisplayName, deployType, user string) error {
+	view, err := commonrepo.NewProjectViewColl().Find(commonrepo.ProjectViewOpts{Name: viewName})
+	if err != nil {
+		return fmt.Errorf("failed to find project view %s, error: %v", viewName, err)
+	}
+
+	for _, project := range view.Projects {
+		if project.ProjectKey == projectKey {
+			return nil
+		}
+	}
+
+	view.Projects = append(view.Projects, &commonmodels.ProjectDetail{
+		ProjectKey:        projectKey,
+		ProjectName:       projectDisplayName,
+		ProjectDeployType: deployType,
+	})
+	view.UpdateBy = user
+	view.UpdateTime = time.Now().Unix()
+
+	if err := commonrepo.NewProjectViewColl().Update(view); err != nil {
+		return fmt.Errorf("failed to update project view %s, error: %v", viewName, err)
+	}
+	return nil
 }

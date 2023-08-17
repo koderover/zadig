@@ -166,7 +166,10 @@ var (
 	// TODO: max error code reached, sharing error code with update env
 	ErrUpdateEnvConfigs = NewHTTPError(6076, "更新环境配置失败")
 	// TODO: max error code reached, sharing error code with update env
-	ErrEnvSleep = NewHTTPError(6076, "环境睡眠失败")
+	ErrEnvSleep          = NewHTTPError(6076, "环境睡眠失败")
+	ErrCreateProjectView = NewHTTPError(6077, "创建项目视图失败")
+	ErrUpdateProjectView = NewHTTPError(6077, "更新项目视图失败")
+	ErrDeleteProjectView = NewHTTPError(6077, "删除项目视图失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product Service APIs Range: 6080 - 6099 AND 6150 -6199
