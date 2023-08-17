@@ -582,18 +582,26 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodel
 		Images:      []string{},
 	}
 
+	svcResp, err := commonservice.GetServiceImpl(serviceTmpl.ServiceName, serviceTmpl, "", productInfo, clientset, informer, log)
+	if err != nil {
+		return resp
+	}
+
+	workloadImagesMap := make(map[string][]string)
+	for _, workload := range svcResp.Workloads {
+		workloadImagesMap[workload.Name] = workload.Images
+	}
+	if images, ok := workloadImagesMap[serviceTmpl.ServiceName]; ok {
+		resp.Images = images
+	}
+
+	resp.Ingress = svcResp.Ingress
+	resp.Workloads = svcResp.Workloads
 	if len(serviceTmpl.Containers) == 0 {
 		resp.PodStatus = setting.PodSucceeded
 		resp.Ready = setting.PodReady
 		return resp
 	}
-
-	svcResp, err := commonservice.GetServiceImpl(serviceTmpl.ServiceName, serviceTmpl, "", productInfo, clientset, informer, log)
-	if err != nil {
-		return resp
-	}
-	resp.Ingress = svcResp.Ingress
-	resp.Workloads = svcResp.Workloads
 
 	suspendCronJobCount := 0
 	for _, cronJob := range svcResp.CronJobs {

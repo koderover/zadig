@@ -715,7 +715,6 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 	return nil
 }
 
-// @note list workloads
 func ListWorkloads(envName, productName string, perPage, page int, informer informers.SharedInformerFactory, version *version.Info, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*Workload, error) {
 	var workLoads []*Workload
 	listDeployments, err := getter.ListDeploymentsWithCache(nil, informer)
@@ -875,7 +874,7 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 			selector := labels.SelectorFromSet(workload.Spec.Labels)
 			// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
 			// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
-			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
+			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, workload.Images, log)
 			productRespInfo.Ingress = &IngressInfo{
 				HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
 			}

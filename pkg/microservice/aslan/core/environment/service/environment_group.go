@@ -164,7 +164,6 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, pro
 			if err != nil {
 				return resp, count, e.ErrListGroups.AddErr(errors.Wrapf(err, "list zadigx %s release services", releaseType))
 			}
-			log.Debugf("%s release services num: %d", releaseType, len(releaseService))
 			for _, serviceResp := range releaseService {
 				if svc, ok := respMap[serviceResp.ServiceName]; !ok {
 					resp = append(resp, serviceResp)
