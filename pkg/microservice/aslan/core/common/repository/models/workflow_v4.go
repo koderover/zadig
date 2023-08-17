@@ -338,9 +338,9 @@ type ZadigDistributeImageJobSpec struct {
 	TargetRegistryID string              `bson:"target_registry_id"             json:"target_registry_id"            yaml:"target_registry_id"`
 	Targets          []*DistributeTarget `bson:"targets"                        json:"targets"                       yaml:"targets"`
 	// unit is minute.
-	Timeout   int64  `bson:"timeout"                        json:"timeout"                       yaml:"timeout"`
-	ClusterID string `bson:"cluster_id"                     json:"cluster_id"                    yaml:"cluster_id"`
-
+	Timeout                  int64  `bson:"timeout"                        json:"timeout"                       yaml:"timeout"`
+	ClusterID                string `bson:"cluster_id"                     json:"cluster_id"                    yaml:"cluster_id"`
+	StrategyID               string `bson:"strategy_id"                    json:"strategy_id"                   yaml:"strategy_id"`
 	EnableTargetImageTagRule bool   `bson:"enable_target_image_tag_rule" json:"enable_target_image_tag_rule" yaml:"enable_target_image_tag_rule"`
 	TargetImageTagRule       string `bson:"target_image_tag_rule"        json:"target_image_tag_rule"        yaml:"target_image_tag_rule"`
 }
@@ -568,12 +568,12 @@ type ApolloJobSpec struct {
 }
 
 type ApolloNamespace struct {
-	AppID      string      `bson:"appID" json:"appID" yaml:"appID"`
-	ClusterID  string      `bson:"clusterID" json:"clusterID" yaml:"clusterID"`
-	Env        string      `bson:"env" json:"env" yaml:"env"`
-	Namespace  string      `bson:"namespace" json:"namespace" yaml:"namespace"`
-	Type       string      `bson:"type" json:"type" yaml:"type"`
-	KeyValList []*ApolloKV `bson:"kv" json:"kv" yaml:"kv"`
+	AppID      string      `bson:"appID"             json:"appID"             yaml:"appID"`
+	ClusterID  string      `bson:"clusterID"         json:"clusterID"         yaml:"clusterID"`
+	Env        string      `bson:"env"               json:"env"               yaml:"env"`
+	Namespace  string      `bson:"namespace"         json:"namespace"         yaml:"namespace"`
+	Type       string      `bson:"type"              json:"type"              yaml:"type"`
+	KeyValList []*ApolloKV `bson:"kv"                json:"kv"                yaml:"kv"`
 }
 
 type MeegoTransitionJobSpec struct {
@@ -688,6 +688,7 @@ type JobProperties struct {
 	ResourceRequest setting.Request     `bson:"res_req"                json:"res_req"               yaml:"res_req"`
 	ResReqSpec      setting.RequestSpec `bson:"res_req_spec"           json:"res_req_spec"          yaml:"res_req_spec"`
 	ClusterID       string              `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
+	StrategyID      string              `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	BuildOS         string              `bson:"build_os"               json:"build_os"              yaml:"build_os,omitempty"`
 	ImageFrom       string              `bson:"image_from"             json:"image_from"            yaml:"image_from,omitempty"`
 	ImageID         string              `bson:"image_id"               json:"image_id"              yaml:"image_id,omitempty"`

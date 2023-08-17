@@ -733,9 +733,12 @@ const (
 
 // cluster dodeAffinity schedule type
 const (
-	NormalSchedule    = "normal"
-	RequiredSchedule  = "required"
-	PreferredSchedule = "preferred"
+	NormalScheduleName    = "随机调度"
+	NormalSchedule        = "normal"
+	RequiredScheduleName  = "强制调度"
+	RequiredSchedule      = "required"
+	PreferredScheduleName = "优先调度"
+	PreferredSchedule     = "preferred"
 )
 
 const (

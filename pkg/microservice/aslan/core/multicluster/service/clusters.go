@@ -26,6 +26,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-multierror"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -81,12 +82,40 @@ type K8SCluster struct {
 }
 
 type AdvancedConfig struct {
-	Strategy          string   `json:"strategy,omitempty"        bson:"strategy,omitempty"`
-	NodeLabels        []string `json:"node_labels,omitempty"     bson:"node_labels,omitempty"`
-	ProjectNames      []string `json:"project_names"             bson:"project_names"`
-	Tolerations       string   `json:"tolerations"               bson:"tolerations"`
-	ClusterAccessYaml string   `json:"cluster_access_yaml"       bson:"cluster_access_yaml"`
-	ScheduleWorkflow  bool     `json:"schedule_workflow"         bson:"schedule_workflow"`
+	Strategy          string              `json:"strategy,omitempty"        bson:"strategy,omitempty"`
+	NodeLabels        []string            `json:"node_labels,omitempty"     bson:"node_labels,omitempty"`
+	ProjectNames      []string            `json:"project_names"             bson:"project_names"`
+	Tolerations       string              `json:"tolerations"               bson:"tolerations"`
+	ClusterAccessYaml string              `json:"cluster_access_yaml"       bson:"cluster_access_yaml"`
+	ScheduleWorkflow  bool                `json:"schedule_workflow"         bson:"schedule_workflow"`
+	ScheduleStrategy  []*ScheduleStrategy `json:"schedule_strategy"         bson:"schedule_strategy"`
+}
+
+type ScheduleStrategy struct {
+	StrategyID   string   `json:"strategy_id"`
+	StrategyName string   `json:"strategy_name"`
+	Strategy     string   `json:"strategy"`
+	NodeLabels   []string `json:"node_labels"`
+	Tolerations  string   `json:"tolerations"`
+	Default      bool     `json:"default"`
+}
+
+func (s *ScheduleStrategy) Validate() error {
+	if s.Strategy == "" {
+		return fmt.Errorf("strategy is empty")
+	}
+	if s.Strategy != setting.NormalSchedule && s.Strategy != setting.RequiredSchedule && s.Strategy != setting.PreferredSchedule {
+		return fmt.Errorf("strategy is invalid")
+	}
+	if s.Strategy == setting.PreferredSchedule || s.Strategy == setting.RequiredSchedule {
+		if len(s.NodeLabels) == 0 {
+			return fmt.Errorf("node labels is empty")
+		}
+	}
+	if len([]rune(s.StrategyName)) > 15 {
+		return fmt.Errorf("invalid strategy name, length of strategy name should be less than 15")
+	}
+	return nil
 }
 
 func (k *K8SCluster) Clean() error {
@@ -145,6 +174,20 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 			} else {
 				advancedConfig.ScheduleWorkflow = true
 				advancedConfig.ClusterAccessYaml = kube.ClusterAccessYamlTemplate
+			}
+
+			if c.AdvancedConfig.ScheduleStrategy != nil {
+				advancedConfig.ScheduleStrategy = make([]*ScheduleStrategy, 0)
+				for _, strategy := range c.AdvancedConfig.ScheduleStrategy {
+					advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &ScheduleStrategy{
+						StrategyID:   strategy.StrategyID,
+						StrategyName: strategy.StrategyName,
+						Strategy:     strategy.Strategy,
+						NodeLabels:   convertToNodeLabels(strategy.NodeLabels),
+						Tolerations:  strategy.Tolerations,
+						Default:      strategy.Default,
+					})
+				}
 			}
 		}
 
@@ -258,6 +301,32 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 			ProjectNames: args.AdvancedConfig.ProjectNames,
 			Tolerations:  args.AdvancedConfig.Tolerations,
 		}
+		advancedConfig.ScheduleStrategy = make([]*commonmodels.ScheduleStrategy, 0)
+		if args.AdvancedConfig.ScheduleStrategy != nil {
+			if err := validateStrategies(args.AdvancedConfig.ScheduleStrategy); err != nil {
+				return nil, err
+			}
+			for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
+				err := strategy.Validate()
+				if err != nil {
+					msg := fmt.Errorf("create cluster failed, schedule strategy is invalid, err: %s", err)
+					logger.Error(msg)
+					return nil, msg
+				}
+				if strategy.StrategyID == "" {
+					strategy.StrategyID = primitive.NewObjectID().Hex()
+				}
+				advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
+					StrategyID:   strategy.StrategyID,
+					StrategyName: strategy.StrategyName,
+					Strategy:     strategy.Strategy,
+					NodeLabels:   convertToNodeSelectorRequirements(strategy.NodeLabels),
+					Tolerations:  strategy.Tolerations,
+					Default:      strategy.Default,
+				})
+			}
+		}
+
 		if args.AdvancedConfig.ClusterAccessYaml == "" {
 			advancedConfig.ClusterAccessYaml = kube.ClusterAccessYamlTemplate
 			advancedConfig.ScheduleWorkflow = true
@@ -269,6 +338,21 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 			}
 			advancedConfig.ClusterAccessYaml = args.AdvancedConfig.ClusterAccessYaml
 			advancedConfig.ScheduleWorkflow = args.AdvancedConfig.ScheduleWorkflow
+		}
+		// init local cluster
+	} else {
+		args.AdvancedConfig = &AdvancedConfig{
+			ClusterAccessYaml: kube.ClusterAccessYamlTemplate,
+			ScheduleWorkflow:  true,
+			Strategy:          setting.NormalSchedule,
+			ScheduleStrategy: []*ScheduleStrategy{
+				{
+					StrategyID:   primitive.NewObjectID().Hex(),
+					StrategyName: setting.NormalScheduleName,
+					Strategy:     setting.NormalSchedule,
+					Default:      true,
+				},
+			},
 		}
 	}
 
@@ -296,6 +380,24 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 	return s.CreateCluster(cluster, args.ID, logger)
 }
 
+func validateStrategies(strategies []*ScheduleStrategy) error {
+	names := make(map[string]struct{}, len(strategies))
+	defaultCount := 0
+	for _, strategy := range strategies {
+		if _, ok := names[strategy.StrategyName]; ok {
+			return fmt.Errorf("schedule strategy name %s is duplicated", strategy.StrategyName)
+		}
+		if strategy.Default {
+			defaultCount++
+		}
+		names[strategy.StrategyName] = struct{}{}
+	}
+	if defaultCount > 1 {
+		return fmt.Errorf("default strategy must be unique")
+	}
+	return nil
+}
+
 func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K8SCluster, error) {
 	s, err := kube.NewService("")
 	if err != nil {
@@ -307,6 +409,50 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		advancedConfig.Strategy = args.AdvancedConfig.Strategy
 		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels)
 		advancedConfig.Tolerations = args.AdvancedConfig.Tolerations
+
+		// compatible with open source version
+		if !configbase.Enterprise() {
+			var strategyID string
+			if len(args.AdvancedConfig.ScheduleStrategy) > 0 {
+				strategyID = args.AdvancedConfig.ScheduleStrategy[0].StrategyID
+			} else {
+				strategyID = primitive.NewObjectID().Hex()
+			}
+			advancedConfig.ScheduleStrategy = make([]*commonmodels.ScheduleStrategy, 0)
+			advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
+				StrategyID:  strategyID,
+				Strategy:    advancedConfig.Strategy,
+				NodeLabels:  advancedConfig.NodeLabels,
+				Tolerations: advancedConfig.Tolerations,
+				Default:     true,
+			})
+		} else {
+			if args.AdvancedConfig.ScheduleStrategy != nil {
+				if err := validateStrategies(args.AdvancedConfig.ScheduleStrategy); err != nil {
+					return nil, err
+				}
+				for _, strategy := range args.AdvancedConfig.ScheduleStrategy {
+					if err := strategy.Validate(); err != nil {
+						msg := fmt.Errorf("update cluster failed, schedule strategy is invalid, err: %s", err)
+						logger.Error(msg)
+						return nil, msg
+					}
+
+					if strategy.StrategyID == "" {
+						strategy.StrategyID = primitive.NewObjectID().Hex()
+					}
+
+					advancedConfig.ScheduleStrategy = append(advancedConfig.ScheduleStrategy, &commonmodels.ScheduleStrategy{
+						StrategyID:   strategy.StrategyID,
+						StrategyName: strategy.StrategyName,
+						Strategy:     strategy.Strategy,
+						NodeLabels:   convertToNodeSelectorRequirements(strategy.NodeLabels),
+						Tolerations:  strategy.Tolerations,
+						Default:      strategy.Default,
+					})
+				}
+			}
+		}
 
 		if args.AdvancedConfig.ClusterAccessYaml == "" || args.Local {
 			advancedConfig.ClusterAccessYaml = kube.ClusterAccessYamlTemplate
@@ -406,6 +552,17 @@ func DeleteCluster(username, clusterID string, logger *zap.SugaredLogger) error 
 	}
 
 	return s.DeleteCluster(username, clusterID, logger)
+}
+
+func GetClusterStrategyReferences(clusterID string, logger *zap.SugaredLogger) ([]*ClusterStrategyReference, error) {
+	resp, err := GetClusterSchedulingPolicyReferences(clusterID)
+	var msg error
+	if err != nil {
+		msg = fmt.Errorf("failed to get cluster scheduling strategy references, err: %s", err)
+		logger.Error(msg)
+		return nil, msg
+	}
+	return resp, nil
 }
 
 func DisconnectCluster(username string, clusterID string, logger *zap.SugaredLogger) error {
@@ -602,11 +759,29 @@ func setClusterDind(cluster *K8SCluster) error {
 }
 
 func validateTolerations(cluster *K8SCluster) error {
-	if cluster.AdvancedConfig == nil || len(cluster.AdvancedConfig.Tolerations) == 0 {
-		return nil
+	if cluster.AdvancedConfig != nil {
+		if cluster.AdvancedConfig.Tolerations != "" {
+			ts := make([]corev1.Toleration, 0)
+			err := yaml.Unmarshal([]byte(cluster.AdvancedConfig.Tolerations), &ts)
+			if err != nil {
+				return fmt.Errorf("tolerations is invalid, failed to unmarshal tolerations: %s", err)
+			}
+		}
+
+		if len(cluster.AdvancedConfig.ScheduleStrategy) > 0 {
+			for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
+				if strategy.Tolerations == "" {
+					continue
+				}
+				ts := make([]corev1.Toleration, 0)
+				err := yaml.Unmarshal([]byte(strategy.Tolerations), &ts)
+				if err != nil {
+					return fmt.Errorf("tolerations is invalid, failed to unmarshal tolerations: %s", err)
+				}
+			}
+		}
 	}
-	ts := make([]corev1.Toleration, 0)
-	return yaml.Unmarshal([]byte(cluster.AdvancedConfig.Tolerations), &ts)
+	return nil
 }
 
 func ClusterApplyUpgrade() {
@@ -885,4 +1060,201 @@ func createDynamicPVC(clusterID, prefix string, nfsProperties *types.NFSProperti
 	}
 	nfsProperties.PVC = pvcName
 	return nil
+}
+
+func GetClusterDefaultStrategy(id string) (*commonmodels.ScheduleStrategy, error) {
+	cluster, err := commonrepo.NewK8SClusterColl().FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	strategy := &commonmodels.ScheduleStrategy{}
+	if cluster.AdvancedConfig != nil {
+		for _, s := range cluster.AdvancedConfig.ScheduleStrategy {
+			if s.Default {
+				strategy = s
+				break
+			}
+		}
+	}
+	return strategy, nil
+}
+
+type ClusterStrategyReference struct {
+	HasReferences bool   `json:"has_references"`
+	StrategyID    string `json:"strategy_id"`
+	StrategyName  string `json:"strategy_name"`
+}
+
+func GetClusterSchedulingPolicyReferences(clusterID string) ([]*ClusterStrategyReference, error) {
+	cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster by id, clusterID: %s, err: %v", clusterID, err)
+	}
+
+	resp := make([]*ClusterStrategyReference, 0)
+	if cluster.AdvancedConfig != nil && len(cluster.AdvancedConfig.ScheduleStrategy) > 0 {
+		builds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get builds from db, error: %v", err)
+		}
+
+		buildTemplates, _, err := commonrepo.NewBuildTemplateColl().List(0, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get build templates from db, error: %v", err)
+		}
+
+		tests, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get tests from db, error: %v", err)
+		}
+
+		codescans, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{}, 0, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get codescans from db, error: %v", err)
+		}
+
+		workflows, _, err := commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{JobTypes: []config.JobType{
+			config.JobPlugin,
+			config.JobFreestyle,
+		}}, 0, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflows from db, error: %v", err)
+		}
+
+		workflowTemplates, err := commonrepo.NewWorkflowV4TemplateColl().List(&commonrepo.WorkflowTemplateListOption{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflow templates from db, error: %v", err)
+		}
+
+		for _, strategy := range cluster.AdvancedConfig.ScheduleStrategy {
+			var reference *ClusterStrategyReference
+			// check build modules
+			for _, build := range builds {
+				if build.PreBuild != nil && build.PreBuild.ClusterID == clusterID && build.PreBuild.StrategyID == strategy.StrategyID {
+					reference = &ClusterStrategyReference{
+						HasReferences: true,
+						StrategyID:    strategy.StrategyID,
+						StrategyName:  strategy.StrategyName,
+					}
+					resp = append(resp, reference)
+					break
+				}
+			}
+
+			if reference != nil {
+				continue
+			}
+
+			// check build template
+			for _, buildTemplate := range buildTemplates {
+				if buildTemplate.PreBuild != nil && buildTemplate.PreBuild.ClusterID == clusterID && buildTemplate.PreBuild.StrategyID == strategy.StrategyID {
+					reference = &ClusterStrategyReference{
+						HasReferences: true,
+						StrategyID:    strategy.StrategyID,
+						StrategyName:  strategy.StrategyName,
+					}
+					resp = append(resp, reference)
+					break
+				}
+			}
+
+			if reference != nil {
+				continue
+			}
+
+			// check test modules
+			for _, test := range tests {
+				if test.PreTest != nil && test.PreTest.ClusterID == clusterID && test.PreTest.StrategyID == strategy.StrategyID {
+					reference = &ClusterStrategyReference{
+						HasReferences: true,
+						StrategyID:    strategy.StrategyID,
+						StrategyName:  strategy.StrategyName,
+					}
+					resp = append(resp, reference)
+					break
+				}
+			}
+
+			if reference != nil {
+				continue
+			}
+
+			// check codescan modules
+			for _, codescan := range codescans {
+				if codescan.AdvancedSetting != nil && codescan.AdvancedSetting.ClusterID == clusterID && codescan.AdvancedSetting.StrategyID == strategy.StrategyID {
+					reference = &ClusterStrategyReference{
+						HasReferences: true,
+						StrategyID:    strategy.StrategyID,
+						StrategyName:  strategy.StrategyName,
+					}
+					resp = append(resp, reference)
+					break
+				}
+			}
+
+			if reference != nil {
+				continue
+			}
+
+			// check workflow template
+			for _, workflowTemplate := range workflowTemplates {
+				workflows = append(workflows, &commonmodels.WorkflowV4{
+					Stages: workflowTemplate.Stages,
+				})
+			}
+			if ref, err := checkWorkflowClusterStrategyReferences(clusterID, strategy.StrategyID, workflows); err != nil {
+				return nil, err
+			} else if ref {
+				resp = append(resp, &ClusterStrategyReference{
+					HasReferences: true,
+					StrategyID:    strategy.StrategyID,
+					StrategyName:  strategy.StrategyName,
+				})
+				continue
+			}
+
+			if reference == nil {
+				resp = append(resp, &ClusterStrategyReference{
+					HasReferences: false,
+					StrategyID:    strategy.StrategyID,
+					StrategyName:  strategy.StrategyName,
+				})
+			}
+		}
+
+	}
+
+	return resp, nil
+}
+
+func checkWorkflowClusterStrategyReferences(clusterID, strategyID string, workflows []*commonmodels.WorkflowV4) (bool, error) {
+	// check custom workflow
+	for _, workflow := range workflows {
+		for _, stage := range workflow.Stages {
+			for _, job := range stage.Jobs {
+				switch job.JobType {
+				// Mainly checking MySQL data change job, DMS data change job, jira-issue job and jenkins job
+				case config.JobPlugin:
+					spec := &commonmodels.PluginJobSpec{}
+					if err := commonmodels.IToi(job.Spec, spec); err != nil {
+						return false, fmt.Errorf("failed to convert job spec to plugin job spec, error: %v", err)
+					}
+					if spec.Properties != nil && spec.Properties.ClusterID == clusterID && spec.Properties.StrategyID == strategyID {
+						return true, nil
+					}
+				// Mainly checking general job, custom job and image distribution job
+				case config.JobFreestyle:
+					spec := &commonmodels.FreestyleJobSpec{}
+					if err := commonmodels.IToi(job.Spec, spec); err != nil {
+						return false, fmt.Errorf("failed to convert job spec to freestyle job spec, error: %v", err)
+					}
+					if spec.Properties != nil && spec.Properties.ClusterID == clusterID && spec.Properties.StrategyID == strategyID {
+						return true, nil
+					}
+				}
+			}
+		}
+	}
+	return false, nil
 }

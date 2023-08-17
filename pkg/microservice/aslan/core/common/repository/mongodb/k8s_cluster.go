@@ -89,6 +89,13 @@ func (c *K8SClusterColl) Update(cluster *models.K8SCluster) error {
 	return err
 }
 
+func (c *K8SClusterColl) UpdateScheduleStrategy(cluster *models.K8SCluster) error {
+	_, err := c.UpdateOne(context.TODO(), bson.M{"_id": cluster.ID}, bson.M{"$set": bson.M{
+		"advanced_config.schedule_strategy": cluster.AdvancedConfig.ScheduleStrategy,
+	}})
+	return err
+}
+
 // Get ...
 func (c *K8SClusterColl) Get(id string) (*models.K8SCluster, error) {
 	oid, err := primitive.ObjectIDFromHex(id)

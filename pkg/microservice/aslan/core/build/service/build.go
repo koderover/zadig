@@ -23,7 +23,7 @@ import (
 	"time"
 
 	goerrors "github.com/pkg/errors"
-
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -68,6 +68,23 @@ func FindBuild(name, productName string, log *zap.SugaredLogger) (*commonmodels.
 	if err != nil {
 		log.Errorf("[Build.Find] %s error: %v", name, err)
 		return nil, e.ErrGetBuildModule.AddErr(err)
+	}
+
+	if resp.PreBuild != nil && resp.PreBuild.StrategyID == "" {
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(resp.PreBuild.ClusterID)
+		if err != nil {
+			if err != mongo.ErrNoDocuments {
+				return nil, fmt.Errorf("failed to find cluster %s, error: %v", resp.PreBuild.ClusterID, err)
+			}
+		} else if cluster.AdvancedConfig != nil {
+			strategies := cluster.AdvancedConfig.ScheduleStrategy
+			for _, strategy := range strategies {
+				if strategy.Default {
+					resp.PreBuild.StrategyID = strategy.StrategyID
+					break
+				}
+			}
+		}
 	}
 
 	commonservice.EnsureResp(resp)
@@ -579,6 +596,26 @@ func correctFields(build *commonmodels.Build) error {
 			modifyAuthType(repo)
 		}
 	}
+
+	if build.PreBuild == nil {
+		return fmt.Errorf("build prebuild is nil")
+	} else {
+		if build.PreBuild.ClusterID == "" {
+			return fmt.Errorf("build prebuild clusterid is empty")
+		}
+		if build.PreBuild.StrategyID == "" {
+			buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+				ID: build.TemplateID,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to find build template with id: %s, err: %s", build.TemplateID, err)
+			}
+			if buildTemplate.PreBuild != nil {
+				build.PreBuild.StrategyID = buildTemplate.PreBuild.StrategyID
+			}
+		}
+	}
+
 	return nil
 }
 

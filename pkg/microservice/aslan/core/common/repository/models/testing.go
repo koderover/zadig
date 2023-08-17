@@ -100,7 +100,7 @@ type PreTest struct {
 	// EnableProxy
 	EnableProxy bool   `bson:"enable_proxy"           json:"enable_proxy"`
 	ClusterID   string `bson:"cluster_id"             json:"cluster_id"`
-
+	StrategyID  string `bson:"strategy_id"            json:"strategy_id"`
 	// TODO: Deprecated.
 	Namespace string `bson:"namespace"              json:"namespace"`
 }

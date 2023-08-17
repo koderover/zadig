@@ -75,6 +75,16 @@ type AdvancedConfig struct {
 	Tolerations       string                     `json:"tolerations"              bson:"tolerations"`
 	ClusterAccessYaml string                     `json:"cluster_access_yaml"      bson:"cluster_access_yaml"`
 	ScheduleWorkflow  bool                       `json:"schedule_workflow"        bson:"schedule_workflow"`
+	ScheduleStrategy  []*ScheduleStrategy        `json:"schedule_strategy"        bson:"schedule_strategy"`
+}
+
+type ScheduleStrategy struct {
+	StrategyID   string                     `json:"strategy_id"   bson:"strategy_id"`
+	StrategyName string                     `json:"strategy_name" bson:"strategy_name"`
+	Strategy     string                     `json:"strategy"      bson:"strategy"`
+	NodeLabels   []*NodeSelectorRequirement `json:"node_labels"   bson:"node_labels"`
+	Tolerations  string                     `json:"tolerations"   bson:"tolerations"`
+	Default      bool                       `json:"default"       bson:"default"`
 }
 
 type NodeSelectorRequirement struct {

@@ -774,7 +774,6 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 				testTask.CacheDirType = testing.CacheDirType
 				testTask.CacheUserDir = testing.CacheUserDir
 			}
-
 			break
 		}
 	}
@@ -810,6 +809,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 		testTask.JobCtx.EnableProxy = testModule.PreTest.EnableProxy
 		testTask.Namespace = testModule.PreTest.Namespace
 		testTask.ClusterID = testModule.PreTest.ClusterID
+		testTask.StrategyID = testModule.PreTest.StrategyID
 
 		envs := testModule.PreTest.Envs[:]
 

@@ -353,7 +353,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 
 		//Resource request default value is LOW
 
-		job, err := buildJob(p.Type(), jobImage, p.JobName, serviceName, p.Task.ClusterID, pipelineTask.ConfigPayload.Build.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries)
+		job, err := buildJob(p.Type(), jobImage, p.JobName, serviceName, p.Task.ClusterID, p.Task.StrategyID, pipelineTask.ConfigPayload.Build.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries)
 		if err != nil {
 			msg := fmt.Sprintf("create build job context error: %v", err)
 			p.Log.Error(msg)

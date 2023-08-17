@@ -211,6 +211,7 @@ func (j *ImageDistributeJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 			Timeout:         j.spec.Timeout,
 			ResourceRequest: setting.MinRequest,
 			ClusterID:       j.spec.ClusterID,
+			StrategyID:      j.spec.StrategyID,
 			BuildOS:         "focal",
 			ImageFrom:       commonmodels.ImageFromKoderover,
 		},

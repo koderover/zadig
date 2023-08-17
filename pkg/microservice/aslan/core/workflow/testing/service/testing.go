@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -272,6 +273,23 @@ func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels
 			Items:   scheduleList,
 		}
 		resp.Schedules = &schedule
+	}
+
+	if resp.PreTest != nil && resp.PreTest.StrategyID == "" {
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(resp.PreTest.ClusterID)
+		if err != nil {
+			if err != mongo.ErrNoDocuments {
+				return nil, fmt.Errorf("failed to find cluster %s, error: %v", resp.PreTest.ClusterID, err)
+			}
+		} else if cluster.AdvancedConfig != nil {
+			strategies := cluster.AdvancedConfig.ScheduleStrategy
+			for _, strategy := range strategies {
+				if strategy.Default {
+					resp.PreTest.StrategyID = strategy.StrategyID
+					break
+				}
+			}
+		}
 	}
 
 	workflowservice.EnsureTestingResp(resp)

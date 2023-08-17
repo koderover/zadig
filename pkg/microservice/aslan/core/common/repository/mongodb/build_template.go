@@ -112,9 +112,11 @@ func (c *BuildTemplateColl) List(pageNum, pageSize int) ([]*models.BuildTemplate
 	if err != nil {
 		return nil, 0, err
 	}
-	opt := options.Find().
-		SetSkip(int64((pageNum - 1) * pageSize)).
-		SetLimit(int64(pageSize))
+
+	opt := options.Find()
+	if pageNum != 0 && pageSize != 0 {
+		opt.SetSkip(int64((pageNum - 1) * pageSize)).SetLimit(int64(pageSize))
+	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query, opt)
 	if err != nil {

@@ -165,13 +165,23 @@ func getBaseImage(buildOS, imageFrom string) string {
 	return jobImage
 }
 
-func buildTolerations(clusterConfig *commonmodels.AdvancedConfig) []corev1.Toleration {
+func buildTolerations(clusterConfig *commonmodels.AdvancedConfig, strategyID string) []corev1.Toleration {
 	ret := make([]corev1.Toleration, 0)
-	if clusterConfig == nil || len(clusterConfig.Tolerations) == 0 {
+	if clusterConfig == nil || len(clusterConfig.ScheduleStrategy) == 0 {
 		return ret
 	}
 
-	err := yaml.Unmarshal([]byte(clusterConfig.Tolerations), &ret)
+	var tolerations string
+	for _, strategy := range clusterConfig.ScheduleStrategy {
+		if strategyID != "" && strategy.StrategyID == strategyID {
+			tolerations = strategy.Tolerations
+			break
+		} else if strategyID == "" && strategy.Default {
+			tolerations = strategy.Tolerations
+			break
+		}
+	}
+	err := yaml.Unmarshal([]byte(tolerations), &ret)
 	if err != nil {
 		log.Errorf("failed to parse toleration config, err: %s", err)
 		return nil
@@ -179,15 +189,29 @@ func buildTolerations(clusterConfig *commonmodels.AdvancedConfig) []corev1.Toler
 	return ret
 }
 
-func addNodeAffinity(clusterConfig *commonmodels.AdvancedConfig) *corev1.Affinity {
-	if clusterConfig == nil || len(clusterConfig.NodeLabels) == 0 {
+func addNodeAffinity(clusterConfig *commonmodels.AdvancedConfig, strategyID string) *corev1.Affinity {
+	if clusterConfig == nil || len(clusterConfig.ScheduleStrategy) == 0 {
 		return nil
 	}
 
-	switch clusterConfig.Strategy {
+	var strategy *commonmodels.ScheduleStrategy
+	for _, s := range clusterConfig.ScheduleStrategy {
+		if strategyID != "" && s.StrategyID == strategyID {
+			strategy = s
+			break
+		} else if strategyID == "" && s.Default {
+			strategy = s
+			break
+		}
+	}
+	if strategy == nil {
+		return nil
+	}
+
+	switch strategy.Strategy {
 	case setting.RequiredSchedule:
 		nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
-		for _, nodeLabel := range clusterConfig.NodeLabels {
+		for _, nodeLabel := range strategy.NodeLabels {
 			var matchExpressions []corev1.NodeSelectorRequirement
 			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
 				Key:      nodeLabel.Key,
@@ -209,7 +233,7 @@ func addNodeAffinity(clusterConfig *commonmodels.AdvancedConfig) *corev1.Affinit
 		return affinity
 	case setting.PreferredSchedule:
 		preferredScheduleTerms := make([]corev1.PreferredSchedulingTerm, 0)
-		for _, nodeLabel := range clusterConfig.NodeLabels {
+		for _, nodeLabel := range strategy.NodeLabels {
 			var matchExpressions []corev1.NodeSelectorRequirement
 			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
 				Key:      nodeLabel.Key,
@@ -352,8 +376,8 @@ echo $result > %s
 							},
 						},
 					},
-					Tolerations: buildTolerations(targetCluster.AdvancedConfig),
-					Affinity:    addNodeAffinity(targetCluster.AdvancedConfig),
+					Tolerations: buildTolerations(targetCluster.AdvancedConfig, jobTaskSpec.Properties.StrategyID),
+					Affinity:    addNodeAffinity(targetCluster.AdvancedConfig, jobTaskSpec.Properties.StrategyID),
 				},
 			},
 		},
@@ -448,8 +472,8 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 						},
 					},
 					Volumes:     getVolumes(jobName, jobTaskSpec.Properties.UseHostDockerDaemon),
-					Tolerations: buildTolerations(targetCluster.AdvancedConfig),
-					Affinity:    addNodeAffinity(targetCluster.AdvancedConfig),
+					Tolerations: buildTolerations(targetCluster.AdvancedConfig, jobTaskSpec.Properties.StrategyID),
+					Affinity:    addNodeAffinity(targetCluster.AdvancedConfig, jobTaskSpec.Properties.StrategyID),
 				},
 			},
 		},
@@ -520,8 +544,8 @@ func BuildCleanJob(jobName, clusterID, workflowName string, taskID int64) (*batc
 							TerminationMessagePath:   job.JobTerminationFile,
 						},
 					},
-					Tolerations: buildTolerations(targetCluster.AdvancedConfig),
-					Affinity:    addNodeAffinity(targetCluster.AdvancedConfig),
+					Tolerations: buildTolerations(targetCluster.AdvancedConfig, ""),
+					Affinity:    addNodeAffinity(targetCluster.AdvancedConfig, ""),
 				},
 			},
 		},

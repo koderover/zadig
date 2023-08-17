@@ -124,7 +124,11 @@ func (c *WorkflowV4TemplateColl) Find(opt *WorkflowTemplateQueryOption) (*models
 
 func (c *WorkflowV4TemplateColl) List(option *WorkflowTemplateListOption) ([]*models.WorkflowV4Template, error) {
 	resp := make([]*models.WorkflowV4Template, 0)
-	query := bson.M{"category": option.Category}
+
+	query := bson.M{}
+	if option.Category != "" {
+		query["category"] = option.Category
+	}
 	if option.ExcludeBuildIn {
 		query["build_in"] = false
 	}

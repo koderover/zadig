@@ -38,6 +38,7 @@ type Scanning struct {
 	Repos        []*types.Repository `bson:"repos"           json:"repos"`
 	Proxy        *models.Proxy       `bson:"proxy"           json:"proxy"`
 	ClusterID    string              `bson:"cluster_id"      json:"cluster_id"`
+	StrategyID   string              `bson:"strategy_id"     json:"strategy_id"`
 	// ResReq defines job requested resources
 	ResReq     setting.Request             `bson:"res_req"       json:"res_req"`
 	ResReqSpec setting.RequestSpec         `bson:"res_req_spec"  json:"res_req_spec"`

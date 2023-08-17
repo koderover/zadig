@@ -400,7 +400,7 @@ type JobTaskGrayRollbackSpec struct {
 type JobTasK8sPatchSpec struct {
 	ClusterID  string           `bson:"cluster_id"             json:"cluster_id"             yaml:"cluster_id"`
 	Namespace  string           `bson:"namespace"              json:"namespace"              yaml:"namespace"`
-	PatchItems []*PatchTaskItem `bson:"patch_items"            json:"patch_items"           yaml:"patch_items"`
+	PatchItems []*PatchTaskItem `bson:"patch_items"            json:"patch_items"            yaml:"patch_items"`
 }
 
 type IssueID struct {

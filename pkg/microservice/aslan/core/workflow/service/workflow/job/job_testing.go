@@ -339,6 +339,7 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		ResReqSpec:          testingInfo.PreTest.ResReqSpec,
 		CustomEnvs:          renderKeyVals(testing.KeyVals, testingInfo.PreTest.Envs),
 		ClusterID:           testingInfo.PreTest.ClusterID,
+		StrategyID:          testingInfo.PreTest.StrategyID,
 		BuildOS:             basicImage.Value,
 		ImageFrom:           testingInfo.PreTest.ImageFrom,
 		Registries:          registries,

@@ -169,9 +169,19 @@ type K8SCluster struct {
 }
 
 type AdvancedConfig struct {
-	Strategy    string                     `json:"strategy,omitempty"      bson:"strategy,omitempty"`
-	NodeLabels  []*NodeSelectorRequirement `json:"node_labels,omitempty"   bson:"node_labels,omitempty"`
-	Tolerations string                     `json:"tolerations"             bson:"tolerations"`
+	Strategy         string                     `json:"strategy,omitempty"      bson:"strategy,omitempty"`
+	NodeLabels       []*NodeSelectorRequirement `json:"node_labels,omitempty"   bson:"node_labels,omitempty"`
+	Tolerations      string                     `json:"tolerations"             bson:"tolerations"`
+	ScheduleStrategy []*ScheduleStrategy        `json:"schedule_strategy"        bson:"schedule_strategy"`
+}
+
+type ScheduleStrategy struct {
+	StrategyID   string                     `json:"strategy_id"   bson:"strategy_id"`
+	StrategyName string                     `json:"strategy_name" bson:"strategy_name"`
+	Strategy     string                     `json:"strategy"      bson:"strategy"`
+	NodeLabels   []*NodeSelectorRequirement `json:"node_labels"   bson:"node_labels"`
+	Tolerations  string                     `json:"tolerations"   bson:"tolerations"`
+	Default      bool                       `json:"default"       bson:"default"`
 }
 
 type NodeSelectorRequirement struct {

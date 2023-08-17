@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -49,8 +50,21 @@ func GetCluster(c *gin.Context) {
 }
 
 func CreateCluster(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(service.K8SCluster)
 	if err := c.BindJSON(args); err != nil {
@@ -70,8 +84,21 @@ func CreateCluster(c *gin.Context) {
 }
 
 func UpdateCluster(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(service.K8SCluster)
 	if err := c.BindJSON(args); err != nil {
@@ -94,6 +121,19 @@ func DeleteCluster(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Err = service.DeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
+}
+
+func GetClusterStrategyReferences(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	clusterID := c.Param("id")
+	if strings.TrimSpace(clusterID) == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid clusterID")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetClusterStrategyReferences(clusterID, ctx.Logger)
 }
 
 func DisconnectCluster(c *gin.Context) {

@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -159,6 +160,24 @@ func GetScanningModuleByID(id string, log *zap.SugaredLogger) (*Scanning, error)
 		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
 		return nil, err
 	}
+
+	if scanning.AdvancedSetting != nil && scanning.AdvancedSetting.StrategyID == "" {
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(scanning.AdvancedSetting.ClusterID)
+		if err != nil {
+			if err != mongo.ErrNoDocuments {
+				return nil, fmt.Errorf("failed to find cluster %s, error: %v", scanning.AdvancedSetting.ClusterID, err)
+			}
+		} else if cluster.AdvancedConfig != nil {
+			strategies := cluster.AdvancedConfig.ScheduleStrategy
+			for _, strategy := range strategies {
+				if strategy.Default {
+					scanning.AdvancedSetting.StrategyID = strategy.StrategyID
+					break
+				}
+			}
+		}
+	}
+
 	return ConvertDBScanningModule(scanning), nil
 }
 
@@ -274,6 +293,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		// the timeout we save is measured in minute
 		Timeout:          scanningInfo.AdvancedSetting.Timeout * 60,
 		ClusterID:        scanningInfo.AdvancedSetting.ClusterID,
+		StrategyID:       scanningInfo.AdvancedSetting.StrategyID,
 		Repos:            repos,
 		InstallItems:     scanningInfo.Installs,
 		PreScript:        scanningInfo.PreScript,
