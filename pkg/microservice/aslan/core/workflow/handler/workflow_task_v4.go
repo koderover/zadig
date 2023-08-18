@@ -66,8 +66,9 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新建", "自定义工作流任务", args.Name, data, ctx.Logger)
 	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
-		Name:   ctx.UserName,
-		UserID: ctx.UserID,
+		Name:    ctx.UserName,
+		Account: ctx.Account,
+		UserID:  ctx.UserID,
 	}, args, ctx.Logger)
 }
 
