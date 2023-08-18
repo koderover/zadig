@@ -151,12 +151,16 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 	p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %v envName: %s namespace %s", p.Task.ProductName,
 		p.Task.ServiceName, containerNameSet.List(), p.Task.EnvName, p.Task.Namespace)
 
-	productInfo, err = p.getProductInfo(ctx, &EnvArgs{EnvName: p.Task.EnvName, ProductName: p.Task.ProductName})
+	productInfo, err = GetProductInfo(ctx, &EnvArgs{EnvName: p.Task.EnvName, ProductName: p.Task.ProductName})
 	if err != nil {
 		err = errors.WithMessagef(
 			err,
 			"failed to get product %s/%s",
 			p.Task.Namespace, p.Task.ServiceName)
+		return
+	}
+	if productInfo.IsSleeping() {
+		err = fmt.Errorf("product %s/%s is sleeping", p.Task.ProductName, p.Task.EnvName)
 		return
 	}
 
@@ -355,16 +359,6 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 	if err != nil {
 		return
 	}
-}
-
-func (p *HelmDeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
-	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.EnvName)
-	prod := &types.Product{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", args.ProductName), httpclient.SetQueryParam("ifPassFilter", "true"))
-	if err != nil {
-		return nil, err
-	}
-	return prod, nil
 }
 
 // download chart info of specific version, use the latest version if fails

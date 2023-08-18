@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -265,6 +266,10 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 		if err != nil {
 			log.Errorf("[%s][P:%s] Product.FindByOwner error: %v", arg.EnvName, productName, err)
 			errList = multierror.Append(errList, e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg))
+			continue
+		}
+		if exitedProd.IsSleeping() {
+			errList = multierror.Append(errList, e.ErrUpdateEnv.AddDesc("environment is sleeping"))
 			continue
 		}
 
@@ -633,6 +638,10 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 		log.Errorf("GetProduct envName:%s, productName:%s, err:%+v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
+	if productResp.IsSleeping() {
+		log.Errorf("Environment is sleeping, cannot update")
+		return e.ErrUpdateEnv.AddDesc("Environment is sleeping, cannot update")
+	}
 
 	// create product data from product template
 	templateProd, err := GetInitProduct(productName, types.GeneralEnv, false, "", productResp.Production, log)
@@ -771,6 +780,10 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 	if err != nil {
 		log.Errorf("GetProduct envName:%s, productName:%s, err:%+v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(err.Error())
+	}
+	if productResp.IsSleeping() {
+		log.Errorf("Environment is sleeping, cannot update")
+		return e.ErrUpdateEnv.AddDesc("Environment is sleeping, cannot update")
 	}
 
 	deletedReleaseSet := sets.NewString(deletedReleases...)
@@ -1247,6 +1260,9 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
 		return err
 	}
+	if product.IsSleeping() {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("environment is sleeping"))
+	}
 
 	opt := &commonrepo.RenderSetFindOption{
 		Name:        product.Render.Name,
@@ -1348,6 +1364,10 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
 		return err
 	}
+	if product.IsSleeping() {
+		return e.ErrUpdateEnv.AddDesc("environment is sleeping")
+	}
+
 	opt := &commonrepo.RenderSetFindOption{
 		Name:        product.Render.Name,
 		Revision:    product.Render.Revision,
@@ -3653,6 +3673,9 @@ func UpdateProductGlobalVariables(productName, envName, userName, requestID stri
 		log.Errorf("UpdateProductGlobalVariables GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
 		return err
 	}
+	if product.IsSleeping() {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("environment is sleeping"))
+	}
 
 	opt := &commonrepo.RenderSetFindOption{
 		Name:        product.Render.Name,
@@ -4003,7 +4026,7 @@ func UpsertEnvAnalysisCron(projectName, envName string, production *bool, req *E
 			Enabled: req.Enable,
 			Type:    config.EnvAnalysisCronjob,
 			Cron:    req.Cron,
-			EnvAnalysisArgs: &commonmodels.EnvAnalysisArgs{
+			EnvAnalysisArgs: &commonmodels.EnvArgs{
 				ProductName: env.ProductName,
 				EnvName:     env.EnvName,
 				Production:  env.Production,
@@ -4053,6 +4076,7 @@ func cronJobToSchedule(input *commonmodels.Cronjob) *commonmodels.Schedule {
 		Time:            input.Time,
 		MaxFailures:     input.MaxFailure,
 		EnvAnalysisArgs: input.EnvAnalysisArgs,
+		EnvArgs:         input.EnvArgs,
 		Type:            config.ScheduleType(input.JobType),
 		Cron:            input.Cron,
 		Enabled:         input.Enabled,
@@ -4399,5 +4423,448 @@ func EnsureProductionNamespace(createArgs []*CreateSingleProductArg) error {
 		//return fmt.Errorf("namespace %s does not belong to legal namespace", arg.Namespace)
 		return nil
 	}
+	return nil
+}
+
+func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap.SugaredLogger) error {
+	tempProd, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		err = fmt.Errorf("failed to find template product %s, err: %s", productName, err)
+		log.Error(err)
+		return e.ErrEnvSleep.AddErr(err)
+	}
+
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		err = fmt.Errorf("failed to find product %s/%s, err: %s", productName, envName, err)
+		log.Error(err)
+		return e.ErrEnvSleep.AddErr(err)
+	}
+	if prod.Production != isProduction {
+		err = fmt.Errorf("Insufficient permissions: %s/%s, is production %v", productName, envName, prod.Production)
+		log.Error(err)
+		return e.ErrEnvSleep.AddErr(err)
+	}
+	if prod.Status == setting.ProductStatusSleeping && isEnable {
+		err = fmt.Errorf("product %s/%s is already sleeping", productName, envName)
+		log.Warn(err)
+		return e.ErrEnvSleep.AddErr(err)
+	}
+	if prod.Status != setting.ProductStatusSleeping && !isEnable {
+		err = fmt.Errorf("product %s/%s is already running", productName, envName)
+		log.Warn(err)
+		return e.ErrEnvSleep.AddErr(err)
+	}
+
+	templateProduct, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		err = fmt.Errorf("failed to get template product %s, err: %w", productName, err)
+		log.Error(err)
+		return e.ErrAnalysisEnvResource.AddErr(err)
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	if err != nil {
+		err = fmt.Errorf("failed to get kube client, err: %s", err)
+		log.Error(err)
+		return e.ErrEnvSleep.AddErr(err)
+	}
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), prod.ClusterID)
+	if err != nil {
+		wrapErr := fmt.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", prod.ClusterID, err)
+		log.Error(wrapErr)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+	informer, err := informer.NewInformer(prod.ClusterID, prod.Namespace, clientset)
+	if err != nil {
+		wrapErr := fmt.Errorf("[%s][%s] error: %v", envName, prod.Namespace, err)
+		log.Error(wrapErr)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+	version, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		wrapErr := fmt.Errorf("Failed to get server version info for cluster: %s, the error is: %s", prod.ClusterID, err)
+		log.Error(wrapErr)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+
+	oldScaleNumMap := make(map[string]int)
+	newScaleNumMap := make(map[string]int)
+	prod.Status = setting.ProductStatusSleeping
+	if !isEnable {
+		oldScaleNumMap = prod.PreSleepStatus
+		prod.Status = setting.ProductStatusSuccess
+	}
+
+	filterArray, err := commonservice.BuildWorkloadFilterFunc(prod, tempProd, "", log)
+	if err != nil {
+		err = fmt.Errorf("failed to build workload filter func, err: %s", err)
+		log.Error(err)
+		return e.ErrEnvSleep.AddErr(err)
+	}
+
+	count, workLoads, err := commonservice.ListWorkloads(envName, productName, 999, 1, informer, version, log, filterArray...)
+	if err != nil {
+		wrapErr := fmt.Errorf("failed to list workloads, [%s][%s], error: %v", prod.Namespace, envName, err)
+		log.Error(wrapErr)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+	if count > 999 {
+		log.Errorf("project %s env %s: workloads count > 999", productName, envName)
+	}
+	scaleMap := make(map[string]*commonservice.Workload)
+	cronjobMap := make(map[string]*commonservice.Workload)
+	for _, workLoad := range workLoads {
+		if workLoad.Type == setting.CronJob {
+			cronjobMap[workLoad.Name] = workLoad
+		} else {
+			scaleMap[workLoad.Name] = workLoad
+		}
+	}
+
+	if templateProduct.IsK8sYamlProduct() {
+		renderSetFindOpt := &commonrepo.RenderSetFindOption{
+			Name:        prod.Render.Name,
+			Revision:    prod.Render.Revision,
+			ProductTmpl: prod.ProductName,
+			EnvName:     envName,
+		}
+		rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
+		if err != nil {
+			wrapErr := fmt.Errorf("failed to find render set %s:%d, err: %s", prod.Render.Name, prod.Render.Revision, err)
+			return e.ErrEnvSleep.AddErr(wrapErr)
+		}
+
+		prodSvcMap := prod.GetServiceMap()
+		svcs, err := commonutil.GetProductUsedTemplateSvcs(prod)
+		if err != nil {
+			wrapErr := fmt.Errorf("failed to get product used template services, err: %s", err)
+			log.Error(wrapErr)
+			return e.ErrEnvSleep.AddErr(wrapErr)
+		}
+		for _, svc := range svcs {
+			prodSvc := prodSvcMap[svc.ServiceName]
+			if prodSvc == nil {
+				wrapErr := fmt.Errorf("service %s not found in product %s(%s)", svc.ServiceName, prod.ProductName, envName)
+				log.Error(wrapErr)
+				return e.ErrEnvSleep.AddErr(wrapErr)
+			}
+
+			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, rs, prodSvc, svc)
+			if err != nil {
+				return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to render service %s, err: %s", svc.ServiceName, err))
+			}
+
+			manifests := releaseutil.SplitManifests(parsedYaml)
+			for _, item := range manifests {
+				u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+				if err != nil {
+					log.Warnf("Failed to decode yaml to Unstructured, err: %s", err)
+					continue
+				}
+
+				switch u.GetKind() {
+				case setting.Deployment, setting.StatefulSet:
+					if workLoad, ok := scaleMap[u.GetName()]; ok {
+						workLoad.ServiceName = svc.ServiceName
+						workLoad.DeployedFromZadig = true
+						newScaleNumMap[workLoad.Name] = int(workLoad.Replicas)
+					}
+				case setting.CronJob:
+					if workLoad, ok := cronjobMap[u.GetName()]; ok {
+						workLoad.ServiceName = svc.ServiceName
+						workLoad.DeployedFromZadig = true
+						newScaleNumMap[workLoad.Name] = int(workLoad.Replicas)
+					}
+				}
+			}
+		}
+	} else if templateProduct.IsHostProduct() {
+		svcTmpls, err := repository.ListMaxRevisionsServices(productName, prod.Production)
+		if err != nil {
+			err = fmt.Errorf("failed to list services, productName: %s, isProduction: %v, err: %s", productName, prod.Production, err)
+			log.Error(err)
+			return e.ErrEnvSleep.AddErr(err)
+		}
+		for _, svcTmpl := range svcTmpls {
+			if workLoad, ok := scaleMap[svcTmpl.ServiceName]; ok {
+				workLoad.ServiceName = svcTmpl.ServiceName
+				workLoad.DeployedFromZadig = true
+				newScaleNumMap[workLoad.Name] = int(workLoad.Replicas)
+			}
+			if workLoad, ok := cronjobMap[svcTmpl.ServiceName]; ok {
+				workLoad.ServiceName = svcTmpl.ServiceName
+				workLoad.DeployedFromZadig = true
+				newScaleNumMap[workLoad.Name] = int(workLoad.Replicas)
+			}
+		}
+	} else if templateProduct.IsHelmProduct() {
+		svcToReleaseNameMap, err := commonutil.GetServiceNameToReleaseNameMap(prod)
+		if err != nil {
+			err = fmt.Errorf("failed to build release-service map: %s", err)
+			log.Error(err)
+			return e.ErrEnvSleep.AddErr(err)
+		}
+		for _, svcGroup := range prod.Services {
+			for _, svc := range svcGroup {
+				releaseName := svcToReleaseNameMap[svc.ServiceName]
+				if !svc.FromZadig() {
+					releaseName = svc.ReleaseName
+				}
+				for _, workload := range workLoads {
+					if workload.ReleaseName == releaseName {
+						if workload.Type != setting.CronJob {
+							newScaleNumMap[workload.Name] = int(workload.Replicas)
+						}
+					}
+					workload.DeployedFromZadig = true
+				}
+			}
+		}
+	}
+
+	// set boot order when resume from sleep
+	if templateProduct.IsK8sYamlProduct() && !isEnable {
+		bootOrderMap := make(map[string]int)
+		i := 0
+
+		for _, svcGroup := range prod.Services {
+			for _, svc := range svcGroup {
+				bootOrderMap[svc.ServiceName] = i
+				i++
+			}
+		}
+
+		sort.Slice(workLoads, func(i, j int) bool {
+			order1 := 999
+			order2 := 999
+
+			svcName := workLoads[i].ServiceName
+			order, ok := bootOrderMap[svcName]
+			if ok {
+				order1 = order
+			}
+
+			svcName = workLoads[j].ServiceName
+			order, ok = bootOrderMap[svcName]
+			if ok {
+				order2 = order
+			}
+			return order1 <= order2
+		})
+	}
+
+	for _, workload := range workLoads {
+		if !workload.DeployedFromZadig {
+			continue
+		}
+
+		scaleNum := 0
+		if num, ok := oldScaleNumMap[workload.Name]; ok {
+			// restore previous scale num
+			scaleNum = num
+		}
+
+		switch workload.Type {
+		case setting.Deployment:
+			log.Infof("scale workload %s(%s) to %d", workload.Name, workload.Type, scaleNum)
+			err := updater.ScaleDeployment(prod.Namespace, workload.Name, scaleNum, kubeClient)
+			if err != nil {
+				log.Errorf("failed to scale %s/deploy/%s to %d", prod.Namespace, workload.Name, scaleNum)
+			}
+		case setting.StatefulSet:
+			log.Infof("scale workload %s(%s) to %d", workload.Name, workload.Type, scaleNum)
+			err := updater.ScaleStatefulSet(prod.Namespace, workload.Name, scaleNum, kubeClient)
+			if err != nil {
+				log.Errorf("failed to scale %s/sts/%s to %d", prod.Namespace, workload.Name, scaleNum)
+			}
+		case setting.CronJob:
+			if isEnable {
+				log.Infof("suspend cronjob %s", workload.Name)
+				err := updater.SuspendCronJob(prod.Namespace, workload.Name, kubeClient, kubeclient.VersionLessThan121(version))
+				if err != nil {
+					log.Errorf("failed to suspend %s/cronjob/%s", prod.Namespace, workload.Name)
+				}
+			} else {
+				log.Infof("resume cronjob %s", workload.Name)
+				err := updater.ResumeCronJob(prod.Namespace, workload.Name, kubeClient, kubeclient.VersionLessThan121(version))
+				if err != nil {
+					log.Errorf("failed to resume %s/cronjob/%s", prod.Namespace, workload.Name)
+				}
+			}
+		}
+	}
+
+	prod.PreSleepStatus = newScaleNumMap
+	err = commonrepo.NewProductColl().Update(prod)
+	if err != nil {
+		wrapErr := fmt.Errorf("failed to update product, err: %w", err)
+		log.Error(wrapErr)
+		return e.ErrEnvSleep.AddErr(wrapErr)
+	}
+
+	return nil
+}
+
+func GetEnvSleepCron(projectName, envName string, production *bool, logger *zap.SugaredLogger) (*EnvSleepCronArg, error) {
+	resp := &EnvSleepCronArg{}
+
+	sleepName := util.GetEnvSleepCronName(projectName, envName, true)
+	awakeName := util.GetEnvSleepCronName(projectName, envName, false)
+	sleepCron, err := commonrepo.NewCronjobColl().GetByName(sleepName, config.EnvSleepCronjob)
+	if err != nil {
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return nil, e.ErrGetCronjob.AddErr(fmt.Errorf("failed to get env sleep cron job for sleep, err: %w", err))
+		}
+	}
+	awakeCron, err := commonrepo.NewCronjobColl().GetByName(awakeName, config.EnvSleepCronjob)
+	if err != nil {
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return nil, e.ErrGetCronjob.AddErr(fmt.Errorf("failed to get env sleep cron job for awake, err: %w", err))
+		}
+	}
+
+	if sleepCron != nil {
+		resp.SleepCronEnable = sleepCron.Enabled
+		resp.SleepCron = sleepCron.Cron
+	}
+	if awakeCron != nil {
+		resp.AwakeCronEnable = awakeCron.Enabled
+		resp.AwakeCron = awakeCron.Cron
+	}
+
+	return resp, nil
+}
+
+type EnvSleepCronArg struct {
+	SleepCronEnable bool   `json:"sleep_cron_enable"`
+	SleepCron       string `json:"sleep_cron"`
+	AwakeCronEnable bool   `json:"awake_cron_enable"`
+	AwakeCron       string `json:"awake_cron"`
+}
+
+func UpsertEnvSleepCron(projectName, envName string, production *bool, req *EnvSleepCronArg, logger *zap.SugaredLogger) error {
+	opt := &commonrepo.ProductFindOptions{
+		EnvName:    envName,
+		Name:       projectName,
+		Production: production,
+	}
+	env, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return e.ErrUpsertCronjob.AddErr(fmt.Errorf("failed to get environment %s/%s, err: %w", projectName, envName, err))
+	}
+
+	sleepName := util.GetEnvSleepCronName(projectName, envName, true)
+	awakeName := util.GetEnvSleepCronName(projectName, envName, false)
+	sleepCron, err := commonrepo.NewCronjobColl().GetByName(sleepName, config.EnvSleepCronjob)
+	if err != nil {
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return e.ErrUpsertCronjob.AddErr(fmt.Errorf("failed to get env sleep cron job for sleep, err: %w", err))
+		}
+	}
+	awakeCron, err := commonrepo.NewCronjobColl().GetByName(awakeName, config.EnvSleepCronjob)
+	if err != nil {
+		if err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument {
+			return e.ErrUpsertCronjob.AddErr(fmt.Errorf("failed to get env sleep cron job for awake, err: %w", err))
+		}
+	}
+	cronMap := make(map[string]*commonmodels.Cronjob)
+	if sleepCron != nil {
+		cronMap[sleepCron.Name] = sleepCron
+	}
+	if awakeCron != nil {
+		cronMap[awakeCron.Name] = awakeCron
+	}
+
+	for _, name := range []string{sleepName, awakeName} {
+		var payload *commonservice.CronjobPayload
+		if cron, ok := cronMap[name]; ok {
+			origSleepEnabled := cron.Enabled
+			if name == sleepName {
+				cron.Enabled = req.SleepCronEnable
+				cron.Cron = req.SleepCron
+			} else if name == awakeName {
+				cron.Enabled = req.AwakeCronEnable
+				cron.Cron = req.AwakeCron
+			}
+
+			err = commonrepo.NewCronjobColl().Upsert(cron)
+			if err != nil {
+				fmtErr := fmt.Errorf("Failed to upsert cron job, error: %w", err)
+				log.Error(fmtErr)
+				return err
+			}
+
+			if origSleepEnabled && !req.SleepCronEnable {
+				// need to disable cronjob
+				payload = &commonservice.CronjobPayload{
+					Name:       name,
+					JobType:    config.EnvSleepCronjob,
+					Action:     setting.TypeEnableCronjob,
+					DeleteList: []string{cron.ID.Hex()},
+				}
+			} else if !origSleepEnabled && req.SleepCronEnable || origSleepEnabled && req.SleepCronEnable {
+				payload = &commonservice.CronjobPayload{
+					Name:    name,
+					JobType: config.EnvSleepCronjob,
+					Action:  setting.TypeEnableCronjob,
+					JobList: []*commonmodels.Schedule{cronJobToSchedule(cron)},
+				}
+			} else {
+				// !origEnabled && !req.Enable
+				continue
+			}
+		} else {
+			input := &commonmodels.Cronjob{
+				Name: name,
+				Type: config.EnvSleepCronjob,
+				EnvArgs: &commonmodels.EnvArgs{
+					Name:        name,
+					ProductName: env.ProductName,
+					EnvName:     env.EnvName,
+					Production:  env.Production,
+				},
+			}
+			if name == sleepName {
+				input.Enabled = req.SleepCronEnable
+				input.Cron = req.SleepCron
+			} else if name == awakeName {
+				input.Enabled = req.AwakeCronEnable
+				input.Cron = req.AwakeCron
+			}
+
+			err = commonrepo.NewCronjobColl().Upsert(input)
+			if err != nil {
+				fmtErr := fmt.Errorf("Failed to upsert cron job, error: %w", err)
+				log.Error(fmtErr)
+				return err
+			}
+			if !input.Enabled {
+				continue
+			}
+			payload = &commonservice.CronjobPayload{
+				Name:    name,
+				JobType: config.EnvSleepCronjob,
+				Action:  setting.TypeEnableCronjob,
+				JobList: []*commonmodels.Schedule{cronJobToSchedule(input)},
+			}
+		}
+
+		pl, err := json.Marshal(payload)
+		if err != nil {
+			log.Errorf("Failed to marshal cronjob payload, the error is: %v", err)
+			return e.ErrUpsertCronjob.AddDesc(err.Error())
+		}
+		err = commonrepo.NewMsgQueueCommonColl().Create(&msg_queue.MsgQueueCommon{
+			Payload:   string(pl),
+			QueueType: setting.TopicCronjob,
+		})
+		if err != nil {
+			log.Errorf("Failed to publish to msg queue common: %s, the error is: %v", setting.TopicCronjob, err)
+			return e.ErrUpsertCronjob.AddDesc(err.Error())
+		}
+	}
+
 	return nil
 }

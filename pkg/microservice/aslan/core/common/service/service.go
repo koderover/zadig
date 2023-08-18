@@ -29,7 +29,14 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	"k8s.io/api/batch/v1beta1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/helm/pkg/releaseutil"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -44,7 +51,12 @@ import (
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	internalresource "github.com/koderover/zadig/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -1340,4 +1352,245 @@ func ConvertVaraibleKVAndYaml(args *ConvertVaraibleKVAndYamlArgs) (*ConvertVarai
 	}
 
 	return args, nil
+}
+
+// SvcResp struct 产品-服务详情页面Response
+type SvcResp struct {
+	ServiceName string                       `json:"service_name"`
+	Scales      []*internalresource.Workload `json:"scales"`
+	Ingress     []*internalresource.Ingress  `json:"ingress"`
+	Services    []*internalresource.Service  `json:"service_endpoints"`
+	CronJobs    []*internalresource.CronJob  `json:"cron_jobs"`
+	Namespace   string                       `json:"namespace"`
+	EnvName     string                       `json:"env_name"`
+	ProductName string                       `json:"product_name"`
+	GroupName   string                       `json:"group_name"`
+	Workloads   []*Workload                  `json:"-"`
+}
+
+func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workLoadType string, env *commonmodels.Product, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+	envName, productName := env.EnvName, env.ProductName
+	ret = &SvcResp{
+		ServiceName: serviceName,
+		EnvName:     envName,
+		ProductName: productName,
+		Services:    make([]*internalresource.Service, 0),
+		Ingress:     make([]*internalresource.Ingress, 0),
+		Scales:      make([]*internalresource.Workload, 0),
+		CronJobs:    make([]*internalresource.CronJob, 0),
+	}
+	err = nil
+
+	namespace := env.Namespace
+	switch env.Source {
+	case setting.SourceFromExternal, setting.SourceFromHelm:
+		// helm and external
+		if env.Source == setting.SourceFromExternal {
+			svcOpt := &commonrepo.ServiceFindOption{ProductName: productName, ServiceName: serviceName, Type: setting.K8SDeployType}
+			modelSvc, err := commonrepo.NewServiceColl().Find(svcOpt)
+			if err != nil {
+				return nil, e.ErrGetService.AddErr(err)
+			}
+			workLoadType = modelSvc.WorkloadType
+		}
+		k8sServices, _ := getter.ListServicesWithCache(nil, inf)
+		switch workLoadType {
+		case setting.StatefulSet:
+			statefulSet, err := getter.GetStatefulSetByNameWWithCache(serviceName, namespace, inf)
+			if err != nil {
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found for statuefulSet, err: %v", serviceName, err))
+			}
+			scale := getStatefulSetWorkloadResource(statefulSet, inf, log)
+			ret.Scales = append(ret.Scales, scale)
+			ret.Workloads = append(ret.Workloads, toStsWorkload(statefulSet))
+			podLabels := labels.Set(statefulSet.Spec.Template.GetLabels())
+			for _, svc := range k8sServices {
+				if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
+					ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
+					break
+				}
+			}
+		case setting.Deployment:
+			deploy, err := getter.GetDeploymentByNameWithCache(serviceName, namespace, inf)
+			if err != nil {
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found for deployment, err: %s", serviceName, err.Error()))
+			}
+			scale := GetDeploymentWorkloadResource(deploy, inf, log)
+			ret.Workloads = append(ret.Workloads, ToDeploymentWorkload(deploy))
+			ret.Scales = append(ret.Scales, scale)
+			podLabels := labels.Set(deploy.Spec.Template.GetLabels())
+			for _, svc := range k8sServices {
+				if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
+					ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
+					break
+				}
+			}
+		case setting.CronJob:
+			version, err := clientset.Discovery().ServerVersion()
+			if err != nil {
+				log.Warnf("Failed to determine server version, error is: %s", err)
+				return ret, nil
+			}
+			cj, cjBeta, err := getter.GetCronJobByNameWithCache(serviceName, namespace, inf, kubeclient.VersionLessThan121(version))
+			if err != nil {
+				return ret, nil
+			}
+			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
+		default:
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found, unknow type", serviceName))
+		}
+	default:
+		// k8s
+		service := env.GetServiceMap()[serviceName]
+		if service == nil {
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find service in environment: %s", envName))
+		}
+
+		env.EnsureRenderInfo()
+		renderSetFindOpt := &commonrepo.RenderSetFindOption{
+			Name:        env.Render.Name,
+			Revision:    env.Render.Revision,
+			ProductTmpl: env.ProductName,
+			EnvName:     envName,
+		}
+		rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
+		if err != nil {
+			log.Errorf("find renderset[%s] error: %v", env.Render.Name, err)
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
+		}
+
+		parsedYaml, err := kube.RenderServiceYaml(serviceTmpl.Yaml, productName, serviceTmpl.ServiceName, rs)
+		if err != nil {
+			log.Errorf("failed to render service yaml, err: %s", err)
+			return nil, err
+		}
+		// 渲染系统变量键值
+		parsedYaml = kube.ParseSysKeys(namespace, envName, productName, service.ServiceName, parsedYaml)
+
+		manifests := releaseutil.SplitManifests(parsedYaml)
+		for _, item := range manifests {
+			u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+			if err != nil {
+				log.Warnf("Failed to decode yaml to Unstructured, err: %s", err)
+				continue
+			}
+
+			switch u.GetKind() {
+			case setting.Deployment:
+				d, err := getter.GetDeploymentByNameWithCache(u.GetName(), namespace, inf)
+				if err != nil {
+					continue
+				}
+
+				ret.Scales = append(ret.Scales, GetDeploymentWorkloadResource(d, inf, log))
+				ret.Workloads = append(ret.Workloads, ToDeploymentWorkload(d))
+			case setting.StatefulSet:
+				sts, err := getter.GetStatefulSetByNameWWithCache(u.GetName(), namespace, inf)
+				if err != nil {
+					continue
+				}
+
+				ret.Scales = append(ret.Scales, getStatefulSetWorkloadResource(sts, inf, log))
+				ret.Workloads = append(ret.Workloads, toStsWorkload(sts))
+			case setting.CronJob:
+				version, err := clientset.Discovery().ServerVersion()
+				if err != nil {
+					log.Warnf("Failed to determine server version, error is: %s", err)
+					continue
+				}
+				cj, cjBeta, err := getter.GetCronJobByNameWithCache(u.GetName(), namespace, inf, kubeclient.VersionLessThan121(version))
+				if err != nil {
+					continue
+				}
+				ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
+			case setting.Ingress:
+				version, err := clientset.Discovery().ServerVersion()
+				if err != nil {
+					log.Warnf("Failed to determine server version, error is: %s", err)
+					continue
+				}
+				if kubeclient.VersionLessThan122(version) {
+					ing, found, err := getter.GetExtensionsV1Beta1Ingress(namespace, u.GetName(), inf)
+					if err != nil || !found {
+						//log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+						continue
+					}
+
+					ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
+				} else {
+					ing, err := getter.GetNetworkingV1Ingress(namespace, u.GetName(), inf)
+					if err != nil {
+						//log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+						continue
+					}
+
+					ingress := &internalresource.Ingress{
+						Name:     ing.Name,
+						Labels:   ing.Labels,
+						HostInfo: wrapper.GetIngressHostInfo(ing),
+						IPs:      []string{},
+						Age:      util.Age(ing.CreationTimestamp.Unix()),
+					}
+
+					ret.Ingress = append(ret.Ingress, ingress)
+				}
+
+			case setting.Service:
+				svc, err := getter.GetServiceByNameFromCache(u.GetName(), namespace, inf)
+				if err != nil {
+					//log.Warnf("no svc %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+					continue
+				}
+
+				ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
+			}
+		}
+	}
+	return
+}
+
+func GetDeploymentWorkloadResource(d *appsv1.Deployment, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.Workload {
+	pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(d.Spec.Selector.MatchLabels), informer)
+	if err != nil {
+		log.Warnf("Failed to get pods, err: %s", err)
+	}
+
+	return wrapper.Deployment(d).WorkloadResource(pods)
+}
+
+func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.Workload {
+	pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(sts.Spec.Selector.MatchLabels), informer)
+	if err != nil {
+		log.Warnf("Failed to get pods, err: %s", err)
+	}
+
+	return wrapper.StatefulSet(sts).WorkloadResource(pods)
+}
+
+func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, log *zap.SugaredLogger) *internalresource.CronJob {
+	return wrapper.CronJob(cornJob, cronJobBeta).CronJobResource()
+}
+
+func ToDeploymentWorkload(v *appsv1.Deployment) *Workload {
+	workload := &Workload{
+		Name:       v.Name,
+		Spec:       v.Spec.Template,
+		Type:       setting.Deployment,
+		Images:     wrapper.Deployment(v).ImageInfos(),
+		Ready:      wrapper.Deployment(v).Ready(),
+		Annotation: v.Annotations,
+	}
+	return workload
+}
+
+func toStsWorkload(v *appsv1.StatefulSet) *Workload {
+	workload := &Workload{
+		Name:       v.Name,
+		Spec:       v.Spec.Template,
+		Type:       setting.StatefulSet,
+		Images:     wrapper.StatefulSet(v).ImageInfos(),
+		Ready:      wrapper.StatefulSet(v).Ready(),
+		Annotation: v.Annotations,
+	}
+	return workload
 }

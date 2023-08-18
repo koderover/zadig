@@ -112,6 +112,12 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return errors.New(msg)
 	}
+	if env.IsSleeping() {
+		msg := fmt.Sprintf("Environment %s/%s is sleeping", env.ProductName, env.EnvName)
+		logError(c.job, msg, c.logger)
+		return errors.New(msg)
+	}
+
 	c.namespace = env.Namespace
 	c.jobTaskSpec.ClusterID = env.ClusterID
 

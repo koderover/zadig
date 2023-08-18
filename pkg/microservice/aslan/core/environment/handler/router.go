@@ -202,6 +202,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.PUT("/envcfgs/:name", UpdateProductionCommonEnvCfg)
 		production.POST("/envcfgs/:name", CreateProductionCommonEnvCfg)
 		production.DELETE("/envcfgs/:name/cfg/:objectName", DeleteProductionCommonEnvCfg)
+
+		production.POST("/environments/:name/sleep", ProductionEnvSleep)
+		production.GET("/environments/:name/sleep/cron", GetProductionEnvSleepCron)
+		production.PUT("/environments/:name/sleep/cron", UpsertProductionEnvSleepCron)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -271,6 +275,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/analysis/cron", GetEnvAnalysisCron)
 		environments.PUT("/:name/analysis/cron", UpsertEnvAnalysisCron)
 		environments.GET("/analysis/history", GetEnvAnalysisHistory)
+
+		environments.POST("/:name/sleep", EnvSleep)
+		environments.GET("/:name/sleep/cron", GetEnvSleepCron)
+		environments.PUT("/:name/sleep/cron", UpsertEnvSleepCron)
 	}
 
 	// ---------------------------------------------------------------------------------------

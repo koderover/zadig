@@ -2614,7 +2614,7 @@ func UpsertEnvAnalysisCron(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateEnvAnalysisCron c.GetRawData() err : %v", err)
+		log.Errorf("UpsertEnvAnalysisCron c.GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境巡检-cron", envName, string(data), ctx.Logger)
@@ -2636,7 +2636,7 @@ func UpsertEnvAnalysisCron(c *gin.Context) {
 // @Produce json
 // @Param 	name 		path		string							true	"env name"
 // @Param 	projectName	query		string							true	"project name"
-// @Success 200
+// @Success 200 		{object}    service.EnvAnalysisCronArg
 // @Router /api/aslan/environment/environments/{name}/analysis/cron [get]
 func GetEnvAnalysisCron(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -2685,7 +2685,7 @@ func UpsertProductionEnvAnalysisCron(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateProductionEnvAnalysisCron c.GetRawData() err : %v", err)
+		log.Errorf("UpsertProductionEnvAnalysisCron c.GetRawData() err : %v", err)
 	}
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境巡检-cron", envName, string(data), ctx.Logger)
@@ -2707,7 +2707,7 @@ func UpsertProductionEnvAnalysisCron(c *gin.Context) {
 // @Produce json
 // @Param 	name 		path		string							true	"env name"
 // @Param 	projectName	query		string							true	"project name"
-// @Success 200
+// @Success 200 		{object}    service.EnvAnalysisCronArg
 // @Router /api/aslan/environment/production/environments/{name}/analysis/cron [get]
 func GetProductionEnvAnalysisCron(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -2758,4 +2758,344 @@ func GetEnvAnalysisHistory(c *gin.Context) {
 		Result: result,
 	}
 	ctx.Err = err
+}
+
+// @Summary Environment Sleep
+// @Description Environment Sleep
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 				path		string						true	"env name"
+// @Param 	projectName			query		string						true	"project name"
+// @Param 	action				query		string						true	"enable or disable"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/sleep [post]
+func EnvSleep(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can't be empty!")
+		return
+	}
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		return
+	}
+	action := c.Query("action")
+	if action == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("action can't be empty!")
+		return
+	}
+
+	method := "睡眠"
+	if action != "enable" {
+		method = "唤醒"
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, method, "环境", envName, "", ctx.Logger, envName)
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", false, ctx.Logger)
+}
+
+// @Summary Production Environment Sleep
+// @Description Production Environment Sleep
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 				path		string						true	"env name"
+// @Param 	projectName			query		string						true	"project name"
+// @Param 	action				query		string						true	"enable or disable"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/sleep [post]
+func ProductionEnvSleep(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can't be empty!")
+		return
+	}
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
+		return
+	}
+	action := c.Query("action")
+	if action == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("action can't be empty!")
+		return
+	}
+
+	method := "睡眠"
+	if action != "enable" {
+		method = "唤醒"
+	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, method, "生产环境", envName, "", ctx.Logger, envName)
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", true, ctx.Logger)
+}
+
+// @Summary Get Env Sleep Cron
+// @Description Get Env Sleep Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200 		{object}    service.EnvSleepCronArg
+// @Router /api/aslan/environment/environments/{name}/sleep/cron [get]
+func GetEnvSleepCron(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, boolptr.False(), ctx.Logger)
+}
+
+// @Summary Get Production Env Sleep Cron
+// @Description Get Production Env Sleep Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Success 200 		{object}    service.EnvSleepCronArg
+// @Router /api/aslan/environment/production/environments/{name}/sleep/cron [get]
+func GetProductionEnvSleepCron(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, boolptr.True(), ctx.Logger)
+}
+
+// @Summary Upsert Env Sleep Cron
+// @Description Upsert Env Sleep Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Param 	body 		body 		service.EnvSleepCronArg 		true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/sleep/cron [put]
+func UpsertEnvSleepCron(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpsertEnvSleepCron c.GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "环境定时睡眠与唤醒", envName, string(data), ctx.Logger, envName)
+
+	arg := new(service.EnvSleepCronArg)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.UpsertEnvSleepCron(projectName, envName, boolptr.False(), arg, ctx.Logger)
+}
+
+// @Summary Upsert Production Env Sleep Cron
+// @Description Upsert Production Env Sleep Cron
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name 		path		string							true	"env name"
+// @Param 	projectName	query		string							true	"project name"
+// @Param 	body 		body 		service.EnvSleepCronArg 		true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/sleep/cron [put]
+func UpsertProductionEnvSleepCron(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpsertEnvSleepCron c.GetRawData() err : %v", err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, "更新", "生产环境定时睡眠与唤醒", envName, string(data), ctx.Logger, envName)
+
+	arg := new(service.EnvSleepCronArg)
+	err = c.BindJSON(arg)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = service.UpsertEnvSleepCron(projectName, envName, boolptr.True(), arg, ctx.Logger)
 }

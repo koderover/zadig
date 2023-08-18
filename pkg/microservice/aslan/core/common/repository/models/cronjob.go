@@ -34,12 +34,14 @@ type Cronjob struct {
 	WorkflowArgs    *WorkflowTaskArgs  `bson:"workflow_args,omitempty"             json:"workflow_args,omitempty"`
 	WorkflowV4Args  *WorkflowV4        `bson:"workflow_v4_args"                    json:"workflow_v4_args"`
 	TestArgs        *TestTaskArgs      `bson:"test_args,omitempty"                 json:"test_args,omitempty"`
-	EnvAnalysisArgs *EnvAnalysisArgs   `bson:"env_analysis_args,omitempty"         json:"env_analysis_args,omitempty"`
+	EnvAnalysisArgs *EnvArgs           `bson:"env_analysis_args,omitempty"         json:"env_analysis_args,omitempty"`
+	EnvArgs         *EnvArgs           `bson:"env_args,omitempty"                  json:"env_args,omitempty"`
 	JobType         string             `bson:"job_type"                            json:"job_type"`
 	Enabled         bool               `bson:"enabled"                             json:"enabled"`
 }
 
-type EnvAnalysisArgs struct {
+type EnvArgs struct {
+	Name        string `bson:"name"                    json:"name"`
 	ProductName string `bson:"product_name"            json:"product_name"`
 	EnvName     string `bson:"env_name"                json:"env_name"`
 	Production  bool   `bson:"production"              json:"production"`

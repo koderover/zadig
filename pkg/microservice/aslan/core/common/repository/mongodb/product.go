@@ -386,6 +386,9 @@ func (c *ProductColl) Update(args *models.Product) error {
 	if args.ServiceDeployStrategy != nil {
 		changePayload["service_deploy_strategy"] = args.ServiceDeployStrategy
 	}
+	if args.PreSleepStatus != nil {
+		changePayload["pre_sleep_status"] = args.PreSleepStatus
+	}
 	change := bson.M{"$set": changePayload}
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err

@@ -49,6 +49,10 @@ func PatchWorkload(ctx context.Context, projectName, envName, serviceName, devIm
 	if err != nil {
 		return nil, fmt.Errorf("failed to query env %q of project %q: %s", envName, projectName, err)
 	}
+	if project.IsSleeping() {
+		return nil, fmt.Errorf("environment is sleeping")
+	}
+
 	ns := project.Namespace
 	clusterID := project.ClusterID
 
@@ -80,6 +84,10 @@ func RecoverWorkload(ctx context.Context, projectName, envName, serviceName stri
 	if err != nil {
 		return fmt.Errorf("failed to query env %q of project %q: %s", envName, projectName, err)
 	}
+	if project.IsSleeping() {
+		return fmt.Errorf("environment is sleeping")
+	}
+
 	ns := project.Namespace
 	clusterID := project.ClusterID
 

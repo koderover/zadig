@@ -120,7 +120,7 @@ func GetService(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, false, workLoadType, false, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, false, workLoadType, ctx.Logger)
 }
 
 // @Summary Get Production Service
@@ -149,7 +149,6 @@ func GetProductionService(c *gin.Context) {
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
 	serviceName := c.Param("serviceName")
-	isHelmChartDeploy := c.Query("isHelmChartDeploy")
 	workLoadType := c.Query("workLoadType")
 
 	// TODO: Authorization leak
@@ -184,7 +183,7 @@ func GetProductionService(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, true, workLoadType, isHelmChartDeploy == "true", ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, projectKey, serviceName, true, workLoadType, ctx.Logger)
 }
 
 func RestartService(c *gin.Context) {

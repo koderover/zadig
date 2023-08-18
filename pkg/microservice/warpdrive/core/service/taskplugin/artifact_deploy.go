@@ -38,6 +38,7 @@ import (
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -132,6 +133,25 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 		p.kubeClient = crClient
 		p.clientset = clientset
 		p.restConfig = restConfig
+	}
+
+	productInfo, err := GetProductInfo(ctx, &EnvArgs{EnvName: p.Task.EnvName, ProductName: p.Task.ProductName})
+	if err != nil {
+		err = errors.WithMessagef(
+			err,
+			"failed to get product %s/%s",
+			p.Task.Namespace, p.Task.ServiceName)
+		p.Log.Error(err)
+		p.Task.TaskStatus = config.StatusFailed
+		p.Task.Error = err.Error()
+		return
+	}
+	if productInfo.IsSleeping() {
+		err = fmt.Errorf("product %s/%s is sleeping", p.Task.ProductName, p.Task.EnvName)
+		p.Log.Error(err)
+		p.Task.TaskStatus = config.StatusFailed
+		p.Task.Error = err.Error()
+		return
 	}
 
 	envName := pipelineTask.WorkflowArgs.Namespace

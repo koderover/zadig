@@ -87,6 +87,9 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
 	}
+	if prod.IsSleeping() {
+		return fmt.Errorf("Environment is sleeping")
+	}
 
 	ns := prod.Namespace
 	clusterID := prod.ClusterID
@@ -139,6 +142,9 @@ func DisableBaseEnv(ctx context.Context, envName, productName string) error {
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
+	}
+	if prod.IsSleeping() {
+		return fmt.Errorf("Environment is sleeping")
 	}
 
 	ns := prod.Namespace

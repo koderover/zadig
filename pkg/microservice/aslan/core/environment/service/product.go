@@ -326,6 +326,10 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		prodResp.Status = setting.PodDeleting
 		return prodResp, nil
 	}
+	if prod.Status == setting.ProductStatusSleeping {
+		prodResp.Status = setting.ProductStatusSleeping
+		return prodResp, nil
+	}
 	if prod.Status == setting.ProductStatusUnknown {
 		prodResp.Status = setting.ClusterUnknown
 		return prodResp, nil

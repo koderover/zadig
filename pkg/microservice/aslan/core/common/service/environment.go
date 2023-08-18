@@ -463,7 +463,7 @@ func fillServiceInfo(svcList []*ServiceResp, productInfo *models.Product) {
 
 // ListWorkloadDetailsInEnv returns all workloads in the given env which meet the filter.
 // this function is used for two scenarios: 1. calculate product status 2. list workflow details
-func buildWorkloadFilterFunc(productInfo *models.Product, projectInfo *templatemodels.Product, filter string, log *zap.SugaredLogger) ([]FilterFunc, error) {
+func BuildWorkloadFilterFunc(productInfo *models.Product, projectInfo *templatemodels.Product, filter string, log *zap.SugaredLogger) ([]FilterFunc, error) {
 	productName, envName := productInfo.ProductName, productInfo.EnvName
 	filterArray := []FilterFunc{
 		func(workloads []*Workload) []*Workload {
@@ -565,7 +565,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	filterArray, err := buildWorkloadFilterFunc(productInfo, projectInfo, filter, log)
+	filterArray, err := BuildWorkloadFilterFunc(productInfo, projectInfo, filter, log)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -605,7 +605,7 @@ func ListWorkloadDetailsInEnv(envName, productName, filter string, perPage, page
 		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	filterArray, err := buildWorkloadFilterFunc(productInfo, projectInfo, filter, log)
+	filterArray, err := BuildWorkloadFilterFunc(productInfo, projectInfo, filter, log)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -670,17 +670,20 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 }
 
 type Workload struct {
-	EnvName     string                 `json:"env_name"`
-	Name        string                 `json:"name"`
-	Type        string                 `json:"type"`
-	ProductName string                 `json:"product_name"`
-	Spec        corev1.PodTemplateSpec `json:"-"`
-	Images      []string               `json:"-"`
-	Ready       bool                   `json:"ready"`
-	Annotation  map[string]string      `json:"-"`
-	Status      string                 `json:"-"`
-	ReleaseName string                 `json:"-"` //ReleaseName refers to the releaseName of helm services
-	ChartName   string                 `json:"-"` //ChartName refers to chartName of helm services
+	EnvName           string                 `json:"env_name"`
+	Name              string                 `json:"name"`
+	Type              string                 `json:"type"`
+	ServiceName       string                 `json:"-"`
+	DeployedFromZadig bool                   `json:"-"`
+	ProductName       string                 `json:"product_name"`
+	Replicas          int32                  `json:"-"`
+	Spec              corev1.PodTemplateSpec `json:"-"`
+	Images            []string               `json:"-"`
+	Ready             bool                   `json:"ready"`
+	Annotation        map[string]string      `json:"-"`
+	Status            string                 `json:"-"`
+	ReleaseName       string                 `json:"-"` //ReleaseName refers to the releaseName of helm services
+	ChartName         string                 `json:"-"` //ChartName refers to chartName of helm services
 }
 
 // fillServiceName set service name defined in zadig to workloads, this would be helpful for helm release view
@@ -724,6 +727,7 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 			Name:       v.Name,
 			Spec:       v.Spec.Template,
 			Type:       setting.Deployment,
+			Replicas:   *v.Spec.Replicas,
 			Images:     wrapper.Deployment(v).ImageInfos(),
 			Ready:      wrapper.Deployment(v).Ready(),
 			Annotation: v.Annotations,
@@ -738,6 +742,7 @@ func ListWorkloads(envName, productName string, perPage, page int, informer info
 			Name:       v.Name,
 			Spec:       v.Spec.Template,
 			Type:       setting.StatefulSet,
+			Replicas:   *v.Spec.Replicas,
 			Images:     wrapper.StatefulSet(v).ImageInfos(),
 			Ready:      wrapper.StatefulSet(v).Ready(),
 			Annotation: v.Annotations,
@@ -869,7 +874,7 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 			selector := labels.SelectorFromSet(workload.Spec.Labels)
 			// Note: In some scenarios, such as environment sharing, there may be more containers in Pod than workload.
 			// We call GetSelectedPodsInfo to get the status and readiness to keep same logic with k8s projects
-			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, log)
+			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, workload.Images, log)
 			productRespInfo.Ingress = &IngressInfo{
 				HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
 			}

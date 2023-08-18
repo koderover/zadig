@@ -173,6 +173,19 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		return
 	}
 
+	productInfo, err := GetProductInfo(ctx, &EnvArgs{EnvName: p.Task.EnvName, ProductName: p.Task.ProductName})
+	if err != nil {
+		err = errors.WithMessagef(
+			err,
+			"failed to get product %s/%s",
+			p.Task.Namespace, p.Task.ServiceName)
+		return
+	}
+	if productInfo.IsSleeping() {
+		err = fmt.Errorf("product %s/%s is sleeping", p.Task.ProductName, p.Task.EnvName)
+		return
+	}
+
 	containerName := p.Task.ContainerName
 	containerName = strings.TrimSuffix(containerName, "_"+p.Task.ServiceName)
 

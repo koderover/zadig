@@ -32,10 +32,13 @@ import (
 	"k8s.io/client-go/rest"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/kodo"
 )
 
@@ -310,4 +313,17 @@ func getReaperImage(reaperImage, buildOS, imageFrom string) string {
 		jobImage = buildOS
 	}
 	return jobImage
+}
+
+func GetProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
+	httpClient := httpclient.New(
+		httpclient.SetHostURL(configbase.AslanServiceAddress()),
+	)
+	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.EnvName)
+	prod := &types.Product{}
+	_, err := httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", args.ProductName), httpclient.SetQueryParam("ifPassFilter", "true"))
+	if err != nil {
+		return nil, err
+	}
+	return prod, nil
 }
