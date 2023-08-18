@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/koderover/zadig/pkg/types"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -94,8 +95,9 @@ func CreateWorkflowTaskV4(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
-		Name:   ctx.UserName,
-		UserID: ctx.UserID,
+		Name:    ctx.UserName,
+		Account: ctx.Account,
+		UserID:  ctx.UserID,
 	}, args, ctx.Logger)
 }
 
