@@ -24,12 +24,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"github.com/koderover/zadig/pkg/shared/client/user"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -300,8 +301,9 @@ func CheckWorkflowV4ApprovalInitiator(workflowName, uid string, log *zap.Sugared
 }
 
 type CreateWorkflowTaskV4Args struct {
-	Name   string
-	UserID string
+	Name    string
+	Account string
+	UserID  string
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -330,6 +332,11 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	}
 	if err := LintWorkflowV4(workflow, log); err != nil {
 		return resp, err
+	}
+
+	// if account is not set, use name as account
+	if args.Account == "" {
+		args.Account = args.Name
 	}
 
 	dbWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
@@ -378,7 +385,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
 
-	if err := jobctl.RenderGlobalVariables(workflow, nextTaskID, args.Name); err != nil {
+	if err := jobctl.RenderGlobalVariables(workflow, nextTaskID, args.Name, args.Account); err != nil {
 		log.Errorf("RenderGlobalVariables error: %v", err)
 		return resp, e.ErrCreateTask.AddDesc(err.Error())
 	}
