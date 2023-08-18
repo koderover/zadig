@@ -60,7 +60,9 @@ type ReleaseJob struct {
 	// So we need to record the last status of the release job
 	LastStatus config.Status `bson:"last_status"       yaml:"last_status"                   json:"last_status"`
 	// Updated is used to indicate whether the release job has been updated
-	Updated bool `bson:"updated"       yaml:"updated"                   json:"updated"`
+	Updated      bool   `bson:"updated"       yaml:"updated"                   json:"updated"`
+	ExecutorBy   string `bson:"executor_by"       yaml:"executor_by"                   json:"executor_by"`
+	ExecutorTime int64  `bson:"executor_time"       yaml:"executor_time"                   json:"executor_time"`
 }
 
 type TextReleaseJobSpec struct {
@@ -75,10 +77,11 @@ type WorkflowReleaseJobSpec struct {
 }
 
 type ReleasePlanLog struct {
-	Username  string      `bson:"username"                    json:"username"`
-	Action    string      `bson:"action"                      json:"action"`
-	Target    string      `bson:"target"                      json:"target"`
-	Before    interface{} `bson:"before"                      json:"before"`
-	After     interface{} `bson:"after"                       json:"after"`
-	CreatedAt int64       `bson:"created_at"                  json:"created_at"`
+	Username   string      `bson:"username"                    json:"username"`
+	Action     string      `bson:"action"                      json:"action"`
+	Target     string      `bson:"target"                      json:"target"`
+	TargetType string      `bson:"target_type"                 json:"target_type"`
+	Before     interface{} `bson:"before"                      json:"before"`
+	After      interface{} `bson:"after"                       json:"after"`
+	CreatedAt  int64       `bson:"created_at"                  json:"created_at"`
 }

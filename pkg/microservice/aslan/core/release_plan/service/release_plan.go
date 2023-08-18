@@ -17,20 +17,19 @@
 package service
 
 import (
+	"context"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
-
-//type CreateReleasePlanResp struct {
-//	ID string `json:"id"`
-//}
 
 func CreateReleasePlan(creator string, args *models.ReleasePlan) error {
 	if args.Name == "" || args.PrincipalID == "" {
@@ -39,6 +38,11 @@ func CreateReleasePlan(creator string, args *models.ReleasePlan) error {
 	if args.StartTime > args.EndTime || args.EndTime < time.Now().Unix() {
 		return errors.New("Invalid release time range")
 	}
+	user, err := orm.GetUserByUid(args.PrincipalID, repository.DB)
+	if err != nil {
+		return errors.Errorf("Failed to get user by id %s, error: %v", args.PrincipalID, err)
+	}
+	args.Principal = user.Name
 
 	nextID, err := mongodb.NewCounterColl().GetNextSeq(setting.WorkflowTaskV4Fmt)
 	if err != nil {
@@ -61,9 +65,10 @@ type ListReleasePlanResp struct {
 
 func ListReleasePlans(pageNum, pageSize int64) (*ListReleasePlanResp, error) {
 	list, total, err := mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
-		PageNum:  pageNum,
-		PageSize: pageSize,
-		IsSort:   true,
+		PageNum:        pageNum,
+		PageSize:       pageSize,
+		IsSort:         true,
+		ExcludedFields: []string{"jobs", "approval", "logs"},
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "ListReleasePlans")
@@ -78,6 +83,40 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 	return mongodb.NewReleasePlanColl().GetByID(id)
 }
 
-func UpdateReleasePlan(id string) error {
+func DeleteReleasePlan(id string) error {
+	return mongodb.NewReleasePlanColl().DeleteByID(id)
+}
 
+type UpdateReleasePlanArgs struct {
+	Verb string      `json:"verb"`
+	Spec interface{} `json:"spec"`
+}
+
+func UpdateReleasePlan(planID, username string, args *UpdateReleasePlanArgs) error {
+	//todo lock
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
+	if err != nil {
+		return errors.Wrap(err, "get plan")
+	}
+
+	updater, err := NewPlanUpdater(args)
+	if err != nil {
+		return errors.Wrap(err, "new plan updater")
+	}
+	if updater.Lint() != nil {
+		return errors.Wrap(err, "lint")
+	}
+
+	updater.Update(plan)
+
+	plan.UpdatedBy = username
+	plan.UpdateTime = time.Now().Unix()
+
+	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
+		return errors.Wrap(err, "update plan")
+	}
+	return nil
 }

@@ -18,6 +18,7 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
@@ -61,7 +62,7 @@ func (c *ReleasePlanColl) Create(args *models.ReleasePlan) error {
 	return err
 }
 
-func (c *ReleasePlanColl) GetByID(idString string) (*models.ReleasePlan, error) {
+func (c *ReleasePlanColl) GetByID(ctx context.Context, idString string) (*models.ReleasePlan, error) {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
 		return nil, err
@@ -69,25 +70,41 @@ func (c *ReleasePlanColl) GetByID(idString string) (*models.ReleasePlan, error) 
 
 	query := bson.M{"_id": id}
 	result := new(models.ReleasePlan)
-	err = c.FindOne(context.Background(), query).Decode(result)
+	err = c.FindOne(ctx, query).Decode(result)
 	return result, err
 }
 
-func (c *ReleasePlanColl) DeleteByID(idString string) error {
+func (c *ReleasePlanColl) UpdateByID(ctx context.Context, idString string, args *models.ReleasePlan) error {
+	if args == nil {
+		return errors.New("nil ReleasePlan")
+	}
+	id, err := primitive.ObjectIDFromHex(idString)
+	if err != nil {
+		return fmt.Errorf("invalid id")
+	}
+
+	query := bson.M{"_id": id}
+	change := bson.M{"$set": args}
+	_, err = c.UpdateOne(ctx, query, change)
+	return err
+}
+
+func (c *ReleasePlanColl) DeleteByID(ctx context.Context, idString string) error {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
 		return err
 	}
 
 	query := bson.M{"_id": id}
-	_, err = c.DeleteOne(context.Background(), query)
+	_, err = c.DeleteOne(ctx, query)
 	return err
 }
 
 type ListReleasePlanOption struct {
-	PageNum  int64
-	PageSize int64
-	IsSort   bool
+	PageNum        int64
+	PageSize       int64
+	IsSort         bool
+	ExcludedFields []string
 }
 
 func (c *ReleasePlanColl) ListByOptions(opt *ListReleasePlanOption) ([]*models.ReleasePlan, int64, error) {
@@ -107,11 +124,13 @@ func (c *ReleasePlanColl) ListByOptions(opt *ListReleasePlanOption) ([]*models.R
 		opts.SetSkip((opt.PageNum - 1) * opt.PageSize)
 		opts.SetLimit(opt.PageSize)
 	}
-	opts.SetProjection(bson.M{
-		"jobs":     0,
-		"approval": 0,
-		"logs":     0,
-	})
+	if len(opt.ExcludedFields) > 0 {
+		projection := bson.M{}
+		for _, field := range opt.ExcludedFields {
+			projection[field] = 0
+		}
+		opts.SetProjection(projection)
+	}
 
 	count, err := c.Collection.CountDocuments(ctx, query)
 	if err != nil {

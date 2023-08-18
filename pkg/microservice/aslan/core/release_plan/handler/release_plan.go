@@ -105,5 +105,20 @@ func UpdateReleasePlan(c *gin.Context) {
 }
 
 func DeleteReleasePlan(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Delete {
+		ctx.UnAuthorized = true
+		return
+	}
+	
+	ctx.Err = service.DeleteReleasePlan(c.Param("id"))
 }
