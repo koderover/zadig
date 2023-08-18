@@ -84,6 +84,7 @@ func (j *GuanceyunCheckJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 			ID:        j.spec.ID,
 			Name:      j.spec.Name,
 			CheckTime: j.spec.CheckTime,
+			CheckMode: j.spec.CheckMode,
 			Monitors:  j.spec.Monitors,
 		},
 	}
@@ -95,8 +96,16 @@ func (j *GuanceyunCheckJob) LintJob() error {
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	if j.spec.CheckTime < 0 {
+	if j.spec.CheckTime <= 0 {
 		return errors.Errorf("check time must be greater than 0")
+	}
+	if len(j.spec.Monitors) == 0 {
+		return errors.Errorf("num of check monitor must be greater than 0")
+	}
+	switch j.spec.CheckMode {
+	case "monitor", "trigger":
+	default:
+		return errors.Errorf("The failed policy is invalid")
 	}
 	return nil
 }

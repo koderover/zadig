@@ -482,6 +482,7 @@ type JobTaskGuanceyunCheckSpec struct {
 	Name string `bson:"name" json:"name" yaml:"name"`
 	// CheckTime minute
 	CheckTime int64               `bson:"check_time" json:"check_time" yaml:"check_time"`
+	CheckMode string              `bson:"check_mode" json:"check_mode" yaml:"check_mode"`
 	Monitors  []*GuanceyunMonitor `bson:"monitors" json:"monitors" yaml:"monitors"`
 }
 

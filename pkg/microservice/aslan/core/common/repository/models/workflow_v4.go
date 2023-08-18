@@ -611,6 +611,7 @@ type GuanceyunCheckJobSpec struct {
 	Name string `bson:"name" json:"name" yaml:"name"`
 	// CheckTime minute
 	CheckTime int64               `bson:"check_time" json:"check_time" yaml:"check_time"`
+	CheckMode string              `bson:"check_mode" json:"check_mode" yaml:"check_mode"`
 	Monitors  []*GuanceyunMonitor `bson:"monitors" json:"monitors" yaml:"monitors"`
 }
 
@@ -619,7 +620,7 @@ type GuanceyunMonitor struct {
 	Name string `bson:"name" json:"name" yaml:"name"`
 	// Level is the lowest level to trigger alarm
 	Level  guanceyun.Level `bson:"level" json:"level" yaml:"level"`
-	Status guanceyun.Level `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
+	Status string          `bson:"status,omitempty" json:"status,omitempty" yaml:"status,omitempty"`
 	Url    string          `bson:"url,omitempty" json:"url,omitempty" yaml:"url,omitempty"`
 }
 

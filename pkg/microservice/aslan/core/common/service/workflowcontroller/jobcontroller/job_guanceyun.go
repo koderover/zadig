@@ -30,6 +30,13 @@ import (
 	"github.com/koderover/zadig/pkg/tool/guanceyun"
 )
 
+const (
+	StatusChecking   = "checking"
+	StatusPassed     = "passed"
+	StatusFailed     = "failed"
+	StatusUnfinished = "unfinished"
+)
+
 type GuanceyunCheckJobCtl struct {
 	job         *commonmodels.JobTask
 	workflowCtx *commonmodels.WorkflowTaskCtx
@@ -79,9 +86,10 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 			CheckerID:   monitor.ID,
 		})
 		checkMap[monitor.ID] = monitor
+		monitor.Status = StatusChecking
 	}
+	c.ack()
 
-	//linkTmpl := info.Host + ""
 	check := func() (bool, error) {
 		triggered := false
 		resp, err := client.SearchEventByChecker(checkArgs, time.Now().UnixMilli(), time.Now().UnixMilli())
@@ -89,9 +97,10 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 			return false, err
 		}
 		for _, eventResp := range resp {
-			if checker, ok := checkMap[eventResp.CheckerID]; ok {
+			// checker has been triggered if url not empty, ignore it
+			if checker, ok := checkMap[eventResp.CheckerID]; ok && checker.Url == "" {
 				if guanceyun.LevelMap[eventResp.EventLevel] >= guanceyun.LevelMap[checker.Level] {
-					checker.Status = eventResp.EventLevel
+					checker.Status = StatusFailed
 					checker.Url = link(eventResp.CheckerName)
 					triggered = true
 				}
@@ -102,6 +111,7 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 		return triggered, nil
 	}
 	for {
+		c.ack()
 		// GuanceYun default openapi limit is 20 per minute
 		time.Sleep(time.Second * 10)
 
@@ -110,7 +120,24 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 			logError(c.job, fmt.Sprintf("check error: %v", err), c.logger)
 			return
 		}
-		if triggered {
+	L:
+		switch c.jobTaskSpec.CheckMode {
+		case "trigger":
+			if triggered {
+				for _, monitor := range c.jobTaskSpec.Monitors {
+					if monitor.Url == "" {
+						monitor.Status = StatusUnfinished
+					}
+				}
+				c.job.Status = config.StatusFailed
+				return
+			}
+		case "monitor":
+			for _, monitor := range c.jobTaskSpec.Monitors {
+				if monitor.Url == "" {
+					break L
+				}
+			}
 			c.job.Status = config.StatusFailed
 			return
 		}
@@ -121,6 +148,11 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 		case <-timeout:
 			// no event triggered in check time
 			c.job.Status = config.StatusPassed
+			for _, monitor := range c.jobTaskSpec.Monitors {
+				if monitor.Url == "" {
+					monitor.Status = StatusPassed
+				}
+			}
 			return
 		}
 	}

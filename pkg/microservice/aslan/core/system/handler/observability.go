@@ -36,7 +36,7 @@ func ListObservabilityDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListObservability(true)
+	ctx.Resp, ctx.Err = service.ListObservability(c.Query("type"), true)
 }
 
 func CreateObservability(c *gin.Context) {
