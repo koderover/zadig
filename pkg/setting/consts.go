@@ -744,7 +744,7 @@ const (
 )
 
 const (
-	JobNameRegx  = "^[a-z][a-z0-9-]{0,31}$"
+	JobNameRegx  = "^(?:[a-z]|[a-z0-9-]|[\\u4e00-\\u9fa5]){1,32}$"
 	WorkflowRegx = "^[a-z0-9-]+$"
 )
 
