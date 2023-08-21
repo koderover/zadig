@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	"github.com/koderover/zadig/pkg/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -372,10 +373,11 @@ func (c *WorkflowTaskv4Coll) ListByFilter(filter *WorkFlowTaskFilter, pageNum, p
 		query["status"] = bson.M{"$in": filter.Status}
 	}
 
+	jobName := util.GetLettersFromStringContainChinese(filter.JobName)
 	if len(filter.Service) > 0 {
 		query["workflow_args.stages.jobs"] = bson.M{
 			"$elemMatch": bson.M{
-				"name":    filter.JobName,
+				"name":    jobName,
 				"skipped": false,
 				"service_modules": bson.M{
 					"$elemMatch": bson.M{
@@ -388,7 +390,7 @@ func (c *WorkflowTaskv4Coll) ListByFilter(filter *WorkFlowTaskFilter, pageNum, p
 	if len(filter.Env) > 0 {
 		query["workflow_args.stages.jobs"] = bson.M{
 			"$elemMatch": bson.M{
-				"name":     filter.JobName,
+				"name":     jobName,
 				"skipped":  false,
 				"spec.env": bson.M{"$in": filter.Env},
 			},

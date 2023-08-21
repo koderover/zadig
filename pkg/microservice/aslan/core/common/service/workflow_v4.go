@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -250,4 +251,40 @@ func FillServiceModules2Jobs(args *commonmodels.WorkflowV4) (*commonmodels.Workf
 		return args, true, nil
 	}
 	return args, false, nil
+}
+
+func GenerateJobNameFromDisplayName(workflow *commonmodels.WorkflowV4) error {
+	names := make(map[string]struct{}, 0)
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			// since job name support chinese, we need to parse chinese to letters
+			job.OriginalName = job.Name
+			job.Name = util.GetLettersFromStringContainChinese(job.OriginalName)
+			if _, ok := names[job.Name]; ok {
+				return fmt.Errorf("chinese job name %s change to pinying %s is duplicated", job.OriginalName, job.Name)
+			}
+			if len(job.Name) > 63 {
+				return fmt.Errorf("job name %s to letters %s is too long, please change to shorter", job.OriginalName, job.Name)
+			}
+			names[job.Name] = struct{}{}
+		}
+	}
+	return nil
+}
+
+func CheckLettersFromStringContainChinese(workflow *commonmodels.WorkflowV4) error {
+	names := make(map[string]struct{}, 0)
+	for _, stage := range workflow.Stages {
+		for _, job := range stage.Jobs {
+			name := util.GetLettersFromStringContainChinese(job.Name)
+			if _, ok := names[name]; ok {
+				return fmt.Errorf("chinese job name %s change to pinying %s is duplicated", job.OriginalName, job.Name)
+			}
+			if len(name) > 63 {
+				return fmt.Errorf("job name %s to letters %s is too long, please change to shorter", job.Name, name)
+			}
+			names[name] = struct{}{}
+		}
+	}
+	return nil
 }

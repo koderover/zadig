@@ -93,12 +93,12 @@ type JobTask struct {
 }
 
 type TaskJobInfo struct {
-	RandStr       string `bson:"rand_str"        json:"rand_str"`
-	TestType      string `bson:"test_type"       json:"test_type"`
-	TestingName   string `bson:"testing_name"    json:"testing_name"`
-	JobName       string `bson:"job_name"        json:"job_name"`
-	ServiceName   string `bson:"service_name"    json:"service_name"`
-	ServiceModule string `bson:"service_module"  json:"service_module"`
+	RandStr       string `bson:"rand_str"                json:"rand_str"`
+	TestType      string `bson:"test_type"               json:"test_type"`
+	TestingName   string `bson:"testing_name"            json:"testing_name"`
+	JobName       string `bson:"job_name"                json:"job_name"`
+	ServiceName   string `bson:"service_name"            json:"service_name"`
+	ServiceModule string `bson:"service_module"          json:"service_module"`
 }
 
 type WorkflowTaskPreview struct {

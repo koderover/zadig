@@ -34,3 +34,10 @@ func GenerateName(base string) string {
 	}
 	return fmt.Sprintf("%s%s", base, rand.String(randomLength))
 }
+
+func GenerateNameWithOpts(base, suffix string, baseMaxLen, randLen int) string {
+	if len(base) > baseMaxLen {
+		base = base[:baseMaxLen]
+	}
+	return fmt.Sprintf("%s%s%s", base, suffix, rand.String(randLen))
+}

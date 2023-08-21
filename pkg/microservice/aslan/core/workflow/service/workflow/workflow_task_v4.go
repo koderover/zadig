@@ -30,8 +30,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/koderover/zadig/pkg/shared/client/user"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -47,6 +45,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -330,6 +329,7 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 		ProjectName:  workflow.Project,
 		WorkflowName: workflow.Name,
 	}
+
 	if err := LintWorkflowV4(workflow, log); err != nil {
 		return resp, err
 	}
@@ -447,6 +447,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 			return resp, e.ErrCreateTask.AddDesc(err.Error())
 		}
 
+		if err := service.GenerateJobNameFromDisplayName(workflow); err != nil {
+			log.Errorf("failed to generate pinying job name from chinese display name, error: %v", err)
+			return resp, e.ErrCreateTask.AddDesc(err.Error())
+		}
 		for _, job := range stage.Jobs {
 			if jobctl.JobSkiped(job) {
 				continue
@@ -916,7 +920,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 					continue
 				}
 				jobPreview := &commonmodels.JobPreview{
-					Name:    job.Name,
+					Name:    job.OriginalName,
 					JobType: string(job.JobType),
 				}
 				switch job.JobType {

@@ -86,6 +86,20 @@ func ContainsChinese(str string) bool {
 	return false
 }
 
+func GetLettersFromStringContainChinese(str string) string {
+	words := []rune(str)
+	resp := ""
+	for _, word := range words {
+		if !unicode.Is(unicode.Han, word) {
+			resp += string(word)
+			continue
+		}
+		fullLetter, _ := GetPinyinFromChinese(string(word))
+		resp += fullLetter
+	}
+	return resp
+}
+
 func GetPinyinFromChinese(han string) (string, string) {
 	firstLetter := ""
 	fullLetter := ""

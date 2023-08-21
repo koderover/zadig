@@ -248,6 +248,7 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if j.spec.OriginJobName != "" {
 			j.spec.JobName = j.spec.OriginJobName
 		}
+		j.spec.JobName = util.GetLettersFromStringContainChinese(j.spec.JobName)
 		targets, err := j.getOriginReferedJobTargets(j.spec.JobName)
 		if err != nil {
 			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)

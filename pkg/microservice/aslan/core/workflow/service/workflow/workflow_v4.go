@@ -92,6 +92,11 @@ func CreateWorkflowV4(user string, workflow *commonmodels.WorkflowV4, logger *za
 	if err := LintWorkflowV4(workflow, logger); err != nil {
 		return err
 	}
+
+	if err := commonservice.CheckLettersFromStringContainChinese(workflow); err != nil {
+		return e.ErrUpsertWorkflow.AddErr(fmt.Errorf("failed to check job name contain chinese, error: %v", err))
+	}
+
 	// lark approval different node type need different approval definition
 	// check whether lark approvals in workflow need to create lark approval definition
 	if err := createLarkApprovalDefinition(workflow); err != nil {
