@@ -17,6 +17,8 @@ limitations under the License.
 package aslan
 
 import (
+	"fmt"
+
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -42,4 +44,26 @@ func (c *Client) DockerClean() error {
 	url := "/system/cleanCache/oneClick"
 	_, err := c.Post(url)
 	return err
+}
+
+type user struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
+}
+
+func (c *Client) InitializeUser(username, password, email string) error {
+	url := "/system/initialization/user"
+	req := user{
+		Username: username,
+		Password: password,
+		Email:    email,
+	}
+
+	_, err := c.Post(url, httpclient.SetBody(req))
+	if err != nil {
+		return fmt.Errorf("failed to initialize user, error: %s", err)
+	}
+
+	return nil
 }
