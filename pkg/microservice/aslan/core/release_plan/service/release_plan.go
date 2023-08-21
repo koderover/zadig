@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -32,17 +33,27 @@ import (
 )
 
 func CreateReleasePlan(creator string, args *models.ReleasePlan) error {
-	if args.Name == "" || args.PrincipalID == "" {
+	if args.Name == "" || args.ManagerID == "" {
 		return errors.New("Required parameters are missing")
 	}
 	if args.StartTime > args.EndTime || args.EndTime < time.Now().Unix() {
 		return errors.New("Invalid release time range")
 	}
-	user, err := orm.GetUserByUid(args.PrincipalID, repository.DB)
-	if err != nil {
-		return errors.Errorf("Failed to get user by id %s, error: %v", args.PrincipalID, err)
+	user, err := orm.GetUserByUid(args.ManagerID, repository.DB)
+	if err != nil || user == nil {
+		return errors.Errorf("Failed to get user by id %s, error: %v", args.ManagerID, err)
 	}
-	args.Principal = user.Name
+	if args.Manager != user.Name {
+		return errors.Errorf("Manager %s is not consistent with the user name %s", args.Manager, user.Name)
+	}
+
+	for _, job := range args.Jobs {
+		if err := lintReleaseJob(job.Type, job.Spec); err != nil {
+			return errors.Errorf("lintReleaseJob %s error: %v", job.Name, err)
+		}
+		job.ReleaseJobRuntime = models.ReleaseJobRuntime{}
+		job.ID = uuid.New().String()
+	}
 
 	nextID, err := mongodb.NewCounterColl().GetNextSeq(setting.WorkflowTaskV4Fmt)
 	if err != nil {

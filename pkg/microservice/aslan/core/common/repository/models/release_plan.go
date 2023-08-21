@@ -23,12 +23,12 @@ import (
 )
 
 type ReleasePlan struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
-	Index     int64              `bson:"index"       yaml:"index"                   json:"index"`
-	Name      string             `bson:"name"       yaml:"name"                   json:"name"`
-	Principal string             `bson:"principal"       yaml:"principal"                   json:"principal"`
-	// PrincipalID is the user id of the principal
-	PrincipalID string `bson:"principal_id"       yaml:"principal_id"                   json:"principal_id"`
+	ID      primitive.ObjectID `bson:"_id,omitempty"       yaml:"-"                   json:"id"`
+	Index   int64              `bson:"index"       yaml:"index"                   json:"index"`
+	Name    string             `bson:"name"       yaml:"name"                   json:"name"`
+	Manager string             `bson:"manager"       yaml:"manager"                   json:"manager"`
+	// ManagerID is the user id of the manager
+	ManagerID   string `bson:"manager_id"       yaml:"manager_id"                   json:"manager_id"`
 	StartTime   int64  `bson:"start_time"       yaml:"start_time"                   json:"start_time"`
 	EndTime     int64  `bson:"end_time"       yaml:"end_time"                   json:"end_time"`
 	Description string `bson:"description"       yaml:"description"                   json:"description"`
@@ -50,12 +50,16 @@ func (ReleasePlan) TableName() string {
 }
 
 type ReleaseJob struct {
-	UUID   string        `bson:"uuid"       yaml:"uuid"                   json:"uuid"`
-	Name   string        `bson:"name"       yaml:"name"                   json:"name"`
-	Type   string        `bson:"type"       yaml:"type"                   json:"type"`
-	Status config.Status `bson:"status"     yaml:"status"                 json:"status"`
-	Spec   interface{}   `bson:"spec"       yaml:"spec"                   json:"spec"`
+	ID   string      `bson:"id"       yaml:"id"                   json:"id"`
+	Name string      `bson:"name"       yaml:"name"                   json:"name"`
+	Type string      `bson:"type"       yaml:"type"                   json:"type"`
+	Spec interface{} `bson:"spec"       yaml:"spec"                   json:"spec"`
 
+	ReleaseJobRuntime `bson:",inline" yaml:",inline" json:",inline"`
+}
+
+type ReleaseJobRuntime struct {
+	Status config.Status `bson:"status"     yaml:"status"                 json:"status"`
 	// ReleasePlan can return to PlanningStatus when some release jobs have been executed
 	// So we need to record the last status of the release job
 	LastStatus config.Status `bson:"last_status"       yaml:"last_status"                   json:"last_status"`

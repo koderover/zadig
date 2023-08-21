@@ -498,6 +498,6 @@ const (
 type ReleasePlanJobType string
 
 const (
-	JobTypeText     = "text"
-	JobTypeWorkflow = "workflow"
+	JobText     ReleasePlanJobType = "text"
+	JobWorkflow ReleasePlanJobType = "workflow"
 )

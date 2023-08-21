@@ -115,7 +115,7 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 		log.Errorf("unmarshal callback event failed: %v", err)
 		return nil, errors.Wrap(err, "unmarshal")
 	}
-	log.Infof("LarkEventHandler: new request approval ID %s, request UUID %s, ts: %s", larkAppInfoID, callback.UUID, callback.Ts)
+	log.Infof("LarkEventHandler: new request approval ID %s, request ID %s, ts: %s", larkAppInfoID, callback.UUID, callback.Ts)
 	manager := GetLarkApprovalInstanceManager(event.InstanceCode)
 	if !manager.CheckAndUpdateUUID(callback.UUID) {
 		log.Infof("check existed request uuid %s, ignored", callback.UUID)
