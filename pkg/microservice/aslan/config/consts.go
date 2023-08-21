@@ -18,6 +18,7 @@ package config
 
 import (
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -99,6 +100,10 @@ const (
 )
 
 type Status string
+
+func (s Status) ToLower() Status {
+	return Status(strings.ToLower(string(s)))
+}
 
 const (
 	StatusDisabled       Status = "disabled"

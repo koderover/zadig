@@ -73,14 +73,14 @@ type ServiceDefinition struct {
 }
 
 type EnvDefinition struct {
-	EnvName     string `json:"env_name"`
+	EnvName     string `json:"env_key"`
 	ClusterName string `json:"cluster_name"`
 	Namespace   string `json:"namespace"`
 }
 
 type OpenAPIListProjectReq struct {
-	PageSize int64 `json:"pageSize" form:"pageSize" default:"20"`
-	PageNum  int64 `json:"pageNum"  form:"pageNum"  default:"1"`
+	PageSize int64 `json:"pageSize" form:"pageSize,default:20"`
+	PageNum  int64 `json:"pageNum"  form:"pageNum,default:1"`
 }
 
 type OpenAPIProjectDetailResp struct {
