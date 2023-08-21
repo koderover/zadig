@@ -23,16 +23,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func CreateReleasePlan(creator string, args *models.ReleasePlan) error {
+func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	if args.Name == "" || args.ManagerID == "" {
 		return errors.New("Required parameters are missing")
 	}
@@ -68,10 +70,21 @@ func CreateReleasePlan(creator string, args *models.ReleasePlan) error {
 		return e.ErrGetCounter.AddDesc(err.Error())
 	}
 	args.Index = nextID
-	args.CreatedBy = creator
-	args.UpdatedBy = creator
+	args.CreatedBy = c.UserName
+	args.UpdatedBy = c.UserName
 	args.CreateTime = time.Now().Unix()
 	args.UpdateTime = time.Now().Unix()
+	args.Status = config.StatusPlanning
+	args.Logs = append(args.Logs, &models.ReleasePlanLog{
+		Username:   c.UserName,
+		Account:    c.Account,
+		Action:     "新建",
+		TargetName: args.Name,
+		TargetType: "发布计划",
+		Before:     nil,
+		After:      nil,
+		CreatedAt:  time.Now().Unix(),
+	})
 
 	return mongodb.NewReleasePlanColl().Create(args)
 }
@@ -98,11 +111,11 @@ func ListReleasePlans(pageNum, pageSize int64) (*ListReleasePlanResp, error) {
 }
 
 func GetReleasePlan(id string) (*models.ReleasePlan, error) {
-	return mongodb.NewReleasePlanColl().GetByID(id)
+	return mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
 }
 
 func DeleteReleasePlan(id string) error {
-	return mongodb.NewReleasePlanColl().DeleteByID(id)
+	return mongodb.NewReleasePlanColl().DeleteByID(context.Background(), id)
 }
 
 type UpdateReleasePlanArgs struct {
@@ -110,8 +123,9 @@ type UpdateReleasePlanArgs struct {
 	Spec interface{} `json:"spec"`
 }
 
-func UpdateReleasePlan(planID, username string, args *UpdateReleasePlanArgs) error {
-	//todo lock
+func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePlanArgs) error {
+	getLock(planID).Lock()
+	defer getLock(planID).Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
@@ -124,14 +138,22 @@ func UpdateReleasePlan(planID, username string, args *UpdateReleasePlanArgs) err
 	if err != nil {
 		return errors.Wrap(err, "new plan updater")
 	}
-	if updater.Lint() != nil {
+	if err = updater.Lint(); err != nil {
 		return errors.Wrap(err, "lint")
 	}
+	if err = updater.Update(plan); err != nil {
+		return errors.Wrap(err, "update")
+	}
 
-	updater.Update(plan)
-
-	plan.UpdatedBy = username
+	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
+	plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
+		Username: c.UserName,
+		Account:  c.Account,
+		Action:   "修改",
+		//TargetName: plan.Name,
+		//TargetType: "发布计划",
+	})
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")

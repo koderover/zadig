@@ -19,14 +19,17 @@ package service
 import "sync"
 
 var (
-	globalLockMap = make(map[string]sync.RWMutex)
+	globalLockMap = make(map[string]*sync.RWMutex)
+	globalLock    = sync.RWMutex{}
 )
 
-func GetLock(key string) sync.RWMutex {
-	if lock, ok := globalLockMap[key]; ok {
-		return lock
+func getLock(key string) *sync.RWMutex {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+	if mu, ok := globalLockMap[key]; ok {
+		return mu
 	}
-	lock := sync.RWMutex{}
-	globalLockMap[key] = lock
-	return lock
+	mu := &sync.RWMutex{}
+	globalLockMap[key] = mu
+	return mu
 }

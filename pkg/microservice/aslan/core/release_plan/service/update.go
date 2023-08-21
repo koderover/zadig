@@ -30,7 +30,7 @@ import (
 
 const (
 	VerbUpdateName      = "update_name"
-	VerbUpdateDesc      = "update_desc"
+	VerbUpdateDesc      = "update_description"
 	VerbUpdateTimeRange = "update_time_range"
 	VerbUpdateManager   = "update_manager"
 

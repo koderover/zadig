@@ -82,8 +82,9 @@ type WorkflowReleaseJobSpec struct {
 
 type ReleasePlanLog struct {
 	Username   string      `bson:"username"                    json:"username"`
+	Account    string      `bson:"account"                     json:"account"`
 	Action     string      `bson:"action"                      json:"action"`
-	Target     string      `bson:"target"                      json:"target"`
+	TargetName string      `bson:"target_name"                 json:"target_name"`
 	TargetType string      `bson:"target_type"                 json:"target_type"`
 	Before     interface{} `bson:"before"                      json:"before"`
 	After      interface{} `bson:"after"                       json:"after"`
