@@ -55,6 +55,13 @@ func CreateReleasePlan(creator string, args *models.ReleasePlan) error {
 		job.ID = uuid.New().String()
 	}
 
+	if args.Approval != nil {
+		// todo create approval
+		if err := lintApproval(args.Approval); err != nil {
+			return errors.Errorf("lintApproval error: %v", err)
+		}
+	}
+
 	nextID, err := mongodb.NewCounterColl().GetNextSeq(setting.WorkflowTaskV4Fmt)
 	if err != nil {
 		log.Errorf("CreateReleasePlan.GetNextSeq error: %v", err)
