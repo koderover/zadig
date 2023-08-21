@@ -18,7 +18,6 @@ package core
 
 import (
 	"context"
-	"database/sql"
 	_ "embed"
 	"fmt"
 	"sync"
@@ -346,9 +345,6 @@ func initReleasePlanWatcher() {
 }
 
 func initDatabase() {
-	// old user service initialization
-	InitializeUserDBAndTables()
-
 	err := gormtool.Open(configbase.MysqlUser(),
 		configbase.MysqlPassword(),
 		configbase.MysqlHost(),
@@ -524,37 +520,4 @@ func InitializeConfigFeatureGates() error {
 	}
 	configservice.Features.MergeFeatureGates(flagFG, dbFG)
 	return nil
-}
-
-//go:embed init/mysql.sql
-var mysql []byte
-
-//go:embed init/dex_database.sql
-var dexSchema []byte
-
-func InitializeUserDBAndTables() {
-	if len(mysql) == 0 {
-		return
-	}
-	db, err := sql.Open("mysql", fmt.Sprintf(
-		"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
-		configbase.MysqlUser(), configbase.MysqlPassword(), configbase.MysqlHost(),
-	))
-	if err != nil {
-		log.Panic(err)
-	}
-	defer db.Close()
-	initSql := fmt.Sprintf(string(mysql), config.MysqlUserDB(), config.MysqlUserDB())
-	_, err = db.Exec(initSql)
-
-	if err != nil {
-		log.Panic(err)
-	}
-
-	dexDatabaseSql := fmt.Sprintf(string(dexSchema), config.MysqlDexDB())
-	_, err = db.Exec(dexDatabaseSql)
-
-	if err != nil {
-		log.Panic(err)
-	}
 }

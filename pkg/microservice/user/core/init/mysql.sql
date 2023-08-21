@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS `user_login`(
     UNIQUE KEY `login` (`uid`,`login_id`,`login_type`),
     PRIMARY KEY (`id`),
     KEY `idx_uid` (`uid`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 59 CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '账号登陆表' ROW_FORMAT = Compact;
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '账号登陆表' ROW_FORMAT = Compact;
 
 CREATE TABLE IF NOT EXISTS `user`(
     `uid` varchar(64) NOT NULL COMMENT '用户ID',
@@ -26,4 +26,22 @@ CREATE TABLE IF NOT EXISTS `user`(
     `updated_at` int(11) unsigned NOT NULL COMMENT '修改时间',
     UNIQUE KEY `account` (`account`,`identity_type`),
     PRIMARY KEY (`uid`)
-) ENGINE = InnoDB AUTO_INCREMENT = 59 CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '用户信息表' ROW_FORMAT = Compact;
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '用户信息表' ROW_FORMAT = Compact;
+
+CREATE TABLE IF NOT EXISTS `user_group` (
+    `group_id`    varchar(64) NOT NULL COMMENT '用户组ID',
+    `group_name`  varchar(32) NOT NULL UNIQUE COMMENT '用户组名',
+    `description` varchar(64) NOT NULL COMMENT '简介',
+    `created_at`  int(11) unsigned NOT NULL DEFAULT '0' COMMENT '创建时间',
+    `updated_at`  int(11) unsigned NOT NULL DEFAULT '0' COMMENT '更新时间',
+    PRIMARY KEY (`group_id`)
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '用户组信息表' ROW_FORMAT = Compact;
+
+CREATE TABLE IF NOT EXISTS `group_binding` (
+    `id` bigint(20) NOT NULL AUTO_INCREMENT,
+    `group_id` varchar(64) NOT NULL COMMENT '用户组ID',
+    `uid` varchar(64) NOT NULL COMMENT '用户ID',
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`uid`) REFERENCES user(`uid`),
+    FOREIGN KEY (`group_id`) REFERENCES user_group(`group_id`)
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '用户/用户组绑定信息' ROW_FORMAT = Compact;

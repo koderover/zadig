@@ -84,4 +84,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		router.GET("/authorized-envs", user.ListAuthorizedEnvs)
 	}
+
+	{
+		users.GET("/user-group", user.ListUserGroups)
+		users.POST("/user-group", user.CreateUserGroup)
+		users.GET("/user-group/:id", user.GetUserGroup)
+		users.PUT("/user-group/:id", user.UpdateUserGroupInfo)
+		users.DELETE("/user-group/:id", user.DeleteUserGroup)
+
+		users.PUT("/user-group/:id/bulk-users", user.BulkAddUserToUserGroup)
+		users.DELETE("/user-group/:id/bulk-users", user.BulkRemoveUserFromUserGroup)
+	}
 }

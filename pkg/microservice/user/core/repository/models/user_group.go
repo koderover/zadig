@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,21 +16,17 @@ limitations under the License.
 
 package models
 
-type User struct {
+type UserGroup struct {
 	Model
-	UID          string `json:"uid"`
-	Name         string `json:"name"`
-	IdentityType string `gorm:"default:'unknown'" json:"identity_type"`
-	Email        string `json:"email"`
-	Phone        string `json:"phone"`
-	Account      string `json:"account"`
-	APIToken     string `gorm:"api_token" json:"api_token"`
-	// used to mention the foreign key relationship between user and groupBinding
+	GroupID     string `gorm:"group_id"    json:"group_id"`
+	GroupName   string `gorm:"group_name"  json:"group_name"`
+	Description string `gorm:"description" json:"description"`
+	// used to mention the foreign key relationship between userGroup and groupBinding
 	// and specify the onDelete action.
-	GroupBindings []GroupBinding `gorm:"foreignKey:uid;constraint:OnDelete:CASCADE;"`
+	GroupBindings []GroupBinding `gorm:"foreignKey:group_id;constraint:OnDelete:CASCADE;"`
 }
 
 // TableName sets the insert table name for this struct type
-func (User) TableName() string {
-	return "user"
+func (UserGroup) TableName() string {
+	return "user_group"
 }

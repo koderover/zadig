@@ -137,6 +137,26 @@ func (c *RoleBindingColl) ListRoleBindingsByUIDs(uids []string) ([]*models.RoleB
 	return res, nil
 }
 
+func (c *RoleBindingColl) ListRoleBindingsByGID(groupID string) ([]*models.RoleBinding, error) {
+	var res []*models.RoleBinding
+
+	ctx := context.Background()
+	query := bson.M{}
+	query["subjects.group_id"] = groupID
+
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func (c *RoleBindingColl) ListSystemRoleBindingsByUIDs(uids []string) ([]*models.RoleBinding, error) {
 	var res []*models.RoleBinding
 
