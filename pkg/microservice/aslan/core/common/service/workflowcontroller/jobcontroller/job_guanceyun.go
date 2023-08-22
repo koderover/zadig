@@ -159,6 +159,7 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 				}
 			}
 			return
+		default:
 		}
 	}
 }
