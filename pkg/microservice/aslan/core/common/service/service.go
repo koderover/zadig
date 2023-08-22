@@ -1435,7 +1435,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 			if err != nil {
 				return ret, nil
 			}
-			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
+			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, inf, log))
 		default:
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found, unknow type", serviceName))
 		}
@@ -1502,7 +1502,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 				if err != nil {
 					continue
 				}
-				ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
+				ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, inf, log))
 			case setting.Ingress:
 				version, err := clientset.Discovery().ServerVersion()
 				if err != nil {
@@ -1567,8 +1567,21 @@ func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.
 	return wrapper.StatefulSet(sts).WorkloadResource(pods)
 }
 
-func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, log *zap.SugaredLogger) *internalresource.CronJob {
-	return wrapper.CronJob(cornJob, cronJobBeta).CronJobResource()
+func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.CronJob {
+	if cornJob != nil {
+		pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(cornJob.Spec.JobTemplate.Spec.Selector.MatchLabels), informer)
+		if err != nil {
+			log.Warnf("Failed to get pods, err: %s", err)
+		}
+		return wrapper.CronJob(cornJob, cronJobBeta).CronJobResource(pods)
+	} else if cronJobBeta != nil {
+		pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(cornJob.Spec.JobTemplate.Spec.Selector.MatchLabels), informer)
+		if err != nil {
+			log.Warnf("Failed to get pods, err: %s", err)
+		}
+		return wrapper.CronJob(cornJob, cronJobBeta).CronJobResource(pods)
+	}
+	return nil
 }
 
 func ToDeploymentWorkload(v *appsv1.Deployment) *Workload {
