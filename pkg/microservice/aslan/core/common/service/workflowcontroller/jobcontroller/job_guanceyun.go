@@ -34,8 +34,8 @@ import (
 
 const (
 	StatusChecking   = "checking"
-	StatusPassed     = "passed"
-	StatusFailed     = "failed"
+	StatusNormal     = "normal"
+	StatusAbnormal   = "abnormal"
 	StatusUnfinished = "unfinished"
 )
 
@@ -105,7 +105,7 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 			if checker, ok := checkMap[eventResp.CheckerID]; ok {
 				// checker has been triggered if url not empty, ignore it
 				if checker.Url == "" && guanceyun.LevelMap[eventResp.EventLevel] >= guanceyun.LevelMap[checker.Level] {
-					checker.Status = StatusFailed
+					checker.Status = StatusAbnormal
 					checker.Url = link(eventResp.CheckerName)
 					triggered = true
 				}
@@ -155,7 +155,7 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 			c.job.Status = config.StatusPassed
 			for _, monitor := range c.jobTaskSpec.Monitors {
 				if monitor.Url == "" {
-					monitor.Status = StatusPassed
+					monitor.Status = StatusNormal
 				}
 			}
 			return
