@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -51,21 +52,24 @@ func (req *InitializeUserReq) Validate() error {
 		return fmt.Errorf("password cannot be empty")
 	}
 
-	if len(req.Company) == 0 {
-		return fmt.Errorf("company cannot be empty")
+	if !config.Enterprise() {
+		if len(req.Company) == 0 {
+			return fmt.Errorf("company cannot be empty")
+		}
+
+		if len(req.Email) == 0 {
+			return fmt.Errorf("email cannot be empty")
+		}
+
+		if len(req.Reason) > 500 {
+			return fmt.Errorf("reason is too long")
+		}
+
+		if len(req.Address) > 100 {
+			return fmt.Errorf("address is too long")
+		}
 	}
 
-	if len(req.Email) == 0 {
-		return fmt.Errorf("email cannot be empty")
-	}
-
-	if len(req.Reason) > 500 {
-		return fmt.Errorf("reason is too long")
-	}
-
-	if len(req.Address) > 100 {
-		return fmt.Errorf("address is too long")
-	}
 	return nil
 }
 

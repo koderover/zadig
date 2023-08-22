@@ -75,6 +75,14 @@ func initSystemConfig() error {
 		return err
 	}
 
+	if config.Enterprise() {
+		// only initialize user for enterprise version
+		if err := initializeAdminUser(); err != nil {
+			log.Errorf("initialize admin user failed: email: %s, password: %s, err: %s", config.AdminEmail(), config.AdminPassword(), err)
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -101,4 +109,12 @@ func createLocalCluster() error {
 		return nil
 	}
 	return aslan.New(config.AslanServiceAddress()).AddLocalCluster()
+}
+
+func initializeAdminUser() error {
+	username := "admin"
+	password := config.AdminPassword()
+	email := config.AdminEmail()
+
+	return aslan.New(config.AslanServiceAddress()).InitializeUser(username, password, email)
 }
