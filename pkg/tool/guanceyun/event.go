@@ -197,6 +197,10 @@ func (c *Client) SearchEventByChecker(args []*SearchEventByMonitorArg, startTime
 		}
 	}
 
+	//// debug
+	//b, _ := json.MarshalIndent(eventRespMap, "", "  ")
+	//log.Infof("guanceyun resp: %s", string(b))
+
 	result := make([]*EventResp, 0)
 	for id, eventResp := range eventRespMap {
 		for _, arg := range args {

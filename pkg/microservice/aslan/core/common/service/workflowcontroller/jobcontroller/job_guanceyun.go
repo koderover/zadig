@@ -18,6 +18,7 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
@@ -28,6 +29,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/guanceyun"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const (
@@ -72,7 +74,7 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 		return
 	}
 	link := func(checker string) string {
-		return info.ConsoleHost + "/keyevents/monitorChart?leftActiveKey=Events&activeName=Events&query=df_monitor_checker_name" + url.QueryEscape(":"+checker)
+		return info.ConsoleHost + "/keyevents/monitorChart?leftActiveKey=Events&activeName=Events&query=df_monitor_checker_name" + url.QueryEscape(`:"`+checker+`"`)
 	}
 
 	client := guanceyun.NewClient(info.Host, info.ApiKey)
@@ -96,6 +98,9 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 		if err != nil {
 			return false, err
 		}
+		//todo debug
+		b, _ := json.MarshalIndent(resp, "", "  ")
+		log.Infof("resp: %s", string(b))
 		for _, eventResp := range resp {
 			// checker has been triggered if url not empty, ignore it
 			if checker, ok := checkMap[eventResp.CheckerID]; ok && checker.Url == "" {
