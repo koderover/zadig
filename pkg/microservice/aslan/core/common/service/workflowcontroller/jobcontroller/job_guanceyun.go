@@ -102,9 +102,9 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 		b, _ := json.MarshalIndent(resp, "", "  ")
 		log.Infof("resp: %s", string(b))
 		for _, eventResp := range resp {
-			// checker has been triggered if url not empty, ignore it
-			if checker, ok := checkMap[eventResp.CheckerID]; ok && checker.Url == "" {
-				if guanceyun.LevelMap[eventResp.EventLevel] >= guanceyun.LevelMap[checker.Level] {
+			if checker, ok := checkMap[eventResp.CheckerID]; ok {
+				// checker has been triggered if url not empty, ignore it
+				if checker.Url == "" && guanceyun.LevelMap[eventResp.EventLevel] >= guanceyun.LevelMap[checker.Level] {
 					checker.Status = StatusFailed
 					checker.Url = link(eventResp.CheckerName)
 					triggered = true
