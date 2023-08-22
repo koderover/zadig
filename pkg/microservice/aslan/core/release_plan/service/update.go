@@ -42,7 +42,8 @@ const (
 )
 
 type PlanUpdater interface {
-	Update(plan *models.ReleasePlan) error
+	// Update returns the old data and the updated data
+	Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error)
 	Lint() error
 }
 
@@ -81,9 +82,10 @@ func NewNameUpdater(args *UpdateReleasePlanArgs) (*NameUpdater, error) {
 	return &updater, nil
 }
 
-func (u *NameUpdater) Update(plan *models.ReleasePlan) error {
+func (u *NameUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+	before, after = plan.Name, u.Name
 	plan.Name = u.Name
-	return nil
+	return
 }
 
 func (u *NameUpdater) Lint() error {
@@ -105,9 +107,10 @@ func NewDescUpdater(args *UpdateReleasePlanArgs) (*DescUpdater, error) {
 	return &updater, nil
 }
 
-func (u *DescUpdater) Update(plan *models.ReleasePlan) error {
+func (u *DescUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+	before, after = plan.Description, u.Description
 	plan.Description = u.Description
-	return nil
+	return
 }
 
 func (u *DescUpdater) Lint() error {
@@ -127,7 +130,9 @@ func NewTimeRangeUpdater(args *UpdateReleasePlanArgs) (*TimeRangeUpdater, error)
 	return &updater, nil
 }
 
-func (u *TimeRangeUpdater) Update(plan *models.ReleasePlan) error {
+func (u *TimeRangeUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+
+	before, after = fmt.Sprintf("%s-%s", time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05"), plan.EndTime), fmt.Sprintf("%d-%d", u.StartTime, u.EndTime
 	plan.StartTime = u.StartTime
 	plan.EndTime = u.EndTime
 	return nil
@@ -159,7 +164,7 @@ func NewManagerUpdater(args *UpdateReleasePlanArgs) (*ManagerUpdater, error) {
 	return &updater, nil
 }
 
-func (u *ManagerUpdater) Update(plan *models.ReleasePlan) error {
+func (u *ManagerUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
 	plan.ManagerID = u.ManagerID
 	plan.Manager = u.Name
 	return nil
@@ -193,7 +198,7 @@ func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobU
 	return &updater, nil
 }
 
-func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
+func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
 	job := &models.ReleaseJob{
 		ID:   uuid.New().String(),
 		Name: u.Name,
@@ -227,7 +232,7 @@ func NewUpdateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*UpdateReleaseJobU
 	return &updater, nil
 }
 
-func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
+func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
 	for _, job := range plan.Jobs {
 		if job.ID == u.ID {
 			if job.Type != u.Type {
@@ -263,7 +268,7 @@ func NewDeleteReleaseJobUpdater(args *UpdateReleasePlanArgs) (*DeleteReleaseJobU
 	return &updater, nil
 }
 
-func (u *DeleteReleaseJobUpdater) Update(plan *models.ReleasePlan) error {
+func (u *DeleteReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
 	for i, job := range plan.Jobs {
 		if job.ID == u.ID {
 			plan.Jobs = append(plan.Jobs[:i], plan.Jobs[i+1:]...)
@@ -292,7 +297,7 @@ func NewUpdateApprovalUpdater(args *UpdateReleasePlanArgs) (*UpdateApprovalUpdat
 	return &updater, nil
 }
 
-func (u *UpdateApprovalUpdater) Update(plan *models.ReleasePlan) error {
+func (u *UpdateApprovalUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
 	plan.Approval = u.Approval
 	return nil
 }
