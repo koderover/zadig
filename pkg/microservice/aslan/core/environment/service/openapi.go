@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm/utils"
@@ -50,7 +51,7 @@ func GetEnvDetail(projectName, envName string, logger *zap.SugaredLogger) (*Open
 		Namespace:   env.Namespace,
 		RegistryID:  env.RegistryID,
 		Alias:       env.Alias,
-		Status:      env.Status,
+		Status:      strings.ToLower(env.Status),
 		UpdateBy:    env.UpdateBy,
 		UpdateTime:  env.UpdateTime,
 	}
@@ -100,7 +101,7 @@ func GetEnvDetail(projectName, envName string, logger *zap.SugaredLogger) (*Open
 
 			for _, group := range groups {
 				if group.ServiceName == serv.ServiceName {
-					service.Status = group.Status
+					service.Status = strings.ToLower(group.Status)
 				}
 			}
 			services = append(services, service)
@@ -458,7 +459,7 @@ func OpenAPIListEnvs(projectName string, logger *zap.SugaredLogger) ([]*OpenAPIL
 			Production: env.Production,
 			EnvName:    env.EnvName,
 			Alias:      env.Alias,
-			Status:     env.Status,
+			Status:     strings.ToLower(env.Status),
 			ClusterID:  env.ClusterID,
 			Namespace:  env.Namespace,
 			RegistryID: env.RegistryID,
@@ -483,7 +484,7 @@ func OpenAPIListProductionEnvs(projectName string, logger *zap.SugaredLogger) ([
 			Production: env.Production,
 			EnvName:    env.EnvName,
 			Alias:      env.Alias,
-			Status:     env.Status,
+			Status:     strings.ToLower(env.Status),
 			ClusterID:  env.ClusterID,
 			Namespace:  env.Namespace,
 			RegistryID: env.RegistryID,
