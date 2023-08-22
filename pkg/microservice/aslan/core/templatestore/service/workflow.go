@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	steptypes "github.com/koderover/zadig/pkg/types/step"
 )
 
 func CreateWorkflowTemplate(userName string, template *commonmodels.WorkflowV4Template, logger *zap.SugaredLogger) error {
@@ -333,7 +334,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "test",
 							JobType: config.JobZadigTesting,
-							Spec:    commonmodels.ZadigTestingJobSpec{},
+							Spec: commonmodels.ZadigTestingJobSpec{
+								TestType: " ",
+							},
 						},
 					},
 				},
@@ -474,7 +477,37 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "code-analyse",
 							JobType: config.JobFreestyle,
-							Spec:    commonmodels.FreestyleJobSpec{},
+							Spec: commonmodels.FreestyleJobSpec{
+								Properties: &commonmodels.JobProperties{
+									Timeout:         60,
+									ResourceRequest: "low",
+									ResReqSpec:      setting.LowRequestSpec,
+									BuildOS:         "focal",
+									ImageFrom:       "koderover",
+									ImageID:         "623d776ad26582d37d5a1aed",
+									CacheEnable:     true,
+									CacheDirType:    "workspace",
+								},
+								Steps: []*commonmodels.Step{
+									{
+										Name:     "tools",
+										StepType: config.StepTools,
+										Spec:     &steptypes.StepToolInstallSpec{},
+									},
+									{
+										Name:     "git",
+										StepType: config.StepGit,
+										Spec:     &steptypes.StepGitSpec{},
+									},
+									{
+										Name:     "shell",
+										StepType: config.StepShell,
+										Spec: &steptypes.StepShellSpec{
+											Script: "#!/bin/bash\nset -e",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -544,7 +577,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "test",
 							JobType: config.JobZadigTesting,
-							Spec:    commonmodels.ZadigTestingJobSpec{},
+							Spec: commonmodels.ZadigTestingJobSpec{
+								TestType: " ",
+							},
 						},
 					},
 				},
@@ -563,7 +598,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 					Jobs: []*commonmodels.Job{
 						{
 							Name:    "deploy",
-							JobType: config.JobZadigHelmDeploy,
+							JobType: config.JobZadigHelmChartDeploy,
 							Spec:    commonmodels.ZadigHelmChartDeployJobSpec{},
 						},
 					},
@@ -576,7 +611,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 							Name:    "test",
 							JobType: config.JobZadigTesting,
 							Spec: commonmodels.ZadigTestingJobSpec{
-								TestType: config.ProductTestType,
+								TestType: " ",
 							},
 						},
 					},
@@ -678,7 +713,37 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "check",
 							JobType: config.JobFreestyle,
-							Spec:    commonmodels.FreestyleJobSpec{},
+							Spec: commonmodels.FreestyleJobSpec{
+								Properties: &commonmodels.JobProperties{
+									Timeout:         60,
+									ResourceRequest: "low",
+									ResReqSpec:      setting.LowRequestSpec,
+									BuildOS:         "focal",
+									ImageFrom:       "koderover",
+									ImageID:         "623d776ad26582d37d5a1aed",
+									CacheEnable:     true,
+									CacheDirType:    "workspace",
+								},
+								Steps: []*commonmodels.Step{
+									{
+										Name:     "tools",
+										StepType: config.StepTools,
+										Spec:     &steptypes.StepToolInstallSpec{},
+									},
+									{
+										Name:     "git",
+										StepType: config.StepGit,
+										Spec:     &steptypes.StepGitSpec{},
+									},
+									{
+										Name:     "shell",
+										StepType: config.StepShell,
+										Spec: &steptypes.StepShellSpec{
+											Script: "#!/bin/bash\nset -e",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -729,7 +794,37 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "check",
 							JobType: config.JobFreestyle,
-							Spec:    commonmodels.FreestyleJobSpec{},
+							Spec: commonmodels.FreestyleJobSpec{
+								Properties: &commonmodels.JobProperties{
+									Timeout:         60,
+									ResourceRequest: "low",
+									ResReqSpec:      setting.LowRequestSpec,
+									BuildOS:         "focal",
+									ImageFrom:       "koderover",
+									ImageID:         "623d776ad26582d37d5a1aed",
+									CacheEnable:     true,
+									CacheDirType:    "workspace",
+								},
+								Steps: []*commonmodels.Step{
+									{
+										Name:     "tools",
+										StepType: config.StepTools,
+										Spec:     &steptypes.StepToolInstallSpec{},
+									},
+									{
+										Name:     "git",
+										StepType: config.StepGit,
+										Spec:     &steptypes.StepGitSpec{},
+									},
+									{
+										Name:     "shell",
+										StepType: config.StepShell,
+										Spec: &steptypes.StepShellSpec{
+											Script: "#!/bin/bash\nset -e",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -866,7 +961,37 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "check",
 							JobType: config.JobFreestyle,
-							Spec:    commonmodels.FreestyleJobSpec{},
+							Spec: commonmodels.FreestyleJobSpec{
+								Properties: &commonmodels.JobProperties{
+									Timeout:         60,
+									ResourceRequest: "low",
+									ResReqSpec:      setting.LowRequestSpec,
+									BuildOS:         "focal",
+									ImageFrom:       "koderover",
+									ImageID:         "623d776ad26582d37d5a1aed",
+									CacheEnable:     true,
+									CacheDirType:    "workspace",
+								},
+								Steps: []*commonmodels.Step{
+									{
+										Name:     "tools",
+										StepType: config.StepTools,
+										Spec:     &steptypes.StepToolInstallSpec{},
+									},
+									{
+										Name:     "git",
+										StepType: config.StepGit,
+										Spec:     &steptypes.StepGitSpec{},
+									},
+									{
+										Name:     "shell",
+										StepType: config.StepShell,
+										Spec: &steptypes.StepShellSpec{
+											Script: "#!/bin/bash\nset -e",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -912,7 +1037,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "test",
 							JobType: config.JobZadigTesting,
-							Spec:    commonmodels.ZadigTestingJobSpec{},
+							Spec: commonmodels.ZadigTestingJobSpec{
+								TestType: " ",
+							},
 						},
 					},
 				},
@@ -969,7 +1096,9 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 						{
 							Name:    "test",
 							JobType: config.JobZadigTesting,
-							Spec:    commonmodels.ZadigTestingJobSpec{},
+							Spec: commonmodels.ZadigTestingJobSpec{
+								TestType: " ",
+							},
 						},
 					},
 				},
@@ -991,7 +1120,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		{
 			TemplateName: "Nacos 配置及业务变更",
 			BuildIn:      true,
-			Description:  "支持自动化执行 nacos 配置变更",
+			Description:  "支持自动化执行 Nacos 配置变更",
 			Stages: []*commonmodels.WorkflowStage{
 				{
 					Name:     "构建",
@@ -1035,7 +1164,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 		{
 			TemplateName: "Apollo 配置及业务变更",
 			BuildIn:      true,
-			Description:  "支持自动化执行 apollo 配置变更",
+			Description:  "支持自动化执行 Apollo 配置变更",
 			Stages: []*commonmodels.WorkflowStage{
 				{
 					Name:     "构建",
