@@ -122,6 +122,22 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 			}
 		}
 	}
+	isAllMonitorHasEvent := func() bool {
+		for _, monitor := range c.jobTaskSpec.Monitors {
+			if monitor.Url == "" {
+				return false
+			}
+		}
+		return true
+	}
+	isNoMonitorHasEvent := func() bool {
+		for _, monitor := range c.jobTaskSpec.Monitors {
+			if monitor.Url != "" {
+				return false
+			}
+		}
+		return true
+	}
 	for {
 		c.ack()
 		// GuanceYun default openapi limit is 20 per minute
@@ -132,7 +148,6 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 			logError(c.job, fmt.Sprintf("check error: %v", err), c.logger)
 			return
 		}
-	L:
 		switch c.jobTaskSpec.CheckMode {
 		case "trigger":
 			if triggered {
@@ -141,22 +156,25 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 				return
 			}
 		case "monitor":
-			for _, monitor := range c.jobTaskSpec.Monitors {
-				if monitor.Url != "" {
-					setNoEventMonitorStatusUnfinished()
-					c.job.Status = config.StatusFailed
-					return
-				}
+			if isAllMonitorHasEvent() {
+				c.job.Status = config.StatusFailed
+				return
 			}
-			break L
+		default:
+			logError(c.job, fmt.Sprintf("invalid check mode: %s", c.jobTaskSpec.CheckMode), c.logger)
+			return
 		}
 		select {
 		case <-ctx.Done():
 			c.job.Status = config.StatusCancelled
 			return
 		case <-timeout:
+			if isNoMonitorHasEvent() {
+				c.job.Status = config.StatusPassed
+			} else {
+				c.job.Status = config.StatusFailed
+			}
 			// no event triggered in check time
-			c.job.Status = config.StatusPassed
 			for _, monitor := range c.jobTaskSpec.Monitors {
 				if monitor.Url == "" {
 					monitor.Status = StatusNormal
