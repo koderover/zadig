@@ -139,12 +139,12 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 			}
 		case "monitor":
 			for _, monitor := range c.jobTaskSpec.Monitors {
-				if monitor.Url == "" {
-					break L
+				if monitor.Url != "" {
+					c.job.Status = config.StatusFailed
+					return
 				}
 			}
-			c.job.Status = config.StatusFailed
-			return
+			break L
 		}
 		select {
 		case <-ctx.Done():
