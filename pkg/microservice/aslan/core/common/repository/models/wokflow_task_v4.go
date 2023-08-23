@@ -477,6 +477,15 @@ type JobTaskOfflineServiceEvent struct {
 	Error       string        `bson:"error" json:"error" yaml:"error"`
 }
 
+type JobTaskGuanceyunCheckSpec struct {
+	ID   string `bson:"id" json:"id" yaml:"id"`
+	Name string `bson:"name" json:"name" yaml:"name"`
+	// CheckTime minute
+	CheckTime int64               `bson:"check_time" json:"check_time" yaml:"check_time"`
+	CheckMode string              `bson:"check_mode" json:"check_mode" yaml:"check_mode"`
+	Monitors  []*GuanceyunMonitor `bson:"monitors" json:"monitors" yaml:"monitors"`
+}
+
 type JobTaskMseGrayReleaseSpec struct {
 	Production         bool                  `bson:"production" json:"production" yaml:"production"`
 	GrayTag            string                `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`

@@ -863,4 +863,13 @@ var (
 	ErrUpdateLLMIntegration = NewHTTPError(7012, "更新llm集成失败")
 	ErrDeleteLLMIntegration = NewHTTPError(7013, "删除llm集成失败")
 	ErrGetLLMIntegration    = NewHTTPError(7014, "获取llm集成详情失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// observability integration Error Range: 7020 - 7029
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateObservabilityIntegration = NewHTTPError(7020, "创建 观测工具 集成失败")
+	ErrListObservabilityIntegration   = NewHTTPError(7021, "获取 观测工具 集成列表失败")
+	ErrUpdateObservabilityIntegration = NewHTTPError(7022, "更新 观测工具 集成失败")
+	ErrDeleteObservabilityIntegration = NewHTTPError(7023, "删除 观测工具 集成失败")
+	ErrGetObservabilityIntegration    = NewHTTPError(7024, "获取 观测工具 集成详情失败")
 )
