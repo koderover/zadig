@@ -1433,7 +1433,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 			}
 			cj, cjBeta, err := getter.GetCronJobByNameWithCache(serviceName, namespace, inf, kubeclient.VersionLessThan121(version))
 			if err != nil {
-				return ret, nil
+				return ret, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found for cronjob, err: %s", serviceName, err.Error()))
 			}
 			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, inf, log))
 		default:
@@ -1569,12 +1569,14 @@ func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.
 
 func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.CronJob {
 	if cornJob != nil {
+		log.Infof("---------- cronjob desc: %+v", *cornJob)
 		pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(cornJob.Spec.JobTemplate.Spec.Selector.MatchLabels), informer)
 		if err != nil {
 			log.Warnf("Failed to get cronjob pods, err: %s", err)
 		}
 		return wrapper.CronJob(cornJob, nil).CronJobResource(pods)
 	} else if cronJobBeta != nil {
+		log.Infof("---------- cronJobBeta desc: %+v", *cronJobBeta)
 		pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(cronJobBeta.Spec.JobTemplate.Spec.Selector.MatchLabels), informer)
 		if err != nil {
 			log.Warnf("Failed to get cronjob pods, err: %s", err)
