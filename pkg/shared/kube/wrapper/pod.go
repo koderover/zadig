@@ -19,6 +19,8 @@ package wrapper
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -149,6 +151,7 @@ func (w *pod) Resource() *resource.Pod {
 		Succeed:           w.Succeeded(),
 		Ready:             w.Ready(),
 	}
+	log.Infof("---- the status of pod %s is %s", w.Name, p.Status)
 	if len(w.OwnerReferences) > 0 {
 		p.Kind = w.OwnerReferences[0].Kind
 	}
@@ -234,6 +237,8 @@ func (w *pod) Resource() *resource.Pod {
 		p.Status = "Terminating"
 	}
 
+	log.Infof("++++++ the status of pod %s is %s", w.Name, p.Status)
+
 	if p.Status == "Running" {
 		for _, status := range p.ContainerStatuses {
 			if status.Status != "running" {
@@ -242,6 +247,8 @@ func (w *pod) Resource() *resource.Pod {
 			}
 		}
 	}
+
+	log.Infof("******** the status of pod %s is %s", w.Name, p.Status)
 
 	if CheckEphemeralContainerFieldExist(&w.Spec) && len(w.Spec.EphemeralContainers) > 0 {
 		p.EnableDebugContainer = true

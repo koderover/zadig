@@ -219,16 +219,6 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 	return buildProductResp(prod.EnvName, prod, log)
 }
 
-func normalStatus(status string) bool {
-	if status == setting.PodRunning || status == setting.PodSucceeded {
-		return true
-	}
-	if status == setting.ServiceStatusNoSuspended || status == setting.ServiceStatusAllSuspended || status == setting.ServiceStatusPartSuspended {
-		return true
-	}
-	return false
-}
-
 func buildProductResp(envName string, prod *commonmodels.Product, log *zap.SugaredLogger) (*ProductResp, error) {
 	prodResp := &ProductResp{
 		ID:              prod.ID.Hex(),
