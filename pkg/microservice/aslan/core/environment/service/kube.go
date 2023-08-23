@@ -1310,3 +1310,33 @@ func ListPodsInfo(projectName, envName string, log *zap.SugaredLogger) ([]*resou
 	}
 	return res, nil
 }
+
+func GetPodDetailInfo(projectName, envName, podName string, log *zap.SugaredLogger) (*resource.Pod, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return nil, e.ErrListPod.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return nil, e.ErrListPod.AddErr(err)
+	}
+
+	pod, found, err := getter.GetPod(productInfo.Namespace, podName, kubeClient)
+	if err != nil {
+		errMsg := fmt.Sprintf("[%s] GetPod error: %v", productInfo.Namespace, err)
+		log.Error(errMsg)
+		return nil, e.ErrListPod.AddDesc(errMsg)
+	}
+	if !found {
+		errMsg := fmt.Sprintf("[%s] can't find pod", productInfo.Namespace)
+		log.Error(errMsg)
+		return nil, e.ErrListPod.AddDesc(errMsg)
+	}
+
+	res := wrapper.Pod(pod).Resource()
+	return res, nil
+}

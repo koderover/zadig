@@ -2682,6 +2682,37 @@ paths:
       summary: Get Pods Info
       tags:
       - environment
+  /api/aslan/environment/kube/pods/{podName}:
+    get:
+      consumes:
+      - application/json
+      description: Get Pods Detail Info
+      parameters:
+      - description: projectName
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: envName
+        in: query
+        name: envName
+        required: true
+        type: string
+      - description: podName
+        in: path
+        name: podName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/resource.Pod'
+      summary: Get Pods Detail Info
+      tags:
+      - environment
   /api/aslan/environment/production/environments:
     put:
       consumes:

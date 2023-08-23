@@ -217,6 +217,7 @@ var (
 	ErrPreviewYaml              = NewHTTPError(6150, "预览Yaml失败")
 	ErrAnalysisEnvResource      = NewHTTPError(6151, "AI环境巡检失败")
 	ErrListPod                  = NewHTTPError(6152, "列出Pod失败")
+	ErrGetPodDetail             = NewHTTPError(6153, "获取Pod详情失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// it report APIs Range: 6100 - 6149

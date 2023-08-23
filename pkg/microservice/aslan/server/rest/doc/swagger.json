@@ -1035,6 +1035,52 @@
                 }
             }
         },
+        "/api/aslan/environment/kube/pods/{podName}": {
+            "get": {
+                "description": "Get Pods Detail Info",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Pods Detail Info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "projectName",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "envName",
+                        "name": "envName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "podName",
+                        "name": "podName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/resource.Pod"
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/production/environments": {
             "put": {
                 "description": "Update Multi production products",

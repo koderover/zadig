@@ -195,6 +195,44 @@ func ListPodsInfo(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListPodsInfo(projectKey, c.Query("envName"), ctx.Logger)
 }
 
+// @Summary Get Pods Detail Info
+// @Description Get Pods Detail Info
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName 	query		string										true	"projectName"
+// @Param 	envName 		query		string										true	"envName"
+// @Param 	podName 		path		string										true	"podName"
+// @Success 200 			{object} 	resource.Pod
+// @Router /api/aslan/environment/kube/pods/{podName} [get]
+func GetPodsDetailInfo(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].Env.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetPodDetailInfo(projectKey, c.Query("envName"), c.Param("podName"), ctx.Logger)
+}
+
 func ListCustomWorkload(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
