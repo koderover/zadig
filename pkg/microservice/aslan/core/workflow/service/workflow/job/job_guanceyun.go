@@ -71,6 +71,7 @@ func (j *GuanceyunCheckJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 			return nil, errors.Errorf("duplicate monitor name %s", monitor.Name)
 		}
 		nameSet.Insert(monitor.Name)
+		monitor.Status = "checking"
 	}
 
 	jobTask := &commonmodels.JobTask{

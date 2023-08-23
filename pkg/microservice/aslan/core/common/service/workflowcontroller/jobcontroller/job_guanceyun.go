@@ -115,6 +115,13 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 		}
 		return triggered, nil
 	}
+	setNoEventMonitorStatusUnfinished := func() {
+		for _, monitor := range c.jobTaskSpec.Monitors {
+			if monitor.Url == "" {
+				monitor.Status = StatusUnfinished
+			}
+		}
+	}
 	for {
 		c.ack()
 		// GuanceYun default openapi limit is 20 per minute
@@ -129,17 +136,14 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 		switch c.jobTaskSpec.CheckMode {
 		case "trigger":
 			if triggered {
-				for _, monitor := range c.jobTaskSpec.Monitors {
-					if monitor.Url == "" {
-						monitor.Status = StatusUnfinished
-					}
-				}
+				setNoEventMonitorStatusUnfinished()
 				c.job.Status = config.StatusFailed
 				return
 			}
 		case "monitor":
 			for _, monitor := range c.jobTaskSpec.Monitors {
 				if monitor.Url != "" {
+					setNoEventMonitorStatusUnfinished()
 					c.job.Status = config.StatusFailed
 					return
 				}
