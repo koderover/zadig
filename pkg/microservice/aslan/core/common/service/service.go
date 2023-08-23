@@ -27,6 +27,8 @@ import (
 	templ "text/template"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -1568,22 +1570,34 @@ func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.
 }
 
 func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.CronJob {
-	if cornJob != nil {
-		log.Infof("---------- cronjob desc: %+v", *cornJob)
-		pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(cornJob.Spec.JobTemplate.Spec.Selector.MatchLabels), informer)
-		if err != nil {
-			log.Warnf("Failed to get cronjob pods, err: %s", err)
-		}
-		return wrapper.CronJob(cornJob, nil).CronJobResource(pods)
-	} else if cronJobBeta != nil {
-		log.Infof("---------- cronJobBeta desc: %+v", *cronJobBeta)
-		pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(cronJobBeta.Spec.JobTemplate.Spec.Selector.MatchLabels), informer)
-		if err != nil {
-			log.Warnf("Failed to get cronjob pods, err: %s", err)
-		}
-		return wrapper.CronJob(nil, cronJobBeta).CronJobResource(pods)
+	cronJobName := wrapper.CronJob(cornJob, cronJobBeta).Name
+	jobs, err := informer.Batch().V1().Jobs().Lister().List(nil)
+	if err != nil {
+		log.Errorf("Failed to get jobs, err: %s", err)
+		return nil
 	}
-	return nil
+	// find jobs created by particular cronjob
+	matchJobs := make([]*batchv1.Job, 0)
+	for _, job := range jobs {
+		for _, owner := range job.OwnerReferences {
+			if owner.Name == cronJobName && owner.Kind == setting.CronJob {
+				matchJobs = append(matchJobs, job)
+				break
+			}
+		}
+	}
+
+	pods := make([]*corev1.Pod, 0)
+	for _, job := range matchJobs {
+		cronGeneratedPods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(job.Spec.Selector.MatchLabels), informer)
+		if err != nil {
+			log.Errorf("failed to find related pods for cronjob: %s, err: %s", cronJobName, err)
+			continue
+		}
+		pods = append(pods, cronGeneratedPods...)
+	}
+
+	return wrapper.CronJob(cornJob, cronJobBeta).CronJobResource(pods)
 }
 
 func ToDeploymentWorkload(v *appsv1.Deployment) *Workload {
