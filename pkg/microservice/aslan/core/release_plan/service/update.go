@@ -39,11 +39,25 @@ const (
 	VerbDeleteReleaseJob = "delete_release_job"
 
 	VerbUpdateApproval = "update_approval"
+
+	TargetTypeReleasePlan       = "发布计划"
+	TargetTypeReleasePlanStatus = "发布计划状态"
+	TargetTypeMetadata          = "元数据"
+	TargetTypeReleaseJob        = "发布任务"
+	TargetTypeApproval          = "审批"
+
+	VerbCreate  = "新建"
+	VerbUpdate  = "更新"
+	VerbDelete  = "删除"
+	VerbExecute = "执行"
 )
 
 type PlanUpdater interface {
 	// Update returns the old data and the updated data
 	Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error)
+	Verb() string
+	TargetName() string
+	TargetType() string
 	Lint() error
 }
 
@@ -95,6 +109,18 @@ func (u *NameUpdater) Lint() error {
 	return nil
 }
 
+func (u *NameUpdater) TargetName() string {
+	return "发布计划名称"
+}
+
+func (u *NameUpdater) TargetType() string {
+	return TargetTypeMetadata
+}
+
+func (u *NameUpdater) Verb() string {
+	return VerbUpdate
+}
+
 type DescUpdater struct {
 	Description string `json:"description"`
 }
@@ -117,6 +143,18 @@ func (u *DescUpdater) Lint() error {
 	return nil
 }
 
+func (u *DescUpdater) TargetName() string {
+	return "需求关联"
+}
+
+func (u *DescUpdater) TargetType() string {
+	return TargetTypeMetadata
+}
+
+func (u *DescUpdater) Verb() string {
+	return VerbUpdate
+}
+
 type TimeRangeUpdater struct {
 	StartTime int64 `json:"start_time"`
 	EndTime   int64 `json:"end_time"`
@@ -131,11 +169,14 @@ func NewTimeRangeUpdater(args *UpdateReleasePlanArgs) (*TimeRangeUpdater, error)
 }
 
 func (u *TimeRangeUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-
-	before, after = fmt.Sprintf("%s-%s", time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05"), plan.EndTime), fmt.Sprintf("%d-%d", u.StartTime, u.EndTime
+	format := "2006-01-02 15:04:05"
+	before = fmt.Sprintf("%s-%s", time.Unix(plan.StartTime, 0).Format(format),
+		time.Unix(plan.EndTime, 0).Format(format))
+	after = fmt.Sprintf("%s-%s", time.Unix(u.StartTime, 0).Format(format),
+		time.Unix(u.EndTime, 0).Format(format))
 	plan.StartTime = u.StartTime
 	plan.EndTime = u.EndTime
-	return nil
+	return
 }
 
 func (u *TimeRangeUpdater) Lint() error {
@@ -149,6 +190,18 @@ func (u *TimeRangeUpdater) Lint() error {
 		return fmt.Errorf("end_time must be greater than now")
 	}
 	return nil
+}
+
+func (u *TimeRangeUpdater) TargetName() string {
+	return "发布窗口期"
+}
+
+func (u *TimeRangeUpdater) TargetType() string {
+	return TargetTypeMetadata
+}
+
+func (u *TimeRangeUpdater) Verb() string {
+	return VerbUpdate
 }
 
 type ManagerUpdater struct {
@@ -165,9 +218,10 @@ func NewManagerUpdater(args *UpdateReleasePlanArgs) (*ManagerUpdater, error) {
 }
 
 func (u *ManagerUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+	before, after = plan.Manager, u.Name
 	plan.ManagerID = u.ManagerID
 	plan.Manager = u.Name
-	return nil
+	return
 }
 
 func (u *ManagerUpdater) Lint() error {
@@ -182,6 +236,18 @@ func (u *ManagerUpdater) Lint() error {
 		return fmt.Errorf("name not match")
 	}
 	return nil
+}
+
+func (u *ManagerUpdater) TargetName() string {
+	return "发布负责人"
+}
+
+func (u *ManagerUpdater) TargetType() string {
+	return TargetTypeMetadata
+}
+
+func (u *ManagerUpdater) Verb() string {
+	return VerbUpdate
 }
 
 type CreateReleaseJobUpdater struct {
@@ -199,6 +265,7 @@ func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobU
 }
 
 func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+	before, after = nil, u
 	job := &models.ReleaseJob{
 		ID:   uuid.New().String(),
 		Name: u.Name,
@@ -206,7 +273,7 @@ func (u *CreateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 		Spec: u.Spec,
 	}
 	plan.Jobs = append(plan.Jobs, job)
-	return nil
+	return
 }
 
 func (u *CreateReleaseJobUpdater) Lint() error {
@@ -215,6 +282,18 @@ func (u *CreateReleaseJobUpdater) Lint() error {
 	}
 
 	return lintReleaseJob(u.Type, u.Spec)
+}
+
+func (u *CreateReleaseJobUpdater) TargetName() string {
+	return u.Name
+}
+
+func (u *CreateReleaseJobUpdater) TargetType() string {
+	return TargetTypeReleaseJob
+}
+
+func (u *CreateReleaseJobUpdater) Verb() string {
+	return VerbCreate
 }
 
 type UpdateReleaseJobUpdater struct {
@@ -236,14 +315,16 @@ func (u *UpdateReleaseJobUpdater) Update(plan *models.ReleasePlan) (before inter
 	for _, job := range plan.Jobs {
 		if job.ID == u.ID {
 			if job.Type != u.Type {
-				return fmt.Errorf("job type cannot be changed")
+				return nil, nil, fmt.Errorf("job type cannot be changed")
 			}
+			before, after = job, u
 			job.Name = u.Name
 			job.Spec = u.Spec
-			return nil
+			job.Updated = true
+			return
 		}
 	}
-	return fmt.Errorf("job %s-%s not found", u.Name, u.ID)
+	return nil, nil, fmt.Errorf("job %s-%s not found", u.Name, u.ID)
 }
 
 func (u *UpdateReleaseJobUpdater) Lint() error {
@@ -256,8 +337,21 @@ func (u *UpdateReleaseJobUpdater) Lint() error {
 	return lintReleaseJob(u.Type, u.Spec)
 }
 
+func (u *UpdateReleaseJobUpdater) TargetName() string {
+	return u.Name
+}
+
+func (u *UpdateReleaseJobUpdater) TargetType() string {
+	return TargetTypeReleaseJob
+}
+
+func (u *UpdateReleaseJobUpdater) Verb() string {
+	return VerbUpdate
+}
+
 type DeleteReleaseJobUpdater struct {
-	ID string `json:"id"`
+	ID   string `json:"id"`
+	name string
 }
 
 func NewDeleteReleaseJobUpdater(args *UpdateReleasePlanArgs) (*DeleteReleaseJobUpdater, error) {
@@ -271,11 +365,12 @@ func NewDeleteReleaseJobUpdater(args *UpdateReleasePlanArgs) (*DeleteReleaseJobU
 func (u *DeleteReleaseJobUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
 	for i, job := range plan.Jobs {
 		if job.ID == u.ID {
+			u.name = job.Name
 			plan.Jobs = append(plan.Jobs[:i], plan.Jobs[i+1:]...)
-			return nil
+			return
 		}
 	}
-	return fmt.Errorf("job %s not found", u.ID)
+	return nil, nil, fmt.Errorf("job %s not found", u.ID)
 }
 
 func (u *DeleteReleaseJobUpdater) Lint() error {
@@ -283,6 +378,18 @@ func (u *DeleteReleaseJobUpdater) Lint() error {
 		return fmt.Errorf("id cannot be empty")
 	}
 	return nil
+}
+
+func (u *DeleteReleaseJobUpdater) TargetName() string {
+	return u.name
+}
+
+func (u *DeleteReleaseJobUpdater) TargetType() string {
+	return TargetTypeReleaseJob
+}
+
+func (u *DeleteReleaseJobUpdater) Verb() string {
+	return VerbDelete
 }
 
 type UpdateApprovalUpdater struct {
@@ -298,8 +405,9 @@ func NewUpdateApprovalUpdater(args *UpdateReleasePlanArgs) (*UpdateApprovalUpdat
 }
 
 func (u *UpdateApprovalUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+	before, after = plan.Approval, u.Approval
 	plan.Approval = u.Approval
-	return nil
+	return
 }
 
 func (u *UpdateApprovalUpdater) Lint() error {
@@ -307,4 +415,16 @@ func (u *UpdateApprovalUpdater) Lint() error {
 		return fmt.Errorf("approval cannot be empty")
 	}
 	return lintApproval(u.Approval)
+}
+
+func (u *UpdateApprovalUpdater) TargetName() string {
+	return "审批"
+}
+
+func (u *UpdateApprovalUpdater) TargetType() string {
+	return TargetTypeApproval
+}
+
+func (u *UpdateApprovalUpdater) Verb() string {
+	return VerbUpdate
 }

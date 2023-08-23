@@ -37,12 +37,13 @@ type ReleasePlan struct {
 	UpdatedBy   string `bson:"updated_by"       yaml:"updated_by"                   json:"updated_by"`
 	UpdateTime  int64  `bson:"update_time"       yaml:"update_time"                   json:"update_time"`
 
-	Approval *Approval `bson:"approval"       yaml:"approval"                   json:"approval"`
+	Approval *Approval `bson:"approval"       yaml:"approval"                   json:"approval,omitempty"`
 
 	Jobs []*ReleaseJob `bson:"jobs"       yaml:"jobs"                   json:"jobs"`
 
-	Logs   []*ReleasePlanLog        `bson:"logs"       yaml:"logs"                   json:"logs"`
-	Status config.ReleasePlanStatus `bson:"status"       yaml:"status"                   json:"status"`
+	Logs     []*ReleasePlanLog        `bson:"logs"       yaml:"logs"                   json:"logs"`
+	Status   config.ReleasePlanStatus `bson:"status"       yaml:"status"                   json:"status"`
+	Revision int                      `bson:"revision"       yaml:"revision"                   json:"revision"`
 }
 
 func (ReleasePlan) TableName() string {
@@ -83,7 +84,7 @@ type WorkflowReleaseJobSpec struct {
 type ReleasePlanLog struct {
 	Username   string      `bson:"username"                    json:"username"`
 	Account    string      `bson:"account"                     json:"account"`
-	Action     string      `bson:"action"                      json:"action"`
+	Verb       string      `bson:"verb"                        json:"verb"`
 	TargetName string      `bson:"target_name"                 json:"target_name"`
 	TargetType string      `bson:"target_type"                 json:"target_type"`
 	Before     interface{} `bson:"before"                      json:"before"`

@@ -495,6 +495,12 @@ const (
 	StatusCancel         ReleasePlanStatus = "cancel"
 )
 
+var ReleasePlanStatusMap = map[ReleasePlanStatus][]ReleasePlanStatus{
+	StatusPlanning:       {StatusWaitForApprove, StatusExecuting},
+	StatusWaitForApprove: {StatusPlanning, StatusExecuting},
+	StatusExecuting:      {StatusPlanning, StatusSuccess, StatusCancel},
+}
+
 type ReleasePlanJobType string
 
 const (

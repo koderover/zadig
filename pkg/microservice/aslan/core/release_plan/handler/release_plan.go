@@ -121,7 +121,7 @@ func UpdateReleasePlan(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = service.UpdateReleasePlan(c.Param("id"), ctx.UserName, req)
+	ctx.Err = service.UpdateReleasePlan(ctx, c.Param("id"), req)
 }
 
 func DeleteReleasePlan(c *gin.Context) {
@@ -140,5 +140,5 @@ func DeleteReleasePlan(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteReleasePlan(c.Param("id"))
+	ctx.Err = service.DeleteReleasePlan(ctx.UserName, c.Param("id"))
 }

@@ -28,13 +28,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
+	"go.uber.org/zap"
+
 	systemmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util/ginzap"
-	"go.uber.org/zap"
 )
 
 // Context struct
@@ -245,7 +246,9 @@ func InsertOperationLog(c *gin.Context, username, productName, method, function,
 	if err != nil {
 		logger.Errorf("InsertOperation err:%v", err)
 	}
-	c.Set("operationLogID", req.ID.Hex())
+	if c != nil {
+		c.Set("operationLogID", req.ID.Hex())
+	}
 }
 
 func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, method, function, detail, requestBody string, logger *zap.SugaredLogger, targets ...string) {

@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -30,8 +31,13 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/handler"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+)
+
+var (
+	defaultTimeout = time.Second * 3
 )
 
 func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
@@ -78,9 +84,9 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	args.Logs = append(args.Logs, &models.ReleasePlanLog{
 		Username:   c.UserName,
 		Account:    c.Account,
-		Action:     "新建",
+		Verb:       VerbCreate,
 		TargetName: args.Name,
-		TargetType: "发布计划",
+		TargetType: TargetTypeReleasePlan,
 		Before:     nil,
 		After:      nil,
 		CreatedAt:  time.Now().Unix(),
@@ -114,7 +120,12 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 	return mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
 }
 
-func DeleteReleasePlan(id string) error {
+func DeleteReleasePlan(username, id string) error {
+	info, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
+	if err != nil {
+		return errors.Wrap(err, "get plan")
+	}
+	internalhandler.InsertOperationLog(nil, username, "", "删除", "发布计划", info.Name, "", log.SugaredLogger())
 	return mongodb.NewReleasePlanColl().DeleteByID(context.Background(), id)
 }
 
@@ -127,11 +138,15 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	getLock(planID).Lock()
 	defer getLock(planID).Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
+	}
+
+	if plan.Status != config.StatusPlanning {
+		return errors.Errorf("plan status is %s, can not update", plan.Status)
 	}
 
 	updater, err := NewPlanUpdater(args)
@@ -141,21 +156,121 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 	if err = updater.Lint(); err != nil {
 		return errors.Wrap(err, "lint")
 	}
-	if err = updater.Update(plan); err != nil {
+	before, after, err := updater.Update(plan)
+	if err != nil {
 		return errors.Wrap(err, "update")
 	}
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
 	plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-		Username: c.UserName,
-		Account:  c.Account,
-		Action:   "修改",
-		//TargetName: plan.Name,
-		//TargetType: "发布计划",
+		Username:   c.UserName,
+		Account:    c.Account,
+		Verb:       updater.Verb(),
+		Before:     before,
+		After:      after,
+		TargetName: updater.TargetName(),
+		TargetType: updater.TargetType(),
+		CreatedAt:  time.Now().Unix(),
 	})
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
+		return errors.Wrap(err, "update plan")
+	}
+	return nil
+}
+
+type ExecuteReleaseJobArgs struct {
+	ID   string      `json:"id"`
+	Spec interface{} `json:"spec"`
+}
+
+func ExecuteReleaseJob(c *handler.Context, id string) error {
+	getLock(id).Lock()
+	defer getLock(id).Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, id)
+	if err != nil {
+		return errors.Wrap(err, "get plan")
+	}
+
+	if plan.Status != config.StatusExecuting {
+		return errors.Errorf("plan status is %s, can not execute", plan.Status)
+	}
+
+	//
+	//plan.Status = config.StatusRunning
+	//plan.UpdatedBy = username
+	//plan.UpdateTime = time.Now().Unix()
+	//plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
+	//	Username:   username,
+	//	Account:    "",
+	//	Verb:       "执行",
+	//	TargetName: plan.Name,
+	//	TargetType: "发布计划",
+	//	CreatedAt:  time.Now().Unix(),
+	//})
+	//
+	//if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, id, plan); err != nil {
+	//	return errors.Wrap(err, "update plan")
+	//}
+	//
+	//go func() {
+	//	defer func() {
+	//		if err := recover(); err != nil {
+	//			log.Errorf("execute plan error: %v", err)
+	//		}
+	//	}()
+	//	ExecutePlan(ctx, plan)
+	//}()
+	//
+	//return nil
+}
+
+func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
+	getLock(id).Lock()
+	defer getLock(id).Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, id)
+	if err != nil {
+		return errors.Wrap(err, "get plan")
+	}
+
+	if !lo.Contains(config.ReleasePlanStatusMap[plan.Status], config.ReleasePlanStatus(status)) {
+		return errors.Errorf("plan status is %s, can not update to %s", plan.Status, status)
+	}
+
+	switch config.ReleasePlanStatus(status) {
+	case config.StatusPlanning:
+		for _, job := range plan.Jobs {
+			job.LastStatus = job.Status
+			job.Status = ""
+		}
+	case config.StatusExecuting:
+		for _, job := range plan.Jobs {
+			job.Status = config.StatusWaiting
+		}
+	case config.StatusWaitForApprove:
+		// todo
+	}
+
+	plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
+		Username:   c.UserName,
+		Account:    c.Account,
+		Verb:       VerbUpdate,
+		TargetName: plan.Name,
+		TargetType: TargetTypeReleasePlanStatus,
+		Before:     plan.Status,
+		After:      status,
+	})
+	plan.Status = config.ReleasePlanStatus(status)
+	plan.Revision++
+
+	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, id, plan); err != nil {
 		return errors.Wrap(err, "update plan")
 	}
 	return nil
