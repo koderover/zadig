@@ -1571,15 +1571,15 @@ func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.C
 	if cornJob != nil {
 		pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(cornJob.Spec.JobTemplate.Spec.Selector.MatchLabels), informer)
 		if err != nil {
-			log.Warnf("Failed to get pods, err: %s", err)
+			log.Warnf("Failed to get cronjob pods, err: %s", err)
 		}
-		return wrapper.CronJob(cornJob, cronJobBeta).CronJobResource(pods)
+		return wrapper.CronJob(cornJob, nil).CronJobResource(pods)
 	} else if cronJobBeta != nil {
-		pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(cornJob.Spec.JobTemplate.Spec.Selector.MatchLabels), informer)
+		pods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(cronJobBeta.Spec.JobTemplate.Spec.Selector.MatchLabels), informer)
 		if err != nil {
-			log.Warnf("Failed to get pods, err: %s", err)
+			log.Warnf("Failed to get cronjob pods, err: %s", err)
 		}
-		return wrapper.CronJob(cornJob, cronJobBeta).CronJobResource(pods)
+		return wrapper.CronJob(nil, cronJobBeta).CronJobResource(pods)
 	}
 	return nil
 }
