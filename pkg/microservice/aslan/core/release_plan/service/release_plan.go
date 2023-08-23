@@ -182,10 +182,12 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 
 type ExecuteReleaseJobArgs struct {
 	ID   string      `json:"id"`
+	Name string      `json:"name"`
+	Type string      `json:"type"`
 	Spec interface{} `json:"spec"`
 }
 
-func ExecuteReleaseJob(c *handler.Context, id string) error {
+func ExecuteReleaseJob(c *handler.Context, id string, args *ExecuteReleaseJobArgs) error {
 	getLock(id).Lock()
 	defer getLock(id).Unlock()
 
@@ -200,33 +202,29 @@ func ExecuteReleaseJob(c *handler.Context, id string) error {
 		return errors.Errorf("plan status is %s, can not execute", plan.Status)
 	}
 
-	//
-	//plan.Status = config.StatusRunning
-	//plan.UpdatedBy = username
-	//plan.UpdateTime = time.Now().Unix()
-	//plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-	//	Username:   username,
-	//	Account:    "",
-	//	Verb:       "执行",
-	//	TargetName: plan.Name,
-	//	TargetType: "发布计划",
-	//	CreatedAt:  time.Now().Unix(),
-	//})
-	//
-	//if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, id, plan); err != nil {
-	//	return errors.Wrap(err, "update plan")
-	//}
-	//
-	//go func() {
-	//	defer func() {
-	//		if err := recover(); err != nil {
-	//			log.Errorf("execute plan error: %v", err)
-	//		}
-	//	}()
-	//	ExecutePlan(ctx, plan)
-	//}()
-	//
-	//return nil
+	executor, err := NewReleaseJobExecutor(c.UserName, args)
+	if err != nil {
+		return errors.Wrap(err, "new release job executor")
+	}
+	if err = executor.Execute(plan); err != nil {
+		return errors.Wrap(err, "execute")
+	}
+
+	plan.UpdatedBy = c.UserName
+	plan.UpdateTime = time.Now().Unix()
+	plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
+		Username:   c.UserName,
+		Account:    c.Account,
+		Verb:       VerbExecute,
+		TargetName: args.Name,
+		TargetType: TargetTypeReleaseJob,
+		CreatedAt:  time.Now().Unix(),
+	})
+
+	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, id, plan); err != nil {
+		return errors.Wrap(err, "update plan")
+	}
+	return nil
 }
 
 func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
@@ -249,10 +247,14 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		for _, job := range plan.Jobs {
 			job.LastStatus = job.Status
 			job.Status = ""
+			job.Updated = false
 		}
 	case config.StatusExecuting:
 		for _, job := range plan.Jobs {
-			job.Status = config.StatusWaiting
+			job.Status = config.ReleasePlanJobStatusTodo
+			if job.LastStatus == config.ReleasePlanJobStatusDone && !job.Updated {
+				job.Status = config.ReleasePlanJobStatusDone
+			}
 		}
 	case config.StatusWaitForApprove:
 		// todo

@@ -60,25 +60,25 @@ type ReleaseJob struct {
 }
 
 type ReleaseJobRuntime struct {
-	Status config.Status `bson:"status"     yaml:"status"                 json:"status"`
+	Status config.ReleasePlanJobStatus `bson:"status"     yaml:"status"                 json:"status"`
 	// ReleasePlan can return to PlanningStatus when some release jobs have been executed
 	// So we need to record the last status of the release job
-	LastStatus config.Status `bson:"last_status"       yaml:"last_status"                   json:"last_status"`
+	LastStatus config.ReleasePlanJobStatus `bson:"last_status"       yaml:"last_status"                   json:"last_status"`
 	// Updated is used to indicate whether the release job has been updated
 	Updated      bool   `bson:"updated"       yaml:"updated"                   json:"updated"`
-	ExecutorBy   string `bson:"executor_by"       yaml:"executor_by"                   json:"executor_by"`
-	ExecutorTime int64  `bson:"executor_time"       yaml:"executor_time"                   json:"executor_time"`
+	ExecutedBy   string `bson:"executed_by"       yaml:"executed_by"                   json:"executed_by"`
+	ExecutedTime int64  `bson:"executed_time"       yaml:"executed_time"                   json:"executed_time"`
 }
 
 type TextReleaseJobSpec struct {
-	Content       string `bson:"content"       yaml:"content"                   json:"content"`
-	ReleaseRemark string `bson:"remark"       yaml:"remark"                   json:"remark"`
+	Content string `bson:"content"       yaml:"content"                   json:"content"`
+	Remark  string `bson:"remark"       yaml:"remark"                   json:"remark"`
 }
 
 type WorkflowReleaseJobSpec struct {
-	//ProjectName  string      `bson:"project_name"       yaml:"project_name"                   json:"project_name"`
-	//WorkflowName string      `bson:"workflow_name"       yaml:"workflow_name"                   json:"workflow_name"`
-	Workflow *WorkflowV4 `bson:"workflow"       yaml:"workflow"                   json:"workflow"`
+	Workflow *WorkflowV4   `bson:"workflow"       yaml:"workflow"                   json:"workflow"`
+	Status   config.Status `bson:"status"       yaml:"status"                   json:"status"`
+	TaskID   int64         `bson:"task_id"       yaml:"task_id"                   json:"task_id"`
 }
 
 type ReleasePlanLog struct {

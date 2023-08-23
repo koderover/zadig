@@ -507,3 +507,12 @@ const (
 	JobText     ReleasePlanJobType = "text"
 	JobWorkflow ReleasePlanJobType = "workflow"
 )
+
+type ReleasePlanJobStatus string
+
+const (
+	ReleasePlanJobStatusTodo ReleasePlanJobStatus = "todo"
+	ReleasePlanJobStatusDone ReleasePlanJobStatus = "done"
+	//ReleasePlanJobStatusFailed  ReleasePlanJobStatus = "failed"
+	ReleasePlanJobStatusRunning ReleasePlanJobStatus = "running"
+)
