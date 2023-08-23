@@ -158,6 +158,22 @@ func ListWorkloadsInfo(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListWorkloadsInfo(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
 }
 
+// @Summary Get Pods Info
+// @Description Get Pods Info
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	clusterID 		path		string										true	"clusterID"
+// @Param 	namespace 		path		string										true	"namespace"
+// @Success 200 			{array} 	resource.Pod
+// @Router /api/aslan/environment/kube/pod/cluster/{clusterID}/namespace/{namespace} [get]
+func ListPodsInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListPodsInfo(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
+}
+
 func ListCustomWorkload(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

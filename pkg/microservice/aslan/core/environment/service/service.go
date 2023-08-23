@@ -620,7 +620,7 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodel
 
 	imageSet := sets.String{}
 	for _, pod := range pods {
-		for _, container := range pod.ContainerStatuses {
+		for _, container := range pod.Containers {
 			imageSet.Insert(container.Image)
 		}
 	}

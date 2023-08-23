@@ -241,7 +241,7 @@ definitions:
       variable_yaml:
         type: string
     type: object
-  handler.getInitProductRespone:
+  handler.getInitProductResponse:
     properties:
       chart_infos:
         items:
@@ -1104,7 +1104,7 @@ definitions:
     properties:
       cluster_name:
         type: string
-      env_name:
+      env_key:
         type: string
       namespace:
         type: string
@@ -2542,7 +2542,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handler.getInitProductRespone'
+            $ref: '#/definitions/handler.getInitProductResponse'
       summary: Get init product
       tags:
       - environment
@@ -2602,6 +2602,34 @@ paths:
               $ref: '#/definitions/service.ServiceDeployStatus'
             type: array
       summary: Get Resource Deploy Status
+      tags:
+      - environment
+  /api/aslan/environment/kube/pod/cluster/{clusterID}/namespace/{namespace}:
+    get:
+      consumes:
+      - application/json
+      description: Get Pods Info
+      parameters:
+      - description: clusterID
+        in: path
+        name: clusterID
+        required: true
+        type: string
+      - description: namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/resource.Pod'
+            type: array
+      summary: Get Pods Info
       tags:
       - environment
   /api/aslan/environment/production/environments:

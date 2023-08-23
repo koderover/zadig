@@ -908,7 +908,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.getInitProductRespone"
+                            "$ref": "#/definitions/handler.getInitProductResponse"
                         }
                     }
                 }
@@ -996,6 +996,48 @@ const docTemplate = `{
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/service.ServiceDeployStatus"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/kube/pod/cluster/{clusterID}/namespace/{namespace}": {
+            "get": {
+                "description": "Get Pods Info",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Pods Info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "clusterID",
+                        "name": "clusterID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/resource.Pod"
                             }
                         }
                     }
@@ -3182,7 +3224,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.getInitProductRespone": {
+        "handler.getInitProductResponse": {
             "type": "object",
             "properties": {
                 "chart_infos": {
@@ -4468,7 +4510,7 @@ const docTemplate = `{
                 "cluster_name": {
                     "type": "string"
                 },
-                "env_name": {
+                "env_key": {
                     "type": "string"
                 },
                 "namespace": {

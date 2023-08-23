@@ -143,7 +143,7 @@ func (w *pod) Resource() *resource.Pod {
 		PodReady:          w.Ready(),
 		ContainersReady:   containersReady,
 		ContainersMessage: containersMessage,
-		ContainerStatuses: []resource.Container{},
+		Containers:        []resource.Container{},
 		NodeName:          w.Spec.NodeName,
 		HostIP:            w.Status.HostIP,
 		Succeed:           w.Succeeded(),
@@ -151,6 +151,11 @@ func (w *pod) Resource() *resource.Pod {
 	}
 	if len(w.OwnerReferences) > 0 {
 		p.Kind = w.OwnerReferences[0].Kind
+	}
+
+	containerPortsMap := make(map[string][]corev1.ContainerPort)
+	for _, container := range w.Spec.Containers {
+		containerPortsMap[container.Name] = container.Ports
 	}
 
 	containersStatus := []corev1.ContainerStatus{}
@@ -167,6 +172,7 @@ func (w *pod) Resource() *resource.Pod {
 			Name:         container.Name,
 			RestartCount: container.RestartCount,
 			Ready:        container.Ready,
+			Ports:        []resource.ContainerPort{},
 		}
 
 		if container.State.Running != nil {
@@ -211,7 +217,21 @@ func (w *pod) Resource() *resource.Pod {
 				}
 			}
 		}
-		p.ContainerStatuses = append(p.ContainerStatuses, cs)
+
+		ports, ok := containerPortsMap[container.Name]
+		if ok && ports != nil {
+			for _, port := range ports {
+				cs.Ports = append(cs.Ports, resource.ContainerPort{
+					Name:          port.Name,
+					HostPort:      port.HostPort,
+					ContainerPort: port.ContainerPort,
+					Protocol:      resource.Protocol(port.Protocol),
+					HostIP:        port.HostIP,
+				})
+			}
+		}
+
+		p.Containers = append(p.Containers, cs)
 	}
 
 	// Note: Seems that in K8s versions [v1.16, v1.22], EphemeralContainerStatuses exist but are empty while in K8s versions
@@ -226,7 +246,7 @@ func (w *pod) Resource() *resource.Pod {
 				Status:       "running",
 				Ready:        true,
 			}
-			p.ContainerStatuses = append(p.ContainerStatuses, cs)
+			p.Containers = append(p.Containers, cs)
 		}
 	}
 
@@ -235,7 +255,7 @@ func (w *pod) Resource() *resource.Pod {
 	}
 
 	if p.Status == "Running" {
-		for _, status := range p.ContainerStatuses {
+		for _, status := range p.Containers {
 			if status.Status != "running" {
 				p.Status = "Unstable"
 				break

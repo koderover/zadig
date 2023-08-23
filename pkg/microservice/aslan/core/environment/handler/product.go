@@ -57,7 +57,7 @@ type getInitProductResponse struct {
 // @Param 	envType 		query		string								true	"env type"
 // @Param 	isBaseEnv 		query		string								true	"is base env"
 // @Param 	baseEnv 		query		string								true	"base env"
-// @Success 200 			{object} 	getInitProductRespone
+// @Success 200 			{object} 	getInitProductResponse
 // @Router /api/aslan/environment/init_info/{name} [get]
 func GetInitProduct(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
