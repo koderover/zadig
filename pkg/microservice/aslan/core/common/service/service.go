@@ -1571,9 +1571,9 @@ func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.
 
 func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.CronJob {
 	cronJobName := wrapper.CronJob(cornJob, cronJobBeta).Name
-	jobs, err := informer.Batch().V1().Jobs().Lister().List(nil)
+	jobs, err := informer.Batch().V1().Jobs().Lister().List(labels.NewSelector())
 	if err != nil {
-		log.Errorf("Failed to get jobs, err: %s", err)
+		log.Errorf("failed to list jobs, err: %s", err)
 		return nil
 	}
 	// find jobs created by particular cronjob
