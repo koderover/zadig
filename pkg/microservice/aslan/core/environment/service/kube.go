@@ -1283,17 +1283,24 @@ func GetReleaseInstanceDeployStatus(productName string, request *HelmDeployStatu
 	return resp, err
 }
 
-func ListPodsInfo(clusterID, namespace string, log *zap.SugaredLogger) ([]*resource.Pod, error) {
+func ListPodsInfo(projectName, envName string, log *zap.SugaredLogger) ([]*resource.Pod, error) {
 	res := make([]*resource.Pod, 0)
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return nil, e.ErrListPod.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
+	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		return res, e.ErrListPod.AddErr(err)
 	}
 
-	pods, err := getter.ListPods(namespace, labels.Everything(), kubeClient)
+	pods, err := getter.ListPods(productInfo.Namespace, labels.Everything(), kubeClient)
 	if err != nil {
-		errMsg := fmt.Sprintf("[%s] ListPods error: %v", namespace, err)
+		errMsg := fmt.Sprintf("[%s] ListPods error: %v", productInfo.Namespace, err)
 		log.Error(errMsg)
 		return res, e.ErrListPod.AddDesc(errMsg)
 	}

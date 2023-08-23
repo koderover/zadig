@@ -1002,7 +1002,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/aslan/environment/kube/pod/cluster/{clusterID}/namespace/{namespace}": {
+        "/api/aslan/environment/kube/pods": {
             "get": {
                 "description": "Get Pods Info",
                 "consumes": [
@@ -1018,16 +1018,16 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "clusterID",
-                        "name": "clusterID",
-                        "in": "path",
+                        "description": "projectName",
+                        "name": "projectName",
+                        "in": "query",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "namespace",
-                        "name": "namespace",
-                        "in": "path",
+                        "description": "envName",
+                        "name": "envName",
+                        "in": "query",
                         "required": true
                     }
                 ],
@@ -4069,6 +4069,12 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "ports": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.ContainerPort"
+                    }
+                },
                 "ready": {
                     "type": "boolean"
                 },
@@ -4099,6 +4105,35 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "resource.ContainerPort": {
+            "type": "object",
+            "properties": {
+                "containerPort": {
+                    "description": "Number of port to expose on the pod's IP address.\nThis must be a valid port number, 0 \u003c x \u003c 65536.",
+                    "type": "integer"
+                },
+                "hostIP": {
+                    "description": "What host IP to bind the external port to.\n+optional",
+                    "type": "string"
+                },
+                "hostPort": {
+                    "description": "Number of port to expose on the host.\nIf specified, this must be a valid port number, 0 \u003c x \u003c 65536.\nIf HostNetwork is specified, this must match ContainerPort.\nMost containers do not need this.\n+optional",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
+                    "type": "string"
+                },
+                "protocol": {
+                    "description": "Protocol for port. Must be UDP, TCP, or SCTP.\nDefaults to \"TCP\".\n+optional\n+default=\"TCP\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/resource.Protocol"
+                        }
+                    ]
                 }
             }
         },
@@ -4232,6 +4267,19 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "resource.Protocol": {
+            "type": "string",
+            "enum": [
+                "TCP",
+                "UDP",
+                "SCTP"
+            ],
+            "x-enum-varnames": [
+                "ProtocolTCP",
+                "ProtocolUDP",
+                "ProtocolSCTP"
+            ]
         },
         "resource.Service": {
             "type": "object",

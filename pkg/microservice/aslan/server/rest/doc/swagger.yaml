@@ -812,6 +812,10 @@ definitions:
         type: string
       name:
         type: string
+      ports:
+        items:
+          $ref: '#/definitions/resource.ContainerPort'
+        type: array
       ready:
         type: boolean
       reason:
@@ -833,6 +837,42 @@ definitions:
         type: string
       name:
         type: string
+    type: object
+  resource.ContainerPort:
+    properties:
+      containerPort:
+        description: |-
+          Number of port to expose on the pod's IP address.
+          This must be a valid port number, 0 < x < 65536.
+        type: integer
+      hostIP:
+        description: |-
+          What host IP to bind the external port to.
+          +optional
+        type: string
+      hostPort:
+        description: |-
+          Number of port to expose on the host.
+          If specified, this must be a valid port number, 0 < x < 65536.
+          If HostNetwork is specified, this must match ContainerPort.
+          Most containers do not need this.
+          +optional
+        type: integer
+      name:
+        description: |-
+          If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
+          named port in a pod must have a unique name. Name for the port that can be
+          referred to by services.
+          +optional
+        type: string
+      protocol:
+        allOf:
+        - $ref: '#/definitions/resource.Protocol'
+        description: |-
+          Protocol for port. Must be UDP, TCP, or SCTP.
+          Defaults to "TCP".
+          +optional
+          +default="TCP"
     type: object
   resource.CronJob:
     properties:
@@ -920,6 +960,16 @@ definitions:
       status:
         type: string
     type: object
+  resource.Protocol:
+    enum:
+    - TCP
+    - UDP
+    - SCTP
+    type: string
+    x-enum-varnames:
+    - ProtocolTCP
+    - ProtocolUDP
+    - ProtocolSCTP
   resource.Service:
     properties:
       age:
@@ -2604,20 +2654,20 @@ paths:
       summary: Get Resource Deploy Status
       tags:
       - environment
-  /api/aslan/environment/kube/pod/cluster/{clusterID}/namespace/{namespace}:
+  /api/aslan/environment/kube/pods:
     get:
       consumes:
       - application/json
       description: Get Pods Info
       parameters:
-      - description: clusterID
-        in: path
-        name: clusterID
+      - description: projectName
+        in: query
+        name: projectName
         required: true
         type: string
-      - description: namespace
-        in: path
-        name: namespace
+      - description: envName
+        in: query
+        name: envName
         required: true
         type: string
       produces:
