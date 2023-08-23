@@ -18,7 +18,6 @@ package jobcontroller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
@@ -29,7 +28,6 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/guanceyun"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const (
@@ -98,9 +96,7 @@ func (c *GuanceyunCheckJobCtl) Run(ctx context.Context) {
 		if err != nil {
 			return false, err
 		}
-		//todo debug
-		b, _ := json.MarshalIndent(resp, "", "  ")
-		log.Infof("resp: %s", string(b))
+
 		for _, eventResp := range resp {
 			if checker, ok := checkMap[eventResp.CheckerID]; ok {
 				// checker has been triggered if url not empty, ignore it
