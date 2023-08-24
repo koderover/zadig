@@ -3925,7 +3925,7 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 		ctx,
 		config.HubServerAddress(), env.ClusterID,
 		llmClient,
-		filters, env.GetNamespace(),
+		filters, env.Namespace,
 		false, // noCache bool
 		true,  // explain bool
 		10,    // maxConcurrency int

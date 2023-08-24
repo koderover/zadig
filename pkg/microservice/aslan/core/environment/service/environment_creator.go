@@ -162,7 +162,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	}
 
 	//判断namespace是否存在
-	namespace := args.GetNamespace()
+	namespace := args.GetDefaultNamespace()
 	if args.Namespace == "" {
 		args.Namespace = namespace
 	}
@@ -352,7 +352,7 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}
 
-	namespace := args.GetNamespace()
+	namespace := args.GetDefaultNamespace()
 	if args.Namespace == "" {
 		args.Namespace = namespace
 	}
