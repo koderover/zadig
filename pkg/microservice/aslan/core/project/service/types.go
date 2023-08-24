@@ -79,8 +79,8 @@ type EnvDefinition struct {
 }
 
 type OpenAPIListProjectReq struct {
-	PageSize int64 `json:"pageSize" form:"pageSize,default:20"`
-	PageNum  int64 `json:"pageNum"  form:"pageNum,default:1"`
+	PageSize int64 `json:"pageSize" form:"pageSize,default=20"`
+	PageNum  int64 `json:"pageNum"  form:"pageNum,default=1"`
 }
 
 type OpenAPIProjectDetailResp struct {
