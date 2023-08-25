@@ -121,6 +121,10 @@ const (
 	StatusDebugAfter     Status = "debug_after"
 )
 
+func FailedStatus() []Status {
+	return []Status{StatusFailed, StatusTimeout, StatusCancelled, StatusReject}
+}
+
 func InCompletedStatus() []Status {
 	return []Status{StatusCreated, StatusRunning, StatusWaiting, StatusQueued, StatusBlocked, QueueItemPending, StatusPrepare, StatusWaitingApprove}
 }
@@ -511,8 +515,8 @@ const (
 type ReleasePlanJobStatus string
 
 const (
-	ReleasePlanJobStatusTodo ReleasePlanJobStatus = "todo"
-	ReleasePlanJobStatusDone ReleasePlanJobStatus = "done"
-	//ReleasePlanJobStatusFailed  ReleasePlanJobStatus = "failed"
+	ReleasePlanJobStatusTodo    ReleasePlanJobStatus = "todo"
+	ReleasePlanJobStatusDone    ReleasePlanJobStatus = "done"
+	ReleasePlanJobStatusFailed  ReleasePlanJobStatus = "failed"
 	ReleasePlanJobStatusRunning ReleasePlanJobStatus = "running"
 )

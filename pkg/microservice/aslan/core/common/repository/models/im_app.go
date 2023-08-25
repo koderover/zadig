@@ -32,6 +32,9 @@ type IMApp struct {
 	LarkDefaultApprovalCode string `json:"-" bson:"lark_default_approval_code"`
 	// LarkApprovalCodeList is a json string save all approval definition code
 	LarkApprovalCodeList map[string]string `json:"-" bson:"lark_approval_code_list"`
+	// LarkApprovalCodeListCommon is used for any source approval
+	// because LarkApprovalCodeList title is fixed "Zadig 工作流", so we need a common approval code list
+	LarkApprovalCodeListCommon map[string]string `json:"-" bson:"lark_approval_code_list_common"`
 
 	// DingTalk fields
 	DingTalkAppKey                  string `json:"dingtalk_app_key" bson:"dingtalk_app_key"`

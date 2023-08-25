@@ -47,6 +47,7 @@ import (
 	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	multiclusterservice "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	policyservice "github.com/koderover/zadig/pkg/microservice/aslan/core/policy/service"
+	releaseplanservice "github.com/koderover/zadig/pkg/microservice/aslan/core/release_plan/service"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
@@ -143,6 +144,7 @@ func Start(ctx context.Context) {
 
 	initDatabase()
 	initKlock()
+	initReleasePlanWatcher()
 
 	initService()
 	initDinD()
@@ -334,6 +336,11 @@ func initDinD() {
 
 func initKlock() {
 	_ = klock.Init(config.Namespace())
+}
+
+func initReleasePlanWatcher() {
+	go releaseplanservice.WatchExecutingWorkflow()
+	go releaseplanservice.WatchApproval()
 }
 
 func initDatabase() {

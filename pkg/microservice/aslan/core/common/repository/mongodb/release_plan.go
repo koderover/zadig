@@ -105,6 +105,7 @@ type ListReleasePlanOption struct {
 	PageSize       int64
 	IsSort         bool
 	ExcludedFields []string
+	Status         config.ReleasePlanStatus
 }
 
 func (c *ReleasePlanColl) ListByOptions(opt *ListReleasePlanOption) ([]*models.ReleasePlan, int64, error) {
@@ -123,6 +124,9 @@ func (c *ReleasePlanColl) ListByOptions(opt *ListReleasePlanOption) ([]*models.R
 	if opt.PageNum > 0 && opt.PageSize > 0 {
 		opts.SetSkip((opt.PageNum - 1) * opt.PageSize)
 		opts.SetLimit(opt.PageSize)
+	}
+	if opt.Status != "" {
+		query["status"] = opt.Status
 	}
 	if len(opt.ExcludedFields) > 0 {
 		projection := bson.M{}

@@ -28,8 +28,8 @@ import (
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 )
 
-func lintReleaseJob(_type string, spec interface{}) error {
-	switch config.ReleasePlanJobType(_type) {
+func lintReleaseJob(_type config.ReleasePlanJobType, spec interface{}) error {
+	switch _type {
 	case config.JobText:
 		t := new(models.TextReleaseJobSpec)
 		if err := models.IToi(spec, t); err != nil {

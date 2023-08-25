@@ -122,6 +122,7 @@ type DingTalkApproval struct {
 	// DefaultApprovalInitiator if not set, use workflow task creator as approval initiator
 	DefaultApprovalInitiator *DingTalkApprovalUser   `bson:"default_approval_initiator" yaml:"default_approval_initiator" json:"default_approval_initiator"`
 	ApprovalNodes            []*DingTalkApprovalNode `bson:"approval_nodes"             yaml:"approval_nodes"             json:"approval_nodes"`
+	InstanceCode             string                  `bson:"instance_code"              yaml:"instance_code"              json:"instance_code"`
 }
 
 type DingTalkApprovalNode struct {
@@ -148,6 +149,8 @@ type LarkApproval struct {
 	// Deprecated: use ApprovalNodes instead
 	ApproveUsers  []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	ApprovalNodes []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+	// InstanceCode: lark approval instance code
+	InstanceCode string `bson:"instance_code"               yaml:"instance_code"              json:"instance_code"`
 }
 
 // GetNodeTypeKey get node type key for deduplication

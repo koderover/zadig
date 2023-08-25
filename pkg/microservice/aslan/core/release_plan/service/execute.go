@@ -72,7 +72,7 @@ func (e *TextReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 			return errors.Wrap(err, "invalid spec")
 		}
 		if job.Status != config.ReleasePlanJobStatusTodo {
-			return errors.Errorf("job %s status is not todo", e.ID)
+			return errors.Errorf("job %s status is not todo", job.Name)
 		}
 		spec.Remark = e.Spec.Remark
 		job.Spec = spec
@@ -113,12 +113,16 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		if err := models.IToi(job.Spec, spec); err != nil {
 			return errors.Wrap(err, "invalid spec")
 		}
-		if job.Status != config.ReleasePlanJobStatusTodo {
-			return errors.Errorf("job %s status is not todo", e.ID)
+		// workflow support retry after failed
+		if job.Status != config.ReleasePlanJobStatusTodo && job.Status != config.ReleasePlanJobStatusFailed {
+			return errors.Errorf("job %s status %s can't execute", job.Name, job.Status)
 		}
 		spec.TaskID = e.Spec.TaskID
+		spec.Status = config.StatusPrepare
 		job.Spec = spec
 		job.Status = config.ReleasePlanJobStatusRunning
+		job.ExecutedBy = e.ExecutedBy
+		job.ExecutedTime = time.Now().Unix()
 		return nil
 	}
 	return errors.Errorf("job %s not found", e.ID)

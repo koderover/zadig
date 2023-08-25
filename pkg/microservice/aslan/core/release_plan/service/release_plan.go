@@ -68,6 +68,11 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 		if err := lintApproval(args.Approval); err != nil {
 			return errors.Errorf("lintApproval error: %v", err)
 		}
+		if args.Approval.Type == config.LarkApproval {
+			if err := createLarkApprovalDefinition(args.Approval.LarkApproval); err != nil {
+				return errors.Errorf("createLarkApprovalDefinition error: %v", err)
+			}
+		}
 	}
 
 	nextID, err := mongodb.NewCounterColl().GetNextSeq(setting.WorkflowTaskV4Fmt)
@@ -97,7 +102,7 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 
 type ListReleasePlanResp struct {
 	List  []*models.ReleasePlan `json:"list"`
-	Total int64
+	Total int64                 `json:"total"`
 }
 
 func ListReleasePlans(pageNum, pageSize int64) (*ListReleasePlanResp, error) {
@@ -202,6 +207,15 @@ func ExecuteReleaseJob(c *handler.Context, id string, args *ExecuteReleaseJobArg
 		return errors.Errorf("plan status is %s, can not execute", plan.Status)
 	}
 
+	now := time.Now().Unix()
+	if now < plan.StartTime || now > plan.EndTime {
+		return errors.Errorf("plan is not in the release time range")
+	}
+
+	if plan.ManagerID != c.UserID {
+		return errors.Errorf("only manager can execute")
+	}
+
 	executor, err := NewReleaseJobExecutor(c.UserName, args)
 	if err != nil {
 		return errors.Wrap(err, "new release job executor")
@@ -221,6 +235,10 @@ func ExecuteReleaseJob(c *handler.Context, id string, args *ExecuteReleaseJobArg
 		CreatedAt:  time.Now().Unix(),
 	})
 
+	if checkReleasePlanJobsAllDone(plan) {
+		plan.Status = config.StatusSuccess
+	}
+
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, id, plan); err != nil {
 		return errors.Wrap(err, "update plan")
 	}
@@ -238,9 +256,21 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		return errors.Wrap(err, "get plan")
 	}
 
-	if !lo.Contains(config.ReleasePlanStatusMap[plan.Status], config.ReleasePlanStatus(status)) {
-		return errors.Errorf("plan status is %s, can not update to %s", plan.Status, status)
+	if c.UserID != plan.ManagerID {
+		return errors.Errorf("only manager can update plan status")
 	}
+
+	if !lo.Contains(config.ReleasePlanStatusMap[plan.Status], config.ReleasePlanStatus(status)) {
+		return errors.Errorf("can't convert plan status %s to %s", plan.Status, status)
+	}
+
+	userInfo, err := orm.GetUserByUid(c.UserID, repository.DB)
+	if err != nil {
+		return errors.Wrap(err, "get user")
+	}
+
+	targetName := plan.Name + "状态"
+	detail := ""
 
 	switch config.ReleasePlanStatus(status) {
 	case config.StatusPlanning:
@@ -250,22 +280,28 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 			job.Updated = false
 		}
 	case config.StatusExecuting:
-		for _, job := range plan.Jobs {
-			job.Status = config.ReleasePlanJobStatusTodo
-			if job.LastStatus == config.ReleasePlanJobStatusDone && !job.Updated {
-				job.Status = config.ReleasePlanJobStatusDone
-			}
+		if plan.Approval != nil && plan.Approval.Status != config.StatusPassed {
+			detail = "跳过审批"
 		}
+		setReleaseJobsForExecuting(plan)
 	case config.StatusWaitForApprove:
 		// todo
+		if plan.Approval == nil {
+			return errors.Errorf("no approval")
+		}
+		plan.Approval.Status = ""
+		if err := createApprovalInstance(plan, userInfo.Phone); err != nil {
+			return err
+		}
 	}
 
 	plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
 		Username:   c.UserName,
 		Account:    c.Account,
 		Verb:       VerbUpdate,
-		TargetName: plan.Name,
+		TargetName: targetName,
 		TargetType: TargetTypeReleasePlanStatus,
+		Detail:     detail,
 		Before:     plan.Status,
 		After:      status,
 	})
@@ -276,4 +312,25 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		return errors.Wrap(err, "update plan")
 	}
 	return nil
+}
+
+func checkReleasePlanJobsAllDone(plan *models.ReleasePlan) bool {
+	for _, job := range plan.Jobs {
+		if job.Status != config.ReleasePlanJobStatusDone {
+			return false
+		}
+	}
+	return true
+}
+
+func setReleaseJobsForExecuting(plan *models.ReleasePlan) {
+	for _, job := range plan.Jobs {
+		if job.LastStatus == config.ReleasePlanJobStatusDone && !job.Updated {
+			job.Status = config.ReleasePlanJobStatusDone
+			continue
+		}
+		job.Status = config.ReleasePlanJobStatusTodo
+		job.ExecutedBy = ""
+		job.ExecutedTime = 0
+	}
 }

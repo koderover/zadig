@@ -28,5 +28,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		v1.GET("/:id", GetReleasePlan)
 		v1.PUT("/:id", UpdateReleasePlan)
 		v1.DELETE("/:id", DeleteReleasePlan)
+
+		v1.POST("/:id/execute", ExecuteReleaseJob)
+		v1.POST("/:id/status/:status", UpdateReleaseJobStatus)
 	}
 }

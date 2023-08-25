@@ -17,15 +17,21 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/pkg/tool/lark"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const (
@@ -39,6 +45,7 @@ const (
 	VerbDeleteReleaseJob = "delete_release_job"
 
 	VerbUpdateApproval = "update_approval"
+	VerbDeleteApproval = "delete_approval"
 
 	TargetTypeReleasePlan       = "发布计划"
 	TargetTypeReleasePlanStatus = "发布计划状态"
@@ -79,6 +86,8 @@ func NewPlanUpdater(args *UpdateReleasePlanArgs) (PlanUpdater, error) {
 		return NewDeleteReleaseJobUpdater(args)
 	case VerbUpdateApproval:
 		return NewUpdateApprovalUpdater(args)
+	case VerbDeleteApproval:
+		return NewDeleteApprovalUpdater(args)
 	default:
 		return nil, fmt.Errorf("invalid verb: %s", args.Verb)
 	}
@@ -251,9 +260,9 @@ func (u *ManagerUpdater) Verb() string {
 }
 
 type CreateReleaseJobUpdater struct {
-	Name string      `json:"name"`
-	Type string      `json:"type"`
-	Spec interface{} `json:"spec"`
+	Name string                    `json:"name"`
+	Type config.ReleasePlanJobType `json:"type"`
+	Spec interface{}               `json:"spec"`
 }
 
 func NewCreateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*CreateReleaseJobUpdater, error) {
@@ -297,10 +306,10 @@ func (u *CreateReleaseJobUpdater) Verb() string {
 }
 
 type UpdateReleaseJobUpdater struct {
-	ID   string      `json:"id"`
-	Name string      `json:"name"`
-	Type string      `json:"type"`
-	Spec interface{} `json:"spec"`
+	ID   string                    `json:"id"`
+	Name string                    `json:"name"`
+	Type config.ReleasePlanJobType `json:"type"`
+	Spec interface{}               `json:"spec"`
 }
 
 func NewUpdateReleaseJobUpdater(args *UpdateReleasePlanArgs) (*UpdateReleaseJobUpdater, error) {
@@ -414,7 +423,15 @@ func (u *UpdateApprovalUpdater) Lint() error {
 	if u.Approval == nil {
 		return fmt.Errorf("approval cannot be empty")
 	}
-	return lintApproval(u.Approval)
+	if err := lintApproval(u.Approval); err != nil {
+		return errors.Wrap(err, "lint")
+	}
+	if u.Approval.Type == config.LarkApproval {
+		if err := createLarkApprovalDefinition(u.Approval.LarkApproval); err != nil {
+			return errors.Wrap(err, "create lark approval definition")
+		}
+	}
+	return nil
 }
 
 func (u *UpdateApprovalUpdater) TargetName() string {
@@ -427,4 +444,94 @@ func (u *UpdateApprovalUpdater) TargetType() string {
 
 func (u *UpdateApprovalUpdater) Verb() string {
 	return VerbUpdate
+}
+
+type DeleteApprovalUpdater struct {
+}
+
+func NewDeleteApprovalUpdater(args *UpdateReleasePlanArgs) (*DeleteApprovalUpdater, error) {
+	return &DeleteApprovalUpdater{}, nil
+}
+
+func (u *DeleteApprovalUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+	before, after = plan.Approval, nil
+	plan.Approval = nil
+	return
+}
+
+func (u *DeleteApprovalUpdater) Lint() error {
+	return nil
+}
+
+func (u *DeleteApprovalUpdater) TargetName() string {
+	return "审批"
+}
+
+func (u *DeleteApprovalUpdater) TargetType() string {
+	return TargetTypeApproval
+}
+
+func (u *DeleteApprovalUpdater) Verb() string {
+	return VerbDelete
+}
+
+func createLarkApprovalDefinition(approval *models.LarkApproval) error {
+	if approval == nil {
+		return errors.Errorf("lark approval is nil")
+	}
+	larkInfo, err := commonrepo.NewIMAppColl().GetByID(context.Background(), approval.ID)
+	if err != nil {
+		return errors.Wrapf(err, "get lark app %s", approval.ID)
+	}
+	if larkInfo.Type != string(config.LarkApproval) {
+		return errors.Errorf("lark app %s is not lark approval", approval.ID)
+	}
+
+	if larkInfo.LarkApprovalCodeListCommon == nil {
+		larkInfo.LarkApprovalCodeListCommon = make(map[string]string)
+	}
+	// skip if this node type approval definition already created
+	if approvalNodeTypeID := larkInfo.LarkApprovalCodeListCommon[approval.GetNodeTypeKey()]; approvalNodeTypeID != "" {
+		return nil
+	}
+
+	// create this node type approval definition and save to db
+	client, err := larkservice.GetLarkClientByIMAppID(approval.ID)
+	if err != nil {
+		return errors.Wrapf(err, "get lark client by im app id %s", approval.ID)
+	}
+	nodesArgs := make([]*lark.ApprovalNode, 0)
+	for _, node := range approval.ApprovalNodes {
+		nodesArgs = append(nodesArgs, &lark.ApprovalNode{
+			Type: node.Type,
+			ApproverIDList: func() (re []string) {
+				for _, user := range node.ApproveUsers {
+					re = append(re, user.ID)
+				}
+				return
+			}(),
+		})
+	}
+
+	approvalCode, err := client.CreateApprovalDefinition(&lark.CreateApprovalDefinitionArgs{
+		Name:        "Zadig 审批",
+		Description: "Zadig 审批-" + approval.GetNodeTypeKey(),
+		Nodes:       nodesArgs,
+	})
+	if err != nil {
+		return errors.Wrap(err, "create lark approval definition")
+	}
+	err = client.SubscribeApprovalDefinition(&lark.SubscribeApprovalDefinitionArgs{
+		ApprovalID: approvalCode,
+	})
+	if err != nil {
+		return errors.Wrap(err, "subscribe lark approval definition")
+	}
+	larkInfo.LarkApprovalCodeListCommon[approval.GetNodeTypeKey()] = approvalCode
+	if err := commonrepo.NewIMAppColl().Update(context.Background(), approval.ID, larkInfo); err != nil {
+		return errors.Wrap(err, "update lark approval data")
+	}
+	log.Infof("create lark approval common definition %s, key: %s", approvalCode, approval.GetNodeTypeKey())
+
+	return nil
 }
