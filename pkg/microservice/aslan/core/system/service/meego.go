@@ -17,13 +17,33 @@
 package service
 
 import (
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/meego"
 )
 
-func GetMeegoProjects() (*MeegoProjectResp, error) {
-	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeego()
+// type ListMeegoRespone struct {
+// 	ID                string `json:"id" `
+// 	SystemIdentity    string `json:"system_identity"`
+// 	MeegoHost         string `json:"meego_host"`
+// 	MeegoPluginID     string `json:"meego_plugin_id"`
+// 	MeegoPluginSecret string `json:"meego_plugin_secret"`
+// 	MeegoUserKey      string `json:"meego_user_key"`
+// 	UpdatedAt         int64  `json:"updated_at"`
+// }
+
+func ListMeego() ([]*models.ProjectManagement, error) {
+	meegoInfos, err := commonrepo.NewProjectManagementColl().List()
+	if err != nil {
+		log.Errorf("failed to get meego info, err: %s", err)
+		return nil, err
+	}
+	return meegoInfos, nil
+}
+
+func GetMeegoProjects(id string) (*MeegoProjectResp, error) {
+	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeegoByID(id)
 	if err != nil {
 		log.Errorf("failed to get meego info, err: %s", err)
 		return nil, err
@@ -48,8 +68,8 @@ func GetMeegoProjects() (*MeegoProjectResp, error) {
 	return &MeegoProjectResp{Projects: meegoProjectList}, nil
 }
 
-func GetWorkItemTypeList(projectID string) (*MeegoWorkItemTypeResp, error) {
-	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeego()
+func GetWorkItemTypeList(id, projectID string) (*MeegoWorkItemTypeResp, error) {
+	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeegoByID(id)
 	if err != nil {
 		log.Errorf("failed to get meego info, err: %s", err)
 		return nil, err
@@ -74,8 +94,8 @@ func GetWorkItemTypeList(projectID string) (*MeegoWorkItemTypeResp, error) {
 	return &MeegoWorkItemTypeResp{WorkItemTypes: meegoWorkItemTypeList}, nil
 }
 
-func ListMeegoWorkItems(projectID, typeKey, nameQuery string, pageNum, pageSize int) (*MeegoWorkItemResp, error) {
-	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeego()
+func ListMeegoWorkItems(id, projectID, typeKey, nameQuery string, pageNum, pageSize int) (*MeegoWorkItemResp, error) {
+	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeegoByID(id)
 	if err != nil {
 		log.Errorf("failed to get meego info, err: %s", err)
 		return nil, err
@@ -102,8 +122,8 @@ func ListMeegoWorkItems(projectID, typeKey, nameQuery string, pageNum, pageSize 
 	return &MeegoWorkItemResp{WorkItems: meegoWorkItemList}, nil
 }
 
-func ListAvailableWorkItemTransitions(projectID, typeKey string, workItemID int) (*MeegoTransitionResp, error) {
-	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeego()
+func ListAvailableWorkItemTransitions(id, projectID, typeKey string, workItemID int) (*MeegoTransitionResp, error) {
+	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeegoByID(id)
 	if err != nil {
 		log.Errorf("failed to get meego info, err: %s", err)
 		return nil, err

@@ -377,6 +377,7 @@ type MeegoTransitionSpec struct {
 	Source          string                     `bson:"source"             json:"source"             yaml:"source"`
 	ProjectKey      string                     `bson:"project_key"        json:"project_key"        yaml:"project_key"`
 	ProjectName     string                     `bson:"project_name"       json:"project_name"       yaml:"project_name"`
+	MeegoID         string                     `bson:"meego_id"           json:"meego_id"           yaml:"meego_id"`
 	WorkItemType    string                     `bson:"work_item_type"     json:"work_item_type"     yaml:"work_item_type"`
 	WorkItemTypeKey string                     `bson:"work_item_type_key" json:"work_item_type_key" yaml:"work_item_type_key"`
 	WorkItems       []*MeegoWorkItemTransition `bson:"work_items"         json:"work_items"         yaml:"work_items"`
@@ -412,6 +413,7 @@ type IssueID struct {
 
 type JobTaskJiraSpec struct {
 	ProjectID    string     `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	JiraID       string     `bson:"jira_id"  json:"jira_id"  yaml:"jira_id"`
 	IssueType    string     `bson:"issue_type"  json:"issue_type"  yaml:"issue_type"`
 	Issues       []*IssueID `bson:"issues" json:"issues" yaml:"issues"`
 	TargetStatus string     `bson:"target_status" json:"target_status" yaml:"target_status"`

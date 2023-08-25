@@ -54,15 +54,8 @@ func CreateProjectManagement(pm *models.ProjectManagement, log *zap.SugaredLogge
 	if err := checkType(pm.Type); err != nil {
 		return err
 	}
-	switch pm.Type {
-	case setting.PMJira:
-		if _, err := mongodb.NewProjectManagementColl().GetJira(); err == nil {
-			return e.ErrCreateProjectManagement.AddDesc("only one of each pm type can exist")
-		}
-	case setting.PMMeego:
-		if _, err := mongodb.NewProjectManagementColl().GetMeego(); err == nil {
-			return e.ErrCreateProjectManagement.AddDesc("only one of each pm type can exist")
-		}
+	if _, err := mongodb.NewProjectManagementColl().GetBySystemIdentity(pm.SystemIdentity); err != nil {
+		return fmt.Errorf("can't set the same system identity")
 	}
 	if err := mongodb.NewProjectManagementColl().Create(pm); err != nil {
 		log.Errorf("Create project management error: %v", err)
@@ -74,6 +67,17 @@ func CreateProjectManagement(pm *models.ProjectManagement, log *zap.SugaredLogge
 func UpdateProjectManagement(idHex string, pm *models.ProjectManagement, log *zap.SugaredLogger) error {
 	if err := checkType(pm.Type); err != nil {
 		return err
+	}
+
+	var oldSystemIdentity string
+	oldPm, err := mongodb.NewProjectManagementColl().GetByID(idHex)
+	if err == nil {
+		oldSystemIdentity = oldPm.SystemIdentity
+	}
+	if oldPm.SystemIdentity != "" && pm.SystemIdentity != oldSystemIdentity {
+		if _, err := mongodb.NewProjectManagementColl().GetBySystemIdentity(pm.SystemIdentity); err != nil {
+			return fmt.Errorf("can't set the same system identity")
+		}
 	}
 	if err := mongodb.NewProjectManagementColl().UpdateByID(idHex, pm); err != nil {
 		log.Errorf("Update project management error: %v", err)
@@ -124,8 +128,8 @@ type JiraProjectsResp struct {
 	Key  string `json:"key"`
 }
 
-func ListJiraProjects() ([]JiraProjectsResp, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJira()
+func ListJiraProjects(id string) ([]JiraProjectsResp, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
@@ -148,8 +152,8 @@ func ListJiraProjects() ([]JiraProjectsResp, error) {
 	return resp, nil
 }
 
-func GetJiraTypes(project string) ([]*jira.IssueTypeWithStatus, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJira()
+func GetJiraTypes(id, project string) ([]*jira.IssueTypeWithStatus, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
@@ -159,8 +163,8 @@ func GetJiraTypes(project string) ([]*jira.IssueTypeWithStatus, error) {
 	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.GetTypes(project)
 }
 
-func GetJiraAllStatus(project string) ([]string, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJira()
+func GetJiraAllStatus(id, project string) ([]string, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
@@ -170,8 +174,8 @@ func GetJiraAllStatus(project string) ([]string, error) {
 	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Project.ListAllStatues(project)
 }
 
-func SearchJiraIssues(project, _type, status, summary string, ne bool) ([]*jira.Issue, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJira()
+func SearchJiraIssues(id, project, _type, status, summary string, ne bool) ([]*jira.Issue, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
@@ -199,8 +203,8 @@ func SearchJiraIssues(project, _type, status, summary string, ne bool) ([]*jira.
 	return jira.NewJiraClientWithAuthType(info.JiraHost, info.JiraUser, info.JiraToken, info.JiraPersonalAccessToken, info.JiraAuthType).Issue.SearchByJQL(strings.Join(jql, " AND "), summary != "")
 }
 
-func SearchJiraProjectIssuesWithJQL(project, jql, summary string) ([]*jira.Issue, error) {
-	info, err := mongodb.NewProjectManagementColl().GetJira()
+func SearchJiraProjectIssuesWithJQL(id, project, jql, summary string) ([]*jira.Issue, error) {
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(id)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
@@ -331,7 +335,7 @@ func HandleMeegoHookEvent(workflowName, hookName string, event *meego.GeneralWeb
 		"hook", hookName,
 	).Infof("HandleMeegoHookEvent: create workflow success")
 	go func() {
-		meegoInfo, err := mongodb.NewProjectManagementColl().GetMeego()
+		meegoInfo, err := mongodb.NewProjectManagementColl().GetMeegoByID(meegoHook.MeegoID)
 		if err != nil {
 			log.Errorf("failed to get meego info to create comment, error: %s", err)
 			return

@@ -137,7 +137,7 @@ func Validate(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
-	
+
 	req := new(models.ProjectManagement)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
@@ -156,13 +156,13 @@ func Validate(c *gin.Context) {
 func ListJiraProjects(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.ListJiraProjects()
+	ctx.Resp, ctx.Err = service.ListJiraProjects(c.Param("id"))
 }
 
 func SearchJiraIssues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.SearchJiraIssues(c.Query("project"), c.Query("type"), c.Query("status"), c.Query("summary"), c.Query("ne") == "true")
+	ctx.Resp, ctx.Err = service.SearchJiraIssues(c.Param("id"), c.Query("project"), c.Query("type"), c.Query("status"), c.Query("summary"), c.Query("ne") == "true")
 }
 
 func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
@@ -171,19 +171,19 @@ func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
 
 	// 5.22 JQL only support {{.system.username}} variable
 	// refactor if more variables are needed
-	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Query("project"), strings.ReplaceAll(c.Query("jql"), "{{.system.username}}", ctx.UserName), c.Query("summary"))
+	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Param("id"), c.Query("project"), strings.ReplaceAll(c.Query("jql"), "{{.system.username}}", ctx.UserName), c.Query("summary"))
 }
 
 func GetJiraTypes(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GetJiraTypes(c.Query("project"))
+	ctx.Resp, ctx.Err = service.GetJiraTypes(c.Param("id"), c.Query("project"))
 }
 
 func GetJiraAllStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GetJiraAllStatus(c.Query("project"))
+	ctx.Resp, ctx.Err = service.GetJiraAllStatus(c.Param("id"), c.Query("project"))
 }
 
 func HandleJiraEvent(c *gin.Context) {
