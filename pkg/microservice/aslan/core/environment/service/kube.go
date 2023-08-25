@@ -1283,8 +1283,16 @@ func GetReleaseInstanceDeployStatus(productName string, request *HelmDeployStatu
 	return resp, err
 }
 
-func ListPodsInfo(projectName, envName string, log *zap.SugaredLogger) ([]*resource.Pod, error) {
-	res := make([]*resource.Pod, 0)
+type ListPodsInfoRespone struct {
+	Name       string   `json:"name"`
+	Ready      string   `json:"ready"`
+	Status     string   `json:"status"`
+	Images     []string `json:"images"`
+	CreateTime int64    `json:"create_time"`
+}
+
+func ListPodsInfo(projectName, envName string, log *zap.SugaredLogger) ([]*ListPodsInfoRespone, error) {
+	res := make([]*ListPodsInfoRespone, 0)
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    projectName,
 		EnvName: envName,
@@ -1306,7 +1314,25 @@ func ListPodsInfo(projectName, envName string, log *zap.SugaredLogger) ([]*resou
 	}
 
 	for _, pod := range pods {
-		res = append(res, wrapper.Pod(pod).Resource())
+		resPod := wrapper.Pod(pod).Resource()
+		images := []string{}
+		readyTotal := 0
+		ready := 0
+		for _, c := range resPod.Containers {
+			images = append(images, c.Image)
+			readyTotal++
+			if c.Ready {
+				ready++
+			}
+		}
+		elem := &ListPodsInfoRespone{
+			Name:       resPod.Name,
+			Ready:      fmt.Sprintf("%d/%d", ready, readyTotal),
+			Status:     resPod.Status,
+			Images:     images,
+			CreateTime: resPod.CreateTime,
+		}
+		res = append(res, elem)
 	}
 	return res, nil
 }

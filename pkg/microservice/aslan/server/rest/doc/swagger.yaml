@@ -1349,6 +1349,21 @@ definitions:
         type: string
       value: {}
     type: object
+  service.ListPodsInfoRespone:
+    properties:
+      create_time:
+        type: integer
+      images:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      ready:
+        type: string
+      status:
+        type: string
+    type: object
   service.LoadServiceFromYamlTemplateReq:
     properties:
       auto_sync:
@@ -2677,7 +2692,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/resource.Pod'
+              $ref: '#/definitions/service.ListPodsInfoRespone'
             type: array
       summary: Get Pods Info
       tags:

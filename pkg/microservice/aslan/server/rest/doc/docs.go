@@ -1037,7 +1037,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/resource.Pod"
+                                "$ref": "#/definitions/service.ListPodsInfoRespone"
                             }
                         }
                     }
@@ -4901,6 +4901,29 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "value": {}
+            }
+        },
+        "service.ListPodsInfoRespone": {
+            "type": "object",
+            "properties": {
+                "create_time": {
+                    "type": "integer"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ready": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
             }
         },
         "service.LoadServiceFromYamlTemplateReq": {

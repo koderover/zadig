@@ -165,7 +165,7 @@ func ListWorkloadsInfo(c *gin.Context) {
 // @Produce json
 // @Param 	projectName 	query		string										true	"projectName"
 // @Param 	envName 		query		string										true	"envName"
-// @Success 200 			{array} 	resource.Pod
+// @Success 200 			{array} 	service.ListPodsInfoRespone
 // @Router /api/aslan/environment/kube/pods [get]
 func ListPodsInfo(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
@@ -179,6 +179,15 @@ func ListPodsInfo(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty")
+		return
+	}
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty")
+	}
+
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -192,7 +201,7 @@ func ListPodsInfo(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.ListPodsInfo(projectKey, c.Query("envName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPodsInfo(projectKey, envName, ctx.Logger)
 }
 
 // @Summary Get Pods Detail Info
@@ -217,6 +226,18 @@ func GetPodsDetailInfo(c *gin.Context) {
 	}
 
 	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty")
+		return
+	}
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty")
+	}
+	podName := c.Query("podName")
+	if podName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("podName can't be empty")
+	}
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -230,7 +251,7 @@ func GetPodsDetailInfo(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = service.GetPodDetailInfo(projectKey, c.Query("envName"), c.Param("podName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetPodDetailInfo(projectKey, envName, podName, ctx.Logger)
 }
 
 func ListCustomWorkload(c *gin.Context) {
