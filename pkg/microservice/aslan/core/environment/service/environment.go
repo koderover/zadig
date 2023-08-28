@@ -1270,11 +1270,9 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 		EnvName:     envName,
 		ProductTmpl: productName,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
@@ -1375,11 +1373,9 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 		EnvName:     envName,
 		ProductTmpl: productName,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err)
-		}
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err)
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
@@ -1553,11 +1549,9 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 		EnvName:     envName,
 		ProductTmpl: productName,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
 	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
@@ -2668,6 +2662,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	if args.Render.Revision > 0 {
 		renderSetName = args.Render.Name
 	} else {
+		log.Infof("++++++++++++++ creating renderset in pre create product function: %s", renderSetName)
 		renderSet := &commonmodels.RenderSet{
 			Name:        renderSetName,
 			Revision:    0,
@@ -3436,11 +3431,9 @@ func PreviewProductGlobalVariables(productName, envName string, arg []*commontyp
 		ProductTmpl: product.Render.ProductTmpl,
 		Revision:    product.Render.Revision,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		return nil, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 	return PreviewProductGlobalVariablesWithRender(product, productRenderset, arg, log)
@@ -3477,11 +3470,9 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 		ProductTmpl: product.Render.ProductTmpl,
 		Revision:    product.Render.Revision,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		return nil, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
@@ -3580,11 +3571,9 @@ func UpdateProductGlobalVariables(productName, envName, userName, requestID stri
 		ProductTmpl: product.Render.ProductTmpl,
 		Revision:    product.Render.Revision,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 

@@ -116,8 +116,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	}
 	productObj.Services = serviceGroup
 
-	// insert renderset info into db
-	err = render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+	renderset := &commonmodels.RenderSet{
 		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:       arg.EnvName,
 		ProductTmpl:   arg.ProductName,
@@ -126,30 +125,20 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 		DefaultValues: arg.DefaultValues,
 		ChartInfos:    productObj.ServiceRenders,
 		YamlData:      geneYamlData(arg.ValuesData),
-	}, log)
-	if err != nil {
-		log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
-		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
 	}
 
-	renderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-		Name:        commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
-		EnvName:     arg.EnvName,
-		IsDefault:   false,
+	// insert renderset info into db
+	err = render.CreateK8sHelmRenderSet(renderset, log)
+	if err != nil {
+		log.Errorf("rennderset create fail when creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to create renderset, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
+	}
+
+	productObj.Render = &commonmodels.RenderInfo{
+		Name:        renderset.Name,
+		Revision:    renderset.Revision,
 		ProductTmpl: productObj.ProductName,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to find renderset of product: %s/%s, err: %s", arg.ProductName, arg.EnvName, err)
 	}
-
-	if renderset != nil {
-		productObj.Render = &commonmodels.RenderInfo{
-			Name:        renderset.Name,
-			Revision:    renderset.Revision,
-			ProductTmpl: productObj.ProductName,
-		}
-	}
-
 	return nil
 }
 

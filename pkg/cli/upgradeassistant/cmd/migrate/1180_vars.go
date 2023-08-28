@@ -349,7 +349,7 @@ func migrateTestProductVariables() error {
 				continue
 			}
 			product.EnsureRenderInfo()
-			renderInfo, exists, err := mongodb.NewRenderSetColl().FindRenderSet(&mongodb.RenderSetFindOption{
+			renderInfo, err := mongodb.NewRenderSetColl().Find(&mongodb.RenderSetFindOption{
 				ProductTmpl: product.ProductName,
 				Name:        product.Render.Name,
 				Revision:    product.Render.Revision,
@@ -357,9 +357,6 @@ func migrateTestProductVariables() error {
 			})
 			if err != nil {
 				return errors.Wrapf(err, "get render info, product name: %s, render name: %s, revision: %d", product.ProductName, product.Render.Name, product.Render.Revision)
-			}
-			if !exists {
-				return fmt.Errorf("render set not found, product name: %s, render name: %s, revision: %d", product.ProductName, product.Render.Name, product.Render.Revision)
 			}
 
 			if len(renderInfo.GlobalVariables) > 0 {
@@ -559,7 +556,7 @@ func migrateProductionProductVariables() error {
 			}
 
 			product.EnsureRenderInfo()
-			renderInfo, exists, err := mongodb.NewRenderSetColl().FindRenderSet(&mongodb.RenderSetFindOption{
+			renderInfo, err := mongodb.NewRenderSetColl().Find(&mongodb.RenderSetFindOption{
 				ProductTmpl: product.ProductName,
 				Name:        product.Render.Name,
 				Revision:    product.Render.Revision,
@@ -567,9 +564,6 @@ func migrateProductionProductVariables() error {
 			})
 			if err != nil {
 				return errors.Wrapf(err, "get render info, product name: %s, render name: %s, revision: %d", product.ProductName, product.Render.Name, product.Render.Revision)
-			}
-			if !exists {
-				return fmt.Errorf("render set not found, product name: %s, render name: %s, revision: %d", product.ProductName, product.Render.Name, product.Render.Revision)
 			}
 
 			// change service variable yaml to kvs

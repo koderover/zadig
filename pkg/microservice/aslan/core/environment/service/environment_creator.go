@@ -174,7 +174,9 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 
 	// renderset may exist before product created, by setting values.yaml content
 	var renderSet *models.RenderSet
+	log.Infof("----------- helm creating renderset, envName:%s, productName:%s, namespace:%s", args.EnvName, args.ProductName, args.Namespace)
 	if args.Render == nil || args.Render.Revision == 0 {
+		log.Infof("----------- render info of product is not set")
 		renderSet, _, err = commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
 			EnvName:     args.EnvName,
 			Name:        args.Namespace,
@@ -187,6 +189,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		}
 		// if env renderset is predefined, set render info
 		if renderSet != nil {
+			log.Infof("----------- renderset info in env is predefined: %s, revision: %d", renderSet.Name, renderSet.Revision)
 			args.Render = &models.RenderInfo{
 				ProductTmpl: args.ProductName,
 				Name:        renderSet.Name,

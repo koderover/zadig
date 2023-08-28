@@ -99,8 +99,8 @@ func ExportYaml(envName, productName, serviceName, source string, log *zap.Sugar
 			EnvName:     env.EnvName,
 			ProductTmpl: env.ProductName,
 		}
-		renderset, exists, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-		if err != nil || !exists {
+		renderset, err := commonrepo.NewRenderSetColl().Find(opt)
+		if err != nil {
 			log.Errorf("failed to find renderset for env: %s, err: %v", envName, err)
 			return res
 		}

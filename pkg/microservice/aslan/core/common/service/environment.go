@@ -180,12 +180,9 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 		Name:        productInfo.Render.Name,
 		Revision:    productInfo.Render.Revision,
 	}
-	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
 	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Errorf("failed to find render set : %s/%s", productName, envName).Error())
-	}
-	if !existed {
-		return nil, fmt.Errorf("render set not found : %s/%s", productName, envName)
 	}
 
 	svcRender := rendersetObj.GetServiceRenderMap()[serviceName]
@@ -267,7 +264,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 			Name:        productInfo.Render.Name,
 			Revision:    productInfo.Render.Revision,
 		}
-		rendersetObj, _, err = commonrepo.NewRenderSetColl().FindRenderSet(opt)
+		rendersetObj, err = commonrepo.NewRenderSetColl().Find(opt)
 		if err == nil {
 			for _, svcRender := range rendersetObj.ServiceVariables {
 				if _, ok := svcRenders[svcRender.ServiceName]; ok {

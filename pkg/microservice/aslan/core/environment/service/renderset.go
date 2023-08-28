@@ -152,13 +152,10 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 		ProductTmpl: productName,
 		EnvName:     productInfo.EnvName,
 	}
-	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
 	if err != nil {
 		log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
 		return nil, err
-	}
-	if !existed {
-		return ret, nil
 	}
 	ret.DefaultVariable = rendersetObj.DefaultValues
 	err = service.FillGitNamespace(rendersetObj.YamlData)
@@ -272,14 +269,10 @@ func GetGlobalVariables(productName, envName string, log *zap.SugaredLogger) ([]
 		ProductTmpl: productName,
 		EnvName:     productInfo.EnvName,
 	}
-	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
 	if err != nil {
 		log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
 		return nil, 0, err
 	}
-	if !existed {
-		return nil, 0, nil
-	}
-
 	return rendersetObj.GlobalVariables, rendersetObj.Revision, nil
 }
