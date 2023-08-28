@@ -50,6 +50,7 @@ func ListProjectManagement(log *zap.SugaredLogger) ([]*models.ProjectManagement,
 	return list, nil
 }
 
+// @note ref
 func CreateProjectManagement(pm *models.ProjectManagement, log *zap.SugaredLogger) error {
 	if err := checkType(pm.Type); err != nil {
 		return err

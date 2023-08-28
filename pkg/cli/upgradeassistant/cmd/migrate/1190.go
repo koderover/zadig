@@ -54,7 +54,13 @@ func V1180ToV1190() error {
 
 	log.Infof("-------- start migrate project management system identity --------")
 	if err := migrateProjectManagementSystemIdentity(); err != nil {
-		log.Infof("migrateWorkflowTemplate err: %v", err)
+		log.Infof("migrateProjectManagementSystemIdentity err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate config management system identity --------")
+	if err := migrateConfigurationManagementSystemIdentity(); err != nil {
+		log.Infof("migrateConfigurationManagementSystemIdentity err: %v", err)
 		return err
 	}
 
@@ -282,6 +288,30 @@ func migrateProjectManagementSystemIdentity() error {
 		log.Infof("update %d workflowV4s", len(ms))
 		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
 			return fmt.Errorf("udpate workflowV4s for project management system identity, error: %s", err)
+		}
+	}
+
+	return nil
+}
+
+func migrateConfigurationManagementSystemIdentity() error {
+	for _, typeStr := range []string{"apollo", "nacos"} {
+		cms, err := mongodb.NewConfigurationManagementColl().List(context.Background(), typeStr)
+		if err != nil {
+			return fmt.Errorf("failed to list configuration management, err: %v", err)
+		}
+
+		count := 0
+		for _, cm := range cms {
+			if cm.SystemIdentity != "" {
+				continue
+			}
+
+			count++
+			cm.SystemIdentity = fmt.Sprintf("%s-%d", typeStr, count)
+			if err := mongodb.NewConfigurationManagementColl().Update(context.Background(), cm.ID.Hex(), cm); err != nil {
+				return fmt.Errorf("failed to update configuration management system, err: %v", err)
+			}
 		}
 	}
 
