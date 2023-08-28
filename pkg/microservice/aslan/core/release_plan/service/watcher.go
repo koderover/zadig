@@ -139,8 +139,8 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		err = updateLarkApproval(ctx, plan.Approval)
 	case config.DingTalkApproval:
 		err = updateDingTalkApproval(ctx, plan.Approval)
-	case config.NativeApproval:
-		err = updateNativeApproval(ctx, plan.Approval)
+	//case config.NativeApproval:
+	//	err = updateNativeApproval(ctx, plan.Approval)
 	default:
 		err = errors.Errorf("unknown approval type %s", plan.Approval.Type)
 	}
