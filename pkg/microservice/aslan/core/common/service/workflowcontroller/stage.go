@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -30,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	approvalservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/approval"
 	dingservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dingtalk"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
 	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
@@ -38,21 +38,21 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-type approveMap struct {
-	m map[string]*approveWithLock
-	sync.RWMutex
-}
+//type approveMap struct {
+//	m map[string]*approveWithLock
+//	sync.RWMutex
+//}
+//
+//type approveWithLock struct {
+//	approval *commonmodels.NativeApproval
+//	sync.RWMutex
+//}
+//
+//var globalApproveMap approveMap
 
-type approveWithLock struct {
-	approval *commonmodels.NativeApproval
-	sync.RWMutex
-}
-
-var globalApproveMap approveMap
-
-func init() {
-	globalApproveMap.m = make(map[string]*approveWithLock, 0)
-}
+//func init() {
+//	globalApproveMap.m = make(map[string]*approveWithLock, 0)
+//}
 
 type StageCtl interface {
 	Run(ctx context.Context, concurrency int)
@@ -96,11 +96,11 @@ func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCt
 
 func ApproveStage(workflowName, stageName, userName, userID, comment string, taskID int64, approve bool) error {
 	approveKey := fmt.Sprintf("%s-%d-%s", workflowName, taskID, stageName)
-	approveWithL, ok := globalApproveMap.getApproval(approveKey)
+	approveWithL, ok := approvalservice.GlobalApproveMap.GetApproval(approveKey)
 	if !ok {
 		return fmt.Errorf("workflow %s ID %d stage %s do not need approve", workflowName, taskID, stageName)
 	}
-	return approveWithL.doApproval(userName, userID, comment, approve)
+	return approveWithL.DoApproval(userName, userID, comment, approve)
 }
 
 func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) (err error) {
@@ -154,10 +154,10 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 		approval.Timeout = 60
 	}
 	approveKey := fmt.Sprintf("%s-%d-%s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name)
-	approveWithL := &approveWithLock{approval: approval}
-	globalApproveMap.setApproval(approveKey, approveWithL)
+	approveWithL := &approvalservice.ApproveWithLock{Approval: approval}
+	approvalservice.GlobalApproveMap.SetApproval(approveKey, approveWithL)
 	defer func() {
-		globalApproveMap.deleteApproval(approveKey)
+		approvalservice.GlobalApproveMap.DeleteApproval(approveKey)
 		ack()
 	}()
 	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
@@ -177,7 +177,7 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 			stage.Status = config.StatusTimeout
 			return fmt.Errorf("workflow timeout")
 		default:
-			approved, approveCount, err := approveWithL.isApproval()
+			approved, approveCount, err := approveWithL.IsApproval()
 			if err != nil {
 				stage.Status = config.StatusReject
 				return err
@@ -608,63 +608,63 @@ func updateStageStatus(stage *commonmodels.StageTask) {
 	stage.Status = stageStatus
 }
 
-func (c *approveMap) setApproval(key string, value *approveWithLock) {
-	c.Lock()
-	defer c.Unlock()
-	c.m[key] = value
-}
-
-func (c *approveMap) getApproval(key string) (*approveWithLock, bool) {
-	c.RLock()
-	defer c.RUnlock()
-	v, existed := c.m[key]
-	return v, existed
-}
-func (c *approveMap) deleteApproval(key string) {
-	c.Lock()
-	defer c.Unlock()
-	delete(c.m, key)
-}
-
-func (c *approveWithLock) isApproval() (bool, int, error) {
-	c.Lock()
-	defer c.Unlock()
-	approveCount := 0
-	for _, user := range c.approval.ApproveUsers {
-		if user.RejectOrApprove == config.Reject {
-			c.approval.RejectOrApprove = config.Reject
-			return false, approveCount, fmt.Errorf("%s reject this task", user.UserName)
-		}
-		if user.RejectOrApprove == config.Approve {
-			approveCount++
-		}
-	}
-	if approveCount >= c.approval.NeededApprovers {
-		c.approval.RejectOrApprove = config.Approve
-		return true, approveCount, nil
-	}
-	return false, approveCount, nil
-}
-
-func (c *approveWithLock) doApproval(userName, userID, comment string, appvove bool) error {
-	c.Lock()
-	defer c.Unlock()
-	for _, user := range c.approval.ApproveUsers {
-		if user.UserID != userID {
-			continue
-		}
-		if user.RejectOrApprove != "" {
-			return fmt.Errorf("%s have %s already", userName, user.RejectOrApprove)
-		}
-		user.Comment = comment
-		user.OperationTime = time.Now().Unix()
-		if appvove {
-			user.RejectOrApprove = config.Approve
-			return nil
-		} else {
-			user.RejectOrApprove = config.Reject
-			return nil
-		}
-	}
-	return fmt.Errorf("user %s has no authority to approve", userName)
-}
+//func (c *approveMap) setApproval(key string, value *approveWithLock) {
+//	c.Lock()
+//	defer c.Unlock()
+//	c.m[key] = value
+//}
+//
+//func (c *approveMap) getApproval(key string) (*approveWithLock, bool) {
+//	c.RLock()
+//	defer c.RUnlock()
+//	v, existed := c.m[key]
+//	return v, existed
+//}
+//func (c *approveMap) deleteApproval(key string) {
+//	c.Lock()
+//	defer c.Unlock()
+//	delete(c.m, key)
+//}
+//
+//func (c *approveWithLock) isApproval() (bool, int, error) {
+//	c.Lock()
+//	defer c.Unlock()
+//	approveCount := 0
+//	for _, user := range c.approval.ApproveUsers {
+//		if user.RejectOrApprove == config.Reject {
+//			c.approval.RejectOrApprove = config.Reject
+//			return false, approveCount, fmt.Errorf("%s reject this task", user.UserName)
+//		}
+//		if user.RejectOrApprove == config.Approve {
+//			approveCount++
+//		}
+//	}
+//	if approveCount >= c.approval.NeededApprovers {
+//		c.approval.RejectOrApprove = config.Approve
+//		return true, approveCount, nil
+//	}
+//	return false, approveCount, nil
+//}
+//
+//func (c *approveWithLock) doApproval(userName, userID, comment string, appvove bool) error {
+//	c.Lock()
+//	defer c.Unlock()
+//	for _, user := range c.approval.ApproveUsers {
+//		if user.UserID != userID {
+//			continue
+//		}
+//		if user.RejectOrApprove != "" {
+//			return fmt.Errorf("%s have %s already", userName, user.RejectOrApprove)
+//		}
+//		user.Comment = comment
+//		user.OperationTime = time.Now().Unix()
+//		if appvove {
+//			user.RejectOrApprove = config.Approve
+//			return nil
+//		} else {
+//			user.RejectOrApprove = config.Reject
+//			return nil
+//		}
+//	}
+//	return fmt.Errorf("user %s has no authority to approve", userName)
+//}

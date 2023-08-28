@@ -54,8 +54,8 @@ func createApprovalInstance(plan *models.ReleasePlan, phone string) error {
 		detailURL)
 
 	switch plan.Approval.Type {
-	case config.NativeApproval:
-		return createNativeApproval(ctx, stage, workflowCtx, logger, ack)
+	//case config.NativeApproval:
+	//	return createNativeApproval(ctx, stage, workflowCtx, logger, ack)
 	case config.LarkApproval:
 		return createLarkApproval(plan.Approval.LarkApproval, plan.Manager, phone, formContent)
 	case config.DingTalkApproval:
@@ -199,12 +199,75 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 			return errors.Wrap(err, "get unexpected instance final info")
 		}
 	}
-
+	return nil
 }
 
-func createNativeApproval() error {
+//func createNativeApproval(approval *models.LarkApproval) error {
+//	approval := stage.Approval.NativeApproval
+//	if approval == nil {
+//		return errors.New("waitForApprove: native approval data not found")
+//	}
+//
+//	if approval.Timeout == 0 {
+//		approval.Timeout = 60
+//	}
+//	approveKey := fmt.Sprintf("%s-%d-%s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name)
+//	approveWithL := &approveWithLock{approval: approval}
+//	globalApproveMap.setApproval(approveKey, approveWithL)
+//	defer func() {
+//		globalApproveMap.deleteApproval(approveKey)
+//		ack()
+//	}()
+//}
 
-}
+//func updateNativeApproval() error {
+//	approval := stage.Approval.NativeApproval
+//	if approval == nil {
+//		return errors.New("waitForApprove: native approval data not found")
+//	}
+//
+//	if approval.Timeout == 0 {
+//		approval.Timeout = 60
+//	}
+//	approveKey := fmt.Sprintf("%s-%d-%s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name)
+//	approveWithL := &approveWithLock{approval: approval}
+//	globalApproveMap.setApproval(approveKey, approveWithL)
+//	defer func() {
+//		globalApproveMap.deleteApproval(approveKey)
+//		ack()
+//	}()
+//	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
+//		logger.Errorf("send approve notification failed, error: %v", err)
+//	}
+//
+//	timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
+//	latestApproveCount := 0
+//	for {
+//		time.Sleep(1 * time.Second)
+//		select {
+//		case <-ctx.Done():
+//			stage.Status = config.StatusCancelled
+//			return fmt.Errorf("workflow was canceled")
+//
+//		case <-timeout:
+//			stage.Status = config.StatusTimeout
+//			return fmt.Errorf("workflow timeout")
+//		default:
+//			approved, approveCount, err := approveWithL.isApproval()
+//			if err != nil {
+//				stage.Status = config.StatusReject
+//				return err
+//			}
+//			if approved {
+//				return nil
+//			}
+//			if approveCount > latestApproveCount {
+//				ack()
+//				latestApproveCount = approveCount
+//			}
+//		}
+//	}
+//}
 
 func createLarkApproval(approval *models.LarkApproval, manager, phone, content string) error {
 	if approval == nil {
@@ -243,6 +306,7 @@ func createLarkApproval(approval *models.LarkApproval, manager, phone, content s
 		return errors.Wrap(err, "create approval instance")
 	}
 	approval.InstanceCode = instance
+	return nil
 }
 
 func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
