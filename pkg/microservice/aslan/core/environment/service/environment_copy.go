@@ -336,26 +336,5 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 	if err != nil {
 		return err
 	}
-
-	// clear render info
-	productInfo.Render = nil
-
-	// insert renderset info into db
-	if len(productInfo.ServiceRenders) > 0 {
-		err := render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
-			Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
-			EnvName:       arg.EnvName,
-			ProductTmpl:   arg.ProductName,
-			UpdateBy:      userName,
-			IsDefault:     false,
-			DefaultValues: arg.DefaultValues,
-			YamlData:      geneYamlData(arg.ValuesData),
-			ChartInfos:    productInfo.ServiceRenders,
-		}, log)
-		if err != nil {
-			log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
-			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
-		}
-	}
 	return CreateProduct(userName, requestID, productInfo, log)
 }
