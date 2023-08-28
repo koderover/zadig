@@ -113,6 +113,7 @@ type NativeApproval struct {
 	ApproveUsers    []*User                `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	NeededApprovers int                    `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
 	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	InstanceCode    string                 `bson:"instance_code"               yaml:"instance_code"              json:"instance_code"`
 }
 
 type DingTalkApproval struct {

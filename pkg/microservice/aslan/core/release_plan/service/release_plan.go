@@ -285,13 +285,11 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		}
 		setReleaseJobsForExecuting(plan)
 	case config.StatusWaitForApprove:
-		// todo
-		if plan.Approval == nil {
-			return errors.Errorf("no approval")
+		if err := clearApprovalData(plan.Approval); err != nil {
+			return errors.Wrap(err, "clear approval data")
 		}
-		plan.Approval.Status = ""
 		if err := createApprovalInstance(plan, userInfo.Phone); err != nil {
-			return err
+			return errors.Wrap(err, "create approval instance")
 		}
 	}
 
@@ -306,10 +304,53 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		After:      status,
 	})
 	plan.Status = config.ReleasePlanStatus(status)
-	plan.Revision++
+	//plan.Revision++
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, id, plan); err != nil {
 		return errors.Wrap(err, "update plan")
+	}
+	return nil
+}
+
+func clearApprovalData(approval *models.Approval) error {
+	if approval == nil {
+		return errors.New("nil approval")
+	}
+	approval.Status = ""
+	switch approval.Type {
+	case config.LarkApproval:
+		if approval.LarkApproval == nil {
+			return errors.New("nil lark approval")
+		}
+		for _, node := range approval.LarkApproval.ApprovalNodes {
+			node.RejectOrApprove = ""
+			for _, user := range node.ApproveUsers {
+				user.RejectOrApprove = ""
+				user.OperationTime = 0
+				user.Comment = ""
+			}
+		}
+	case config.DingTalkApproval:
+		if approval.DingTalkApproval == nil {
+			return errors.New("nil dingtalk approval")
+		}
+		for _, node := range approval.DingTalkApproval.ApprovalNodes {
+			node.RejectOrApprove = ""
+			for _, user := range node.ApproveUsers {
+				user.RejectOrApprove = ""
+				user.OperationTime = 0
+				user.Comment = ""
+			}
+		}
+	case config.NativeApproval:
+		if approval.NativeApproval == nil {
+			return errors.New("nil native approval")
+		}
+		for _, user := range approval.NativeApproval.ApproveUsers {
+			user.RejectOrApprove = ""
+			user.OperationTime = 0
+			user.Comment = ""
+		}
 	}
 	return nil
 }

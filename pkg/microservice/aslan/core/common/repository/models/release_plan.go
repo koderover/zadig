@@ -41,9 +41,9 @@ type ReleasePlan struct {
 
 	Jobs []*ReleaseJob `bson:"jobs"       yaml:"jobs"                   json:"jobs"`
 
-	Logs     []*ReleasePlanLog        `bson:"logs"       yaml:"logs"                   json:"logs"`
-	Status   config.ReleasePlanStatus `bson:"status"       yaml:"status"                   json:"status"`
-	Revision int                      `bson:"revision"       yaml:"revision"                   json:"revision"`
+	Logs   []*ReleasePlanLog        `bson:"logs"       yaml:"logs"                   json:"logs"`
+	Status config.ReleasePlanStatus `bson:"status"       yaml:"status"                   json:"status"`
+	//Revision int                      `bson:"revision"       yaml:"revision"                   json:"revision"`
 }
 
 func (ReleasePlan) TableName() string {

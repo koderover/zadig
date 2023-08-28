@@ -17,35 +17,44 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	_ "embed"
 	"fmt"
+	"net/url"
+	"text/template"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	approvalservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/approval"
 	dingservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dingtalk"
 	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/dingtalk"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/tool/mail"
 )
+
+//go:embed approval.html
+var approvalHTML []byte
 
 func createApprovalInstance(plan *models.ReleasePlan, phone string) error {
 	if plan.Approval == nil {
 		return errors.New("createApprovalInstance: approval data not found")
 	}
 
-	// todo
-	detailURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
+	detailURL := fmt.Sprintf("%s/v1/releasePlan/detail?id=%s",
 		configbase.SystemAddress(),
-		//workflowCtx.ProjectName,
-		//workflowCtx.WorkflowName,
-		//workflowCtx.TaskID,
-		//url.QueryEscape(workflowCtx.WorkflowDisplayName),
+		url.QueryEscape(plan.ID.Hex()),
 	)
 
 	formContent := fmt.Sprintf("发布计划名称: %s\n发布负责人: %s\n发布窗口期: %s\n\n更多详见: %s",
@@ -54,8 +63,8 @@ func createApprovalInstance(plan *models.ReleasePlan, phone string) error {
 		detailURL)
 
 	switch plan.Approval.Type {
-	//case config.NativeApproval:
-	//	return createNativeApproval(ctx, stage, workflowCtx, logger, ack)
+	case config.NativeApproval:
+		return createNativeApproval(plan, detailURL)
 	case config.LarkApproval:
 		return createLarkApproval(plan.Approval.LarkApproval, plan.Manager, phone, formContent)
 	case config.DingTalkApproval:
@@ -202,72 +211,97 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 	return nil
 }
 
-//func createNativeApproval(approval *models.LarkApproval) error {
-//	approval := stage.Approval.NativeApproval
-//	if approval == nil {
-//		return errors.New("waitForApprove: native approval data not found")
-//	}
-//
-//	if approval.Timeout == 0 {
-//		approval.Timeout = 60
-//	}
-//	approveKey := fmt.Sprintf("%s-%d-%s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name)
-//	approveWithL := &approveWithLock{approval: approval}
-//	globalApproveMap.setApproval(approveKey, approveWithL)
-//	defer func() {
-//		globalApproveMap.deleteApproval(approveKey)
-//		ack()
-//	}()
-//}
+func createNativeApproval(plan *models.ReleasePlan, url string) error {
+	if plan == nil || plan.Approval == nil || plan.Approval.NativeApproval == nil {
+		return errors.New("createNativeApproval: native approval data not found")
+	}
+	approval := plan.Approval.NativeApproval
 
-//func updateNativeApproval() error {
-//	approval := stage.Approval.NativeApproval
-//	if approval == nil {
-//		return errors.New("waitForApprove: native approval data not found")
-//	}
-//
-//	if approval.Timeout == 0 {
-//		approval.Timeout = 60
-//	}
-//	approveKey := fmt.Sprintf("%s-%d-%s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name)
-//	approveWithL := &approveWithLock{approval: approval}
-//	globalApproveMap.setApproval(approveKey, approveWithL)
-//	defer func() {
-//		globalApproveMap.deleteApproval(approveKey)
-//		ack()
-//	}()
-//	if err := instantmessage.NewWeChatClient().SendWorkflowTaskAproveNotifications(workflowCtx.WorkflowName, workflowCtx.TaskID); err != nil {
-//		logger.Errorf("send approve notification failed, error: %v", err)
-//	}
-//
-//	timeout := time.After(time.Duration(approval.Timeout) * time.Minute)
-//	latestApproveCount := 0
-//	for {
-//		time.Sleep(1 * time.Second)
-//		select {
-//		case <-ctx.Done():
-//			stage.Status = config.StatusCancelled
-//			return fmt.Errorf("workflow was canceled")
-//
-//		case <-timeout:
-//			stage.Status = config.StatusTimeout
-//			return fmt.Errorf("workflow timeout")
-//		default:
-//			approved, approveCount, err := approveWithL.isApproval()
-//			if err != nil {
-//				stage.Status = config.StatusReject
-//				return err
-//			}
-//			if approved {
-//				return nil
-//			}
-//			if approveCount > latestApproveCount {
-//				ack()
-//				latestApproveCount = approveCount
-//			}
-//		}
-//	}
-//}
+	func() {
+		email, err := systemconfig.New().GetEmailHost()
+		if err != nil {
+			log.Errorf("CreateNativeApproval GetEmailHost error, error msg:%s", err)
+			return
+		}
+
+		t, err := template.New("approval").Parse(string(approvalHTML))
+		if err != nil {
+			log.Errorf("CreateNativeApproval template parse error, error msg:%s", err)
+			return
+		}
+		var buf bytes.Buffer
+		err = t.Execute(&buf, struct {
+			PlanName    string
+			Manager     string
+			Description string
+			TimeRange   string
+			Url         string
+		}{
+			PlanName:    plan.Name,
+			Manager:     plan.Manager,
+			Description: plan.Description,
+			TimeRange:   time.Unix(plan.StartTime, 0).Format("2006-01-02 15:04:05") + "-" + time.Unix(plan.EndTime, 0).Format("2006-01-02 15:04:05"),
+			Url:         url,
+		})
+		if err != nil {
+			log.Errorf("CreateNativeApproval template execute error, error msg:%s", err)
+			return
+		}
+		for _, user := range approval.ApproveUsers {
+			info, err := orm.GetUserByUid(user.UserID, repository.DB)
+			if err != nil {
+				log.Warnf("CreateNativeApproval GetUserByUid error, error msg:%s", err)
+				continue
+			}
+			if info.Email == "" {
+				log.Warnf("CreateNativeApproval user %s email is empty", info.Name)
+				continue
+			}
+			err = mail.SendEmail(&mail.EmailParams{
+				From:     email.UserName,
+				To:       info.Email,
+				Subject:  fmt.Sprintf("发布计划 %s 待审批", plan.Name),
+				Host:     email.Name,
+				UserName: email.UserName,
+				Password: email.Password,
+				Port:     email.Port,
+				Body:     buf.String(),
+			})
+			if err != nil {
+				log.Errorf("CreateNativeApproval SendEmail error, error msg:%s", err)
+				continue
+			}
+		}
+	}()
+
+	approveKey := uuid.New().String()
+	approval.InstanceCode = approveKey
+	approveWithL := &approvalservice.ApproveWithLock{Approval: approval}
+	approvalservice.GlobalApproveMap.SetApproval(approveKey, approveWithL)
+	return nil
+}
+
+func updateNativeApproval(ctx context.Context, approval *models.Approval) error {
+	if approval == nil || approval.NativeApproval == nil {
+		return errors.New("updateLarkApproval: native approval data not found")
+	}
+
+	approveWithL, ok := approvalservice.GlobalApproveMap.GetApproval(approval.NativeApproval.InstanceCode)
+	if !ok {
+		approvalservice.GlobalApproveMap.SetApproval(approval.NativeApproval.InstanceCode, &approvalservice.ApproveWithLock{Approval: approval.NativeApproval})
+	}
+
+	approved, _, err := approveWithL.IsApproval()
+	if err != nil {
+		approval.Status = config.StatusReject
+		return nil
+	}
+	if approved {
+		approval.Status = config.StatusPassed
+		return nil
+	}
+	return nil
+}
 
 func createLarkApproval(approval *models.LarkApproval, manager, phone, content string) error {
 	if approval == nil {
