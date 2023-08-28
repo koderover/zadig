@@ -587,14 +587,6 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodel
 		return resp
 	}
 
-	workloadImagesMap := make(map[string][]string)
-	for _, workload := range svcResp.Workloads {
-		workloadImagesMap[workload.Name] = workload.Images
-	}
-	if images, ok := workloadImagesMap[serviceTmpl.ServiceName]; ok {
-		resp.Images = images
-	}
-
 	resp.Ingress = svcResp.Ingress
 	resp.Workloads = svcResp.Workloads
 	if len(serviceTmpl.Containers) == 0 {
@@ -616,6 +608,12 @@ func queryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodel
 	}
 
 	if len(pods) == 0 && len(svcResp.CronJobs) == 0 {
+		imageSet := sets.String{}
+		for _, workload := range svcResp.Workloads {
+			imageSet.Insert(workload.Images...)
+		}
+
+		resp.Images = imageSet.List()
 		resp.PodStatus, resp.Ready = setting.PodNonStarted, setting.PodNotReady
 		return resp
 	}

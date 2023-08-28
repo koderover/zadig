@@ -224,7 +224,7 @@ func GetProductEnvNamespace(envName, productName, namespace string) string {
 	})
 	if err != nil {
 		product = &commonmodels.Product{EnvName: envName, ProductName: productName}
-		return product.GetNamespace()
+		return product.GetDefaultNamespace()
 	}
 	return product.Namespace
 }

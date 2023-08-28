@@ -369,7 +369,7 @@ func getProductEnvInfo(pipelineTask *taskmodels.Task, log *zap.SugaredLogger) (*
 		Name:    product.ProductName,
 		EnvName: product.EnvName,
 	}); err != nil {
-		product.Namespace = product.GetNamespace()
+		product.Namespace = product.GetDefaultNamespace()
 	} else {
 		product.Namespace = productInfo.Namespace
 	}

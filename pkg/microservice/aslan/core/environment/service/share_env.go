@@ -17,14 +17,13 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	types "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/encoding/protojson"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
@@ -797,9 +796,8 @@ func buildEnvoyPatchValue(data map[string]interface{}) (*types.Struct, error) {
 		return nil, fmt.Errorf("failed to marshal data: %s", err)
 	}
 
-	reader := bytes.NewReader(dataBytes)
 	val := &types.Struct{}
-	err = jsonpb.Unmarshal(reader, val)
+	err = protojson.Unmarshal(dataBytes, val)
 	return val, err
 }
 
