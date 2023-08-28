@@ -55,7 +55,7 @@ func CreateProjectManagement(pm *models.ProjectManagement, log *zap.SugaredLogge
 	if err := checkType(pm.Type); err != nil {
 		return err
 	}
-	if _, err := mongodb.NewProjectManagementColl().GetBySystemIdentity(pm.SystemIdentity); err != nil {
+	if _, err := mongodb.NewProjectManagementColl().GetBySystemIdentity(pm.SystemIdentity); err == nil {
 		return fmt.Errorf("can't set the same system identity")
 	}
 	if err := mongodb.NewProjectManagementColl().Create(pm); err != nil {
@@ -76,7 +76,7 @@ func UpdateProjectManagement(idHex string, pm *models.ProjectManagement, log *za
 		oldSystemIdentity = oldPm.SystemIdentity
 	}
 	if oldPm.SystemIdentity != "" && pm.SystemIdentity != oldSystemIdentity {
-		if _, err := mongodb.NewProjectManagementColl().GetBySystemIdentity(pm.SystemIdentity); err != nil {
+		if _, err := mongodb.NewProjectManagementColl().GetBySystemIdentity(pm.SystemIdentity); err == nil {
 			return fmt.Errorf("can't set the same system identity")
 		}
 	}

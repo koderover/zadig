@@ -39,7 +39,7 @@ func CreateConfigurationManagement(args *commonmodels.ConfigurationManagement, l
 		return e.ErrCreateConfigurationManagement.AddErr(err)
 	}
 
-	if _, err := mongodb.NewConfigurationManagementColl().GetBySystemIdentity(args.SystemIdentity); err != nil {
+	if _, err := mongodb.NewConfigurationManagementColl().GetBySystemIdentity(args.SystemIdentity); err == nil {
 		return e.ErrCreateConfigurationManagement.AddErr(fmt.Errorf("can't set the same system identity"))
 	}
 	err := mongodb.NewConfigurationManagementColl().Create(context.Background(), args)
@@ -75,7 +75,7 @@ func UpdateConfigurationManagement(id string, args *commonmodels.ConfigurationMa
 		oldSystemIdentity = oldCm.SystemIdentity
 	}
 	if oldCm.SystemIdentity != "" && args.SystemIdentity != oldSystemIdentity {
-		if _, err := mongodb.NewConfigurationManagementColl().GetBySystemIdentity(args.SystemIdentity); err != nil {
+		if _, err := mongodb.NewConfigurationManagementColl().GetBySystemIdentity(args.SystemIdentity); err == nil {
 			return e.ErrUpdateConfigurationManagement.AddErr(fmt.Errorf("can't set the same system identity"))
 		}
 	}
