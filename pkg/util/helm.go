@@ -24,7 +24,6 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/helm/pkg/strvals"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -40,7 +39,7 @@ func GeneReleaseName(namingRule, projectName, namespace, envName, service string
 }
 
 // for keys exist in both yaml, current values will override the latest values
-func OverrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey sets.String, onlyImages bool) ([]byte, error) {
+func OverrideValues(currentValuesYaml, latestValuesYaml []byte) ([]byte, error) {
 	currentValuesMap := map[string]interface{}{}
 	if err := yaml.Unmarshal(currentValuesYaml, &currentValuesMap); err != nil {
 		return nil, err
@@ -63,9 +62,6 @@ func OverrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey 
 
 	replaceMap := make(map[string]interface{})
 	for key := range latestValuesFlatMap {
-		if onlyImages && !imageRelatedKey.Has(key) {
-			continue
-		}
 		if currentValue, ok := currentValuesFlatMap[key]; ok {
 			replaceMap[key] = currentValue
 		}

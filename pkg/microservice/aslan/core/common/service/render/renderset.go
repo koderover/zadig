@@ -67,21 +67,6 @@ func GetRenderSetInfo(renderName string, revision int64) (*commonmodels.RenderSe
 	return resp, nil
 }
 
-// ValidateRenderSet 检查指定renderSet是否能覆盖产品所有需要渲染的值
-func ValidateRenderSet(productName, renderName, envName string, serviceInfo *templatemodels.ServiceInfo, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
-	resp := &commonmodels.RenderSet{ProductTmpl: productName}
-	var err error
-	if renderName != "" {
-		opt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName, EnvName: envName}
-		resp, err = commonrepo.NewRenderSetColl().Find(opt)
-		if err != nil {
-			log.Errorf("find renderset[%s] error: %v", renderName, err)
-			return resp, err
-		}
-	}
-	return resp, nil
-}
-
 func mergeServiceVariables(newVariables []*templatemodels.ServiceRender, oldVariables []*templatemodels.ServiceRender) []*templatemodels.ServiceRender {
 	allVarMap := make(map[string]*templatemodels.ServiceRender)
 	for _, sv := range oldVariables {

@@ -19,7 +19,6 @@ package mongodb
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -89,36 +88,6 @@ func (c *RenderSetColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *RenderSetColl) ListRendersets(opt *RenderSetListOption) ([]*models.RenderSet, error) {
-	query := bson.M{}
-	if len(opt.ProductTmpl) > 0 {
-		query["product_tmpl"] = opt.ProductTmpl
-	}
-	if len(opt.RendersetName) > 0 {
-		query["name"] = opt.RendersetName
-	}
-	if len(opt.Revisions) > 0 {
-		query["revision"] = bson.M{"$in": opt.Revisions}
-	}
-
-	if len(query) == 0 {
-		return nil, fmt.Errorf("query with no filter is not allowed")
-	}
-
-	var rendersets []*models.RenderSet
-	cursor, err := c.Collection.Find(context.TODO(), query)
-	if err != nil {
-		return nil, err
-	}
-	err = cursor.All(context.TODO(), &rendersets)
-	if err != nil {
-		return nil, err
-	}
-
-	return rendersets, err
-
-}
-
 func (c *RenderSetColl) ListByFindOpts(opt *RenderSetListOption) ([]models.RenderSet, error) {
 	var resp []models.RenderSet
 	condition := bson.A{}
@@ -148,49 +117,6 @@ func (c *RenderSetColl) ListByFindOpts(opt *RenderSetListOption) ([]models.Rende
 	}
 	if err := cursor.All(context.TODO(), &resp); err != nil {
 		return nil, err
-	}
-	return resp, nil
-}
-
-func (c *RenderSetColl) List(opt *RenderSetListOption) ([]*models.RenderSet, error) {
-	var pipeResp []*RenderSetPipeResp
-	var pipeline []bson.M
-	if opt.ProductTmpl != "" {
-		pipeline = append(pipeline, bson.M{"$match": bson.M{"product_tmpl": opt.ProductTmpl}})
-	}
-	pipeline = append(pipeline, bson.M{
-		"$group": bson.M{
-			"_id": bson.M{
-				"name": "$name",
-			},
-			"revision": bson.M{"$max": "$revision"},
-		},
-	})
-
-	cursor, err := c.Aggregate(context.TODO(), pipeline)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cursor.All(context.TODO(), &pipeResp); err != nil {
-		return nil, err
-	}
-
-	var resp []*models.RenderSet
-	for _, pipe := range pipeResp {
-		optRender := &RenderSetFindOption{
-			Revision:    pipe.Revision,
-			Name:        pipe.RenderSet.Name,
-			ProductTmpl: pipe.RenderSet.ProductTmpl,
-		}
-		if pipe.Revision == 0 && pipe.RenderSet.Name == "" {
-			continue
-		}
-		rs, err := c.Find(optRender)
-		if err != nil {
-			return nil, err
-		}
-		resp = append(resp, rs)
 	}
 	return resp, nil
 }

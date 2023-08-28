@@ -28,7 +28,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
-	models2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -1396,33 +1395,6 @@ func GetCollaborationNew(projectName, uid, identityType, userName string, logger
 		return nil, nil
 	}
 	return getCollaborationNew(updateResp, projectName, identityType, userName, logger)
-}
-
-func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error) {
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
-		InProjects: []string{projectName},
-		InEnvs:     envs,
-	})
-	if err != nil {
-		return nil, err
-	}
-	var findOpts []commonrepo.RenderSetFindOption
-	for _, product := range products {
-		findOpts = append(findOpts, commonrepo.RenderSetFindOption{
-			Revision:    product.Render.Revision,
-			ProductTmpl: projectName,
-			EnvName:     product.EnvName,
-			Name:        product.Namespace,
-		})
-	}
-	renderSets, err := commonrepo.NewRenderSetColl().ListByFindOpts(&commonrepo.RenderSetListOption{
-		ProductTmpl: projectName,
-		FindOpts:    findOpts,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return renderSets, nil
 }
 
 func getWorkflowDisplayName(workflowName, workflowType string) string {

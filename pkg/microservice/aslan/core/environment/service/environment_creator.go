@@ -213,7 +213,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	renderSet, err = FindProductRenderSet(args.ProductName, args.Render.Name, args.EnvName, log)
+	renderSet, err = FindProductRenderSet(args.ProductName, args.Render.Name, args.EnvName, args.Render.Revision, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())

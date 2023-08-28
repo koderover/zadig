@@ -1152,7 +1152,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 			mergedValues := ""
 			if newSvcKVsMap[svcName] == nil {
 				// config phase
-				mergedBs, err := util.OverrideValues([]byte(currentValues), []byte(latestValues), nil, false)
+				mergedBs, err := util.OverrideValues([]byte(currentValues), []byte(latestValues))
 				if err != nil {
 					return "", nil, errors.Wrapf(err, "failed to override values")
 				}

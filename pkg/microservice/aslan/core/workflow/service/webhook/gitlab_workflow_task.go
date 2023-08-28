@@ -704,9 +704,10 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 		return fmt.Errorf("CreateEnvAndTaskByPR Product Find err:%v", err)
 	}
 	baseRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:      baseProduct.Render.Name,
-		Revision:  baseProduct.Render.Revision,
-		IsDefault: false,
+		Name:        baseProduct.Render.Name,
+		Revision:    baseProduct.Render.Revision,
+		ProductTmpl: baseProduct.ProductName,
+		IsDefault:   false,
 	})
 	if err != nil {
 		return fmt.Errorf("CreateEnvAndTaskByPR renderset Find err:%v", err)
@@ -716,11 +717,6 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	defer func() {
 		mutex.Unlock()
 	}()
-	//if baseProduct.Render != nil {
-	//	if renderSet, _ := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: baseProduct.Render.Name, Revision: baseProduct.Render.Revision, ProductTmpl: baseProduct.ProductName}); renderSet != nil {
-	//		baseProduct.Vars = renderSet.KVs
-	//	}
-	//}
 
 	envName := fmt.Sprintf("%s-%d-%s%s", "pr", prID, util.GetRandomNumString(3), util.GetRandomString(3))
 	util.Clear(&baseProduct.ID)

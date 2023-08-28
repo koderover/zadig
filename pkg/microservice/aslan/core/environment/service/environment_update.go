@@ -193,7 +193,7 @@ func updateK8sServiceInEnv(productInfo *commonmodels.Product, templateSvc *commo
 	svcRender := &templatemodels.ServiceRender{
 		ServiceName: templateSvc.ServiceName,
 	}
-	currentRenderset, err := FindProductRenderSet(productInfo.ProductName, productInfo.Render.Name, productInfo.EnvName, log.SugaredLogger())
+	currentRenderset, err := FindProductRenderSet(productInfo.ProductName, productInfo.Render.Name, productInfo.EnvName, productInfo.Render.Revision, log.SugaredLogger())
 	if err != nil {
 		return fmt.Errorf("failed to find renderset, err: %s", err)
 	}
@@ -544,16 +544,9 @@ func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		serviceNames = svcNames
 	}
 
-	if exitedProd.Render == nil {
-		exitedProd.Render = &commonmodels.RenderInfo{ProductTmpl: exitedProd.ProductName}
-	}
-
-	// 检查renderset是否覆盖产品所有key
-	renderSet, err := render.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, exitedProd.EnvName, nil, log)
-	if err != nil {
-		log.Errorf("[%s][P:%s] validate product renderset error: %v", envName, exitedProd.ProductName, err)
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-	}
+	exitedProd.EnsureRenderInfo()
+	// renderset is not actually used in cvm projects, so we just create a dummy one
+	renderSet := &commonmodels.RenderSet{ProductTmpl: productName, Name: exitedProd.Render.Name, EnvName: envName, Revision: 1}
 
 	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, serviceNames)
 
