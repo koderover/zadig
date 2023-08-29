@@ -160,7 +160,7 @@ func (c *ProjectManagementColl) GetMeegoByID(idHex string) (*models.ProjectManag
 		return nil, err
 	}
 	meego := &models.ProjectManagement{}
-	query := bson.M{"_id": id, "type": setting.PMJira}
+	query := bson.M{"_id": id, "type": setting.PMMeego}
 
 	err = c.Collection.FindOne(context.TODO(), query).Decode(meego)
 	if err != nil {

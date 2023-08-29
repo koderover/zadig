@@ -32,7 +32,7 @@ import (
 // @Accept 	json
 // @Produce json
 // @Success 200 		{array} 	models.ProjectManagement
-// @Router /api/aslan/environment/environments/{name}/configs [get]
+// @Router /api/aslan/system/meego/ [get]
 func ListMeego(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -40,6 +40,14 @@ func ListMeego(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListMeego()
 }
 
+// @Summary List Meego Projects
+// @Description List Meego Projects
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 		path		string										true	"meego id"
+// @Success 200 	{object} 	service.MeegoProjectResp
+// @Router /api/aslan/system/meego/{id}/projects [get]
 func GetMeegoProjects(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

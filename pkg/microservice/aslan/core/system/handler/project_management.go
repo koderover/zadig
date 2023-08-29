@@ -153,6 +153,14 @@ func Validate(c *gin.Context) {
 	}
 }
 
+// @Summary List Jira Projects
+// @Description List Jira Projects
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 		path		string										true	"jira id"
+// @Success 200 	{array} 	service.JiraProjectsResp
+// @Router /api/aslan/system/project_management/{id}/jira/project [get]
 func ListJiraProjects(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
