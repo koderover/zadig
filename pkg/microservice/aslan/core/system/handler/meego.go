@@ -33,6 +33,7 @@ import (
 // @Produce json
 // @Success 200 		{array} 	models.ProjectManagement
 // @Router /api/aslan/system/meego/ [get]
+// @todo remove it
 func ListMeego(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -56,6 +57,15 @@ func GetMeegoProjects(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetMeegoProjects(id)
 }
 
+// @Summary Get Meego Work Item Type List
+// @Description Get Meego Work Item Type List
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 		        path		string										true	"meego id"
+// @Param 	projectID 		path		string										true	"project id"
+// @Success 200 			{object} 	service.MeegoWorkItemTypeResp
+// @Router /api/aslan/system/meego/{id}/projects/{projectID}/work_item/types [get]
 func GetWorkItemTypeList(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -66,6 +76,19 @@ func GetWorkItemTypeList(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetWorkItemTypeList(id, projectID)
 }
 
+// @Summary List Meego Work Items
+// @Description List Meego Work Items
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 		        path		string										true	"meego id"
+// @Param 	projectID 		path		string										true	"project id"
+// @Param 	type_key 		query		string										true	"type key"
+// @Param 	page_num 		query		string										true	"page num"
+// @Param 	page_size 		query		string										true	"page size"
+// @Param 	item_name 		query		string										true	"item name"
+// @Success 200 			{object} 	service.MeegoWorkItemResp
+// @Router /api/aslan/system/meego/{id}/projects/{projectID}/work_item [get]
 func ListMeegoWorkItems(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

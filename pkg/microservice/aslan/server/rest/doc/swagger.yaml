@@ -37,6 +37,14 @@ definitions:
     x-enum-varnames:
     - SourceRuntime
     - SourceFromJob
+  config.JiraAuthType:
+    enum:
+    - password_or_token
+    - personal_access_token
+    type: string
+    x-enum-varnames:
+    - JiraBasicAuth
+    - JiraPersonalAccessToken
   github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService:
     properties:
       deployed:
@@ -577,6 +585,37 @@ definitions:
         type: boolean
       is_base:
         type: boolean
+    type: object
+  models.ProjectManagement:
+    properties:
+      id:
+        type: string
+      jira_auth_type:
+        $ref: '#/definitions/config.JiraAuthType'
+      jira_host:
+        type: string
+      jira_personal_access_token:
+        description: JiraPersonalAccessToken is used for bearer token
+        type: string
+      jira_token:
+        description: JiraToken is used in place of password for basic auth with username
+        type: string
+      jira_user:
+        type: string
+      meego_host:
+        type: string
+      meego_plugin_id:
+        type: string
+      meego_plugin_secret:
+        type: string
+      meego_user_key:
+        type: string
+      system_identity:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: integer
     type: object
   models.RenderInfo:
     properties:
@@ -1308,6 +1347,13 @@ definitions:
           $ref: '#/definitions/resource.HostInfo'
         type: array
     type: object
+  service.JiraProjectsResp:
+    properties:
+      key:
+        type: string
+      name:
+        type: string
+    type: object
   service.K8sDeployStatusCheckRequest:
     properties:
       cluster_id:
@@ -1380,6 +1426,50 @@ definitions:
         type: string
       variable_yaml:
         type: string
+    type: object
+  service.MeegoProject:
+    properties:
+      key:
+        type: string
+      name:
+        type: string
+    type: object
+  service.MeegoProjectResp:
+    properties:
+      projects:
+        items:
+          $ref: '#/definitions/service.MeegoProject'
+        type: array
+    type: object
+  service.MeegoWorkItem:
+    properties:
+      current_state:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  service.MeegoWorkItemResp:
+    properties:
+      work_items:
+        items:
+          $ref: '#/definitions/service.MeegoWorkItem'
+        type: array
+    type: object
+  service.MeegoWorkItemType:
+    properties:
+      name:
+        type: string
+      type_key:
+        type: string
+    type: object
+  service.MeegoWorkItemTypeResp:
+    properties:
+      work_item_types:
+        items:
+          $ref: '#/definitions/service.MeegoWorkItemType'
+        type: array
     type: object
   service.OpenAPIInitializeProjectReq:
     properties:
@@ -3741,6 +3831,139 @@ paths:
           schema:
             $ref: '#/definitions/handler.checkLLMIntegrationResponse'
       summary: Check llm integrations
+      tags:
+      - system
+  /api/aslan/system/meego/:
+    get:
+      consumes:
+      - application/json
+      description: List Meegos
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ProjectManagement'
+            type: array
+      summary: List Meegos
+      tags:
+      - system
+  /api/aslan/system/meego/{id}/projects:
+    get:
+      consumes:
+      - application/json
+      description: List Meego Projects
+      parameters:
+      - description: meego id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.MeegoProjectResp'
+      summary: List Meego Projects
+      tags:
+      - system
+  /api/aslan/system/meego/{id}/projects/{projectID}/work_item:
+    get:
+      consumes:
+      - application/json
+      description: List Meego Work Items
+      parameters:
+      - description: meego id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: project id
+        in: path
+        name: projectID
+        required: true
+        type: string
+      - description: type key
+        in: query
+        name: type_key
+        required: true
+        type: string
+      - description: page num
+        in: query
+        name: page_num
+        required: true
+        type: string
+      - description: page size
+        in: query
+        name: page_size
+        required: true
+        type: string
+      - description: item name
+        in: query
+        name: item_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.MeegoWorkItemResp'
+      summary: List Meego Work Items
+      tags:
+      - system
+  /api/aslan/system/meego/{id}/projects/{projectID}/work_item/types:
+    get:
+      consumes:
+      - application/json
+      description: Get Meego Work Item Type List
+      parameters:
+      - description: meego id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: project id
+        in: path
+        name: projectID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.MeegoWorkItemTypeResp'
+      summary: Get Meego Work Item Type List
+      tags:
+      - system
+  /api/aslan/system/project_management/{id}/jira/project:
+    get:
+      consumes:
+      - application/json
+      description: List Jira Projects
+      parameters:
+      - description: jira id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.JiraProjectsResp'
+            type: array
+      summary: List Jira Projects
       tags:
       - system
   /api/aslan/system/webhook/config:
