@@ -186,6 +186,7 @@ func ListPodsInfo(c *gin.Context) {
 	envName := c.Query("envName")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty")
+		return
 	}
 
 	// authorization checks
@@ -233,10 +234,12 @@ func GetPodsDetailInfo(c *gin.Context) {
 	envName := c.Query("envName")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty")
+		return
 	}
-	podName := c.Query("podName")
+	podName := c.Param("podName")
 	if podName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("podName can't be empty")
+		return
 	}
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
