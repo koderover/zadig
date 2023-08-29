@@ -88,9 +88,9 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 	if err != nil {
 		return nil, errors.Wrap(err, "decrypt body")
 	}
-
 	// handle lark open platform webhook URL check request, which only need reply the challenge field.
 	if sign == "" {
+		log.Infof("LarkEventHandler: challenge request received, challenge: %s", gjson.Get(raw, "challenge").String())
 		return &EventHandlerResponse{Challenge: gjson.Get(raw, "challenge").String()}, nil
 	}
 
@@ -115,7 +115,7 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 		log.Errorf("unmarshal callback event failed: %v", err)
 		return nil, errors.Wrap(err, "unmarshal")
 	}
-	log.Infof("LarkEventHandler: new request approval ID %s, request ID %s, ts: %s", larkAppInfoID, callback.UUID, callback.Ts)
+	log.Infof("LarkEventHandler: new request approval ID %s, request UUID %s, ts: %s", larkAppInfoID, callback.UUID, callback.Ts)
 	manager := GetLarkApprovalInstanceManager(event.InstanceCode)
 	if !manager.CheckAndUpdateUUID(callback.UUID) {
 		log.Infof("check existed request uuid %s, ignored", callback.UUID)

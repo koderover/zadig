@@ -288,6 +288,7 @@ func updateNativeApproval(ctx context.Context, approval *models.Approval) error 
 
 	approveWithL, ok := approvalservice.GlobalApproveMap.GetApproval(approval.NativeApproval.InstanceCode)
 	if !ok {
+		log.Infof("updateNativeApproval: approval instance code %s not found, set it", approval.NativeApproval.InstanceCode)
 		approvalservice.GlobalApproveMap.SetApproval(approval.NativeApproval.InstanceCode, &approvalservice.ApproveWithLock{Approval: approval.NativeApproval})
 	}
 

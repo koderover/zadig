@@ -113,7 +113,8 @@ type NativeApproval struct {
 	ApproveUsers    []*User                `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	NeededApprovers int                    `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
 	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
-	InstanceCode    string                 `bson:"instance_code"               yaml:"instance_code"              json:"instance_code"`
+	// InstanceCode: native approval instance code, save for working after restart aslan
+	InstanceCode string `bson:"instance_code"               yaml:"instance_code"              json:"instance_code"`
 }
 
 type DingTalkApproval struct {
@@ -123,7 +124,8 @@ type DingTalkApproval struct {
 	// DefaultApprovalInitiator if not set, use workflow task creator as approval initiator
 	DefaultApprovalInitiator *DingTalkApprovalUser   `bson:"default_approval_initiator" yaml:"default_approval_initiator" json:"default_approval_initiator"`
 	ApprovalNodes            []*DingTalkApprovalNode `bson:"approval_nodes"             yaml:"approval_nodes"             json:"approval_nodes"`
-	InstanceCode             string                  `bson:"instance_code"              yaml:"instance_code"              json:"instance_code"`
+	// InstanceCode: dingtalk approval instance code
+	InstanceCode string `bson:"instance_code"              yaml:"instance_code"              json:"instance_code"`
 }
 
 type DingTalkApprovalNode struct {
