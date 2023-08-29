@@ -157,7 +157,6 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 			CreatedAt:  time.Now().Unix(),
 		})
 		plan.Status = config.StatusExecuting
-		// TODO
 	case config.StatusReject:
 		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
 			Verb:       VerbUpdate,

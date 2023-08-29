@@ -61,9 +61,13 @@ func lintWorkflow(workflow *models.WorkflowV4) error {
 			if jobctl.JobSkiped(job) {
 				continue
 			}
-			_, err := jobctl.ToJobs(job, workflow, 0)
+			err := jobctl.LintJob(job, workflow)
 			if err != nil {
-				return fmt.Errorf("invalid job-%s, err: %v", job.Name, err)
+				return fmt.Errorf("lint job-%s err: %v", job.Name, err)
+			}
+			_, err = jobctl.ToJobs(job, workflow, 0)
+			if err != nil {
+				return fmt.Errorf("lint job-%s runtime err: %v", job.Name, err)
 			}
 		}
 	}

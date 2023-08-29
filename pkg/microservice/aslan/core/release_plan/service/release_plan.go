@@ -64,7 +64,6 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	}
 
 	if args.Approval != nil {
-		// todo create approval
 		if err := lintApproval(args.Approval); err != nil {
 			return errors.Errorf("lintApproval error: %v", err)
 		}
@@ -75,7 +74,7 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 		}
 	}
 
-	nextID, err := mongodb.NewCounterColl().GetNextSeq(setting.WorkflowTaskV4Fmt)
+	nextID, err := mongodb.NewCounterColl().GetNextSeq(setting.ReleasePlanFmt)
 	if err != nil {
 		log.Errorf("CreateReleasePlan.GetNextSeq error: %v", err)
 		return e.ErrGetCounter.AddDesc(err.Error())
@@ -92,8 +91,6 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 		Verb:       VerbCreate,
 		TargetName: args.Name,
 		TargetType: TargetTypeReleasePlan,
-		Before:     nil,
-		After:      nil,
 		CreatedAt:  time.Now().Unix(),
 	})
 
