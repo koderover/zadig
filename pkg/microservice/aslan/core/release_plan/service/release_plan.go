@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
@@ -122,12 +123,12 @@ func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 	return mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
 }
 
-func DeleteReleasePlan(username, id string) error {
+func DeleteReleasePlan(c *gin.Context, username, id string) error {
 	info, err := mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
 	}
-	internalhandler.InsertOperationLog(nil, username, "", "删除", "发布计划", info.Name, "", log.SugaredLogger())
+	internalhandler.InsertOperationLog(c, username, "", "删除", "发布计划", info.Name, "", log.SugaredLogger())
 	return mongodb.NewReleasePlanColl().DeleteByID(context.Background(), id)
 }
 

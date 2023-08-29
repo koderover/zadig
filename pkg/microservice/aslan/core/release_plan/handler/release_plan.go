@@ -140,7 +140,7 @@ func DeleteReleasePlan(c *gin.Context) {
 	//	return
 	//}
 
-	ctx.Err = service.DeleteReleasePlan(ctx.UserName, c.Param("id"))
+	ctx.Err = service.DeleteReleasePlan(c, ctx.UserName, c.Param("id"))
 }
 
 func ExecuteReleaseJob(c *gin.Context) {

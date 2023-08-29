@@ -246,9 +246,7 @@ func InsertOperationLog(c *gin.Context, username, productName, method, function,
 	if err != nil {
 		logger.Errorf("InsertOperation err:%v", err)
 	}
-	if c != nil {
-		c.Set("operationLogID", req.ID.Hex())
-	}
+	c.Set("operationLogID", req.ID.Hex())
 }
 
 func InsertDetailedOperationLog(c *gin.Context, username, productName, scene, method, function, detail, requestBody string, logger *zap.SugaredLogger, targets ...string) {
