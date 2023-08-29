@@ -154,14 +154,14 @@ func (req OpenAPIInitializeProjectReq) Validate() error {
 	return nil
 }
 
-type ProjectViewArgs struct {
-	ViewID      string   `json:"view_id"`
-	ViewName    string   `json:"view_name"`
+type ProjectGroupArgs struct {
+	GroupID     string   `json:"view_id"`
+	GroupName   string   `json:"view_name"`
 	ProjectKeys []string `json:"project_keys"`
 }
 
-func (args *ProjectViewArgs) Validate() error {
-	if args.ViewName == "" {
+func (args *ProjectGroupArgs) Validate() error {
+	if args.GroupName == "" {
 		return errors.New("view_name cannot be empty")
 	}
 
@@ -172,13 +172,13 @@ func (args *ProjectViewArgs) Validate() error {
 	return nil
 }
 
-type ProjectViewPreset struct {
-	ViewID   string                 `json:"view_id"`
-	ViewName string                 `json:"view_name"`
-	Projects []*ProjectViewRelation `json:"projects"`
+type ProjectGroupPreset struct {
+	GroupID   string                  `json:"view_id"`
+	GroupName string                  `json:"view_name"`
+	Projects  []*ProjectGroupRelation `json:"projects"`
 }
 
-type ProjectViewRelation struct {
+type ProjectGroupRelation struct {
 	ProjectName string `json:"project_name"`
 	ProjectKey  string `json:"project_key"`
 	DeployType  string `json:"deploy_type"`

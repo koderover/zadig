@@ -18,7 +18,7 @@ package models
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
-type ProjectView struct {
+type ProjectGroup struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"          json:"id,omitempty"`
 	Name        string             `bson:"name"                   json:"name"`
 	Projects    []*ProjectDetail   `bson:"projects"               json:"projects"`
@@ -34,6 +34,6 @@ type ProjectDetail struct {
 	ProjectDeployType string `bson:"project_deploy_type"             json:"project_deploy_type"`
 }
 
-func (ProjectView) TableName() string {
-	return "project_view"
+func (ProjectGroup) TableName() string {
+	return "project_group"
 }

@@ -24,7 +24,7 @@ import (
 )
 
 type Product struct {
-	ViewName                     string                `bson:"-"                         json:"view_name"`
+	GroupName                    string                `bson:"-"                         json:"view_name"`
 	ProjectName                  string                `bson:"project_name"              json:"project_name"`
 	ProjectNamePinyin            string                `bson:"project_name_pinyin"       json:"project_name_pinyin"`
 	ProjectNamePinyinFirstLetter string                `bson:"project_name_pinyin_first_letter"       json:"project_name_pinyin_first_letter"`

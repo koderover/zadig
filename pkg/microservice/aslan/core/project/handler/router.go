@@ -57,11 +57,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	view := router.Group("view")
 	{
-		view.POST("", CreateProjectView)
-		view.PUT("", UpdateProjectView)
-		view.DELETE("", DeleteProjectView)
-		view.GET("", ListProjectViews)
-		view.GET("/preset", GetPresetProjectView)
+		view.POST("", CreateProjectGroup)
+		view.PUT("", UpdateProjectGroup)
+		view.DELETE("", DeleteProjectGroup)
+		view.GET("", ListProjectGroups)
+		view.GET("/preset", GetPresetProjectGroup)
 	}
 
 	production := router.Group("production/products")

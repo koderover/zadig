@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -142,12 +143,12 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}
 
-	// add project to current project view
-	if args.ViewName != "" {
-		err = AddProject2CurrentView(args.ViewName, args.ProductName, args.ProjectName, args.UpdateBy, args.ProductFeature.DeployType)
+	// add project to current project group
+	if args.GroupName != "" {
+		err = AddProject2CurrentGroup(args.GroupName, args.ProductName, args.ProjectName, args.UpdateBy, args.ProductFeature.DeployType)
 		if err != nil {
-			log.Errorf("failed to add project to current view, error: %v", err)
-			return e.ErrCreateProduct.AddErr(fmt.Errorf("create project successfully, but failed to add project to current view, please add the project %s to view %s manually, error: %v", args.ProductName, args.ViewName, err))
+			log.Errorf("failed to add project to current group, error: %v", err)
+			return e.ErrCreateProduct.AddErr(fmt.Errorf("create project successfully, but failed to add project to current group, please add the project %s to group %s manually, error: %v", args.ProductName, args.GroupName, err))
 		}
 	}
 	return
@@ -1265,12 +1266,27 @@ func GetGlobalVariableCandidates(productName string, production bool, log *zap.S
 	return ret, nil
 }
 
-func CreateProjectView(args *ProjectViewArgs, user string, logger *zap.SugaredLogger) error {
+func CreateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.SugaredLogger) error {
+	groups, err := commonrepo.NewProjectGroupColl().List()
+	if err != nil {
+		errMsg := fmt.Errorf("failed to list project groups, error: %v", err)
+		logger.Errorf(errMsg.Error())
+		return e.ErrCreateProjectGroup.AddErr(errMsg)
+	}
+
+	// find all project keys that have been set
+	set := sets.NewString()
+	for _, group := range groups {
+		for _, project := range group.Projects {
+			set.Insert(project.ProjectKey)
+		}
+	}
+
 	projects, err := templaterepo.NewProductColl().List()
 	if err != nil {
 		errMsg := fmt.Errorf("failed to list projects, error: %v", err)
 		logger.Errorf(errMsg.Error())
-		return e.ErrCreateProjectView.AddErr(errMsg)
+		return e.ErrCreateProjectGroup.AddErr(errMsg)
 	}
 
 	pm := make(map[string]*template.Product)
@@ -1278,8 +1294,8 @@ func CreateProjectView(args *ProjectViewArgs, user string, logger *zap.SugaredLo
 		pm[project.ProductName] = project
 	}
 
-	view := &commonmodels.ProjectView{
-		Name:        args.ViewName,
+	group := &commonmodels.ProjectGroup{
+		Name:        args.GroupName,
 		CreatedTime: time.Now().Unix(),
 		UpdateTime:  time.Now().Unix(),
 		CreatedBy:   user,
@@ -1287,161 +1303,219 @@ func CreateProjectView(args *ProjectViewArgs, user string, logger *zap.SugaredLo
 		Projects:    make([]*commonmodels.ProjectDetail, 0),
 	}
 	for _, project := range args.ProjectKeys {
+		if set.Has(project) {
+			return e.ErrCreateProjectGroup.AddErr(fmt.Errorf("failed to set project %s to group %s, project Key %s has been set in other groups", project, args.GroupName, project))
+		}
+
 		if p, ok := pm[project]; ok {
-			view.Projects = append(view.Projects, &commonmodels.ProjectDetail{
+			group.Projects = append(group.Projects, &commonmodels.ProjectDetail{
 				ProjectKey:        p.ProductName,
 				ProjectName:       p.ProjectName,
 				ProjectDeployType: p.ProductFeature.DeployType,
 			})
 		} else {
-			return e.ErrCreateProjectView.AddErr(fmt.Errorf("project Key %s not in current project list", project))
+			return e.ErrCreateProjectGroup.AddErr(fmt.Errorf("project Key %s not in current project list", project))
 		}
 	}
 
-	if err := commonrepo.NewProjectViewColl().Create(view); err != nil {
-		errMsg := fmt.Errorf("failed to create project view, error: %v", err)
+	if err := commonrepo.NewProjectGroupColl().Create(group); err != nil {
+		errMsg := fmt.Errorf("failed to create project group, error: %v", err)
 		logger.Errorf(errMsg.Error())
-		return e.ErrCreateProjectView.AddErr(errMsg)
+		return e.ErrCreateProjectGroup.AddErr(errMsg)
 	}
 	return nil
 }
 
-func UpdateProjectView(args *ProjectViewArgs, user string, logger *zap.SugaredLogger) error {
-	if args.ViewID == "" {
-		return e.ErrUpdateProjectView.AddDesc("view id can not be empty")
+func UpdateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.SugaredLogger) error {
+	if args.GroupID == "" {
+		return e.ErrUpdateProjectGroup.AddDesc("group id can not be empty")
 	}
+
+	groups, err := commonrepo.NewProjectGroupColl().List()
+	if err != nil {
+		errMsg := fmt.Errorf("failed to list project groups, error: %v", err)
+		logger.Errorf(errMsg.Error())
+		return e.ErrCreateProjectGroup.AddErr(errMsg)
+	}
+
+	// find all project keys that have been set
+	set := sets.NewString()
+	for _, group := range groups {
+		if group.Name != args.GroupName {
+			for _, project := range group.Projects {
+				set.Insert(project.ProjectKey)
+			}
+		}
+	}
+
 	projects, err := templaterepo.NewProductColl().List()
 	if err != nil {
 		errMsg := fmt.Errorf("failed to list projects, error: %v", err)
 		logger.Errorf(errMsg.Error())
-		return e.ErrUpdateProjectView.AddErr(errMsg)
+		return e.ErrUpdateProjectGroup.AddErr(errMsg)
 	}
 
 	pm := make(map[string]*template.Product)
 	for _, project := range projects {
 		pm[project.ProductName] = project
 	}
-	view := &commonmodels.ProjectView{
-		Name:       args.ViewName,
+	group := &commonmodels.ProjectGroup{
+		Name:       args.GroupName,
 		UpdateTime: time.Now().Unix(),
 		UpdateBy:   user,
 		Projects:   make([]*commonmodels.ProjectDetail, 0),
 	}
 	for _, project := range args.ProjectKeys {
+		if set.Has(project) {
+			return e.ErrCreateProjectGroup.AddErr(fmt.Errorf("failed to set project %s to group %s, project Key %s has been set in other groups", project, args.GroupName, project))
+		}
+
 		if p, ok := pm[project]; ok {
-			view.Projects = append(view.Projects, &commonmodels.ProjectDetail{
+			group.Projects = append(group.Projects, &commonmodels.ProjectDetail{
 				ProjectKey:        p.ProductName,
 				ProjectName:       p.ProjectName,
 				ProjectDeployType: p.ProductFeature.DeployType,
 			})
 		} else {
-			return e.ErrUpdateProjectView.AddErr(fmt.Errorf("project Key %s not in current project list", project))
+			return e.ErrUpdateProjectGroup.AddErr(fmt.Errorf("project Key %s not in current project list", project))
 		}
 	}
 
-	oldView, err := commonrepo.NewProjectViewColl().Find(commonrepo.ProjectViewOpts{ID: args.ViewID})
+	oldGroup, err := commonrepo.NewProjectGroupColl().Find(commonrepo.ProjectGroupOpts{ID: args.GroupID})
 	if err != nil {
-		return e.ErrUpdateProjectView.AddErr(fmt.Errorf("failed to find project view %s, error: %v", args.ViewName, err))
+		return e.ErrUpdateProjectGroup.AddErr(fmt.Errorf("failed to find project group %s, error: %v", args.GroupName, err))
 	}
-	view.ID = oldView.ID
-	view.CreatedTime = oldView.CreatedTime
-	view.CreatedBy = oldView.CreatedBy
+	group.ID = oldGroup.ID
+	group.CreatedTime = oldGroup.CreatedTime
+	group.CreatedBy = oldGroup.CreatedBy
 
-	if err := commonrepo.NewProjectViewColl().Update(view); err != nil {
-		errMsg := fmt.Errorf("failed to update project view, viewName:%s, error: %v", oldView.Name, err)
+	if err := commonrepo.NewProjectGroupColl().Update(group); err != nil {
+		errMsg := fmt.Errorf("failed to update project group, groupName:%s, error: %v", oldGroup.Name, err)
 		logger.Errorf(errMsg.Error())
-		return e.ErrUpdateProjectView.AddErr(errMsg)
+		return e.ErrUpdateProjectGroup.AddErr(errMsg)
 	}
 	return nil
 }
 
-func DeleteProjectView(name string, logger *zap.SugaredLogger) error {
-	if err := commonrepo.NewProjectViewColl().Delete(name); err != nil {
-		return e.ErrDeleteProjectView.AddErr(fmt.Errorf("failed to delete project view %s, error: %v", name, err))
+func DeleteProjectGroup(name string, logger *zap.SugaredLogger) error {
+	if err := commonrepo.NewProjectGroupColl().Delete(name); err != nil {
+		return e.ErrDeleteProjectGroup.AddErr(fmt.Errorf("failed to delete project group %s, error: %v", name, err))
 	}
 	return nil
 }
 
-func ListProjectViewNames() ([]string, error) {
-	views, err := commonrepo.NewProjectViewColl().ListViewNames()
+func ListProjectGroupNames() ([]string, error) {
+	groups, err := commonrepo.NewProjectGroupColl().ListGroupNames()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list project views, error: %v", err)
+		return nil, fmt.Errorf("failed to list project groups, error: %v", err)
 	}
 
-	return views, nil
+	// create the default group ungrouped
+	// groups = append(groups, setting.UNGROUPED)
+
+	return groups, nil
 }
 
-func GetProjectViewRelation(name string, logger *zap.SugaredLogger) (resp *ProjectViewPreset, err error) {
-	var view *commonmodels.ProjectView
+func GetProjectGroupRelation(name string, logger *zap.SugaredLogger) (resp *ProjectGroupPreset, err error) {
+	var group *commonmodels.ProjectGroup
 	if name != "" {
-		view, err = commonrepo.NewProjectViewColl().Find(commonrepo.ProjectViewOpts{Name: name})
+		group, err = commonrepo.NewProjectGroupColl().Find(commonrepo.ProjectGroupOpts{Name: name})
 		if err != nil {
-			return nil, fmt.Errorf("failed to find project view %s, error: %v", name, err)
+			return nil, fmt.Errorf("failed to find project group %s, error: %v", name, err)
 		}
 	}
 
-	resp = &ProjectViewPreset{
-		Projects: make([]*ProjectViewRelation, 0),
+	resp = &ProjectGroupPreset{
+		Projects: make([]*ProjectGroupRelation, 0),
 	}
-	if view != nil {
-		resp.ViewName = view.Name
-		resp.ViewID = view.ID.Hex()
+	if group != nil {
+		resp.GroupName = group.Name
+		resp.GroupID = group.ID.Hex()
 	}
 
-	keys := make(map[string]struct{}, 0)
-	if view != nil {
-		for _, project := range view.Projects {
-			keys[project.ProjectKey] = struct{}{}
+	if group != nil {
+		for _, project := range group.Projects {
+			resp.Projects = append(resp.Projects, &ProjectGroupRelation{
+				ProjectKey:  project.ProjectKey,
+				ProjectName: project.ProjectName,
+				DeployType:  project.ProjectDeployType,
+				Enabled:     true,
+			})
 		}
 	}
 
-	projects, err := templaterepo.NewProductColl().List()
+	unGrouped, err := GetUnGroupedProjectKeys()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list ungrouped projects, error: %v", err)
+	}
+	projects, err := templaterepo.NewProductColl().ListProjectBriefs(unGrouped)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list projects, error: %v", err)
 	}
 
 	for _, project := range projects {
-		if _, ok := keys[project.ProductName]; ok {
-			resp.Projects = append(resp.Projects, &ProjectViewRelation{
-				ProjectKey:  project.ProductName,
-				ProjectName: project.ProjectName,
-				DeployType:  project.ProductFeature.DeployType,
-				Enabled:     true,
-			})
-		} else {
-			resp.Projects = append(resp.Projects, &ProjectViewRelation{
-				ProjectKey:  project.ProductName,
-				ProjectName: project.ProjectName,
-				DeployType:  project.ProductFeature.DeployType,
-				Enabled:     false,
-			})
-		}
+		resp.Projects = append(resp.Projects, &ProjectGroupRelation{
+			ProjectKey:  project.Name,
+			ProjectName: project.Alias,
+			DeployType:  project.DeployType,
+			Enabled:     false,
+		})
 	}
+	sort.Slice(resp.Projects, func(i, j int) bool {
+		return resp.Projects[i].ProjectKey < resp.Projects[j].ProjectKey
+	})
 	return resp, nil
 }
 
-func AddProject2CurrentView(viewName, projectKey, projectDisplayName, deployType, user string) error {
-	view, err := commonrepo.NewProjectViewColl().Find(commonrepo.ProjectViewOpts{Name: viewName})
+func AddProject2CurrentGroup(groupName, projectKey, projectDisplayName, deployType, user string) error {
+	group, err := commonrepo.NewProjectGroupColl().Find(commonrepo.ProjectGroupOpts{Name: groupName})
 	if err != nil {
-		return fmt.Errorf("failed to find project view %s, error: %v", viewName, err)
+		return fmt.Errorf("failed to find project group %s, error: %v", groupName, err)
 	}
 
-	for _, project := range view.Projects {
+	for _, project := range group.Projects {
 		if project.ProjectKey == projectKey {
 			return nil
 		}
 	}
 
-	view.Projects = append(view.Projects, &commonmodels.ProjectDetail{
+	group.Projects = append(group.Projects, &commonmodels.ProjectDetail{
 		ProjectKey:        projectKey,
 		ProjectName:       projectDisplayName,
 		ProjectDeployType: deployType,
 	})
-	view.UpdateBy = user
-	view.UpdateTime = time.Now().Unix()
+	group.UpdateBy = user
+	group.UpdateTime = time.Now().Unix()
 
-	if err := commonrepo.NewProjectViewColl().Update(view); err != nil {
-		return fmt.Errorf("failed to update project view %s, error: %v", viewName, err)
+	if err := commonrepo.NewProjectGroupColl().Update(group); err != nil {
+		return fmt.Errorf("failed to update project group %s, error: %v", groupName, err)
 	}
 	return nil
+}
+
+func GetUnGroupedProjectKeys() ([]string, error) {
+	groups, err := commonrepo.NewProjectGroupColl().List()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list project groups, error: %v", err)
+	}
+
+	set := sets.NewString()
+	for _, group := range groups {
+		for _, project := range group.Projects {
+			set.Insert(project.ProjectKey)
+		}
+	}
+
+	projects, err := templaterepo.NewProductColl().ListAllName()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list projects, error: %v", err)
+	}
+
+	unGroupedKeys := make([]string, 0)
+	for _, project := range projects {
+		if !set.Has(project) {
+			unGroupedKeys = append(unGroupedKeys, project)
+		}
+	}
+	return unGroupedKeys, nil
 }

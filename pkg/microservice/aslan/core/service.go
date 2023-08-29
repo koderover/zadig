@@ -468,8 +468,8 @@ func initDatabase() {
 		// env AI analysis related db index
 		ai.NewEnvAIAnalysisColl(),
 
-		// project view related db index
-		commonrepo.NewProjectViewColl(),
+		// project group related db index
+		commonrepo.NewProjectGroupColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

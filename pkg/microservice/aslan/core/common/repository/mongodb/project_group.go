@@ -31,22 +31,22 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type ProjectViewColl struct {
+type ProjectGroupColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewProjectViewColl() *ProjectViewColl {
-	name := models.ProjectView{}.TableName()
-	return &ProjectViewColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
+func NewProjectGroupColl() *ProjectGroupColl {
+	name := models.ProjectGroup{}.TableName()
+	return &ProjectGroupColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
 
-func (c *ProjectViewColl) GetCollectionName() string {
+func (c *ProjectGroupColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *ProjectViewColl) EnsureIndex(ctx context.Context) error {
+func (c *ProjectGroupColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "name", Value: 1},
@@ -58,9 +58,9 @@ func (c *ProjectViewColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *ProjectViewColl) Create(args *models.ProjectView) error {
+func (c *ProjectGroupColl) Create(args *models.ProjectGroup) error {
 	if args == nil {
-		return errors.New("nil project view args")
+		return errors.New("nil project group args")
 	}
 
 	args.CreatedTime = time.Now().Unix()
@@ -70,9 +70,9 @@ func (c *ProjectViewColl) Create(args *models.ProjectView) error {
 	return err
 }
 
-func (c *ProjectViewColl) Update(args *models.ProjectView) error {
+func (c *ProjectGroupColl) Update(args *models.ProjectGroup) error {
 	if args == nil {
-		return errors.New("nil project view args")
+		return errors.New("nil project group args")
 	}
 
 	filter := bson.M{"_id": args.ID}
@@ -82,19 +82,19 @@ func (c *ProjectViewColl) Update(args *models.ProjectView) error {
 	return err
 }
 
-func (c *ProjectViewColl) Delete(name string) error {
+func (c *ProjectGroupColl) Delete(name string) error {
 	filter := bson.M{"name": name}
 	_, err := c.DeleteOne(context.Background(), filter)
 	return err
 }
 
-type ProjectViewOpts struct {
+type ProjectGroupOpts struct {
 	Name string
 	ID   string
 }
 
-func (c *ProjectViewColl) Find(opts ProjectViewOpts) (*models.ProjectView, error) {
-	res := &models.ProjectView{}
+func (c *ProjectGroupColl) Find(opts ProjectGroupOpts) (*models.ProjectGroup, error) {
+	res := &models.ProjectGroup{}
 	query := bson.M{}
 	if opts.Name != "" {
 		query["name"] = opts.Name
@@ -102,7 +102,7 @@ func (c *ProjectViewColl) Find(opts ProjectViewOpts) (*models.ProjectView, error
 	if opts.ID != "" {
 		ido, err := primitive.ObjectIDFromHex(opts.ID)
 		if err != nil {
-			return nil, errors.New("invalid view id")
+			return nil, errors.New("invalid group id")
 		}
 		query["_id"] = ido
 	}
@@ -110,8 +110,8 @@ func (c *ProjectViewColl) Find(opts ProjectViewOpts) (*models.ProjectView, error
 	return res, err
 }
 
-func (c *ProjectViewColl) List() ([]*models.ProjectView, error) {
-	var resp []*models.ProjectView
+func (c *ProjectGroupColl) List() ([]*models.ProjectGroup, error) {
+	var resp []*models.ProjectGroup
 	ctx := context.Background()
 	query := bson.M{}
 
@@ -126,7 +126,7 @@ func (c *ProjectViewColl) List() ([]*models.ProjectView, error) {
 	return resp, nil
 }
 
-func (c *ProjectViewColl) ListViewNames() ([]string, error) {
+func (c *ProjectGroupColl) ListGroupNames() ([]string, error) {
 	var resp []string
 	ctx := context.Background()
 	query := bson.M{}
@@ -137,11 +137,11 @@ func (c *ProjectViewColl) ListViewNames() ([]string, error) {
 	}
 
 	for cursor.Next(ctx) {
-		var view models.ProjectView
-		if err := cursor.Decode(&view); err != nil {
+		var group models.ProjectGroup
+		if err := cursor.Decode(&group); err != nil {
 			return nil, err
 		}
-		resp = append(resp, view.Name)
+		resp = append(resp, group.Name)
 	}
 	return resp, nil
 }
