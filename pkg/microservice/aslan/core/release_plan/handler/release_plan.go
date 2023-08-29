@@ -43,10 +43,10 @@ func ListReleasePlans(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
-		ctx.UnAuthorized = true
-		return
-	}
+	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	opt := new(ListReleasePlanOption)
 	if err := c.ShouldBindQuery(&opt); err != nil {
@@ -68,10 +68,10 @@ func GetReleasePlan(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
-		ctx.UnAuthorized = true
-		return
-	}
+	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	ctx.Resp, ctx.Err = service.GetReleasePlan(c.Param("id"))
 }
@@ -87,10 +87,10 @@ func CreateReleasePlan(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Create {
-		ctx.UnAuthorized = true
-		return
-	}
+	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Create {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	req := new(models.ReleasePlan)
 	if err := c.ShouldBindJSON(req); err != nil {
@@ -111,10 +111,10 @@ func UpdateReleasePlan(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Edit {
-		ctx.UnAuthorized = true
-		return
-	}
+	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Edit {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	req := new(service.UpdateReleasePlanArgs)
 	if err := c.ShouldBindJSON(req); err != nil {
@@ -135,10 +135,10 @@ func DeleteReleasePlan(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Delete {
-		ctx.UnAuthorized = true
-		return
-	}
+	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Delete {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	ctx.Err = service.DeleteReleasePlan(ctx.UserName, c.Param("id"))
 }

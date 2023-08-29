@@ -499,6 +499,7 @@ const (
 	StatusCancel         ReleasePlanStatus = "cancel"
 )
 
+// ReleasePlanStatusMap is a map of status and its available next status
 var ReleasePlanStatusMap = map[ReleasePlanStatus][]ReleasePlanStatus{
 	StatusPlanning:       {StatusWaitForApprove, StatusExecuting},
 	StatusWaitForApprove: {StatusPlanning, StatusExecuting},

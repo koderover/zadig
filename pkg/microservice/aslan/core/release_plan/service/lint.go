@@ -51,7 +51,12 @@ func lintWorkflow(workflow *models.WorkflowV4) error {
 	if workflow == nil {
 		return fmt.Errorf("workflow cannot be empty")
 	}
-	for _, stage := range workflow.Stages {
+	// ToJobs will change raw workflow data, so we need to copy it
+	tmp := new(models.WorkflowV4)
+	if err := models.IToi(workflow, tmp); err != nil {
+		return fmt.Errorf("IToi tmp workflow error: %v", err)
+	}
+	for _, stage := range tmp.Stages {
 		for _, job := range stage.Jobs {
 			if jobctl.JobSkiped(job) {
 				continue
