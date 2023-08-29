@@ -152,7 +152,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	}
 
 	exitedProd.EnsureRenderInfo()
-	curRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+	curRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		Name:     exitedProd.Render.Name,
 		EnvName:  exitedProd.EnvName,
 		Revision: exitedProd.Render.Revision,
