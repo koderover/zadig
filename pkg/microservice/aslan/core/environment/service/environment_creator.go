@@ -250,7 +250,7 @@ func newPMProductCreator() *PMProductCreator {
 }
 
 func (creator *PMProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
-	// technically renderset is not used for pr projects, this logic is used for compatibility with previous logic
+	// technically renderset is not used for pm projects, this logic is used for compatibility with previous logic
 	renderSet := &commonmodels.RenderSet{
 		Name:        commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName, ""),
 		Revision:    0,
