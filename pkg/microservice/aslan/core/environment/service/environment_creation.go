@@ -289,8 +289,7 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 		return fmt.Errorf("global variables not match the definition")
 	}
 
-	// insert renderset info into db
-	err := render.CreateK8sHelmRenderSet(&commonmodels.RenderSet{
+	renderset := &commonmodels.RenderSet{
 		Name:             commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		EnvName:          arg.EnvName,
 		ProductTmpl:      arg.ProductName,
@@ -299,11 +298,21 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 		DefaultValues:    arg.DefaultValues,
 		GlobalVariables:  arg.GlobalVariables,
 		ServiceVariables: productObj.ServiceRenders,
-	}, log)
+	}
+
+	// insert renderset info into db
+	err := render.CreateK8sHelmRenderSet(renderset, log)
 	if err != nil {
 		log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
 		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
 	}
+
+	productObj.Render = &commonmodels.RenderInfo{
+		Name:        renderset.Name,
+		Revision:    renderset.Revision,
+		ProductTmpl: productObj.ProductName,
+	}
+
 	return nil
 }
 

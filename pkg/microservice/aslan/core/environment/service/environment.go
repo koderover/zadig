@@ -195,6 +195,7 @@ func ListProducts(userID, projectName string, envNames []string, production bool
 
 var mutexAutoCreate sync.RWMutex
 
+// AutoCreateProduct happens in onboarding progress of pm project
 func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredLogger) []*EnvStatus {
 
 	mutexAutoCreate.Lock()
@@ -2659,30 +2660,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		err                 error
 	)
 	args.EnsureRenderInfo()
-	if args.Render.Revision > 0 {
-		renderSetName = args.Render.Name
-	} else {
-		log.Infof("++++++++++++++ creating renderset in pre create product function: %s", renderSetName)
-		renderSet := &commonmodels.RenderSet{
-			Name:        renderSetName,
-			Revision:    0,
-			EnvName:     envName,
-			ProductTmpl: args.ProductName,
-			UpdateBy:    args.UpdateBy,
-			ChartInfos:  args.ServiceRenders,
-		}
-		if args.Source == setting.HelmDeployType {
-			renderSet.ChartInfos = args.ServiceRenders
-		} else {
-			renderSet.ServiceVariables = args.ServiceRenders
-		}
-		err = render.CreateRenderSet(renderSet, log)
-		if err != nil {
-			log.Errorf("[%s][P:%s] create renderset error: %v", envName, productTemplateName, err)
-			return e.ErrCreateEnv.AddDesc(e.FindProductTmplErrMsg)
-		}
-		args.Render.Revision = renderSet.Revision
-	}
 
 	var productTmpl *templatemodels.Product
 	// 查询产品模板
@@ -2701,7 +2678,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		log.Errorf("[%s][P:%s] not service found", envName, args.ProductName)
 		return e.ErrCreateEnv.AddDesc(e.FindProductServiceErrMsg)
 	}
-	// 检查args中是否设置revision，如果没有，设为Product Tmpl当前版本
 	if args.Revision == 0 {
 		args.Revision = productTmpl.Revision
 	}
@@ -3393,16 +3369,14 @@ func GetGlobalVariableCandidate(productName, envName string, log *zap.SugaredLog
 			ProductTmpl: productName,
 			EnvName:     productInfo.EnvName,
 		}
-		rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+		rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
 		if err != nil {
 			log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
 			return nil, err
 		}
-		if existed {
-			for _, kv := range rendersetObj.GlobalVariables {
-				if _, ok := globalVariablesDefineMap[kv.Key]; ok {
-					delete(globalVariablesDefineMap, kv.Key)
-				}
+		for _, kv := range rendersetObj.GlobalVariables {
+			if _, ok := globalVariablesDefineMap[kv.Key]; ok {
+				delete(globalVariablesDefineMap, kv.Key)
 			}
 		}
 	}

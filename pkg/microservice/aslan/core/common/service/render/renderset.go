@@ -34,7 +34,6 @@ import (
 )
 
 func GetRenderSet(renderName string, revision int64, isDefault bool, envName string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
-	// 未指定renderName返回空的renderSet
 	if renderName == "" {
 		return &commonmodels.RenderSet{}, nil
 	}
