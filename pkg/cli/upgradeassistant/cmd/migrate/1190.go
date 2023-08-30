@@ -19,6 +19,7 @@ package migrate
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
@@ -54,6 +55,12 @@ func V1180ToV1190() error {
 	log.Infof("-------- start migrate workflow template --------")
 	if err := migrateWorkflowTemplate(); err != nil {
 		log.Infof("migrateWorkflowTemplate err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate register/s3storage/helmrepo --------")
+	if err := migrateAssetManagement(); err != nil {
+		log.Infof("migrateAssetManagement err: %v", err)
 		return err
 	}
 
@@ -567,6 +574,72 @@ func migrateApolloIntegration() error {
 			}
 		}
 	}
+	return nil
+}
+
+func migrateAssetManagement() error {
+	var registries []*models.RegistryNamespace
+	query := bson.M{
+		"projects": bson.M{"$exists": false},
+	}
+	cursor, err := mongodb.NewRegistryNamespaceColl().Collection.Find(context.TODO(), query)
+	if err != nil {
+		return fmt.Errorf("failed to list registries for migrateAssetManagement, err: %v", err)
+	}
+	err = cursor.All(context.TODO(), &registries)
+	if err != nil {
+		return err
+	}
+	for _, registry := range registries {
+		registry.Projects = append(registry.Projects, setting.AllProjects)
+		if err := mongodb.NewRegistryNamespaceColl().Update(registry.ID.Hex(), registry); err != nil {
+			return fmt.Errorf("failed to update registry %s for migrateAssetManagement, err: %v", registry.ID.Hex(), err)
+		}
+	}
+
+	var s3storages []*models.S3Storage
+	query = bson.M{
+		"projects": bson.M{"$exists": false},
+	}
+	cursor, err = mongodb.NewS3StorageColl().Collection.Find(context.TODO(), query)
+	if err != nil {
+		return err
+	}
+	err = cursor.All(context.TODO(), &s3storages)
+	if err != nil {
+		return err
+	}
+	for _, s3storage := range s3storages {
+		s3storage.Projects = append(s3storage.Projects, setting.AllProjects)
+		s3storage.UpdateTime = time.Now().Unix()
+
+		query := bson.M{"_id": s3storage.ID}
+		change := bson.M{"$set": s3storage}
+		_, err = mongodb.NewS3StorageColl().UpdateOne(context.TODO(), query, change)
+		if err != nil {
+			return fmt.Errorf("failed to update s3storage %s for migrateAssetManagement, err: %v", s3storage.ID.Hex(), err)
+		}
+	}
+
+	var helmrepos []*models.HelmRepo
+	query = bson.M{
+		"projects": bson.M{"$exists": false},
+	}
+	cursor, err = mongodb.NewHelmRepoColl().Collection.Find(context.TODO(), query)
+	if err != nil {
+		return err
+	}
+	err = cursor.All(context.TODO(), &helmrepos)
+	if err != nil {
+		return err
+	}
+	for _, helmrepo := range helmrepos {
+		helmrepo.Projects = append(helmrepo.Projects, setting.AllProjects)
+		if err := mongodb.NewHelmRepoColl().Update(helmrepo.ID.Hex(), helmrepo); err != nil {
+			return fmt.Errorf("failed to update helmrepo %s for migrateAssetManagement, err: %v", helmrepo.ID.Hex(), err)
+		}
+	}
+
 	return nil
 }
 

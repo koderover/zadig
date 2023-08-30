@@ -59,6 +59,41 @@ func ListHelmRepos(c *gin.Context) {
 	ctx.Resp, ctx.Err = commonservice.ListHelmRepos(encryptedKey, ctx.Logger)
 }
 
+// @Summary List Helm Repos By Project
+// @Description List Helm Repos By Project
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Success 200 		{array} 	commonmodels.HelmRepo
+// @Router /api/aslan/system/helm/project [get]
+func ListHelmReposByProject(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if len(projectKey) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = commonservice.ListHelmReposByProject(projectKey, ctx.Logger)
+}
+
 func ListHelmReposPublic(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

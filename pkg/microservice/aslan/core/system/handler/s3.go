@@ -62,6 +62,41 @@ func ListS3Storage(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListS3Storage(encryptedKey, ctx.Logger)
 }
 
+// @Summary List S3 Storage By Project
+// @Description List S3 Storage By Project
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Success 200 		{array} 	commonmodels.S3Storage
+// @Router /api/aslan/system/s3storage/project [get]
+func ListS3StorageByProject(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if len(projectName) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ListS3StorageByProject(projectName, ctx.Logger)
+}
+
 func CreateS3Storage(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

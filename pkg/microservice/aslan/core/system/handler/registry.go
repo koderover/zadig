@@ -32,11 +32,39 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+// @Summary List Registries
+// @Description List Registries
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Success 200 		{array} 	commonmodels.RegistryNamespace
+// @Router /api/aslan/system/registry/project [get]
 func ListRegistries(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListRegistries(ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if len(projectName) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ListRegistriesByProject(projectName, ctx.Logger)
 }
 
 func GetDefaultRegistryNamespace(c *gin.Context) {

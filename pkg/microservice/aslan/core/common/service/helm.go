@@ -51,6 +51,19 @@ func ListHelmRepos(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels
 	return helmRepos, nil
 }
 
+func ListHelmReposByProject(projectName string, log *zap.SugaredLogger) ([]*commonmodels.HelmRepo, error) {
+	helmRepos, err := commonrepo.NewHelmRepoColl().List()
+	if err != nil {
+		log.Errorf("ListHelmRepos err:%v", err)
+		return []*commonmodels.HelmRepo{}, nil
+	}
+	for _, helmRepo := range helmRepos {
+		helmRepo.Password = ""
+		helmRepo.Projects = nil
+	}
+	return helmRepos, nil
+}
+
 func ListHelmReposPublic() ([]*commonmodels.HelmRepo, error) {
 	return commonrepo.NewHelmRepoColl().List()
 }
