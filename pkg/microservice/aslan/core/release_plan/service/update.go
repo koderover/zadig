@@ -214,7 +214,7 @@ func (u *TimeRangeUpdater) Verb() string {
 
 type ManagerUpdater struct {
 	ManagerID string `json:"manager_id"`
-	Name      string `json:"name"`
+	Manager   string `json:"manager"`
 }
 
 func NewManagerUpdater(args *UpdateReleasePlanArgs) (*ManagerUpdater, error) {
@@ -226,9 +226,9 @@ func NewManagerUpdater(args *UpdateReleasePlanArgs) (*ManagerUpdater, error) {
 }
 
 func (u *ManagerUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
-	before, after = plan.Manager, u.Name
+	before, after = plan.Manager, u.Manager
 	plan.ManagerID = u.ManagerID
-	plan.Manager = u.Name
+	plan.Manager = u.Manager
 	return
 }
 
@@ -240,7 +240,7 @@ func (u *ManagerUpdater) Lint() error {
 	if err != nil {
 		return fmt.Errorf("user not found")
 	}
-	if u.Name != userInfo.Name {
+	if u.Manager != userInfo.Name {
 		return fmt.Errorf("name not match")
 	}
 	return nil
