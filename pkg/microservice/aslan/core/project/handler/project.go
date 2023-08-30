@@ -34,6 +34,7 @@ type projectListArgs struct {
 	PageSize         int64    `json:"page_size"        form:"page_size,default=20"`
 	PageNum          int64    `json:"page_num"         form:"page_num,default=1"`
 	Filter           string   `json:"filter"           form:"filter"`
+	GroupName        string   `json:"view_name"        form:"view_name"`
 }
 
 type projectResp struct {
@@ -88,6 +89,7 @@ func ListProjects(c *gin.Context) {
 			PageSize:         args.PageSize,
 			PageNum:          args.PageNum,
 			Filter:           args.Filter,
+			GroupName:        args.GroupName,
 		},
 		ctx.Logger,
 	)

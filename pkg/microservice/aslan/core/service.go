@@ -467,6 +467,9 @@ func initDatabase() {
 
 		// env AI analysis related db index
 		ai.NewEnvAIAnalysisColl(),
+
+		// project group related db index
+		commonrepo.NewProjectGroupColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

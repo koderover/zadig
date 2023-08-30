@@ -792,3 +792,7 @@ const (
 	AIEnvAnalysisStatusSuccess = "success"
 	AIEnvAnalysisStatusFailed  = "failed"
 )
+
+const (
+	UNGROUPED = "未分组"
+)
