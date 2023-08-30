@@ -28,9 +28,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/shared/handler"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -48,12 +47,12 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	if args.StartTime > args.EndTime || args.EndTime < time.Now().Unix() {
 		return errors.New("Invalid release time range")
 	}
-	user, err := orm.GetUserByUid(args.ManagerID, repository.DB)
-	if err != nil || user == nil {
+	userInfo, err := user.New().GetUserByID(args.ManagerID)
+	if err != nil {
 		return errors.Errorf("Failed to get user by id %s, error: %v", args.ManagerID, err)
 	}
-	if args.Manager != user.Name {
-		return errors.Errorf("Manager %s is not consistent with the user name %s", args.Manager, user.Name)
+	if args.Manager != userInfo.Name {
+		return errors.Errorf("Manager %s is not consistent with the user name %s", args.Manager, userInfo.Name)
 	}
 
 	for _, job := range args.Jobs {
@@ -262,7 +261,7 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		return errors.Errorf("can't convert plan status %s to %s", plan.Status, status)
 	}
 
-	userInfo, err := orm.GetUserByUid(c.UserID, repository.DB)
+	userInfo, err := user.New().GetUserByID(c.UserID)
 	if err != nil {
 		return errors.Wrap(err, "get user")
 	}

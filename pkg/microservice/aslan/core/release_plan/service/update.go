@@ -28,8 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -237,11 +236,11 @@ func (u *ManagerUpdater) Lint() error {
 	if u.ManagerID == "" {
 		return fmt.Errorf("manager_id cannot be empty")
 	}
-	user, err := orm.GetUserByUid(u.ManagerID, repository.DB)
-	if err != nil || user == nil {
+	userInfo, err := user.New().GetUserByID(u.ManagerID)
+	if err != nil {
 		return fmt.Errorf("user not found")
 	}
-	if u.Name != user.Name {
+	if u.Name != userInfo.Name {
 		return fmt.Errorf("name not match")
 	}
 	return nil

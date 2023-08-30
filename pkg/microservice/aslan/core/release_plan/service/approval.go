@@ -35,9 +35,8 @@ import (
 	approvalservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/approval"
 	dingservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dingtalk"
 	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/dingtalk"
 	"github.com/koderover/zadig/pkg/tool/lark"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -247,8 +246,8 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 			log.Errorf("CreateNativeApproval template execute error, error msg:%s", err)
 			return
 		}
-		for _, user := range approval.ApproveUsers {
-			info, err := orm.GetUserByUid(user.UserID, repository.DB)
+		for _, u := range approval.ApproveUsers {
+			info, err := user.New().GetUserByID(u.UserID)
 			if err != nil {
 				log.Warnf("CreateNativeApproval GetUserByUid error, error msg:%s", err)
 				continue
