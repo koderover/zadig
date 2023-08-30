@@ -47,13 +47,15 @@ func NewProductionServiceColl() *ProductionServiceColl {
 }
 
 func (c *ProductionServiceColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "product_name_1_service_name_1_revision_1")
+
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "product_name", Value: 1},
 			bson.E{Key: "service_name", Value: 1},
 			bson.E{Key: "revision", Value: 1},
 		},
-		Options: options.Index().SetUnique(true),
+		Options: options.Index().SetUnique(true).SetName("service_unique"),
 	}
 	_, err := c.Indexes().CreateOne(ctx, mod)
 	return err
