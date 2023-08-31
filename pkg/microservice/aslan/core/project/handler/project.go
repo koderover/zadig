@@ -102,3 +102,140 @@ func ListProjects(c *gin.Context) {
 		ctx.Logger,
 	)
 }
+
+// @Summary Get Bussiness Directory
+// @Description Get Bussiness Directory
+// @Tags  	project
+// @Accept 	json
+// @Produce json
+// @Success 200 		{array} 	projectservice.GroupDetail
+// @Router /api/aslan/project/bizdir [get]
+func GetBizDirProject(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.GetBizDirProject()
+}
+
+// @Summary Get Bussiness Directory Project Services
+// @Description Get Bussiness Directory Project Services
+// @Tags  	project
+// @Accept 	json
+// @Produce json
+// @Success 200 		{array} 	string
+// @Router /api/aslan/project/bizdir/services [get]
+func GetBizDirProjectServices(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.GetBizDirProjectServices(projectName)
+}
+
+// @Summary Bussiness Directory Search By Project
+// @Description Bussiness Directory Search By Project
+// @Tags  	project
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Success 200 			{array} 	projectservice.GroupDetail
+// @Router /api/aslan/project/bizdir/search/project [get]
+func SearchBizDirByProject(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.SearchBizDirByProject(projectName)
+}
+
+// @Summary Bussiness Directory Search By Service
+// @Description Bussiness Directory Search By Service
+// @Tags  	project
+// @Accept 	json
+// @Produce json
+// @Param 	serviceName		query		string								true	"service name"
+// @Success 200 			{array} 	projectservice.SearchBizDirByServiceGroup
+// @Router /api/aslan/project/bizdir/search/service [get]
+func SearchBizDirByService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	serviceName := c.Query("serviceName")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid serivce name")
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.SearchBizDirByService(serviceName)
+}
+
+// @Summary Get Bussiness Directory Searvice Detail
+// @Description Get Bussiness Directory Searvice Detail
+// @Tags  	project
+// @Accept 	json
+// @Produce json
+// @Success 200 		{array} 	projectservice.GetBizDirServiceDetailResponse
+// @Router /api/aslan/project/bizdir/service/detail [get]
+func GetBizDirServiceDetail(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
+		return
+	}
+
+	serviceName := c.Query("serviceName")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid service name")
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.GetBizDirServiceDetail(projectName, serviceName)
+}

@@ -241,6 +241,14 @@ func (c *ProductionServiceColl) ListMaxRevisionsByProject(productName, serviceTy
 	return c.listMaxRevisions(pre, nil)
 }
 
+func (c *ProductionServiceColl) SearchMaxRevisionsByService(serviceName string) ([]*models.Service, error) {
+	pre := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+	pre["service_name"] = fmt.Sprintf("/.*%s.*/i ", serviceName)
+	return c.listMaxRevisions(pre, nil)
+}
+
 func (c *ProductionServiceColl) UpdateServiceVariables(args *models.Service) error {
 	if args == nil {
 		return errors.New("nil ServiceTmplObject")

@@ -194,7 +194,6 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 	}
 
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
-
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllTestServiceInfos(), err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())

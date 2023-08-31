@@ -59,6 +59,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		group.GET("/preset", GetPresetProjectGroup)
 	}
 
+	bizdir := router.Group("bizdir")
+	{
+		bizdir.GET("", GetBizDirProject)
+		bizdir.GET("/services", GetBizDirProjectServices)
+		bizdir.GET("/service/detail", GetBizDirServiceDetail)
+		bizdir.GET("/search/project", SearchBizDirByProject)
+		bizdir.GET("/search/service", SearchBizDirByService)
+	}
+
 	production := router.Group("production/products")
 	{
 		production.PATCH("/:name", UpdateProductionServiceOrchestration)

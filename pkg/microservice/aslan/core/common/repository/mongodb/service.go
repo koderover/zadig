@@ -212,6 +212,15 @@ func (c *ServiceColl) ListMaxRevisionsAllSvcByProduct(productName string) ([]*mo
 	return c.listMaxRevisions(m, nil)
 }
 
+func (c *ServiceColl) SearchMaxRevisionsByService(serviceName string) ([]*models.Service, error) {
+	pre := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+	pre["service_name"] = fmt.Sprintf(" /.*%s.*/i", serviceName)
+
+	return c.listMaxRevisions(pre, nil)
+}
+
 // Find 根据service_name和type查询特定版本的配置模板
 // 如果 Revision == 0 查询最大版本的配置模板
 func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {

@@ -1397,6 +1397,9 @@ func ListProjectGroupNames() ([]string, error) {
 		return nil, fmt.Errorf("failed to list project groups, error: %v", err)
 	}
 
+	// create the default group ungrouped
+	groups = append(groups, setting.UNGROUPED)
+
 	return groups, nil
 }
 
