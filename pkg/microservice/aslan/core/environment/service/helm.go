@@ -428,7 +428,7 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 	if err != nil {
 		return nil, e.ErrGetHelmCharts.AddErr(err)
 	}
-	renderSet, err := FindProductRenderSet(productName, prod.Render.Name, prod.EnvName, log)
+	renderSet, err := FindProductRenderSet(productName, prod.Render.Name, prod.EnvName, prod.Render.Revision, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] find product renderset error: %v", envName, productName, err)
 		return nil, e.ErrGetHelmCharts.AddErr(err)

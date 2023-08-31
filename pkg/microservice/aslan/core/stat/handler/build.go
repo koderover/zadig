@@ -26,8 +26,8 @@ import (
 )
 
 type GetBuildStatArgs struct {
-	StartDate int64 `json:"startDate"      form:"startDate,default:0"`
-	EndDate   int64 `json:"endDate"        form:"endDate,default:0"`
+	StartDate int64 `json:"startDate"      form:"startDate,default=0"`
+	EndDate   int64 `json:"endDate"        form:"endDate,default=0"`
 }
 
 func GetBuildStat(c *gin.Context) {
@@ -47,8 +47,8 @@ func GetBuildStat(c *gin.Context) {
 }
 
 type OpenAPIGetBuildStatArgs struct {
-	StartDate int64  `json:"startDate"      form:"startDate,default:0"`
-	EndDate   int64  `json:"endDate"        form:"endDate,default:0"`
+	StartDate int64  `json:"startDate"      form:"startDate,default=0"`
+	EndDate   int64  `json:"endDate"        form:"endDate,default=0"`
 	Project   string `json:"project"        form:"projectKey"`
 }
 

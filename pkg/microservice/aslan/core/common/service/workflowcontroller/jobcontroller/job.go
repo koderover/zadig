@@ -92,6 +92,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewMseGrayReleaseJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobMseGrayOffline):
 		jobCtl = NewMseGrayOfflineJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobGuanceyunCheck):
+		jobCtl = NewGuanceyunCheckJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}

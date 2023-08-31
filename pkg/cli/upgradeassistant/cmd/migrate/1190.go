@@ -17,9 +17,12 @@
 package migrate
 
 import (
+	"context"
 	"fmt"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -38,6 +41,12 @@ func V1180ToV1190() error {
 	log.Infof("-------- start migrate cluster workflow schedule strategy --------")
 	if err := migrateClusterScheduleStrategy(); err != nil {
 		log.Errorf("migrateClusterScheduleStrategy err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate workflow template --------")
+	if err := migrateWorkflowTemplate(); err != nil {
+		log.Infof("migrateWorkflowTemplate err: %v", err)
 		return err
 	}
 
@@ -96,6 +105,62 @@ func migrateClusterScheduleStrategy() error {
 		err := coll.UpdateScheduleStrategy(cluster)
 		if err != nil {
 			return fmt.Errorf("failed to update cluster in ua method migrateClusterScheduleStrategy, err: %v", err)
+		}
+	}
+	return nil
+}
+
+var oldWorkflowTemplates = []string{
+	"业务变更及测试", "数据库及业务变更", "多环境服务变更", "多阶段灰度", "istio发布", "Nacos 配置变更及服务升级", "Apollo 配置变更及服务升级",
+}
+
+func migrateWorkflowTemplate() error {
+	// delete old workflow templates
+	for _, name := range oldWorkflowTemplates {
+		query := bson.M{
+			"template_name": name,
+			"created_by":    setting.SystemUser,
+		}
+		_, err := mongodb.NewWorkflowV4TemplateColl().DeleteOne(context.TODO(), query)
+		if err != nil {
+			return fmt.Errorf("failed to delete old workflow template %s for merging custom and release workflow, err: %v", name, err)
+		}
+	}
+
+	// change release workflow type to common_workflow for merge release and custom workflow
+	cursor, err := mongodb.NewWorkflowV4Coll().ListByCursor(&mongodb.ListWorkflowV4Option{Category: setting.ReleaseWorkflow})
+	if err != nil {
+		return fmt.Errorf("failed to list workflowV4 for merging custom and release workflow, err: %v", err)
+	}
+	var ms []mongo.WriteModel
+	for cursor.Next(context.Background()) {
+		var workflow models.WorkflowV4
+		if err := cursor.Decode(&workflow); err != nil {
+			return err
+		}
+		if workflow.Category == setting.ReleaseWorkflow {
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", workflow.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"category", setting.CustomWorkflowType},
+						}},
+					}),
+			)
+		}
+		if len(ms) >= 50 {
+			log.Infof("update %d workflowV4", len(ms))
+			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
+				return fmt.Errorf("udpate workflowV4s for merging custom and release workflow, error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+	if len(ms) > 0 {
+		log.Infof("update %d workflowV4s", len(ms))
+		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
+			return fmt.Errorf("udpate workflowV4s for merging custom and release workflow, error: %s", err)
 		}
 	}
 	return nil

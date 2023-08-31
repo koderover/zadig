@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -153,7 +154,7 @@ func OpenAPIGetTestTaskResult(taskID int64, productName, testName string, logger
 		CreateTime: pipelineTask.CreateTime,
 		StartTime:  pipelineTask.StartTime,
 		EndTime:    pipelineTask.EndTime,
-		Status:     string(pipelineTask.Status),
+		Status:     string(pipelineTask.Status.ToLower()),
 	}
 	if pipelineTask.Status == config.StatusPassed {
 
@@ -206,7 +207,7 @@ func OpenAPIGetScanningTaskDetail(taskID int64, productName, scanName string, lo
 		CreateTime: detail.CreateTime,
 		EndTime:    detail.EndTime,
 		ResultLink: detail.ResultLink,
-		Status:     detail.Status,
+		Status:     strings.ToLower(detail.Status),
 	}
 	resp.RepoInfo = make([]*OpenAPIScanRepoBrief, 0)
 	for _, repo := range detail.RepoInfo {

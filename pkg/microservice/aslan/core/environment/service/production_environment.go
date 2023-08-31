@@ -79,8 +79,8 @@ func ExportProductionYaml(envName, productName, serviceName string, log *zap.Sug
 		EnvName:     env.EnvName,
 		ProductTmpl: env.ProductName,
 	}
-	renderset, exists, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || !exists {
+	renderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
 		log.Errorf("failed to find renderset for env: %s, err: %v", envName, err)
 		return res, errors.Wrapf(err, "failed to find renderset for env: %s", envName)
 	}

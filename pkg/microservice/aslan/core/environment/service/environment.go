@@ -195,6 +195,7 @@ func ListProducts(userID, projectName string, envNames []string, production bool
 
 var mutexAutoCreate sync.RWMutex
 
+// AutoCreateProduct happens in onboarding progress of pm project
 func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredLogger) []*EnvStatus {
 
 	mutexAutoCreate.Lock()
@@ -1270,11 +1271,9 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 		EnvName:     envName,
 		ProductTmpl: productName,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
@@ -1375,11 +1374,9 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 		EnvName:     envName,
 		ProductTmpl: productName,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err)
-		}
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err)
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
@@ -1484,15 +1481,14 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		return err
 	}
 	opt := &commonrepo.RenderSetFindOption{
-		Name:        product.Namespace,
+		Name:        product.Render.Name,
+		Revision:    product.Render.Revision,
 		EnvName:     envName,
 		ProductTmpl: productName,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
@@ -1549,15 +1545,14 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 		return err
 	}
 	opt := &commonrepo.RenderSetFindOption{
-		Name:        product.Namespace,
+		Name:        product.Render.Name,
+		Revision:    product.Render.Revision,
 		EnvName:     envName,
 		ProductTmpl: productName,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
 	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
@@ -1632,33 +1627,26 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 		}
 	}
 
+	createdRenderset := &commonmodels.RenderSet{
+		Name:             renderset.Name,
+		EnvName:          envName,
+		ProductTmpl:      productName,
+		UpdateBy:         username,
+		DefaultValues:    renderset.DefaultValues,
+		GlobalVariables:  renderset.GlobalVariables,
+		YamlData:         renderset.YamlData,
+		ChartInfos:       renderset.ChartInfos,
+		ServiceVariables: renderset.ServiceVariables,
+	}
+
 	// FIXME: best to render yaml before create renderset
-	if err = render.CreateK8sHelmRenderSet(
-		&commonmodels.RenderSet{
-			Name:             productResp.Namespace,
-			EnvName:          envName,
-			ProductTmpl:      productName,
-			UpdateBy:         username,
-			DefaultValues:    renderset.DefaultValues,
-			GlobalVariables:  renderset.GlobalVariables,
-			YamlData:         renderset.YamlData,
-			ChartInfos:       renderset.ChartInfos,
-			ServiceVariables: renderset.ServiceVariables,
-		},
-		log,
-	); err != nil {
+	if err = render.CreateK8sHelmRenderSet(createdRenderset, log); err != nil {
 		log.Errorf("[%s][P:%s] create renderset error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
 
-	productResp.EnsureRenderInfo()
-	renderSet, err := FindProductRenderSet(productResp.ProductName, productResp.Render.Name, envName, log)
-	if err != nil {
-		log.Errorf("[%s][P:%s] find product renderset error: %s", productResp.EnvName, productResp.ProductName, err)
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-	}
-	productResp.Render.Revision = renderSet.Revision
-	productResp.Render.Name = renderSet.Name
+	productResp.Render.Revision = createdRenderset.Revision
+	productResp.Render.Name = createdRenderset.Name
 
 	// update render used in product
 	err = commonrepo.NewProductColl().UpdateRender(envName, productResp.ProductName, productResp.Render)
@@ -1673,9 +1661,9 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 	}
 
 	if deployType == setting.K8SDeployType {
-		return updateK8sProductVariable(productResp, renderSet, username, requestID, log)
+		return updateK8sProductVariable(productResp, createdRenderset, username, requestID, log)
 	} else {
-		return updateHelmProductVariable(productResp, renderSet, username, requestID, log)
+		return updateHelmProductVariable(productResp, createdRenderset, username, requestID, log)
 	}
 }
 
@@ -1775,18 +1763,6 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 
 	// extract values.yaml and update renderset
 	for envName := range productMap {
-		renderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-			Name:        commonservice.GetProductEnvNamespace(envName, productName, ""),
-			EnvName:     envName,
-			ProductTmpl: productName,
-		})
-		if err != nil || renderSet == nil {
-			if err != nil {
-				log.Warnf("query renderset fail for product %s env: %s", productName, envName)
-			}
-			return envStatuses, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for env: %s", envName))
-		}
-
 		err = updateHelmProduct(productName, envName, userName, requestID, args.ChartValues, args.DeletedServices, log)
 		if err != nil {
 			log.Errorf("UpdateMultiHelmProduct UpdateProductV2 err:%v", err)
@@ -1843,18 +1819,6 @@ func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHel
 
 	// extract values.yaml and update renderset
 	for envName := range productMap {
-		renderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-			Name:        commonservice.GetProductEnvNamespace(envName, productName, ""),
-			EnvName:     envName,
-			ProductTmpl: productName,
-		})
-		if err != nil || renderSet == nil {
-			if err != nil {
-				log.Warnf("query renderset fail for product %s env: %s", productName, envName)
-			}
-			return envStatuses, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for env: %s", envName))
-		}
-
 		err = updateHelmChartProduct(productName, envName, userName, requestID, args.ChartValues, args.DeletedServices, log)
 		if err != nil {
 			log.Errorf("UpdateMultiHelmProduct UpdateProductV2 err:%v", err)
@@ -2272,7 +2236,8 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 
 	rs, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 		EnvName:     productInfo.EnvName,
-		Name:        productInfo.Namespace,
+		Name:        productInfo.Render.Name,
+		Revision:    productInfo.Render.Revision,
 		ProductTmpl: productInfo.ProductName,
 	})
 	if err != nil {
@@ -2694,41 +2659,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		renderSetName       = commonservice.GetProductEnvNamespace(envName, args.ProductName, args.Namespace)
 		err                 error
 	)
-	if args.Render != nil && args.Render.Revision > 0 {
-		renderSetName = args.Render.Name
-	} else {
-		switch args.Source {
-		case setting.HelmDeployType:
-			err = render.CreateK8sHelmRenderSet(
-				&commonmodels.RenderSet{
-					Name:        renderSetName,
-					Revision:    0,
-					EnvName:     envName,
-					ProductTmpl: args.ProductName,
-					UpdateBy:    args.UpdateBy,
-					ChartInfos:  args.ServiceRenders,
-				},
-				log,
-			)
-		default:
-			err = render.CreateRenderSet(
-				&commonmodels.RenderSet{
-					Name:             renderSetName,
-					Revision:         0,
-					EnvName:          envName,
-					ProductTmpl:      args.ProductName,
-					UpdateBy:         args.UpdateBy,
-					ServiceVariables: args.ServiceRenders,
-				},
-				log,
-			)
-
-		}
-		if err != nil {
-			log.Errorf("[%s][P:%s] create renderset error: %v", envName, productTemplateName, err)
-			return e.ErrCreateEnv.AddDesc(e.FindProductTmplErrMsg)
-		}
-	}
+	args.EnsureRenderInfo()
 
 	var productTmpl *templatemodels.Product
 	// 查询产品模板
@@ -2747,7 +2678,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		log.Errorf("[%s][P:%s] not service found", envName, args.ProductName)
 		return e.ErrCreateEnv.AddDesc(e.FindProductServiceErrMsg)
 	}
-	// 检查args中是否设置revision，如果没有，设为Product Tmpl当前版本
 	if args.Revision == 0 {
 		args.Revision = productTmpl.Revision
 	}
@@ -2814,13 +2744,14 @@ func ensureKubeEnv(namespace, registryId string, customLabels map[string]string,
 	return nil
 }
 
-func FindProductRenderSet(productName, renderName, envName string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+func FindProductRenderSet(productName, renderName, envName string, revision int64, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	resp := &commonmodels.RenderSet{ProductTmpl: productName}
 	var err error
 	opt := &commonrepo.RenderSetFindOption{
 		Name:        renderName,
 		ProductTmpl: productName,
 		EnvName:     envName,
+		Revision:    revision,
 	}
 	resp, err = commonrepo.NewRenderSetColl().Find(opt)
 	if err != nil {
@@ -3079,7 +3010,7 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 		deletedRelease = append(deletedRelease, serviceName)
 	}
 
-	renderSet, err := diffRenderSetHelmChart(username, productName, envName, productResp, overrideCharts, deletedRelease, log)
+	renderSet, err := mergeRenderSetAndRenderChart(username, productName, envName, productResp, overrideCharts, deletedRelease, log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc("对比环境中的value.yaml和系统默认的value.yaml失败")
 	}
@@ -3183,7 +3114,6 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 	// productResp is the product info in expected response
 	// productCur is the product info in current
 	serviceMap := productCur.GetServiceMap()
-	serviceRespMap := productResp.GetServiceMap()
 
 	// chart infos in product
 	currentChartInfoMap := make(map[string]*templatemodels.ServiceRender)
@@ -3222,43 +3152,8 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 			continue
 		}
 
-		serviceInfoResp := serviceRespMap[serviceName]
-		serviceInfoCur := serviceMap[serviceName]
-		imageRelatedKey := sets.NewString()
-		if serviceInfoResp != nil && serviceInfoCur != nil {
-			curEnvService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-				ServiceName: serviceName,
-				ProductName: productName,
-				Type:        setting.HelmDeployType,
-				Revision:    serviceInfoCur.Revision,
-			}, productCur.Production)
-			if err != nil {
-				log.Errorf("failed to query service, name %s, Revision %d,err %s", serviceName, serviceInfoCur.Revision, err)
-				return nil, fmt.Errorf("failed to query service, name %s,Revision %d,err %s", serviceName, serviceInfoCur.Revision, err)
-			}
-		L:
-			for _, curSvcContainers := range curEnvService.Containers {
-				if checkServiceImageUpdated(curSvcContainers, serviceInfoCur) {
-					for _, container := range serviceInfoResp.Containers {
-						if curSvcContainers.Name == container.Name && container.ImagePath != nil {
-							imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
-							continue L
-						}
-					}
-				}
-			}
-		}
-
 		// use the variables in current product when updating services
 		if okC {
-			// use the value of the key of the current values.yaml to replace the value of the same key of the values.yaml in the service
-			newValuesYaml, err := util.OverrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml), imageRelatedKey, true)
-			if err != nil {
-				log.Errorf("Failed to override values for service %s, err: %s", serviceName, err)
-			} else {
-				latestChartInfo.ValuesYaml = string(newValuesYaml)
-			}
-
 			// user override value in cur environment
 			latestChartInfo.OverrideValues = currentChartInfo.OverrideValues
 			latestChartInfo.OverrideYaml = currentChartInfo.OverrideYaml
@@ -3274,31 +3169,22 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 		newChartInfos = append(newChartInfos, chartInfo)
 	}
 
-	if err = render.CreateK8sHelmRenderSet(
-		&commonmodels.RenderSet{
-			Name:          productResp.Render.Name,
-			EnvName:       envName,
-			ProductTmpl:   productName,
-			ChartInfos:    newChartInfos,
-			DefaultValues: defaultValues,
-			YamlData:      yamlData,
-			UpdateBy:      username,
-		},
-		log,
-	); err != nil {
-		log.Errorf("[RenderSet.create] err: %v", err)
-		return nil, err
+	renderSet := &commonmodels.RenderSet{
+		Name:          productResp.Render.Name,
+		EnvName:       envName,
+		ProductTmpl:   productName,
+		ChartInfos:    newChartInfos,
+		DefaultValues: defaultValues,
+		YamlData:      yamlData,
+		UpdateBy:      username,
 	}
-
-	renderSet, err := FindProductRenderSet(productName, productResp.Render.Name, envName, log)
-	if err != nil {
-		log.Errorf("[RenderSet.find] err: %v", err)
+	if err = render.CreateK8sHelmRenderSet(renderSet, log); err != nil {
 		return nil, err
 	}
 	return renderSet, nil
 }
 
-func diffRenderSetHelmChart(username, productName, envName string, productResp *commonmodels.Product, overrideCharts []*commonservice.HelmSvcRenderArg, deletedReleases []string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+func mergeRenderSetAndRenderChart(username, productName, envName string, productResp *commonmodels.Product, overrideCharts []*commonservice.HelmSvcRenderArg, deletedReleases []string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	renderSetOpt := &commonrepo.RenderSetFindOption{
 		Name:        productResp.Render.Name,
 		Revision:    productResp.Render.Revision,
@@ -3349,38 +3235,20 @@ func diffRenderSetHelmChart(username, productName, envName string, productResp *
 		newChartInfos = append(newChartInfos, chartInfo)
 	}
 
-	if err = render.CreateK8sHelmRenderSet(
-		&commonmodels.RenderSet{
-			Name:          productResp.Render.Name,
-			EnvName:       envName,
-			ProductTmpl:   productName,
-			ChartInfos:    newChartInfos,
-			DefaultValues: defaultValues,
-			YamlData:      yamlData,
-			UpdateBy:      username,
-		},
-		log,
-	); err != nil {
+	renderSet := &commonmodels.RenderSet{
+		Name:          productResp.Render.Name,
+		EnvName:       envName,
+		ProductTmpl:   productName,
+		ChartInfos:    newChartInfos,
+		DefaultValues: defaultValues,
+		YamlData:      yamlData,
+		UpdateBy:      username,
+	}
+	if err = render.CreateK8sHelmRenderSet(renderSet, log); err != nil {
 		log.Errorf("[RenderSet.create] err: %v", err)
 		return nil, err
 	}
-
-	renderSet, err := FindProductRenderSet(productName, productResp.Render.Name, envName, log)
-	if err != nil {
-		log.Errorf("[RenderSet.find] err: %v", err)
-		return nil, err
-	}
 	return renderSet, nil
-}
-
-// checkServiceImageUpdated If the service does not do any mirroring iterations on the platform, the latest YAML is used when updating the environment
-func checkServiceImageUpdated(curContainer *commonmodels.Container, serviceInfo *commonmodels.ProductService) bool {
-	for _, proContainer := range serviceInfo.Containers {
-		if curContainer.Name == proContainer.Name && curContainer.Image == proContainer.Image {
-			return false
-		}
-	}
-	return true
 }
 
 func findRenderChartFromList(svc *commonmodels.ProductService, renderCharts []*templatemodels.ServiceRender) *templatemodels.ServiceRender {
@@ -3501,16 +3369,14 @@ func GetGlobalVariableCandidate(productName, envName string, log *zap.SugaredLog
 			ProductTmpl: productName,
 			EnvName:     productInfo.EnvName,
 		}
-		rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+		rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
 		if err != nil {
 			log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
 			return nil, err
 		}
-		if existed {
-			for _, kv := range rendersetObj.GlobalVariables {
-				if _, ok := globalVariablesDefineMap[kv.Key]; ok {
-					delete(globalVariablesDefineMap, kv.Key)
-				}
+		for _, kv := range rendersetObj.GlobalVariables {
+			if _, ok := globalVariablesDefineMap[kv.Key]; ok {
+				delete(globalVariablesDefineMap, kv.Key)
 			}
 		}
 	}
@@ -3539,11 +3405,9 @@ func PreviewProductGlobalVariables(productName, envName string, arg []*commontyp
 		ProductTmpl: product.Render.ProductTmpl,
 		Revision:    product.Render.Revision,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		return nil, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 	return PreviewProductGlobalVariablesWithRender(product, productRenderset, arg, log)
@@ -3580,11 +3444,9 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 		ProductTmpl: product.Render.ProductTmpl,
 		Revision:    product.Render.Revision,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		return nil, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
@@ -3683,11 +3545,9 @@ func UpdateProductGlobalVariables(productName, envName, userName, requestID stri
 		ProductTmpl: product.Render.ProductTmpl,
 		Revision:    product.Render.Revision,
 	}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
+	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	}
 
@@ -3925,7 +3785,7 @@ func EnvAnalysis(projectName, envName string, production *bool, triggerName stri
 		ctx,
 		config.HubServerAddress(), env.ClusterID,
 		llmClient,
-		filters, env.GetNamespace(),
+		filters, env.Namespace,
 		false, // noCache bool
 		true,  // explain bool
 		10,    // maxConcurrency int

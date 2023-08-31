@@ -673,7 +673,7 @@ func OpenAPIGetProductWorkflowTaskV4(projectName, workflowName string, taskID in
 	resp.TaskCreator = pipelineTask.TaskCreator
 	resp.StartTime = pipelineTask.StartTime
 	resp.EndTime = pipelineTask.EndTime
-	resp.Status = pipelineTask.Status
+	resp.Status = pipelineTask.Status.ToLower()
 
 	return resp, nil
 }
@@ -773,7 +773,7 @@ func OpenAPIGetCustomWorkflowTaskV4(name, projectName string, pageNum, pageSize 
 			StartTime:    task.StartTime,
 			EndTime:      task.EndTime,
 			TaskCreator:  task.TaskCreator,
-			Status:       task.Status,
+			Status:       task.Status.ToLower(),
 		}
 		resp.WorkflowTasks = append(resp.WorkflowTasks, wt)
 	}

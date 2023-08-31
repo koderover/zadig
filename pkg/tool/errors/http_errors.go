@@ -166,7 +166,10 @@ var (
 	// TODO: max error code reached, sharing error code with update env
 	ErrUpdateEnvConfigs = NewHTTPError(6076, "更新环境配置失败")
 	// TODO: max error code reached, sharing error code with update env
-	ErrEnvSleep = NewHTTPError(6076, "环境睡眠失败")
+	ErrEnvSleep           = NewHTTPError(6076, "环境睡眠失败")
+	ErrCreateProjectGroup = NewHTTPError(6077, "创建项目分组失败")
+	ErrUpdateProjectGroup = NewHTTPError(6077, "更新项目分组失败")
+	ErrDeleteProjectGroup = NewHTTPError(6077, "删除项目分组失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product Service APIs Range: 6080 - 6099 AND 6150 -6199
@@ -863,4 +866,13 @@ var (
 	ErrUpdateLLMIntegration = NewHTTPError(7012, "更新llm集成失败")
 	ErrDeleteLLMIntegration = NewHTTPError(7013, "删除llm集成失败")
 	ErrGetLLMIntegration    = NewHTTPError(7014, "获取llm集成详情失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// observability integration Error Range: 7020 - 7029
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateObservabilityIntegration = NewHTTPError(7020, "创建 观测工具 集成失败")
+	ErrListObservabilityIntegration   = NewHTTPError(7021, "获取 观测工具 集成列表失败")
+	ErrUpdateObservabilityIntegration = NewHTTPError(7022, "更新 观测工具 集成失败")
+	ErrDeleteObservabilityIntegration = NewHTTPError(7023, "删除 观测工具 集成失败")
+	ErrGetObservabilityIntegration    = NewHTTPError(7024, "获取 观测工具 集成详情失败")
 )

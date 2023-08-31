@@ -73,14 +73,14 @@ type ServiceDefinition struct {
 }
 
 type EnvDefinition struct {
-	EnvName     string `json:"env_name"`
+	EnvName     string `json:"env_key"`
 	ClusterName string `json:"cluster_name"`
 	Namespace   string `json:"namespace"`
 }
 
 type OpenAPIListProjectReq struct {
-	PageSize int64 `json:"pageSize" form:"pageSize" default:"20"`
-	PageNum  int64 `json:"pageNum"  form:"pageNum"  default:"1"`
+	PageSize int64 `json:"pageSize" form:"pageSize,default=20"`
+	PageNum  int64 `json:"pageNum"  form:"pageNum,default=1"`
 }
 
 type OpenAPIProjectDetailResp struct {
@@ -152,4 +152,35 @@ func (req OpenAPIInitializeProjectReq) Validate() error {
 	}
 
 	return nil
+}
+
+type ProjectGroupArgs struct {
+	GroupID     string   `json:"view_id"`
+	GroupName   string   `json:"view_name"`
+	ProjectKeys []string `json:"project_keys"`
+}
+
+func (args *ProjectGroupArgs) Validate() error {
+	if args.GroupName == "" {
+		return errors.New("view_name cannot be empty")
+	}
+
+	if len(args.ProjectKeys) == 0 {
+		return errors.New("project_keys cannot be empty")
+	}
+
+	return nil
+}
+
+type ProjectGroupPreset struct {
+	GroupID   string                  `json:"view_id"`
+	GroupName string                  `json:"view_name"`
+	Projects  []*ProjectGroupRelation `json:"projects"`
+}
+
+type ProjectGroupRelation struct {
+	ProjectName string `json:"project_name"`
+	ProjectKey  string `json:"project_key"`
+	DeployType  string `json:"deploy_type"`
+	Enabled     bool   `json:"enabled"`
 }

@@ -30,10 +30,11 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -96,9 +97,6 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 	productObject.UpdateBy = autoCreator.Param.UserName
 	productObject.EnvName = envName
 	productObject.RegistryID = autoCreator.Param.RegistryID
-	if autoCreator.Param.EnvType == setting.HelmDeployType {
-		productObject.Source = setting.SourceFromHelm
-	}
 
 	err = CreateProduct(autoCreator.Param.UserName, autoCreator.Param.RequestId, productObject, log)
 	if err != nil {
@@ -162,7 +160,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	}
 
 	//判断namespace是否存在
-	namespace := args.GetNamespace()
+	namespace := args.GetDefaultNamespace()
 	if args.Namespace == "" {
 		args.Namespace = namespace
 	}
@@ -172,48 +170,12 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddErr(err)
 	}
 
-	// renderset may exist before product created, by setting values.yaml content
-	var renderSet *models.RenderSet
-	if args.Render == nil || args.Render.Revision == 0 {
-		renderSet, _, err = commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-			EnvName:     args.EnvName,
-			Name:        args.Namespace,
-			ProductTmpl: args.ProductName,
-		})
-
-		if err != nil {
-			log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-		// if env renderset is predefined, set render info
-		if renderSet != nil {
-			args.Render = &models.RenderInfo{
-				ProductTmpl: args.ProductName,
-				Name:        renderSet.Name,
-				Revision:    renderSet.Revision,
-			}
-			// user renderchart from renderset
-			chartInfoMap := make(map[string]*template.ServiceRender)
-			for _, renderChart := range renderSet.ChartInfos {
-				chartInfoMap[renderChart.ServiceName] = renderChart
-			}
-
-			// use values.yaml content from predefined env renderset
-			for _, singleRenderChart := range args.ServiceRenders {
-				if renderInEnvRenderset, ok := chartInfoMap[singleRenderChart.ServiceName]; ok {
-					singleRenderChart.OverrideValues = renderInEnvRenderset.OverrideValues
-					singleRenderChart.OverrideYaml = renderInEnvRenderset.OverrideYaml
-				}
-			}
-		}
-	}
-
 	if err = preCreateProduct(args.EnvName, args, kubeClient, log); err != nil {
 		log.Errorf("CreateProduct preCreateProduct error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	renderSet, err = FindProductRenderSet(args.ProductName, args.Render.Name, args.EnvName, log)
+	renderSet, err := FindProductRenderSet(args.ProductName, args.Render.Name, args.EnvName, args.Render.Revision, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
@@ -288,9 +250,26 @@ func newPMProductCreator() *PMProductCreator {
 }
 
 func (creator *PMProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
-	//创建角色环境之间的关联关系
-	//todo 创建环境暂时不指定角色
-	// 检查是否重复创建（TO BE FIXED）;检查k8s集群设置: Namespace/Secret .etc
+	// technically renderset is not used for pm projects, this logic is used for compatibility with previous logic
+	renderSet := &commonmodels.RenderSet{
+		Name:        commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName, ""),
+		Revision:    0,
+		EnvName:     args.EnvName,
+		ProductTmpl: args.ProductName,
+		UpdateBy:    args.UpdateBy,
+		ChartInfos:  args.ServiceRenders,
+	}
+	err := render.CreateRenderSet(renderSet, log)
+	if err != nil {
+		log.Errorf("[%s][P:%s] create renderset error: %v", args.EnvName, args.ProductName, err)
+		return e.ErrCreateEnv.AddDesc(e.FindProductTmplErrMsg)
+	}
+	args.Render = &commonmodels.RenderInfo{
+		Name:        renderSet.EnvName,
+		Revision:    renderSet.Revision,
+		ProductTmpl: args.ProductName,
+	}
+
 	if err := preCreateProduct(args.EnvName, args, nil, log); err != nil {
 		log.Errorf("CreateProduct preCreateProduct error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
@@ -298,7 +277,7 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
-	err := commonrepo.NewProductColl().Create(args)
+	err = commonrepo.NewProductColl().Create(args)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
@@ -352,31 +331,9 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}
 
-	namespace := args.GetNamespace()
+	namespace := args.GetDefaultNamespace()
 	if args.Namespace == "" {
 		args.Namespace = namespace
-	}
-
-	var renderSet *models.RenderSet
-	if args.Render == nil || args.Render.Revision == 0 {
-		renderSet, _, err = commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-			EnvName:     args.EnvName,
-			Name:        args.Namespace,
-			ProductTmpl: args.ProductName,
-		})
-
-		if err != nil {
-			log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-		// if env renderset is predefined, set render info
-		if renderSet != nil {
-			args.Render = &models.RenderInfo{
-				ProductTmpl: args.ProductName,
-				Name:        renderSet.Name,
-				Revision:    renderSet.Revision,
-			}
-		}
 	}
 
 	//创建角色环境之间的关联关系
@@ -387,11 +344,12 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	renderSet, _, err = commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-		EnvName:  args.EnvName,
-		Name:     args.Render.Name,
-		Revision: args.Render.Revision,
-	})
+	renderSet, err := FindProductRenderSet(args.ProductName, args.Render.Name, args.EnvName, args.Render.Revision, log)
+	if err != nil {
+		log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
+		return e.ErrCreateEnv.AddDesc(err.Error())
+	}
+
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(fmt.Errorf("failed to find renderset: %v/%v", args.Render.Name, args.Render.Revision))
 	}

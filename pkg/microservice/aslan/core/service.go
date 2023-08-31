@@ -391,6 +391,7 @@ func initDatabase() {
 		commonrepo.NewDiffNoteColl(),
 		commonrepo.NewDindCleanColl(),
 		commonrepo.NewIMAppColl(),
+		commonrepo.NewObservabilityColl(),
 		commonrepo.NewFavoriteColl(),
 		commonrepo.NewGithubAppColl(),
 		commonrepo.NewHelmRepoColl(),
@@ -466,6 +467,9 @@ func initDatabase() {
 
 		// env AI analysis related db index
 		ai.NewEnvAIAnalysisColl(),
+
+		// project group related db index
+		commonrepo.NewProjectGroupColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

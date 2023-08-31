@@ -270,6 +270,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		imapp.POST("/validate", ValidateIMApp)
 	}
 
+	observability := router.Group("observability")
+	{
+		observability.GET("", ListObservability)
+		observability = observability.Group("", isSystemAdmin)
+		observability.GET("/detail", ListObservabilityDetail)
+		observability.POST("", CreateObservability)
+		observability.PUT("/:id", UpdateObservability)
+		observability.DELETE("/:id", DeleteObservability)
+		observability.POST("/validate", ValidateObservability)
+	}
+
 	lark := router.Group("lark")
 	{
 		lark.GET("/:id/department/:department_id", GetLarkDepartment)
@@ -333,6 +344,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		meego.GET("/projects/:projectID/work_item/types", GetWorkItemTypeList)
 		meego.GET("/projects/:projectID/work_item", ListMeegoWorkItems)
 		meego.GET("/projects/:projectID/work_item/:workItemID/transitions", ListAvailableWorkItemTransitions)
+	}
+
+	// guanceyun api
+	guanceyun := router.Group("guanceyun")
+	{
+		guanceyun.GET("/:id/monitor", ListGuanceyunMonitor)
 	}
 
 	// personal favorite API

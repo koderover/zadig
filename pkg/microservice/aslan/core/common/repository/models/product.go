@@ -184,7 +184,7 @@ func (Product) TableName() string {
 }
 
 // GetNamespace returns the default name of namespace created by zadig
-func (p *Product) GetNamespace() string {
+func (p *Product) GetDefaultNamespace() string {
 	return p.ProductName + "-env-" + p.EnvName
 }
 

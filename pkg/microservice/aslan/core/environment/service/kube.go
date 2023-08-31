@@ -990,14 +990,14 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 
 	fakeRenderSet := &models.RenderSet{}
 	if err == nil && productInfo != nil {
-		renderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+		renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
 			ProductTmpl: productName,
 			EnvName:     request.EnvName,
 			IsDefault:   false,
 			Revision:    productInfo.Render.Revision,
 			Name:        productInfo.Render.Name,
 		})
-		if err == nil && renderset != nil {
+		if err == nil {
 			fakeRenderSet.GlobalVariables = renderset.GlobalVariables
 		}
 	}

@@ -56,7 +56,7 @@ func ExportYaml(envName, productName, serviceName, source string, log *zap.Sugar
 		log.Errorf("failed to get clientset for cluster %s", env.ClusterID)
 		return res
 	}
-	cclusterVersion, err := clientSet.Discovery().ServerVersion()
+	clusterVersion, err := clientSet.Discovery().ServerVersion()
 	if err != nil {
 		log.Errorf("failed to get cluster version for cluster %s", env.ClusterID)
 		return res
@@ -74,7 +74,7 @@ func ExportYaml(envName, productName, serviceName, source string, log *zap.Sugar
 		yamls = append(yamls, deploys...)
 		stss := getStatefulSetYaml(kubeClient, namespace, selector, log)
 		yamls = append(yamls, stss...)
-		cronJobs := getCronJobYaml(kubeClient, namespace, selector, VersionLessThan121(cclusterVersion), log)
+		cronJobs := getCronJobYaml(kubeClient, namespace, selector, VersionLessThan121(clusterVersion), log)
 		yamls = append(yamls, cronJobs...)
 		if len(deploys) == 0 && len(stss) == 0 && len(cronJobs) == 0 {
 			if source == "wd" {
@@ -99,8 +99,8 @@ func ExportYaml(envName, productName, serviceName, source string, log *zap.Sugar
 			EnvName:     env.EnvName,
 			ProductTmpl: env.ProductName,
 		}
-		renderset, exists, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-		if err != nil || !exists {
+		renderset, err := commonrepo.NewRenderSetColl().Find(opt)
+		if err != nil {
 			log.Errorf("failed to find renderset for env: %s, err: %v", envName, err)
 			return res
 		}
@@ -146,15 +146,6 @@ func getConfigMapYaml(kubeClient client.Client, namespace string, selector label
 	}
 
 	return resources
-}
-
-func getConfigMapYamlByName(kubeClient client.Client, namespace string, name string, log *zap.SugaredLogger) []byte {
-	resource, _, err := getter.GetDeploymentYaml(namespace, name, kubeClient)
-	if err != nil {
-		log.Errorf("getConfigMapYamlByName error: %v", err)
-		return nil
-	}
-	return resource
 }
 
 func getIngressYaml(kubeClient client.Client, namespace string, selector labels.Selector, log *zap.SugaredLogger) [][]byte {
