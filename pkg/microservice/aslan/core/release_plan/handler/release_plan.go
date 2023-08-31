@@ -174,12 +174,6 @@ func UpdateReleaseJobStatus(c *gin.Context) {
 		return
 	}
 
-	req := new(service.ExecuteReleaseJobArgs)
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
 	// only release plan manager can execute release job
 	// so no need to check authorization there
 	ctx.Err = service.UpdateReleasePlanStatus(ctx, c.Param("id"), c.Param("status"))
