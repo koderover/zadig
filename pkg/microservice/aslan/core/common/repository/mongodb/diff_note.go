@@ -56,13 +56,14 @@ func (c *DiffNoteColl) GetCollectionName() string {
 }
 
 func (c *DiffNoteColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "repo.codehost_id_1_repo.project_id_1_merge_request_id_1")
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "repo.codehost_id", Value: 1},
 			bson.E{Key: "repo.project_id", Value: 1},
 			bson.E{Key: "merge_request_id", Value: 1},
 		},
-		Options: options.Index().SetUnique(false),
+		Options: options.Index().SetUnique(false).SetName("mr_unique"),
 	}
 
 	_, err := c.Indexes().CreateOne(ctx, mod)

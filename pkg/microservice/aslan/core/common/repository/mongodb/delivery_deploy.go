@@ -56,6 +56,7 @@ func (c *DeliveryDeployColl) GetCollectionName() string {
 }
 
 func (c *DeliveryDeployColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "release_id_1_service_name_1_container_name_1_deleted_at_1")
 	mod := []mongo.IndexModel{
 		{
 			Keys: bson.D{
@@ -64,7 +65,7 @@ func (c *DeliveryDeployColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "container_name", Value: 1},
 				bson.E{Key: "deleted_at", Value: 1},
 			},
-			Options: options.Index().SetUnique(true),
+			Options: options.Index().SetUnique(true).SetName("container_unique"),
 		},
 		{
 			Keys: bson.D{
@@ -77,7 +78,7 @@ func (c *DeliveryDeployColl) EnsureIndex(ctx context.Context) error {
 
 	_, _ = c.Indexes().DropOne(ctx, "release_id_1_service_name_1_deleted_at_1")
 	_, err := c.Indexes().CreateMany(ctx, mod)
-	
+
 	return err
 }
 

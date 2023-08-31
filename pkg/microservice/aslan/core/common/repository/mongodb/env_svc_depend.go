@@ -46,6 +46,7 @@ func (c *EnvSvcDependColl) GetCollectionName() string {
 }
 
 func (c *EnvSvcDependColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "name_1_service_name_1_env_name_1_product_name_1_service_module_1")
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "name", Value: 1},
@@ -54,7 +55,7 @@ func (c *EnvSvcDependColl) EnsureIndex(ctx context.Context) error {
 			bson.E{Key: "product_name", Value: 1},
 			bson.E{Key: "service_module", Value: 1},
 		},
-		Options: options.Index().SetUnique(true),
+		Options: options.Index().SetUnique(true).SetName("service_module_unique"),
 	}
 
 	_, err := c.Indexes().CreateOne(ctx, mod)

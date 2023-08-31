@@ -47,13 +47,14 @@ func (c *ItReportColl) GetCollectionName() string {
 }
 
 func (c *ItReportColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "pipeline_name_1_pipeline_task_id_1_test_name_1")
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "pipeline_name", Value: 1},
 			bson.E{Key: "pipeline_task_id", Value: 1},
 			bson.E{Key: "test_name", Value: 1},
 		},
-		Options: options.Index().SetUnique(true),
+		Options: options.Index().SetUnique(true).SetName("test_name_unique"),
 	}
 
 	_, err := c.Indexes().CreateOne(ctx, mod)

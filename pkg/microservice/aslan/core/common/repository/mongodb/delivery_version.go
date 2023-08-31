@@ -60,6 +60,7 @@ func (c *DeliveryVersionColl) GetCollectionName() string {
 }
 
 func (c *DeliveryVersionColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "org_id_1_product_name_1_workflow_name_1_version_1_deleted_at_1")
 	mod := []mongo.IndexModel{
 		{
 			Keys: bson.D{
@@ -69,7 +70,7 @@ func (c *DeliveryVersionColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "version", Value: 1},
 				bson.E{Key: "deleted_at", Value: 1},
 			},
-			Options: options.Index().SetUnique(true),
+			Options: options.Index().SetUnique(true).SetName("version_unique"),
 		},
 		{
 			Keys: bson.D{

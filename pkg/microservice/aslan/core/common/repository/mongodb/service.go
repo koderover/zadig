@@ -93,6 +93,8 @@ func (c *ServiceColl) GetCollectionName() string {
 }
 
 func (c *ServiceColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "service_name_1_product_name_1_revision_1")
+	c.Indexes().DropOne(ctx, "product_name_1_service_name_1_type_1_revision_1_status_1")
 	mod := []mongo.IndexModel{
 		{
 			Keys: bson.D{
@@ -100,7 +102,7 @@ func (c *ServiceColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "product_name", Value: 1},
 				bson.E{Key: "revision", Value: 1},
 			},
-			Options: options.Index().SetUnique(true),
+			Options: options.Index().SetUnique(true).SetName("service_unique"),
 		},
 		{
 			Keys: bson.D{
@@ -129,7 +131,7 @@ func (c *ServiceColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "revision", Value: 1},
 				bson.E{Key: "status", Value: 1},
 			},
-			Options: options.Index().SetUnique(false),
+			Options: options.Index().SetUnique(false).SetName("service_name_idx"),
 		},
 	}
 

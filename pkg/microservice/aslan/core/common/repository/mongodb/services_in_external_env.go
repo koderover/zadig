@@ -48,6 +48,7 @@ func (c *ServicesInExternalEnvColl) GetCollectionName() string {
 }
 
 func (c *ServicesInExternalEnvColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "product_name_1_env_name_1_service_name_1")
 	mods := []mongo.IndexModel{
 		{
 			Keys: bson.D{
@@ -55,7 +56,7 @@ func (c *ServicesInExternalEnvColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "env_name", Value: 1},
 				bson.E{Key: "service_name", Value: 1},
 			},
-			Options: options.Index().SetUnique(true),
+			Options: options.Index().SetUnique(true).SetName("service_name_unique"),
 		},
 		{
 			Keys: bson.D{

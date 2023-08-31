@@ -47,6 +47,7 @@ func (c *EnvResourceColl) GetCollectionName() string {
 }
 
 func (c *EnvResourceColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "name_1_create_time_1_env_name_1_type_1_product_name_1")
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "name", Value: 1},
@@ -55,7 +56,7 @@ func (c *EnvResourceColl) EnsureIndex(ctx context.Context) error {
 			bson.E{Key: "type", Value: 1},
 			bson.E{Key: "product_name", Value: 1},
 		},
-		Options: options.Index().SetUnique(true),
+		Options: options.Index().SetUnique(true).SetName("resource_unique"),
 	}
 
 	_, err := c.Indexes().CreateOne(ctx, mod)

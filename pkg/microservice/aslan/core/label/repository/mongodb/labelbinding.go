@@ -46,6 +46,7 @@ func (c *LabelBindingColl) GetCollectionName() string {
 }
 
 func (c *LabelBindingColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "resource_name_1_project_name_1_label_id_1_resource_type_1")
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "resource_name", Value: 1},
@@ -53,7 +54,7 @@ func (c *LabelBindingColl) EnsureIndex(ctx context.Context) error {
 			bson.E{Key: "label_id", Value: 1},
 			bson.E{Key: "resource_type", Value: 1},
 		},
-		Options: options.Index().SetUnique(true),
+		Options: options.Index().SetUnique(true).SetName("label_resource_unique"),
 	}
 
 	_, err := c.Indexes().CreateOne(ctx, mod)

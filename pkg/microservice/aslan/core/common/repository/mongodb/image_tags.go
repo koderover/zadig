@@ -28,6 +28,7 @@ func NewImageTagsCollColl() *ImageTagsColl {
 }
 
 func (c *ImageTagsColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "registry_id_1_reg_provider_1_image_name_1_namespace_1")
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "registry_id", Value: 1},
@@ -35,7 +36,7 @@ func (c *ImageTagsColl) EnsureIndex(ctx context.Context) error {
 			bson.E{Key: "image_name", Value: 1},
 			bson.E{Key: "namespace", Value: 1},
 		},
-		Options: options.Index().SetUnique(true),
+		Options: options.Index().SetUnique(true).SetName("image_unique"),
 	}
 
 	_, err := c.Indexes().CreateOne(ctx, mod)

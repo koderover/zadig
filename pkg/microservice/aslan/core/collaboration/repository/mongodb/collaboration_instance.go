@@ -55,6 +55,9 @@ func (c *CollaborationInstanceColl) GetCollectionName() string {
 }
 
 func (c *CollaborationInstanceColl) EnsureIndex(ctx context.Context) error {
+
+	c.Indexes().DropOne(ctx, "project_name_1_collaboration_name_1_user_uid_1")
+
 	mod := []mongo.IndexModel{
 		{
 			Keys: bson.D{
@@ -62,7 +65,7 @@ func (c *CollaborationInstanceColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "collaboration_name", Value: 1},
 				bson.E{Key: "user_uid", Value: 1},
 			},
-			Options: options.Index().SetUnique(true),
+			Options: options.Index().SetUnique(true).SetName("user_unique"),
 		},
 	}
 

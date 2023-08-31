@@ -51,6 +51,7 @@ func (c *StatsColl) GetCollectionName() string {
 }
 
 func (c *StatsColl) EnsureIndex(ctx context.Context) error {
+	c.Indexes().DropOne(ctx, "req_id_1_user_1_event_1_start_time_1_end_time_1")
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "req_id", Value: 1},
@@ -59,7 +60,7 @@ func (c *StatsColl) EnsureIndex(ctx context.Context) error {
 			bson.E{Key: "start_time", Value: 1},
 			bson.E{Key: "end_time", Value: 1},
 		},
-		Options: options.Index().SetUnique(true),
+		Options: options.Index().SetUnique(true).SetName("event_unique"),
 	}
 
 	_, err := c.Indexes().CreateOne(ctx, mod)
