@@ -908,7 +908,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.getInitProductRespone"
+                            "$ref": "#/definitions/handler.getInitProductResponse"
                         }
                     }
                 }
@@ -997,6 +997,94 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/service.ServiceDeployStatus"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/kube/pods": {
+            "get": {
+                "description": "Get Pods Info",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Pods Info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "projectName",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "envName",
+                        "name": "envName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.ListPodsInfoRespone"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/kube/pods/{podName}": {
+            "get": {
+                "description": "Get Pods Detail Info",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Pods Detail Info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "projectName",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "envName",
+                        "name": "envName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "podName",
+                        "name": "podName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/resource.Pod"
                         }
                     }
                 }
@@ -3182,7 +3270,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.getInitProductRespone": {
+        "handler.getInitProductResponse": {
             "type": "object",
             "properties": {
                 "chart_infos": {
@@ -4027,6 +4115,12 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "ports": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.ContainerPort"
+                    }
+                },
                 "ready": {
                     "type": "boolean"
                 },
@@ -4057,6 +4151,35 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "resource.ContainerPort": {
+            "type": "object",
+            "properties": {
+                "containerPort": {
+                    "description": "Number of port to expose on the pod's IP address.\nThis must be a valid port number, 0 \u003c x \u003c 65536.",
+                    "type": "integer"
+                },
+                "hostIP": {
+                    "description": "What host IP to bind the external port to.\n+optional",
+                    "type": "string"
+                },
+                "hostPort": {
+                    "description": "Number of port to expose on the host.\nIf specified, this must be a valid port number, 0 \u003c x \u003c 65536.\nIf HostNetwork is specified, this must match ContainerPort.\nMost containers do not need this.\n+optional",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
+                    "type": "string"
+                },
+                "protocol": {
+                    "description": "Protocol for port. Must be UDP, TCP, or SCTP.\nDefaults to \"TCP\".\n+optional\n+default=\"TCP\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/resource.Protocol"
+                        }
+                    ]
                 }
             }
         },
@@ -4190,6 +4313,19 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "resource.Protocol": {
+            "type": "string",
+            "enum": [
+                "TCP",
+                "UDP",
+                "SCTP"
+            ],
+            "x-enum-varnames": [
+                "ProtocolTCP",
+                "ProtocolUDP",
+                "ProtocolSCTP"
+            ]
         },
         "resource.Service": {
             "type": "object",
@@ -4468,7 +4604,7 @@ const docTemplate = `{
                 "cluster_name": {
                     "type": "string"
                 },
-                "env_name": {
+                "env_key": {
                     "type": "string"
                 },
                 "namespace": {
@@ -4765,6 +4901,29 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "value": {}
+            }
+        },
+        "service.ListPodsInfoRespone": {
+            "type": "object",
+            "properties": {
+                "create_time": {
+                    "type": "integer"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ready": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
             }
         },
         "service.LoadServiceFromYamlTemplateReq": {

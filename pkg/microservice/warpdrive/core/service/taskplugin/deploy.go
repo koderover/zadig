@@ -585,7 +585,7 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 				for _, pod := range pods {
 					podResource := wrapper.Pod(pod).Resource()
 					if podResource.Status != setting.StatusRunning && podResource.Status != setting.StatusSucceeded {
-						for _, cs := range podResource.ContainerStatuses {
+						for _, cs := range podResource.Containers {
 							// message为空不认为是错误状态，有可能还在waiting
 							if cs.Message != "" {
 								msg = append(msg, fmt.Sprintf("Status: %s, Reason: %s, Message: %s", cs.Status, cs.Reason, cs.Message))

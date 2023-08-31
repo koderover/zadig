@@ -158,6 +158,105 @@ func ListWorkloadsInfo(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListWorkloadsInfo(c.Param("clusterID"), c.Param("namespace"), ctx.Logger)
 }
 
+// @Summary Get Pods Info
+// @Description Get Pods Info
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName 	query		string										true	"projectName"
+// @Param 	envName 		query		string										true	"envName"
+// @Success 200 			{array} 	service.ListPodsInfoRespone
+// @Router /api/aslan/environment/kube/pods [get]
+func ListPodsInfo(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty")
+		return
+	}
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].Env.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ListPodsInfo(projectKey, envName, ctx.Logger)
+}
+
+// @Summary Get Pods Detail Info
+// @Description Get Pods Detail Info
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName 	query		string										true	"projectName"
+// @Param 	envName 		query		string										true	"envName"
+// @Param 	podName 		path		string										true	"podName"
+// @Success 200 			{object} 	resource.Pod
+// @Router /api/aslan/environment/kube/pods/{podName} [get]
+func GetPodsDetailInfo(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if projectKey == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty")
+		return
+	}
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty")
+		return
+	}
+	podName := c.Param("podName")
+	if podName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("podName can't be empty")
+		return
+	}
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !(ctx.Resources.ProjectAuthInfo[projectKey].Env.View ||
+			ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin) {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetPodDetailInfo(projectKey, envName, podName, ctx.Logger)
+}
+
 func ListCustomWorkload(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

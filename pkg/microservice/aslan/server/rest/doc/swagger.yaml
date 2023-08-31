@@ -241,7 +241,7 @@ definitions:
       variable_yaml:
         type: string
     type: object
-  handler.getInitProductRespone:
+  handler.getInitProductResponse:
     properties:
       chart_infos:
         items:
@@ -812,6 +812,10 @@ definitions:
         type: string
       name:
         type: string
+      ports:
+        items:
+          $ref: '#/definitions/resource.ContainerPort'
+        type: array
       ready:
         type: boolean
       reason:
@@ -833,6 +837,42 @@ definitions:
         type: string
       name:
         type: string
+    type: object
+  resource.ContainerPort:
+    properties:
+      containerPort:
+        description: |-
+          Number of port to expose on the pod's IP address.
+          This must be a valid port number, 0 < x < 65536.
+        type: integer
+      hostIP:
+        description: |-
+          What host IP to bind the external port to.
+          +optional
+        type: string
+      hostPort:
+        description: |-
+          Number of port to expose on the host.
+          If specified, this must be a valid port number, 0 < x < 65536.
+          If HostNetwork is specified, this must match ContainerPort.
+          Most containers do not need this.
+          +optional
+        type: integer
+      name:
+        description: |-
+          If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
+          named port in a pod must have a unique name. Name for the port that can be
+          referred to by services.
+          +optional
+        type: string
+      protocol:
+        allOf:
+        - $ref: '#/definitions/resource.Protocol'
+        description: |-
+          Protocol for port. Must be UDP, TCP, or SCTP.
+          Defaults to "TCP".
+          +optional
+          +default="TCP"
     type: object
   resource.CronJob:
     properties:
@@ -920,6 +960,16 @@ definitions:
       status:
         type: string
     type: object
+  resource.Protocol:
+    enum:
+    - TCP
+    - UDP
+    - SCTP
+    type: string
+    x-enum-varnames:
+    - ProtocolTCP
+    - ProtocolUDP
+    - ProtocolSCTP
   resource.Service:
     properties:
       age:
@@ -1104,7 +1154,7 @@ definitions:
     properties:
       cluster_name:
         type: string
-      env_name:
+      env_key:
         type: string
       namespace:
         type: string
@@ -1298,6 +1348,21 @@ definitions:
       key:
         type: string
       value: {}
+    type: object
+  service.ListPodsInfoRespone:
+    properties:
+      create_time:
+        type: integer
+      images:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      ready:
+        type: string
+      status:
+        type: string
     type: object
   service.LoadServiceFromYamlTemplateReq:
     properties:
@@ -2542,7 +2607,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handler.getInitProductRespone'
+            $ref: '#/definitions/handler.getInitProductResponse'
       summary: Get init product
       tags:
       - environment
@@ -2602,6 +2667,65 @@ paths:
               $ref: '#/definitions/service.ServiceDeployStatus'
             type: array
       summary: Get Resource Deploy Status
+      tags:
+      - environment
+  /api/aslan/environment/kube/pods:
+    get:
+      consumes:
+      - application/json
+      description: Get Pods Info
+      parameters:
+      - description: projectName
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: envName
+        in: query
+        name: envName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListPodsInfoRespone'
+            type: array
+      summary: Get Pods Info
+      tags:
+      - environment
+  /api/aslan/environment/kube/pods/{podName}:
+    get:
+      consumes:
+      - application/json
+      description: Get Pods Detail Info
+      parameters:
+      - description: projectName
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: envName
+        in: query
+        name: envName
+        required: true
+        type: string
+      - description: podName
+        in: path
+        name: podName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/resource.Pod'
+      summary: Get Pods Detail Info
       tags:
       - environment
   /api/aslan/environment/production/environments:
