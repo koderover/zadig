@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	approvalservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/approval"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/shared/handler"
@@ -313,6 +314,37 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		return errors.Wrap(err, "update plan")
 	}
 	return nil
+}
+
+type ApproveRequest struct {
+	Approve bool   `json:"approve"`
+	Comment string `json:"comment"`
+}
+
+func ApproveReleasePlan(c *handler.Context, id string, req *ApproveRequest) error {
+	getLock(id).Lock()
+	defer getLock(id).Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, id)
+	if err != nil {
+		return errors.Wrap(err, "get plan")
+	}
+
+	if plan.Status != config.StatusWaitForApprove {
+		return errors.Errorf("plan status is %s, can not approve", plan.Status)
+	}
+
+	if plan.Approval == nil || plan.Approval.Type != config.NativeApproval || plan.Approval.NativeApproval == nil {
+		return errors.Errorf("plan approval is nil or not native approval")
+	}
+
+	approveWithL, ok := approvalservice.GlobalApproveMap.GetApproval(plan.Approval.NativeApproval.InstanceCode)
+	if !ok {
+		return errors.Errorf("can not find native approval instance %s", plan.Approval.NativeApproval.InstanceCode)
+	}
+	return approveWithL.DoApproval(c.UserName, c.UserID, req.Comment, req.Approve)
 }
 
 func clearApprovalData(approval *models.Approval) error {
