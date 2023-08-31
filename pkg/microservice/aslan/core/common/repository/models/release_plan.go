@@ -43,7 +43,11 @@ type ReleasePlan struct {
 
 	Logs   []*ReleasePlanLog        `bson:"logs"       yaml:"logs"                   json:"logs"`
 	Status config.ReleasePlanStatus `bson:"status"       yaml:"status"                   json:"status"`
-	//Revision int                      `bson:"revision"       yaml:"revision"                   json:"revision"`
+
+	PlanningTime  int64 `bson:"planning_time"       yaml:"planning_time"                   json:"planning_time"`
+	ApprovalTime  int64 `bson:"approval_time"       yaml:"approval_time"                   json:"approval_time"`
+	ExecutingTime int64 `bson:"executing_time"       yaml:"executing_time"                   json:"executing_time"`
+	SuccessTime   int64 `bson:"success_time"       yaml:"success_time"                   json:"success_time"`
 }
 
 func (ReleasePlan) TableName() string {

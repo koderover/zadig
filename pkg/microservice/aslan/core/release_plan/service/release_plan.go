@@ -233,6 +233,8 @@ func ExecuteReleaseJob(c *handler.Context, id string, args *ExecuteReleaseJobArg
 	})
 
 	if checkReleasePlanJobsAllDone(plan) {
+		plan.ExecutingTime = time.Now().Unix()
+		plan.SuccessTime = time.Now().Unix()
 		plan.Status = config.StatusSuccess
 	}
 
@@ -290,6 +292,11 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		}
 	}
 
+	switch plan.Status {
+	case config.StatusPlanning:
+		plan.PlanningTime = time.Now().Unix()
+		// other status will not be done by this function
+	}
 	plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
 		Username:   c.UserName,
 		Account:    c.Account,
@@ -301,7 +308,6 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		After:      status,
 	})
 	plan.Status = config.ReleasePlanStatus(status)
-	//plan.Revision++
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, id, plan); err != nil {
 		return errors.Wrap(err, "update plan")

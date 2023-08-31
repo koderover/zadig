@@ -86,6 +86,8 @@ func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogg
 				job.Status = config.ReleasePlanJobStatusDone
 			}
 			if checkReleasePlanJobsAllDone(plan) {
+				plan.ExecutingTime = time.Now().Unix()
+				plan.SuccessTime = time.Now().Unix()
 				plan.Status = config.StatusSuccess
 			}
 		}
@@ -157,6 +159,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 			CreatedAt:  time.Now().Unix(),
 		})
 		plan.Status = config.StatusExecuting
+		plan.ApprovalTime = time.Now().Unix()
 	case config.StatusReject:
 		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
 			Verb:       VerbUpdate,
