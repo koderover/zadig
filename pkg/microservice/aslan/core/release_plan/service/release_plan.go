@@ -107,7 +107,7 @@ func ListReleasePlans(pageNum, pageSize int64) (*ListReleasePlanResp, error) {
 		PageNum:        pageNum,
 		PageSize:       pageSize,
 		IsSort:         true,
-		ExcludedFields: []string{"jobs", "approval", "logs"},
+		ExcludedFields: []string{"jobs", "logs"},
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "ListReleasePlans")
