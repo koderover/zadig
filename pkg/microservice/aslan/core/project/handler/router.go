@@ -55,6 +55,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		product.GET("/:name/productionGlobalVariableCandidates", GetProductionGlobalVariableCandidates)
 	}
 
+	view := router.Group("view")
+	{
+		view.POST("", CreateProjectGroup)
+		view.PUT("", UpdateProjectGroup)
+		view.DELETE("", DeleteProjectGroup)
+		view.GET("", ListProjectGroups)
+		view.GET("/preset", GetPresetProjectGroup)
+	}
+
 	production := router.Group("production/products")
 	{
 		production.PATCH("/:name", UpdateProductionServiceOrchestration)

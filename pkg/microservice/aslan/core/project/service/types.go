@@ -153,3 +153,34 @@ func (req OpenAPIInitializeProjectReq) Validate() error {
 
 	return nil
 }
+
+type ProjectGroupArgs struct {
+	GroupID     string   `json:"view_id"`
+	GroupName   string   `json:"view_name"`
+	ProjectKeys []string `json:"project_keys"`
+}
+
+func (args *ProjectGroupArgs) Validate() error {
+	if args.GroupName == "" {
+		return errors.New("view_name cannot be empty")
+	}
+
+	if len(args.ProjectKeys) == 0 {
+		return errors.New("project_keys cannot be empty")
+	}
+
+	return nil
+}
+
+type ProjectGroupPreset struct {
+	GroupID   string                  `json:"view_id"`
+	GroupName string                  `json:"view_name"`
+	Projects  []*ProjectGroupRelation `json:"projects"`
+}
+
+type ProjectGroupRelation struct {
+	ProjectName string `json:"project_name"`
+	ProjectKey  string `json:"project_key"`
+	DeployType  string `json:"deploy_type"`
+	Enabled     bool   `json:"enabled"`
+}

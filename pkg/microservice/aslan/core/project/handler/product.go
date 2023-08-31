@@ -19,6 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -752,4 +753,143 @@ func GetProductionGlobalVariableCandidates(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = projectservice.GetGlobalVariableCandidates(c.Param("name"), true, ctx.Logger)
+}
+
+func CreateProjectGroup(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Project.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(projectservice.ProjectGroupArgs)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Logger.Errorf("failed to get raw data from request, error: %v", err)
+		ctx.Err = e.ErrCreateProjectGroup.AddDesc(err.Error())
+		return
+	}
+
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Logger.Errorf("failed to unmarshal data, error: %v", err)
+		ctx.Err = e.ErrCreateProjectGroup.AddDesc(err.Error())
+		return
+	}
+	if err := args.Validate(); err != nil {
+		ctx.Err = e.ErrCreateProjectGroup.AddErr(err)
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "分组", args.GroupName, string(data), ctx.Logger)
+
+	ctx.Err = projectservice.CreateProjectGroup(args, ctx.UserName, ctx.Logger)
+}
+
+func UpdateProjectGroup(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Project.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args := new(projectservice.ProjectGroupArgs)
+	data, err := c.GetRawData()
+	if err != nil {
+		ctx.Logger.Errorf("failed to get raw data from request, error: %v", err)
+		ctx.Err = e.ErrUpdateProjectGroup.AddDesc(err.Error())
+		return
+	}
+
+	if err = json.Unmarshal(data, args); err != nil {
+		ctx.Logger.Errorf("failed to unmarshal data, error: %v", err)
+		ctx.Err = e.ErrUpdateProjectGroup.AddDesc(err.Error())
+		return
+	}
+	if err := args.Validate(); err != nil {
+		ctx.Err = e.ErrUpdateProjectGroup.AddErr(err)
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "编辑", "分组", args.GroupName, string(data), ctx.Logger)
+
+	ctx.Err = projectservice.UpdateProjectGroup(args, ctx.UserName, ctx.Logger)
+}
+
+func DeleteProjectGroup(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.Project.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	groupName := c.Query("viewName")
+	if groupName == "" {
+		ctx.Err = e.ErrDeleteProjectGroup.AddErr(errors.New("view name is empty"))
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "分组", groupName, groupName, ctx.Logger)
+
+	ctx.Err = projectservice.DeleteProjectGroup(groupName, ctx.Logger)
+}
+
+func ListProjectGroups(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.ListProjectGroupNames()
+}
+
+func GetPresetProjectGroup(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.GetProjectGroupRelation(c.Query("viewName"), ctx.Logger)
 }
