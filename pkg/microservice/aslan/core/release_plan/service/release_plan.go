@@ -276,7 +276,7 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 	case config.StatusPlanning:
 		for _, job := range plan.Jobs {
 			job.LastStatus = job.Status
-			job.Status = ""
+			job.Status = config.ReleasePlanJobStatusTodo
 			job.Updated = false
 		}
 	case config.StatusExecuting:
