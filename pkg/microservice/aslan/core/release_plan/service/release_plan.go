@@ -344,7 +344,42 @@ func ApproveReleasePlan(c *handler.Context, id string, req *ApproveRequest) erro
 	if !ok {
 		return errors.Errorf("can not find native approval instance %s", plan.Approval.NativeApproval.InstanceCode)
 	}
-	return approveWithL.DoApproval(c.UserName, c.UserID, req.Comment, req.Approve)
+	if err = approveWithL.DoApproval(c.UserName, c.UserID, req.Comment, req.Approve); err != nil {
+		return errors.Wrap(err, "do approval")
+	}
+
+	plan.Approval.NativeApproval = approveWithL.Approval
+	approved, _, err := approveWithL.IsApproval()
+	if err != nil {
+		plan.Approval.Status = config.StatusReject
+	}
+	if approved {
+		plan.Approval.Status = config.StatusPassed
+	}
+	switch plan.Approval.Status {
+	case config.StatusPassed:
+		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
+			Verb:       VerbUpdate,
+			TargetName: plan.Name,
+			TargetType: TargetTypeReleasePlanStatus,
+			Detail:     "审批通过",
+			CreatedAt:  time.Now().Unix(),
+		})
+		plan.Status = config.StatusExecuting
+		plan.ApprovalTime = time.Now().Unix()
+	case config.StatusReject:
+		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
+			Verb:       VerbUpdate,
+			TargetName: plan.Name,
+			TargetType: TargetTypeReleasePlanStatus,
+			Detail:     "审批拒绝",
+			CreatedAt:  time.Now().Unix(),
+		})
+	}
+	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, id, plan); err != nil {
+		return errors.Wrap(err, "update plan")
+	}
+	return nil
 }
 
 func clearApprovalData(approval *models.Approval) error {
