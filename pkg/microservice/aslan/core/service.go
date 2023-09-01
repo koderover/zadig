@@ -338,6 +338,8 @@ func initKlock() {
 	_ = klock.Init(config.Namespace())
 }
 
+// initReleasePlanWatcher watch release plan status and update release plan status
+// for working after aslan restart
 func initReleasePlanWatcher() {
 	go releaseplanservice.WatchExecutingWorkflow()
 	go releaseplanservice.WatchApproval()

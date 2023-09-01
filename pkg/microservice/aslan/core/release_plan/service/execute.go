@@ -25,8 +25,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 )
 
-const ()
-
 type ReleaseJobExecutor interface {
 	Execute(plan *models.ReleasePlan) error
 }

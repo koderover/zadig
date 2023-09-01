@@ -141,8 +141,8 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		err = updateLarkApproval(ctx, plan.Approval)
 	case config.DingTalkApproval:
 		err = updateDingTalkApproval(ctx, plan.Approval)
+		// NativeApproval is update when approve
 	case config.NativeApproval:
-		//err = updateNativeApproval(ctx, plan.Approval)
 	default:
 		err = errors.Errorf("unknown approval type %s", plan.Approval.Type)
 	}
@@ -152,8 +152,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 	switch plan.Approval.Status {
 	case config.StatusPassed:
 		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-			Verb: VerbUpdate,
-			//TargetName: plan.Name,
+			Verb:       VerbUpdate,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
 			CreatedAt:  time.Now().Unix(),
@@ -163,8 +162,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
 		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-			Verb: VerbUpdate,
-			//TargetName: plan.Name,
+			Verb:       VerbUpdate,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批拒绝",
 			CreatedAt:  time.Now().Unix(),
