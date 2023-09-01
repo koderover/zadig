@@ -269,7 +269,7 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		return errors.Wrap(err, "get user")
 	}
 
-	targetName := plan.Name + "状态"
+	//targetName := plan.Name + "状态"
 	detail := ""
 
 	// target status check and update
@@ -304,10 +304,10 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		plan.PlanningTime = time.Now().Unix()
 	}
 	plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-		Username:   c.UserName,
-		Account:    c.Account,
-		Verb:       VerbUpdate,
-		TargetName: targetName,
+		Username: c.UserName,
+		Account:  c.Account,
+		Verb:     VerbUpdate,
+		//TargetName: targetName,
 		TargetType: TargetTypeReleasePlanStatus,
 		Detail:     detail,
 		Before:     plan.Status,
@@ -376,6 +376,7 @@ func ApproveReleasePlan(c *handler.Context, id string, req *ApproveRequest) erro
 		})
 		plan.Status = config.StatusExecuting
 		plan.ApprovalTime = time.Now().Unix()
+		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
 		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
 			Verb:       VerbUpdate,

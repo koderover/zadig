@@ -160,6 +160,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		})
 		plan.Status = config.StatusExecuting
 		plan.ApprovalTime = time.Now().Unix()
+		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
 		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
 			Verb:       VerbUpdate,
