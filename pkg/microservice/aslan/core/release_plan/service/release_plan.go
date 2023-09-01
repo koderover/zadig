@@ -272,6 +272,7 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 	targetName := plan.Name + "状态"
 	detail := ""
 
+	// target status check and update
 	switch config.ReleasePlanStatus(status) {
 	case config.StatusPlanning:
 		for _, job := range plan.Jobs {
@@ -293,10 +294,14 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		}
 	}
 
+	// original status check and update
 	switch plan.Status {
+	// other status will not be done by this function
 	case config.StatusPlanning:
+		if len(plan.Jobs) == 0 {
+			return errors.Errorf("plan must not have no jobs")
+		}
 		plan.PlanningTime = time.Now().Unix()
-		// other status will not be done by this function
 	}
 	plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
 		Username:   c.UserName,
