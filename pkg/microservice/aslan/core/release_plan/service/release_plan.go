@@ -312,6 +312,7 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		Detail:     detail,
 		Before:     plan.Status,
 		After:      status,
+		CreatedAt:  time.Now().Unix(),
 	})
 	plan.Status = config.ReleasePlanStatus(status)
 
