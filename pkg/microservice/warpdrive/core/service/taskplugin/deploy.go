@@ -441,16 +441,6 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 	return s, nil
 }
 
-func getProductInfo(ctx context.Context, httpClient *httpclient.Client, envName, productName string) (*types.Product, error) {
-	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", envName)
-	prod := &types.Product{}
-	_, err := httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", productName), httpclient.SetQueryParam("ifPassFilter", "true"))
-	if err != nil {
-		return nil, err
-	}
-	return prod, nil
-}
-
 func getRenderedManifests(ctx context.Context, httpClient *httpclient.Client, envName, productName string, serviceName string) ([]string, error) {
 	url := "/api/environment/export/service"
 	prod := make([]string, 0)
