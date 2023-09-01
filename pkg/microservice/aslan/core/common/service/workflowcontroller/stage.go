@@ -38,22 +38,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-//type approveMap struct {
-//	m map[string]*approveWithLock
-//	sync.RWMutex
-//}
-//
-//type approveWithLock struct {
-//	approval *commonmodels.NativeApproval
-//	sync.RWMutex
-//}
-//
-//var globalApproveMap approveMap
-
-//func init() {
-//	globalApproveMap.m = make(map[string]*approveWithLock, 0)
-//}
-
 type StageCtl interface {
 	Run(ctx context.Context, concurrency int)
 }
@@ -607,64 +591,3 @@ func updateStageStatus(stage *commonmodels.StageTask) {
 	}
 	stage.Status = stageStatus
 }
-
-//func (c *approveMap) setApproval(key string, value *approveWithLock) {
-//	c.Lock()
-//	defer c.Unlock()
-//	c.m[key] = value
-//}
-//
-//func (c *approveMap) getApproval(key string) (*approveWithLock, bool) {
-//	c.RLock()
-//	defer c.RUnlock()
-//	v, existed := c.m[key]
-//	return v, existed
-//}
-//func (c *approveMap) deleteApproval(key string) {
-//	c.Lock()
-//	defer c.Unlock()
-//	delete(c.m, key)
-//}
-//
-//func (c *approveWithLock) isApproval() (bool, int, error) {
-//	c.Lock()
-//	defer c.Unlock()
-//	approveCount := 0
-//	for _, user := range c.approval.ApproveUsers {
-//		if user.RejectOrApprove == config.Reject {
-//			c.approval.RejectOrApprove = config.Reject
-//			return false, approveCount, fmt.Errorf("%s reject this task", user.UserName)
-//		}
-//		if user.RejectOrApprove == config.Approve {
-//			approveCount++
-//		}
-//	}
-//	if approveCount >= c.approval.NeededApprovers {
-//		c.approval.RejectOrApprove = config.Approve
-//		return true, approveCount, nil
-//	}
-//	return false, approveCount, nil
-//}
-//
-//func (c *approveWithLock) doApproval(userName, userID, comment string, appvove bool) error {
-//	c.Lock()
-//	defer c.Unlock()
-//	for _, user := range c.approval.ApproveUsers {
-//		if user.UserID != userID {
-//			continue
-//		}
-//		if user.RejectOrApprove != "" {
-//			return fmt.Errorf("%s have %s already", userName, user.RejectOrApprove)
-//		}
-//		user.Comment = comment
-//		user.OperationTime = time.Now().Unix()
-//		if appvove {
-//			user.RejectOrApprove = config.Approve
-//			return nil
-//		} else {
-//			user.RejectOrApprove = config.Reject
-//			return nil
-//		}
-//	}
-//	return fmt.Errorf("user %s has no authority to approve", userName)
-//}
