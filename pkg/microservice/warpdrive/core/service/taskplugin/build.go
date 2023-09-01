@@ -244,6 +244,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	for _, env := range p.Task.JobCtx.EnvVars {
 		if env.Key == "SERVICE" {
 			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "SERVICE_MODULE", Value: env.Value})
+			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "SERVICE_NAME", Value: strings.TrimPrefix(p.Task.ServiceName, env.Value+"_")})
 			break
 		}
 	}

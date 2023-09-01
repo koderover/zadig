@@ -479,6 +479,7 @@ func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, pro
 
 	ret = append(ret, &commonmodels.KeyVal{Key: "TASK_ID", Value: fmt.Sprintf("%d", taskID), IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE", Value: build.ServiceName, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_NAME", Value: build.ServiceName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: build.ServiceModule, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "PROJECT", Value: project, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "WORKFLOW", Value: workflowName, IsCredential: false})
