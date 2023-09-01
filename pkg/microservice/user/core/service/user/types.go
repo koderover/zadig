@@ -102,6 +102,11 @@ const (
 	VerbGetDataCenterOverview       = "data_over"
 	VerbGetDataCenterInsight        = "efficiency_over"
 	VerbEditDataCenterInsightConfig = "edit_dashboard_config"
+	// release plan
+	VerbGetReleasePlan    = "get_release_plan"
+	VerbCreateReleasePlan = "create_release_plan"
+	VerbEditReleasePlan   = "edit_release_plan"
+	VerbDeleteReleasePlan = "delete_release_plan"
 )
 
 type AuthorizedResources struct {
@@ -130,6 +135,7 @@ type SystemActions struct {
 	ReleaseCenter  *ReleaseCenterActions  `json:"release_center"`
 	DeliveryCenter *DeliveryCenterActions `json:"delivery_center"`
 	DataCenter     *DataCenterActions     `json:"data_center"`
+	ReleasePlan    *ReleasePlanActions    `json:"release_plan"`
 }
 
 type WorkflowActions struct {
@@ -237,4 +243,11 @@ type DataCenterActions struct {
 	ViewOverView      bool
 	ViewInsight       bool
 	EditInsightConfig bool
+}
+
+type ReleasePlanActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
 }

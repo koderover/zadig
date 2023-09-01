@@ -335,6 +335,18 @@ metas:
             endpoint: /api/v1/users/search
           - method: GET
             endpoint: /api/aslan/cluster/clusters
+  - resource: ReleasePlan
+    alias: 发布计划
+    description: ""
+    rules:
+      - action: get_release_plan
+        alias: 查看
+      - action: create_release_plan
+        alias: 新建
+      - action: edit_release_plan
+        alias: 编辑
+      - action: delete_release_plan
+        alias: 删除
   - resource: TestCenter
     alias: 测试中心
     description: ""

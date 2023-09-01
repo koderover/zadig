@@ -67,7 +67,7 @@ var projectDefinitionMap = map[string]int{
 func GetPolicyRegistrationDefinitions(scope, envType string, logger *zap.SugaredLogger) ([]*PolicyDefinition, error) {
 	policyMetas := yamlconfig.DefaultPolicyMetasConfig().Policies()
 
-	systemScopeSet := sets.NewString("Project", "Template", "TestCenter", "ReleaseCenter", "DeliveryCenter", "DataCenter")
+	systemScopeSet := sets.NewString("Project", "Template", "TestCenter", "ReleaseCenter", "DeliveryCenter", "DataCenter", "ReleasePlan")
 	projectScopeSet := sets.NewString("Workflow", "Environment", "ProductionEnvironment", "Test", "Delivery", "Build", "Service", "ProductionService", "Scan")
 	systemPolicyMetas, projectPolicyMetas, filteredPolicyMetas := []*types.PolicyMeta{}, []*types.PolicyMeta{}, []*types.PolicyMeta{}
 	for _, v := range policyMetas {

@@ -33,6 +33,7 @@ type SystemActions struct {
 	ReleaseCenter  *ReleaseCenterActions  `json:"release_center"`
 	DeliveryCenter *DeliveryCenterActions `json:"delivery_center"`
 	DataCenter     *DataCenterActions     `json:"data_center"`
+	ReleasePlan    *ReleasePlanActions    `json:"release_plan"`
 }
 
 type WorkflowActions struct {
@@ -140,6 +141,13 @@ type DataCenterActions struct {
 	ViewOverView      bool
 	ViewInsight       bool
 	EditInsightConfig bool
+}
+
+type ReleasePlanActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
 }
 
 func (c *Client) GetUserAuthInfo(uid string) (*AuthorizedResources, error) {

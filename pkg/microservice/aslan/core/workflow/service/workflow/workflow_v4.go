@@ -695,6 +695,13 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 	}
 }
 
+func clearWorkflowV4Triggers(workflow *commonmodels.WorkflowV4) {
+	workflow.HookCtls = nil
+	workflow.MeegoHookCtls = nil
+	workflow.GeneralHookCtls = nil
+	workflow.JiraHookCtls = nil
+}
+
 func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {

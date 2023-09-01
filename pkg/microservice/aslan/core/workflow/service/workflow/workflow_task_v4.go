@@ -232,6 +232,7 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
 		return workflow, err
 	}
+	clearWorkflowV4Triggers(workflow)
 	return workflow, nil
 }
 
