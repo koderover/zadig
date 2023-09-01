@@ -349,7 +349,8 @@ func ApproveReleasePlan(c *handler.Context, id string, req *ApproveRequest) erro
 	if !ok {
 		// restore data after restart aslan
 		log.Infof("updateNativeApproval: approval instance code %s not found, set it", plan.Approval.NativeApproval.InstanceCode)
-		approvalservice.GlobalApproveMap.SetApproval(plan.Approval.NativeApproval.InstanceCode, &approvalservice.ApproveWithLock{Approval: plan.Approval.NativeApproval})
+		approveWithL = &approvalservice.ApproveWithLock{Approval: plan.Approval.NativeApproval}
+		approvalservice.GlobalApproveMap.SetApproval(plan.Approval.NativeApproval.InstanceCode, approveWithL)
 	}
 	if err = approveWithL.DoApproval(c.UserName, c.UserID, req.Comment, req.Approve); err != nil {
 		return errors.Wrap(err, "do approval")
