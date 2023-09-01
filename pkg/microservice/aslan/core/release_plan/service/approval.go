@@ -291,6 +291,7 @@ func updateNativeApproval(ctx context.Context, approval *models.Approval) error 
 		approvalservice.GlobalApproveMap.SetApproval(approval.NativeApproval.InstanceCode, &approvalservice.ApproveWithLock{Approval: approval.NativeApproval})
 	}
 
+	approval.NativeApproval = approveWithL.Approval
 	approved, _, err := approveWithL.IsApproval()
 	if err != nil {
 		approval.Status = config.StatusReject
