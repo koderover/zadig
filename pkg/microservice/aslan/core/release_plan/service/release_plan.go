@@ -347,7 +347,9 @@ func ApproveReleasePlan(c *handler.Context, id string, req *ApproveRequest) erro
 
 	approveWithL, ok := approvalservice.GlobalApproveMap.GetApproval(plan.Approval.NativeApproval.InstanceCode)
 	if !ok {
-		return errors.Errorf("can not find native approval instance %s", plan.Approval.NativeApproval.InstanceCode)
+		// restore data after restart aslan
+		log.Infof("updateNativeApproval: approval instance code %s not found, set it", plan.Approval.NativeApproval.InstanceCode)
+		approvalservice.GlobalApproveMap.SetApproval(plan.Approval.NativeApproval.InstanceCode, &approvalservice.ApproveWithLock{Approval: plan.Approval.NativeApproval})
 	}
 	if err = approveWithL.DoApproval(c.UserName, c.UserID, req.Comment, req.Approve); err != nil {
 		return errors.Wrap(err, "do approval")

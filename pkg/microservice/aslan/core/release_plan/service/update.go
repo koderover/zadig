@@ -413,6 +413,9 @@ func NewUpdateApprovalUpdater(args *UpdateReleasePlanArgs) (*UpdateApprovalUpdat
 }
 
 func (u *UpdateApprovalUpdater) Update(plan *models.ReleasePlan) (before interface{}, after interface{}, err error) {
+	if err := clearApprovalData(u.Approval); err != nil {
+		return nil, nil, errors.Wrap(err, "clear approval data")
+	}
 	before, after = plan.Approval, u.Approval
 	plan.Approval = u.Approval
 	return
