@@ -1853,13 +1853,15 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 		return nil, e.ErrGetEnv
 	}
 
-	renderSetOpt := &commonrepo.RenderSetFindOption{Name: prod.Render.Name, Revision: prod.Render.Revision, ProductTmpl: productName}
-	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
-	if err != nil {
-		log.Errorf("find helm renderset[%s] error: %v", prod.Render.Name, err)
-		return prod, nil
+	if prod.Render != nil {
+		renderSetOpt := &commonrepo.RenderSetFindOption{Name: prod.Render.Name, Revision: prod.Render.Revision, ProductTmpl: productName}
+		renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
+		if err != nil {
+			log.Errorf("find helm renderset[%s] error: %v", prod.Render.Name, err)
+			return prod, nil
+		}
+		prod.ServiceRenders = renderSet.ChartInfos
 	}
-	prod.ServiceRenders = renderSet.ChartInfos
 
 	return prod, nil
 }
