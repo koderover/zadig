@@ -51,6 +51,7 @@ const (
 	TargetTypeMetadata          = "元数据"
 	TargetTypeReleaseJob        = "发布任务"
 	TargetTypeApproval          = "审批"
+	TargetTypeDescription       = "需求关联"
 
 	VerbCreate  = "新建"
 	VerbUpdate  = "更新"
@@ -156,7 +157,7 @@ func (u *DescUpdater) TargetName() string {
 }
 
 func (u *DescUpdater) TargetType() string {
-	return TargetTypeMetadata
+	return TargetTypeDescription
 }
 
 func (u *DescUpdater) Verb() string {

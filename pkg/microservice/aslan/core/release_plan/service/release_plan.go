@@ -368,8 +368,8 @@ func ApproveReleasePlan(c *handler.Context, id string, req *ApproveRequest) erro
 	switch plan.Approval.Status {
 	case config.StatusPassed:
 		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-			Verb:       VerbUpdate,
-			TargetName: plan.Name,
+			Verb: VerbUpdate,
+			//TargetName: plan.Name,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
 			CreatedAt:  time.Now().Unix(),
@@ -379,8 +379,8 @@ func ApproveReleasePlan(c *handler.Context, id string, req *ApproveRequest) erro
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
 		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-			Verb:       VerbUpdate,
-			TargetName: plan.Name,
+			Verb: VerbUpdate,
+			//TargetName: plan.Name,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批拒绝",
 			CreatedAt:  time.Now().Unix(),
