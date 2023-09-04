@@ -191,10 +191,8 @@ func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, e
 			}
 			groupMap[groupName] = elemGroup
 		}
-		log.Debugf("0")
 
 		if elem, ok := projectMap[service.ProductName]; !ok {
-			log.Debugf("1")
 			project := &SearchBizDirByServiceProject{
 				Project:  service.ProductName,
 				Services: []string{service.ServiceName},
@@ -202,12 +200,10 @@ func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, e
 			elemGroup.Projects = append(elemGroup.Projects, project)
 			projectMap[service.ProductName] = project
 		} else {
-			log.Debugf("2")
 			svcSet := sets.NewString(elem.Services...)
 			svcSet.Insert(service.ServiceName)
 			elem.Services = svcSet.List()
 		}
-		log.Debugf("elemGroup: %+v", elemGroup)
 	}
 
 	testServices, err := commonrepo.NewServiceColl().SearchMaxRevisionsByService(serviceName)
@@ -276,9 +272,10 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 			}
 
 			detail := GetBizDirServiceDetailResponse{
-				EnvName: env.EnvName,
-				Name:    serviceName,
-				Type:    setting.K8SDeployType,
+				EnvName:    env.EnvName,
+				Name:       serviceName,
+				Type:       setting.K8SDeployType,
+				UpdateTime: prodSvc.UpdateTime,
 			}
 			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: prodSvc.ServiceName,
@@ -342,9 +339,10 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 			resp = append(resp, detail)
 		} else if project.IsHostProduct() {
 			detail := GetBizDirServiceDetailResponse{
-				EnvName: env.EnvName,
-				Name:    serviceName,
-				Type:    setting.PMDeployType,
+				EnvName:    env.EnvName,
+				Name:       serviceName,
+				Type:       setting.PMDeployType,
+				UpdateTime: prodSvc.UpdateTime,
 			}
 
 			serviceTmpl, err := commonservice.GetServiceTemplate(

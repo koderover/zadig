@@ -18,6 +18,7 @@ package jobcontroller
 
 import (
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -128,6 +129,8 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			productInfo.Services[0] = append(productInfo.Services[0], productSvc)
 			sevOnline = true
 		}
+		productSvc.UpdateTime = time.Now().Unix()
+
 		if svcRender == nil {
 			svcRender = &template.ServiceRender{
 				ServiceName:  deployInfo.ServiceName,

@@ -445,6 +445,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				}
 				service.Revision = svcRev.NextRevision
 				service.Containers = svcRev.Containers
+				service.UpdateTime = time.Now().Unix()
 			}
 			groupSvcs = append(groupSvcs, service)
 
@@ -2855,6 +2856,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 			}
 			prodSvc.Render = chartInfo
 			installParamList = append(installParamList, param)
+			prodSvc.UpdateTime = time.Now().Unix()
 		}
 		groupServiceErr := batchExecutorWithRetry(3, time.Millisecond*500, installParamList, handler, log)
 		if groupServiceErr != nil {

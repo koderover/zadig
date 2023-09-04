@@ -154,6 +154,7 @@ type ProductService struct {
 	Revision    int64                         `bson:"revision"                   json:"revision"`
 	Containers  []*Container                  `bson:"containers"                 json:"containers,omitempty"`
 	Error       string                        `bson:"error,omitempty"            json:"error,omitempty"`
+	UpdateTime  int64                         `bson:"update_time"                json:"update_time"`
 	Render      *templatemodels.ServiceRender `bson:"render"                     json:"render,omitempty"` // New since 1.9.0 used to replace service renders in render_set
 
 	EnvConfigs     []*EnvConfig                    `bson:"-"                          json:"env_configs,omitempty"`

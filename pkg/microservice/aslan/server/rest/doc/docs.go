@@ -199,6 +199,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}": {
+            "delete": {
+                "description": "Delete Product",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Delete Product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "is delete",
+                        "name": "is_delete",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments/{name}/analysis": {
             "post": {
                 "description": "Run Enviroment Analysis",
@@ -2183,6 +2226,242 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/project/integration/{name}/codehosts": {
+            "get": {
+                "description": "List Project CodeHost",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "List Project CodeHost",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "encrypted key",
+                        "name": "encryptedKey",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.CodeHost"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create Project CodeHost",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Create Project CodeHost",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CodeHost"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/project/integration/{name}/codehosts/available": {
+            "get": {
+                "description": "List Available CodeHost",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "List Available CodeHost",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "encrypted key",
+                        "name": "encryptedKey",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.CodeHost"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/project/integration/{name}/codehosts/{id}": {
+            "get": {
+                "description": "Get Project CodeHost",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Get Project CodeHost",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "code host id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.CodeHost"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete Project CodeHost",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Delete Project CodeHost",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "code host id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "patch": {
+                "description": "Update Project CodeHost",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Update Project CodeHost",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "code host id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CodeHost"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/project/products/{name}/globalProductionGlobalVariables": {
             "get": {
                 "description": "Get global variable candidates",
@@ -2824,6 +3103,205 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/system/meego/{id}/projects": {
+            "get": {
+                "description": "List Meego Projects",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List Meego Projects",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "meego id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.MeegoProjectResp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/meego/{id}/projects/{projectID}/work_item": {
+            "get": {
+                "description": "List Meego Work Items",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List Meego Work Items",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "meego id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project id",
+                        "name": "projectID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "type key",
+                        "name": "type_key",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "page num",
+                        "name": "page_num",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "page size",
+                        "name": "page_size",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "item name",
+                        "name": "item_name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.MeegoWorkItemResp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/meego/{id}/projects/{projectID}/work_item/types": {
+            "get": {
+                "description": "Get Meego Work Item Type List",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Get Meego Work Item Type List",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "meego id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project id",
+                        "name": "projectID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.MeegoWorkItemTypeResp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/project_management/project": {
+            "get": {
+                "description": "List Project Management For Project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List Project Management For Project",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.ProjectManagement"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/project_management/{id}/jira/project": {
+            "get": {
+                "description": "List Jira Projects",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List Jira Projects",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "jira id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.JiraProjectsResp"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/system/registry/project": {
             "get": {
                 "description": "List Registries",
@@ -3237,6 +3715,17 @@ const docTemplate = `{
             "x-enum-varnames": [
                 "SourceRuntime",
                 "SourceFromJob"
+            ]
+        },
+        "config.JiraAuthType": {
+            "type": "string",
+            "enum": [
+                "password_or_token",
+                "personal_access_token"
+            ],
+            "x-enum-varnames": [
+                "JiraBasicAuth",
+                "JiraPersonalAccessToken"
             ]
         },
         "github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService": {
@@ -3655,6 +4144,77 @@ const docTemplate = `{
                 }
             }
         },
+        "models.CodeHost": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "address": {
+                    "type": "string"
+                },
+                "alias": {
+                    "type": "string"
+                },
+                "application_id": {
+                    "type": "string"
+                },
+                "auth_type": {
+                    "$ref": "#/definitions/types.AuthType"
+                },
+                "client_secret": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "integer"
+                },
+                "deleted_at": {
+                    "type": "integer"
+                },
+                "enable_proxy": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "integration_level": {
+                    "$ref": "#/definitions/setting.IntegrationLevel"
+                },
+                "is_ready": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "private_access_token": {
+                    "type": "string"
+                },
+                "project": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "ssh_key": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Commit": {
             "type": "object",
             "properties": {
@@ -4066,6 +4626,9 @@ const docTemplate = `{
                 "updatable": {
                     "type": "boolean"
                 },
+                "update_time": {
+                    "type": "integer"
+                },
                 "variable_kvs": {
                     "type": "array",
                     "items": {
@@ -4088,6 +4651,52 @@ const docTemplate = `{
                 },
                 "is_base": {
                     "type": "boolean"
+                }
+            }
+        },
+        "models.ProjectManagement": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "jira_auth_type": {
+                    "$ref": "#/definitions/config.JiraAuthType"
+                },
+                "jira_host": {
+                    "type": "string"
+                },
+                "jira_personal_access_token": {
+                    "description": "JiraPersonalAccessToken is used for bearer token",
+                    "type": "string"
+                },
+                "jira_token": {
+                    "description": "JiraToken is used in place of password for basic auth with username",
+                    "type": "string"
+                },
+                "jira_user": {
+                    "type": "string"
+                },
+                "meego_host": {
+                    "type": "string"
+                },
+                "meego_plugin_id": {
+                    "type": "string"
+                },
+                "meego_plugin_secret": {
+                    "type": "string"
+                },
+                "meego_user_key": {
+                    "type": "string"
+                },
+                "system_identity": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "integer"
                 }
             }
         },
@@ -4633,6 +5242,12 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "pods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.Pod"
+                    }
                 },
                 "schedule": {
                     "type": "string"
@@ -5308,6 +5923,17 @@ const docTemplate = `{
                 }
             }
         },
+        "service.JiraProjectsResp": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "service.K8sDeployStatusCheckRequest": {
             "type": "object",
             "properties": {
@@ -5416,6 +6042,75 @@ const docTemplate = `{
                 },
                 "variable_yaml": {
                     "type": "string"
+                }
+            }
+        },
+        "service.MeegoProject": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.MeegoProjectResp": {
+            "type": "object",
+            "properties": {
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.MeegoProject"
+                    }
+                }
+            }
+        },
+        "service.MeegoWorkItem": {
+            "type": "object",
+            "properties": {
+                "current_state": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.MeegoWorkItemResp": {
+            "type": "object",
+            "properties": {
+                "work_items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.MeegoWorkItem"
+                    }
+                }
+            }
+        },
+        "service.MeegoWorkItemType": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "type_key": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.MeegoWorkItemTypeResp": {
+            "type": "object",
+            "properties": {
+                "work_item_types": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.MeegoWorkItemType"
+                    }
                 }
             }
         },
@@ -5610,6 +6305,9 @@ const docTemplate = `{
                 "updatable": {
                     "type": "boolean"
                 },
+                "update_time": {
+                    "type": "integer"
+                },
                 "variable_kvs": {
                     "type": "array",
                     "items": {
@@ -5684,7 +6382,7 @@ const docTemplate = `{
                 "group_name": {
                     "type": "string"
                 },
-                "service": {
+                "projects": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/service.SearchBizDirByServiceProject"
@@ -5698,7 +6396,7 @@ const docTemplate = `{
                 "project": {
                     "type": "string"
                 },
-                "service": {
+                "services": {
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -6085,6 +6783,17 @@ const docTemplate = `{
                 }
             }
         },
+        "setting.IntegrationLevel": {
+            "type": "string",
+            "enum": [
+                "system",
+                "project"
+            ],
+            "x-enum-varnames": [
+                "IntegrationLevelSystem",
+                "IntegrationLevelProject"
+            ]
+        },
         "setting.PMHostStatus": {
             "type": "string",
             "enum": [
@@ -6251,6 +6960,17 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "types.AuthType": {
+            "type": "string",
+            "enum": [
+                "SSH",
+                "PrivateAccessToken"
+            ],
+            "x-enum-varnames": [
+                "SSHAuthType",
+                "PrivateAccessTokenAuthType"
+            ]
         },
         "types.GlobalVariableKV": {
             "type": "object",
