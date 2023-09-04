@@ -129,7 +129,8 @@ func GetBizDirProject(c *gin.Context) {
 // @Tags  	project
 // @Accept 	json
 // @Produce json
-// @Success 200 		{array} 	string
+// @Param 	projectName		query		string								true	"project name"
+// @Success 200 			{array} 	string
 // @Router /api/aslan/project/bizdir/services [get]
 func GetBizDirProjectServices(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
@@ -212,6 +213,8 @@ func SearchBizDirByService(c *gin.Context) {
 // @Tags  	project
 // @Accept 	json
 // @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	serviceName		query		string								true	"service name"
 // @Success 200 		{array} 	projectservice.GetBizDirServiceDetailResponse
 // @Router /api/aslan/project/bizdir/service/detail [get]
 func GetBizDirServiceDetail(c *gin.Context) {

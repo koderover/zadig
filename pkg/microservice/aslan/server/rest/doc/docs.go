@@ -2119,6 +2119,22 @@ const docTemplate = `{
                     "project"
                 ],
                 "summary": "Get Bussiness Directory Searvice Detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2145,6 +2161,15 @@ const docTemplate = `{
                     "project"
                 ],
                 "summary": "Get Bussiness Directory Project Services",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",

@@ -208,6 +208,7 @@ func SearchBizDirByService(serviceName string) ([]SearchBizDirByServiceGroup, er
 	if err != nil {
 		return nil, e.ErrSearchBizDirByService.AddErr(fmt.Errorf("Failed to search testing services by service name %v, err: %s", serviceName, err))
 	}
+	log.Debugf("testServices: %+v", testServices)
 	for _, svc := range testServices {
 		addToRespMap(svc)
 	}
