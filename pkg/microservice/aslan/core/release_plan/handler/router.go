@@ -34,3 +34,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		v1.POST("/:id/approve", ApproveReleasePlan)
 	}
 }
+
+type OpenAPIRouter struct{}
+
+func (*OpenAPIRouter) Inject(router *gin.RouterGroup) {
+	v1 := router.Group("v1")
+	{
+		v1.GET("", OpenAPIListReleasePlans)
+		v1.POST("", OpenAPICreateReleasePlan)
+		v1.GET("/:id", OpenAPIGetReleasePlan)
+	}
+}
