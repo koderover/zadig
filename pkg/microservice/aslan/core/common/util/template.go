@@ -23,9 +23,10 @@ import (
 	"strings"
 	gotemplate "text/template"
 
+	"gopkg.in/yaml.v2"
+
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
-	"gopkg.in/yaml.v2"
 )
 
 var (

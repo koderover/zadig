@@ -25,7 +25,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow/job"
 )
 
 func lintReleaseJob(_type config.ReleasePlanJobType, spec interface{}) error {
@@ -47,29 +46,19 @@ func lintReleaseJob(_type config.ReleasePlanJobType, spec interface{}) error {
 	}
 }
 
+func lintReleaseTimeRange(start, end int64) error {
+	if start == 0 && end == 0 {
+		return nil
+	}
+	if start > end {
+		return errors.New("start time should not be greater than end time")
+	}
+	return nil
+}
+
 func lintWorkflow(workflow *models.WorkflowV4) error {
 	if workflow == nil {
 		return fmt.Errorf("workflow cannot be empty")
-	}
-	// ToJobs will change raw workflow data, so we need to copy it
-	tmp := new(models.WorkflowV4)
-	if err := models.IToi(workflow, tmp); err != nil {
-		return fmt.Errorf("IToi tmp workflow error: %v", err)
-	}
-	for _, stage := range tmp.Stages {
-		for _, job := range stage.Jobs {
-			if jobctl.JobSkiped(job) {
-				continue
-			}
-			err := jobctl.LintJob(job, workflow)
-			if err != nil {
-				return fmt.Errorf("lint job-%s err: %v", job.Name, err)
-			}
-			_, err = jobctl.ToJobs(job, workflow, 0)
-			if err != nil {
-				return fmt.Errorf("lint job-%s runtime err: %v", job.Name, err)
-			}
-		}
 	}
 	return nil
 }

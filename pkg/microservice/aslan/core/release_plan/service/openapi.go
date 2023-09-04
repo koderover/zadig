@@ -102,8 +102,8 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 	if args.Name == "" || args.ManagerID == "" {
 		return errors.New("Required parameters are missing")
 	}
-	if args.StartTime > args.EndTime || args.EndTime < time.Now().Unix() {
-		return errors.New("Invalid release time range")
+	if err := lintReleaseTimeRange(args.StartTime, args.EndTime); err != nil {
+		return errors.Wrap(err, "lint release time range error")
 	}
 	userInfo, err := user.New().GetUserByID(args.ManagerID)
 	if err != nil {
