@@ -216,7 +216,7 @@ func (c *ServiceColl) SearchMaxRevisionsByService(serviceName string) ([]*models
 	pre := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},
 	}
-	pre["service_name"] = fmt.Sprintf(" /.*%s.*/i", serviceName)
+	pre["service_name"] = bson.M{"$regex": fmt.Sprintf(".*%s.*", serviceName), "$options": "i"}
 
 	return c.listMaxRevisions(pre, nil)
 }

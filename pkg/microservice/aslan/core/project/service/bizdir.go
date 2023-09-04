@@ -154,17 +154,17 @@ func SearchBizDirByProject(projectKeyword string) ([]GroupDetail, error) {
 }
 
 type SearchBizDirByServiceGroup struct {
-	GroupName string                         `json:"group_name"`
-	Projects  []SearchBizDirByServiceProject `json:"service"`
+	GroupName string                          `json:"group_name"`
+	Projects  []*SearchBizDirByServiceProject `json:"projects"`
 }
 
 type SearchBizDirByServiceProject struct {
 	Project  string   `json:"project"`
-	Services []string `json:"service"`
+	Services []string `json:"services"`
 }
 
-func SearchBizDirByService(serviceName string) ([]SearchBizDirByServiceGroup, error) {
-	resp := []SearchBizDirByServiceGroup{}
+func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, error) {
+	resp := []*SearchBizDirByServiceGroup{}
 	groups, err := commonrepo.NewProjectGroupColl().List()
 	if err != nil {
 		return nil, e.ErrSearchBizDirByService.AddErr(fmt.Errorf("failed to list project groups, error: %v", err))
@@ -177,8 +177,8 @@ func SearchBizDirByService(serviceName string) ([]SearchBizDirByServiceGroup, er
 		}
 	}
 
-	groupMap := make(map[string]SearchBizDirByServiceGroup)
-	projectMap := make(map[string]SearchBizDirByServiceProject)
+	groupMap := make(map[string]*SearchBizDirByServiceGroup)
+	projectMap := make(map[string]*SearchBizDirByServiceProject)
 	addToRespMap := func(service *commonmodels.Service) {
 		groupName, ok := projectGroupMap[service.ProductName]
 		if !ok {
@@ -186,29 +186,34 @@ func SearchBizDirByService(serviceName string) ([]SearchBizDirByServiceGroup, er
 		}
 		elemGroup, ok := groupMap[groupName]
 		if !ok {
-			elemGroup = SearchBizDirByServiceGroup{
+			elemGroup = &SearchBizDirByServiceGroup{
 				GroupName: groupName,
 			}
 			groupMap[groupName] = elemGroup
 		}
+		log.Debugf("0")
 
 		if elem, ok := projectMap[service.ProductName]; !ok {
-			elemGroup.Projects = append(elemGroup.Projects, SearchBizDirByServiceProject{
+			log.Debugf("1")
+			project := &SearchBizDirByServiceProject{
 				Project:  service.ProductName,
 				Services: []string{service.ServiceName},
-			})
+			}
+			elemGroup.Projects = append(elemGroup.Projects, project)
+			projectMap[service.ProductName] = project
 		} else {
+			log.Debugf("2")
 			svcSet := sets.NewString(elem.Services...)
 			svcSet.Insert(service.ServiceName)
 			elem.Services = svcSet.List()
 		}
+		log.Debugf("elemGroup: %+v", elemGroup)
 	}
 
 	testServices, err := commonrepo.NewServiceColl().SearchMaxRevisionsByService(serviceName)
 	if err != nil {
 		return nil, e.ErrSearchBizDirByService.AddErr(fmt.Errorf("Failed to search testing services by service name %v, err: %s", serviceName, err))
 	}
-	log.Debugf("testServices: %+v", testServices)
 	for _, svc := range testServices {
 		addToRespMap(svc)
 	}
