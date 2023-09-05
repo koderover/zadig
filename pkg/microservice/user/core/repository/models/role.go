@@ -43,7 +43,7 @@ type NewRole struct {
 	Namespace   string `gorm:"column:namespace"   json:"namespace"`
 
 	RoleActionBindings []RoleActionBinding `gorm:"foreignKey:role_id;constraint:OnDelete:CASCADE;"`
-	RoleUserBindings   []RoleBinding       `gorm:"foreignKey:role_id;constraint:OnDelete:CASCADE;"`
+	RoleUserBindings   []NewRoleBinding    `gorm:"foreignKey:role_id;constraint:OnDelete:CASCADE;"`
 	GroupRoleBindings  []GroupRoleBinding  `gorm:"foreignKey:role_id;constraint:OnDelete:CASCADE;"`
 }
 
