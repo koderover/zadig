@@ -136,13 +136,19 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		return nil
 	}
 
+	// skip if plan has been rejected
+	if plan.Approval.Status == config.StatusReject {
+		return nil
+	}
+
 	switch plan.Approval.Type {
 	case config.LarkApproval:
 		err = updateLarkApproval(ctx, plan.Approval)
 	case config.DingTalkApproval:
 		err = updateDingTalkApproval(ctx, plan.Approval)
-		// NativeApproval is update when approve
+	// NativeApproval is update when approve
 	case config.NativeApproval:
+		return nil
 	default:
 		err = errors.Errorf("unknown approval type %s", plan.Approval.Type)
 	}
