@@ -2536,24 +2536,10 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		return nil, errList
 	}
 
-	manifests := releaseutil.SplitManifests(parsedYaml)
 	if prevSvc == nil {
 		fakeTemplateSvc := &commonmodels.Service{ServiceName: service.ServiceName, ProductName: service.ServiceName, KubeYamls: util.SplitYaml(parsedYaml)}
 		commonutil.SetCurrentContainerImages(fakeTemplateSvc)
 		service.Containers = fakeTemplateSvc.Containers
-	}
-
-	// validate service yaml
-	resources := make([]*unstructured.Unstructured, 0, len(manifests))
-	for _, item := range manifests {
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
-		if err != nil {
-			log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
-			errList = multierror.Append(errList, err)
-			continue
-		}
-
-		resources = append(resources, u)
 	}
 
 	preResourceYaml := ""
@@ -2578,6 +2564,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		AddZadigLabel:       addLabel,
 		SharedEnvHandler:    EnsureUpdateZadigService,
 	}
+
 	return kube.CreateOrPatchResource(resourceApplyParam, log)
 }
 
