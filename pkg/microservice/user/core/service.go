@@ -388,7 +388,8 @@ RoleLoop:
 		}
 
 		// if no user found, the data is corrupted: there is a role binding without a user, we ignore it
-		if len(userInfo.UID) == 0 {
+		// someone fucked up and the userinfo might be nil
+		if userInfo == nil || len(userInfo.UID) == 0 {
 			continue
 		}
 
