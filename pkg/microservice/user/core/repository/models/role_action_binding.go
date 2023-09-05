@@ -21,3 +21,7 @@ type RoleActionBinding struct {
 	RoleID   uint `gorm:"column:role_id"    json:"role_id"`
 	ActionID uint `gorm:"column:action_id"  json:"action_id"`
 }
+
+func (RoleActionBinding) TableName() string {
+	return "role_action_binding"
+}
