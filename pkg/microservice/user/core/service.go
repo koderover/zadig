@@ -145,7 +145,7 @@ func InitializeUserDBAndTables() {
 
 func initializeSystemActions() {
 	var count int64
-	err := repository.DB.Table("action").Count(&count).Error
+	err := repository.DB.Table(fmt.Sprintf("%s.action", config.MysqlUserDB())).Count(&count).Error
 	if err != nil {
 		panic("failed to count")
 	}
