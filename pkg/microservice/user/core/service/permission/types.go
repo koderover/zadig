@@ -93,7 +93,7 @@ const (
 	VerbDeleteTemplate = "delete_template"
 	// test center
 	VerbViewTestCenter = "get_test"
-	// release center
+	// release center, deprecated after 1.7.0
 	VerbViewReleaseCenter = "get_release"
 	// delivery center
 	VerbDeliveryCenterGetVersions = "release_get"

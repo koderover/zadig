@@ -23,10 +23,6 @@ import (
 	"fmt"
 	"time"
 
-	userservice "github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
-	"go.mongodb.org/mongo-driver/mongo"
-	"gorm.io/gorm"
-
 	_ "github.com/go-sql-driver/mysql"
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/user/config"
@@ -34,10 +30,12 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
+	userservice "github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/pkg/setting"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func Start(_ context.Context) {
@@ -322,17 +320,17 @@ RoleLoop:
 				if _, ok := actionIDMap[verb]; !ok {
 					action, err := orm.GetActionByVerb(verb, repository.DB)
 					if err != nil {
-						if err != gorm.ErrRecordNotFound {
-							tx.Rollback()
-							log.Panicf("unexpected database error getting action, err: %s", err)
-						} else {
-							log.Errorf("failed to find action: %s", verb)
-							// otherwise do nothing
-							continue VerbLoop
-						}
+						tx.Rollback()
+						log.Panicf("unexpected database error getting action, err: %s", err)
 					}
 					// if we found one, save it into the cache
-					actionIDMap[verb] = action.ID
+					if action.ID != 0 {
+						actionIDMap[verb] = action.ID
+					} else {
+						log.Errorf("failed to find action: %s", verb)
+						// otherwise do nothing
+						continue VerbLoop
+					}
 				}
 
 				// after the cache was done, getting the action id and add it to the list
