@@ -144,7 +144,7 @@ func migrateWorkflowTemplate() error {
 					SetFilter(bson.D{{"_id", workflow.ID}}).
 					SetUpdate(bson.D{{"$set",
 						bson.D{
-							{"category", setting.CustomWorkflowType},
+							{"category", setting.CustomWorkflow},
 						}},
 					}),
 			)
