@@ -153,10 +153,12 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 	switch plan.Approval.Status {
 	case config.StatusPassed:
 		planLog = &models.ReleasePlanLog{
+			Username:   "系统",
 			Verb:       VerbUpdate,
 			TargetName: TargetTypeReleasePlanStatus,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
+			After:      config.StatusExecuting,
 			CreatedAt:  time.Now().Unix(),
 		}
 		plan.Status = config.StatusExecuting
@@ -164,11 +166,8 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
 		planLog = &models.ReleasePlanLog{
-			Verb:       VerbUpdate,
-			TargetName: TargetTypeReleasePlanStatus,
-			TargetType: TargetTypeReleasePlanStatus,
-			Detail:     "审批拒绝",
-			CreatedAt:  time.Now().Unix(),
+			Detail:    "审批被拒绝",
+			CreatedAt: time.Now().Unix(),
 		}
 	}
 

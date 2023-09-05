@@ -412,10 +412,12 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 	switch plan.Approval.Status {
 	case config.StatusPassed:
 		planLog = &models.ReleasePlanLog{
+			Username:   "系统",
 			Verb:       VerbUpdate,
-			TargetType: TargetTypeReleasePlanStatus,
 			TargetName: TargetTypeReleasePlanStatus,
+			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
+			After:      config.StatusExecuting,
 			CreatedAt:  time.Now().Unix(),
 		}
 		plan.Status = config.StatusExecuting
@@ -423,11 +425,8 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
 		planLog = &models.ReleasePlanLog{
-			Verb:       VerbUpdate,
-			TargetType: TargetTypeReleasePlanStatus,
-			TargetName: TargetTypeReleasePlanStatus,
-			Detail:     "审批拒绝",
-			CreatedAt:  time.Now().Unix(),
+			Detail:    "审批被拒绝",
+			CreatedAt: time.Now().Unix(),
 		}
 	}
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
