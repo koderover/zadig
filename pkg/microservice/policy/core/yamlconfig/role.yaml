@@ -1,9 +1,0 @@
-description: "we have 5 preset roles: you can change the role rules to update permission"
-preset_roles:
-  - name: admin
-    desc: 拥有系统中任何操作的权限
-    rules:
-      - verbs:
-          - '*'
-        resources:
-          - '*'
