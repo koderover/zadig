@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS `action` (
 
 CREATE TABLE IF NOT EXISTS `role` (
     `id`          bigint(20) NOT NULL AUTO_INCREMENT,
-    `name`        varchar(32) NOT NULL UNIQUE COMMENT '角色名称',
+    `name`        varchar(32) NOT NULL COMMENT '角色名称',
     `description` varchar(64) NOT NULL COMMENT '描述',
     `type`        int(11) NOT NULL COMMENT '资源范围，1-系统自带， 2-用户自定义',
     `namespace`   varchar(32) NOT NULL COMMENT '所属项目，*为全局角色标记',
