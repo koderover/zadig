@@ -81,12 +81,13 @@ func OpenAPIGetReleasePlan(id string) (*models.ReleasePlan, error) {
 }
 
 type OpenAPICreateReleasePlanArgs struct {
-	Name        string           `bson:"name"       yaml:"name"                   json:"name"`
-	Manager     string           `bson:"manager"       yaml:"manager"                   json:"manager"`
-	StartTime   int64            `bson:"start_time"       yaml:"start_time"                   json:"start_time"`
-	EndTime     int64            `bson:"end_time"       yaml:"end_time"                   json:"end_time"`
-	Description string           `bson:"description"       yaml:"description"                   json:"description"`
-	Approval    *models.Approval `bson:"approval"       yaml:"approval"                   json:"approval,omitempty"`
+	Name                string           `bson:"name"       yaml:"name"                   json:"name"`
+	Manager             string           `bson:"manager"       yaml:"manager"                   json:"manager"`
+	ManagerIdentityType string           `bson:"manager_identity_type"       yaml:"manager_identity_type"                   json:"manager_identity_type"`
+	StartTime           int64            `bson:"start_time"       yaml:"start_time"                   json:"start_time"`
+	EndTime             int64            `bson:"end_time"       yaml:"end_time"                   json:"end_time"`
+	Description         string           `bson:"description"       yaml:"description"                   json:"description"`
+	Approval            *models.Approval `bson:"approval"       yaml:"approval"                   json:"approval,omitempty"`
 }
 
 func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleasePlanArgs) error {
@@ -105,7 +106,8 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 		return errors.Wrap(err, "lint release time range error")
 	}
 	searchUserResp, err := user.New().SearchUser(&user.SearchUserArgs{
-		Account: args.Manager,
+		Account:      args.Manager,
+		IdentityType: rawArgs.ManagerIdentityType,
 	})
 	if err != nil {
 		return errors.Errorf("Failed to get user %s, error: %v", args.Manager, err)
