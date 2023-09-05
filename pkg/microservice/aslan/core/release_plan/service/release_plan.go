@@ -412,6 +412,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 	switch plan.Approval.Status {
 	case config.StatusPassed:
 		planLog = &models.ReleasePlanLog{
+			PlanID:     planID,
 			Username:   "系统",
 			Verb:       VerbUpdate,
 			TargetName: TargetTypeReleasePlanStatus,
@@ -425,6 +426,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
 		planLog = &models.ReleasePlanLog{
+			PlanID:    planID,
 			Detail:    "审批被拒绝",
 			CreatedAt: time.Now().Unix(),
 		}
@@ -437,7 +439,6 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		if planLog == nil {
 			return
 		}
-		planLog.PlanID = planID
 		if err := mongodb.NewReleasePlanLogColl().Create(planLog); err != nil {
 			log.Errorf("create release plan log error: %v", err)
 		}
