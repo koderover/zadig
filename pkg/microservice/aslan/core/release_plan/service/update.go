@@ -189,16 +189,7 @@ func (u *TimeRangeUpdater) Update(plan *models.ReleasePlan) (before interface{},
 }
 
 func (u *TimeRangeUpdater) Lint() error {
-	if u.StartTime == 0 || u.EndTime == 0 {
-		return fmt.Errorf("start_time and end_time cannot be empty")
-	}
-	if u.StartTime >= u.EndTime {
-		return fmt.Errorf("start_time must be less than end_time")
-	}
-	if u.EndTime < time.Now().Unix() {
-		return fmt.Errorf("end_time must be greater than now")
-	}
-	return nil
+	return lintReleaseTimeRange(u.StartTime, u.EndTime)
 }
 
 func (u *TimeRangeUpdater) TargetName() string {

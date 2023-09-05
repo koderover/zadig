@@ -45,8 +45,8 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	if args.Name == "" || args.ManagerID == "" {
 		return errors.New("Required parameters are missing")
 	}
-	if args.StartTime > args.EndTime || args.EndTime < time.Now().Unix() {
-		return errors.New("Invalid release time range")
+	if err := lintReleaseTimeRange(args.StartTime, args.EndTime); err != nil {
+		return errors.Wrap(err, "lint release time range error")
 	}
 	userInfo, err := user.New().GetUserByID(args.ManagerID)
 	if err != nil {
@@ -205,9 +205,11 @@ func ExecuteReleaseJob(c *handler.Context, id string, args *ExecuteReleaseJobArg
 		return errors.Errorf("plan status is %s, can not execute", plan.Status)
 	}
 
-	now := time.Now().Unix()
-	if now < plan.StartTime || now > plan.EndTime {
-		return errors.Errorf("plan is not in the release time range")
+	if !(plan.StartTime == 0 && plan.EndTime == 0) {
+		now := time.Now().Unix()
+		if now < plan.StartTime || now > plan.EndTime {
+			return errors.Errorf("plan is not in the release time range")
+		}
 	}
 
 	if plan.ManagerID != c.UserID {
