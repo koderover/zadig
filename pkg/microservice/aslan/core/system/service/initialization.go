@@ -82,7 +82,7 @@ func InitializeUser(username, password, company, email string, phone int64, reas
 	}
 
 	if userCountInfo.TotalUser > 0 {
-		return fmt.Errorf("there are users in the system, cannot reinitialize")
+		return nil
 	}
 
 	userInfo, err := user.New().CreateUser(&user.CreateUserArgs{
