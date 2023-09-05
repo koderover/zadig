@@ -382,6 +382,16 @@ RoleLoop:
 	}
 
 	for uid, roleIDList := range rbmap {
+		userInfo, err := orm.GetUserByUid(uid, tx)
+		if err != nil {
+			log.Panicf("failed to find user of uid: %s, error: %s", uid, err)
+		}
+
+		// if no user found, the data is corrupted: there is a role binding without a user, we ignore it
+		if len(userInfo.UID) == 0 {
+			continue
+		}
+
 		err = orm.BulkCreateRoleBindingForUser(uid, roleIDList, tx)
 		if err != nil {
 			tx.Rollback()
