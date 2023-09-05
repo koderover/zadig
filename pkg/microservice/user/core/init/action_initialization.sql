@@ -1,4 +1,3 @@
-use %s;
 INSERT INTO `action` (name, action, resource, scope)
 VALUES
     ("管理员", "*", "*", 0),
