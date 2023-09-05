@@ -216,7 +216,7 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 	}
 	approval := plan.Approval.NativeApproval
 
-	func() {
+	go func() {
 		email, err := systemconfig.New().GetEmailHost()
 		if err != nil {
 			log.Errorf("CreateNativeApproval GetEmailHost error, error msg:%s", err)

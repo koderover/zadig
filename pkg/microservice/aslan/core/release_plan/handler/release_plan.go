@@ -76,6 +76,25 @@ func GetReleasePlan(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetReleasePlan(c.Param("id"))
 }
 
+func GetReleasePlanLogs(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
+
+	ctx.Resp, ctx.Err = service.GetReleasePlanLogs(c.Param("id"))
+}
+
 func CreateReleasePlan(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

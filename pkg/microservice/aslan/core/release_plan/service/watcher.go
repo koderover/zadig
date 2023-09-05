@@ -149,28 +149,40 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 	if err != nil {
 		return errors.Errorf("update plan %s approval error: %v", plan.Name, err)
 	}
+	var planLog *models.ReleasePlanLog
 	switch plan.Approval.Status {
 	case config.StatusPassed:
-		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
+		planLog = &models.ReleasePlanLog{
 			Verb:       VerbUpdate,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
 			CreatedAt:  time.Now().Unix(),
-		})
+		}
 		plan.Status = config.StatusExecuting
 		plan.ApprovalTime = time.Now().Unix()
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
-		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
+		planLog = &models.ReleasePlanLog{
 			Verb:       VerbUpdate,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批拒绝",
 			CreatedAt:  time.Now().Unix(),
-		})
+		}
 	}
 
 	if err := mongodb.NewReleasePlanColl().UpdateByID(ctx, plan.ID.Hex(), plan); err != nil {
 		return errors.Errorf("update plan %s error: %v", plan.ID.Hex(), err)
 	}
+
+	go func() {
+		if planLog == nil {
+			return
+		}
+		planLog.PlanID = plan.ID.Hex()
+		if err := mongodb.NewReleasePlanLogColl().Create(planLog); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
+	}()
+
 	return nil
 }
