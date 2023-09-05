@@ -370,6 +370,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, err)
 				continue
 			}
+			log.Infof("--------- object kind: %s, name: %s", obj.GetObjectKind().GroupVersionKind().Kind, u.GetName())
 
 			switch res := obj.(type) {
 			case *appsv1.Deployment:
@@ -400,6 +401,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, fmt.Errorf("object is not a appsv1.Deployment or appsv1.StatefulSet"))
 				continue
 			}
+			log.Infof("-------- the errlist is %v", errList.ErrorOrNil())
 
 		case setting.Job:
 			jsonData, err := u.MarshalJSON()
@@ -443,7 +445,6 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, errors.Wrapf(err, "failed to create or update %s/%s", u.GetKind(), u.GetName()))
 				continue
 			}
-			log.Infof("%s api verison is %s", u.GetName(), u.GetAPIVersion())
 			if u.GetAPIVersion() == batchv1.SchemeGroupVersion.String() {
 				obj, err := serializer.NewDecoder().JSONToCronJob(jsonData)
 				if err != nil {
@@ -522,7 +523,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 		return nil, errList.ErrorOrNil()
 	}
 
-	return res, errList.ErrorOrNil()
+	return res, nil
 }
 
 func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.RenderSet, *commonmodels.ProductService, *commonmodels.Service, error) {
