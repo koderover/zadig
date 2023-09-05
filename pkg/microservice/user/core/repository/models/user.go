@@ -18,7 +18,7 @@ package models
 
 type User struct {
 	Model
-	UID          string `json:"uid"`
+	UID          string `gorm:"primary" json:"uid"`
 	Name         string `json:"name"`
 	IdentityType string `gorm:"default:'unknown'" json:"identity_type"`
 	Email        string `json:"email"`
