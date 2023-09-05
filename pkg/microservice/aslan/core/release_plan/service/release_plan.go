@@ -351,6 +351,7 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
 			Username:   c.UserName,
 			Account:    c.Account,
 			Verb:       VerbUpdate,
+			TargetName: TargetTypeReleasePlanStatus,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     detail,
 			Before:     plan.Status,
@@ -413,6 +414,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		planLog = &models.ReleasePlanLog{
 			Verb:       VerbUpdate,
 			TargetType: TargetTypeReleasePlanStatus,
+			TargetName: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
 			CreatedAt:  time.Now().Unix(),
 		}
@@ -423,6 +425,7 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		planLog = &models.ReleasePlanLog{
 			Verb:       VerbUpdate,
 			TargetType: TargetTypeReleasePlanStatus,
+			TargetName: TargetTypeReleasePlanStatus,
 			Detail:     "审批拒绝",
 			CreatedAt:  time.Now().Unix(),
 		}

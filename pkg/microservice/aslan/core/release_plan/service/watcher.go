@@ -154,6 +154,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 	case config.StatusPassed:
 		planLog = &models.ReleasePlanLog{
 			Verb:       VerbUpdate,
+			TargetName: TargetTypeReleasePlanStatus,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
 			CreatedAt:  time.Now().Unix(),
@@ -164,6 +165,7 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 	case config.StatusReject:
 		planLog = &models.ReleasePlanLog{
 			Verb:       VerbUpdate,
+			TargetName: TargetTypeReleasePlanStatus,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批拒绝",
 			CreatedAt:  time.Now().Unix(),
