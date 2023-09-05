@@ -77,10 +77,10 @@ CREATE TABLE IF NOT EXISTS `role_action_binding` (
 
 CREATE TABLE IF NOT EXISTS `role_binding` (
     `id`        bigint(20) NOT NULL AUTO_INCREMENT,
-    `user_id`   varchar(64) NOT NULL COMMENT '用户ID',
+    `uid`   varchar(64) NOT NULL COMMENT '用户ID',
     `role_id`   bigint(20) NOT NULL COMMENT '角色ID',
     PRIMARY KEY (`id`),
-    FOREIGN KEY (`user_id`) REFERENCES user(`uid`),
+    FOREIGN KEY (`uid`) REFERENCES user(`uid`),
     FOREIGN KEY (`role_id`) REFERENCES role(`id`)
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色/用户绑定信息' ROW_FORMAT = Compact;
 
