@@ -24,9 +24,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -107,6 +109,11 @@ func AutoCreateWorkflow(c *gin.Context) {
 	ctx.Resp = workflow.AutoCreateWorkflow(projectKey, ctx.Logger)
 }
 
+type CreateWorkflowReq struct {
+	Workflow *commonmodels.Workflow `json:"workflow"`
+	View     string                 `json:"view"`
+}
+
 func CreateWorkflow(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -118,7 +125,7 @@ func CreateWorkflow(c *gin.Context) {
 		return
 	}
 
-	args := new(commonmodels.Workflow)
+	args := new(CreateWorkflowReq)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateWorkflow c.GetRawData() err : %v", err)
@@ -127,8 +134,8 @@ func CreateWorkflow(c *gin.Context) {
 		log.Errorf("CreateWorkflow json.Unmarshal err : %v", err)
 	}
 
-	projectKey := args.ProductTmplName
-	workflowName := args.Name
+	projectKey := args.Workflow.ProductTmplName
+	workflowName := args.Workflow.Name
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "工作流", workflowName, string(data), ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
@@ -151,9 +158,22 @@ func CreateWorkflow(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	args.UpdateBy = ctx.UserName
-	args.CreateBy = ctx.UserName
-	ctx.Err = workflow.CreateWorkflow(args, ctx.Logger)
+	args.Workflow.UpdateBy = ctx.UserName
+	args.Workflow.CreateBy = ctx.UserName
+	if err := workflow.CreateWorkflow(args.Workflow, ctx.Logger); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	if args.View != "" {
+		workflow.AddWorkflowToView(args.Workflow.ProductTmplName, args.View, []*commonmodels.WorkflowViewDetail{
+			{
+				WorkflowName:        args.Workflow.Name,
+				WorkflowDisplayName: args.Workflow.DisplayName,
+				WorkflowType:        setting.ProductWorkflowType,
+			},
+		}, ctx.Logger)
+	}
 }
 
 // UpdateWorkflow  update a workflow
