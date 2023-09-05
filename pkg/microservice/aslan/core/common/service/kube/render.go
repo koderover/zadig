@@ -614,14 +614,10 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, render *commonmodels.
 	// Note only the keys in TemplateService.ServiceVar can work
 	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render)
 	if err != nil {
-		log.Error("failed to render service yaml, err: %s", err)
+		log.Errorf("failed to render service yaml, err: %s", err)
 		return "", err
 	}
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
 	parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, service.Containers)
-	if err != nil {
-		log.Error("failed to replace workload images, err: %s", err)
-		return "", err
-	}
-	return parsedYaml, nil
+	return parsedYaml, err
 }

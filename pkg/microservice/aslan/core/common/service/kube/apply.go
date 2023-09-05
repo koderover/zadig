@@ -370,7 +370,6 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, err)
 				continue
 			}
-			log.Infof("--------- object kind: %s, name: %s", obj.GetObjectKind().GroupVersionKind().Kind, u.GetName())
 
 			switch res := obj.(type) {
 			case *appsv1.Deployment:
@@ -401,7 +400,6 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				errList = multierror.Append(errList, fmt.Errorf("object is not a appsv1.Deployment or appsv1.StatefulSet"))
 				continue
 			}
-			log.Infof("-------- the errlist is %v", errList.ErrorOrNil())
 
 		case setting.Job:
 			jsonData, err := u.MarshalJSON()
