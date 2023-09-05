@@ -23,6 +23,9 @@ import (
 )
 
 func BulkCreateRoleActionBindings(roleID uint, actionIDs []uint, db *gorm.DB) error {
+	if len(actionIDs) == 0 {
+		return nil
+	}
 	bindings := make([]models.RoleActionBinding, 0)
 
 	for _, aID := range actionIDs {

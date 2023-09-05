@@ -30,6 +30,9 @@ func CreateRoleBinding(role *models.NewRoleBinding, db *gorm.DB) error {
 }
 
 func BulkCreateRoleBindingForUser(uid string, roleIDs []uint, db *gorm.DB) error {
+	if len(roleIDs) == 0 {
+		return nil
+	}
 	rbs := make([]*models.NewRoleBinding, 0)
 	for _, roleID := range roleIDs {
 		rbs = append(rbs, &models.NewRoleBinding{
@@ -44,6 +47,10 @@ func BulkCreateRoleBindingForUser(uid string, roleIDs []uint, db *gorm.DB) error
 }
 
 func BulkCreateRoleBindingForRole(roleID uint, UIDs []string, db *gorm.DB) error {
+	if len(UIDs) == 0 {
+		return nil
+	}
+
 	rbs := make([]*models.NewRoleBinding, 0)
 	for _, uid := range UIDs {
 		rbs = append(rbs, &models.NewRoleBinding{

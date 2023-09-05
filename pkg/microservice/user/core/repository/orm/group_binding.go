@@ -35,6 +35,9 @@ func CreateGroupBinding(groupID, uid string, db *gorm.DB) error {
 }
 
 func BulkCreateGroupBindings(groupID string, uids []string, db *gorm.DB) error {
+	if len(uids) == 0 {
+		return nil
+	}
 	bindings := make([]models.GroupBinding, 0)
 
 	for _, uid := range uids {
