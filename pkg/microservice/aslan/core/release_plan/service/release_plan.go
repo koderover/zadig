@@ -303,7 +303,6 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
 		return errors.Wrap(err, "get user")
 	}
 
-	//targetName := plan.Name + "状态"
 	detail := ""
 
 	// target status check and update
@@ -326,6 +325,9 @@ func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
 		if err := createApprovalInstance(plan, userInfo.Phone); err != nil {
 			return errors.Wrap(err, "create approval instance")
 		}
+	case config.StatusCancel:
+		// set executing status final time
+		plan.ExecutingTime = time.Now().Unix()
 	}
 
 	// original status check and update
