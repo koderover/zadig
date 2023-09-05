@@ -23,12 +23,9 @@ import (
 
 	"go.uber.org/zap"
 
-	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/policy"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type CreateProjectArgs struct {
@@ -42,42 +39,9 @@ type allowedProjectsData struct {
 }
 
 func CreateProject(header http.Header, body []byte, qs url.Values, args *CreateProjectArgs, logger *zap.SugaredLogger) ([]byte, error) {
-	var rbs []*policy.RoleBinding
-	for _, uid := range args.Admins {
-		rbs = append(rbs, &policy.RoleBinding{
-			Name:   configbase.RoleBindingNameFromUIDAndRole(uid, setting.ProjectAdmin, ""),
-			UID:    uid,
-			Role:   string(setting.ProjectAdmin),
-			Preset: true,
-		})
-	}
-
-	if args.Public {
-		rbs = append(rbs, &policy.RoleBinding{
-			Name:   configbase.RoleBindingNameFromUIDAndRole("*", setting.ReadOnly, ""),
-			UID:    "*",
-			Role:   string(setting.ReadOnly),
-			Preset: true,
-		})
-	}
-
-	policyClient := policy.NewDefault()
-	for _, rb := range rbs {
-		if err := policyClient.CreateOrUpdateRoleBinding(args.ProductName, rb); err != nil {
-			logger.Errorf("Failed to create rolebinding %s, err: %s", rb.Name, err)
-			return nil, err
-		}
-	}
-
 	res, err := aslan.New().CreateProject(header, qs, body)
 	if err != nil {
 		logger.Errorf("Failed to create project %s, err: %s", args.ProductName, err)
-		for _, rb := range rbs {
-			if err1 := policyClient.DeleteRoleBinding(rb.Name, args.ProductName); err1 != nil {
-				logger.Errorf("Failed to create rolebinding %s, err: %s", rb.Name, err1)
-			}
-		}
-
 		return nil, err
 	}
 
@@ -85,25 +49,6 @@ func CreateProject(header http.Header, body []byte, qs url.Values, args *CreateP
 }
 
 func UpdateProject(header http.Header, qs url.Values, body []byte, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
-	// role binding
-	roleBindingName := configbase.RoleBindingNameFromUIDAndRole("*", setting.ReadOnly, "")
-	if !public {
-		if err := policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName); err != nil {
-			logger.Errorf("Failed to delete role binding, err: %s", err)
-			return nil, err
-		}
-	} else {
-		if err := policy.NewDefault().CreateOrUpdateRoleBinding(projectName, &policy.RoleBinding{
-			Name:   roleBindingName,
-			UID:    "*",
-			Role:   string(setting.ReadOnly),
-			Preset: true,
-		}); err != nil {
-			logger.Errorf("Failed to create role binding, err: %s", err)
-			return nil, err
-		}
-	}
-
 	res, err := aslan.New().UpdateProject(header, qs, body)
 	if err != nil {
 		logger.Errorf("Failed to create project %s, err: %s", projectName, err)
@@ -120,13 +65,6 @@ func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 }
 
 func DeleteProject(header http.Header, qs url.Values, productName string, logger *zap.SugaredLogger) ([]byte, error) {
-	// delete roles and rolebindings
-	if err := policy.NewDefault().DeleteRoleBindings([]string{"*"}, productName); err != nil {
-		log.Errorf("delete rolebindings err:%s", err)
-	}
-	if err := policy.NewDefault().DeleteRoles([]string{"*"}, productName); err != nil {
-		log.Errorf("delete roles err:%s", err)
-	}
 	return aslan.New().DeleteProject(header, qs, productName)
 }
 

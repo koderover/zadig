@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package user
+package permission
 
 import (
 	"fmt"
@@ -22,128 +22,132 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 )
 
 func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResources, error) {
+	tx := repository.DB.Begin()
 	// system calls
 	if uid == "" {
 		return generateAdminRoleResource(), nil
 	}
 
-	userRoleBindingList, err := mongodb.NewRoleBindingColl().ListUserRoleBinding(uid)
+	isSystemAdmin, err := checkUserIsSystemAdmin(uid)
 	if err != nil {
-		logger.Errorf("failed to list user role binding, error: %s", err)
-		return nil, err
+		tx.Rollback()
+		logger.Errorf("failed to check if the user is system admin for uid: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to check if the user is system admin for uid: %s, error: %s", uid, err)
 	}
 
-	// generate a corresponding role list for each namespace(project)
-	namespacedRoleMap := make(map[string][]string)
-
-	for _, roleBinding := range userRoleBindingList {
-		namespacedRoleMap[roleBinding.Namespace] = append(namespacedRoleMap[roleBinding.Namespace], roleBinding.RoleRef.Name)
+	if isSystemAdmin {
+		tx.Commit()
+		return generateAdminRoleResource(), nil
 	}
 
-	// first check if the user is a system admin, if it is, just return with the admin flags
-	for _, role := range namespacedRoleMap[GeneralNamespace] {
-		if role == AdminRole {
-			return generateAdminRoleResource(), nil
-		}
+	groupIDList := make([]string, 0)
+	// find the user groups this uid belongs to, if none it is ok
+	groups, err := orm.ListUserGroupByUID(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to find user group for user: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
+	}
+
+	for _, group := range groups {
+		groupIDList = append(groupIDList, group.GroupID)
 	}
 
 	// generate system actions for user
 	systemActions := generateDefaultSystemActions()
-
-	// otherwise we generate a map of namespaced(project) permission
+	// we generate a map of namespaced(project) permission
 	projectActionMap := make(map[string]*ProjectActions)
-	for project, roles := range namespacedRoleMap {
-		// set every permission to false if
-		if _, ok := projectActionMap[project]; !ok {
-			projectActionMap[project] = generateDefaultProjectActions()
-		}
 
-		for _, role := range roles {
-			roleDetailInfo, found, err := mongodb.NewRoleColl().Get(project, role)
-			if err != nil {
-				return nil, err
-			}
-			if found {
-				for _, rule := range roleDetailInfo.Rules {
-					// resources field is no longer required, the verb itself is sufficient to explain the authorization
-					for _, verb := range rule.Verbs {
-						if project != GeneralNamespace {
-							modifyUserProjectAuth(projectActionMap[project], verb)
-						} else {
-							modifySystemAction(systemActions, verb)
-						}
+	// TODO: add some powerful cache here
+	roleActionMap := make(map[uint]sets.String)
 
-					}
-				}
-			}
-			// TODO: this might be compromised if there is a role called project admin
-			// special case for project admins
-			if role == ProjectAdminRole {
-				projectActionMap[project].IsProjectAdmin = true
-			}
-		}
-	}
-
-	// get the roles given to all users (for now), when we have user groups, this should be replaced by user groups
-	publicRBList, err := mongodb.NewRoleBindingColl().ListAllUserRB("")
+	roles, err := orm.ListRoleByUID(uid, tx)
 	if err != nil {
-		logger.Debugf("No public project found, err: %s", err)
+		tx.Rollback()
+		logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 	}
 
-	// user have all public project's read permission
-	for _, rb := range publicRBList {
-		if _, ok := projectActionMap[rb.Namespace]; !ok {
-			projectActionMap[rb.Namespace] = generateDefaultProjectActions()
+	for _, role := range roles {
+		// project admin does not have any bindings, it is special
+		if role.Name == ProjectAdminRole {
+			projectActionMap[role.Namespace].IsProjectAdmin = true
+			continue
 		}
 
-		if rb.RoleRef.Name == ProjectAdminRole {
-			projectActionMap[rb.Namespace].IsProjectAdmin = true
-		} else if rb.RoleRef.Name == ReadOnlyRole {
-			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.WorkflowActionView)
-			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.EnvActionView)
-			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ProductionEnvActionView)
-			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.TestActionView)
-			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ScanActionView)
-			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.ServiceActionView)
-			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.BuildActionView)
-			modifyUserProjectAuth(projectActionMap[rb.Namespace], types.DeliveryActionView)
-		} else {
-			// otherwise search for the specific role and give the permission to user
-			roleDetailInfo, found, err := mongodb.NewRoleColl().Get(rb.RoleRef.Namespace, rb.RoleRef.Name)
-			if err != nil {
-				return nil, err
-			}
-			if found {
-				for _, rule := range roleDetailInfo.Rules {
-					// resources field is no longer required, the verb itself is sufficient to explain the authorization
-					for _, verb := range rule.Verbs {
-						modifyUserProjectAuth(projectActionMap[rb.Namespace], verb)
-					}
-				}
-			}
-		}
-	}
-
-	for _, role := range namespacedRoleMap[GeneralNamespace] {
-		roleDetailInfo, found, err := mongodb.NewRoleColl().Get(GeneralNamespace, role)
+		// first get actions from the roles
+		actions, err := orm.ListActionByRole(role.ID, tx)
 		if err != nil {
+			tx.Rollback()
+			logger.Errorf("failed to list action for role: %s in namespace %s, error: %s", role.Name, role.Namespace, err)
 			return nil, err
 		}
-		if found {
-			for _, rule := range roleDetailInfo.Rules {
-				for _, verb := range rule.Verbs {
-					modifySystemAction(systemActions, verb)
-				}
+
+		if _, ok := roleActionMap[role.ID]; !ok {
+			roleActionMap[role.ID] = sets.NewString()
+		}
+
+		for _, action := range actions {
+			roleActionMap[role.ID].Insert(action.Action)
+			switch action.Scope {
+			case setting.ActionTypeSystem:
+				modifySystemAction(systemActions, action.Action)
+			case setting.ActionTypeProject:
+				modifyUserProjectAuth(projectActionMap[role.Namespace], action.Action)
 			}
 		}
 	}
+
+	groupRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
+	}
+
+	for _, role := range groupRoles {
+		// if the role has been seen previously, it has already been processed in user
+		if _, ok := roleActionMap[role.ID]; ok {
+			continue
+		}
+
+		if role.Name == ProjectAdminRole {
+			projectActionMap[role.Namespace].IsProjectAdmin = true
+		}
+
+		// first get actions from the roles
+		actions, err := orm.ListActionByRole(role.ID, tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Errorf("failed to list action for role: %s in namespace %s, error: %s", role.Name, role.Namespace, err)
+			return nil, err
+		}
+
+		if _, ok := roleActionMap[role.ID]; !ok {
+			roleActionMap[role.ID] = sets.NewString()
+		}
+
+		for _, action := range actions {
+			roleActionMap[role.ID].Insert(action.Action)
+			switch action.Scope {
+			case setting.ActionTypeSystem:
+				modifySystemAction(systemActions, action.Action)
+			case setting.ActionTypeProject:
+				modifyUserProjectAuth(projectActionMap[role.Namespace], action.Action)
+			}
+		}
+	}
+
+	tx.Commit()
 
 	projectInfo := make(map[string]ProjectActions)
 	for proj, actions := range projectActionMap {
@@ -209,40 +213,55 @@ func CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action s
 }
 
 func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, error) {
+	tx := repository.DB.Begin()
+
 	respSet := sets.NewString()
 
-	userRoleBindingList, err := mongodb.NewRoleBindingColl().ListUserRoleBinding(uid)
+	groupIDList := make([]string, 0)
+	// find the user groups this uid belongs to, if none it is ok
+	groups, err := orm.ListUserGroupByUID(uid, tx)
 	if err != nil {
-		logger.Errorf("failed to list user role binding, error: %s", err)
-		return nil, fmt.Errorf("failed to list user role binding, error: %s", err)
+		tx.Rollback()
+		logger.Errorf("failed to find user group for user: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
 	}
 
-	// get roles given to all users, if the get a role, they can see the project
-	publicRBList, err := mongodb.NewRoleBindingColl().ListAllUserRB("")
+	for _, group := range groups {
+		groupIDList = append(groupIDList, group.GroupID)
+	}
+
+	roles, err := orm.ListRoleByUID(uid, tx)
 	if err != nil {
-		logger.Debugf("No public project found, err: %s", err)
+		tx.Rollback()
+		logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 	}
 
-	// generate a corresponding role list for each namespace(project)
-	namespacedRoleMap := make(map[string][]string)
-
-	for _, roleBinding := range userRoleBindingList {
-		namespacedRoleMap[roleBinding.Namespace] = append(namespacedRoleMap[roleBinding.Namespace], roleBinding.RoleRef.Name)
+	for _, role := range roles {
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
+		}
 	}
 
-	for project, _ := range namespacedRoleMap {
-		respSet.Insert(project)
+	groupRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
 	}
 
-	// the user can see public projects
-	for _, rb := range publicRBList {
-		respSet.Insert(rb.Namespace)
+	for _, role := range groupRoles {
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
+		}
 	}
 
+	// TODO: add user group support for collaboration mode
 	collaborationModeList, err := mongodb.NewCollaborationModeColl().ListUserCollaborationMode(uid)
 	if err != nil {
 		// this case is special, since the user might not have collaboration mode, we simply return the project list
 		// given by the role.
+		tx.Commit()
 		logger.Warnf("failed to find user collaboration mode, error: %s", err)
 		return respSet.List(), nil
 	}
@@ -252,49 +271,25 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 		respSet.Insert(collabMode.ProjectName)
 	}
 
-	// removing * from the authorized project since it is a special case
-	respSet.Delete("*")
-
+	tx.Commit()
 	return respSet.List(), nil
 }
 
 func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.SugaredLogger) ([]string, error) {
 	respSet := sets.NewString()
 
-	userRoleBindingList, err := mongodb.NewRoleBindingColl().ListUserRoleBinding(uid)
+	tx := repository.DB.Begin()
+
+	roles, err := orm.ListRoleByUIDAndVerb(uid, verb, tx)
 	if err != nil {
-		logger.Errorf("failed to list user role binding, error: %s", err)
-		return nil, fmt.Errorf("failed to list user role binding, error: %s", err)
+		tx.Rollback()
+		logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
 	}
 
-	// generate a corresponding role list for each namespace(project)
-	namespacedRoleMap := make(map[string]sets.String)
-
-	for _, roleBinding := range userRoleBindingList {
-		if _, ok := namespacedRoleMap[roleBinding.Namespace]; !ok {
-			namespacedRoleMap[roleBinding.Namespace] = sets.NewString()
-		}
-		namespacedRoleMap[roleBinding.Namespace].Insert(roleBinding.RoleRef.Name)
-	}
-
-	for project, roleSet := range namespacedRoleMap {
-		// if user is  project-admin, they have every permission in this project
-		if roleSet.Has(string(setting.ProjectAdmin)) {
-			respSet.Insert(project)
-			continue
-		}
-
-		allowedActionRoleList, err := mongodb.NewRoleColl().ListRoleByVerb(project, verb)
-		if err != nil {
-			logger.Errorf("failed to list user role binding, error: %s", err)
-			return nil, fmt.Errorf("failed to list user role binding, error: %s", err)
-		}
-		allowedRoleList := make([]string, 0)
-		for _, allowedRole := range allowedActionRoleList {
-			allowedRoleList = append(allowedRoleList, allowedRole.Name)
-		}
-		if roleSet.HasAny(allowedRoleList...) {
-			respSet.Insert(project)
+	for _, role := range roles {
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
 		}
 	}
 

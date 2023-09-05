@@ -14,15 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package orm
 
-type GroupBinding struct {
-	ID      int64  `gorm:"primary"         json:"id"`
-	GroupID string `gorm:"column:group_id" json:"group_id"`
-	UID     string `gorm:"column:uid"      json:"uid"`
-}
+import (
+	"gorm.io/gorm"
 
-// TableName sets the insert table name for this struct type
-func (GroupBinding) TableName() string {
-	return "group_binding"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
+)
+
+func ListGroupRoleBindingsByGroupsAndRoles(roleID uint, groupIDs []string, db *gorm.DB) ([]*models.GroupRoleBinding, error) {
+	resp := make([]*models.GroupRoleBinding, 0)
+
+	err := db.Where("role_id = ? AND group_id IN (?)", roleID, groupIDs).
+		Find(&resp).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }

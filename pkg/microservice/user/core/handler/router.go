@@ -20,72 +20,30 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/user/core/handler/login"
+	"github.com/koderover/zadig/pkg/microservice/user/core/handler/permission"
 	"github.com/koderover/zadig/pkg/microservice/user/core/handler/user"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	users := router.Group("")
+	users := router.Group("/users")
 	{
-		users.GET("/callback", login.Callback)
-
-		users.POST("/users", user.CreateUser)
-
-		users.PUT("/users/:uid/password", user.UpdatePassword)
-
-		users.PUT("/users/:uid", user.UpdateUser)
-
-		users.PUT("/users/:uid/personal", user.UpdatePersonalUser)
-
-		users.PUT("/users/:uid/setting", user.UpdateUserSetting)
-
-		users.GET("/users/:uid", user.GetUser)
-
-		users.DELETE("/users/:uid", user.DeleteUser)
-
-		users.GET("/users/:uid/personal", user.GetPersonalUser)
-
-		users.GET("/users/:uid/setting", user.GetUserSetting)
-
-		users.POST("/users/search", user.ListUsers)
-
-		users.GET("/user/count", user.CountSystemUsers)
-
-		router.GET("login", login.Login)
-
-		router.GET("login-enabled", login.ThirdPartyLoginEnabled)
-
-		router.POST("login", login.LocalLogin)
-
-		router.GET("captcha", login.GetCaptcha)
-
-		router.GET("logout", login.LocalLogout)
-
-		router.POST("signup", user.SignUp)
-
-		router.GET("retrieve", user.Retrieve)
-
-		router.POST("reset", user.Reset)
-
-		router.GET("/healthz", Healthz)
-
-		router.GET("/auth-info", user.GetUserAuthInfo)
-
-		router.GET("/collaboration-permission", user.CheckCollaborationModePermission)
-
-		router.GET("/collaboration-action", user.CheckPermissionGivenByCollaborationMode)
-
-		router.GET("/authorized-projects", user.ListAuthorizedProject)
-
-		router.GET("/authorized-projects/verb", user.ListAuthorizedProjectByVerb)
-
-		router.GET("/authorized-workflows", user.ListAuthorizedWorkflows)
-
-		router.GET("/authorized-envs", user.ListAuthorizedEnvs)
+		users.POST("", user.CreateUser)
+		users.POST("/:uid/password", user.UpdatePassword)
+		users.PUT("/:uid", user.UpdateUser)
+		users.PUT("/:uid/personal", user.UpdatePersonalUser)
+		users.PUT("/:uid/setting", user.UpdateUserSetting)
+		users.GET("/:uid", user.GetUser)
+		users.DELETE("/:uid", user.DeleteUser)
+		users.GET("/:uid/personal", user.GetPersonalUser)
+		users.GET("/:uid/setting", user.GetUserSetting)
+		users.POST("/search", user.ListUsers)
+		users.GET("/count", user.CountSystemUsers)
 	}
 
 	{
+		// user group related apis
 		users.GET("/user-group", user.ListUserGroups)
 		users.POST("/user-group", user.CreateUserGroup)
 		users.GET("/user-group/:id", user.GetUserGroup)
@@ -94,5 +52,70 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		users.PUT("/user-group/:id/bulk-users", user.BulkAddUserToUserGroup)
 		users.DELETE("/user-group/:id/bulk-users", user.BulkRemoveUserFromUserGroup)
+	}
+
+	// =======================================================
+	// User Authorization APIs, internal use ONLY
+	// =======================================================
+	authz := router.Group("/authorization")
+	{
+		authz.GET("/auth-info", user.GetUserAuthInfo)
+		authz.GET("/collaboration-permission", user.CheckCollaborationModePermission)
+		authz.GET("/collaboration-action", user.CheckPermissionGivenByCollaborationMode)
+		authz.GET("/authorized-projects", user.ListAuthorizedProject)
+		authz.GET("/authorized-projects/verb", user.ListAuthorizedProjectByVerb)
+		authz.GET("/authorized-workflows", user.ListAuthorizedWorkflows)
+		authz.GET("/authorized-envs", user.ListAuthorizedEnvs)
+	}
+
+	// general login related actions
+	general := router.Group("")
+	{
+		general.GET("/callback", login.Callback)
+		general.GET("/login", login.Login)
+		general.POST("/login", login.LocalLogin)
+		general.GET("/login-enabled", login.ThirdPartyLoginEnabled)
+		general.GET("/captcha", login.GetCaptcha)
+		general.GET("/logout", login.LocalLogout)
+		general.POST("/signup", user.SignUp)
+		general.GET("/retrieve", user.Retrieve)
+		general.POST("/reset", user.Reset)
+		general.GET("/healthz", Healthz)
+	}
+
+	policy := router.Group("/policy")
+	{
+		roles := policy.Group("/roles")
+		{
+			roles.POST("", permission.CreateRole)
+			roles.PUT("/:name", permission.UpdateRole)
+			roles.GET("", permission.ListRolesByNamespace)
+			roles.GET("/:name", permission.GetRole)
+			roles.DELETE("/:name", permission.DeleteRole)
+		}
+
+		roleBindings := policy.Group("/role-bindings")
+		{
+			roleBindings.GET("", permission.ListRoleBindings)
+			roleBindings.POST("", permission.CreateRoleBinding)
+			roleBindings.POST("/user/:uid", permission.UpdateRoleBindingForUser)
+			roleBindings.DELETE("/user/:uid", permission.DeleteRoleBindingForUser)
+		}
+
+		resourceAction := policy.Group("resource-actions")
+		{
+			resourceAction.GET("", permission.GetResourceActionDefinitions)
+		}
+
+		policyUserPermission := policy.Group("permission")
+		{
+			policyUserPermission.GET("project/:name", permission.GetUserRulesByProject)
+			policyUserPermission.GET("", permission.GetUserRules)
+		}
+	}
+
+	bundles := router.Group("bundles")
+	{
+		bundles.GET("/:name", permission.DownloadBundle)
 	}
 }

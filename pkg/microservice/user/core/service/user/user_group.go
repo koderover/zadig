@@ -20,9 +20,9 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"

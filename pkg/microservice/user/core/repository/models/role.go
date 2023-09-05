@@ -33,3 +33,20 @@ type Role struct {
 func (Role) TableName() string {
 	return "role"
 }
+
+// NewRole is the schema for role in mysql database, after version 1.7
+type NewRole struct {
+	ID          uint   `gorm:"primarykey"         json:"id"`
+	Name        string `gorm:"column:name"        json:"name"`
+	Description string `gorm:"column:description" json:"description"`
+	Type        int64  `gorm:"column:type"        json:"type"`
+	Namespace   string `gorm:"column:namespace"   json:"namespace"`
+
+	RoleActionBindings []RoleActionBinding `gorm:"foreignKey:role_id;constraint:OnDelete:CASCADE;"`
+	RoleUserBindings   []RoleBinding       `gorm:"foreignKey:role_id;constraint:OnDelete:CASCADE;"`
+	GroupRoleBindings  []GroupRoleBinding  `gorm:"foreignKey:role_id;constraint:OnDelete:CASCADE;"`
+}
+
+func (NewRole) TableName() string {
+	return "role"
+}

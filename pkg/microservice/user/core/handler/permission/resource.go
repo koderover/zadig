@@ -14,37 +14,34 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package handler
+package permission
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-func Healthz(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+func GetResourceActionDefinitions(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = Health()
-}
 
-func Health() error {
-	userDB, err := repository.DB.DB()
 	if err != nil {
-		log.Errorf("Healthz get db error:%s", err.Error())
-		return err
-	}
-	if err := userDB.Ping(); err != nil {
-		return err
-	}
-
-	dexDB, err := repository.DexDB.DB()
-	if err != nil {
-		log.Errorf("Healthz get dex db error:%s", err.Error())
-		return err
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
 	}
 
-	return dexDB.Ping()
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	scope := c.Query("scope")
+	envType := c.Query("env_type")
+	ctx.Resp, ctx.Err = permission.GetResourceActionDefinitions(scope, envType, ctx.Logger)
 }

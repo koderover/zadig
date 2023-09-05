@@ -14,15 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package user
 
-type GroupBinding struct {
-	ID      int64  `gorm:"primary"         json:"id"`
-	GroupID string `gorm:"column:group_id" json:"group_id"`
-	UID     string `gorm:"column:uid"      json:"uid"`
+import (
+	"github.com/koderover/zadig/pkg/tool/httpclient"
+)
+
+type InitializeProjectResp struct {
+	Roles []string `json:"roles"`
 }
 
-// TableName sets the insert table name for this struct type
-func (GroupBinding) TableName() string {
-	return "group_binding"
+func (c *Client) InitializeProjectRoles(projectKey string) error {
+	url := "/authorization/authorized-envs"
+
+	resp := &InitializeProjectResp{}
+
+	queries := map[string]string{
+		"project_key": projectKey,
+	}
+
+	_, err := c.Post(url, httpclient.SetQueryParams(queries), httpclient.SetResult(resp))
+	if err != nil {
+		return err
+	}
+	return nil
 }

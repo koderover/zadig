@@ -50,7 +50,7 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/policy"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -141,6 +141,14 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	if err != nil {
 		log.Errorf("ProductTmpl.Create error: %v", err)
 		return e.ErrCreateProduct.AddDesc(err.Error())
+	}
+
+	// after the project is created, create roles for it
+	// TODO: i can't think of a good way to make this full logic robust, anyone who sees this should try to fix it
+	err = user.New().InitializeProjectRoles(args.ProductName)
+	if err != nil {
+		log.Errorf("failed to initialize roles for project: %s, error: %s", args.ProductName, err)
+		return e.ErrCreateProduct.AddDesc(fmt.Sprintf("failed to initialize roles for project: %s, error: %s", args.ProductName, err))
 	}
 
 	// add project to current project group
@@ -710,16 +718,6 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		return err
 	}
 
-	if err = DeletePolicy(productName, log); err != nil {
-		log.Errorf("DeletePolicy  productName %s  err: %s", productName, err)
-		return err
-	}
-
-	if err = DeleteLabels(productName, log); err != nil {
-		log.Errorf("DeleteLabels  productName %s  err: %s", productName, err)
-		return err
-	}
-
 	if err = commonservice.DeleteWorkflows(productName, requestID, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s workflow err: %s", productName, err)
 		return err
@@ -1169,17 +1167,6 @@ func DeleteCollabrationMode(productName string, userName string, log *zap.Sugare
 	// delete all collaborationIns
 	if err := mongodb.NewCollaborationInstanceColl().DeleteByProject(productName); err != nil {
 		log.Errorf("fail to DeleteByProject err:%s", err)
-		return err
-	}
-	return nil
-}
-
-func DeletePolicy(productName string, log *zap.SugaredLogger) error {
-	policy.NewDefault()
-	if err := policy.NewDefault().DeletePolicies(productName, policy.DeletePoliciesArgs{
-		Names: []string{},
-	}); err != nil {
-		log.Errorf("DeletePolicies err :%s", err)
 		return err
 	}
 	return nil

@@ -2,6 +2,7 @@ package user
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/types"
@@ -151,7 +152,7 @@ type ReleasePlanActions struct {
 }
 
 func (c *Client) GetUserAuthInfo(uid string) (*AuthorizedResources, error) {
-	url := "/auth-info"
+	url := "/authorization/auth-info"
 	resp := &AuthorizedResources{}
 	queries := make(map[string]string)
 	queries["uid"] = uid
@@ -161,7 +162,7 @@ func (c *Client) GetUserAuthInfo(uid string) (*AuthorizedResources, error) {
 }
 
 func (c *Client) CheckUserAuthInfoForCollaborationMode(uid, projectKey, resource, resourceName, action string) (bool, error) {
-	url := "/collaboration-permission"
+	url := "/authorization/collaboration-permission"
 	resp := &types.CheckCollaborationModePermissionResp{}
 
 	queries := make(map[string]string)
@@ -183,7 +184,7 @@ func (c *Client) CheckUserAuthInfoForCollaborationMode(uid, projectKey, resource
 }
 
 func (c *Client) ListAuthorizedProjects(uid string) ([]string, bool, error) {
-	url := "/authorized-projects"
+	url := "/authorization/authorized-projects"
 
 	resp := &types.ListAuthorizedProjectResp{}
 
@@ -202,7 +203,7 @@ func (c *Client) ListAuthorizedProjects(uid string) ([]string, bool, error) {
 }
 
 func (c *Client) ListAuthorizedProjectsByResourceAndVerb(uid, resource, verb string) ([]string, bool, error) {
-	url := "/authorized-projects"
+	url := "/authorization/authorized-projects/verb"
 
 	resp := &types.ListAuthorizedProjectResp{}
 
@@ -223,7 +224,7 @@ func (c *Client) ListAuthorizedProjectsByResourceAndVerb(uid, resource, verb str
 }
 
 func (c *Client) ListAuthorizedWorkflows(uid, projectKey string) ([]string, []string, error) {
-	url := "/authorized-workflows"
+	url := "/authorization/authorized-workflows"
 
 	resp := &types.ListAuthorizedWorkflowsResp{}
 
@@ -243,7 +244,7 @@ func (c *Client) ListAuthorizedWorkflows(uid, projectKey string) ([]string, []st
 }
 
 func (c *Client) ListCollaborationEnvironmentsPermission(uid, projectKey string) (*types.CollaborationEnvPermission, error) {
-	url := "/authorized-envs"
+	url := "/authorization/authorized-envs"
 
 	resp := &types.CollaborationEnvPermission{}
 
@@ -263,7 +264,7 @@ func (c *Client) ListCollaborationEnvironmentsPermission(uid, projectKey string)
 }
 
 func (c *Client) CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action string) (bool, error) {
-	url := "/collaboration-action"
+	url := "/authorization/collaboration-action"
 	resp := &types.CheckCollaborationModePermissionResp{}
 
 	queries := make(map[string]string)
@@ -281,4 +282,33 @@ func (c *Client) CheckPermissionGivenByCollaborationMode(uid, projectKey, resour
 	}
 
 	return resp.HasPermission, nil
+}
+
+type createRoleBindingReq struct {
+	Role       string      `json:"role"`
+	Identities []*identity `json:"identities"`
+}
+
+type identity struct {
+	IdentityType string `json:"identity_type"`
+	UID          string `json:"uid"`
+	GID          string `json:"gid"`
+}
+
+func (c *Client) CreateUserRoleBinding(uid, namespace, roleName string) error {
+	url := fmt.Sprintf("/policy/role-bindings?namespace=%s", namespace)
+
+	req := &createRoleBindingReq{
+		Role: roleName,
+		Identities: []*identity{
+			{
+				IdentityType: "user",
+				UID:          uid,
+			},
+		},
+	}
+
+	_, err := c.Post(url, httpclient.SetBody(req))
+
+	return err
 }

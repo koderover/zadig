@@ -39,7 +39,7 @@ func ListUserGroups(pageNum, pageSize int, db *gorm.DB) ([]*models.UserGroup, er
 
 	err := db.Order("updated_at Desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&resp).Error
 
-	if err != nil && err != gorm.ErrRecordNotFound {
+	if err != nil {
 		return nil, err
 	}
 
@@ -76,4 +76,19 @@ func DeleteUserGroup(groupID string, db *gorm.DB) error {
 		return err
 	}
 	return nil
+}
+
+func ListUserGroupByUID(uid string, db *gorm.DB) ([]*models.UserGroup, error) {
+	resp := make([]*models.UserGroup, 0)
+
+	err := db.Joins("INNER JOIN group_binding ON group_binding.group_id = user_group.id").
+		Where("group_binding.uid = ?", uid).
+		Find(&resp).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }

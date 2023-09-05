@@ -45,7 +45,6 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	multiclusterservice "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
-	policyservice "github.com/koderover/zadig/pkg/microservice/aslan/core/policy/service"
 	releaseplanservice "github.com/koderover/zadig/pkg/microservice/aslan/core/release_plan/service"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
@@ -53,8 +52,6 @@ import (
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	hubserverconfig "github.com/koderover/zadig/pkg/microservice/hubserver/config"
 	"github.com/koderover/zadig/pkg/microservice/hubserver/core/repository/mongodb"
-	policydb "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
-	policybundle "github.com/koderover/zadig/pkg/microservice/policy/core/service/bundle"
 	mongodb2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	configmongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
 	configservice "github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/service"
@@ -68,17 +65,11 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/tool/rsa"
-	"github.com/koderover/zadig/pkg/types"
 )
 
 const (
 	webhookController = iota
-	bundleController
 )
-
-type policyGetter interface {
-	Policies() []*types.PolicyMeta
-}
 
 type Controller interface {
 	Run(workers int, stopCh <-chan struct{})
@@ -87,11 +78,9 @@ type Controller interface {
 func StartControllers(stopCh <-chan struct{}) {
 	controllerWorkers := map[int]int{
 		webhookController: 1,
-		bundleController:  1,
 	}
 	controllers := map[int]Controller{
 		webhookController: webhook.NewWebhookController(),
-		bundleController:  policybundle.NewBundleController(),
 	}
 
 	var wg sync.WaitGroup
@@ -171,10 +160,6 @@ func Start(ctx context.Context) {
 	go multiclusterservice.ClusterApplyUpgrade()
 
 	initRsaKey()
-
-	// policy initialization process
-	policybundle.GenerateOPABundle()
-	policyservice.MigratePolicyData()
 
 	initCron()
 }
@@ -464,10 +449,6 @@ func initDatabase() {
 
 		// config related db index
 		configmongodb.NewEmailHostColl(),
-
-		// policy related db index
-		policydb.NewRoleColl(),
-		policydb.NewRoleBindingColl(),
 
 		// user related db index
 		userdb.NewUserSettingColl(),

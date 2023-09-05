@@ -18,12 +18,13 @@ package models
 
 type UserGroup struct {
 	Model
-	GroupID     string `gorm:"group_id"    json:"group_id"`
-	GroupName   string `gorm:"group_name"  json:"group_name"`
-	Description string `gorm:"description" json:"description"`
+	GroupID     string `gorm:"column:group_id"    json:"group_id"`
+	GroupName   string `gorm:"column:group_name"  json:"group_name"`
+	Description string `gorm:"column:description" json:"description"`
 	// used to mention the foreign key relationship between userGroup and groupBinding
 	// and specify the onDelete action.
-	GroupBindings []GroupBinding `gorm:"foreignKey:group_id;constraint:OnDelete:CASCADE;"`
+	GroupBindings     []GroupBinding     `gorm:"foreignKey:group_id;constraint:OnDelete:CASCADE;"`
+	GroupRoleBindings []GroupRoleBinding `gorm:"foreignKey:group_id;constraint:OnDelete:CASCADE;"`
 }
 
 // TableName sets the insert table name for this struct type

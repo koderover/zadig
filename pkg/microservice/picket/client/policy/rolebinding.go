@@ -42,7 +42,7 @@ type PolicyBinding struct {
 }
 
 func (c *Client) ListRoleBindings(header http.Header, qs url.Values) ([]*RoleBinding, error) {
-	url := "/rolebindings"
+	url := "/role-bindings"
 
 	res := make([]*RoleBinding, 0)
 	_, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetResult(&res))

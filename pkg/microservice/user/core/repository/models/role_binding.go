@@ -38,6 +38,23 @@ type RoleRef struct {
 	Namespace string `bson:"namespace" json:"namespace"`
 }
 
+// NewRoleBinding is the structure for role binding in mysql, after version 1.7
+type NewRoleBinding struct {
+	ID     uint   `gorm:"primary" json:"id"`
+	UserID string `gorm:"column:user_id" json:"user_id"`
+	RoleID uint   `gorm:"column:role_id" json:"role_id"`
+}
+
+// RoleBindingDetail is the structure that has actual user info and role info details.
+type RoleBindingDetail struct {
+	User *User
+	Role *Role
+}
+
 func (RoleBinding) TableName() string {
 	return "rolebinding"
+}
+
+func (NewRoleBinding) TableName() string {
+	return "role_binding"
 }

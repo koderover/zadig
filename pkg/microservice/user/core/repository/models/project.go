@@ -16,13 +16,10 @@ limitations under the License.
 
 package models
 
-type GroupBinding struct {
-	ID      int64  `gorm:"primary"         json:"id"`
-	GroupID string `gorm:"column:group_id" json:"group_id"`
-	UID     string `gorm:"column:uid"      json:"uid"`
+type Project struct {
+	ProductName string `bson:"product_name"              json:"product_name"`
 }
 
-// TableName sets the insert table name for this struct type
-func (GroupBinding) TableName() string {
-	return "group_binding"
+func (Project) TableName() string {
+	return "template_product"
 }

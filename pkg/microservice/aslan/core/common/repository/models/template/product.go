@@ -76,6 +76,8 @@ type Product struct {
 	GlobalVariables            []*commontypes.ServiceVariableKV `bson:"global_variables,omitempty"          json:"global_variables,omitempty"`                       // New since 1.18.0 used to store global variables for test services
 	ProductionGlobalVariables  []*commontypes.ServiceVariableKV `bson:"production_global_variables,omitempty"          json:"production_global_variables,omitempty"` // New since 1.18.0 used to store global variables for production services
 	Public                     bool                             `bson:"public,omitempty"                    json:"public"`
+	// created after 1.8.0, used to create default project admins
+	Admins []string `bson:"-" json:"admins"`
 }
 
 type ServiceInfo struct {

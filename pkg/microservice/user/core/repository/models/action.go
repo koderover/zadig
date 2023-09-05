@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,28 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package policy
+package models
 
-import (
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-)
+type Action struct {
+	ID       uint   `gorm:"primarykey"      json:"id"`
+	Name     string `gorm:"column:name"     json:"name"`
+	Action   string `gorm:"column:action"   json:"action"`
+	Resource string `gorm:"column:resource" json:"resource"`
+	Scope    int    `gorm:"column:scope"    json:"scope"`
 
-type Client struct {
-	*httpclient.Client
-
-	host string
+	RoleActionBindings []RoleActionBinding `gorm:"foreignKey:action_id;constraint:OnDelete:CASCADE;"`
 }
 
-func NewDefault() *Client {
-	host := config.AslanServiceAddress()
-
-	c := httpclient.New(
-		httpclient.SetHostURL(host + "/api/v1"),
-	)
-
-	return &Client{
-		Client: c,
-		host:   host,
-	}
+func (Action) TableName() string {
+	return "action"
 }

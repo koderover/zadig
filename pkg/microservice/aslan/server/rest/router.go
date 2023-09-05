@@ -48,12 +48,10 @@ import (
 	filterhandler "github.com/koderover/zadig/pkg/microservice/picket/core/filter/handler"
 	publichandler "github.com/koderover/zadig/pkg/microservice/picket/core/public/handler"
 	podexecservice "github.com/koderover/zadig/pkg/microservice/podexec/core/service"
-	policyhandler "github.com/koderover/zadig/pkg/microservice/policy/core/handler"
 	configcodehostHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/handler"
 	connectorHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/connector/handler"
 	emailHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/handler"
 	featuresHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/handler"
-	userHandler "github.com/koderover/zadig/pkg/microservice/user/core/handler"
 	"github.com/koderover/zadig/pkg/tool/metrics"
 
 	// Note: have to load docs for swagger to work. See https://blog.csdn.net/weixin_43249914/article/details/103035711
@@ -149,26 +147,12 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		r.Inject(router.Group("/api/v1"))
 	}
 
-	// inject user service APIs
-	for _, r := range []injector{
-		new(userHandler.Router),
-	} {
-		r.Inject(router.Group("/api/v1"))
-	}
-
 	// inject podexec service API(s)
 	podexec := router.Group("/api/podexec")
 	{
 		podexec.GET("/:productName/:podName/:containerName/podExec/:envName", podexecservice.ServeWs)
 		podexec.GET("/production/:productName/:podName/:containerName/podExec/:envName", podexecservice.ServeWs)
 		podexec.GET("/debug/:workflowName/:jobName/task/:taskID", podexecservice.DebugWorkflow)
-	}
-
-	// inject policy APIs
-	for _, r := range []injector{
-		new(policyhandler.Router),
-	} {
-		r.Inject(router.Group("/api/v1"))
 	}
 
 	// inject picket APIs

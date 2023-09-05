@@ -45,3 +45,51 @@ CREATE TABLE IF NOT EXISTS `group_binding` (
     FOREIGN KEY (`uid`) REFERENCES user(`uid`),
     FOREIGN KEY (`group_id`) REFERENCES user_group(`group_id`)
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '用户/用户组绑定信息' ROW_FORMAT = Compact;
+
+CREATE TABLE IF NOT EXISTS `action` (
+    `id`       bigint(20) NOT NULL AUTO_INCREMENT,
+    `name`     varchar(32) NOT NULL COMMENT '权限项名称',
+    `action`   varchar(32) NOT NULL COMMENT '权限项',
+    `resource` varchar(32) NOT NULL COMMENT '资源类别',
+    `scope`    int(11) NOT NULL COMMENT '资源范围，1-项目范围， 2-全局',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `resource_action` (`action`,`resource`)
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '权限项表' ROW_FORMAT = Compact;
+
+CREATE TABLE IF NOT EXISTS `role` (
+    `id`          bigint(20) NOT NULL AUTO_INCREMENT,
+    `name`        varchar(32) NOT NULL UNIQUE COMMENT '角色名称',
+    `description` varchar(64) NOT NULL COMMENT '描述',
+    `type`        int(11) NOT NULL COMMENT '资源范围，1-系统自带， 2-用户自定义',
+    `namespace`   varchar(32) NOT NULL COMMENT '所属项目，*为全局角色标记',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `namespaced_role` (`namespace`, `name`)
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色表' ROW_FORMAT = Compact;
+
+CREATE TABLE IF NOT EXISTS `role_action_binding` (
+    `id`        bigint(20) NOT NULL AUTO_INCREMENT,
+    `action_id` bigint(20) NOT NULL COMMENT '用户组ID',
+    `role_id`   bigint(20) NOT NULL COMMENT '角色ID',
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`action_id`) REFERENCES action(`id`),
+    FOREIGN KEY (`role_id`) REFERENCES role(`id`)
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色/权限项绑定信息' ROW_FORMAT = Compact;
+
+CREATE TABLE IF NOT EXISTS `role_binding` (
+    `id`        bigint(20) NOT NULL AUTO_INCREMENT,
+    `uid`       varchar(64) NOT NULL COMMENT '用户ID',
+    `role_id`   bigint(20) NOT NULL COMMENT '角色ID',
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`uid`) REFERENCES user(`uid`),
+    FOREIGN KEY (`role_id`) REFERENCES role(`id`)
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色/用户绑定信息' ROW_FORMAT = Compact;
+
+CREATE TABLE IF NOT EXISTS `group_role_binding` (
+    `id`        bigint(20) NOT NULL AUTO_INCREMENT,
+    `group_id`  varchar(64) NOT NULL COMMENT '用户组ID',
+    `role_id`   bigint(20) NOT NULL COMMENT '角色ID',
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`group_id`) REFERENCES user_group(`group_id`),
+    FOREIGN KEY (`role_id`) REFERENCES role(`id`)
+) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色组/角色绑定信息' ROW_FORMAT = Compact;
+

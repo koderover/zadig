@@ -37,9 +37,7 @@ type ConfigYaml struct {
 }
 
 type ExemptionURLs struct {
-	Public       []*types.PolicyRule `json:"public"`
-	SystemAdmin  []*types.PolicyRule `json:"system_admin"`
-	ProjectAdmin []*types.PolicyRule `json:"project_admin"`
+	Public []*types.PolicyRule `json:"public"`
 }
 
 func init() {
