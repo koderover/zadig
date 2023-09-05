@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -69,6 +70,11 @@ type listWorkflowV4Resp struct {
 	Total        int64                `json:"total"`
 }
 
+type CreateWorkflowV4Req struct {
+	Workflow *commonmodels.WorkflowV4 `yaml:"workflow"`
+	View     string                   `yaml:"view"`
+}
+
 func CreateWorkflowV4(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -80,31 +86,44 @@ func CreateWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	args := new(commonmodels.WorkflowV4)
+	args := new(CreateWorkflowV4Req)
 	data := getBody(c)
 	if err := yaml.Unmarshal([]byte(data), args); err != nil {
 		log.Errorf("CreateWorkflowv4 yaml.Unmarshal err : %s", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.Project, "新增", "自定义工作流", args.Name, data, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.Workflow.Project, "新增", "自定义工作流", args.Workflow.Name, data, ctx.Logger)
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[args.Project]; !ok {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.Workflow.Project]; !ok {
 			ctx.UnAuthorized = true
 			return
 		}
 
-		if !ctx.Resources.ProjectAuthInfo[args.Project].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[args.Project].Workflow.Create {
+		if !ctx.Resources.ProjectAuthInfo[args.Workflow.Project].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.Workflow.Project].Workflow.Create {
 			// check if the permission is given by collaboration mode
 			ctx.UnAuthorized = true
 			return
 		}
 	}
 
-	ctx.Err = workflow.CreateWorkflowV4(ctx.UserName, args, ctx.Logger)
+	if err := workflow.CreateWorkflowV4(ctx.UserName, args.Workflow, ctx.Logger); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	if args.View != "" {
+		workflow.AddWorkflowToView(args.Workflow.Project, args.View, []*commonmodels.WorkflowViewDetail{
+			{
+				WorkflowName:        args.Workflow.Name,
+				WorkflowDisplayName: args.Workflow.DisplayName,
+				WorkflowType:        setting.CustomWorkflowType,
+			},
+		}, ctx.Logger)
+	}
 }
 
 func SetWorkflowTasksCustomFields(c *gin.Context) {

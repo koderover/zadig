@@ -60,6 +60,53 @@ func UpdateWorkflowView(input *commonmodels.WorkflowView, userName string, logge
 	return nil
 }
 
+func AddWorkflowToView(projectName, viewName string, workflowList []*commonmodels.WorkflowViewDetail, logger *zap.SugaredLogger) error {
+	if projectName == "" || viewName == "" {
+		msg := ("add workflow to view error: invalid params")
+		log.Error(msg)
+		return e.ErrUpdateView.AddDesc(msg)
+	}
+
+	view, err := commonrepo.NewWorkflowViewColl().Find(projectName, viewName)
+	if err != nil {
+		msg := fmt.Sprintf("find workflow view error: %v", err)
+		log.Error(msg)
+		return e.ErrUpdateView.AddDesc(msg)
+	}
+
+	type workflowKey struct {
+		Name string
+		Type string
+	}
+
+	viewWorkflowMap := make(map[workflowKey]*commonmodels.WorkflowViewDetail)
+	for _, workflow := range view.Workflows {
+		viewWorkflowMap[workflowKey{
+			Name: workflow.WorkflowName,
+			Type: workflow.WorkflowType,
+		}] = workflow
+	}
+	// check if workflow already exist
+	for _, workflow := range workflowList {
+		if w, ok := viewWorkflowMap[workflowKey{
+			Name: workflow.WorkflowName,
+			Type: workflow.WorkflowType,
+		}]; ok {
+			w.Enabled = true
+		} else {
+			workflow.Enabled = true
+			view.Workflows = append(view.Workflows, workflow)
+		}
+	}
+
+	if err := commonrepo.NewWorkflowViewColl().Update(view); err != nil {
+		msg := fmt.Sprintf("add workflow to view error: %v", err)
+		log.Error(msg)
+		return e.ErrUpdateView.AddDesc(msg)
+	}
+	return nil
+}
+
 func ListWorkflowViewNames(projectName string, logger *zap.SugaredLogger) ([]string, error) {
 	if projectName == "" {
 		msg := ("list workflow view error: invalid params")
