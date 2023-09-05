@@ -152,7 +152,7 @@ func initializeSystemActions() {
 
 	if count == 0 {
 		fmt.Println("initializing system actions...")
-		err := repository.DB.Exec(string(actionData))
+		err := repository.DB.Exec(fmt.Sprintf(string(actionData), config.MysqlUserDB()))
 
 		if err != nil {
 			log.Panic(err)
