@@ -54,3 +54,4 @@ docker/*.tar.gz
 /main
 
 test/integration/reporters/*.xml
+pkg/cli/upgradeassistant/cmd/migrate/*_test.go
