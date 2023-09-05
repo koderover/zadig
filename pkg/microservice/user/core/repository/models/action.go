@@ -23,7 +23,7 @@ type Action struct {
 	Resource string `gorm:"column:resource" json:"resource"`
 	Scope    int    `gorm:"column:scope"    json:"scope"`
 
-	RoleActionBindings []RoleActionBinding `gorm:"foreignKey:action_id;constraint:OnDelete:CASCADE;"`
+	RoleActionBindings []RoleActionBinding `gorm:"foreignKey:ActionID;constraint:OnDelete:CASCADE;"`
 }
 
 func (Action) TableName() string {
