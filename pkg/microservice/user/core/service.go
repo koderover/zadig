@@ -25,7 +25,6 @@ import (
 
 	userservice "github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 	"go.mongodb.org/mongo-driver/mongo"
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -89,6 +88,7 @@ func initDatabase() {
 		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
 	}
 
+	initializeSystemActions()
 	syncUserRoleBinding()
 }
 
@@ -143,20 +143,18 @@ func InitializeUserDBAndTables() {
 	if err != nil {
 		log.Panic(err)
 	}
+}
 
-	// initialization
-	// Initialize GORM with the MySQL driver
-	database, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	if err != nil {
-		panic("Failed to connect to the database")
-	}
-
+func initializeSystemActions() {
 	var count int64
-	database.Table("action").Count(&count)
+	err := repository.DB.Table("action").Count(&count).Error
+	if err != nil {
+		panic("failed to count")
+	}
 
 	if count == 0 {
 		fmt.Println("initializing system actions...")
-		_, err = db.Exec(string(actionData))
+		err := repository.DB.Exec(string(actionData))
 
 		if err != nil {
 			log.Panic(err)
