@@ -618,6 +618,10 @@ func RenderEnvServiceWithTempl(prod *commonmodels.Product, render *commonmodels.
 		return "", err
 	}
 	parsedYaml = ParseSysKeys(prod.Namespace, prod.EnvName, prod.ProductName, service.ServiceName, parsedYaml)
-	parsedYaml, _, _ = ReplaceWorkloadImages(parsedYaml, service.Containers)
+	parsedYaml, _, err = ReplaceWorkloadImages(parsedYaml, service.Containers)
+	if err != nil {
+		log.Error("failed to replace workload images, err: %s", err)
+		return "", err
+	}
 	return parsedYaml, nil
 }

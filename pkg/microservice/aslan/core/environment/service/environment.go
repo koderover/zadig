@@ -2579,7 +2579,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		SharedEnvHandler:    EnsureUpdateZadigService,
 	}
 
-	log.Infof("------ new yaml to apply is %v", parsedYaml)
+	log.Infof("------ new yaml of service: %s to apply is %v", service.ServiceName, parsedYaml)
 
 	return kube.CreateOrPatchResource(resourceApplyParam, log)
 }

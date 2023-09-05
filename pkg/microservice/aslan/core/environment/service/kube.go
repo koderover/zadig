@@ -1105,7 +1105,7 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 			continue
 		}
 		for _, item := range u.Items {
-			log.Infof("item: %s", item.GetName())
+			//log.Infof("item: %s", item.GetName())
 			if deployStatus, ok := resources[item.GetName()]; ok && deployStatus.Status == StatusUnDeployed {
 				deployStatus.Status = StatusDeployed
 			}
