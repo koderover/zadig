@@ -81,9 +81,8 @@ func OpenAPIGetReleasePlan(id string) (*models.ReleasePlan, error) {
 }
 
 type OpenAPICreateReleasePlanArgs struct {
-	Name string `bson:"name"       yaml:"name"                   json:"name"`
-	// ManagerID is the user id of the manager
-	ManagerID   string           `bson:"manager_id"       yaml:"manager_id"                   json:"manager_id"`
+	Name        string           `bson:"name"       yaml:"name"                   json:"name"`
+	Manager     string           `bson:"manager"       yaml:"manager"                   json:"manager"`
 	StartTime   int64            `bson:"start_time"       yaml:"start_time"                   json:"start_time"`
 	EndTime     int64            `bson:"end_time"       yaml:"end_time"                   json:"end_time"`
 	Description string           `bson:"description"       yaml:"description"                   json:"description"`
@@ -93,23 +92,31 @@ type OpenAPICreateReleasePlanArgs struct {
 func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleasePlanArgs) error {
 	args := &models.ReleasePlan{
 		Name:        rawArgs.Name,
-		ManagerID:   rawArgs.ManagerID,
+		Manager:     rawArgs.Manager,
 		StartTime:   rawArgs.StartTime,
 		EndTime:     rawArgs.EndTime,
 		Description: rawArgs.Description,
 		Approval:    rawArgs.Approval,
 	}
-	if args.Name == "" || args.ManagerID == "" {
+	if args.Name == "" || args.Manager == "" {
 		return errors.New("Required parameters are missing")
 	}
 	if err := lintReleaseTimeRange(args.StartTime, args.EndTime); err != nil {
 		return errors.Wrap(err, "lint release time range error")
 	}
-	userInfo, err := user.New().GetUserByID(args.ManagerID)
+	searchUserResp, err := user.New().SearchUser(&user.SearchUserArgs{
+		Account: args.Manager,
+	})
 	if err != nil {
-		return errors.Errorf("Failed to get user by id %s, error: %v", args.ManagerID, err)
+		return errors.Errorf("Failed to get user %s, error: %v", args.Manager, err)
 	}
-	args.Manager = userInfo.Name
+	if len(searchUserResp.Users) == 0 {
+		return errors.Errorf("User %s not found", args.Manager)
+	}
+	if len(searchUserResp.Users) > 1 {
+		return errors.Errorf("User %s search failed", args.Manager)
+	}
+	args.ManagerID = searchUserResp.Users[0].UID
 
 	if args.Approval != nil {
 		if err := lintApproval(args.Approval); err != nil {
