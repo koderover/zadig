@@ -41,7 +41,7 @@ type RoleRef struct {
 // NewRoleBinding is the structure for role binding in mysql, after version 1.7
 type NewRoleBinding struct {
 	ID     uint   `gorm:"primary" json:"id"`
-	UserID string `gorm:"column:user_id" json:"user_id"`
+	UID    string `gorm:"column:uid" json:"uid"`
 	RoleID uint   `gorm:"column:role_id" json:"role_id"`
 }
 

@@ -36,7 +36,7 @@ func BulkCreateRoleBindingForUser(uid string, roleIDs []uint, db *gorm.DB) error
 	rbs := make([]*models.NewRoleBinding, 0)
 	for _, roleID := range roleIDs {
 		rbs = append(rbs, &models.NewRoleBinding{
-			UserID: uid,
+			UID:    uid,
 			RoleID: roleID,
 		})
 	}
@@ -54,7 +54,7 @@ func BulkCreateRoleBindingForRole(roleID uint, UIDs []string, db *gorm.DB) error
 	rbs := make([]*models.NewRoleBinding, 0)
 	for _, uid := range UIDs {
 		rbs = append(rbs, &models.NewRoleBinding{
-			UserID: uid,
+			UID:    uid,
 			RoleID: roleID,
 		})
 	}
@@ -67,7 +67,7 @@ func BulkCreateRoleBindingForRole(roleID uint, UIDs []string, db *gorm.DB) error
 func GetRoleBinding(roleID uint, uid string, db *gorm.DB) (*models.NewRoleBinding, error) {
 	resp := new(models.NewRoleBinding)
 
-	err := db.Where("role_id = ? AND user_id = ?", roleID, uid).
+	err := db.Where("role_id = ? AND uid = ?", roleID, uid).
 		First(&resp).
 		Error
 

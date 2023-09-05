@@ -23,8 +23,8 @@ type UserGroup struct {
 	Description string `gorm:"column:description" json:"description"`
 	// used to mention the foreign key relationship between userGroup and groupBinding
 	// and specify the onDelete action.
-	GroupBindings     []GroupBinding     `gorm:"foreignKey:GroupID;references:GroupID;constraint:OnDelete:CASCADE;"`
-	GroupRoleBindings []GroupRoleBinding `gorm:"foreignKey:GroupID;references:GroupID;constraint:OnDelete:CASCADE;"`
+	GroupBindings     []GroupBinding     `gorm:"foreignKey:GroupID;constraint:OnDelete:CASCADE;"`
+	GroupRoleBindings []GroupRoleBinding `gorm:"foreignKey:GroupID;constraint:OnDelete:CASCADE;"`
 }
 
 // TableName sets the insert table name for this struct type
