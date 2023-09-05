@@ -49,7 +49,7 @@ const (
 	TargetTypeReleasePlan       = "发布计划"
 	TargetTypeReleasePlanStatus = "发布计划状态"
 	TargetTypeMetadata          = "元数据"
-	TargetTypeReleaseJob        = "发布任务"
+	TargetTypeReleaseJob        = "发布内容"
 	TargetTypeApproval          = "审批"
 	TargetTypeDescription       = "需求关联"
 
