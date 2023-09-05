@@ -379,6 +379,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		webhook.GET("/config", GetWebhookConfig)
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// database instance
+	// ---------------------------------------------------------------------------------------
+	dbs := router.Group("dbinstance")
+	{
+		dbs.POST("", CreateDBInstance)
+		dbs.GET("", ListDBInstance)
+		dbs.GET("/:id", GetDBInstance)
+		dbs.PUT("/:id", UpdateDBInstance)
+		dbs.DELETE("/:id", DeleteDBInstance)
+	}
 }
 
 type OpenAPIRouter struct{}

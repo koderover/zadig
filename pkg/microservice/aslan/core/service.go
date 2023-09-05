@@ -480,6 +480,9 @@ func initDatabase() {
 
 		// project group related db index
 		commonrepo.NewProjectGroupColl(),
+
+		// db instances
+		commonrepo.NewDBInstanceColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {
