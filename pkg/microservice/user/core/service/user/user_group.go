@@ -17,14 +17,10 @@ limitations under the License.
 package user
 
 import (
-	"fmt"
-
 	"github.com/google/uuid"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 )
 
@@ -103,18 +99,6 @@ func UpdateUserGroupInfo(groupID, name, description string, logger *zap.SugaredL
 }
 
 func DeleteUserGroup(groupID string, logger *zap.SugaredLogger) error {
-	// first check if the user group is assigned with any roles
-	rbs, err := mongodb.NewRoleBindingColl().ListRoleBindingsByGID(groupID)
-	if err != nil && err != mongo.ErrNoDocuments {
-		logger.Errorf("failed to find user group role info, error: %s", err)
-		return fmt.Errorf("failed to find user group role info, error: %s", err)
-	}
-
-	// if the group is assigned with role, just return error
-	if len(rbs) > 0 {
-		return fmt.Errorf("group %s is assigned with a role, delete all roles to proceed", groupID)
-	}
-
 	// if no role is assigned to a user group, do a deletion
 	return orm.DeleteUserGroup(groupID, repository.DB)
 }
