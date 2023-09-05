@@ -42,9 +42,9 @@ type NewRole struct {
 	Type        int64  `gorm:"column:type"        json:"type"`
 	Namespace   string `gorm:"column:namespace"   json:"namespace"`
 
-	RoleActionBindings []RoleActionBinding `gorm:"foreignKey:RoleID;constraint:OnDelete:CASCADE;"`
-	RoleUserBindings   []NewRoleBinding    `gorm:"foreignKey:RoleID;constraint:OnDelete:CASCADE;"`
-	GroupRoleBindings  []GroupRoleBinding  `gorm:"foreignKey:RoleID;constraint:OnDelete:CASCADE;"`
+	RoleActionBindings []RoleActionBinding `gorm:"foreignKey:ID;references:RoleID;constraint:OnDelete:CASCADE;"`
+	RoleUserBindings   []NewRoleBinding    `gorm:"foreignKey:ID;references:RoleID;constraint:OnDelete:CASCADE;"`
+	GroupRoleBindings  []GroupRoleBinding  `gorm:"foreignKey:ID;references:RoleID;constraint:OnDelete:CASCADE;"`
 }
 
 func (NewRole) TableName() string {
