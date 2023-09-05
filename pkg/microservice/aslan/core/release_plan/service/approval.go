@@ -449,7 +449,7 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 		}
 		if finalInstance.ApproveOrReject == config.Reject && !isApprove {
 			approval.Status = config.StatusReject
-			return errors.New("Approval has been rejected")
+			return nil
 		}
 		return errors.New("check final larkApproval status failed")
 	}
