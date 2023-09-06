@@ -81,7 +81,7 @@ func DeleteUserGroup(groupID string, db *gorm.DB) error {
 func ListUserGroupByUID(uid string, db *gorm.DB) ([]*models.UserGroup, error) {
 	resp := make([]*models.UserGroup, 0)
 
-	err := db.Joins("INNER JOIN group_binding ON group_binding.group_id = user_group.id").
+	err := db.Joins("INNER JOIN group_binding ON group_binding.group_id = user_group.group_id").
 		Where("group_binding.uid = ?", uid).
 		Find(&resp).
 		Error
