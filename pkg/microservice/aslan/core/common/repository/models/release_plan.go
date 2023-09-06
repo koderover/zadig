@@ -41,7 +41,6 @@ type ReleasePlan struct {
 
 	Jobs []*ReleaseJob `bson:"jobs"       yaml:"jobs"                   json:"jobs"`
 
-	//Logs   []*ReleasePlanLog        `bson:"logs"       yaml:"logs"                   json:"logs"`
 	Status config.ReleasePlanStatus `bson:"status"       yaml:"status"                   json:"status"`
 
 	PlanningTime  int64 `bson:"planning_time"       yaml:"planning_time"                   json:"planning_time"`
