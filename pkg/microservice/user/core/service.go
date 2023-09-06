@@ -69,6 +69,12 @@ func initDatabase() {
 	)
 
 	repository.DB = gormtool.DB(config.MysqlUserDB())
+	sqlDB, err := repository.DB.DB()
+	if err != nil {
+		panic("failed to create sqldb for user database")
+	}
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(200)
 	repository.DexDB = gormtool.DB(config.MysqlDexDB())
 
 	// mysql model migration
