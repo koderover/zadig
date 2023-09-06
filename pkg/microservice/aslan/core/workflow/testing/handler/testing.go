@@ -172,6 +172,7 @@ func ListTestModules(c *gin.Context) {
 			}
 		}
 		projects = []string{projectName}
+		log.Debugf("1")
 	} else {
 		// otherwise all projects with the get testing permission will be added to the projects
 		allowedProjects, found, err := internalhandler.ListAuthorizedProjectsByResourceAndVerb(ctx.UserID, types.ResourceTypeTest, types.TestActionView)
@@ -180,8 +181,10 @@ func ListTestModules(c *gin.Context) {
 			return
 		}
 		projects = allowedProjects
+		log.Debugf("2")
 	}
 
+	log.Debugf("ListTestModules projects: %v", projects)
 	ctx.Resp, ctx.Err = service.ListTestingOpt(projects, c.Query("testType"), ctx.Logger)
 }
 
