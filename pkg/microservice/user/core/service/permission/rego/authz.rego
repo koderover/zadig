@@ -27,7 +27,7 @@ response = r {
 url_is_public {
     some i
     data.exemptions[i].method == http_request.method
-    glob.match(trim(data.exemptions.public[i].endpoint, "/"), ["/"], concat("/", input.parsed_path))
+    glob.match(trim(data.exemptions[i].endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
 
 claims := payload {
