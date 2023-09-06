@@ -86,7 +86,7 @@ func ListRoleByUIDAndNamespace(uid, namespace string, db *gorm.DB) ([]*models.Ne
 
 	err := db.Joins("INNER JOIN role ON role.id = role_binding.role_id").
 		Where("role.namespace = ?", namespace).
-		Where("role_binding.user_id = ?", uid).
+		Where("role_binding.uid = ?", uid).
 		Find(&resp).
 		Error
 
@@ -102,7 +102,7 @@ func ListRoleByUID(uid string, db *gorm.DB) ([]*models.NewRole, error) {
 	resp := make([]*models.NewRole, 0)
 
 	err := db.Joins("INNER JOIN role_binding ON role.id = role_binding.role_id").
-		Where("role_binding.user_id = ?", uid).
+		Where("role_binding.uid = ?", uid).
 		Find(&resp).
 		Error
 
@@ -118,7 +118,7 @@ func ListRoleByUIDAndVerb(uid string, verb string, db *gorm.DB) ([]*models.NewRo
 	resp := make([]*models.NewRole, 0)
 
 	err := db.Joins("INNER JOIN role_binding ON role_binding.role_id = role.id").
-		Joins("INNER JOIN user ON user.uid = role_binding.user_id").
+		Joins("INNER JOIN user ON user.uid = role_binding.uid").
 		Joins("INNER JOIN action_binding ON action_binding.role_id = role.id").
 		Joins("INNER JOIN action ON action.id = action_binding.action_id").
 		Where("user.uid = ? AND (action.action = ? OR role.name = ?)", uid, verb, "project-admin").

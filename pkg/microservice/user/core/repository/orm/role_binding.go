@@ -81,7 +81,7 @@ func GetRoleBinding(roleID uint, uid string, db *gorm.DB) (*models.NewRoleBindin
 func ListRoleBindingByNamespace(namespace string, db *gorm.DB) ([]*models.RoleBindingDetail, error) {
 	resp := make([]*models.RoleBindingDetail, 0)
 
-	err := db.Joins("INNER JOIN role_binding ON user.id = role_binding.user_id").
+	err := db.Joins("INNER JOIN role_binding ON user.id = role_binding.uid").
 		Joins("INNER JOIN role ON role_binding.role_id = role.id").
 		Where("role.namespace = ?", namespace).
 		Find(&resp).
@@ -99,7 +99,7 @@ func DeleteRoleBindingByUID(uid, namespace string, db *gorm.DB) error {
 	query := db.Table(models.NewRoleBinding{}.TableName()).
 		Joins("INNER JOIN role ON role.id = role_binding.role_id").
 		Where("role.namespace = ?", namespace).
-		Where("role_binding.user_id = ?", uid)
+		Where("role_binding.uid = ?", uid)
 
 	err := query.Delete(&models.NewRoleBinding{}).Error
 
