@@ -36,9 +36,9 @@ type ReleaseJobExecutor interface {
 func NewReleaseJobExecutor(c *handler.Context, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
 	switch config.ReleasePlanJobType(args.Type) {
 	case config.JobText:
-		return NewTextReleaseJobExecutor(c.UserName, args)
+		return NewTextReleaseJobExecutor(c, args)
 	case config.JobWorkflow:
-		return NewWorkflowReleaseJobExecutor(username, args)
+		return NewWorkflowReleaseJobExecutor(c, args)
 	default:
 		return nil, errors.Errorf("invalid release job type: %s", args.Type)
 	}
