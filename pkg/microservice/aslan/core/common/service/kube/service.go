@@ -247,7 +247,7 @@ func (s *Service) GetCluster(id string, logger *zap.SugaredLogger) (*models.K8SC
 		}
 	}
 
-	if cluster.AdvancedConfig.ClusterAccessYaml == "" {
+	if cluster.AdvancedConfig != nil && cluster.AdvancedConfig.ClusterAccessYaml == "" {
 		cluster.AdvancedConfig.ScheduleWorkflow = true
 		cluster.AdvancedConfig.ClusterAccessYaml = ClusterAccessYamlTemplate
 	}

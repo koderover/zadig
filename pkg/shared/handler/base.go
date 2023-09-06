@@ -106,7 +106,7 @@ func NewContextWithAuthorization(c *gin.Context) (*Context, error) {
 	resourceAuthInfo, err = user.New().GetUserAuthInfo(resp.UserID)
 	if err != nil {
 		logger.Errorf("failed to generate user authorization info, error: %s", err)
-		return nil, err
+		return resp, err
 	}
 	resp.Resources = resourceAuthInfo
 	return resp, nil
