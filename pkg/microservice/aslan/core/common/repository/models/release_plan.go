@@ -41,7 +41,6 @@ type ReleasePlan struct {
 
 	Jobs []*ReleaseJob `bson:"jobs"       yaml:"jobs"                   json:"jobs"`
 
-	Logs   []*ReleasePlanLog        `bson:"logs"       yaml:"logs"                   json:"logs"`
 	Status config.ReleasePlanStatus `bson:"status"       yaml:"status"                   json:"status"`
 
 	PlanningTime  int64 `bson:"planning_time"       yaml:"planning_time"                   json:"planning_time"`
@@ -86,13 +85,19 @@ type WorkflowReleaseJobSpec struct {
 }
 
 type ReleasePlanLog struct {
-	Username   string      `bson:"username"                    json:"username"`
-	Account    string      `bson:"account"                     json:"account"`
-	Verb       string      `bson:"verb"                        json:"verb"`
-	TargetName string      `bson:"target_name"                 json:"target_name"`
-	TargetType string      `bson:"target_type"                 json:"target_type"`
-	Before     interface{} `bson:"before"                      json:"before"`
-	After      interface{} `bson:"after"                       json:"after"`
-	Detail     string      `bson:"detail"                      json:"detail"`
-	CreatedAt  int64       `bson:"created_at"                  json:"created_at"`
+	ID         primitive.ObjectID `bson:"_id,omitempty"                  json:"id"`
+	PlanID     string             `bson:"plan_id"                    json:"plan_id"`
+	Username   string             `bson:"username"                    json:"username"`
+	Account    string             `bson:"account"                     json:"account"`
+	Verb       string             `bson:"verb"                        json:"verb"`
+	TargetName string             `bson:"target_name"                 json:"target_name"`
+	TargetType string             `bson:"target_type"                 json:"target_type"`
+	Before     interface{}        `bson:"before"                      json:"before"`
+	After      interface{}        `bson:"after"                       json:"after"`
+	Detail     string             `bson:"detail"                      json:"detail"`
+	CreatedAt  int64              `bson:"created_at"                  json:"created_at"`
+}
+
+func (ReleasePlanLog) TableName() string {
+	return "release_plan_log"
 }

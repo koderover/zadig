@@ -453,6 +453,7 @@ func initDatabase() {
 		commonrepo.NewImageTagsCollColl(),
 		commonrepo.NewLLMIntegrationColl(),
 		commonrepo.NewReleasePlanColl(),
+		commonrepo.NewReleasePlanLogColl(),
 
 		// msg queue
 		commonrepo.NewMsgQueueCommonColl(),

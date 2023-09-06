@@ -53,13 +53,13 @@ func (c *ReleasePlanColl) EnsureIndex(ctx context.Context) error {
 	return nil
 }
 
-func (c *ReleasePlanColl) Create(args *models.ReleasePlan) error {
+func (c *ReleasePlanColl) Create(args *models.ReleasePlan) (string, error) {
 	if args == nil {
-		return errors.New("nil ReleasePlan")
+		return "", errors.New("nil ReleasePlan")
 	}
 
-	_, err := c.InsertOne(context.Background(), args)
-	return err
+	res, err := c.InsertOne(context.Background(), args)
+	return res.InsertedID.(primitive.ObjectID).Hex(), err
 }
 
 func (c *ReleasePlanColl) GetByID(ctx context.Context, idString string) (*models.ReleasePlan, error) {

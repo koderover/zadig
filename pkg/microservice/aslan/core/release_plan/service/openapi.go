@@ -142,14 +142,25 @@ func OpenAPICreateReleasePlan(c *handler.Context, rawArgs *OpenAPICreateReleaseP
 	args.CreateTime = time.Now().Unix()
 	args.UpdateTime = time.Now().Unix()
 	args.Status = config.StatusPlanning
-	args.Logs = append(args.Logs, &models.ReleasePlanLog{
-		Username:   c.UserName,
-		Account:    c.Account,
-		Verb:       VerbCreate,
-		TargetName: args.Name,
-		TargetType: TargetTypeReleasePlan,
-		CreatedAt:  time.Now().Unix(),
-	})
 
-	return mongodb.NewReleasePlanColl().Create(args)
+	planID, err := mongodb.NewReleasePlanColl().Create(args)
+	if err != nil {
+		return errors.Wrap(err, "create release plan error")
+	}
+
+	go func() {
+		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+			PlanID:     planID,
+			Username:   c.UserName,
+			Account:    c.Account,
+			Verb:       VerbCreate,
+			TargetName: args.Name,
+			TargetType: TargetTypeReleasePlan,
+			CreatedAt:  time.Now().Unix(),
+		}); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
+	}()
+
+	return nil
 }

@@ -41,7 +41,7 @@ type NacosJob struct {
 
 func (j *NacosJob) Instantiate() error {
 	j.spec = &commonmodels.NacosJobSpec{}
-	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 	j.job.Spec = j.spec
@@ -171,7 +171,7 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 func (j *NacosJob) LintJob() error {
 	j.spec = &commonmodels.NacosJobSpec{}
-	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}
 
