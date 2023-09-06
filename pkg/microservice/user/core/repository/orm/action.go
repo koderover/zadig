@@ -44,7 +44,7 @@ func ListActionByType(actionScope int, db *gorm.DB) ([]*models.Action, error) {
 func ListActionByRole(roleID uint, db *gorm.DB) ([]*models.Action, error) {
 	resp := make([]*models.Action, 0)
 	err := db.Where("role_action_binding.role_id = ?", roleID).
-		Joins("INNER JOIN action ON role_action_binding.action_id = action.id").
+		Joins("INNER JOIN role_action_binding ON role_action_binding.action_id = action.id").
 		Find(&resp).
 		Error
 
