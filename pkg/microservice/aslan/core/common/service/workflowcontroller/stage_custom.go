@@ -18,12 +18,15 @@ package workflowcontroller
 
 import (
 	"context"
+	"regexp"
 
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 )
+
+var reg = regexp.MustCompile()
 
 type CustomStageCtl struct {
 	stage       *commonmodels.StageTask
@@ -52,4 +55,11 @@ func (c *CustomStageCtl) Run(ctx context.Context, concurrency int) {
 
 	}
 	jobcontroller.RunJobs(ctx, c.stage.Jobs, c.workflowCtx, workerConcurrency, c.logger, c.ack)
+}
+
+func (c *CustomStageCtl) AfterRun() {
+	// set IMAGES workflow variable
+	// set after a stage has been done for build and some other type job maybe split to many job tasks in one stage
+
+	c.workflowCtx.GlobalContextGetAll
 }

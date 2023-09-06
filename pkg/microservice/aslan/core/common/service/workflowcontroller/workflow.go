@@ -154,6 +154,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		DockerMountDir:              fmt.Sprintf("/tmp/%s/docker/%d", uuid.NewString(), time.Now().Unix()),
 		ConfigMapMountDir:           fmt.Sprintf("/tmp/%s/cm/%d", uuid.NewString(), time.Now().Unix()),
 		WorkflowKeyVals:             c.workflowTask.KeyVals,
+		GlobalContextGetAll:         c.getGlobalContextAll,
 		GlobalContextGet:            c.getGlobalContext,
 		GlobalContextSet:            c.setGlobalContext,
 		GlobalContextEach:           c.globalContextEach,
@@ -314,6 +315,17 @@ func (c *workflowCtl) addCluterID(clusterID string) {
 const (
 	split = "@?"
 )
+
+func (c *workflowCtl) getGlobalContextAll() map[string]string {
+	c.globalContextMutex.RLock()
+	defer c.globalContextMutex.RUnlock()
+	res := make(map[string]string, len(c.workflowTask.GlobalContext))
+	for k, v := range c.workflowTask.GlobalContext {
+		k = strings.Join(strings.Split(k, split), ".")
+		res[k] = v
+	}
+	return res
+}
 
 func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
 	c.globalContextMutex.RLock()
