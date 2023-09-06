@@ -109,11 +109,6 @@ func AutoCreateWorkflow(c *gin.Context) {
 	ctx.Resp = workflow.AutoCreateWorkflow(projectKey, ctx.Logger)
 }
 
-type CreateWorkflowReq struct {
-	Workflow *commonmodels.Workflow `json:"workflow"`
-	View     string                 `json:"view"`
-}
-
 func CreateWorkflow(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -125,7 +120,7 @@ func CreateWorkflow(c *gin.Context) {
 		return
 	}
 
-	args := new(CreateWorkflowReq)
+	args := new(commonmodels.Workflow)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateWorkflow c.GetRawData() err : %v", err)
@@ -134,8 +129,8 @@ func CreateWorkflow(c *gin.Context) {
 		log.Errorf("CreateWorkflow json.Unmarshal err : %v", err)
 	}
 
-	projectKey := args.Workflow.ProductTmplName
-	workflowName := args.Workflow.Name
+	projectKey := args.ProductTmplName
+	workflowName := args.Name
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "新增", "工作流", workflowName, string(data), ctx.Logger)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
@@ -158,18 +153,18 @@ func CreateWorkflow(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	args.Workflow.UpdateBy = ctx.UserName
-	args.Workflow.CreateBy = ctx.UserName
-	if err := workflow.CreateWorkflow(args.Workflow, ctx.Logger); err != nil {
+	args.UpdateBy = ctx.UserName
+	args.CreateBy = ctx.UserName
+	if err := workflow.CreateWorkflow(args, ctx.Logger); err != nil {
 		ctx.Err = err
 		return
 	}
 
-	if args.View != "" {
-		workflow.AddWorkflowToView(args.Workflow.ProductTmplName, args.View, []*commonmodels.WorkflowViewDetail{
+	if view := c.Query("viewName"); view != "" {
+		workflow.AddWorkflowToView(args.ProductTmplName, view, []*commonmodels.WorkflowViewDetail{
 			{
-				WorkflowName:        args.Workflow.Name,
-				WorkflowDisplayName: args.Workflow.DisplayName,
+				WorkflowName:        args.Name,
+				WorkflowDisplayName: args.DisplayName,
 				WorkflowType:        setting.ProductWorkflowType,
 			},
 		}, ctx.Logger)
