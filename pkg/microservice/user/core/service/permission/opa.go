@@ -33,6 +33,7 @@ const (
 	exemptionsPath = "exemptions/data.json"
 
 	exemptionsRoot = "exemptions"
+	rbacRoot       = "rbac"
 )
 
 //go:embed rego/urls.yaml
@@ -56,7 +57,7 @@ func GenerateOPABundle() error {
 			{Data: authz, Path: policyRegoPath},
 			{Data: generateOPAExemptionURLs(), Path: exemptionsPath},
 		},
-		Roots: []string{exemptionsRoot},
+		Roots: []string{exemptionsRoot, rbacRoot},
 	}
 
 	hash, err := bundle.Rehash()
