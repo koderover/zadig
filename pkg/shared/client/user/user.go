@@ -99,7 +99,7 @@ func (c *Client) SearchUser(args *SearchUserArgs) (*SearchUserResp, error) {
 }
 
 func (c *Client) CountUsers() (*types.UserStatistics, error) {
-	url := "/user/count"
+	url := "/users/count"
 	resp := new(types.UserStatistics)
 	_, err := c.Get(url, httpclient.SetResult(resp))
 	return resp, err
