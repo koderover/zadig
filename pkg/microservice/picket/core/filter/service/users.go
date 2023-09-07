@@ -23,7 +23,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -33,7 +32,7 @@ type DeleteUserResp struct {
 }
 
 func DeleteUser(userID string, header http.Header, qs url.Values, _ *zap.SugaredLogger) ([]byte, error) {
-	return policy.New().DeleteRoleBindings(userID, header, qs)
+	return user.New().DeleteUser(userID, header, qs)
 }
 
 func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *zap.SugaredLogger) (*types.UsersResp, error) {
