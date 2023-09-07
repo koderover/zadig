@@ -96,7 +96,7 @@ func ListRoleBindingByNamespace(namespace string, db *gorm.DB) ([]*models.NewRol
 
 // DeleteRoleBindingByUID deletes all user-role bindings with a certain user under a specific namespace
 func DeleteRoleBindingByUID(uid, namespace string, db *gorm.DB) error {
-	resp := make([]*models.RoleBinding, 0)
+	resp := make([]*models.NewRoleBinding, 0)
 	err := db.
 		Joins("INNER JOIN role ON role.id = role_binding.role_id").
 		Where("role.namespace = ?", namespace).
