@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -104,7 +105,20 @@ func CreateWorkflowV4(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflow.CreateWorkflowV4(ctx.UserName, args, ctx.Logger)
+	if err := workflow.CreateWorkflowV4(ctx.UserName, args, ctx.Logger); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	if view := c.Query("viewName"); view != "" {
+		workflow.AddWorkflowToView(args.Project, view, []*commonmodels.WorkflowViewDetail{
+			{
+				WorkflowName:        args.Name,
+				WorkflowDisplayName: args.DisplayName,
+				WorkflowType:        setting.CustomWorkflowType,
+			},
+		}, ctx.Logger)
+	}
 }
 
 func SetWorkflowTasksCustomFields(c *gin.Context) {
