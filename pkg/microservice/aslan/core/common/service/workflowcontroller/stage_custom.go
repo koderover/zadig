@@ -64,19 +64,22 @@ func (c *CustomStageCtl) Run(ctx context.Context, concurrency int) {
 func (c *CustomStageCtl) AfterRun() {
 	// set IMAGES workflow variable
 	// set after a stage has been done for build and some other type job maybe split to many job tasks in one stage
-	// after stage run, concurrent competition not exist
+	// after stage run, concurrent competition of workflowCtx.GlobalContext is not exist
 
 	//TODO DEBUG
 	b, _ := json.MarshalIndent(c.workflowCtx.GlobalContextGetAll(), "", "  ")
 	log.Debugf("workflow context: %s", string(b))
-	buildJobImages := map[string][]string{}
+	jobImages := map[string][]string{}
 	for k, v := range c.workflowCtx.GlobalContextGetAll() {
 		list := reg.FindStringSubmatch(k)
 		if len(list) > 0 {
-			buildJobImages[list[1]] = append(buildJobImages[list[1]], v)
+			jobImages[list[1]] = append(jobImages[list[1]], v)
 		}
 	}
-	for buildName, images := range buildJobImages {
-		c.workflowCtx.GlobalContextSet(fmt.Sprintf("{{.job.%s.IMAGES}}", buildName), strings.Join(images, ","))
+	for jobName, images := range jobImages {
+		key := fmt.Sprintf("{{.job.%s.IMAGES}}", jobName)
+		if _, ok := c.workflowCtx.GlobalContextGet(key); !ok {
+			c.workflowCtx.GlobalContextSet(key, strings.Join(images, ","))
+		}
 	}
 }

@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types/job"
 )
 
 type HelmDeployJobCtl struct {
@@ -69,6 +70,10 @@ func (c *HelmDeployJobCtl) Clean(ctx context.Context) {}
 func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
+
+	for _, svc := range c.jobTaskSpec.ImageAndModules {
+		c.workflowCtx.GlobalContextSet(job.GetJobOutputKey(c.job.Key, IMAGEKEY), svc.Image)
+	}
 
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    c.workflowCtx.ProjectName,
