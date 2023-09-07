@@ -548,6 +548,7 @@ func getTestingJobVariables(repos []*types.Repository, taskID int64, project, wo
 	ret = append(ret, &commonmodels.KeyVal{Key: "TESTING_NAME", Value: testingName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "TESTING_TYPE", Value: testType, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE", Value: serviceName, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_NAME", Value: serviceName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: serviceModule, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "WORKFLOW", Value: workflowName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "CI", Value: "true", IsCredential: false})

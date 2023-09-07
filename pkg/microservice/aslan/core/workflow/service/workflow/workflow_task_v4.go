@@ -1243,7 +1243,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				continue
 			}
 			for _, arg := range taskJobSpec.Properties.Envs {
-				if arg.Key == "SERVICE" {
+				if arg.Key == "SERVICE_NAME" {
 					spec.ServiceName = arg.Value
 					continue
 				}
@@ -1313,7 +1313,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					spec.TestType = arg.Value
 					continue
 				}
-				if arg.Key == "SERVICE" {
+				if arg.Key == "SERVICE_NAME" {
 					spec.ServiceName = arg.Value
 					continue
 				}
