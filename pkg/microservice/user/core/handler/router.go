@@ -50,8 +50,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		users.POST("/users/search", user.ListUsers)
 
-		users.POST("/users/ldap/:ldapId", user.SyncLdapUser)
-
 		users.GET("/user/count", user.CountSystemUsers)
 
 		router.GET("login", login.Login)
