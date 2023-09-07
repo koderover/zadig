@@ -31,7 +31,7 @@ import (
 // ActionMap is the local cache for all the actions' ID, the key is the action name
 // Note that there is no way to change action after the service start, the local cache won't
 // have an expiration mechanism.
-var ActionMap map[string]uint
+var ActionMap = make(map[string]uint)
 
 type CreateRoleReq struct {
 	Name      string   `json:"name"`
