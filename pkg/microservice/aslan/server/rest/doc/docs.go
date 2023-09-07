@@ -199,6 +199,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}": {
+            "delete": {
+                "description": "Delete Product",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Delete Product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "is delete",
+                        "name": "is_delete",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments/{name}/analysis": {
             "post": {
                 "description": "Run Enviroment Analysis",
@@ -2616,32 +2659,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/aslan/system/meego/": {
-            "get": {
-                "description": "List Meegos",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "system"
-                ],
-                "summary": "List Meegos",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/models.ProjectManagement"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/api/aslan/system/meego/{id}/projects": {
             "get": {
                 "description": "List Meego Projects",
@@ -2775,6 +2792,32 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/service.MeegoWorkItemTypeResp"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/project_management/project": {
+            "get": {
+                "description": "List Project Management For Project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List Project Management For Project",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.ProjectManagement"
+                            }
                         }
                     }
                 }

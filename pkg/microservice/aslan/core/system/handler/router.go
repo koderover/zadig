@@ -298,6 +298,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	pm := router.Group("project_management")
 	{
 		pm.GET("", ListProjectManagement)
+		pm.GET("/project", ListProjectManagementForProject)
 		pm.POST("", CreateProjectManagement)
 		pm.POST("/validate", Validate)
 		pm.PATCH("/:id", UpdateProjectManagement)
@@ -340,7 +341,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// feishu project management module
 	meego := router.Group("meego")
 	{
-		meego.GET("/", ListMeego)
 		meego.GET("/:id/projects", GetMeegoProjects)
 		meego.GET("/:id/projects/:projectID/work_item/types", GetWorkItemTypeList)
 		meego.GET("/:id/projects/:projectID/work_item", ListMeegoWorkItems)

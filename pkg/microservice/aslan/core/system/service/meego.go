@@ -17,30 +17,10 @@
 package service
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/meego"
 )
-
-// type ListMeegoRespone struct {
-// 	ID                string `json:"id" `
-// 	SystemIdentity    string `json:"system_identity"`
-// 	MeegoHost         string `json:"meego_host"`
-// 	MeegoPluginID     string `json:"meego_plugin_id"`
-// 	MeegoPluginSecret string `json:"meego_plugin_secret"`
-// 	MeegoUserKey      string `json:"meego_user_key"`
-// 	UpdatedAt         int64  `json:"updated_at"`
-// }
-
-func ListMeego() ([]*models.ProjectManagement, error) {
-	meegoInfos, err := commonrepo.NewProjectManagementColl().List()
-	if err != nil {
-		log.Errorf("failed to get meego info, err: %s", err)
-		return nil, err
-	}
-	return meegoInfos, nil
-}
 
 func GetMeegoProjects(id string) (*MeegoProjectResp, error) {
 	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeegoByID(id)

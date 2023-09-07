@@ -26,21 +26,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-// @Summary List Meegos
-// @Description List Meegos
-// @Tags 	system
-// @Accept 	json
-// @Produce json
-// @Success 200 		{array} 	models.ProjectManagement
-// @Router /api/aslan/system/meego/ [get]
-// @todo remove it
-func ListMeego(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.ListMeego()
-}
-
 // @Summary List Meego Projects
 // @Description List Meego Projects
 // @Tags 	system

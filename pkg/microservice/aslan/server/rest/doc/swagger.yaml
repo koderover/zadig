@@ -2220,6 +2220,35 @@ paths:
       summary: Update Multi products
       tags:
       - environment
+  /api/aslan/environment/environments/{name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete Product
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: is delete
+        in: query
+        name: is_delete
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Delete Product
+      tags:
+      - environment
   /api/aslan/environment/environments/{name}/analysis:
     post:
       consumes:
@@ -3833,23 +3862,6 @@ paths:
       summary: Check llm integrations
       tags:
       - system
-  /api/aslan/system/meego/:
-    get:
-      consumes:
-      - application/json
-      description: List Meegos
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/models.ProjectManagement'
-            type: array
-      summary: List Meegos
-      tags:
-      - system
   /api/aslan/system/meego/{id}/projects:
     get:
       consumes:
@@ -3964,6 +3976,23 @@ paths:
               $ref: '#/definitions/service.JiraProjectsResp'
             type: array
       summary: List Jira Projects
+      tags:
+      - system
+  /api/aslan/system/project_management/project:
+    get:
+      consumes:
+      - application/json
+      description: List Project Management For Project
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ProjectManagement'
+            type: array
+      summary: List Project Management For Project
       tags:
       - system
   /api/aslan/system/webhook/config:

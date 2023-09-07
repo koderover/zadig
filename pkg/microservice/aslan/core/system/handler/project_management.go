@@ -51,6 +51,37 @@ func ListProjectManagement(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListProjectManagement(ctx.Logger)
 }
 
+// @Summary List Project Management For Project
+// @Description List Project Management For Project
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Success 200 	{array} 	models.ProjectManagement
+// @Router /api/aslan/system/project_management/project [get]
+func ListProjectManagementForProject(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	pms, err := service.ListProjectManagement(ctx.Logger)
+	for _, pm := range pms {
+		pm.JiraToken = ""
+		pm.JiraUser = ""
+		pm.JiraAuthType = ""
+		pm.MeegoPluginID = ""
+		pm.MeegoPluginSecret = ""
+		pm.MeegoUserKey = ""
+	}
+	ctx.Err = err
+	ctx.Resp = pms
+}
+
 func CreateProjectManagement(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

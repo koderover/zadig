@@ -1940,6 +1940,16 @@ func GetProductionEstimatedRenderCharts(c *gin.Context) {
 	}
 }
 
+// @Summary Delete Product
+// @Description Delete Product
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	name			path		string							true	"env name"
+// @Param 	is_delete		query		string							true	"is delete"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name} [delete]
 func DeleteProduct(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
