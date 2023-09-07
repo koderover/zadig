@@ -72,7 +72,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	c.ack()
 
 	for _, svc := range c.jobTaskSpec.ImageAndModules {
-		c.workflowCtx.GlobalContextSet(job.GetJobOutputKey(c.job.Key, IMAGEKEY), svc.Image)
+		c.workflowCtx.GlobalContextSet(job.GetJobOutputKey(c.job.Key+"."+svc.ServiceModule, IMAGEKEY), svc.Image)
 	}
 
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
