@@ -57,7 +57,7 @@ func ListGroupRoleBindingsByNamespace(namespace string, db *gorm.DB) ([]*models.
 	resp := make([]*models.GroupRoleBinding, 0)
 
 	err := db.
-		Joins("INNER JOIN role ON group_binding.role_id = role.id").
+		Joins("INNER JOIN role ON group_role_binding.role_id = role.id").
 		Where("role.namespace = ?", namespace).
 		Find(&resp).
 		Error
