@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
@@ -40,7 +41,7 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 	}
 
 	// first find if the user is the system admin
-	isSystemAdmin, err := checkUserIsSystemAdmin(uid)
+	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -333,14 +334,12 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 	}, nil
 }
 
-// checkUserIsSystemAdmin return if the user, or its user group, is a system admin
-func checkUserIsSystemAdmin(uid string) (bool, error) {
-	tx := repository.DB.Begin()
+// checkUserIsSystemAdmin return if the user, or its user group, is a system admin.
+func checkUserIsSystemAdmin(uid string, tx *gorm.DB) (bool, error) {
 	groupIDList := make([]string, 0)
 	// find the user groups this uid belongs to, if none it is ok
 	groups, err := orm.ListUserGroupByUID(uid, tx)
 	if err != nil {
-		tx.Commit()
 		log.Errorf("failed to find user group for user: %s, error: %s", uid, err)
 		return false, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
 	}
@@ -352,7 +351,6 @@ func checkUserIsSystemAdmin(uid string) (bool, error) {
 	// first find if the user is the system admin
 	systemAdminRole, err := orm.FindSystemAdminRole(tx)
 	if err != nil || systemAdminRole.ID == 0 {
-		tx.Commit()
 		log.Errorf("No system admin role found, error: %s", err)
 		return false, fmt.Errorf("get user permission error: %s", err)
 	}
@@ -360,24 +358,20 @@ func checkUserIsSystemAdmin(uid string) (bool, error) {
 	// find if user has a role binding on system admin
 	rb, err := orm.GetRoleBinding(systemAdminRole.ID, uid, tx)
 	if err != nil {
-		tx.Commit()
 		log.Errorf("failed to query mysql to find if the user is admin, error: %s", err)
 		return false, fmt.Errorf("failed to get user permission, cannot determine if the user is system admin, error: %s", err)
 	}
 
 	if rb.ID != 0 {
-		tx.Commit()
 		return true, nil
 	}
 
 	// find if the user's group have a binding on system admin
 	groupRBs, err := orm.ListGroupRoleBindingsByGroupsAndRoles(systemAdminRole.ID, groupIDList, tx)
 	if err != nil {
-		tx.Commit()
 		log.Errorf("failed to query mysql to find if the user's group is bound to system admin, error: %s", err)
 		return false, fmt.Errorf("failed to get user permission, cannot determine if the user's group is system admin, error: %s", err)
 	}
 
-	tx.Commit()
 	return len(groupRBs) > 0, nil
 }

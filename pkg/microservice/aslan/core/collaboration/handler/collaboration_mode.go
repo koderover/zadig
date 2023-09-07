@@ -168,7 +168,7 @@ func generateCollaborationDetailLog(username string, args *commonmodels.Collabor
 	if err != nil {
 		return "", fmt.Errorf("failed to search users by uids(%v), err: %v", args.Members, err)
 	}
-	userInfoMap := make(map[string]types.UserInfo)
+	userInfoMap := make(map[string]*types.UserInfo)
 	for _, user := range userResp.Users {
 		userInfoMap[user.Uid] = user
 	}

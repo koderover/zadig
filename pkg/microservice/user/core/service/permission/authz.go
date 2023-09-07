@@ -38,7 +38,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 		return generateAdminRoleResource(), nil
 	}
 
-	isSystemAdmin, err := checkUserIsSystemAdmin(uid)
+	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("failed to check if the user is system admin for uid: %s, error: %s", uid, err)
