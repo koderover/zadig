@@ -102,12 +102,19 @@ func CountUserByGroup(gid string, db *gorm.DB) (int64, error) {
 }
 
 func DeleteGroupRoleBindingByGID(gid, namespace string, db *gorm.DB) error {
-	query := db.Table(models.NewRoleBinding{}.TableName()).
+	resp := make([]*models.GroupRoleBinding, 0)
+	err := db.
 		Joins("INNER JOIN role ON role.id = group_role_binding.role_id").
 		Where("role.namespace = ?", namespace).
-		Where("group_role_binding.group_id = ?", gid)
+		Where("group_role_binding.group_id = ?", gid).
+		Find(&resp).
+		Error
 
-	err := query.Delete(&models.GroupRoleBinding{}).Error
+	if err != nil {
+		return err
+	}
+
+	err = db.Delete(resp).Error
 
 	if err != nil {
 		return err
