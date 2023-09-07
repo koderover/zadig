@@ -18,7 +18,6 @@ package permission
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 
 	"github.com/gin-gonic/gin"
@@ -102,8 +101,6 @@ func ListRoles(c *gin.Context) {
 	if uid == "" {
 		ctx.Resp, ctx.Err = permission.ListRolesByNamespace(projectName, ctx.Logger)
 	} else {
-		fmt.Println("namespace is:", projectName)
-		fmt.Println("uid is:", uid)
 		ctx.Resp, ctx.Err = permission.ListRolesByNamespaceAndUserID(projectName, uid, ctx.Logger)
 	}
 }

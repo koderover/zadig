@@ -164,7 +164,7 @@ func ListRolesByNamespace(projectName string, log *zap.SugaredLogger) ([]*types.
 }
 
 func ListRolesByNamespaceAndUserID(projectName, uid string, log *zap.SugaredLogger) ([]*types.Role, error) {
-	roles, err := orm.ListRoleByUIDAndNamespace(projectName, uid, repository.DB)
+	roles, err := orm.ListRoleByUIDAndNamespace(uid, projectName, repository.DB)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		log.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
 		return nil, fmt.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
