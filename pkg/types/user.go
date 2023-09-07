@@ -16,9 +16,7 @@ limitations under the License.
 
 package types
 
-import (
-	"github.com/koderover/zadig/pkg/setting"
-)
+import "github.com/koderover/zadig/pkg/setting"
 
 type UserInfo struct {
 	LastLoginTime      int64          `json:"last_login_time"`

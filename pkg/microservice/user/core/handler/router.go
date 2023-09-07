@@ -89,7 +89,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		{
 			roles.POST("", permission.CreateRole)
 			roles.PUT("/:name", permission.UpdateRole)
-			roles.GET("", permission.ListRolesByNamespace)
+			roles.GET("", permission.ListRoles)
 			roles.GET("/:name", permission.GetRole)
 			roles.DELETE("/:name", permission.DeleteRole)
 		}

@@ -23,6 +23,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -141,40 +142,16 @@ func UpdateRole(ns string, req *CreateRoleReq, log *zap.SugaredLogger) error {
 	return nil
 }
 
-type RoleResponse struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Namespace   string `json:"namespace"`
-	Description string `json:"desc"`
-	Type        string `json:"type"`
-}
-
-type DetailedRoleResponse struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Namespace   string `json:"namespace"`
-	Description string `json:"desc"`
-	Type        string `json:"type"`
-	// ResourceActions represents a set of verbs with its corresponding resource.
-	// the json response of this field `rules` is used for compatibility.
-	ResourceActions []*ResourceAction `json:"rules"`
-}
-
-type ResourceAction struct {
-	Resource string   `json:"resource"`
-	Verbs    []string `json:"verbs"`
-}
-
-func ListRolesByNamespace(projectName string, log *zap.SugaredLogger) ([]*RoleResponse, error) {
+func ListRolesByNamespace(projectName string, log *zap.SugaredLogger) ([]*types.Role, error) {
 	roles, err := orm.ListRoleByNamespace(projectName, repository.DB)
 	if err != nil && err != gorm.ErrRecordNotFound {
 		log.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
 		return nil, fmt.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
 	}
 
-	resp := make([]*RoleResponse, 0)
+	resp := make([]*types.Role, 0)
 	for _, role := range roles {
-		resp = append(resp, &RoleResponse{
+		resp = append(resp, &types.Role{
 			ID:          role.ID,
 			Name:        role.Name,
 			Namespace:   role.Namespace,
@@ -186,7 +163,28 @@ func ListRolesByNamespace(projectName string, log *zap.SugaredLogger) ([]*RoleRe
 	return resp, nil
 }
 
-func GetRole(ns, name string, log *zap.SugaredLogger) (*DetailedRoleResponse, error) {
+func ListRolesByNamespaceAndUserID(projectName, uid string, log *zap.SugaredLogger) ([]*types.Role, error) {
+	roles, err := orm.ListRoleByUIDAndNamespace(projectName, uid, repository.DB)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		log.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
+		return nil, fmt.Errorf("failed to list roles in project: %s, error: %s", projectName, err)
+	}
+
+	resp := make([]*types.Role, 0)
+	for _, role := range roles {
+		resp = append(resp, &types.Role{
+			ID:          role.ID,
+			Name:        role.Name,
+			Namespace:   role.Namespace,
+			Description: role.Description,
+			Type:        convertDBRoleType(role.Type),
+		})
+	}
+
+	return resp, nil
+}
+
+func GetRole(ns, name string, log *zap.SugaredLogger) (*types.DetailedRole, error) {
 	role, err := orm.GetRole(name, ns, repository.DB)
 	if err != nil {
 		log.Errorf("failed to find role: %s under namespace: %s, error: %s", name, ns, err)
@@ -209,15 +207,15 @@ func GetRole(ns, name string, log *zap.SugaredLogger) (*DetailedRoleResponse, er
 		actionMap[action.Resource].Insert(action.Action)
 	}
 
-	resourceActionList := make([]*ResourceAction, 0)
+	resourceActionList := make([]*types.ResourceAction, 0)
 	for resource, actionSet := range actionMap {
-		resourceActionList = append(resourceActionList, &ResourceAction{
+		resourceActionList = append(resourceActionList, &types.ResourceAction{
 			Resource: resource,
 			Verbs:    actionSet.List(),
 		})
 	}
 
-	resp := &DetailedRoleResponse{
+	resp := &types.DetailedRole{
 		ID:              role.ID,
 		Name:            role.Name,
 		Namespace:       role.Namespace,

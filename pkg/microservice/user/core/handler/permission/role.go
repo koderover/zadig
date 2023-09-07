@@ -88,7 +88,7 @@ func UpdateRole(c *gin.Context) {
 	ctx.Err = permission.UpdateRole(projectName, args, ctx.Logger)
 }
 
-func ListRolesByNamespace(c *gin.Context) {
+func ListRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -97,8 +97,12 @@ func ListRolesByNamespace(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
 		return
 	}
-
-	ctx.Resp, ctx.Err = permission.ListRolesByNamespace(projectName, ctx.Logger)
+	uid := c.Query("uid")
+	if uid == "" {
+		ctx.Resp, ctx.Err = permission.ListRolesByNamespace(projectName, ctx.Logger)
+	} else {
+		ctx.Resp, ctx.Err = permission.ListRolesByNamespaceAndUserID(projectName, uid, ctx.Logger)
+	}
 }
 
 func GetRole(c *gin.Context) {
