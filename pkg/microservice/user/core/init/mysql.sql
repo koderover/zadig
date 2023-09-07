@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS `group_binding` (
     `group_id` varchar(64) NOT NULL COMMENT '用户组ID',
     `uid` varchar(64) NOT NULL COMMENT '用户ID',
     PRIMARY KEY (`id`),
-    FOREIGN KEY (`uid`) REFERENCES user(`uid`),
-    FOREIGN KEY (`group_id`) REFERENCES user_group(`group_id`)
+    FOREIGN KEY (`uid`) REFERENCES user(`uid`) ON DELETE CASCADE,
+    FOREIGN KEY (`group_id`) REFERENCES user_group(`group_id`) ON DELETE CASCADE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '用户/用户组绑定信息' ROW_FORMAT = Compact;
 
 CREATE TABLE IF NOT EXISTS `action` (
@@ -72,8 +72,8 @@ CREATE TABLE IF NOT EXISTS `role_action_binding` (
     `action_id` bigint(20) NOT NULL COMMENT '用户组ID',
     `role_id`   bigint(20) NOT NULL COMMENT '角色ID',
     PRIMARY KEY (`id`),
-    FOREIGN KEY (`action_id`) REFERENCES action(`id`),
-    FOREIGN KEY (`role_id`) REFERENCES role(`id`)
+    FOREIGN KEY (`action_id`) REFERENCES action(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`role_id`) REFERENCES role(`id`) ON DELETE CASCADE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色/权限项绑定信息' ROW_FORMAT = Compact;
 
 CREATE TABLE IF NOT EXISTS `role_binding` (
@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS `role_binding` (
     `uid`   varchar(64) NOT NULL COMMENT '用户ID',
     `role_id`   bigint(20) NOT NULL COMMENT '角色ID',
     PRIMARY KEY (`id`),
-    FOREIGN KEY (`uid`) REFERENCES user(`uid`),
-    FOREIGN KEY (`role_id`) REFERENCES role(`id`)
+    FOREIGN KEY (`uid`) REFERENCES user(`uid`) ON DELETE CASCADE,
+    FOREIGN KEY (`role_id`) REFERENCES role(`id`) ON DELETE CASCADE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色/用户绑定信息' ROW_FORMAT = Compact;
 
 CREATE TABLE IF NOT EXISTS `group_role_binding` (
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS `group_role_binding` (
     `group_id`  varchar(64) NOT NULL COMMENT '用户组ID',
     `role_id`   bigint(20) NOT NULL COMMENT '角色ID',
     PRIMARY KEY (`id`),
-    FOREIGN KEY (`group_id`) REFERENCES user_group(`group_id`),
-    FOREIGN KEY (`role_id`) REFERENCES role(`id`)
+    FOREIGN KEY (`group_id`) REFERENCES user_group(`group_id`) ON DELETE CASCADE,
+    FOREIGN KEY (`role_id`) REFERENCES role(`id`) ON DELETE CASCADE
 ) ENGINE = InnoDB CHARACTER SET = utf8 COLLATE = utf8_general_ci COMMENT = '角色组/角色绑定信息' ROW_FORMAT = Compact;
 
