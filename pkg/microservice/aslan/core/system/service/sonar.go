@@ -86,9 +86,10 @@ func ListSonarIntegration(log *zap.SugaredLogger) ([]*SonarIntegration, int64, e
 	resp := make([]*SonarIntegration, 0)
 	for _, sonar := range sonarList {
 		resp = append(resp, &SonarIntegration{
-			ID:            sonar.ID.Hex(),
-			ServerAddress: sonar.ServerAddress,
-			Token:         sonar.Token,
+			ID:             sonar.ID.Hex(),
+			SystemIdentity: sonar.SystemIdentity,
+			ServerAddress:  sonar.ServerAddress,
+			Token:          sonar.Token,
 		})
 	}
 	return resp, length, nil
