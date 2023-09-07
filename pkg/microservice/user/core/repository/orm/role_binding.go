@@ -81,7 +81,7 @@ func GetRoleBinding(roleID uint, uid string, db *gorm.DB) (*models.NewRoleBindin
 func ListRoleBindingByNamespace(namespace string, db *gorm.DB) ([]*models.RoleBindingDetail, error) {
 	resp := make([]*models.RoleBindingDetail, 0)
 
-	err := db.Joins("INNER JOIN role_binding ON user.id = role_binding.uid").
+	err := db.Joins("INNER JOIN role_binding ON user.uid = role_binding.uid").
 		Joins("INNER JOIN role ON role_binding.role_id = role.id").
 		Where("role.namespace = ?", namespace).
 		Find(&resp).

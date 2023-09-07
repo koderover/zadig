@@ -127,7 +127,6 @@ func CreateRoleBindings(role, ns string, identityList []*Identity, log *zap.Suga
 	for _, identity := range identityList {
 		switch identity.IdentityType {
 		case "user":
-			log.Infof("adding user: %s into user list for role: %s in namespace: %s", identity.UID, role, ns)
 			userIDList = append(userIDList, identity.UID)
 		case "group":
 			groupIDList = append(groupIDList, identity.GID)
