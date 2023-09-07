@@ -46,6 +46,16 @@ func GetRole(name, namespace string, db *gorm.DB) (*models.NewRole, error) {
 	return resp, nil
 }
 
+func GetRoleByID(id uint, db *gorm.DB) (*models.NewRole, error) {
+	resp := new(models.NewRole)
+	err := db.Where("id = ?", id).Find(&resp).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func UpdateRoleInfo(id uint, role *models.NewRole, db *gorm.DB) error {
 	err := db.Model(&models.NewRole{}).Where("id = ?", id).Updates(role).Error
 

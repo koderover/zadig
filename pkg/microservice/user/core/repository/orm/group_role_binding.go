@@ -53,6 +53,22 @@ func ListGroupRoleBindingsByGroupsAndRoles(roleID uint, groupIDs []string, db *g
 	return resp, nil
 }
 
+func ListGroupRoleBindingsByNamespace(namespace string, db *gorm.DB) ([]*models.GroupRoleBinding, error) {
+	resp := make([]*models.GroupRoleBinding, 0)
+
+	err := db.
+		Joins("INNER JOIN role ON group_binding.role_id = role.id").
+		Where("role.namespace = ?", namespace).
+		Find(&resp).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 func CountUserByGroup(gid string, db *gorm.DB) (int64, error) {
 	var count int64
 	err := db.

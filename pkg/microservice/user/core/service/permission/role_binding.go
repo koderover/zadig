@@ -40,23 +40,25 @@ type BindingUserInfo struct {
 }
 
 type BindingGroupInfo struct {
-	GID  uint   `json:"group_id"`
+	GID  string `json:"group_id"`
 	Name string `json:"name"`
 }
 
 type Identity struct {
 	IdentityType string `json:"identity_type"`
 	UID          string `json:"uid,omitempty"`
-	GID          uint   `json:"gid,omitempty"`
+	GID          string `json:"gid,omitempty"`
 }
 
 func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindingResp, error) {
 	resp := make([]*RoleBindingResp, 0)
 
 	userInfoMap := make(map[string]*BindingUserInfo)
+	groupInfoMap := make(map[string]*BindingGroupInfo)
 
 	// first we deal with the user-role bindings
 	userRoleMap := make(map[string]sets.String)
+	groupRoleMap := make(map[string]sets.String)
 	if uid != "" {
 		userInfo, err := orm.GetUserByUid(uid, repository.DB)
 		if err != nil {
@@ -78,27 +80,99 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 		for _, role := range roles {
 			userRoleMap[uid].Insert(role.Name)
 		}
+	} else if gid != "" {
+		groupInfo, err := orm.GetUserGroup(gid, repository.DB)
+		if err != nil {
+			log.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
+			return nil, fmt.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
+		}
+
+		groupInfoMap[gid] = &BindingGroupInfo{
+			GID:  gid,
+			Name: groupInfo.GroupName,
+		}
+
+		roles, err := orm.ListRoleByGroupIDs([]string{gid}, repository.DB)
+		if err != nil {
+			log.Errorf("failed to list roles by uid: %s, namespace: %s, error is: %s", uid, ns, err)
+			return nil, fmt.Errorf("failed to list roles by uid: %s, namespace: %s, error is: %s", uid, ns, err)
+		}
+		groupRoleMap[gid] = sets.NewString()
+		for _, role := range roles {
+			userRoleMap[uid].Insert(role.Name)
+		}
 	} else {
-		roleBindings, err := orm.ListRoleBindingByNamespace(ns, repository.DB)
+		tx := repository.DB.Begin()
+		roleBindings, err := orm.ListRoleBindingByNamespace(ns, tx)
 		if err != nil {
 			log.Errorf("failed to list role bindings in namespace: %s, error is: %s", ns, err)
 			return nil, fmt.Errorf("failed to list role bindings in namespace: %s, error is: %s", ns, err)
 		}
+
 		for _, roleBinding := range roleBindings {
-			if _, ok := userRoleMap[roleBinding.User.UID]; !ok {
-				userRoleMap[roleBinding.User.UID] = sets.NewString()
+			if _, ok := userRoleMap[roleBinding.UID]; !ok {
+				userRoleMap[roleBinding.UID] = sets.NewString()
 			}
 
-			if _, ok := userInfoMap[roleBinding.User.UID]; !ok {
-				userInfoMap[roleBinding.User.UID] = &BindingUserInfo{
-					IdentityType: roleBinding.User.IdentityType,
-					UID:          roleBinding.User.UID,
-					Account:      roleBinding.User.Account,
-					Username:     roleBinding.User.Name,
+			role, err := orm.GetRoleByID(roleBinding.RoleID, tx)
+			if err != nil {
+				tx.Rollback()
+				log.Errorf("failed to find role of id: %d, error: %s", roleBinding.RoleID, err)
+				return nil, fmt.Errorf("failed to find role of id: %d, error: %s", roleBinding.RoleID, err)
+			}
+
+			userRoleMap[roleBinding.UID].Insert(role.Name)
+			if _, ok := userInfoMap[roleBinding.UID]; !ok {
+				userInfo, err := orm.GetUserByUid(roleBinding.UID, tx)
+				if err != nil {
+					tx.Rollback()
+					log.Errorf("failed to find user of id: %s, error: %s", roleBinding.UID, err)
+					return nil, fmt.Errorf("failed to find user of id: %s, error: %s", roleBinding.UID, err)
+				}
+				userInfoMap[roleBinding.UID] = &BindingUserInfo{
+					IdentityType: userInfo.IdentityType,
+					UID:          userInfo.UID,
+					Account:      userInfo.Account,
+					Username:     userInfo.Name,
 				}
 			}
-			userRoleMap[roleBinding.User.UID].Insert(roleBinding.Role.Name)
 		}
+
+		groupRoleBindings, err := orm.ListGroupRoleBindingsByNamespace(ns, tx)
+		if err != nil {
+			tx.Rollback()
+			log.Errorf("failed to list group role bindings in namespace: %s, error is: %s", ns, err)
+			return nil, fmt.Errorf("failed to list group role bindings in namespace: %s, error is: %s", ns, err)
+		}
+
+		for _, roleBinding := range groupRoleBindings {
+			if _, ok := groupRoleMap[roleBinding.GroupID]; !ok {
+				groupRoleMap[roleBinding.GroupID] = sets.NewString()
+			}
+
+			role, err := orm.GetRoleByID(roleBinding.RoleID, tx)
+			if err != nil {
+				tx.Rollback()
+				log.Errorf("failed to find role of id: %d, error: %s", roleBinding.RoleID, err)
+				return nil, fmt.Errorf("failed to find role of id: %d, error: %s", roleBinding.RoleID, err)
+			}
+
+			groupRoleMap[roleBinding.GroupID].Insert(role.Name)
+			if _, ok := groupInfoMap[roleBinding.GroupID]; !ok {
+				groupInfo, err := orm.GetUserGroup(gid, tx)
+				if err != nil {
+					tx.Rollback()
+					log.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
+					return nil, fmt.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
+				}
+				groupInfoMap[roleBinding.GroupID] = &BindingGroupInfo{
+					GID:  roleBinding.GroupID,
+					Name: groupInfo.GroupName,
+				}
+			}
+		}
+
+		tx.Commit()
 	}
 
 	for userID, roleSets := range userRoleMap {
@@ -109,7 +183,13 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 		})
 	}
 
-	// TODO: Add User Group logics
+	for groupID, roleSets := range groupRoleMap {
+		resp = append(resp, &RoleBindingResp{
+			BindingType: "group",
+			GroupInfo:   groupInfoMap[groupID],
+			Roles:       roleSets.List(),
+		})
+	}
 
 	return resp, nil
 }
@@ -123,7 +203,7 @@ func CreateRoleBindings(role, ns string, identityList []*Identity, log *zap.Suga
 
 	// first split identities between user and groups
 	userIDList := make([]string, 0)
-	groupIDList := make([]uint, 0)
+	groupIDList := make([]string, 0)
 	for _, identity := range identityList {
 		switch identity.IdentityType {
 		case "user":
