@@ -34,6 +34,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 	tx := repository.DB.Begin()
 	// system calls
 	if uid == "" {
+		tx.Commit()
 		return generateAdminRoleResource(), nil
 	}
 
@@ -297,6 +298,7 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 		// TODO: after role-based permission is implemented, we should check for collaboration mode after, but just for workflow and envs.
 	}
 
+	tx.Commit()
 	return respSet.List(), nil
 }
 
