@@ -44,12 +44,12 @@ func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *
 	}
 
 	res := &types.UsersResp{
-		Users:      make([]types.UserInfo, 0),
+		Users:      make([]*types.UserInfo, 0),
 		TotalCount: users.TotalCount,
 	}
 
 	for _, uInfo := range users.Users {
-		userInfo := types.UserInfo{
+		userInfo := &types.UserInfo{
 			LastLoginTime: uInfo.LastLoginTime,
 			Uid:           uInfo.Uid,
 			Name:          uInfo.Name,
