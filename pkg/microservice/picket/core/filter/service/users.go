@@ -62,6 +62,7 @@ func SearchUsers(header http.Header, qs url.Values, args *user.SearchArgs, log *
 		roles, err := user.New().ListRoles("*", uInfo.Uid)
 		if err != nil {
 			log.Errorf("failed to get user role info for user: %s[%s], error: %s", uInfo.Name, uInfo.Account, err)
+			return nil, err
 		}
 		rolebindings := make([]*types.RoleBinding, 0)
 		for _, role := range roles {
