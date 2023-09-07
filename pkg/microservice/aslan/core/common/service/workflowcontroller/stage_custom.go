@@ -30,7 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-var reg = regexp.MustCompile(`{{\.job\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.IMAGES}}`)
+var reg = regexp.MustCompile(`{{\.job\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.output\.IMAGE}}`)
 
 type CustomStageCtl struct {
 	stage       *commonmodels.StageTask
