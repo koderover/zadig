@@ -202,8 +202,8 @@ func GetRole(ns, name string, log *zap.SugaredLogger) (*DetailedRoleResponse, er
 	actionMap := make(map[string]sets.String)
 
 	for _, action := range actionList {
-		if _, ok := actionMap[action.Name]; !ok {
-			actionMap[action.Name] = sets.NewString()
+		if _, ok := actionMap[action.Resource]; !ok {
+			actionMap[action.Resource] = sets.NewString()
 		}
 
 		actionMap[action.Resource].Insert(action.Action)
