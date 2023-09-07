@@ -19,7 +19,6 @@ package service
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/setting"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -45,6 +44,7 @@ type ProjectListOptions struct {
 	PageNum          int64
 	Filter           string
 	GroupName        string
+	Ungrouped        bool
 }
 type ProjectDetailedResponse struct {
 	ProjectDetailedRepresentation []*ProjectDetailedRepresentation `json:"projects"`
@@ -78,26 +78,24 @@ type ProjectMinimalRepresentation struct {
 
 func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interface{}, error) {
 	var err error
-	if opts.GroupName != "" {
-		if opts.GroupName == setting.UNGROUPED {
-			opts.Names, err = GetUnGroupedProjectKeys()
-			if err != nil {
-				msg := fmt.Errorf("failed to list ungrouped projects, err: %s", err)
-				logger.Error(msg)
-				return nil, msg
-			}
-		} else {
-			opts.Names = make([]string, 0)
-			group, err := mongodb.NewProjectGroupColl().Find(mongodb.ProjectGroupOpts{Name: opts.GroupName})
-			if err != nil && (err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument) {
-				logger.Errorf("Failed to list projects, err: %s", err)
-				return nil, err
-			}
+	if opts.Ungrouped {
+		opts.Names, err = GetUnGroupedProjectKeys()
+		if err != nil {
+			msg := fmt.Errorf("failed to list ungrouped projects, err: %s", err)
+			logger.Error(msg)
+			return nil, msg
+		}
+	} else if opts.GroupName != "" {
+		opts.Names = make([]string, 0)
+		group, err := mongodb.NewProjectGroupColl().Find(mongodb.ProjectGroupOpts{Name: opts.GroupName})
+		if err != nil && (err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument) {
+			logger.Errorf("Failed to list projects, err: %s", err)
+			return nil, err
+		}
 
-			if group != nil && group.Projects != nil {
-				for _, project := range group.Projects {
-					opts.Names = append(opts.Names, project.ProjectKey)
-				}
+		if group != nil && group.Projects != nil {
+			for _, project := range group.Projects {
+				opts.Names = append(opts.Names, project.ProjectKey)
 			}
 		}
 	}

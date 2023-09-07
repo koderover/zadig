@@ -856,9 +856,9 @@ func DeleteProjectGroup(c *gin.Context) {
 		}
 	}
 
-	groupName := c.Query("viewName")
+	groupName := c.Query("groupName")
 	if groupName == "" {
-		ctx.Err = e.ErrDeleteProjectGroup.AddErr(errors.New("view name is empty"))
+		ctx.Err = e.ErrDeleteProjectGroup.AddErr(errors.New("group name is empty"))
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "分组", groupName, groupName, ctx.Logger)
@@ -891,5 +891,5 @@ func GetPresetProjectGroup(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = projectservice.GetProjectGroupRelation(c.Query("viewName"), ctx.Logger)
+	ctx.Resp, ctx.Err = projectservice.GetProjectGroupRelation(c.Query("groupName"), ctx.Logger)
 }
