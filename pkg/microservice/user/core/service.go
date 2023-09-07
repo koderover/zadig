@@ -24,6 +24,7 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
@@ -212,6 +213,20 @@ func syncUserRoleBinding() {
 	roleIDMap := make(map[string]uint)
 	actionIDMap := make(map[string]uint)
 
+	// initialize user group, for ONCE
+	gid, _ := uuid.NewUUID()
+	err = orm.CreateUserGroup(&models.UserGroup{
+		GroupID:     gid.String(),
+		GroupName:   "所有用户",
+		Description: "",
+		Type:        int64(setting.RoleTypeSystem),
+	}, tx)
+
+	if err != nil {
+		tx.Rollback()
+		log.Panicf("failed to initialize user group data, error: %s", err)
+	}
+
 	// create the role below and corresponding action binding for each project:
 	// 1. project-admin
 	// 2. read-only
@@ -362,14 +377,23 @@ RoleLoop:
 		}
 	}
 
-	rbmap := make(map[string][]uint)
+	userRBmap := make(map[string][]uint)
+	// this is only used to do pre-1.7.0 dara migration, which means there is only one group: all-users
+	// which is presented
+	groupBindingList := make([]uint, 0)
 
 	for _, rb := range rbList {
 		// dangerous, but ok for the system
 		uid := rb.Subjects[0].UID
 		if uid == "*" {
-			// TODO: throw it into the group binding, we will deal with it later.
-			continue
+			roleKey := fmt.Sprintf("%s+%s", rb.RoleRef.Name, rb.Namespace)
+			if roleID, ok := roleIDMap[roleKey]; ok {
+				groupBindingList = append(groupBindingList, roleID)
+			} else {
+				// if the role is not found, there is a possibility that the role has been deleted, we just print error logs.
+				log.Errorf("role: %s in namespace: %s not found, skip creating role binding between groupID: %s and role: %s...", rb.RoleRef.Name, rb.Namespace, gid.String(), rb.RoleRef.Name)
+				continue
+			}
 		}
 
 		// the role_ref.namespace is not really reliable, so we will just use namespace, special case list:
@@ -379,7 +403,7 @@ RoleLoop:
 		// 4. read_project_only: role_ref.name = read-project-only, role_ref.namespace = "", namespace = project_key
 		roleKey := fmt.Sprintf("%s+%s", rb.RoleRef.Name, rb.Namespace)
 		if roleID, ok := roleIDMap[roleKey]; ok {
-			rbmap[uid] = append(rbmap[uid], roleID)
+			userRBmap[uid] = append(userRBmap[uid], roleID)
 		} else {
 			// if the role is not found, there is a possibility that the role has been deleted, we just print error logs.
 			log.Errorf("role: %s in namespace: %s not found, skip creating role binding between uid: %s and role: %s...", rb.RoleRef.Name, rb.Namespace, uid, rb.RoleRef.Name)
@@ -387,7 +411,7 @@ RoleLoop:
 		}
 	}
 
-	for uid, roleIDList := range rbmap {
+	for uid, roleIDList := range userRBmap {
 		userInfo, err := orm.GetUserByUid(uid, tx)
 		if err != nil {
 			log.Panicf("failed to find user of uid: %s, error: %s", uid, err)
@@ -396,6 +420,7 @@ RoleLoop:
 		// if no user found, the data is corrupted: there is a role binding without a user, we ignore it
 		// someone fucked up and the userinfo might be nil
 		if userInfo == nil || len(userInfo.UID) == 0 {
+			log.Warnf("No user with id: %s is found, skip creating a binding for it...")
 			continue
 		}
 
@@ -404,6 +429,12 @@ RoleLoop:
 			tx.Rollback()
 			log.Panicf("failed to batch create role bindings for user: %s, error is: %s", uid, err)
 		}
+	}
+
+	err = orm.BulkCreateGroupRoleBindings(gid.String(), groupBindingList, tx)
+	if err != nil {
+		tx.Rollback()
+		log.Panicf("failed to bulk create roles for user group: %s, error is: %s", gid.String(), err)
 	}
 
 	tx.Commit()

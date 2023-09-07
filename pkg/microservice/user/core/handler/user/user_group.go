@@ -66,6 +66,11 @@ type listUserGroupsReq struct {
 	PageSize int `json:"page_size" form:"page_size"`
 }
 
+type listUserGroupResp struct {
+	GroupList []*user.UserGroupResp `json:"group_list"`
+	Count     int64                 `json:"total"`
+}
+
 func ListUserGroups(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -78,7 +83,17 @@ func ListUserGroups(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = user.ListUserGroups(query.PageNum, query.PageSize, ctx.Logger)
+	groupList, count, err := user.ListUserGroups(query.PageNum, query.PageSize, ctx.Logger)
+
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp = &listUserGroupResp{
+		GroupList: groupList,
+		Count:     count,
+	}
 }
 
 func GetUserGroup(c *gin.Context) {

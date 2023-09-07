@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS `user_group` (
     `group_id`    varchar(64) NOT NULL COMMENT '用户组ID',
     `group_name`  varchar(32) NOT NULL UNIQUE COMMENT '用户组名',
     `description` varchar(64) NOT NULL COMMENT '简介',
+    `type`        int(11) NOT NULL COMMENT '资源范围，1-系统自带， 2-用户自定义',
     `created_at`  int(11) unsigned NOT NULL DEFAULT '0' COMMENT '创建时间',
     `updated_at`  int(11) unsigned NOT NULL DEFAULT '0' COMMENT '更新时间',
     PRIMARY KEY (`group_id`)

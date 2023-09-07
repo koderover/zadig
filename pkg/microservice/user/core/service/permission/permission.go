@@ -68,6 +68,7 @@ func GetUserPermissionByProject(uid, projectName string, log *zap.SugaredLogger)
 	for _, role := range roles {
 		// if the user has project admin role,
 		if role.Name == ProjectAdminRole {
+			tx.Commit()
 			return &GetUserRulesByProjectResp{
 				IsProjectAdmin: true,
 			}, nil
@@ -189,6 +190,7 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 	// find the user groups this uid belongs to, if none it is ok
 	groups, err := orm.ListUserGroupByUID(uid, tx)
 	if err != nil {
+		tx.Rollback()
 		log.Errorf("failed to find user group for user: %s, error: %s", uid, err)
 		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
 	}

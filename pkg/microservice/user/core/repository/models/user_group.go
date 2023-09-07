@@ -21,6 +21,7 @@ type UserGroup struct {
 	GroupID     string `gorm:"column:group_id"    json:"group_id"`
 	GroupName   string `gorm:"column:group_name"  json:"group_name"`
 	Description string `gorm:"column:description" json:"description"`
+	Type        int64  `gorm:"column:type"        json:"type"`
 	// used to mention the foreign key relationship between userGroup and groupBinding
 	// and specify the onDelete action.
 	GroupBindings     []GroupBinding     `gorm:"foreignKey:GroupID;references:GroupID;constraint:OnDelete:CASCADE;" json:"-"`

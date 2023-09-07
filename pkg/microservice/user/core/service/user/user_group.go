@@ -21,6 +21,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/pkg/setting"
 	"go.uber.org/zap"
 )
 
@@ -38,6 +39,7 @@ func CreateUserGroup(groupName, desc string, uids []string, logger *zap.SugaredL
 		GroupID:     gid.String(),
 		GroupName:   groupName,
 		Description: desc,
+		Type:        int64(setting.RoleTypeCustom),
 	}, tx)
 	if err != nil {
 		tx.Rollback()
@@ -61,26 +63,55 @@ type UserGroupResp struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Type        string `json:"type"`
+	UserTotal   int64  `json:"user_total"`
 }
 
-func ListUserGroups(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*UserGroupResp, error) {
+func ListUserGroups(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*UserGroupResp, int64, error) {
 	resp := make([]*UserGroupResp, 0)
+	tx := repository.DB.Begin()
 
-	groups, err := orm.ListUserGroups(pageNum, pageSize, repository.DB)
+	groups, count, err := orm.ListUserGroups(pageNum, pageSize, tx)
 	if err != nil {
+		tx.Rollback()
 		logger.Infof("failed to list user groups, error: %s", err)
-		return nil, err
+		return nil, 0, err
 	}
 
 	for _, group := range groups {
-		resp = append(resp, &UserGroupResp{
+		respItem := &UserGroupResp{
 			ID:          group.GroupID,
 			Name:        group.GroupName,
 			Description: group.Description,
-		})
+		}
+		if group.Type == int64(setting.RoleTypeSystem) {
+			respItem.Type = string(setting.ResourceTypeSystem)
+		} else {
+			respItem.Type = string(setting.ResourceTypeCustom)
+		}
+
+		// special case for all-users
+		if group.GroupName == "所有用户" {
+			userCount, err := orm.CountUser(tx)
+			if err != nil {
+				tx.Rollback()
+				logger.Errorf("failed to count user for special user group: 所有用户, error: %s", err)
+				return nil, 0, err
+			}
+			respItem.UserTotal = userCount
+		} else {
+			userCount, err := orm.CountUserByGroup(group.GroupID, tx)
+			if err != nil {
+				tx.Rollback()
+				logger.Errorf("failed to count user for user group: %s, error: %s", group.GroupName, err)
+				return nil, 0, err
+			}
+			respItem.UserTotal = userCount
+		}
 	}
 
-	return resp, nil
+	tx.Commit()
+	return resp, count, nil
 }
 
 func GetUserGroup(groupID string, logger *zap.SugaredLogger) (*models.UserGroup, error) {

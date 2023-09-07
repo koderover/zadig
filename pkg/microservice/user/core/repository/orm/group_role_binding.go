@@ -22,6 +22,23 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 )
 
+func BulkCreateGroupRoleBindings(groupID string, roleIDs []uint, db *gorm.DB) error {
+	if len(roleIDs) == 0 {
+		return nil
+	}
+	rbs := make([]*models.GroupRoleBinding, 0)
+	for _, roleID := range roleIDs {
+		rbs = append(rbs, &models.GroupRoleBinding{
+			GroupID: groupID,
+			RoleID:  roleID,
+		})
+	}
+	if err := db.Create(&rbs).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func ListGroupRoleBindingsByGroupsAndRoles(roleID uint, groupIDs []string, db *gorm.DB) ([]*models.GroupRoleBinding, error) {
 	resp := make([]*models.GroupRoleBinding, 0)
 
@@ -34,4 +51,19 @@ func ListGroupRoleBindingsByGroupsAndRoles(roleID uint, groupIDs []string, db *g
 	}
 
 	return resp, nil
+}
+
+func CountUserByGroup(gid string, db *gorm.DB) (int64, error) {
+	var count int64
+	err := db.
+		Table(models.GroupBinding{}.TableName()).
+		Where("group_id = ?", gid).
+		Count(&count).
+		Error
+
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }

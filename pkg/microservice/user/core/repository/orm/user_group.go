@@ -34,16 +34,22 @@ func CreateUserGroup(userGroup *models.UserGroup, db *gorm.DB) error {
 	return nil
 }
 
-func ListUserGroups(pageNum, pageSize int, db *gorm.DB) ([]*models.UserGroup, error) {
+func ListUserGroups(pageNum, pageSize int, db *gorm.DB) ([]*models.UserGroup, int64, error) {
 	resp := make([]*models.UserGroup, 0)
+	var count int64
 
 	err := db.Order("updated_at Desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&resp).Error
 
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return resp, nil
+	err = db.Table(models.UserGroup{}.TableName()).Count(&count).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return resp, count, nil
 }
 
 func GetUserGroup(groupID string, db *gorm.DB) (*models.UserGroup, error) {

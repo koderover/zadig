@@ -159,6 +159,7 @@ func UpdateRoleBindingForUser(uid, namespace string, roles []string, log *zap.Su
 
 	roleList, err := orm.ListRoleByRoleNamesAndNamespace(roles, namespace, repository.DB)
 	if err != nil {
+		tx.Rollback()
 		log.Errorf("failed to find roles in the given role list, error: %s", err)
 		return fmt.Errorf("update role binding failed, error: %s", err)
 	}
@@ -169,12 +170,14 @@ func UpdateRoleBindingForUser(uid, namespace string, roles []string, log *zap.Su
 
 	err = orm.DeleteRoleBindingByUID(uid, namespace, tx)
 	if err != nil {
+		tx.Rollback()
 		log.Errorf("failed to delete role bindings for user: %s under namespace: %s, error: %s", uid, namespace, err)
 		return fmt.Errorf("update role binding failed, error: %s", err)
 	}
 
 	err = orm.BulkCreateRoleBindingForUser(uid, roleIDList, tx)
 	if err != nil {
+		tx.Rollback()
 		log.Errorf("failed to create new role bindings for user: %s under namespace %s, error: %s", uid, namespace, err)
 		return fmt.Errorf("failed to create new role bindings for user: %s under namespace %s, error: %s", uid, namespace, err)
 	}
@@ -189,6 +192,7 @@ func DeleteRoleBindingForUser(uid, namespace string, log *zap.SugaredLogger) err
 
 	err := orm.DeleteRoleBindingByUID(uid, namespace, tx)
 	if err != nil {
+		tx.Rollback()
 		log.Errorf("failed to delete role bindings for user: %s under namespace: %s, error: %s", uid, namespace, err)
 		return fmt.Errorf("delete role binding failed, error: %s", err)
 	}
