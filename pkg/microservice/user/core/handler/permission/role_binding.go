@@ -120,7 +120,7 @@ func UpdateRoleBindingForUser(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
-	userID := c.Query("uid")
+	userID := c.Param("uid")
 	if userID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("uid is empty")
 		return
@@ -169,7 +169,7 @@ func DeleteRoleBindingForUser(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
 		return
 	}
-	userID := c.Query("uid")
+	userID := c.Param("uid")
 	if userID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("uid is empty")
 		return

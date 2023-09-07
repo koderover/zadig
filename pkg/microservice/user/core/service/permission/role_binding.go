@@ -116,7 +116,7 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 
 func CreateRoleBindings(role, ns string, identityList []*Identity, log *zap.SugaredLogger) error {
 	roleInfo, err := orm.GetRole(role, ns, repository.DB)
-	if err != nil {
+	if err != nil || roleInfo.ID == 0 {
 		log.Errorf("failed to find role: %s in namespace: %s, error: %s", role, ns, err)
 		return fmt.Errorf("failed to find role: %s in namespace: %s, error: %s", role, ns, err)
 	}

@@ -159,7 +159,7 @@ func initializeSystemActions() {
 
 	if count == 0 {
 		fmt.Println("initializing system actions...")
-		err := repository.DB.Exec(string(actionData))
+		err := repository.DB.Exec(string(actionData)).Error
 
 		if err != nil {
 			log.Panic(err)
