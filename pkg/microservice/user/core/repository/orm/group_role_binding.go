@@ -114,6 +114,10 @@ func DeleteGroupRoleBindingByGID(gid, namespace string, db *gorm.DB) error {
 		return err
 	}
 
+	if len(resp) == 0 {
+		return nil
+	}
+
 	err = db.Delete(resp).Error
 
 	if err != nil {
