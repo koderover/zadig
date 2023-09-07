@@ -809,6 +809,25 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		}
 	}()
 
+	// delete project key in related project group
+	groups, err := commonrepo.NewProjectGroupColl().List()
+	for _, group := range groups {
+		projects := make([]*commonmodels.ProjectDetail, 0)
+		for _, project := range group.Projects {
+			if project.ProjectKey != productName {
+				projects = append(projects, project)
+			}
+		}
+		if len(projects) != len(group.Projects) {
+			group.Projects = projects
+			if err = commonrepo.NewProjectGroupColl().Update(group); err != nil {
+				log.Errorf("failed to update project group, error:%s", err)
+				return err
+			}
+			break
+		}
+	}
+
 	return nil
 }
 
@@ -1338,10 +1357,18 @@ func UpdateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.Sugared
 		return e.ErrCreateProjectGroup.AddErr(errMsg)
 	}
 
+	oldGroup, err := commonrepo.NewProjectGroupColl().Find(commonrepo.ProjectGroupOpts{ID: args.GroupID})
+	if err != nil {
+		return e.ErrUpdateProjectGroup.AddErr(fmt.Errorf("failed to find project group %s, error: %v", args.GroupName, err))
+	}
+
 	// find all project keys that have been set
 	set := sets.NewString()
 	for _, group := range groups {
-		if group.Name != args.GroupName {
+		if oldGroup.Name != args.GroupName && group.Name == args.GroupName {
+			return fmt.Errorf("group name %s has been used", args.GroupName)
+		}
+		if group.Name != oldGroup.Name {
 			for _, project := range group.Projects {
 				set.Insert(project.ProjectKey)
 			}
@@ -1381,10 +1408,6 @@ func UpdateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.Sugared
 		}
 	}
 
-	oldGroup, err := commonrepo.NewProjectGroupColl().Find(commonrepo.ProjectGroupOpts{ID: args.GroupID})
-	if err != nil {
-		return e.ErrUpdateProjectGroup.AddErr(fmt.Errorf("failed to find project group %s, error: %v", args.GroupName, err))
-	}
 	group.ID = oldGroup.ID
 	group.CreatedTime = oldGroup.CreatedTime
 	group.CreatedBy = oldGroup.CreatedBy

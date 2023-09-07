@@ -165,10 +165,6 @@ func (args *ProjectGroupArgs) Validate() error {
 		return errors.New("group_name cannot be empty")
 	}
 
-	if len(args.ProjectKeys) == 0 {
-		return errors.New("project_keys cannot be empty")
-	}
-
 	return nil
 }
 

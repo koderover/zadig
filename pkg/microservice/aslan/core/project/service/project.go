@@ -77,27 +77,51 @@ type ProjectMinimalRepresentation struct {
 }
 
 func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interface{}, error) {
+	authorizedProjectList := sets.NewString(opts.Names...)
+	projectKeys := make([]string, 0)
+
 	var err error
 	if opts.Ungrouped {
-		opts.Names, err = GetUnGroupedProjectKeys()
+		projectKeys, err = GetUnGroupedProjectKeys()
 		if err != nil {
 			msg := fmt.Errorf("failed to list ungrouped projects, err: %s", err)
 			logger.Error(msg)
 			return nil, msg
 		}
 	} else if opts.GroupName != "" {
-		opts.Names = make([]string, 0)
 		group, err := mongodb.NewProjectGroupColl().Find(mongodb.ProjectGroupOpts{Name: opts.GroupName})
 		if err != nil && (err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument) {
 			logger.Errorf("Failed to list projects, err: %s", err)
 			return nil, err
 		}
 
+		// if the project group does not hava any projects, return empty
+		if group != nil && len(group.Projects) == 0 {
+			return &ProjectDetailedResponse{
+				ProjectDetailedRepresentation: nil,
+				Total:                         0,
+			}, nil
+		}
+
 		if group != nil && group.Projects != nil {
 			for _, project := range group.Projects {
-				opts.Names = append(opts.Names, project.ProjectKey)
+				projectKeys = append(projectKeys, project.ProjectKey)
 			}
 		}
+	}
+
+	if len(projectKeys) > 0 && len(authorizedProjectList) > 0 {
+		opts.Names = authorizedProjectList.Intersection(sets.NewString(projectKeys...)).List()
+		if len(opts.Names) == 0 {
+			return &ProjectDetailedResponse{
+				ProjectDetailedRepresentation: nil,
+				Total:                         0,
+			}, nil
+		}
+	} else if len(projectKeys) == 0 && len(authorizedProjectList) > 0 {
+		opts.Names = authorizedProjectList.List()
+	} else {
+		opts.Names = projectKeys
 	}
 
 	switch opts.Verbosity {
