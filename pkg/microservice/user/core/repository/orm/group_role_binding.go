@@ -39,6 +39,23 @@ func BulkCreateGroupRoleBindings(groupID string, roleIDs []uint, db *gorm.DB) er
 	return nil
 }
 
+func BulkCreateRoleBindingForGroup(gid string, roleIDs []uint, db *gorm.DB) error {
+	if len(roleIDs) == 0 {
+		return nil
+	}
+	rbs := make([]*models.GroupRoleBinding, 0)
+	for _, roleID := range roleIDs {
+		rbs = append(rbs, &models.GroupRoleBinding{
+			GroupID: gid,
+			RoleID:  roleID,
+		})
+	}
+	if err := db.Create(&rbs).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func ListGroupRoleBindingsByGroupsAndRoles(roleID uint, groupIDs []string, db *gorm.DB) ([]*models.GroupRoleBinding, error) {
 	resp := make([]*models.GroupRoleBinding, 0)
 
@@ -82,4 +99,19 @@ func CountUserByGroup(gid string, db *gorm.DB) (int64, error) {
 	}
 
 	return count, nil
+}
+
+func DeleteGroupRoleBindingByGID(gid, namespace string, db *gorm.DB) error {
+	query := db.Table(models.NewRoleBinding{}.TableName()).
+		Joins("INNER JOIN role ON role.id = group_role_binding.role_id").
+		Where("role.namespace = ?", namespace).
+		Where("group_role_binding.group_id = ?", gid)
+
+	err := query.Delete(&models.GroupRoleBinding{}).Error
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

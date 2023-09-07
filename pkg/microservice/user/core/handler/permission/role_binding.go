@@ -191,3 +191,92 @@ func DeleteRoleBindingForUser(c *gin.Context) {
 
 	ctx.Err = permission.DeleteRoleBindingForUser(userID, projectName, ctx.Logger)
 }
+
+func UpdateRoleBindingForGroup(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateSystemRoleBinding c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	projectName := c.Query("namespace")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		return
+	}
+	groupID := c.Param("gid")
+	if groupID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("gid is empty")
+		return
+	}
+	args := new(updateRoleBindingForUserReq)
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	groupInfo, err := user.GetUserGroup(groupID, ctx.Logger)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	groupName := ""
+	if groupInfo != nil {
+		groupName = groupInfo.GroupName
+	}
+	detail := "用户组：" + groupName + "，角色名称："
+	for _, arg := range args.Roles {
+		detail += arg + "，"
+	}
+	detail = strings.Trim(detail, "，")
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色绑定", detail, string(data), ctx.Logger, "")
+
+	ctx.Err = permission.UpdateRoleBindingForUserGroup(groupID, projectName, args.Roles, ctx.Logger)
+}
+
+func DeleteRoleBindingForGroup(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateSystemRoleBinding c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
+
+	projectName := c.Query("namespace")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
+		return
+	}
+	groupID := c.Param("gid")
+	if groupID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("gid is empty")
+		return
+	}
+
+	groupInfo, err := user.GetUserGroup(groupID, ctx.Logger)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	groupName := ""
+	if groupInfo != nil {
+		groupName = groupInfo.GroupName
+	}
+	detail := "用户组：" + groupName
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色绑定", detail, string(data), ctx.Logger, "")
+
+	ctx.Err = permission.DeleteRoleBindingForUserGroup(groupID, projectName, ctx.Logger)
+}

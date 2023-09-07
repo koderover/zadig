@@ -100,6 +100,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 			roleBindings.POST("", permission.CreateRoleBinding)
 			roleBindings.POST("/user/:uid", permission.UpdateRoleBindingForUser)
 			roleBindings.DELETE("/user/:uid", permission.DeleteRoleBindingForUser)
+			roleBindings.POST("/group/:gid", permission.UpdateRoleBindingForGroup)
+			roleBindings.DELETE("/group/:gid", permission.DeleteRoleBindingForGroup)
 		}
 
 		resourceAction := policy.Group("resource-actions")

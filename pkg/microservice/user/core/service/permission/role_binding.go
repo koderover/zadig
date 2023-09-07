@@ -281,3 +281,53 @@ func DeleteRoleBindingForUser(uid, namespace string, log *zap.SugaredLogger) err
 
 	return nil
 }
+
+func UpdateRoleBindingForUserGroup(gid, namespace string, roles []string, log *zap.SugaredLogger) error {
+	tx := repository.DB.Begin()
+
+	roleIDList := make([]uint, 0)
+
+	roleList, err := orm.ListRoleByRoleNamesAndNamespace(roles, namespace, repository.DB)
+	if err != nil {
+		tx.Rollback()
+		log.Errorf("failed to find roles in the given role list, error: %s", err)
+		return fmt.Errorf("update role binding failed, error: %s", err)
+	}
+
+	for _, role := range roleList {
+		roleIDList = append(roleIDList, role.ID)
+	}
+
+	err = orm.DeleteGroupRoleBindingByGID(gid, namespace, tx)
+	if err != nil {
+		tx.Rollback()
+		log.Errorf("failed to delete group role bindings for user group: %s under namespace: %s, error: %s", gid, namespace, err)
+		return fmt.Errorf("update role binding failed, error: %s", err)
+	}
+
+	err = orm.BulkCreateRoleBindingForGroup(gid, roleIDList, tx)
+	if err != nil {
+		tx.Rollback()
+		log.Errorf("failed to create new role bindings for user group: %s under namespace %s, error: %s", gid, namespace, err)
+		return fmt.Errorf("failed to create new role bindings for user group: %s under namespace %s, error: %s", gid, namespace, err)
+	}
+
+	tx.Commit()
+
+	return nil
+}
+
+func DeleteRoleBindingForUserGroup(gid, namespace string, log *zap.SugaredLogger) error {
+	tx := repository.DB.Begin()
+
+	err := orm.DeleteGroupRoleBindingByGID(gid, namespace, tx)
+	if err != nil {
+		tx.Rollback()
+		log.Errorf("failed to delete role bindings for user group: %s under namespace: %s, error: %s", gid, namespace, err)
+		return fmt.Errorf("delete role binding failed, error: %s", err)
+	}
+
+	tx.Commit()
+
+	return nil
+}
