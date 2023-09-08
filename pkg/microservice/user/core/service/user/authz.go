@@ -490,6 +490,12 @@ func generateDefaultSystemActions() *SystemActions {
 			ViewInsight:       false,
 			EditInsightConfig: false,
 		},
+		ReleasePlan: &ReleasePlanActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
 	}
 }
 

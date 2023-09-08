@@ -241,7 +241,12 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 		return errors.Errorf("only manager can execute")
 	}
 
-	executor, err := NewReleaseJobExecutor(c.UserName, args)
+	executor, err := NewReleaseJobExecutor(&ExecuteReleaseJobContext{
+		AuthResources: c.Resources,
+		UserID:        c.UserID,
+		Account:       c.Account,
+		UserName:      c.UserName,
+	}, args)
 	if err != nil {
 		return errors.Wrap(err, "new release job executor")
 	}
