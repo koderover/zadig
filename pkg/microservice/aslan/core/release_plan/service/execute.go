@@ -24,8 +24,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
-	"github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -33,7 +34,14 @@ type ReleaseJobExecutor interface {
 	Execute(plan *models.ReleasePlan) error
 }
 
-func NewReleaseJobExecutor(c *handler.Context, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
+type ExecuteReleaseJobContext struct {
+	AuthResources *user.AuthorizedResources
+	UserID        string
+	Account       string
+	UserName      string
+}
+
+func NewReleaseJobExecutor(c *ExecuteReleaseJobContext, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
 	switch config.ReleasePlanJobType(args.Type) {
 	case config.JobText:
 		return NewTextReleaseJobExecutor(c, args)
@@ -54,7 +62,7 @@ type TextReleaseJobSpec struct {
 	Remark string `json:"remark"`
 }
 
-func NewTextReleaseJobExecutor(c *handler.Context, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
+func NewTextReleaseJobExecutor(c *ExecuteReleaseJobContext, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
 	var executor TextReleaseJobExecutor
 	if err := models.IToi(args.Spec, &executor.Spec); err != nil {
 		return nil, errors.Wrap(err, "invalid spec")
@@ -88,14 +96,14 @@ func (e *TextReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 
 type WorkflowReleaseJobExecutor struct {
 	ID   string
-	Ctx  *handler.Context
+	Ctx  *ExecuteReleaseJobContext
 	Spec WorkflowReleaseJobSpec
 }
 
 type WorkflowReleaseJobSpec struct {
 }
 
-func NewWorkflowReleaseJobExecutor(c *handler.Context, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
+func NewWorkflowReleaseJobExecutor(c *ExecuteReleaseJobContext, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
 	var executor WorkflowReleaseJobExecutor
 	if err := models.IToi(args.Spec, &executor.Spec); err != nil {
 		return nil, errors.Wrap(err, "invalid spec")
@@ -123,13 +131,13 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		}
 		// check workflow execute permission
 		ctx := e.Ctx
-		if !ctx.Resources.IsSystemAdmin {
-			if _, ok := ctx.Resources.ProjectAuthInfo[spec.Workflow.Project]; !ok {
+		if !ctx.AuthResources.IsSystemAdmin {
+			if _, ok := ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project]; !ok {
 				return ErrPermissionDenied
 			}
 
-			if !ctx.Resources.ProjectAuthInfo[spec.Workflow.Project].IsProjectAdmin &&
-				!ctx.Resources.ProjectAuthInfo[spec.Workflow.Project].Workflow.Execute {
+			if !ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project].IsProjectAdmin &&
+				!ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project].Workflow.Execute {
 				// check if the permission is given by collaboration mode
 				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, spec.Workflow.Project, types.ResourceTypeWorkflow, spec.Workflow.Name, types.WorkflowActionRun)
 				if err != nil || !permitted {
@@ -142,7 +150,7 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 			Name:    ctx.UserName,
 			Account: ctx.Account,
 			UserID:  ctx.UserID,
-		}, spec.Workflow, ctx.Logger)
+		}, spec.Workflow, log.SugaredLogger().With("source", "release plan"))
 		if err != nil {
 			return errors.Wrapf(err, "failed to create workflow task %s", spec.Workflow.Name)
 		}
