@@ -410,6 +410,8 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
 		}
 
+		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_ORG", repoName), Value: repo.RepoOwner, IsCredential: false})
+
 		if len(repo.PRs) > 0 {
 			prStrs := []string{}
 			for _, pr := range repo.PRs {
