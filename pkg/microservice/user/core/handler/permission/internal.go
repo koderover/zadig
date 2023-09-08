@@ -18,6 +18,7 @@ package permission
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	userhandler "github.com/koderover/zadig/pkg/microservice/user/core/handler/user"
@@ -99,4 +100,37 @@ func DeleteProjectRoles(c *gin.Context) {
 	}
 
 	ctx.Err = permission.DeleteAllRolesInNamespace(namespace, ctx.Logger)
+}
+
+func SetProjectVisibility(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	namespace := c.Query("namespace")
+	if namespace == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		return
+	}
+
+	err := userhandler.GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if authInfo, ok := ctx.Resources.ProjectAuthInfo[namespace]; !ok {
+			ctx.UnAuthorized = true
+			return
+		} else if !authInfo.IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	visible, err := strconv.ParseBool(c.Query("visible"))
+
+	ctx.Err = permission.SetProjectVisibility(namespace, visible, ctx.Logger)
 }

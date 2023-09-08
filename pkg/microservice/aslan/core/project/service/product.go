@@ -268,6 +268,12 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 		}
 	}
 
+	// update role-bindings in case the visibility changes
+	err = user.New().SetProjectVisibility(args.ProductName, args.Public)
+	if err != nil {
+		log.Errorf("failed to change project visibility, error: %s", err)
+	}
+
 	//// 更新子环境渲染集
 	//if err = commonservice.UpdateSubRenderSet(args.ProductName, kvs, log); err != nil {
 	//	log.Warnf("ProductTmpl.Update UpdateSubRenderSet error: %v", err)

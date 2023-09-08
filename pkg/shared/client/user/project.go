@@ -17,6 +17,8 @@ limitations under the License.
 package user
 
 import (
+	"strconv"
+
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -34,6 +36,21 @@ func (c *Client) InitializeProject(projectKey string, isPublic bool, admins []st
 	}
 
 	_, err := c.Post(url, httpclient.SetBody(body))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Client) SetProjectVisibility(namespace string, isVisible bool) error {
+	url := "policy/internal/setProjectVisibility"
+
+	query := map[string]string{
+		"namespace": namespace,
+		"is_public": strconv.FormatBool(isVisible),
+	}
+
+	_, err := c.Post(url, httpclient.SetQueryParams(query))
 	if err != nil {
 		return err
 	}

@@ -29,6 +29,20 @@ func CreateGroupRoleBinding(grb *models.GroupRoleBinding, db *gorm.DB) error {
 	return nil
 }
 
+func GetGroupRoleBinding(groupID string, roleID uint, db *gorm.DB) (*models.GroupRoleBinding, error) {
+	resp := new(models.GroupRoleBinding)
+
+	err := db.Where("role_id = ? AND group_id = ?", roleID, groupID).
+		Find(&resp).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 func BulkCreateGroupRoleBindings(groupID string, roleIDs []uint, db *gorm.DB) error {
 	if len(roleIDs) == 0 {
 		return nil
@@ -106,6 +120,10 @@ func CountUserByGroup(gid string, db *gorm.DB) (int64, error) {
 	}
 
 	return count, nil
+}
+
+func DeleteGroupRoleBinding(grb *models.GroupRoleBinding, db *gorm.DB) error {
+	return db.Delete(grb).Error
 }
 
 func DeleteGroupRoleBindingByGID(gid, namespace string, db *gorm.DB) error {

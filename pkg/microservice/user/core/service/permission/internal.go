@@ -89,3 +89,64 @@ func InitializeProjectAuthorization(namespace string, isPublic bool, admins []st
 	tx.Commit()
 	return nil
 }
+
+func SetProjectVisibility(namespace string, visible bool, log *zap.SugaredLogger) error {
+	tx := repository.DB.Begin()
+
+	group, err := orm.GetUserGroupByName(types.AllUserGroupName, tx)
+	if err != nil {
+		tx.Rollback()
+		log.Errorf("failed to find all-user group, error: %s", err)
+		return fmt.Errorf("failed to find all-user group, error: %s", err)
+	}
+
+	role, err := orm.GetRole("read-only", namespace, tx)
+	if err != nil {
+		tx.Rollback()
+		log.Errorf("failed to find read-only role, error: %s", err)
+		return fmt.Errorf("failed to find read-only role, error: %s", err)
+	}
+
+	if role.ID == 0 || len(group.GroupID) == 0 {
+		tx.Rollback()
+		log.Errorf("failed to find role or group, error: %s", err)
+		return fmt.Errorf("failed to find role or group, error: %s", err)
+	}
+
+	groupRoleBinding, err := orm.GetGroupRoleBinding(group.GroupID, role.ID, tx)
+	if err != nil {
+		tx.Rollback()
+		log.Errorf("failed to find group-role-binding, error: %s", err)
+		return fmt.Errorf("failed to find group-role-binding, error: %s", err)
+	}
+
+	if visible {
+		if groupRoleBinding.ID != 0 {
+			return nil
+		}
+		err = orm.CreateGroupRoleBinding(&models.GroupRoleBinding{
+			GroupID: group.GroupID,
+			RoleID:  role.ID,
+		}, tx)
+		if err != nil {
+			tx.Rollback()
+			log.Errorf("failed to make project public by setting read-only role to all-users for project %s, error: %s", namespace, err)
+			return fmt.Errorf("failed to make project public by setting read-only role to all-users for project %s, error: %s", namespace, err)
+		}
+	} else {
+		if groupRoleBinding.ID == 0 {
+			return nil
+		}
+		err = orm.DeleteGroupRoleBinding(&models.GroupRoleBinding{
+			GroupID: group.GroupID,
+			RoleID:  role.ID,
+		}, tx)
+		if err != nil {
+			tx.Rollback()
+			log.Errorf("failed to make project private by deleteing read-only role from all-users for project %s, error: %s", namespace, err)
+			return fmt.Errorf("failed to make project private by deleting read-only role from all-users for project %s, error: %s", namespace, err)
+		}
+	}
+
+	return nil
+}
