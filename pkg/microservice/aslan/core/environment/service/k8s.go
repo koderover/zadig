@@ -566,15 +566,15 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		return err
 	}
 
-	if err := waitResourceRunning(kubeClient, prod.Namespace, resources, config.ServiceStartTimeout(), k.log); err != nil {
-		k.log.Errorf(
-			"service group %s/%+v doesn't start in %d seconds: %v",
-			prod.Namespace,
-			updatableServiceNameList, config.ServiceStartTimeout(), err)
-
-		err = e.ErrUpdateEnv.AddErr(
-			fmt.Errorf(e.StartPodTimeout+"\n %s", "["+strings.Join(updatableServiceNameList, "], [")+"]"))
-		return err
-	}
+	//if err := waitResourceRunning(kubeClient, prod.Namespace, resources, config.ServiceStartTimeout(), k.log); err != nil {
+	//	k.log.Errorf(
+	//		"service group %s/%+v doesn't start in %d seconds: %v",
+	//		prod.Namespace,
+	//		updatableServiceNameList, config.ServiceStartTimeout(), err)
+	//
+	//	err = e.ErrUpdateEnv.AddErr(
+	//		fmt.Errorf(e.StartPodTimeout+"\n %s", "["+strings.Join(updatableServiceNameList, "], [")+"]"))
+	//	return err
+	//}
 	return nil
 }
