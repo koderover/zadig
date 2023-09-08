@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -76,20 +77,16 @@ func ListWorkflowsV3(header http.Header, qs url.Values, logger *zap.SugaredLogge
 	return aslan.New().ListWorkflowsV3(header, qs)
 }
 
-func ListAllWorkflows(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
-	rules := []*rule{{
-		method:   "/api/aslan/workflow/workflow",
-		endpoint: "GET",
-	}}
-	names, err := getAllowedProjects(header, rules, config.AND, logger)
+func ListAllWorkflows(header http.Header, qs url.Values, uid string, logger *zap.SugaredLogger) ([]byte, error) {
+	projects, _, err := user.New().ListAuthorizedProjectsByResourceAndVerb(uid, "Workflow", permission.VerbGetWorkflow)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
 	}
-	if len(names) == 0 {
+	if len(projects) == 0 {
 		return nil, nil
 	}
-	for _, name := range names {
+	for _, name := range projects {
 		qs.Add("projects", name)
 	}
 	return aslan.New().ListAllWorkflows(header, qs)
