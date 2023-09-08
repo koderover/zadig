@@ -129,8 +129,8 @@ func ListRoleByUIDAndVerb(uid string, verb string, db *gorm.DB) ([]*models.NewRo
 
 	err := db.Joins("INNER JOIN role_binding ON role_binding.role_id = role.id").
 		Joins("INNER JOIN user ON user.uid = role_binding.uid").
-		Joins("INNER JOIN action_binding ON action_binding.role_id = role.id").
-		Joins("INNER JOIN action ON action.id = action_binding.action_id").
+		Joins("INNER JOIN role_action_binding ON role_action_binding.role_id = role.id").
+		Joins("INNER JOIN action ON action.id = role_action_binding.action_id").
 		Where("user.uid = ? AND (action.action = ? OR role.name = ?)", uid, verb, "project-admin").
 		Find(&resp).
 		Error
