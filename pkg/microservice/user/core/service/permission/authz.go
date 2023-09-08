@@ -79,6 +79,12 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 	}
 
 	for _, role := range roles {
+		if role.Namespace != GeneralNamespace {
+			if _, ok := projectActionMap[role.Namespace]; !ok {
+				projectActionMap[role.Namespace] = generateDefaultProjectActions()
+			}
+		}
+
 		// project admin does not have any bindings, it is special
 		if role.Name == ProjectAdminRole {
 			projectActionMap[role.Namespace].IsProjectAdmin = true
@@ -116,6 +122,12 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 	}
 
 	for _, role := range groupRoles {
+		if role.Namespace != GeneralNamespace {
+			if _, ok := projectActionMap[role.Namespace]; !ok {
+				projectActionMap[role.Namespace] = generateDefaultProjectActions()
+			}
+		}
+
 		// if the role has been seen previously, it has already been processed in user
 		if _, ok := roleActionMap[role.ID]; ok {
 			continue
