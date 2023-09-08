@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
 )
 
@@ -115,15 +116,7 @@ func ListUserGroups(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*UserGr
 	return resp, count, nil
 }
 
-type DetailedUserGroupResp struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Type        string   `json:"type"`
-	UIDs        []string `json:"uids"`
-}
-
-func GetUserGroup(groupID string, logger *zap.SugaredLogger) (*DetailedUserGroupResp, error) {
+func GetUserGroup(groupID string, logger *zap.SugaredLogger) (*types.DetailedUserGroupResp, error) {
 	group, err := orm.GetUserGroup(groupID, repository.DB)
 
 	if err != nil {
@@ -131,7 +124,7 @@ func GetUserGroup(groupID string, logger *zap.SugaredLogger) (*DetailedUserGroup
 		return nil, err
 	}
 
-	resp := &DetailedUserGroupResp{
+	resp := &types.DetailedUserGroupResp{
 		ID:          group.GroupID,
 		Name:        group.GroupName,
 		Description: group.Description,

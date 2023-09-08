@@ -14,26 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package user
+package types
 
-import (
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-)
-
-type InitializeProjectResp struct {
-	Roles []string `json:"roles"`
-}
-
-func (c *Client) InitializeProjectRoles(projectKey string) error {
-	url := "/internal/initializeProjectRole"
-
-	queries := map[string]string{
-		"namespace": projectKey,
-	}
-
-	_, err := c.Post(url, httpclient.SetQueryParams(queries))
-	if err != nil {
-		return err
-	}
-	return nil
+type DetailedUserGroupResp struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Type        string   `json:"type"`
+	UIDs        []string `json:"uids"`
 }

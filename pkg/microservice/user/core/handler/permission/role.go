@@ -49,6 +49,13 @@ func CreateRole(c *gin.Context) {
 		return
 	}
 
+	err = userhandler.GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
 	projectName := c.Query("namespace")
 	if projectName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("namespace is empty")
@@ -90,6 +97,13 @@ func UpdateRole(c *gin.Context) {
 	args := &permission.CreateRoleReq{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
+		return
+	}
+
+	err = userhandler.GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
 		return
 	}
 
@@ -187,6 +201,42 @@ func DeleteRole(c *gin.Context) {
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色", "角色名称："+name, "", ctx.Logger, name)
 
 	ctx.Err = permission.DeleteRole(name, projectName, ctx.Logger)
+}
+
+func InitializeProjectRoles(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	namespace := c.Query("namespace")
+	if namespace == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		return
+	}
+
+	if namespace == "*" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be *")
+		return
+	}
+
+	err := userhandler.GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if authInfo, ok := ctx.Resources.ProjectAuthInfo[namespace]; !ok {
+			ctx.UnAuthorized = true
+			return
+		} else if !authInfo.IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = permission.CreateDefaultRolesForNamespace(namespace, ctx.Logger)
 }
 
 func DeleteProjectRoles(c *gin.Context) {

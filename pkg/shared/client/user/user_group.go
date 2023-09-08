@@ -17,23 +17,14 @@ limitations under the License.
 package user
 
 import (
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"fmt"
+
+	"github.com/koderover/zadig/pkg/types"
 )
 
-type InitializeProjectResp struct {
-	Roles []string `json:"roles"`
-}
+func (c *Client) GetGroupDetailedInfo(groupID string) (*types.DetailedUserGroupResp, error) {
+	url := fmt.Sprintf("/user-group/%s", groupID)
+	resp := new(types.DetailedUserGroupResp)
 
-func (c *Client) InitializeProjectRoles(projectKey string) error {
-	url := "/internal/initializeProjectRole"
-
-	queries := map[string]string{
-		"namespace": projectKey,
-	}
-
-	_, err := c.Post(url, httpclient.SetQueryParams(queries))
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err :=
 }

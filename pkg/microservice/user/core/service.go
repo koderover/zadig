@@ -264,11 +264,6 @@ func syncUserRoleBinding() {
 			tx.Rollback()
 			log.Panicf("failed to create system default role for project: %s, error: %s", project.ProductName, err)
 		}
-		// TODO: Delete this debug code
-		if readOnlyRole.ID == 0 {
-			tx.Rollback()
-			log.Panicf("readOnlyRole does not have an ID")
-		}
 		roleIDMap[fmt.Sprintf("%s+%s", projectAdminRole.Name, projectAdminRole.Namespace)] = projectAdminRole.ID
 		roleIDMap[fmt.Sprintf("%s+%s", readOnlyRole.Name, readOnlyRole.Namespace)] = readOnlyRole.ID
 		roleIDMap[fmt.Sprintf("%s+%s", readProjectOnlyRole.Name, readProjectOnlyRole.Namespace)] = readProjectOnlyRole.ID

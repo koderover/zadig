@@ -236,6 +236,35 @@ func DeleteRole(name string, projectName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
+func CreateDefaultRolesForNamespace(namespace string, log *zap.SugaredLogger) error {
+	projectAdminRole := &models.NewRole{
+		Name:        "project-admin",
+		Description: "",
+		Type:        int64(setting.RoleTypeSystem),
+		Namespace:   namespace,
+	}
+	readOnlyRole := &models.NewRole{
+		Name:        "read-only",
+		Description: "",
+		Type:        int64(setting.RoleTypeSystem),
+		Namespace:   namespace,
+	}
+	readProjectOnlyRole := &models.NewRole{
+		Name:        "read-project-only",
+		Description: "",
+		Type:        int64(setting.RoleTypeSystem),
+		Namespace:   namespace,
+	}
+
+	err := orm.BulkCreateRole([]*models.NewRole{projectAdminRole, readOnlyRole, readProjectOnlyRole}, repository.DB)
+	if err != nil {
+		log.Errorf("failed to create system default role for project: %s, error: %s", namespace, err)
+		return fmt.Errorf("failed to create system default role for project: %s, error: %s", namespace, err)
+	}
+
+	return nil
+}
+
 func DeleteAllRolesInNamespace(namespace string, log *zap.SugaredLogger) error {
 	err := orm.DeleteRoleByNameSpace(namespace, repository.DB)
 	if err != nil {
