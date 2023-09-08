@@ -88,6 +88,13 @@ func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interfac
 			logger.Error(msg)
 			return nil, msg
 		}
+
+		if len(projectKeys) == 0 {
+			return &ProjectDetailedResponse{
+				ProjectDetailedRepresentation: nil,
+				Total:                         0,
+			}, nil
+		}
 	} else if opts.GroupName != "" {
 		group, err := mongodb.NewProjectGroupColl().Find(mongodb.ProjectGroupOpts{Name: opts.GroupName})
 		if err != nil && (err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument) {
