@@ -43,8 +43,17 @@ var systemResourceActionAliasMap = map[string]string{
 	"ReleasePlan":        "发布计划",
 	"QualityCenter":      "质量中心",
 	"ArtifactManagement": "制品管理",
-	"ProjectView":        "业务目录",
-	"DataCenter":         "数据视图",
+	//"ProjectView":        "业务目录",
+	"DataCenter": "数据视图",
+}
+
+var systemResourceSequence = []string{
+	"Project",
+	"ReleasePlan",
+	"Template",
+	"QualityCenter",
+	"ArtifactManagement",
+	"DataCenter",
 }
 
 var projectResourceAliasMap = map[string]string{
@@ -57,6 +66,18 @@ var projectResourceAliasMap = map[string]string{
 	"Test":                  "测试",
 	"Scan":                  "代码扫描",
 	"Delivery":              "版本管理",
+}
+
+var projectResourceSequence = []string{
+	"Workflow",
+	"Environment",
+	"ProductionEnvironment",
+	"Service",
+	"ProductionService",
+	"Build",
+	"Test",
+	"Scan",
+	"Delivery",
 }
 
 func GetResourceActionDefinitions(scope, envType string, log *zap.SugaredLogger) ([]*ResourceDefinition, error) {
@@ -108,8 +129,14 @@ func GetResourceActionDefinitions(scope, envType string, log *zap.SugaredLogger)
 	}
 
 	resp := make([]*ResourceDefinition, 0)
-	for _, def := range resourceMap {
-		resp = append(resp, def)
+	if scope == string(types.ProjectScope) {
+		for _, resource := range projectResourceSequence {
+			resp = append(resp, resourceMap[resource])
+		}
+	} else {
+		for _, resource := range systemResourceSequence {
+			resp = append(resp, resourceMap[resource])
+		}
 	}
 
 	return resp, nil
