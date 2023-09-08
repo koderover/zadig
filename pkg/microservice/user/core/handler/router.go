@@ -51,8 +51,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		usergroups.PUT("/:id", user.UpdateUserGroupInfo)
 		usergroups.DELETE("/:id", user.DeleteUserGroup)
 
-		usergroups.PUT("/:id/bulk-users", user.BulkAddUserToUserGroup)
-		usergroups.DELETE("/:id/bulk-users", user.BulkRemoveUserFromUserGroup)
+		usergroups.POST("/:id/bulk-create-users", user.BulkAddUserToUserGroup)
+		usergroups.POST("/:id/bulk-delete-users", user.BulkRemoveUserFromUserGroup)
 	}
 
 	// =======================================================
