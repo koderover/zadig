@@ -42,16 +42,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		users.GET("/count", user.CountSystemUsers)
 	}
 
+	usergroups := router.Group("user-group")
 	{
 		// user group related apis
-		users.GET("/user-group", user.ListUserGroups)
-		users.POST("/user-group", user.CreateUserGroup)
-		users.GET("/user-group/:id", user.GetUserGroup)
-		users.PUT("/user-group/:id", user.UpdateUserGroupInfo)
-		users.DELETE("/user-group/:id", user.DeleteUserGroup)
+		usergroups.GET("/", user.ListUserGroups)
+		usergroups.POST("/", user.CreateUserGroup)
+		usergroups.GET("/:id", user.GetUserGroup)
+		usergroups.PUT("/:id", user.UpdateUserGroupInfo)
+		usergroups.DELETE("/:id", user.DeleteUserGroup)
 
-		users.PUT("/user-group/:id/bulk-users", user.BulkAddUserToUserGroup)
-		users.DELETE("/user-group/:id/bulk-users", user.BulkRemoveUserFromUserGroup)
+		usergroups.PUT("/:id/bulk-users", user.BulkAddUserToUserGroup)
+		usergroups.DELETE("/:id/bulk-users", user.BulkRemoveUserFromUserGroup)
 	}
 
 	// =======================================================
@@ -113,6 +114,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		{
 			policyUserPermission.GET("project/:name", permission.GetUserRulesByProject)
 			policyUserPermission.GET("", permission.GetUserRules)
+		}
+
+		internalPolicyApis := policy.Group("internal")
+		{
+			internalPolicyApis.POST("deleteProjectRole", permission.DeleteProjectRoles)
 		}
 	}
 

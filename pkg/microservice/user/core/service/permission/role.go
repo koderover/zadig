@@ -236,6 +236,15 @@ func DeleteRole(name string, projectName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
+func DeleteAllRolesInNamespace(namespace string, log *zap.SugaredLogger) error {
+	err := orm.DeleteRoleByNameSpace(namespace, repository.DB)
+	if err != nil {
+		log.Errorf("failed to delete role under namespace %s, error: %s", namespace, err)
+		return fmt.Errorf("failed to delete role under namespace %s, error: %s", namespace, err)
+	}
+	return nil
+}
+
 func convertDBRoleType(tid int64) string {
 	if tid == int64(setting.RoleTypeSystem) {
 		return string(setting.ResourceTypeSystem)

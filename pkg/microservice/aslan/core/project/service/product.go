@@ -759,6 +759,12 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		&commonrepo.ServiceListOption{ProductName: productName, Type: setting.K8SDeployType},
 	)
 
+	err = user.New().DeleteAllProjectRoles(productName)
+	if err != nil {
+		log.Errorf("delete all roles in namespace %s failed, error: %s", productName, err)
+		return err
+	}
+
 	//删除交付中心
 	//删除构建/删除测试/删除服务
 	//删除workflow和历史task

@@ -194,5 +194,13 @@ func DeleteRoleByName(name, namespace string, db *gorm.DB) error {
 		Where("name = ? AND namespace = ?", name, namespace).
 		Delete(&role).
 		Error
+}
 
+func DeleteRoleByNameSpace(namespace string, db *gorm.DB) error {
+	var role models.NewRole
+
+	return db.Model(&models.NewRole{}).
+		Where("namespace = ?", namespace).
+		Delete(&role).
+		Error
 }

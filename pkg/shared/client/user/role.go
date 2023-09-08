@@ -37,3 +37,14 @@ func (c *Client) ListRoles(namespace, uid string) ([]*types.Role, error) {
 	}
 	return resp, nil
 }
+
+func (c *Client) DeleteAllProjectRoles(namespace string) error {
+	url := "/policy/internal/deleteProjectRole"
+
+	query := map[string]string{
+		"namespace": namespace,
+	}
+
+	_, err := c.Post(url, httpclient.SetQueryParams(query))
+	return err
+}

@@ -18,9 +18,12 @@ package permission
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
 	"github.com/gin-gonic/gin"
+
+	userhandler "github.com/koderover/zadig/pkg/microservice/user/core/handler/user"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -54,6 +57,21 @@ func CreateRole(c *gin.Context) {
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
 
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName == "*" {
+			ctx.UnAuthorized = true
+			return
+		}
+		if authInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		} else if !authInfo.IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Err = permission.CreateRole(projectName, args, ctx.Logger)
 }
 
@@ -84,6 +102,21 @@ func UpdateRole(c *gin.Context) {
 	args.Name = name
 
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "更新", "角色", "角色名称："+args.Name, string(data), ctx.Logger, args.Name)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName == "*" {
+			ctx.UnAuthorized = true
+			return
+		}
+		if authInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		} else if !authInfo.IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = permission.UpdateRole(projectName, args, ctx.Logger)
 }
@@ -129,7 +162,60 @@ func DeleteRole(c *gin.Context) {
 		return
 	}
 
+	err := userhandler.GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName == "*" {
+			ctx.UnAuthorized = true
+			return
+		}
+		if authInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		} else if !authInfo.IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "删除", "角色", "角色名称："+name, "", ctx.Logger, name)
 
 	ctx.Err = permission.DeleteRole(name, projectName, ctx.Logger)
+}
+
+func DeleteProjectRoles(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	namespace := c.Query("namespace")
+	if namespace == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args namespace can't be empty")
+		return
+	}
+
+	err := userhandler.GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if authInfo, ok := ctx.Resources.ProjectAuthInfo[namespace]; !ok {
+			ctx.UnAuthorized = true
+			return
+		} else if !authInfo.IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = permission.DeleteAllRolesInNamespace(namespace, ctx.Logger)
 }
