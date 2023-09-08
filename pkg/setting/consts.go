@@ -797,3 +797,8 @@ const (
 const (
 	UNGROUPED = "未分组"
 )
+
+const (
+	ZadigBuild   = "zadig"
+	JenkinsBuild = "jenkins"
+)
