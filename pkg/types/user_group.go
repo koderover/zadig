@@ -16,6 +16,10 @@ limitations under the License.
 
 package types
 
+const (
+	AllUserGroupName = "所有用户"
+)
+
 type DetailedUserGroupResp struct {
 	ID          string   `json:"id"`
 	Name        string   `json:"name"`

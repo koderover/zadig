@@ -24,14 +24,16 @@ type InitializeProjectResp struct {
 	Roles []string `json:"roles"`
 }
 
-func (c *Client) InitializeProjectRoles(projectKey string) error {
-	url := "policy/internal/initializeProjectRole"
+func (c *Client) InitializeProject(projectKey string, isPublic bool, admins []string) error {
+	url := "policy/internal/initializeProject"
 
-	queries := map[string]string{
+	body := map[string]interface{}{
 		"namespace": projectKey,
+		"is_public": isPublic,
+		"admins":    admins,
 	}
 
-	_, err := c.Post(url, httpclient.SetQueryParams(queries))
+	_, err := c.Post(url, httpclient.SetBody(body))
 	if err != nil {
 		return err
 	}

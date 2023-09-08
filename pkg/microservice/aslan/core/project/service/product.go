@@ -145,10 +145,10 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 
 	// after the project is created, create roles for it
 	// TODO: i can't think of a good way to make this full logic robust, anyone who sees this should try to fix it
-	err = user.New().InitializeProjectRoles(args.ProductName)
+	err = user.New().InitializeProject(args.ProductName, args.Public, args.Admins)
 	if err != nil {
-		log.Errorf("failed to initialize roles for project: %s, error: %s", args.ProductName, err)
-		return e.ErrCreateProduct.AddDesc(fmt.Sprintf("failed to initialize roles for project: %s, error: %s", args.ProductName, err))
+		log.Errorf("failed to initialize project authorization info for project: %s, error: %s", args.ProductName, err)
+		return e.ErrCreateProduct.AddDesc(fmt.Sprintf("failed to initialize project authorization info for project: %s, error: %s", args.ProductName, err))
 	}
 
 	// add project to current project group

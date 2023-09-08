@@ -62,6 +62,16 @@ func GetUserGroup(groupID string, db *gorm.DB) (*models.UserGroup, error) {
 	return resp, nil
 }
 
+func GetUserGroupByName(name string, db *gorm.DB) (*models.UserGroup, error) {
+	resp := new(models.UserGroup)
+
+	err := db.Where("group_name = ?", name).Find(&resp).Error
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func UpdateUserGroup(groupID, name, description string, db *gorm.DB) error {
 	usergroup := &models.UserGroup{
 		GroupName:   name,

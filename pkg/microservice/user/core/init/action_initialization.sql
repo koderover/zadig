@@ -54,7 +54,7 @@ VALUES
     ("新建", "create_release_plan", "ReleasePlan", 2),
     ("编辑", "edit_release_plan", "ReleasePlan", 2),
     ("删除", "delete_release_plan", "ReleasePlan", 2),
-    ("查看", "get_test", "QualityCenter", 2),
+    ("查看", "get_test_detail", "QualityCenter", 2),
     ("查看版本管理", "release_get", "ArtifactManagement", 2),
     ("查看交付物追踪", "delivery_get", "ArtifactManagement", 2),
 --     ("查看", "get_project_view", "ProjectView", 2),

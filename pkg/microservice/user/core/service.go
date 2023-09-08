@@ -36,6 +36,7 @@ import (
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	"github.com/koderover/zadig/pkg/types"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -217,7 +218,7 @@ func syncUserRoleBinding() {
 	gid, _ := uuid.NewUUID()
 	err = orm.CreateUserGroup(&models.UserGroup{
 		GroupID:     gid.String(),
-		GroupName:   "所有用户",
+		GroupName:   types.AllUserGroupName,
 		Description: "",
 		Type:        int64(setting.RoleTypeSystem),
 	}, tx)

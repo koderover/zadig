@@ -92,11 +92,11 @@ func ListUserGroups(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*UserGr
 		}
 
 		// special case for all-users
-		if group.GroupName == "所有用户" {
+		if group.GroupName == types.AllUserGroupName {
 			userCount, err := orm.CountUser(tx)
 			if err != nil {
 				tx.Rollback()
-				logger.Errorf("failed to count user for special user group: 所有用户, error: %s", err)
+				logger.Errorf("failed to count user for special user group: %s, error: %s", types.AllUserGroupName, err)
 				return nil, 0, err
 			}
 			respItem.UserTotal = userCount

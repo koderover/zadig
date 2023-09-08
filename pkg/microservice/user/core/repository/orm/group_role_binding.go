@@ -22,6 +22,13 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 )
 
+func CreateGroupRoleBinding(grb *models.GroupRoleBinding, db *gorm.DB) error {
+	if err := db.Create(&grb).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func BulkCreateGroupRoleBindings(groupID string, roleIDs []uint, db *gorm.DB) error {
 	if len(roleIDs) == 0 {
 		return nil

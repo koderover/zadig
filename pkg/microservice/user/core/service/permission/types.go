@@ -91,8 +91,8 @@ const (
 	VerbGetTemplate    = "get_template"
 	VerbEditTemplate   = "edit_template"
 	VerbDeleteTemplate = "delete_template"
-	// test center
-	VerbViewTestCenter = "get_test"
+	// Quality center
+	VerbViewTestCenter = "get_test_detail"
 	// release center, deprecated after 1.7.0
 	VerbViewReleaseCenter = "get_release"
 	// delivery center
