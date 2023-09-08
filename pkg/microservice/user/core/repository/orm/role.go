@@ -145,7 +145,7 @@ func ListRoleByUIDAndVerb(uid string, verb string, db *gorm.DB) ([]*models.NewRo
 func ListRoleByGroupIDsAndNamespace(groupIDs []string, namespace string, db *gorm.DB) ([]*models.NewRole, error) {
 	resp := make([]*models.NewRole, 0)
 
-	err := db.Joins("INNER JOIN role ON role.id = group_role_binding.role_id").
+	err := db.Joins("INNER JOIN group_role_binding ON role.id = group_role_binding.role_id").
 		Where("role.namespace = ?", namespace).
 		Where("group_role_binding.group_id IN (?)", groupIDs).
 		Find(&resp).
