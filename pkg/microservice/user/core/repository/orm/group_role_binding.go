@@ -39,12 +39,12 @@ func BulkCreateGroupRoleBindings(groupID string, roleIDs []uint, db *gorm.DB) er
 	return nil
 }
 
-func BulkCreateRoleBindingForGroup(gid string, roleIDs []uint, db *gorm.DB) error {
-	if len(roleIDs) == 0 {
+func BulkCreateGroupRoleBindingForRole(roleID uint, groupIDs []string, db *gorm.DB) error {
+	if len(groupIDs) == 0 {
 		return nil
 	}
 	rbs := make([]*models.GroupRoleBinding, 0)
-	for _, roleID := range roleIDs {
+	for _, gid := range groupIDs {
 		rbs = append(rbs, &models.GroupRoleBinding{
 			GroupID: gid,
 			RoleID:  roleID,

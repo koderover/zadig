@@ -226,7 +226,12 @@ func CreateRoleBindings(role, ns string, identityList []*Identity, log *zap.Suga
 		return fmt.Errorf("failed to create role binding for role: %s, error: %s", role, err)
 	}
 
-	// TODO: Add user group logics
+	err = orm.BulkCreateGroupRoleBindingForRole(roleInfo.ID, groupIDList, tx)
+	if err != nil {
+		log.Errorf("failed to create group role binding for role: %s, error: %s", role, err)
+		tx.Rollback()
+		return fmt.Errorf("failed to create group role binding for role: %s, error: %s", role, err)
+	}
 
 	tx.Commit()
 	return nil
@@ -305,7 +310,7 @@ func UpdateRoleBindingForUserGroup(gid, namespace string, roles []string, log *z
 		return fmt.Errorf("update role binding failed, error: %s", err)
 	}
 
-	err = orm.BulkCreateRoleBindingForGroup(gid, roleIDList, tx)
+	err = orm.BulkCreateGroupRoleBindings(gid, roleIDList, tx)
 	if err != nil {
 		tx.Rollback()
 		log.Errorf("failed to create new role bindings for user group: %s under namespace %s, error: %s", gid, namespace, err)
