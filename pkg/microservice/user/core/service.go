@@ -197,7 +197,7 @@ func syncUserRoleBinding() {
 			// if no roles is in the previous mongodb, it is a fresh installation. We create the default role, which is just system admin, and finish
 			adminRole := &models.NewRole{
 				Name:        "admin",
-				Description: "",
+				Description: "拥有系统中任何操作的权限",
 				Type:        int64(setting.RoleTypeSystem),
 				Namespace:   "*",
 			}
@@ -219,7 +219,7 @@ func syncUserRoleBinding() {
 	err = orm.CreateUserGroup(&models.UserGroup{
 		GroupID:     gid.String(),
 		GroupName:   types.AllUserGroupName,
-		Description: "",
+		Description: "系统中的所有用户",
 		Type:        int64(setting.RoleTypeSystem),
 	}, tx)
 

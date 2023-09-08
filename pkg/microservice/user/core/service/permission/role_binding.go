@@ -164,6 +164,7 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 					GID:  roleBinding.GroupID,
 					Name: groupInfo.GroupName,
 				}
+				log.Infof("adding group name: %s, group ID: %s into the map", roleBinding, groupInfo.GroupName)
 			}
 		}
 
