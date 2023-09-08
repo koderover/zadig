@@ -71,7 +71,9 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
+	// set IMAGE job output
 	for _, svc := range c.jobTaskSpec.ImageAndModules {
+		// helm deploy job key is jobName.serviceName
 		c.workflowCtx.GlobalContextSet(job.GetJobOutputKey(c.job.Key+"."+svc.ServiceModule, IMAGEKEY), svc.Image)
 	}
 
