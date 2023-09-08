@@ -115,12 +115,42 @@ func ListUserGroups(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*UserGr
 	return resp, count, nil
 }
 
-func GetUserGroup(groupID string, logger *zap.SugaredLogger) (*models.UserGroup, error) {
-	resp, err := orm.GetUserGroup(groupID, repository.DB)
+type DetailedUserGroupResp struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Type        string   `json:"type"`
+	UIDs        []string `json:"uids"`
+}
+
+func GetUserGroup(groupID string, logger *zap.SugaredLogger) (*DetailedUserGroupResp, error) {
+	group, err := orm.GetUserGroup(groupID, repository.DB)
 
 	if err != nil {
 		logger.Errorf("failed to get user group info, error: %s", err)
 		return nil, err
+	}
+
+	resp := &DetailedUserGroupResp{
+		ID:          group.GroupID,
+		Name:        group.GroupName,
+		Description: group.Description,
+	}
+
+	if group.Type == int64(setting.RoleTypeSystem) {
+		resp.Type = string(setting.ResourceTypeSystem)
+	} else {
+		resp.Type = string(setting.ResourceTypeCustom)
+	}
+
+	users, err := orm.ListUsersByGroup(groupID, repository.DB)
+	if err != nil {
+		return nil, err
+	}
+	userList := make([]string, 0)
+
+	for _, user := range users {
+		userList = append(userList, user.UID)
 	}
 
 	return resp, nil

@@ -84,6 +84,21 @@ func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, 
 	return users, nil
 }
 
+func ListUsersByGroup(groupID string, db *gorm.DB) ([]*models.User, error) {
+	resp := make([]*models.User, 0)
+
+	err := db.Joins("INNER JOIN group_binding on group_binding.uid = user.uid").
+		Where("group_binding.group_id = ?", groupID).
+		Find(&resp).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 // ListUsersByUIDs gets a list of users based on paging constraints
 func ListUsersByUIDs(uids []string, db *gorm.DB) ([]models.User, error) {
 	var (
