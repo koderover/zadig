@@ -61,3 +61,9 @@ type UserSetting struct {
 	LogBgColor   string `json:"log_bg_color"`
 	LogFontColor string `json:"log_font_color"`
 }
+
+type Identity struct {
+	IdentityType string `json:"identity_type"`
+	UID          string `json:"uid,omitempty"`
+	GID          string `json:"gid,omitempty"`
+}

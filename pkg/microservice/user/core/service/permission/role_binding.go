@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -42,12 +43,6 @@ type BindingUserInfo struct {
 type BindingGroupInfo struct {
 	GID  string `json:"group_id"`
 	Name string `json:"name"`
-}
-
-type Identity struct {
-	IdentityType string `json:"identity_type"`
-	UID          string `json:"uid,omitempty"`
-	GID          string `json:"gid,omitempty"`
 }
 
 func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindingResp, error) {
@@ -194,7 +189,7 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 	return resp, nil
 }
 
-func CreateRoleBindings(role, ns string, identityList []*Identity, log *zap.SugaredLogger) error {
+func CreateRoleBindings(role, ns string, identityList []*types.Identity, log *zap.SugaredLogger) error {
 	roleInfo, err := orm.GetRole(role, ns, repository.DB)
 	if err != nil || roleInfo.ID == 0 {
 		log.Errorf("failed to find role: %s in namespace: %s, error: %s", role, ns, err)

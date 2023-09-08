@@ -22,13 +22,14 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 
+	"github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func ListRoleBindings(c *gin.Context) {
@@ -52,8 +53,8 @@ func ListRoleBindings(c *gin.Context) {
 }
 
 type createRoleBindingReq struct {
-	Identities []*permission.Identity `json:"identities"`
-	Role       string                 `json:"role"`
+	Identities []*types.Identity `json:"identities"`
+	Role       string            `json:"role"`
 }
 
 func CreateRoleBinding(c *gin.Context) {

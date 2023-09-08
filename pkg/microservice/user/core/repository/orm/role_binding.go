@@ -68,7 +68,7 @@ func GetRoleBinding(roleID uint, uid string, db *gorm.DB) (*models.NewRoleBindin
 	resp := new(models.NewRoleBinding)
 
 	err := db.Where("role_id = ? AND uid = ?", roleID, uid).
-		First(&resp).
+		Find(&resp).
 		Error
 
 	if err != nil {

@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"github.com/koderover/zadig/pkg/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/config"
@@ -25,19 +26,20 @@ import (
 type CollaborationMode struct {
 	ID primitive.ObjectID `bson:"_id,omitempty"             json:"id,omitempty"`
 	//foreign key:template_product/product_name
-	ProjectName string           `bson:"project_name"              json:"project_name"`
-	CreateTime  int64            `bson:"create_time"               json:"create_time"`
-	UpdateTime  int64            `bson:"update_time"               json:"update_time"`
-	Name        string           `bson:"name"                      json:"name"`
-	Revision    int64            `bson:"revision"                  json:"revision"`
-	Members     []string         `bson:"members"                   json:"members"`
-	IsDeleted   bool             `bson:"is_deleted"                json:"is_deleted"`
-	DeployType  string           `bson:"deploy_type"               json:"deploy_type"`
-	RecycleDay  int64            `bson:"recycle_day"               json:"recycle_day"`
-	Workflows   []WorkflowCMItem `bson:"workflows"                 json:"workflows" `
-	Products    []ProductCMItem  `bson:"products"                  json:"products"`
-	CreateBy    string           `bson:"create_by"                 json:"create_by"`
-	UpdateBy    string           `bson:"update_by"                 json:"update_by"`
+	ProjectName string            `bson:"project_name" json:"project_name"`
+	CreateTime  int64             `bson:"create_time"  json:"create_time"`
+	UpdateTime  int64             `bson:"update_time"  json:"update_time"`
+	Name        string            `bson:"name"         json:"name"`
+	Revision    int64             `bson:"revision"     json:"revision"`
+	Members     []string          `bson:"members"      json:"members"`
+	MemberInfo  []*types.Identity `bson:"member_info"  json:"member_info"`
+	IsDeleted   bool              `bson:"is_deleted"   json:"is_deleted"`
+	DeployType  string            `bson:"deploy_type"  json:"deploy_type"`
+	RecycleDay  int64             `bson:"recycle_day"  json:"recycle_day"`
+	Workflows   []WorkflowCMItem  `bson:"workflows"    json:"workflows" `
+	Products    []ProductCMItem   `bson:"products"     json:"products"`
+	CreateBy    string            `bson:"create_by"    json:"create_by"`
+	UpdateBy    string            `bson:"update_by"    json:"update_by"`
 }
 
 type ProductCMItem struct {
@@ -48,8 +50,8 @@ type ProductCMItem struct {
 }
 
 type WorkflowCMItem struct {
-	WorkflowType      string                   `bson:"workflow_type" json:"workflow_type"`
-	Name              string                   `bson:"name" json:"name"`
+	WorkflowType string `bson:"workflow_type" json:"workflow_type"`
+	Name         string `bson:"name" json:"name"`
 	// workflow display name, it can be modified by users, so we don't save it.
 	DisplayName       string                   `bson:"-"    json:"display_name"`
 	CollaborationType config.CollaborationType `bson:"collaboration_type" json:"collaboration_type"`
