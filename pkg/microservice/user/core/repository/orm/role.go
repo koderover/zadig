@@ -145,7 +145,7 @@ func ListRoleByUIDAndVerb(uid string, verb string, db *gorm.DB) ([]*models.NewRo
 func ListRoleByGroupIDsAndVerb(gidList []string, verb string, db *gorm.DB) ([]*models.NewRole, error) {
 	resp := make([]*models.NewRole, 0)
 
-	err := db.Joins("INNER JOIN role_binding ON role_binding.role_id = role.id").
+	err := db.Joins("INNER JOIN group_role_binding ON group_role_binding.role_id = role.id").
 		Joins("INNER JOIN user_group ON user_group.group_id = group_role_binding.group_id").
 		Joins("INNER JOIN role_action_binding ON role_action_binding.role_id = role.id").
 		Joins("INNER JOIN action ON action.id = role_action_binding.action_id").
