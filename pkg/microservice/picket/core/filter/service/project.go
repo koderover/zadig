@@ -68,18 +68,6 @@ func DeleteProject(header http.Header, qs url.Values, productName string, logger
 	return aslan.New().DeleteProject(header, qs, productName)
 }
 
-func getVisibleProjects(headers http.Header, logger *zap.SugaredLogger) ([]string, error) {
-	res := &allowedProjectsData{}
-	opaClient := opa.NewDefault()
-	err := opaClient.Evaluate("rbac.user_visible_projects", res, func() (*opa.Input, error) { return generateOPAInput(headers, "", ""), nil })
-	if err != nil {
-		logger.Errorf("opa evaluation failed, err: %s", err)
-		return nil, err
-	}
-
-	return res.Result, nil
-}
-
 func generateOPAInput(header http.Header, method string, endpoint string) *opa.Input {
 	authorization := header.Get(strings.ToLower(setting.AuthorizationHeader))
 	headers := map[string]string{}

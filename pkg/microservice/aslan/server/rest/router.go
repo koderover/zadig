@@ -127,6 +127,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/api/delivery":      new(deliveryhandler.Router),
 		"/api/logs":          new(loghandler.Router),
 		"/api/testing":       new(testinghandler.Router),
+		"/api/quality":       new(testinghandler.QualityCenterRouter),
 		"/api/cluster":       new(multiclusterhandler.Router),
 		"/api/template":      new(templatehandler.Router),
 		"/api/collaboration": new(collaborationhandler.Router),
