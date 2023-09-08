@@ -253,6 +253,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 					Cmd:          c.RemoteAdd(repo.RemoteName, r.Ctx.Git.OAuthCloneURL(repo.Source, repo.PrivateAccessToken, host, repo.Owner, repo.Name, u.Scheme)),
 					DisableTrace: true,
 				})
+				log.Infof("2 cmds: %+v", cmds)
 			}
 		}
 	} else {

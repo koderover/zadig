@@ -255,7 +255,10 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	} else if repo.Source == types.ProviderGitee || repo.Source == types.ProviderGiteeEE {
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.RepoOwner, repo.RepoName, repo.Address)), DisableTrace: true})
 	} else if repo.Source == types.ProviderOther {
+		log.Infof("1")
+		log.Infof("auth type is %s", repo.AuthType)
 		if repo.AuthType == types.SSHAuthType {
+			log.Infof("2")
 			host := getHost(repo.Address)
 			if !hostNames.Has(host) {
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
@@ -268,20 +271,24 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			if strings.Contains(repo.Address, ":") {
 				remoteName = fmt.Sprintf("%s/%s/%s.git", repo.Address, repo.RepoOwner, repo.RepoName)
 			}
+			log.Infof("5")
 			cmds = append(cmds, &c.Command{
 				Cmd:          c.RemoteAdd(repo.RemoteName, remoteName),
 				DisableTrace: true,
 			})
 		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
+			log.Infof("3")
 			u, err := url.Parse(repo.Address)
 			if err != nil {
 				log.Errorf("failed to parse url,err:%s", err)
 			} else {
+				log.Infof("4")
 				host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 				cmds = append(cmds, &c.Command{
 					Cmd:          c.RemoteAdd(repo.RemoteName, OAuthCloneURL(repo.Source, repo.PrivateAccessToken, host, repo.RepoOwner, repo.RepoName, u.Scheme)),
 					DisableTrace: true,
 				})
+				log.Infof("1 cmds: %+v", cmds)
 			}
 		}
 	} else {
