@@ -1468,19 +1468,23 @@ func GetProjectGroupRelation(name string, logger *zap.SugaredLogger) (resp *Proj
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ungrouped projects, error: %v", err)
 	}
-	projects, err := templaterepo.NewProductColl().ListProjectBriefs(unGrouped)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list projects, error: %v", err)
+
+	if len(unGrouped) > 0 {
+		projects, err := templaterepo.NewProductColl().ListProjectBriefs(unGrouped)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list projects, error: %v", err)
+		}
+
+		for _, project := range projects {
+			resp.Projects = append(resp.Projects, &ProjectGroupRelation{
+				ProjectKey:  project.Name,
+				ProjectName: project.Alias,
+				DeployType:  project.DeployType,
+				Enabled:     false,
+			})
+		}
 	}
 
-	for _, project := range projects {
-		resp.Projects = append(resp.Projects, &ProjectGroupRelation{
-			ProjectKey:  project.Name,
-			ProjectName: project.Alias,
-			DeployType:  project.DeployType,
-			Enabled:     false,
-		})
-	}
 	sort.Slice(resp.Projects, func(i, j int) bool {
 		return resp.Projects[i].ProjectKey < resp.Projects[j].ProjectKey
 	})
