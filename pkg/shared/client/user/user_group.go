@@ -19,6 +19,7 @@ package user
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -26,5 +27,11 @@ func (c *Client) GetGroupDetailedInfo(groupID string) (*types.DetailedUserGroupR
 	url := fmt.Sprintf("/user-group/%s", groupID)
 	resp := new(types.DetailedUserGroupResp)
 
-	_, err :=
+	_, err := c.Get(url, httpclient.SetResult(&resp))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
