@@ -108,6 +108,7 @@ func ListUserGroups(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*UserGr
 			}
 			respItem.UserTotal = userCount
 		}
+		resp = append(resp, respItem)
 	}
 
 	tx.Commit()
