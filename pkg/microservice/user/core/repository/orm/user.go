@@ -68,6 +68,16 @@ func GetUserByName(name string, db *gorm.DB) (*models.User, error) {
 	return &user, nil
 }
 
+func ListAllUsers(db *gorm.DB) ([]*models.User, error) {
+	resp := make([]*models.User, 0)
+
+	err := db.Find(&resp).Error
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 // ListUsers gets a list of users based on paging constraints
 func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, error) {
 	var (

@@ -136,15 +136,27 @@ func GetUserGroup(groupID string, logger *zap.SugaredLogger) (*types.DetailedUse
 		resp.Type = string(setting.ResourceTypeCustom)
 	}
 
-	users, err := orm.ListUsersByGroup(groupID, repository.DB)
-	if err != nil {
-		logger.Errorf("failed to get user info for user group, error: %s", err)
-		return nil, err
-	}
 	userList := make([]string, 0)
+	if group.GroupName == types.AllUserGroupName {
+		users, err := orm.ListAllUsers(repository.DB)
+		if err != nil {
+			logger.Errorf("failed to get user info for user group, error: %s", err)
+			return nil, err
+		}
 
-	for _, user := range users {
-		userList = append(userList, user.UID)
+		for _, user := range users {
+			userList = append(userList, user.UID)
+		}
+	} else {
+		users, err := orm.ListUsersByGroup(groupID, repository.DB)
+		if err != nil {
+			logger.Errorf("failed to get user info for user group, error: %s", err)
+			return nil, err
+		}
+
+		for _, user := range users {
+			userList = append(userList, user.UID)
+		}
 	}
 
 	resp.UIDs = userList
