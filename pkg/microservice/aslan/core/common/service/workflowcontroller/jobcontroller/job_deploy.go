@@ -53,6 +53,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/types/job"
 )
 
 type DeployJobCtl struct {
@@ -89,6 +90,7 @@ func (c *DeployJobCtl) Clean(ctx context.Context) {}
 func (c *DeployJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
+	c.preRun()
 	if err := c.run(ctx); err != nil {
 		return
 	}
@@ -97,6 +99,14 @@ func (c *DeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 	c.wait(ctx)
+}
+
+func (c *DeployJobCtl) preRun() {
+	// set IMAGE job output
+	for _, svc := range c.jobTaskSpec.ServiceAndImages {
+		// deploy job key is jobName.serviceName
+		c.workflowCtx.GlobalContextSet(job.GetJobOutputKey(c.job.Key+"."+svc.ServiceModule, IMAGEKEY), svc.Image)
+	}
 }
 
 func (c *DeployJobCtl) run(ctx context.Context) error {

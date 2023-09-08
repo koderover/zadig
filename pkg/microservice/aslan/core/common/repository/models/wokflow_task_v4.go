@@ -574,6 +574,7 @@ type WorkflowTaskCtx struct {
 	WorkflowTaskCreatorEmail    string
 	WorkflowTaskCreatorMobile   string
 	WorkflowKeyVals             []*KeyVal
+	GlobalContextGetAll         func() map[string]string
 	GlobalContextGet            func(key string) (string, bool)
 	GlobalContextSet            func(key, value string)
 	GlobalContextEach           func(f func(k, v string) bool)

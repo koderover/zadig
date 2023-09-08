@@ -63,6 +63,7 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 	stageCtl := NewCustomStageCtl(stage, workflowCtx, logger, ack)
 
 	stageCtl.Run(ctx, concurrency)
+	stageCtl.AfterRun()
 }
 
 func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, concurrency int, logger *zap.SugaredLogger, ack func()) {
