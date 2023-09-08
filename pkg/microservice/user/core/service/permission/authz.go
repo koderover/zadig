@@ -335,6 +335,19 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 		return respSet.List(), nil
 	}
 
+	groupIDList := make([]string, 0)
+	// find the user groups this uid belongs to, if none it is ok
+	groups, err := orm.ListUserGroupByUID(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to find user group for user: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
+	}
+
+	for _, group := range groups {
+		groupIDList = append(groupIDList, group.GroupID)
+	}
+
 	roles, err := orm.ListRoleByUIDAndVerb(uid, verb, tx)
 	if err != nil {
 		tx.Rollback()
@@ -343,6 +356,19 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 	}
 
 	for _, role := range roles {
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
+		}
+	}
+
+	groupRoles, err := orm.ListRoleByGroupIDsAndVerb(groupIDList, verb, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to list roles for groupid: %+v, error: %s", groupIDList, err)
+		return nil, fmt.Errorf("failed to list roles for groupid: %+v, error: %s", groupIDList, err)
+	}
+
+	for _, role := range groupRoles {
 		if role.Namespace != GeneralNamespace {
 			respSet.Insert(role.Namespace)
 		}
