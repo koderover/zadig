@@ -228,7 +228,7 @@ func UpdateRoleBindingForGroup(c *gin.Context) {
 
 	groupName := ""
 	if groupInfo != nil {
-		groupName = groupInfo.GroupName
+		groupName = groupInfo.Name
 	}
 	detail := "用户组：" + groupName + "，角色名称："
 	for _, arg := range args.Roles {
@@ -272,7 +272,7 @@ func DeleteRoleBindingForGroup(c *gin.Context) {
 
 	groupName := ""
 	if groupInfo != nil {
-		groupName = groupInfo.GroupName
+		groupName = groupInfo.Name
 	}
 	detail := "用户组：" + groupName
 
