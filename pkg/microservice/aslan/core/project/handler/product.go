@@ -334,7 +334,6 @@ func DeleteProductTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -346,10 +345,6 @@ func DeleteProductTemplate(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.Project.Delete {
-			ctx.UnAuthorized = true
-			return
-		}
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
 			ctx.UnAuthorized = true
 			return
