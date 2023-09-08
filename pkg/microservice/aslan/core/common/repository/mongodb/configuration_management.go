@@ -26,7 +26,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -53,15 +52,8 @@ func (c *ConfigurationManagementColl) GetCollectionName() string {
 }
 
 func (c *ConfigurationManagementColl) EnsureIndex(ctx context.Context) error {
-	mod := mongo.IndexModel{
-		Keys: bson.D{
-			bson.E{Key: "server_address", Value: 1},
-		},
-		Options: options.Index().SetUnique(true),
-	}
-
-	_, err := c.Indexes().CreateOne(ctx, mod)
-	return err
+	_, _ = c.Indexes().DropOne(ctx, "server_address_1")
+	return nil
 }
 
 func (c *ConfigurationManagementColl) Create(ctx context.Context, args *models.ConfigurationManagement) error {
