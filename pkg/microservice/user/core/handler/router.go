@@ -45,8 +45,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	usergroups := router.Group("user-group")
 	{
 		// user group related apis
-		usergroups.GET("/", user.ListUserGroups)
-		usergroups.POST("/", user.CreateUserGroup)
+		usergroups.GET("", user.ListUserGroups)
+		usergroups.POST("", user.CreateUserGroup)
 		usergroups.GET("/:id", user.GetUserGroup)
 		usergroups.PUT("/:id", user.UpdateUserGroupInfo)
 		usergroups.DELETE("/:id", user.DeleteUserGroup)
