@@ -31,7 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
-	userservice "github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
+	permissionservice "github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/pkg/setting"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -48,7 +48,7 @@ func Start(_ context.Context) {
 		Development: configbase.Mode() != setting.ReleaseMode,
 	})
 
-	userservice.GenerateOPABundle()
+	permissionservice.GenerateOPABundle()
 	initDatabase()
 }
 
@@ -112,15 +112,15 @@ var dexSchema []byte
 var actionData []byte
 
 var readOnlyAction = []string{
-	userservice.VerbGetDelivery,
-	userservice.VerbGetTest,
-	userservice.VerbGetService,
-	userservice.VerbGetProductionService,
-	userservice.VerbGetBuild,
-	userservice.VerbGetWorkflow,
-	userservice.VerbGetEnvironment,
-	userservice.VerbGetProductionEnv,
-	userservice.VerbGetScan,
+	permissionservice.VerbGetDelivery,
+	permissionservice.VerbGetTest,
+	permissionservice.VerbGetService,
+	permissionservice.VerbGetProductionService,
+	permissionservice.VerbGetBuild,
+	permissionservice.VerbGetWorkflow,
+	permissionservice.VerbGetEnvironment,
+	permissionservice.VerbGetProductionEnv,
+	permissionservice.VerbGetScan,
 }
 
 func InitializeUserDBAndTables() {

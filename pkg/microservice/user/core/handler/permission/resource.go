@@ -17,29 +17,15 @@ limitations under the License.
 package permission
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 
+	"github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
 func GetResourceActionDefinitions(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
 
 	scope := c.Query("scope")
 	envType := c.Query("env_type")

@@ -28,6 +28,18 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
+var readOnlyAction = []string{
+	VerbGetDelivery,
+	VerbGetTest,
+	VerbGetService,
+	VerbGetProductionService,
+	VerbGetBuild,
+	VerbGetWorkflow,
+	VerbGetEnvironment,
+	VerbGetProductionEnv,
+	VerbGetScan,
+}
+
 func InitializeProjectAuthorization(namespace string, isPublic bool, admins []string, log *zap.SugaredLogger) error {
 	tx := repository.DB.Begin()
 	// First, create default roles
@@ -55,6 +67,25 @@ func InitializeProjectAuthorization(namespace string, isPublic bool, admins []st
 		tx.Rollback()
 		log.Errorf("failed to create system default role for project: %s, error: %s", namespace, err)
 		return fmt.Errorf("failed to create system default role for project: %s, error: %s", namespace, err)
+	}
+
+	actionIDList := make([]uint, 0)
+	for _, verb := range readOnlyAction {
+		actionDetail, err := orm.GetActionByVerb(verb, tx)
+		if err != nil || actionDetail.ID == 0 {
+			tx.Rollback()
+			log.Errorf("failed to find action %s for read-only, error: %s", verb, err)
+			return fmt.Errorf("failed to find action %s for read-only, error: %s", verb, err)
+		}
+
+		actionIDList = append(actionIDList, actionDetail.ID)
+	}
+
+	err = orm.BulkCreateRoleActionBindings(readOnlyRole.ID, actionIDList, tx)
+	if err != nil {
+		tx.Rollback()
+		log.Errorf("failed to create role action binding for read-only role, err: %s", err)
+		return fmt.Errorf("failed to create role action binding for read-only role, err: %s", err)
 	}
 
 	// then, create role bindings if the project is public

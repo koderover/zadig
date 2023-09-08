@@ -154,7 +154,7 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 
 			groupRoleMap[roleBinding.GroupID].Insert(role.Name)
 			if _, ok := groupInfoMap[roleBinding.GroupID]; !ok {
-				groupInfo, err := orm.GetUserGroup(gid, tx)
+				groupInfo, err := orm.GetUserGroup(roleBinding.GroupID, tx)
 				if err != nil {
 					tx.Rollback()
 					log.Errorf("failed to get user group info for gid: %s, error:%s", uid, err)
@@ -164,7 +164,6 @@ func ListRoleBindings(ns, uid, gid string, log *zap.SugaredLogger) ([]*RoleBindi
 					GID:  roleBinding.GroupID,
 					Name: groupInfo.GroupName,
 				}
-				log.Infof("adding group name: %s, group ID: %s into the map", roleBinding, groupInfo.GroupName)
 			}
 		}
 
