@@ -25,7 +25,7 @@ type InitializeProjectResp struct {
 }
 
 func (c *Client) InitializeProjectRoles(projectKey string) error {
-	url := "/internal/initializeProjectRole"
+	url := "policy/internal/initializeProjectRole"
 
 	queries := map[string]string{
 		"namespace": projectKey,
