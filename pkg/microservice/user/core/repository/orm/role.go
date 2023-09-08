@@ -149,7 +149,7 @@ func ListRoleByGroupIDsAndVerb(gidList []string, verb string, db *gorm.DB) ([]*m
 		Joins("INNER JOIN user_group ON user_group.group_id = group_role_binding.group_id").
 		Joins("INNER JOIN role_action_binding ON role_action_binding.role_id = role.id").
 		Joins("INNER JOIN action ON action.id = role_action_binding.action_id").
-		Where("user.uid IN (?) AND (action.action = ? OR role.name = ?)", gidList, verb, "project-admin").
+		Where("user_group.group_id IN (?) AND (action.action = ? OR role.name = ?)", gidList, verb, "project-admin").
 		Find(&resp).
 		Error
 
