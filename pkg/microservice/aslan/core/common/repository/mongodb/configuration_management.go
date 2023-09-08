@@ -99,6 +99,15 @@ func (c *ConfigurationManagementColl) GetByID(ctx context.Context, idString stri
 	return resp, c.FindOne(ctx, query).Decode(resp)
 }
 
+func (c *ConfigurationManagementColl) GetBySystemIdentity(systemIdentity string) (*models.ConfigurationManagement, error) {
+	configManagement := &models.ConfigurationManagement{}
+	query := bson.M{"system_identity": systemIdentity}
+	if err := c.Collection.FindOne(context.TODO(), query).Decode(configManagement); err != nil {
+		return nil, err
+	}
+	return configManagement, nil
+}
+
 func (c *ConfigurationManagementColl) GetApolloByID(ctx context.Context, idString string) (*models.ApolloConfig, error) {
 	info, err := c.GetByID(ctx, idString)
 	if err != nil {

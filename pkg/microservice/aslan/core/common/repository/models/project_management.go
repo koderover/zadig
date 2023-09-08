@@ -23,11 +23,12 @@ import (
 )
 
 type ProjectManagement struct {
-	ID           primitive.ObjectID  `bson:"_id,omitempty"       json:"id" `
-	Type         string              `bson:"type"                json:"type"`
-	JiraAuthType config.JiraAuthType `bson:"jira_auth_type" json:"jira_auth_type"`
-	JiraHost     string              `bson:"jira_host"           json:"jira_host"`
-	JiraUser     string              `bson:"jira_user"           json:"jira_user"`
+	ID             primitive.ObjectID  `bson:"_id,omitempty"       json:"id" `
+	SystemIdentity string              `bson:"system_identity"     json:"system_identity"`
+	Type           string              `bson:"type"                json:"type"`
+	JiraAuthType   config.JiraAuthType `bson:"jira_auth_type" json:"jira_auth_type"`
+	JiraHost       string              `bson:"jira_host"           json:"jira_host"`
+	JiraUser       string              `bson:"jira_user"           json:"jira_user"`
 	// JiraToken is used in place of password for basic auth with username
 	JiraToken string `bson:"jira_token"          json:"jira_token"`
 	// JiraPersonalAccessToken is used for bearer token

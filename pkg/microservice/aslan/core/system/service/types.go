@@ -49,9 +49,10 @@ type WorkflowConcurrencySettings struct {
 }
 
 type SonarIntegration struct {
-	ID            string `json:"id"`
-	ServerAddress string `json:"server_address"`
-	Token         string `json:"token"`
+	ID             string `json:"id"`
+	SystemIdentity string `json:"system_identity"`
+	ServerAddress  string `json:"server_address"`
+	Token          string `json:"token"`
 }
 
 type OpenAPICreateRegistryReq struct {

@@ -51,6 +51,37 @@ func ListProjectManagement(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListProjectManagement(ctx.Logger)
 }
 
+// @Summary List Project Management For Project
+// @Description List Project Management For Project
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Success 200 	{array} 	models.ProjectManagement
+// @Router /api/aslan/system/project_management/project [get]
+func ListProjectManagementForProject(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	pms, err := service.ListProjectManagement(ctx.Logger)
+	for _, pm := range pms {
+		pm.JiraToken = ""
+		pm.JiraUser = ""
+		pm.JiraAuthType = ""
+		pm.MeegoPluginID = ""
+		pm.MeegoPluginSecret = ""
+		pm.MeegoUserKey = ""
+	}
+	ctx.Err = err
+	ctx.Resp = pms
+}
+
 func CreateProjectManagement(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -137,7 +168,7 @@ func Validate(c *gin.Context) {
 		ctx.UnAuthorized = true
 		return
 	}
-	
+
 	req := new(models.ProjectManagement)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
@@ -153,16 +184,24 @@ func Validate(c *gin.Context) {
 	}
 }
 
+// @Summary List Jira Projects
+// @Description List Jira Projects
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 		path		string										true	"jira id"
+// @Success 200 	{array} 	service.JiraProjectsResp
+// @Router /api/aslan/system/project_management/{id}/jira/project [get]
 func ListJiraProjects(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.ListJiraProjects()
+	ctx.Resp, ctx.Err = service.ListJiraProjects(c.Param("id"))
 }
 
 func SearchJiraIssues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.SearchJiraIssues(c.Query("project"), c.Query("type"), c.Query("status"), c.Query("summary"), c.Query("ne") == "true")
+	ctx.Resp, ctx.Err = service.SearchJiraIssues(c.Param("id"), c.Query("project"), c.Query("type"), c.Query("status"), c.Query("summary"), c.Query("ne") == "true")
 }
 
 func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
@@ -171,19 +210,19 @@ func SearchJiraProjectIssuesWithJQL(c *gin.Context) {
 
 	// 5.22 JQL only support {{.system.username}} variable
 	// refactor if more variables are needed
-	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Query("project"), strings.ReplaceAll(c.Query("jql"), "{{.system.username}}", ctx.UserName), c.Query("summary"))
+	ctx.Resp, ctx.Err = service.SearchJiraProjectIssuesWithJQL(c.Param("id"), c.Query("project"), strings.ReplaceAll(c.Query("jql"), "{{.system.username}}", ctx.UserName), c.Query("summary"))
 }
 
 func GetJiraTypes(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GetJiraTypes(c.Query("project"))
+	ctx.Resp, ctx.Err = service.GetJiraTypes(c.Param("id"), c.Query("project"))
 }
 
 func GetJiraAllStatus(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.GetJiraAllStatus(c.Query("project"))
+	ctx.Resp, ctx.Err = service.GetJiraAllStatus(c.Param("id"), c.Query("project"))
 }
 
 func HandleJiraEvent(c *gin.Context) {

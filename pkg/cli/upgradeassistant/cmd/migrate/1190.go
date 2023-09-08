@@ -25,7 +25,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
@@ -47,6 +49,24 @@ func V1180ToV1190() error {
 	log.Infof("-------- start migrate workflow template --------")
 	if err := migrateWorkflowTemplate(); err != nil {
 		log.Infof("migrateWorkflowTemplate err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate project management system identity --------")
+	if err := migrateProjectManagementSystemIdentity(); err != nil {
+		log.Infof("migrateProjectManagementSystemIdentity err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate config management system identity --------")
+	if err := migrateConfigurationManagementSystemIdentity(); err != nil {
+		log.Infof("migrateConfigurationManagementSystemIdentity err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate sonar intergration system identity --------")
+	if err := migrateSonarIntegrationSystemIdentity(); err != nil {
+		log.Infof("migrateSonarIntegrationSystemIdentity err: %v", err)
 		return err
 	}
 
@@ -163,5 +183,243 @@ func migrateWorkflowTemplate() error {
 			return fmt.Errorf("udpate workflowV4s for merging custom and release workflow, error: %s", err)
 		}
 	}
+	return nil
+}
+
+func migrateProjectManagementSystemIdentity() error {
+	// project management system collection
+	pms, err := mongodb.NewProjectManagementColl().List()
+	if err != nil {
+		return fmt.Errorf("failed to list project management, err: %v", err)
+	}
+
+	jiraCount := 0
+	meegoCount := 0
+	for _, pm := range pms {
+		if pm.SystemIdentity != "" {
+			continue
+		}
+
+		systemIdentity := ""
+		if pm.Type == setting.PMJira {
+			jiraCount++
+			systemIdentity = fmt.Sprintf("jira-%d", jiraCount)
+		} else if pm.Type == setting.PMMeego {
+			meegoCount++
+			systemIdentity = fmt.Sprintf("meego-%d", meegoCount)
+		}
+		pm.SystemIdentity = systemIdentity
+		if err := mongodb.NewProjectManagementColl().UpdateByID(pm.ID.Hex(), pm); err != nil {
+			return fmt.Errorf("failed to update project management system identity, err: %v", err)
+		}
+	}
+
+	// workflow jira/meego job
+	jira, err := mongodb.NewProjectManagementColl().GetJira()
+	if err != nil {
+		if mongodb.IsErrNoDocuments(err) {
+			jira = nil
+		} else {
+			return fmt.Errorf("failed to get jira info from project management, err: %v", err)
+		}
+	}
+	meego, err := mongodb.NewProjectManagementColl().GetMeego()
+	if err != nil {
+		if mongodb.IsErrNoDocuments(err) {
+			meego = nil
+		} else {
+			return fmt.Errorf("failed to get meego info from project management, err: %v", err)
+		}
+	}
+	cursor, err := mongodb.NewWorkflowV4Coll().ListByCursor(&mongodb.ListWorkflowV4Option{
+		JobTypes: []config.JobType{config.JobJira, config.JobMeegoTransition},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list workflowV4 for project management by cursor, err: %v", err)
+	}
+	var ms []mongo.WriteModel
+	for cursor.Next(context.Background()) {
+		var workflow models.WorkflowV4
+		if err := cursor.Decode(&workflow); err != nil {
+			return err
+		}
+
+		changed := false
+		for _, stage := range workflow.Stages {
+			for _, job := range stage.Jobs {
+				if job.JobType == config.JobJira {
+					spec := &commonmodels.JiraJobSpec{}
+					if err := commonmodels.IToiYaml(job.Spec, spec); err != nil {
+						return err
+					}
+
+					if spec.JiraID != "" {
+						continue
+					}
+
+					if jira == nil {
+						continue
+					}
+
+					spec.JiraID = jira.ID.Hex()
+					spec.JiraSystemIdentity = jira.SystemIdentity
+					spec.JiraURL = jira.JiraHost
+
+					job.Spec = spec
+					changed = true
+				} else if job.JobType == config.JobMeegoTransition {
+					spec := &commonmodels.MeegoTransitionJobSpec{}
+					if err := commonmodels.IToiYaml(job.Spec, spec); err != nil {
+						return err
+					}
+
+					if spec.MeegoID != "" {
+						continue
+					}
+
+					if meego == nil {
+						continue
+					}
+
+					spec.MeegoID = meego.ID.Hex()
+					spec.MeegoSystemIdentity = meego.SystemIdentity
+					spec.MeegoURL = meego.MeegoHost
+
+					job.Spec = spec
+					changed = true
+				}
+			}
+		}
+
+		if changed {
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", workflow.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"stages", workflow.Stages},
+						}},
+					}),
+			)
+		}
+
+		if len(ms) >= 50 {
+			log.Infof("update %d workflowV4", len(ms))
+			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
+				return fmt.Errorf("udpate workflowV4s for jira/meego job system identity, error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+	if len(ms) > 0 {
+		log.Infof("update %d workflowV4s", len(ms))
+		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
+			return fmt.Errorf("udpate workflowV4s for jira/meego job system identity, error: %s", err)
+		}
+	}
+
+	// workflow meego hook
+	query := bson.M{"meego_hook_ctls": bson.M{"$exists": "true", "$ne": bson.A{}}}
+	cursor, err = mongodb.NewWorkflowV4Coll().Collection.Find(context.TODO(), query)
+	if err != nil {
+		return fmt.Errorf("failed to list workflowV4 for meego hook ctls by cursor, err: %v", err)
+	}
+	ms = []mongo.WriteModel{}
+	for cursor.Next(context.Background()) {
+		var workflow models.WorkflowV4
+		if err := cursor.Decode(&workflow); err != nil {
+			return err
+		}
+
+		changed := false
+		// meego hook
+		for _, hook := range workflow.MeegoHookCtls {
+			if hook.MeegoID != "" {
+				continue
+			}
+
+			if meego == nil {
+				continue
+			}
+
+			hook.MeegoID = meego.ID.Hex()
+			hook.MeegoSystemIdentity = meego.SystemIdentity
+			hook.MeegoURL = meego.MeegoHost
+			changed = true
+		}
+
+		if changed {
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", workflow.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"meego_hook_ctls", workflow.MeegoHookCtls},
+						}},
+					}),
+			)
+		}
+
+		if len(ms) >= 50 {
+			log.Infof("update %d workflowV4", len(ms))
+			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
+				return fmt.Errorf("udpate workflowV4s for meego hook system identity, error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+	if len(ms) > 0 {
+		log.Infof("update %d workflowV4s", len(ms))
+		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
+			return fmt.Errorf("udpate workflowV4s for meego hook system identity, error: %s", err)
+		}
+	}
+
+	return nil
+}
+
+func migrateConfigurationManagementSystemIdentity() error {
+	for _, typeStr := range []string{"apollo", "nacos"} {
+		cms, err := mongodb.NewConfigurationManagementColl().List(context.Background(), typeStr)
+		if err != nil {
+			return fmt.Errorf("failed to list configuration management, err: %v", err)
+		}
+
+		count := 0
+		for _, cm := range cms {
+			if cm.SystemIdentity != "" {
+				continue
+			}
+
+			count++
+			cm.SystemIdentity = fmt.Sprintf("%s-%d", typeStr, count)
+			if err := mongodb.NewConfigurationManagementColl().Update(context.Background(), cm.ID.Hex(), cm); err != nil {
+				return fmt.Errorf("failed to update configuration management system identity, err: %v", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func migrateSonarIntegrationSystemIdentity() error {
+	sonars, _, err := mongodb.NewSonarIntegrationColl().List(context.Background(), 0, 0)
+	if err != nil {
+		return fmt.Errorf("failed to list sonar intergration, err: %v", err)
+	}
+
+	count := 0
+	for _, sonar := range sonars {
+		if sonar.SystemIdentity != "" {
+			continue
+		}
+
+		count++
+		sonar.SystemIdentity = fmt.Sprintf("sonar-%d", count)
+		if err := mongodb.NewSonarIntegrationColl().Update(context.Background(), sonar.ID.Hex(), sonar); err != nil {
+			return fmt.Errorf("failed to update sonar intergration system identity, err: %v", err)
+		}
+	}
+
 	return nil
 }

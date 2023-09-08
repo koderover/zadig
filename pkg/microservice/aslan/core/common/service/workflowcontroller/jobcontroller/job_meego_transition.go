@@ -55,7 +55,7 @@ func (c *MeegoTransitionJobCtl) Clean(ctx context.Context) {
 
 func (c *MeegoTransitionJobCtl) Run(ctx context.Context) {
 	// since this runs in aslan, we will connect directly to the database to retrieve meego integration info
-	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeego()
+	meegoInfo, err := commonrepo.NewProjectManagementColl().GetMeegoByID(c.jobTaskSpec.MeegoID)
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		c.job.Status = config.StatusFailed
