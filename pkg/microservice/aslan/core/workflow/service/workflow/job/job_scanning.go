@@ -167,6 +167,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Key:   "SCANNING_NAME",
 			Value: scanning.Name,
 		}
+
 		scanningImage := basicImage.Value
 		if basicImage.ImageFrom == commonmodels.ImageFromKoderover {
 			scanningImage = strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", basicImage.Value)
@@ -181,6 +182,13 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Envs:                []*commonmodels.KeyVal{scanningNameKV},
 			Registries:          registries,
 			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, taskID),
+		}
+
+		if len(scanning.Repos) > 0 {
+			jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, &commonmodels.KeyVal{
+				Key:   "BRANCH",
+				Value: scanning.Repos[0].Branch,
+			})
 		}
 
 		// init tools install step
