@@ -458,6 +458,9 @@ func initDatabase() {
 
 		// project group related db index
 		commonrepo.NewProjectGroupColl(),
+
+		// zadig agent related db index
+		commonrepo.NewZadigAgentColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

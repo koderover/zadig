@@ -815,3 +815,11 @@ const (
 	ZadigBuild   = "zadig"
 	JenkinsBuild = "jenkins"
 )
+
+const (
+	AgentCreated    = "created"
+	AgentRegistered = "registered"
+	AgentNomal      = "normal"
+	AgentAbnormal   = "abnormal"
+	AgentOffline    = "offline"
+)
