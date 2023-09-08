@@ -20,8 +20,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/pkg/shared/client/user"
+	"github.com/koderover/zadig/pkg/types"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -78,7 +78,7 @@ func ListWorkflowsV3(header http.Header, qs url.Values, logger *zap.SugaredLogge
 }
 
 func ListAllWorkflows(header http.Header, qs url.Values, uid string, logger *zap.SugaredLogger) ([]byte, error) {
-	projects, _, err := user.New().ListAuthorizedProjectsByResourceAndVerb(uid, "Workflow", permission.VerbGetWorkflow)
+	projects, _, err := user.New().ListAuthorizedProjectsByResourceAndVerb(uid, types.ResourceTypeWorkflow, types.WorkflowActionView)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
