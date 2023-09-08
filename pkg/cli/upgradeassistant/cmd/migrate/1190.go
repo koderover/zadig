@@ -217,11 +217,19 @@ func migrateProjectManagementSystemIdentity() error {
 	// workflow jira/meego job
 	jira, err := mongodb.NewProjectManagementColl().GetJira()
 	if err != nil {
-		return fmt.Errorf("failed to get jira info from project management, err: %v", err)
+		if mongodb.IsErrNoDocuments(err) {
+			jira = nil
+		} else {
+			return fmt.Errorf("failed to get jira info from project management, err: %v", err)
+		}
 	}
 	meego, err := mongodb.NewProjectManagementColl().GetMeego()
 	if err != nil {
-		return fmt.Errorf("failed to get meego info from project management, err: %v", err)
+		if mongodb.IsErrNoDocuments(err) {
+			meego = nil
+		} else {
+			return fmt.Errorf("failed to get meego info from project management, err: %v", err)
+		}
 	}
 	cursor, err := mongodb.NewWorkflowV4Coll().ListByCursor(&mongodb.ListWorkflowV4Option{
 		JobTypes: []config.JobType{config.JobJira, config.JobMeegoTransition},
@@ -249,6 +257,10 @@ func migrateProjectManagementSystemIdentity() error {
 						continue
 					}
 
+					if jira == nil {
+						continue
+					}
+
 					spec.JiraID = jira.ID.Hex()
 					spec.JiraSystemIdentity = jira.SystemIdentity
 					spec.JiraURL = jira.JiraHost
@@ -262,6 +274,10 @@ func migrateProjectManagementSystemIdentity() error {
 					}
 
 					if spec.MeegoID != "" {
+						continue
+					}
+
+					if meego == nil {
 						continue
 					}
 
@@ -319,6 +335,10 @@ func migrateProjectManagementSystemIdentity() error {
 		// meego hook
 		for _, hook := range workflow.MeegoHookCtls {
 			if hook.MeegoID != "" {
+				continue
+			}
+
+			if meego == nil {
 				continue
 			}
 
