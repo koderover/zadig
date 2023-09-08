@@ -118,7 +118,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		internalPolicyApis := policy.Group("internal")
 		{
-			internalPolicyApis.POST("initializeProjectRole", permission.InitializeProject)
+			internalPolicyApis.POST("initializeProject", permission.InitializeProject)
 			internalPolicyApis.POST("deleteProjectRole", permission.DeleteProjectRoles)
 			internalPolicyApis.POST("setProjectVisibility", permission.SetProjectVisibility)
 		}
