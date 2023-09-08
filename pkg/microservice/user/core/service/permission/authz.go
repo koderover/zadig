@@ -281,6 +281,27 @@ func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.Sugared
 
 	tx := repository.DB.Begin()
 
+	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to check if the user is system admin, error: %s", err)
+		return nil, fmt.Errorf("failed to check if the user is system admin, error: %s", err)
+	}
+
+	if isSystemAdmin {
+		projectList, err := mongodb.NewProjectColl().List()
+		if err != nil {
+			tx.Rollback()
+			logger.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
+			return nil, fmt.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
+		}
+		for _, project := range projectList {
+			respSet.Insert(project.ProductName)
+		}
+		tx.Commit()
+		return respSet.List(), nil
+	}
+
 	roles, err := orm.ListRoleByUIDAndVerb(uid, verb, tx)
 	if err != nil {
 		tx.Rollback()
