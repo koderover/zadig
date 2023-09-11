@@ -197,8 +197,11 @@ type LarkApprovalUser struct {
 }
 
 type User struct {
-	UserID          string                 `bson:"user_id"                     yaml:"user_id"                    json:"user_id"`
-	UserName        string                 `bson:"user_name"                   yaml:"user_name"                  json:"user_name"`
+	Type            string                 `bson:"type"                        yaml:"type"                       json:"type"`
+	UserID          string                 `bson:"user_id,omitempty"           yaml:"user_id,omitempty"          json:"user_id,omitempty"`
+	UserName        string                 `bson:"user_name,omitempty"         yaml:"user_name,omitempty"        json:"user_name,omitempty"`
+	GroupID         string                 `bson:"group_id,omitempty"          yaml:"group_id,omitempty"         json:"group_id,omitempty"`
+	GroupName       string                 `bson:"group_name,omitempty"        yaml:"group_name,omitempty"       json:"group_name,omitempty"`
 	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 	Comment         string                 `bson:"comment"                     yaml:"-"                          json:"comment"`
 	OperationTime   int64                  `bson:"operation_time"              yaml:"-"                          json:"operation_time"`

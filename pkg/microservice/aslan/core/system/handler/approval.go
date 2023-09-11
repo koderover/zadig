@@ -32,7 +32,7 @@ func ListIMApp(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -55,7 +55,7 @@ func CreateIMApp(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -81,7 +81,7 @@ func UpdateIMApp(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -107,7 +107,7 @@ func DeleteIMApp(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -127,7 +127,7 @@ func ValidateIMApp(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return

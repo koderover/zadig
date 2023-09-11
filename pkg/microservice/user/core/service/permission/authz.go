@@ -1,0 +1,737 @@
+/*
+Copyright 2023 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package permission
+
+import (
+	"database/sql"
+	"fmt"
+
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
+)
+
+func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResources, error) {
+	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
+	// system calls
+	if uid == "" {
+		tx.Commit()
+		return generateAdminRoleResource(), nil
+	}
+
+	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to check if the user is system admin for uid: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to check if the user is system admin for uid: %s, error: %s", uid, err)
+	}
+
+	if isSystemAdmin {
+		tx.Commit()
+		return generateAdminRoleResource(), nil
+	}
+
+	groupIDList := make([]string, 0)
+	// find the user groups this uid belongs to, if none it is ok
+	groups, err := orm.ListUserGroupByUID(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to find user group for user: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
+	}
+
+	for _, group := range groups {
+		groupIDList = append(groupIDList, group.GroupID)
+	}
+
+	allUserGroup, err := orm.GetAllUserGroup(tx)
+	if err != nil || allUserGroup.GroupID == "" {
+		tx.Rollback()
+		logger.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
+		return nil, fmt.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
+	}
+
+	groupIDList = append(groupIDList, allUserGroup.GroupID)
+
+	// generate system actions for user
+	systemActions := generateDefaultSystemActions()
+	// we generate a map of namespaced(project) permission
+	projectActionMap := make(map[string]*ProjectActions)
+
+	// TODO: add some powerful cache here
+	roleActionMap := make(map[uint]sets.String)
+
+	roles, err := orm.ListRoleByUID(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+	}
+
+	for _, role := range roles {
+		if role.Namespace != GeneralNamespace {
+			if _, ok := projectActionMap[role.Namespace]; !ok {
+				projectActionMap[role.Namespace] = generateDefaultProjectActions()
+			}
+		}
+
+		// project admin does not have any bindings, it is special
+		if role.Name == ProjectAdminRole {
+			projectActionMap[role.Namespace].IsProjectAdmin = true
+			continue
+		}
+
+		// first get actions from the roles
+		actions, err := orm.ListActionByRole(role.ID, tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Errorf("failed to list action for role: %s in namespace %s, error: %s", role.Name, role.Namespace, err)
+			return nil, err
+		}
+
+		if _, ok := roleActionMap[role.ID]; !ok {
+			roleActionMap[role.ID] = sets.NewString()
+		}
+
+		for _, action := range actions {
+			roleActionMap[role.ID].Insert(action.Action)
+			switch action.Scope {
+			case setting.ActionTypeSystem:
+				modifySystemAction(systemActions, action.Action)
+			case setting.ActionTypeProject:
+				modifyUserProjectAuth(projectActionMap[role.Namespace], action.Action)
+			}
+		}
+	}
+
+	groupRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
+	}
+
+	for _, role := range groupRoles {
+		if role.Namespace != GeneralNamespace {
+			if _, ok := projectActionMap[role.Namespace]; !ok {
+				projectActionMap[role.Namespace] = generateDefaultProjectActions()
+			}
+		}
+
+		// if the role has been seen previously, it has already been processed in user
+		if _, ok := roleActionMap[role.ID]; ok {
+			continue
+		}
+
+		if role.Name == ProjectAdminRole {
+			projectActionMap[role.Namespace].IsProjectAdmin = true
+		}
+
+		// first get actions from the roles
+		actions, err := orm.ListActionByRole(role.ID, tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Errorf("failed to list action for role: %s in namespace %s, error: %s", role.Name, role.Namespace, err)
+			return nil, err
+		}
+
+		if _, ok := roleActionMap[role.ID]; !ok {
+			roleActionMap[role.ID] = sets.NewString()
+		}
+
+		for _, action := range actions {
+			roleActionMap[role.ID].Insert(action.Action)
+			switch action.Scope {
+			case setting.ActionTypeSystem:
+				modifySystemAction(systemActions, action.Action)
+			case setting.ActionTypeProject:
+				modifyUserProjectAuth(projectActionMap[role.Namespace], action.Action)
+			}
+		}
+	}
+
+	tx.Commit()
+
+	projectInfo := make(map[string]ProjectActions)
+	for proj, actions := range projectActionMap {
+		projectInfo[proj] = *actions
+	}
+
+	resp := &AuthorizedResources{
+		IsSystemAdmin:   false,
+		ProjectAuthInfo: projectInfo,
+		SystemActions:   systemActions,
+	}
+
+	return resp, nil
+}
+
+func CheckCollaborationModePermission(uid, projectKey, resource, resourceName, action string) (hasPermission bool, err error) {
+	hasPermission = false
+	collabInstance, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	if findErr != nil {
+		err = findErr
+		return
+	}
+
+	switch resource {
+	case types.ResourceTypeWorkflow:
+		hasPermission = checkWorkflowPermission(collabInstance.Workflows, resourceName, action)
+	case types.ResourceTypeEnvironment:
+		hasPermission = checkEnvPermission(collabInstance.Products, resourceName, action)
+	default:
+		return
+	}
+	return
+}
+
+func CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action string) (hasPermission bool, err error) {
+	hasPermission = false
+	collabInstance, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	if findErr != nil {
+		err = findErr
+		return
+	}
+
+	if resource == types.ResourceTypeWorkflow {
+		for _, workflow := range collabInstance.Workflows {
+			for _, verb := range workflow.Verbs {
+				if action == verb {
+					hasPermission = true
+					return
+				}
+			}
+		}
+	} else if resource == types.ResourceTypeEnvironment {
+		for _, env := range collabInstance.Products {
+			for _, verb := range env.Verbs {
+				if action == verb {
+					hasPermission = true
+					return
+				}
+			}
+		}
+	}
+	return
+}
+
+func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, error) {
+	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
+
+	respSet := sets.NewString()
+
+	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to check if the user is system admin, error: %s", err)
+		return nil, fmt.Errorf("failed to check if the user is system admin, error: %s", err)
+	}
+
+	if isSystemAdmin {
+		projectList, err := mongodb.NewProjectColl().List()
+		if err != nil {
+			tx.Rollback()
+			logger.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
+			return nil, fmt.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
+		}
+		for _, project := range projectList {
+			respSet.Insert(project.ProductName)
+		}
+		tx.Commit()
+		return respSet.List(), nil
+	}
+
+	groupIDList := make([]string, 0)
+	// find the user groups this uid belongs to, if none it is ok
+	groups, err := orm.ListUserGroupByUID(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to find user group for user: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
+	}
+
+	for _, group := range groups {
+		groupIDList = append(groupIDList, group.GroupID)
+	}
+
+	allUserGroup, err := orm.GetAllUserGroup(tx)
+	if err != nil || allUserGroup.GroupID == "" {
+		tx.Rollback()
+		logger.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
+		return nil, fmt.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
+	}
+
+	groupIDList = append(groupIDList, allUserGroup.GroupID)
+
+	roles, err := orm.ListRoleByUID(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+	}
+
+	for _, role := range roles {
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
+		}
+	}
+
+	groupRoles, err := orm.ListRoleByGroupIDs(groupIDList, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to find role for user's group for user: %s, error: %s", uid, err)
+	}
+
+	for _, role := range groupRoles {
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
+		}
+	}
+
+	// TODO: add user group support for collaboration mode
+	collaborationModeList, err := mongodb.NewCollaborationModeColl().ListUserCollaborationMode(uid)
+	if err != nil {
+		// this case is special, since the user might not have collaboration mode, we simply return the project list
+		// given by the role.
+		tx.Commit()
+		logger.Warnf("failed to find user collaboration mode, error: %s", err)
+		return respSet.List(), nil
+	}
+
+	// if user have collaboration mode, they must have access to this project.
+	for _, collabMode := range collaborationModeList {
+		respSet.Insert(collabMode.ProjectName)
+	}
+
+	tx.Commit()
+	return respSet.List(), nil
+}
+
+func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.SugaredLogger) ([]string, error) {
+	respSet := sets.NewString()
+
+	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
+
+	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to check if the user is system admin, error: %s", err)
+		return nil, fmt.Errorf("failed to check if the user is system admin, error: %s", err)
+	}
+
+	if isSystemAdmin {
+		projectList, err := mongodb.NewProjectColl().List()
+		if err != nil {
+			tx.Rollback()
+			logger.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
+			return nil, fmt.Errorf("failed to list project for project admin to return authorized projects, error: %s", err)
+		}
+		for _, project := range projectList {
+			respSet.Insert(project.ProductName)
+		}
+		tx.Commit()
+		return respSet.List(), nil
+	}
+
+	groupIDList := make([]string, 0)
+	// find the user groups this uid belongs to, if none it is ok
+	groups, err := orm.ListUserGroupByUID(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to find user group for user: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to get user permission, cannot find the user group for user, error: %s", err)
+	}
+
+	for _, group := range groups {
+		groupIDList = append(groupIDList, group.GroupID)
+	}
+
+	allUserGroup, err := orm.GetAllUserGroup(tx)
+	if err != nil || allUserGroup.GroupID == "" {
+		tx.Rollback()
+		logger.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
+		return nil, fmt.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
+	}
+
+	groupIDList = append(groupIDList, allUserGroup.GroupID)
+
+	roles, err := orm.ListRoleByUIDAndVerb(uid, verb, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+		return nil, fmt.Errorf("failed to list roles for uid: %s, error: %s", uid, err)
+	}
+
+	for _, role := range roles {
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
+		}
+	}
+
+	groupRoles, err := orm.ListRoleByGroupIDsAndVerb(groupIDList, verb, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("failed to list roles for groupid: %+v, error: %s", groupIDList, err)
+		return nil, fmt.Errorf("failed to list roles for groupid: %+v, error: %s", groupIDList, err)
+	}
+
+	for _, role := range groupRoles {
+		if role.Namespace != GeneralNamespace {
+			respSet.Insert(role.Namespace)
+		}
+	}
+
+	if resource == types.ResourceTypeWorkflow || resource == types.ResourceTypeEnvironment {
+		// TODO: after role-based permission is implemented, we should check for collaboration mode after, but just for workflow and envs.
+	}
+
+	tx.Commit()
+	return respSet.List(), nil
+}
+
+// ListAuthorizedWorkflow lists all workflows authorized by collaboration mode
+func ListAuthorizedWorkflow(uid, projectKey string, logger *zap.SugaredLogger) ([]string, []string, error) {
+	collaborationInstance, err := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	if err != nil {
+		logger.Errorf("failed to find user collaboration mode, error: %s", err)
+		return nil, nil, fmt.Errorf("failed to find user collaboration mode, error: %s", err)
+	}
+
+	authorizedWorkflows := make([]string, 0)
+	authorizedCustomWorkflows := make([]string, 0)
+
+	for _, workflow := range collaborationInstance.Workflows {
+		for _, verb := range workflow.Verbs {
+			// if the user actually has view permission
+			if verb == types.WorkflowActionView {
+				switch workflow.WorkflowType {
+				case types.WorkflowTypeCustomeWorkflow:
+					authorizedCustomWorkflows = append(authorizedCustomWorkflows, workflow.Name)
+				default:
+					// if a workflow does not have a type, it is a product workflow.
+					authorizedWorkflows = append(authorizedWorkflows, workflow.Name)
+				}
+			}
+		}
+	}
+
+	return authorizedWorkflows, authorizedCustomWorkflows, nil
+}
+
+func ListAuthorizedEnvs(uid, projectKey string, logger *zap.SugaredLogger) (readEnvList, editEnvList []string, err error) {
+	readEnvList = make([]string, 0)
+	editEnvList = make([]string, 0)
+
+	readEnvSet := sets.NewString()
+	editEnvSet := sets.NewString()
+	collaborationInstance, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
+	if findErr != nil {
+		logger.Errorf("failed to find user collaboration mode, error: %s", err)
+		err = fmt.Errorf("failed to find user collaboration mode, error: %s", err)
+		return
+	}
+
+	for _, env := range collaborationInstance.Products {
+		for _, verb := range env.Verbs {
+			if verb == types.EnvActionView || verb == types.ProductionEnvActionView {
+				readEnvSet.Insert(env.Name)
+			}
+			if verb == types.EnvActionEditConfig || verb == types.ProductionEnvActionEditConfig {
+				editEnvSet.Insert(env.Name)
+			}
+		}
+	}
+
+	readEnvList = readEnvSet.List()
+	editEnvList = editEnvSet.List()
+	return
+}
+
+func checkWorkflowPermission(list []models.WorkflowCIItem, workflowName, action string) bool {
+	for _, workflow := range list {
+		if workflow.Name == workflowName {
+			for _, verb := range workflow.Verbs {
+				if verb == action {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func checkEnvPermission(list []models.ProductCIItem, envName, action string) bool {
+	for _, env := range list {
+		if env.Name == envName {
+			for _, verb := range env.Verbs {
+				if verb == action {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func generateAdminRoleResource() *AuthorizedResources {
+	return &AuthorizedResources{
+		IsSystemAdmin:   true,
+		ProjectAuthInfo: nil,
+		SystemActions:   nil,
+	}
+}
+
+// generateDefaultProjectActions generate an ProjectActions without any authorization info.
+func generateDefaultProjectActions() *ProjectActions {
+	return &ProjectActions{
+		Workflow: &WorkflowActions{
+			View:    false,
+			Create:  false,
+			Edit:    false,
+			Delete:  false,
+			Execute: false,
+		},
+		Env: &EnvActions{
+			View:       false,
+			Create:     false,
+			EditConfig: false,
+			ManagePods: false,
+			Delete:     false,
+			DebugPod:   false,
+		},
+		ProductionEnv: &ProductionEnvActions{
+			View:       false,
+			Create:     false,
+			EditConfig: false,
+			ManagePods: false,
+			Delete:     false,
+			DebugPod:   false,
+		},
+		Service: &ServiceActions{
+			View:   false,
+			Create: false,
+			Edit:   false,
+			Delete: false,
+		},
+		ProductionService: &ProductionServiceActions{
+			View:   false,
+			Create: false,
+			Edit:   false,
+			Delete: false,
+		},
+		Build: &BuildActions{
+			View:   false,
+			Create: false,
+			Edit:   false,
+			Delete: false,
+		},
+		Test: &TestActions{
+			View:    false,
+			Create:  false,
+			Edit:    false,
+			Delete:  false,
+			Execute: false,
+		},
+		Scanning: &ScanningActions{
+			View:    false,
+			Create:  false,
+			Edit:    false,
+			Delete:  false,
+			Execute: false,
+		},
+		Version: &VersionActions{
+			View:   false,
+			Create: false,
+			Delete: false,
+		},
+	}
+}
+
+func generateDefaultSystemActions() *SystemActions {
+	return &SystemActions{
+		Project: &SystemProjectActions{
+			Create: false,
+			Delete: false,
+		},
+		Template: &TemplateActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+		TestCenter: &TestCenterActions{
+			View: false,
+		},
+		ReleaseCenter: &ReleaseCenterActions{
+			View: false,
+		},
+		DeliveryCenter: &DeliveryCenterActions{
+			ViewArtifact: false,
+			ViewVersion:  false,
+		},
+		DataCenter: &DataCenterActions{
+			ViewOverView:      false,
+			ViewInsight:       false,
+			EditInsightConfig: false,
+		},
+		ReleasePlan: &ReleasePlanActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+	}
+}
+
+func modifyUserProjectAuth(userAuthInfo *ProjectActions, verb string) {
+	switch verb {
+	case VerbCreateDelivery:
+		userAuthInfo.Version.Create = true
+	case VerbDeleteDelivery:
+		userAuthInfo.Version.Delete = true
+	case VerbGetDelivery:
+		userAuthInfo.Version.View = true
+	case VerbGetTest:
+		userAuthInfo.Test.View = true
+	case VerbCreateTest:
+		userAuthInfo.Test.Create = true
+	case VerbDeleteTest:
+		userAuthInfo.Test.Delete = true
+	case VerbEditTest:
+		userAuthInfo.Test.Edit = true
+	case VerbRunTest:
+		userAuthInfo.Test.Execute = true
+	case VerbCreateService:
+		userAuthInfo.Service.Create = true
+	case VerbEditService:
+		userAuthInfo.Service.Edit = true
+	case VerbDeleteService:
+		userAuthInfo.Service.Delete = true
+	case VerbGetService:
+		userAuthInfo.Service.View = true
+	case VerbCreateProductionService:
+		userAuthInfo.ProductionService.Create = true
+	case VerbEditProductionService:
+		userAuthInfo.ProductionService.Edit = true
+	case VerbDeleteProductionService:
+		userAuthInfo.ProductionService.Delete = true
+	case VerbGetProductionService:
+		userAuthInfo.ProductionService.View = true
+	case VerbGetBuild:
+		userAuthInfo.Build.View = true
+	case VerbEditBuild:
+		userAuthInfo.Build.Edit = true
+	case VerbDeleteBuild:
+		userAuthInfo.Build.Delete = true
+	case VerbCreateBuild:
+		userAuthInfo.Build.Create = true
+	case VerbCreateWorkflow:
+		userAuthInfo.Workflow.Create = true
+	case VerbEditWorkflow:
+		userAuthInfo.Workflow.Edit = true
+	case VerbDeleteWorkflow:
+		userAuthInfo.Workflow.Delete = true
+	case VerbGetWorkflow:
+		userAuthInfo.Workflow.View = true
+	case VerbRunWorkflow:
+		userAuthInfo.Workflow.Execute = true
+	case VerbDebugWorkflow:
+		userAuthInfo.Workflow.Debug = true
+	case VerbGetEnvironment:
+		userAuthInfo.Env.View = true
+	case VerbCreateEnvironment:
+		userAuthInfo.Env.Create = true
+	case VerbConfigEnvironment:
+		userAuthInfo.Env.EditConfig = true
+	case VerbManageEnvironment:
+		userAuthInfo.Env.ManagePods = true
+	case VerbDeleteEnvironment:
+		userAuthInfo.Env.Delete = true
+	case VerbDebugEnvironmentPod:
+		userAuthInfo.Env.DebugPod = true
+	case VerbEnvironmentSSHPM:
+		userAuthInfo.Env.SSH = true
+	case VerbGetProductionEnv:
+		userAuthInfo.ProductionEnv.View = true
+	case VerbCreateProductionEnv:
+		userAuthInfo.ProductionEnv.Create = true
+	case VerbConfigProductionEnv:
+		userAuthInfo.ProductionEnv.EditConfig = true
+	case VerbEditProductionEnv:
+		userAuthInfo.ProductionEnv.ManagePods = true
+	case VerbDeleteProductionEnv:
+		userAuthInfo.ProductionEnv.Delete = true
+	case VerbDebugProductionEnvPod:
+		userAuthInfo.ProductionEnv.DebugPod = true
+	case VerbGetScan:
+		userAuthInfo.Scanning.View = true
+	case VerbCreateScan:
+		userAuthInfo.Scanning.Create = true
+	case VerbEditScan:
+		userAuthInfo.Scanning.Edit = true
+	case VerbDeleteScan:
+		userAuthInfo.Scanning.Delete = true
+	case VerbRunScan:
+		userAuthInfo.Scanning.Execute = true
+	}
+}
+
+func modifySystemAction(systemActions *SystemActions, verb string) {
+	switch verb {
+	case VerbCreateProject:
+		systemActions.Project.Create = true
+	case VerbDeleteProject:
+		systemActions.Project.Delete = true
+	case VerbCreateTemplate:
+		systemActions.Template.Create = true
+	case VerbGetTemplate:
+		systemActions.Template.View = true
+	case VerbEditTemplate:
+		systemActions.Template.Edit = true
+	case VerbDeleteTemplate:
+		systemActions.Template.Delete = true
+	case VerbViewTestCenter:
+		systemActions.TestCenter.View = true
+	case VerbViewReleaseCenter:
+		systemActions.ReleaseCenter.View = true
+	case VerbDeliveryCenterGetVersions:
+		systemActions.DeliveryCenter.ViewVersion = true
+	case VerbDeliveryCenterGetArtifact:
+		systemActions.DeliveryCenter.ViewArtifact = true
+	case VerbGetDataCenterOverview:
+		systemActions.DataCenter.ViewOverView = true
+	case VerbGetDataCenterInsight:
+		systemActions.DataCenter.ViewInsight = true
+	case VerbEditDataCenterInsightConfig:
+		systemActions.DataCenter.EditInsightConfig = true
+	case VerbCreateReleasePlan:
+		systemActions.ReleasePlan.Create = true
+	case VerbEditReleasePlan:
+		systemActions.ReleasePlan.Edit = true
+	case VerbDeleteReleasePlan:
+		systemActions.ReleasePlan.Delete = true
+	case VerbGetReleasePlan:
+		systemActions.ReleasePlan.View = true
+	}
+}

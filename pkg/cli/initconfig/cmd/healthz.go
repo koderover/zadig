@@ -21,7 +21,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/shared/client/aslan"
-	"github.com/koderover/zadig/pkg/shared/client/policy"
 )
 
 func Healthz() error {
@@ -29,10 +28,6 @@ func Healthz() error {
 		return fmt.Errorf("checkPolicyServiceHealth error:%s", err)
 	}
 	return nil
-}
-
-func checkPolicyServiceHealth() error {
-	return policy.NewDefault().Healthz()
 }
 
 func checkAslanServiceHealth() error {

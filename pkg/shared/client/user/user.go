@@ -39,6 +39,7 @@ type usersResp struct {
 }
 
 type SearchArgs struct {
+	Name    string   `json:"name"`
 	UIDs    []string `json:"uids"`
 	PerPage int      `json:"per_page,omitempty"`
 	Page    int      `json:"page,omitempty"`
@@ -99,7 +100,7 @@ func (c *Client) SearchUser(args *SearchUserArgs) (*SearchUserResp, error) {
 }
 
 func (c *Client) CountUsers() (*types.UserStatistics, error) {
-	url := "/user/count"
+	url := "/users/count"
 	resp := new(types.UserStatistics)
 	_, err := c.Get(url, httpclient.SetResult(resp))
 	return resp, err

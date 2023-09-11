@@ -706,6 +706,19 @@ const (
 	ResourceTypeCustom ResourceType = "custom"
 )
 
+type NewRoleType int64
+
+const (
+	RoleTypeSystem NewRoleType = 1
+	RoleTypeCustom NewRoleType = 2
+)
+
+const (
+	ActionTypeAdmin = iota
+	ActionTypeProject
+	ActionTypeSystem
+)
+
 // AttachedClusterNamespace is the namespace Zadig uses in attached cluster.
 // Note: **Restricted because of product design since v1.9.0**.
 const AttachedClusterNamespace = "koderover-agent"

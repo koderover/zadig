@@ -104,6 +104,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 }
 
+type QualityCenterRouter struct{}
+
+func (*QualityCenterRouter) Inject(router *gin.RouterGroup) {
+	// testing apis
+	test := router.Group("tests")
+	{
+		test.GET("", ListTestingWithStat)
+	}
+}
+
 type QualityRouter struct{}
 
 func (*QualityRouter) Inject(router *gin.RouterGroup) {
