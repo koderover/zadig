@@ -151,7 +151,7 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 			args.KubeYamls = util.SplitYaml(args.Yaml)
 		}
 
-		_, err := service.CreateServiceTemplate(userName, args, false, log)
+		_, err := service.CreateServiceTemplate(userName, args, true, log)
 		if err != nil {
 			log.Infof("failed to create svc tempalte, err: %s", err)
 			return err
