@@ -62,8 +62,9 @@ func CreateUserGroup(c *gin.Context) {
 }
 
 type listUserGroupsReq struct {
-	PageNum  int `json:"page_num"  form:"page_num"`
-	PageSize int `json:"page_size" form:"page_size"`
+	PageNum  int    `json:"page_num"  form:"page_num"`
+	PageSize int    `json:"page_size" form:"page_size"`
+	Name     string `json:"name"      form:"name"`
 }
 
 type listUserGroupResp struct {
@@ -83,7 +84,7 @@ func ListUserGroups(c *gin.Context) {
 		return
 	}
 
-	groupList, count, err := user.ListUserGroups(query.PageNum, query.PageSize, ctx.Logger)
+	groupList, count, err := user.ListUserGroups(query.Name, query.PageNum, query.PageSize, ctx.Logger)
 
 	if err != nil {
 		ctx.Err = err

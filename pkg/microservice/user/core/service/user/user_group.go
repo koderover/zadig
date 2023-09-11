@@ -68,11 +68,11 @@ type UserGroupResp struct {
 	UserTotal   int64  `json:"user_total"`
 }
 
-func ListUserGroups(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*UserGroupResp, int64, error) {
+func ListUserGroups(queryName string, pageNum, pageSize int, logger *zap.SugaredLogger) ([]*UserGroupResp, int64, error) {
 	resp := make([]*UserGroupResp, 0)
 	tx := repository.DB.Begin()
 
-	groups, count, err := orm.ListUserGroups(pageNum, pageSize, tx)
+	groups, count, err := orm.ListUserGroups(queryName, pageNum, pageSize, tx)
 	if err != nil {
 		tx.Rollback()
 		logger.Infof("failed to list user groups, error: %s", err)

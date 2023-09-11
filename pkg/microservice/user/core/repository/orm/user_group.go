@@ -34,11 +34,16 @@ func CreateUserGroup(userGroup *models.UserGroup, db *gorm.DB) error {
 	return nil
 }
 
-func ListUserGroups(pageNum, pageSize int, db *gorm.DB) ([]*models.UserGroup, int64, error) {
+func ListUserGroups(queryName string, pageNum, pageSize int, db *gorm.DB) ([]*models.UserGroup, int64, error) {
 	resp := make([]*models.UserGroup, 0)
 	var count int64
 
-	err := db.Order("updated_at Desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&resp).Error
+	query := db
+	if len(queryName) != 0 {
+		query = query.Where("group_name LIKE ?", "%"+queryName+"%")
+	}
+
+	err := query.Order("updated_at Desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&resp).Error
 
 	if err != nil {
 		return nil, 0, err
