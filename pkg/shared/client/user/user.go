@@ -39,6 +39,7 @@ type usersResp struct {
 }
 
 type SearchArgs struct {
+	Name    string   `json:"name"`
 	UIDs    []string `json:"uids"`
 	PerPage int      `json:"per_page,omitempty"`
 	Page    int      `json:"page,omitempty"`
