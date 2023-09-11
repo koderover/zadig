@@ -153,8 +153,10 @@ func ListUsers(c *gin.Context) {
 		return
 	}
 	if len(args.UIDs) > 0 {
+		ctx.Logger.Info("uid is more than one")
 		ctx.Resp, ctx.Err = user.SearchUsersByUIDs(args.UIDs, ctx.Logger)
 	} else if len(args.Account) > 0 {
+		ctx.Logger.Infof("using account search")
 		if len(args.IdentityType) == 0 {
 			args.IdentityType = config.SystemIdentityType
 		}

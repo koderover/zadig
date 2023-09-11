@@ -274,6 +274,8 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 		}, nil
 	}
 
+	logger.Infof("searching info with name parameter: %s", args.Name)
+
 	users, err := orm.ListUsers(args.Page, args.PerPage, args.Name, repository.DB)
 	if err != nil {
 		logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
