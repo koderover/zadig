@@ -685,7 +685,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 	// fill serviceVars and variableYaml and serviceVariableKVs
 	err := fillServiceVariable(args, serviceTmpl)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fill service variable, err: %w", err)
 	}
 
 	// 校验args

@@ -153,6 +153,7 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 
 		_, err := service.CreateServiceTemplate(userName, args, false, log)
 		if err != nil {
+			log.Infof("failed to create svc tempalte, err: %s", err)
 			return err
 		}
 		//curSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{ServiceName: args.ServiceName, ProductName: args.ProductName}, false)
