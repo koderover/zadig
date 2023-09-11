@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/shared/client/user"
+	"github.com/koderover/zadig/pkg/types"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -174,7 +176,7 @@ type allowedProjectsData struct {
 	Result []string `json:"result"`
 }
 
-func GetMyWorkflow(header http.Header, username, userID, cardID string, log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
+func GetMyWorkflow(header http.Header, username, userID string, isAdmin bool, cardID string, log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 	resp := make([]*WorkflowResponse, 0)
 
 	cfg, err := commonrepo.NewDashboardConfigColl().GetByUser(username, userID)
@@ -189,26 +191,18 @@ func GetMyWorkflow(header http.Header, username, userID, cardID string, log *zap
 	}
 
 	// determine the allowed project
-	rules := []*rule{{
-		method:   "/api/aslan/workflow/workflow",
-		endpoint: "GET",
-	}}
-
-	var res [][]string
-	for _, v := range rules {
-		allowedProjects := &allowedProjectsData{}
-		opaClient := opa.NewDefault()
-		err := opaClient.Evaluate("rbac.user_allowed_projects", allowedProjects, func() (*opa.Input, error) {
-			return generateOPAInput(header, v.method, v.endpoint), nil
-		})
+	projects := make([]string, 0)
+	if !isAdmin {
+		authorizedProject, _, err := user.New().ListAuthorizedProjectsByResourceAndVerb(userID, "workflow", types.WorkflowActionView)
 		if err != nil {
-			log.Errorf("opa evaluation failed, err: %s", err)
+			log.Errorf("failed to list available project for workflows, error: %s", err)
 			return nil, err
 		}
-		res = append(res, allowedProjects.Result)
+		projects = authorizedProject
+	} else {
+		projects = append(projects, "*")
 	}
 
-	projects := intersect(res)
 	workflowList, err := workflow.ListAllAvailableWorkflows(projects, log)
 	if err != nil {
 		log.Errorf("failed to list all available workflows, error: %s", err)

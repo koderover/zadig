@@ -108,3 +108,17 @@ func ListUserGroupByUID(uid string, db *gorm.DB) ([]*models.UserGroup, error) {
 
 	return resp, nil
 }
+
+func GetAllUserGroup(db *gorm.DB) (*models.UserGroup, error) {
+	resp := new(models.UserGroup)
+
+	err := db.Where("group_name = ?", "所有用户").
+		Find(&resp).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
