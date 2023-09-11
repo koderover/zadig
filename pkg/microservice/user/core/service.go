@@ -174,6 +174,7 @@ func initializeSystemActions() {
 // this action will only be performed once regardless of the version, the execution condition is there are no roles in mysql table
 // since this could be a lengthy procedure, the helm installation process need to be modified.
 func syncUserRoleBinding() {
+	log.Infof("start sync user role binding")
 	// check if the mysql Role exists
 	var roleCount int64
 	err := repository.DB.Table("role").Count(&roleCount).Error
@@ -190,24 +191,25 @@ func syncUserRoleBinding() {
 
 	// if there are no role presented in the roles table, it means that the move all the roles and corresponding role binding into mysql
 	allRoles, err := mongodb.NewRoleColl().List()
-	if err != nil {
-		if err != mongo.ErrNoDocuments {
-			tx.Rollback()
-			log.Panicf("failed to list all roles from previous system, error: %s", err)
-		} else {
-			// if no roles is in the previous mongodb, it is a fresh installation. We create the default role, which is just system admin, and finish
-			adminRole := &models.NewRole{
-				Name:        "admin",
-				Description: "拥有系统中任何操作的权限",
-				Type:        int64(setting.RoleTypeSystem),
-				Namespace:   "*",
-			}
+	log.Infof("find all roles count: %v, err: %+v", len(allRoles), err)
+	if err != nil && err != mongo.ErrNoDocuments {
+		tx.Rollback()
+		log.Panicf("failed to list all roles from previous system, error: %s", err)
+	}
 
-			err := orm.CreateRole(adminRole, tx)
-			if err != nil {
-				tx.Rollback()
-				log.Panicf("failed to initialize admin role for system, tearing down user service...")
-			}
+	if len(allRoles) == 0 {
+		// if no roles is in the previous mongodb, it is a fresh installation. We create the default role, which is just system admin, and finish
+		adminRole := &models.NewRole{
+			Name:        "admin",
+			Description: "拥有系统中任何操作的权限",
+			Type:        int64(setting.RoleTypeSystem),
+			Namespace:   "*",
+		}
+
+		err := orm.CreateRole(adminRole, tx)
+		if err != nil {
+			tx.Rollback()
+			log.Panicf("failed to initialize admin role for system, tearing down user service...")
 		}
 	}
 
@@ -233,15 +235,12 @@ func syncUserRoleBinding() {
 	// 2. read-only
 	// 3. read-project-only
 	projectList, err := mongodb.NewProjectColl().List()
-	if err != nil {
-		if err != mongo.ErrNoDocuments {
-			tx.Rollback()
-			log.Panicf("Failed to get project list to create project default role, error: %s", err)
-		} else {
-			tx.Commit()
-			return
-		}
+	if err != nil && err != mongo.ErrNoDocuments {
+		tx.Rollback()
+		log.Panicf("Failed to get project list to create project default role, error: %s", err)
 	}
+
+	log.Infof("projectList count: %v, err: %+v", len(projectList), err)
 
 	for _, project := range projectList {
 		projectAdminRole := &models.NewRole{
@@ -369,16 +368,12 @@ RoleLoop:
 		}
 	}
 
+	log.Infof("start handling rolebindings")
 	// after syncing all the roles into the database, sync the user-role binding into the mysql table and we are done
 	rbList, err := mongodb.NewRoleBindingColl().List()
-	if err != nil {
-		if err != mongo.ErrNoDocuments {
-			tx.Rollback()
-			log.Panicf("failed to find role bindings to sync, error: %s", err)
-		} else {
-			tx.Commit()
-			return
-		}
+	if err != nil && err != mongo.ErrNoDocuments {
+		tx.Rollback()
+		log.Panicf("failed to find role bindings to sync, error: %s", err)
 	}
 
 	userRBmap := make(map[string][]uint)
