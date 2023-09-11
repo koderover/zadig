@@ -17,6 +17,7 @@ limitations under the License.
 package permission
 
 import (
+	"database/sql"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -31,7 +32,7 @@ import (
 )
 
 func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResources, error) {
-	tx := repository.DB.Begin()
+	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
 	// system calls
 	if uid == "" {
 		tx.Commit()
@@ -235,7 +236,7 @@ func CheckPermissionGivenByCollaborationMode(uid, projectKey, resource, action s
 }
 
 func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, error) {
-	tx := repository.DB.Begin()
+	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
 
 	respSet := sets.NewString()
 
@@ -330,7 +331,7 @@ func ListAuthorizedProject(uid string, logger *zap.SugaredLogger) ([]string, err
 func ListAuthorizedProjectByVerb(uid, resource, verb string, logger *zap.SugaredLogger) ([]string, error) {
 	respSet := sets.NewString()
 
-	tx := repository.DB.Begin()
+	tx := repository.DB.Begin(&sql.TxOptions{ReadOnly: true})
 
 	isSystemAdmin, err := checkUserIsSystemAdmin(uid, tx)
 	if err != nil {

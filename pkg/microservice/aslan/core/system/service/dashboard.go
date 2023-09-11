@@ -22,8 +22,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/shared/client/user"
-	"github.com/koderover/zadig/pkg/types"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -37,6 +35,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/user"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 const (

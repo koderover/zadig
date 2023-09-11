@@ -176,7 +176,7 @@ func generateCollaborationDetailLog(username string, args *commonmodels.Collabor
 	if deletedUserIDSet.Len() != 0 {
 		detail += "删除用户："
 		for _, userid := range deletedUserIDSet.List() {
-			detail += userInfoMap[userid].Name + "，"
+			detail += getUserName(userid, userInfoMap) + "，"
 		}
 		detail = strings.Trim(detail, "，")
 		detail += "\n\n"
@@ -185,7 +185,7 @@ func generateCollaborationDetailLog(username string, args *commonmodels.Collabor
 	if addedUserIDSet.Len() != 0 {
 		detail += "新增用户："
 		for _, userid := range addedUserIDSet.List() {
-			detail += userInfoMap[userid].Name + "，"
+			detail += getUserName(userid, userInfoMap) + "，"
 		}
 		detail = strings.Trim(detail, "，")
 		detail += "\n"
@@ -361,9 +361,16 @@ func generateCollaborationDetailLog(username string, args *commonmodels.Collabor
 
 	detail += "影响用户："
 	for _, userID := range allUserIDSet.List() {
-		detail += userInfoMap[userID].Name + "，"
+		detail += getUserName(userID, userInfoMap) + "，"
 	}
 	detail = strings.TrimSuffix(detail, "，")
 
 	return detail, nil
+}
+
+func getUserName(uid string, userInfoMap map[string]*types.UserInfo) string {
+	if user, ok := userInfoMap[uid]; ok {
+		return user.Name
+	}
+	return "deleted-user"
 }
