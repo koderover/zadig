@@ -97,6 +97,7 @@ func GetUserAuthInfo(uid string, logger *zap.SugaredLogger) (*AuthorizedResource
 
 		// project admin does not have any bindings, it is special
 		if role.Name == ProjectAdminRole {
+			logger.Infof("adding project admin role for project key: %s", role.Namespace)
 			projectActionMap[role.Namespace].IsProjectAdmin = true
 			continue
 		}

@@ -108,6 +108,9 @@ func NewContextWithAuthorization(c *gin.Context) (*Context, error) {
 		logger.Errorf("failed to generate user authorization info, error: %s", err)
 		return resp, err
 	}
+	for projectKey, authInfo := range resourceAuthInfo.ProjectAuthInfo {
+		fmt.Printf(">>>>>>>>>>>>>>>>>>>>> project key: [%s], is project admin: [%+v] <<<<<<<<<<<<<<<<<<<<<<<\n", projectKey, authInfo.IsProjectAdmin)
+	}
 	resp.Resources = resourceAuthInfo
 	return resp, nil
 }
