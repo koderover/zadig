@@ -1467,6 +1467,9 @@ func geneYamlData(args *commonservice.ValuesDataArgs) *templatemodels.CustomYaml
 }
 
 func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap.SugaredLogger) error {
+
+	log.Infof("-------- start sync helm product environment: %s, %s --------", productName, envName)
+
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,

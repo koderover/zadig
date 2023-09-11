@@ -117,6 +117,7 @@ func ListProductSnapsByOption(deployType string, log *zap.SugaredLogger) ([]*Pro
 			})
 		}
 		prodRevs = append(prodRevs, prodRev)
+		log.Infof("--------- single prodRev productName: %s, envName: %s, serviceRevisions: %+v", prodRev.ProductName, prodRev.EnvName, prodRev.ServiceRevisions)
 	}
 	return prodRevs, nil
 }
