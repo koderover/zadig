@@ -336,6 +336,11 @@ RoleLoop:
 					continue RoleLoop
 				}
 
+				// special case for double get_test in quality center and projected testing
+				if verb == "get_test" && role.Namespace == "*" {
+					verb = "get_test_detail"
+				}
+
 				if _, ok := actionIDMap[verb]; !ok {
 					action, err := orm.GetActionByVerb(verb, repository.DB)
 					if err != nil {
