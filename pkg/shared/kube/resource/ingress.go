@@ -25,7 +25,7 @@ type Ingress struct {
 }
 
 type HostInfo struct {
-	Host     string    `json:"host"`
+	Host     string    `json:"vm"`
 	Backends []Backend `json:"backend"`
 }
 

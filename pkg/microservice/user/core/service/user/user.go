@@ -117,14 +117,14 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 	}
 	l, err := ldapv3.Dial("tcp", config.Host)
 	if err != nil {
-		logger.Errorf("ldap dial host:%s error, error msg:%s", config.Host, err)
+		logger.Errorf("ldap dial vm:%s error, error msg:%s", config.Host, err)
 		return err
 	}
 	defer l.Close()
 
 	err = l.Bind(config.BindDN, config.BindPW)
 	if err != nil {
-		logger.Errorf("ldap bind host:%s error, error msg:%s", config.Host, err)
+		logger.Errorf("ldap bind vm:%s error, error msg:%s", config.Host, err)
 		return err
 	}
 
@@ -139,7 +139,7 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 
 	sr, err := l.Search(searchRequest)
 	if err != nil {
-		logger.Errorf("ldap search host:%s error, error msg:%s", config.Host, err)
+		logger.Errorf("ldap search vm:%s error, error msg:%s", config.Host, err)
 		return err
 	}
 	for _, entry := range sr.Entries {
@@ -155,7 +155,7 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 			IdentityType: si.ID, // ldap may have not only one instance, so use id as identityType
 		}, false, logger)
 		if err != nil {
-			logger.Errorf("ldap host:%s sync user error, error msg:%s", config.Host, err)
+			logger.Errorf("ldap vm:%s sync user error, error msg:%s", config.Host, err)
 			return err
 		}
 	}

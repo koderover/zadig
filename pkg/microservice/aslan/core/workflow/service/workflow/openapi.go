@@ -288,7 +288,7 @@ func OpenAPICreateProductWorkflowTask(username string, args *OpenAPICreateProduc
 					for _, inputRepo := range inputTarget.RepoInfo {
 						repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(inputRepo.CodeHostName)
 						if err != nil {
-							return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
+							return nil, errors.New("failed to find code vm with name:" + inputRepo.CodeHostName)
 						}
 
 						for _, buildRepo := range targetInfo.Build.Repos {

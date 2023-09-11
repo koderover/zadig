@@ -69,7 +69,7 @@ const (
 	PackagerPlugin          = "packager-plugin"
 	registrySecretSuffix    = "-registry-secret"
 	DindServer              = "dind"
-	KoderoverAgentNamespace = "koderover-agent"
+	KoderoverAgentNamespace = "koderover-vm"
 
 	executorVolumeName = "executor-resource"
 	executorVolumePath = "/executor"
@@ -581,7 +581,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 	//     value: "5"
 	//   searches:
 	//   - piggymetrics-env-dev.svc.cluster.local
-	//   - koderover-agent.svc.cluster.local
+	//   - koderover-vm.svc.cluster.local
 	//   - svc.cluster.local
 	//   - cluster.local
 	// ```
@@ -698,7 +698,7 @@ func lookupKubeDNSServerHost() (addresses []string, err error) {
 	}
 
 	if len(addresses) == 0 {
-		err = errors.New("no host found")
+		err = errors.New("no vm found")
 		return
 	}
 

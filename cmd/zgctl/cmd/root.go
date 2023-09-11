@@ -32,7 +32,7 @@ var zadigToken string
 var homeDir string
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&zadigHost, "zadig-host", "", "host of zadig system")
+	rootCmd.PersistentFlags().StringVar(&zadigHost, "zadig-vm", "", "vm of zadig system")
 	rootCmd.PersistentFlags().StringVar(&zadigToken, "zadig-token", "", "token to access zadig system")
 	rootCmd.PersistentFlags().StringVar(&homeDir, "home-dir", "$HOME/.zadig", "home dir of plugin")
 

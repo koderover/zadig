@@ -28,7 +28,7 @@ import (
 func CodeHostListProjects(codeHostID int, namespace, namespaceType string, page, perPage int, keyword string, log *zap.SugaredLogger) ([]*client.Project, error) {
 	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
-		log.Errorf("get code host info err:%s", err)
+		log.Errorf("get code vm info err:%s", err)
 		return nil, err
 	}
 	if ch.Type == setting.SourceFromOther {

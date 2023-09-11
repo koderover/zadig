@@ -57,7 +57,7 @@ type Build struct {
 	DockerBuildStatus *DockerBuildStatus          `bson:"docker_build_status,omitempty" json:"docker_build_status,omitempty"`
 	BuildStatus       *BuildStatus                `bson:"build_status,omitempty" json:"build_status,omitempty"`
 	IsRestart         bool                        `bson:"is_restart"                      json:"is_restart"`
-	// Get the host bound to the environment of the cloud host service configuration
+	// Get the vm bound to the environment of the cloud vm service configuration
 	EnvHostInfo  map[string][]string `bson:"env_host_info,omitempty"         json:"env_host_info,omitempty"`
 	EnvHostNames map[string][]string `bson:"env_host_names,omitempty"        json:"env_host_names,omitempty"`
 	ArtifactInfo *ArtifactInfo       `bson:"artifact_info,omitempty"         json:"artifact_info,omitempty"`
@@ -69,7 +69,7 @@ type Build struct {
 	CacheDirType types.CacheDirType `bson:"cache_dir_type"                  json:"cache_dir_type"`
 	CacheUserDir string             `bson:"cache_user_dir"                  json:"cache_user_dir"`
 
-	// New since V1.16.0, determines is dockerDaemon on host node is used in pod
+	// New since V1.16.0, determines is dockerDaemon on vm node is used in pod
 	UseHostDockerDaemon bool `bson:"use_host_docker_daemon,omitempty" json:"use_host_docker_daemon,omitempty"`
 }
 

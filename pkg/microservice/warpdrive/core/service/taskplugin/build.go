@@ -187,7 +187,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameVar)
 	} else if pipelineTask.Type == config.ServiceType {
 		// Note:
-		// In cloud host scenarios, this type of task is performed when creating the environment.
+		// In cloud vm scenarios, this type of task is performed when creating the environment.
 		// This type of task does not occur in other scenarios.
 
 		envName := pipelineTask.ServiceTaskArgs.Namespace
@@ -212,13 +212,13 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	privateKeysVar := &task.KeyVal{Key: "AGENTS", Value: strings.Join(privateKeys.List(), ","), IsCredential: false}
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, privateKeysVar)
 
-	// env host ips
+	// env vm ips
 	for envName, HostIPs := range p.Task.EnvHostInfo {
 		envHostKeysVar := &task.KeyVal{Key: envName + "_HOST_IPs", Value: strings.Join(HostIPs, ","), IsCredential: false}
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)
 	}
 
-	// env host names
+	// env vm names
 	for envName, names := range p.Task.EnvHostNames {
 		envHostKeysVar := &task.KeyVal{Key: envName + "_HOST_NAMEs", Value: strings.Join(names, ","), IsCredential: false}
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)

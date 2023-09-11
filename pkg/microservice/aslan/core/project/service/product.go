@@ -313,7 +313,7 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 		return err
 	}
 
-	// transfer host project type to k8s yaml project
+	// transfer vm project type to k8s yaml project
 	products, err := transferProducts(user, projectInfo, services, log)
 	if err != nil {
 		return e.ErrUpdateProduct.AddErr(err)
@@ -333,7 +333,7 @@ func TransferHostProject(user, projectName string, log *zap.SugaredLogger) (err 
 	return nil
 }
 
-// transferServices transfer service from external to zadig-host(spock)
+// transferServices transfer service from external to zadig-vm(spock)
 func transferServices(user string, projectInfo *template.Product, logger *zap.SugaredLogger) ([]*commonmodels.Service, error) {
 	templateServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(projectInfo.ProductName)
 	if err != nil {
@@ -356,7 +356,7 @@ func transferServices(user string, projectInfo *template.Product, logger *zap.Su
 }
 
 // optimizeServiceYaml optimize the yaml content of service, it removes unnecessary runtime information from workload yamls
-// TODO this function should be deleted after we refactor the code about host-project
+// TODO this function should be deleted after we refactor the code about vm-project
 // CronJob workload is not needed to be handled here since is not supported till version 1.18.0
 func optimizeServiceYaml(projectName string, serviceInfo []*commonmodels.Service) error {
 	svcMap := make(map[string]*commonmodels.Service)

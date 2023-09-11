@@ -37,7 +37,7 @@ const (
 func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogger) ([]*client.Namespace, error) {
 	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
-		log.Errorf("get code host info err:%s", err)
+		log.Errorf("get code vm info err:%s", err)
 		return nil, err
 	}
 

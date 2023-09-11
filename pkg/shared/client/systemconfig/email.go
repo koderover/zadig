@@ -36,7 +36,7 @@ func (c *Client) GetEmailHost() (*Email, error) {
 		return nil, err
 	}
 	if resp == nil {
-		return nil, fmt.Errorf("failed to find email host config")
+		return nil, fmt.Errorf("failed to find email vm config")
 	}
 	res := &Email{
 		Name:     resp.Name,

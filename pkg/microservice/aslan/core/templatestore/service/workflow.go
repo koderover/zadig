@@ -1255,7 +1255,7 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 									Inputs: []*commonmodels.Param{
 										{
 											Name:        "mysql_host",
-											Description: "mysql host",
+											Description: "mysql vm",
 											ParamsType:  "string",
 										},
 										{

@@ -68,7 +68,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 	for _, info := range infos {
 		ch, err := systemconfig.New().GetCodeHost(info.CodehostID)
 		if err != nil {
-			log.Errorf("get code host info err:%s", err)
+			log.Errorf("get code vm info err:%s", err)
 			return nil, err
 		}
 		if ch.Type == setting.SourceFromOther {

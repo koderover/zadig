@@ -46,7 +46,7 @@ import (
 
 const (
 	DindServer              = "dind"
-	KoderoverAgentNamespace = "koderover-agent"
+	KoderoverAgentNamespace = "koderover-vm"
 )
 
 type FreestyleJobCtl struct {
@@ -144,7 +144,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 		c.apiServer = apiServer
 	}
 
-	// decide which docker host to use.
+	// decide which docker vm to use.
 	// TODO: do not use code in warpdrive moudule, should move to a public place
 	dockerhosts := dockerhost.NewDockerHosts(hubServerAddr, c.logger)
 	c.jobTaskSpec.Properties.DockerHost = dockerhosts.GetBestHost(dockerhost.ClusterID(c.jobTaskSpec.Properties.ClusterID), "")

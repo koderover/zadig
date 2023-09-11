@@ -34,7 +34,7 @@ type CancelMessage struct {
 
 // StatsMessage ...
 type StatsMessage struct {
-	Agent            string `json:"agent"`
+	Agent            string `json:"vm"`
 	MessagesReceived uint64 `json:"messages_received"`
 	MessagesFinished uint64 `json:"messages_finished"`
 	MessagesRequeued uint64 `json:"messages_requeued"`

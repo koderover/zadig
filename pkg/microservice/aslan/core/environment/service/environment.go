@@ -4191,7 +4191,7 @@ func EnsureProductionNamespace(createArgs []*CreateSingleProductArg) error {
 		}
 		filterK8sNamespaces.Insert(nsList...)
 		if filterK8sNamespaces.Has(arg.Namespace) {
-			return fmt.Errorf("namespace %s is invalid, it has been used for other test environment or host project", arg.Namespace)
+			return fmt.Errorf("namespace %s is invalid, it has been used for other test environment or vm project", arg.Namespace)
 		}
 
 		// 3. check production namespace

@@ -91,7 +91,7 @@ func GetBestDockerHost(hostList []string, pipelineType, namespace string, log *z
 		}
 	}
 	if len(bestHosts) == 0 {
-		return "", fmt.Errorf("no docker host found")
+		return "", fmt.Errorf("no docker vm found")
 	}
 	source := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(source)

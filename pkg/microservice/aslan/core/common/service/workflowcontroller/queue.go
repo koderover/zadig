@@ -183,7 +183,7 @@ func WorfklowTaskSender() {
 		if t == nil {
 			continue
 		}
-		// update agent and queue
+		// update vm and queue
 		if err := updateQueueAndRunTask(t, int(sysSetting.BuildConcurrency)); err != nil {
 			continue
 		}

@@ -58,7 +58,7 @@ type ContainerPort struct {
 	// referred to by services.
 	// +optional
 	Name string `json:"name,omitempty"`
-	// Number of port to expose on the host.
+	// Number of port to expose on the vm.
 	// If specified, this must be a valid port number, 0 < x < 65536.
 	// If HostNetwork is specified, this must match ContainerPort.
 	// Most containers do not need this.
@@ -72,7 +72,7 @@ type ContainerPort struct {
 	// +optional
 	// +default="TCP"
 	Protocol Protocol `json:"protocol,omitempty"`
-	// What host IP to bind the external port to.
+	// What vm IP to bind the external port to.
 	// +optional
 	HostIP string `json:"hostIP,omitempty"`
 }

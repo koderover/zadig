@@ -41,7 +41,7 @@ import (
 )
 
 type RepoImgResp struct {
-	Host    string `json:"host"`
+	Host    string `json:"vm"`
 	Owner   string `json:"owner"`
 	Name    string `json:"name"`
 	Tag     string `json:"tag"`

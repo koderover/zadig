@@ -82,7 +82,7 @@ type PreBuild struct {
 	UploadPkg  bool   `bson:"upload_pkg"                      json:"upload_pkg"`
 	ClusterID  string `bson:"cluster_id"                      json:"cluster_id"`
 	StrategyID string `bson:"strategy_id"                     json:"strategy_id"`
-	// UseHostDockerDaemon determines is dockerDaemon on host node is used in pod
+	// UseHostDockerDaemon determines is dockerDaemon on vm node is used in pod
 	UseHostDockerDaemon bool `bson:"use_host_docker_daemon" json:"use_host_docker_daemon"`
 
 	// TODO: Deprecated.

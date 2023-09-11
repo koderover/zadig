@@ -209,7 +209,7 @@ func (c *CronClient) Init() {
 	c.InitPullSonarStatScheduler()
 	// 定时初始化健康检查
 	c.InitHealthCheckScheduler()
-	// Timing probe host status
+	// Timing probe vm status
 	c.InitHealthCheckPmHostScheduler()
 	// sync values from remote for helm envs at regular intervals
 	c.InitHelmEnvSyncValuesScheduler()

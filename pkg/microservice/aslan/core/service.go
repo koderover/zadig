@@ -26,6 +26,7 @@ import (
 	newgoCron "github.com/go-co-op/gocron"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/host"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -187,7 +188,7 @@ func initCron() {
 		for _, codehost := range codehostList {
 			_, err := gitlab.UpdateGitlabToken(codehost.ID, codehost.AccessToken)
 			if err != nil {
-				log.Errorf("failed to update gitlab token for host: %d, error: %s", codehost.ID, err)
+				log.Errorf("failed to update gitlab token for vm: %d, error: %s", codehost.ID, err)
 			}
 		}
 		log.Infof("[CRONJOB] gitlab token updated....")
@@ -220,7 +221,7 @@ func initResourcesForExternalClusters() {
 		logger.Errorf("FindConnectedClusters err: %v", err)
 		return
 	}
-	namespace := "koderover-agent"
+	namespace := "koderover-vm"
 
 	for _, cluster := range list {
 		if cluster.Local || cluster.Status != hubserverconfig.Normal {
@@ -459,8 +460,11 @@ func initDatabase() {
 		// project group related db index
 		commonrepo.NewProjectGroupColl(),
 
-		// zadig agent related db index
-		commonrepo.NewZadigAgentColl(),
+		// zadig vm related db index
+		host.NewHostJobColl(),
+
+		// vm job related db index
+		host.NewHostJobColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

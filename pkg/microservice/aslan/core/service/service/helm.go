@@ -922,7 +922,7 @@ func CreateOrUpdateHelmServiceFromRepo(projectName string, args *HelmServiceCrea
 			if string(args.Source) == setting.SourceFromGitee || string(args.Source) == setting.SourceFromGiteeEE {
 				codehostInfo, err := systemconfig.New().GetCodeHost(createFromRepo.CodehostID)
 				if err != nil {
-					finalErr = errors.Wrapf(err, "failed to get code host, id %d", createFromRepo.CodehostID)
+					finalErr = errors.Wrapf(err, "failed to get code vm, id %d", createFromRepo.CodehostID)
 					return
 				}
 				repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, createFromRepo.Owner, createFromRepo.Repo, "tree", createFromRepo.Branch, filePath)

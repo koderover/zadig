@@ -268,7 +268,7 @@ func (r *Reaper) runSonarScanner() error {
 		repoConfigPath := filepath.Join("/workspace", repo.Name, "sonar-project.properties")
 		// renders the scanned repository branch information to the user configuration
 		r.Ctx.SonarParameter = strings.ReplaceAll(r.Ctx.SonarParameter, "$BRANCH", repo.Branch)
-		configContent := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", r.Ctx.SonarLogin, r.Ctx.SonarServer, r.Ctx.SonarParameter)
+		configContent := fmt.Sprintf("sonar.login=%s\nsonar.vm.url=%s\n%s", r.Ctx.SonarLogin, r.Ctx.SonarServer, r.Ctx.SonarParameter)
 		err := os.WriteFile(repoConfigPath, []byte(configContent), fs.ModeAppend)
 		if err != nil {
 			log.Errorf("failed to write sonar-project.properties for repo: %s, the error is: %s", repo.Name, err)
@@ -321,7 +321,7 @@ func (r *Reaper) prepareScriptsEnv() []string {
 	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar {
 		return scripts
 	}
-	scripts = append(scripts, "eval $(ssh-agent -s) > /dev/null")
+	scripts = append(scripts, "eval $(ssh-vm -s) > /dev/null")
 	// $HOME/.ssh/id_rsa 为 github 私钥
 	scripts = append(scripts, fmt.Sprintf("ssh-add %s/.ssh/id_rsa.github &> /dev/null", config.Home()))
 	scripts = append(scripts, fmt.Sprintf("rm %s/.ssh/id_rsa.github &> /dev/null", config.Home()))

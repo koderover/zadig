@@ -123,7 +123,7 @@ func migrateJiraInfo() error {
 	}
 
 	type JiraOld struct {
-		Host        string `bson:"host"`
+		Host        string `bson:"vm"`
 		User        string `bson:"user"`
 		AccessToken string `bson:"access_token"`
 	}
@@ -138,7 +138,7 @@ func migrateJiraInfo() error {
 		return err
 	}
 
-	log.Infof("migrateJiraInfo: find info, host: %s user: %s", info.Host, info.User)
+	log.Infof("migrateJiraInfo: find info, vm: %s user: %s", info.Host, info.User)
 	return mongodb.NewProjectManagementColl().Create(&commonmodels.ProjectManagement{
 		Type:      setting.PMJira,
 		JiraHost:  info.Host,

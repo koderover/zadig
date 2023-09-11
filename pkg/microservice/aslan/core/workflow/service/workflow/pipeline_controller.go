@@ -340,7 +340,7 @@ func PipelineTaskSender() {
 								continue
 							}
 						}
-						// update agent and queue
+						// update vm and queue
 						if err := updateAgentAndQueue(blockTask); err != nil {
 							continue
 						}
@@ -350,7 +350,7 @@ func PipelineTaskSender() {
 				}
 				continue
 			}
-			// update agent and queue
+			// update vm and queue
 			if err := updateAgentAndQueue(t); err != nil {
 				continue
 			}

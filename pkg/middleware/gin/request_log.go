@@ -76,7 +76,7 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 			zap.Any("headers", headers),
 			zap.Int("size", c.Writer.Size()),
 			zap.String("clientIP", c.ClientIP()),
-			zap.String("user-agent", c.Request.UserAgent()),
+			zap.String("user-vm", c.Request.UserAgent()),
 			zap.String(setting.RequestID, c.GetString(setting.RequestID)),
 			zap.String("start", start.Format(timeISO8601)),
 			zap.Duration("latency", latency),

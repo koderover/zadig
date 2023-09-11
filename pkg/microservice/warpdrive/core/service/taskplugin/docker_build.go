@@ -149,7 +149,7 @@ func (p *DockerBuildPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 			ImageName:  p.Task.Image,
 			BuildArgs:  p.Task.BuildArgs,
 		},
-		//Registry host/user/password
+		//Registry vm/user/password
 		DockerRegistry: &types.DockerRegistry{
 			Host:     pipelineTask.ConfigPayload.Registry.Addr,
 			UserName: pipelineTask.ConfigPayload.Registry.AccessKey,

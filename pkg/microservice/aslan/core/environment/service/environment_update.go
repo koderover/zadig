@@ -530,7 +530,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, log *zap.SugaredLogger) error {
 	envName, productName := exitedProd.EnvName, exitedProd.ProductName
 	var serviceNames []string
-	//TODO:The host update environment cannot remove deleted services
+	//TODO:The vm update environment cannot remove deleted services
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsAllSvcByProduct(productName)
 	if err != nil && !commonrepo.IsErrNoDocuments(err) {
 		log.Errorf("ListMaxRevisionsAllSvcByProduct: %s", err)

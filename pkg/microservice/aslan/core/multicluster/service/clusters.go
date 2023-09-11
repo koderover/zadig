@@ -77,7 +77,7 @@ type K8SCluster struct {
 	DindCfg                *commonmodels.DindCfg    `json:"dind_cfg"`
 
 	// new field in 1.14, intended to enable kubeconfig for cluster management
-	Type       string `json:"type"` // either agent or kubeconfig supported
+	Type       string `json:"type"` // either vm or kubeconfig supported
 	KubeConfig string `json:"config"`
 }
 
@@ -505,7 +505,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	if err != nil {
 		return nil, fmt.Errorf("failed to update cluster %q: %s", id, err)
 	}
-	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
+	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-vm
 	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
 		return cluster, nil
 	}
@@ -624,9 +624,9 @@ func UpgradeAgent(id string, logger *zap.SugaredLogger) error {
 	resources := make([]*unstructured.Unstructured, 0, len(manifests))
 	for _, item := range manifests {
 		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
-		// kubeconfig cluster does not need to upgrade hub-agent.
+		// kubeconfig cluster does not need to upgrade hub-vm.
 		uName := u.GetName()
-		if clusterInfo.Type == setting.KubeConfigClusterType && (uName == "hub-agent" || uName == "koderover-agent-node-agent") {
+		if clusterInfo.Type == setting.KubeConfigClusterType && (uName == "hub-vm" || uName == "koderover-vm-node-vm") {
 			continue
 		}
 		if err != nil {

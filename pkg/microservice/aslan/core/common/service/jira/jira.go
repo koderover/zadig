@@ -32,7 +32,7 @@ import (
 
 type JiraInfo struct {
 	ID       int64                    `json:"id"`
-	Host     string                   `json:"host"`
+	Host     string                   `json:"vm"`
 	User     string                   `json:"user"`
 	AuthType aslanconfig.JiraAuthType `json:"auth_type"`
 	// AccessToken is same as password

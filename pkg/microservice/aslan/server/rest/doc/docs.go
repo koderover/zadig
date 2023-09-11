@@ -19,7 +19,7 @@ const docTemplate = `{
         },
         "version": "{{.Version}}"
     },
-    "host": "{{.Host}}",
+    "vm": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
         "/api/aslan/collaboration/collaborations/sync": {
@@ -4276,7 +4276,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "workload_type": {
-                    "description": "WorkloadType is set in host projects",
+                    "description": "WorkloadType is set in vm projects",
                     "type": "string"
                 },
                 "yaml": {
@@ -4461,11 +4461,11 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "hostIP": {
-                    "description": "What host IP to bind the external port to.\n+optional",
+                    "description": "What vm IP to bind the external port to.\n+optional",
                     "type": "string"
                 },
                 "hostPort": {
-                    "description": "Number of port to expose on the host.\nIf specified, this must be a valid port number, 0 \u003c x \u003c 65536.\nIf HostNetwork is specified, this must match ContainerPort.\nMost containers do not need this.\n+optional",
+                    "description": "Number of port to expose on the vm.\nIf specified, this must be a valid port number, 0 \u003c x \u003c 65536.\nIf HostNetwork is specified, this must match ContainerPort.\nMost containers do not need this.\n+optional",
                     "type": "integer"
                 },
                 "name": {
@@ -4526,7 +4526,7 @@ const docTemplate = `{
                         "$ref": "#/definitions/resource.Backend"
                     }
                 },
-                "host": {
+                "vm": {
                     "type": "string"
                 }
             }

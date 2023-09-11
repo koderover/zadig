@@ -353,7 +353,7 @@ type GinkgoTest struct {
 
 // DockerRegistry 推送镜像到 docker registry 配置
 type DockerRegistry struct {
-	Host      string `yaml:"host"`
+	Host      string `yaml:"vm"`
 	Namespace string `yaml:"namespace"`
 	UserName  string `yaml:"username"`
 	Password  string `yaml:"password"`
@@ -397,7 +397,7 @@ func (g *Git) GetEmail() string {
 	return g.Email
 }
 
-// GetGithubHost returns github host
+// GetGithubHost returns github vm
 // By default it returns github.com
 func (g *Git) GetGithubHost() string {
 	if g.GithubHost == "" {
@@ -406,7 +406,7 @@ func (g *Git) GetGithubHost() string {
 	return g.GithubHost
 }
 
-// GetGitlabHost returns gitlab host
+// GetGitlabHost returns gitlab vm
 // By default it returns gitlab.koderover.io
 func (g *Git) GetGitlabHost() string {
 	if g.GitlabHost == "" {

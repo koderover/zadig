@@ -21,19 +21,26 @@ import "github.com/gin-gonic/gin"
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	agent := router.Group("")
+	vm := router.Group("")
 	{
-		agent.POST("", CreateAgent)
-		agent.PUT("/agent/:agentID", UpdateAgent)
-		agent.DELETE("/agent/:agentID", DeleteAgent)
-		agent.GET("", ListAgents)
-		agent.GET("/agent/:agentID", GetAgent)
+		vm.POST("", CreateHost)
+		vm.GET("/:hosstID/access/vm", GetAgentAccessCmd)
+		vm.PUT("/:hostID", UpdateHost)
+		vm.DELETE("/:hostID", DeleteHost)
+		vm.PUT("/:hostID/offline", OfflineHost)
+		vm.PUT("/:hostID/agent/upgrade", UpgradeAgent)
+		vm.GET("/hosts", ListHosts)
+		vm.GET("/:hostID", GetHost)
+		vm.GET("/labels", ListVMLabels)
+		vm.POST("/testapi", CreateWfJob2DB)
 	}
 
-	hostAgent := router.Group("agents")
+	vmAgent := router.Group("vms")
 	{
-		hostAgent.POST("/register", RegisterAgent)
-		hostAgent.POST("/verify", VerifyAgent)
-		hostAgent.GET("/ping", PingAgent)
+		vmAgent.POST("/register", RegisterAgent)
+		vmAgent.POST("/verify", VerifyAgent)
+		vmAgent.POST("/heartbeat", HeartbeatAgent)
+		vmAgent.GET("/job/request", PollingAgentJob)
+		vmAgent.POST("/job/report", ReportAgentJob)
 	}
 }

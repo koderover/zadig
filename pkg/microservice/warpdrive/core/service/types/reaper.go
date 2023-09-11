@@ -301,7 +301,7 @@ type GinkgoTest struct {
 // DockerRegistry 推送镜像到 docker registry 配置
 type DockerRegistry struct {
 	RegistryID string `yaml:"registry_id"`
-	Host       string `yaml:"host"`
+	Host       string `yaml:"vm"`
 	Namespace  string `yaml:"namespace"`
 	UserName   string `yaml:"username"`
 	Password   string `yaml:"password"`

@@ -21,7 +21,7 @@ const (
 	BasicDateFormat     = "20060102T150405Z"
 	Algorithm           = "SDK-HMAC-SHA256"
 	HeaderXDate         = "X-Sdk-Date"
-	HeaderHost          = "host"
+	HeaderHost          = "vm"
 	HeaderAuthorization = "Authorization"
 	HeaderContentSha256 = "X-Sdk-Content-Sha256"
 )

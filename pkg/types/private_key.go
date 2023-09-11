@@ -29,7 +29,7 @@ type HTTPHeader struct {
 type HTTPGetAction struct {
 	Path                string        `bson:"path"                        json:"path"`
 	Port                int           `bson:"port"                        json:"port"`
-	Host                string        `bson:"-"                           json:"host,omitempty"`
+	Host                string        `bson:"-"                           json:"vm,omitempty"`
 	HTTPHeaders         []*HTTPHeader `bson:"http_headers"                json:"http_headers"`
 	TimeOutSecond       int           `bson:"timeout_second"              json:"timeout_second"`
 	ResponseSuccessFlag string        `bson:"response_success_flag"       json:"response_success_flag"`

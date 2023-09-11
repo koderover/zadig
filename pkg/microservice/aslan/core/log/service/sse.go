@@ -157,7 +157,7 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 
 	serviceName, serviceModule := parseServiceName(options.ServiceName, options.ServiceModule)
 
-	// Cloud host scenario reads real-time logs from the environment, so pipelineName is empty.
+	// Cloud vm scenario reads real-time logs from the environment, so pipelineName is empty.
 	if options.EnvName != "" && options.ProductName != "" && options.PipelineName == "" {
 		// Modify pipelineName to check whether pipelineName is empty:
 		// - Empty pipelineName indicates requests from the environment

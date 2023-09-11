@@ -109,7 +109,7 @@ func Init() error {
 
 	serviceHost := config.KubernetesServiceHost()
 	if serviceHost == "" {
-		return fmt.Errorf("kube service host must be configured")
+		return fmt.Errorf("kube service vm must be configured")
 	}
 
 	servicePort := config.KubernetesServicePort()

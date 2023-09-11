@@ -30,10 +30,10 @@ type ImagesByService struct {
 	Images      []*ImageData `yaml:"images"`
 }
 
-//DockerRegistry  registry host/user/password
+// DockerRegistry  registry vm/user/password
 type DockerRegistry struct {
 	RegistryID string `yaml:"registry_id"`
-	Host       string `yaml:"host"`
+	Host       string `yaml:"vm"`
 	UserName   string `yaml:"username"`
 	Password   string `yaml:"password"`
 	Namespace  string `yaml:"namespace"`

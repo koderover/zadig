@@ -32,7 +32,7 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 		return
 	}
 
-	log.Info("start init pm host status scheduler..")
+	log.Info("start init pm vm status scheduler..")
 	for _, hostElem := range hosts {
 		go func(hostPm *service.PrivateKeyHosts, log *zap.SugaredLogger) {
 			if hostPm.Port == 0 {

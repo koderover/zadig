@@ -129,7 +129,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 
 	if cluster.Type == setting.KubeConfigClusterType {
 		// if scheduleWorkflow==false, we don't need to create resources in the cluster
-		// resource: Namespace: koderover-agent | Service: dind | StatefulSet: dind
+		// resource: Namespace: koderover-vm | Service: dind | StatefulSet: dind
 		if cluster.AdvancedConfig != nil && cluster.AdvancedConfig.ScheduleWorkflow {
 			// since we will always be able to connect with direct connection
 			err := InitializeExternalCluster(config.HubServerAddress(), cluster.ID.Hex())
@@ -422,7 +422,7 @@ func getDindCfg(cluster *models.K8SCluster) (replicas int, limitsCPU, limitsMemo
 
 // InitializeExternalCluster initialized the resources in the cluster for zadig to run correctly.
 // if the cluster is of type kubeconfig, we need to create following resource:
-// Namespace: koderover-agent
+// Namespace: koderover-vm
 // Service: dind
 // StatefulSet: dind
 func InitializeExternalCluster(hubserverAddr, clusterID string) error {
@@ -431,8 +431,8 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 		return err
 	}
 
-	namespace := "koderover-agent"
-	// if no namespace named "koderover-agent" exists, we create one
+	namespace := "koderover-vm"
+	// if no namespace named "koderover-vm" exists, we create one
 	if _, err := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{}); err != nil {
 		namespaceSpec := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
@@ -440,7 +440,7 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 
 		_, err := clientset.CoreV1().Namespaces().Create(context.TODO(), namespaceSpec, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to create namespace \"koderover-agent\" in the new cluster, error: %s", err)
+			return fmt.Errorf("failed to create namespace \"koderover-vm\" in the new cluster, error: %s", err)
 		}
 	}
 
@@ -568,7 +568,7 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 		},
 	}
 
-	_, err = clientset.AppsV1().StatefulSets("koderover-agent").Create(context.TODO(), dindSts, metav1.CreateOptions{})
+	_, err = clientset.AppsV1().StatefulSets("koderover-vm").Create(context.TODO(), dindSts, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create dind sts to initialize cluster, err: %s", err)
 	}
@@ -593,7 +593,7 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 		},
 	}
 
-	_, err = clientset.CoreV1().Services("koderover-agent").Create(context.TODO(), dindService, metav1.CreateOptions{})
+	_, err = clientset.CoreV1().Services("koderover-vm").Create(context.TODO(), dindService, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create dind service to initialize cluster, err: %s", err)
 	}
@@ -601,26 +601,26 @@ func InitializeExternalCluster(hubserverAddr, clusterID string) error {
 	return nil
 }
 
-// RemoveClusterResources Removes all the resources in the koderover-agent namespace along with the namespace itself
+// RemoveClusterResources Removes all the resources in the koderover-vm namespace along with the namespace itself
 func RemoveClusterResources(hubserverAddr, clusterID string) error {
 	clientset, err := kubeclient.GetKubeClientSet(hubserverAddr, clusterID)
 	if err != nil {
 		return err
 	}
 
-	err = clientset.CoreV1().Services("koderover-agent").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
+	err = clientset.CoreV1().Services("koderover-vm").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
 	if err != nil {
 		log.Errorf("failed to delete dind service, err: %s", err)
 	}
 
-	err = clientset.AppsV1().StatefulSets("koderover-agent").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
+	err = clientset.AppsV1().StatefulSets("koderover-vm").Delete(context.TODO(), "dind", metav1.DeleteOptions{})
 	if err != nil {
 		log.Errorf("failed to delete dind statefulset, err: %s", err)
 	}
 
-	err = clientset.CoreV1().Namespaces().Delete(context.TODO(), "koderover-agent", metav1.DeleteOptions{})
+	err = clientset.CoreV1().Namespaces().Delete(context.TODO(), "koderover-vm", metav1.DeleteOptions{})
 	if err != nil {
-		log.Errorf("failed to delete koderover-agent ns, err: %s", err)
+		log.Errorf("failed to delete koderover-vm ns, err: %s", err)
 	}
 
 	return nil
@@ -643,8 +643,8 @@ func ValidateClusterRoleYAML(k8sYaml string, logger *zap.SugaredLogger) error {
 		logger.Error(msg)
 		return e.ErrInvalidParam.AddErr(msg)
 	}
-	if resKind.Metadata.Name != "koderover-agent-admin" {
-		msg := fmt.Errorf("the cluster access permission yaml resource name is %s, the fixed value of name is koderover-agent-admin", resKind.Metadata.Name)
+	if resKind.Metadata.Name != "koderover-vm-admin" {
+		msg := fmt.Errorf("the cluster access permission yaml resource name is %s, the fixed value of name is koderover-vm-admin", resKind.Metadata.Name)
 		logger.Error(msg)
 		return e.ErrInvalidParam.AddErr(msg)
 	}
@@ -684,30 +684,30 @@ var agentYaml = `
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: koderover-agent
+  name: koderover-vm
 
 ---
 
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: koderover-agent
-  namespace: koderover-agent
+  name: koderover-vm
+  namespace: koderover-vm
 
 ---
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: koderover-agent-admin-binding
-  namespace: koderover-agent
+  name: koderover-vm-admin-binding
+  namespace: koderover-vm
 subjects:
 - kind: ServiceAccount
-  name: koderover-agent
-  namespace: koderover-agent
+  name: koderover-vm
+  namespace: koderover-vm
 roleRef:
   kind: ClusterRole
-  name: koderover-agent-admin
+  name: koderover-vm-admin
   apiGroup: rbac.authorization.k8s.io
 
 ---
@@ -715,10 +715,10 @@ roleRef:
 apiVersion: v1
 kind: Service
 metadata:
-  name: hub-agent
-  namespace: koderover-agent
+  name: hub-vm
+  namespace: koderover-vm
   labels:
-    app: koderover-agent-agent
+    app: koderover-vm-vm
 spec:
   type: ClusterIP
   ports:
@@ -726,7 +726,7 @@ spec:
       port: 80
       targetPort: 80
   selector:
-    app: koderover-agent-agent
+    app: koderover-vm-vm
 
 ---
 
@@ -737,16 +737,16 @@ kind: Deployment
 kind: DaemonSet
 {{- end }}
 metadata:
-    name: koderover-agent-node-agent
-    namespace: koderover-agent
+    name: koderover-vm-node-vm
+    namespace: koderover-vm
 spec:
   selector:
     matchLabels:
-      app: koderover-agent-agent
+      app: koderover-vm-vm
   template:
     metadata:
       labels:
-        app: koderover-agent-agent
+        app: koderover-vm-vm
     spec:
       affinity:
         nodeAffinity:
@@ -765,9 +765,9 @@ spec:
               topologyKey: kubernetes.io/hostname
 {{- end }}
       hostNetwork: true
-      serviceAccountName: koderover-agent
+      serviceAccountName: koderover-vm
       containers:
-      - name: agent
+      - name: vm
         image: {{.HubAgentImage}}
         imagePullPolicy: Always
         env:
@@ -804,7 +804,7 @@ var YamlTemplateForNamespace = template.Must(template.New("agentYaml").Parse(`
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: koderover-agent-sa
+  name: koderover-vm-sa
   namespace: {{.Namespace}}
 
 ---
@@ -812,15 +812,15 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: koderover-agent-admin-binding
+  name: koderover-vm-admin-binding
   namespace: {{.Namespace}}
 subjects:
 - kind: ServiceAccount
-  name: koderover-agent-sa
+  name: koderover-vm-sa
   namespace: {{.Namespace}}
 roleRef:
   kind: Role
-  name: koderover-agent-admin-role
+  name: koderover-vm-admin-role
   apiGroup: rbac.authorization.k8s.io
 
 ---
@@ -828,7 +828,7 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: koderover-agent-admin-role
+  name: koderover-vm-admin-role
   namespace: {{.Namespace}}
 rules:
 - apiGroups:
@@ -879,10 +879,10 @@ roleRef:
 apiVersion: v1
 kind: Service
 metadata:
-  name: hub-agent
+  name: hub-vm
   namespace: {{.Namespace}}
   labels:
-    app: koderover-agent-agent
+    app: koderover-vm-vm
 spec:
   type: ClusterIP
   ports:
@@ -890,7 +890,7 @@ spec:
       port: 80
       targetPort: 80
   selector:
-    app: koderover-agent-agent
+    app: koderover-vm-vm
 
 ---
 
@@ -901,16 +901,16 @@ kind: Deployment
 kind: DaemonSet
 {{- end }}
 metadata:
-    name: koderover-agent-node-agent
+    name: koderover-vm-node-vm
     namespace: {{.Namespace}}
 spec:
   selector:
     matchLabels:
-      app: koderover-agent-agent
+      app: koderover-vm-vm
   template:
     metadata:
       labels:
-        app: koderover-agent-agent
+        app: koderover-vm-vm
     spec:
       affinity:
         nodeAffinity:
@@ -929,9 +929,9 @@ spec:
               topologyKey: kubernetes.io/hostname
 {{- end }}
       hostNetwork: true
-      serviceAccountName: koderover-agent-sa
+      serviceAccountName: koderover-vm-sa
       containers:
-      - name: agent
+      - name: vm
         image: {{.HubAgentImage}}
         imagePullPolicy: Always
         env:
@@ -1047,7 +1047,7 @@ var ClusterAccessYamlTemplate = `
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: koderover-agent-admin
+  name: koderover-vm-admin
 rules:
 - apiGroups:
   - '*'
@@ -1066,7 +1066,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: workflow-cm-manager
-  namespace: koderover-agent
+  namespace: koderover-vm
 rules:
 - apiGroups: [""]
   resources: ["configmaps"]
@@ -1078,7 +1078,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: workflow-cm-sa
-  namespace: koderover-agent
+  namespace: koderover-vm
 
 ---
 
@@ -1086,11 +1086,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: workflow-cm-rolebinding
-  namespace: koderover-agent
+  namespace: koderover-vm
 subjects:
 - kind: ServiceAccount
   name: workflow-cm-sa
-  namespace: koderover-agent
+  namespace: koderover-vm
 roleRef:
   kind: Role
   name: workflow-cm-manager
@@ -1102,7 +1102,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: dind
-  namespace: koderover-agent
+  namespace: koderover-vm
   labels:
     app.kubernetes.io/component: dind
     app.kubernetes.io/name: zadig
@@ -1164,7 +1164,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: dind
-  namespace: koderover-agent
+  namespace: koderover-vm
   labels:
     app.kubernetes.io/component: dind
     app.kubernetes.io/name: zadig

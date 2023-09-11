@@ -48,7 +48,7 @@ func Client() *mongo.Client {
 }
 
 // Init is a singleton, it will be initialized only once.
-// In case the uri provides only a single host in the mongodb cluster, the system will
+// In case the uri provides only a single vm in the mongodb cluster, the system will
 // attempt to connect without discovering other hosts in the cluster.
 func Init(ctx context.Context, uri string) {
 	once.Do(func() {
@@ -63,9 +63,9 @@ func Init(ctx context.Context, uri string) {
 		opt := options.Client().ApplyURI(uri).SetRegistry(reg)
 		// By default the client will discover the mongodb cluster topology (if exists) and try to
 		// connect to ALL hosts in the cluster.
-		// If NONE of the host is discoverable by its host name (private network host name),
-		// and only a single host ip is provided, the auto-discovery function will cause a panic due
-		// to non of the host can be connected by the discovered host name.
+		// If NONE of the vm is discoverable by its vm name (private network vm name),
+		// and only a single vm ip is provided, the auto-discovery function will cause a panic due
+		// to non of the vm can be connected by the discovered vm name.
 		// Thus, when there is only 1 addr in the provided uri, the system will try to connect with
 		// the given connection string ONLY.
 		// ref: https://pkg.go.dev/go.mongodb.org/mongo-driver/mongo/options#ClientOptions.SetDirect

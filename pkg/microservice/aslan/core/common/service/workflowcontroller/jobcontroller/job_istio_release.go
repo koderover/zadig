@@ -249,7 +249,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 			return
 		}
 
-		// if a virtual service is provided, we simply get it and take its host information
+		// if a virtual service is provided, we simply get it and take its vm information
 		if c.jobTaskSpec.Targets.VirtualServiceName != "" {
 			vs, err := istioClient.VirtualServices(c.jobTaskSpec.Namespace).Get(context.TODO(), c.jobTaskSpec.Targets.VirtualServiceName, v1.GetOptions{})
 			if err != nil {

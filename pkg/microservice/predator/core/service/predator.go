@@ -31,7 +31,7 @@ type RepoImage struct {
 	Name      string `yaml:"name"`
 	Username  string `yaml:"username"`
 	Password  string `yaml:"password"`
-	Host      string `yaml:"host"`
+	Host      string `yaml:"vm"`
 	Namespace string `yaml:"namespace"`
 }
 
@@ -66,9 +66,9 @@ type DockerBuildCtx struct {
 	ImageReleaseTag string `yaml:"image_release_tag,omitempty"`
 }
 
-//DockerRegistry  registry host/user/password
+// DockerRegistry  registry vm/user/password
 type DockerRegistry struct {
-	Host      string `yaml:"host"`
+	Host      string `yaml:"vm"`
 	UserName  string `yaml:"username"`
 	Password  string `yaml:"password"`
 	Namespace string `yaml:"namespace"`

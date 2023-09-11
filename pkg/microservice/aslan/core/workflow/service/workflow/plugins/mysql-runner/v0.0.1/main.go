@@ -34,7 +34,7 @@ func main() {
 	password := viper.GetString(Password)
 	query := viper.GetString(Query)
 
-	log.Infof("executing mysql query on host: %s, port: %s", mysqlHost, mysqlPort)
+	log.Infof("executing mysql query on vm: %s, port: %s", mysqlHost, mysqlPort)
 
 	// write the query into a sql file
 	err := ioutil.WriteFile("/script.sql", []byte(query), 0777)

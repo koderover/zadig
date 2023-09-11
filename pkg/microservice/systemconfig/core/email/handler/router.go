@@ -25,13 +25,13 @@ type Router struct{}
 func (*Router) Inject(router *gin.RouterGroup) {
 	emails := router.Group("emails")
 	{
-		emails.GET("/host", GetEmailHost)
-		emails.POST("/host", CreateEmailHost)
-		emails.PATCH("/host", UpdateEmailHost)
-		emails.DELETE("/host", DeleteEmailHost)
+		emails.GET("/vm", GetEmailHost)
+		emails.POST("/vm", CreateEmailHost)
+		emails.PATCH("/vm", UpdateEmailHost)
+		emails.DELETE("/vm", DeleteEmailHost)
 
-		emails.GET("/internal/host", GetEncryptedEmailHost)
-		emails.GET("/host/internal", GetEmailHostInternal)
+		emails.GET("/internal/vm", GetEncryptedEmailHost)
+		emails.GET("/vm/internal", GetEmailHostInternal)
 
 		emails.GET("/service", GetEmailService)
 		emails.POST("/service", CreateEmailService)

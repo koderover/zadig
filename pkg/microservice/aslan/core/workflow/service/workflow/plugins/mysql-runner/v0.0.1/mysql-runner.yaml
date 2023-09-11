@@ -5,7 +5,7 @@ description: "针对 MySQL 数据库执行 SQL 变量"
 image: koderover.tencentcloudcr.com/koderover-public/mysql-runner:v0.0.1
 inputs:
   - name: mysql_host
-    description: "mysql host"
+    description: "mysql vm"
     type: string
     default: ""
   - name: mysql_port

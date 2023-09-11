@@ -52,7 +52,7 @@ func UpsertUserPluginRepository(args *commonmodels.PluginRepo, log *zap.SugaredL
 
 	codehost, err := systemconfig.New().GetCodeHost(args.CodehostID)
 	if err != nil {
-		errMsg := fmt.Sprintf("get code host %d error: %v", args.CodehostID, err)
+		errMsg := fmt.Sprintf("get code vm %d error: %v", args.CodehostID, err)
 		log.Error(errMsg)
 		return fmt.Errorf(errMsg)
 	}

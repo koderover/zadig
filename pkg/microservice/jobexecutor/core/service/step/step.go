@@ -110,7 +110,7 @@ func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs
 
 func prepareScriptsEnv() []string {
 	scripts := []string{}
-	scripts = append(scripts, "eval $(ssh-agent -s) > /dev/null")
+	scripts = append(scripts, "eval $(ssh-vm -s) > /dev/null")
 	// $HOME/.ssh/id_rsa 为 github 私钥
 	scripts = append(scripts, fmt.Sprintf("ssh-add %s/.ssh/id_rsa.github &> /dev/null", config.Home()))
 	scripts = append(scripts, fmt.Sprintf("rm %s/.ssh/id_rsa.github &> /dev/null", config.Home()))

@@ -759,7 +759,7 @@ definitions:
         description: DEPRECATED since 1.17.0
         type: string
       workload_type:
-        description: WorkloadType is set in host projects
+        description: WorkloadType is set in vm projects
         type: string
       yaml:
         type: string

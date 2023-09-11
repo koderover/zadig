@@ -123,7 +123,7 @@ func (h *ExecHandler) runPipelineTask(ctx context.Context, cancel context.Cancel
 	//       For attached clusters, this logic is wrong because it still deals with dind in the local cluster.
 	dockerHost, err := plugins.GetBestDockerHost(pipelineTask.ConfigPayload.Docker.HostList, string(pipelineTask.Type), pipelineTask.ConfigPayload.Build.KubeNamespace, xl)
 	if err != nil {
-		errMsg := fmt.Sprintf("[%s]Cannot find docker host: %v", pipelineTask.PipelineName, err)
+		errMsg := fmt.Sprintf("[%s]Cannot find docker vm: %v", pipelineTask.PipelineName, err)
 		xl.Infof(errMsg)
 		pipelineTask.Error = errMsg
 		pipelineTask.Status = config.StatusFailed

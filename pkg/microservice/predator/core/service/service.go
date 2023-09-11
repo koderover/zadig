@@ -103,7 +103,7 @@ func (p *Predator) Exec() error {
 // AfterExec ...
 func (p *Predator) AfterExec() error {
 	for _, distribute := range p.Ctx.DistributeList {
-		// get the docker host info from the image
+		// get the docker vm info from the image
 		splitString := strings.Split(distribute.Image, "/")
 		err := writeDockerConfig(splitString[0], distribute.RepoAK, distribute.RepoSK)
 		if err != nil {

@@ -590,7 +590,7 @@ func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interfac
 		cacheServerAddr = fmt.Sprintf("aslan.%s.svc.cluster.local", config.Namespace())
 		cacheServerPort = 25000
 	default:
-		cacheServerAddr = "hub-agent.koderover-agent.svc.cluster.local"
+		cacheServerAddr = "hub-vm.koderover-vm.svc.cluster.local"
 		cacheServerPort = 80
 	}
 

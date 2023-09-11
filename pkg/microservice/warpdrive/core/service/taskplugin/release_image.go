@@ -173,7 +173,7 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 			ImageName:       p.Task.ImageTest,
 			ImageReleaseTag: p.Task.ImageRelease,
 		},
-		//Registry host/user/password
+		//Registry vm/user/password
 		DockerRegistry: &types.DockerRegistry{
 			Host:     pipelineTask.ConfigPayload.Registry.Addr,
 			UserName: pipelineTask.ConfigPayload.Registry.AccessKey,

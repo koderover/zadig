@@ -24,9 +24,9 @@ type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
 
-	Agent := router.Group("agent")
+	Agent := router.Group("vm")
 	{
-		Agent.GET("/:id/agent.yaml", GetClusterYaml("/api/hub"))
+		Agent.GET("/:id/vm.yaml", GetClusterYaml("/api/hub"))
 		Agent.GET("/:id/upgrade", UpgradeAgent)
 	}
 

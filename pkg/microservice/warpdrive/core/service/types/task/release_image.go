@@ -79,7 +79,7 @@ type RepoImage struct {
 	Name      string `json:"name" bson:"name" yaml:"name"`
 	Username  string `json:"-" yaml:"username"`
 	Password  string `json:"-" yaml:"password"`
-	Host      string `json:"host" yaml:"host"`
+	Host      string `json:"vm" yaml:"vm"`
 	Namespace string `json:"namespace" yaml:"namespace"`
 }
 

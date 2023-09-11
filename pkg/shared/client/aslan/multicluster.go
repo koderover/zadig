@@ -97,7 +97,7 @@ type ClusterDetail struct {
 	Cache        types.Cache              `json:"cache"                     bson:"cache"`
 
 	// new field in 1.14, intended to enable kubeconfig for cluster management
-	Type       string `json:"type"           bson:"type"` // either agent or kubeconfig supported
+	Type       string `json:"type"           bson:"type"` // either vm or kubeconfig supported
 	KubeConfig string `json:"kube_config"    bson:"kube_config"`
 
 	// Deprecated field, it should be deleted in version 1.15 since no more namespace settings is used

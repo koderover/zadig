@@ -24,7 +24,6 @@ import (
 	ginswagger "github.com/swaggo/gin-swagger"
 
 	cachehandler "github.com/koderover/zadig/pkg/handler/cache"
-	agentHandler "github.com/koderover/zadig/pkg/microservice/aslan/core/agent/handler"
 	buildhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/build/handler"
 	codehosthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/code/handler"
 	collaborationhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/handler"
@@ -42,6 +41,7 @@ import (
 	stathandler "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/handler"
 	systemhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/system/handler"
 	templatehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/handler"
+	hostHandler "github.com/koderover/zadig/pkg/microservice/aslan/core/vm/handler"
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
@@ -135,7 +135,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/api/label":         new(labelhandler.Router),
 		"/api/stat":          new(stathandler.Router),
 		"/api/cache":         cachehandler.NewRouter(),
-		"/api/agent":         new(agentHandler.Router),
+		"/api/vm":            new(hostHandler.Router),
 	} {
 		r.Inject(router.Group(name))
 	}

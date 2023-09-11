@@ -192,7 +192,7 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 	return CreateProduct(userName, requestID, productObj, log)
 }
 
-// CreateHostProductionProduct creates environment for host project, this function only creates production environment
+// CreateHostProductionProduct creates environment for vm project, this function only creates production environment
 func CreateHostProductionProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil || templateProduct == nil {

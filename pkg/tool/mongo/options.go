@@ -52,7 +52,7 @@ func extractURL(s string) (*urlInfo, error) {
 	if c := strings.Index(s, "@"); c != -1 {
 		pair := strings.SplitN(s[:c], ":", 2)
 		if len(pair) > 2 || pair[0] == "" {
-			return nil, errors.New("credentials must be provided as user:pass@host")
+			return nil, errors.New("credentials must be provided as user:pass@vm")
 		}
 		var err error
 		info.user, err = url.QueryUnescape(pair[0])

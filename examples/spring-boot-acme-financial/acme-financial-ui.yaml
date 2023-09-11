@@ -15,12 +15,12 @@ spec:
         app: acme-financial-ui
     spec:
       initContainers:
-        - name: init-skywalking-agent
-          image: koderover.tencentcloudcr.com/koderover-demo/skywalking-agent:8.8.0
+        - name: init-skywalking-vm
+          image: koderover.tencentcloudcr.com/koderover-demo/skywalking-vm:8.8.0
           command:
             - 'sh'
             - '-c'
-            - 'set -ex;mkdir -p /vmskywalking/agent;cp -r /usr/skywalking/agent/* /vmskywalking/agent;'
+            - 'set -ex;mkdir -p /vmskywalking/vm;cp -r /usr/skywalking/vm/* /vmskywalking/vm;'
           resources:
             limits:
               cpu: 100m
@@ -29,12 +29,12 @@ spec:
               cpu: 100m
               memory: 256Mi
           volumeMounts:
-            - mountPath: /vmskywalking/agent
-              name: skywalking-agent
+            - mountPath: /vmskywalking/vm
+              name: skywalking-vm
       containers:
       - env:
         - name: JAVA_OPTS
-          value: "-javaagent:/opt/skywalking/agent/skywalking-agent.jar"
+          value: "-javaagent:/opt/skywalking/vm/skywalking-vm.jar"
         - name: SW_AGENT_NAME
           value: "acme-financial-ui"
         - name: SW_AGENT_COLLECTOR_BACKEND_SERVICES
@@ -53,10 +53,10 @@ spec:
               cpu: 100m
               memory: 512Mi
         volumeMounts:
-          - mountPath: /opt/skywalking/agent
-            name: skywalking-agent
+          - mountPath: /opt/skywalking/vm
+            name: skywalking-vm
       volumes:
-        - name: skywalking-agent
+        - name: skywalking-vm
           emptyDir: {}
 ---
 apiVersion: v1

@@ -111,7 +111,7 @@ exemption_urls:
     - endpoint: api/aslan/testing/report/workflowv4/?*/id/?*/job/?*
       methods:
         - GET
-    - endpoint: api/aslan/cluster/agent/?*/agent.yaml
+    - endpoint: api/aslan/cluster/vm/?*/vm.yaml
       methods:
         - GET
     - endpoint: api/podexec/health
@@ -230,3 +230,18 @@ exemption_urls:
     - endpoint: api/aslan/system/llm/integration/check
       methods:
         - GET
+    - endpoint: api/aslan/vm/agents/register
+      methods:
+        - POST
+    - endpoint: api/aslan/vm/agents/verify
+      methods:
+        - POST
+    - endpoint: api/aslan/vm/agents/heartbeat
+      methods:
+        - POST
+    - endpoint: api/aslan/vm/agents/job/request
+      methods:
+        - GET
+    - endpoint: api/aslan/vm/agents/job/report
+      methods:
+        - POST

@@ -580,7 +580,7 @@ const (
 	PathSearchComponentTag   = "tag"
 )
 
-// host for multiple cloud provider
+// vm for multiple cloud provider
 const (
 	AliyunHost = ".aliyuncs.com"
 	AWSHost    = ".amazonaws.com"
@@ -674,7 +674,7 @@ const (
 
 // Cluster Management constants
 const (
-	AgentClusterType      = "agent"
+	AgentClusterType      = "vm"
 	KubeConfigClusterType = "kubeconfig"
 
 	LocalClusterID = "0123456789abcdef12345678"
@@ -721,7 +721,7 @@ const (
 
 // AttachedClusterNamespace is the namespace Zadig uses in attached cluster.
 // Note: **Restricted because of product design since v1.9.0**.
-const AttachedClusterNamespace = "koderover-agent"
+const AttachedClusterNamespace = "koderover-vm"
 
 const ArtifactResultOut = "artifactResultOut.tar.gz"
 
@@ -817,9 +817,19 @@ const (
 )
 
 const (
-	AgentCreated    = "created"
-	AgentRegistered = "registered"
-	AgentNomal      = "normal"
-	AgentAbnormal   = "abnormal"
-	AgentOffline    = "offline"
+	// vm status
+	HostCreated    = "created"
+	HostRegistered = "registered"
+	HostNomal      = "normal"
+	HostAbnormal   = "abnormal"
+	HostOffline    = "offline"
+
+	AgentDefaultHeartbeatTimeout = 10
+
+	// vm job status
+	HostJobStatusCreated     = "created"
+	HostJobStatusDistributed = "distributed"
+	HostJobStatusRunning     = "running"
+	HostJobStatusSuccess     = "success"
+	HostJobStatusFailed      = "failed"
 )

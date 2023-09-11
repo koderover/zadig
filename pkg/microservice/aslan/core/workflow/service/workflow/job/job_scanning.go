@@ -258,7 +258,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Value: resultAddr,
 			}
 			jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, sonarLinkKeyVal)
-			sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
+			sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.vm.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
 			sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
 			sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, sonarConfig)
 			sonarShellStep := &commonmodels.StepTask{

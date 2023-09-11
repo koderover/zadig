@@ -38,7 +38,7 @@ type StepDockerBuildSpec struct {
 
 type DockerRegistry struct {
 	DockerRegistryID string `bson:"docker_registry_id"                json:"docker_registry_id"                   yaml:"docker_registry_id"`
-	Host             string `bson:"host"                              json:"host"                                 yaml:"host"`
+	Host             string `bson:"vm"                              json:"vm"                                 yaml:"vm"`
 	Namespace        string `bson:"namespace"                         json:"namespace"                            yaml:"namespace"`
 	UserName         string `bson:"username"                          json:"username"                             yaml:"username"`
 	Password         string `bson:"password"                          json:"password"                             yaml:"password"`

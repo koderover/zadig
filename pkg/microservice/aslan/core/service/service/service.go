@@ -278,7 +278,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
 	}); err != nil {
-		// no need to create renderset since renderset is not necessary in host projects
+		// no need to create renderset since renderset is not necessary in vm projects
 		if err := service.CreateProduct(userName, requestID, &commonmodels.Product{
 			ProductName: args.ProductName,
 			Source:      setting.SourceFromExternal,
@@ -485,7 +485,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		}
 	}
 
-	// for host services, services are stored in template_product.services[0]
+	// for vm services, services are stored in template_product.services[0]
 	if len(templateProductInfo.Services) == 1 {
 
 		func() {
