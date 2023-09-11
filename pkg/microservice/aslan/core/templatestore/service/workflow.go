@@ -203,7 +203,7 @@ func InitWorkflowTemplate() {
 		template.UpdateTime = time.Now().Unix()
 		template.CreatedBy = "system"
 		template.UpdatedBy = "system"
-		template.Category = setting.CustomWorkflowType
+		template.Category = setting.CustomWorkflow
 		template.ConcurrencyLimit = 1
 		if err := commonrepo.NewWorkflowV4TemplateColl().UpsertByName(template); err != nil {
 			logger.Errorf("update build-in workflow template error: %v", err)

@@ -147,12 +147,49 @@ func migrateWorkflowTemplate() error {
 		}
 	}
 
-	// change release workflow type to common_workflow for merge release and custom workflow
+	// change release workflow template category to custom workflow template category for merge release and custom workflow
+	templateCursor, err := mongodb.NewWorkflowV4TemplateColl().ListByCursor(&mongodb.ListWorkflowV4TemplateOption{Category: setting.ReleaseWorkflow})
+	if err != nil {
+		return fmt.Errorf("failed to list workflowV4 template for merging custom and release workflow, err: %v", err)
+	}
+	var ms []mongo.WriteModel
+	for templateCursor.Next(context.Background()) {
+		var template models.WorkflowV4Template
+		if err := templateCursor.Decode(&template); err != nil {
+			return err
+		}
+		if template.Category == setting.ReleaseWorkflow {
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", template.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"category", setting.CustomWorkflow},
+						}},
+					}),
+			)
+		}
+		if len(ms) >= 50 {
+			log.Infof("update %d workflowV4 template", len(ms))
+			if _, err := mongodb.NewWorkflowV4TemplateColl().BulkWrite(context.Background(), ms); err != nil {
+				return fmt.Errorf("udpate workflowV4 templates for merging custom and release workflow, error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+	if len(ms) > 0 {
+		log.Infof("update %d workflowV4 templates", len(ms))
+		if _, err := mongodb.NewWorkflowV4TemplateColl().BulkWrite(context.Background(), ms); err != nil {
+			return fmt.Errorf("udpate workflowV4 templates for merging custom and release workflow, error: %s", err)
+		}
+	}
+
+	// change release workflow category to custom workflow category for merge release and custom workflow
 	cursor, err := mongodb.NewWorkflowV4Coll().ListByCursor(&mongodb.ListWorkflowV4Option{Category: setting.ReleaseWorkflow})
 	if err != nil {
 		return fmt.Errorf("failed to list workflowV4 for merging custom and release workflow, err: %v", err)
 	}
-	var ms []mongo.WriteModel
+	ms = []mongo.WriteModel{}
 	for cursor.Next(context.Background()) {
 		var workflow models.WorkflowV4
 		if err := cursor.Decode(&workflow); err != nil {

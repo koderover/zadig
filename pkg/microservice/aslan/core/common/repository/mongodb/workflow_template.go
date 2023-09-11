@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -157,4 +158,22 @@ func (c *WorkflowV4TemplateColl) DeleteByID(idStr string) error {
 	query := bson.M{"_id": id}
 	_, err = c.DeleteOne(context.TODO(), query)
 	return err
+}
+
+type ListWorkflowV4TemplateOption struct {
+	Names    []string
+	Category setting.WorkflowCategory
+}
+
+func (c *WorkflowV4TemplateColl) ListByCursor(opt *ListWorkflowV4TemplateOption) (*mongo.Cursor, error) {
+	query := bson.M{}
+
+	if len(opt.Names) > 0 {
+		query["template_name"] = bson.M{"$in": opt.Names}
+	}
+	if opt.Category != "" {
+		query["category"] = opt.Category
+	}
+
+	return c.Collection.Find(context.TODO(), query)
 }
