@@ -217,6 +217,15 @@ func GetUserRules(uid string, log *zap.SugaredLogger) (*GetUserRulesResp, error)
 		groupIDList = append(groupIDList, group.GroupID)
 	}
 
+	allUserGroup, err := orm.GetAllUserGroup(tx)
+	if err != nil || allUserGroup.GroupID == "" {
+		tx.Rollback()
+		log.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
+		return nil, fmt.Errorf("failed to find user group for %s, error: %s", "所有用户", err)
+	}
+
+	groupIDList = append(groupIDList, allUserGroup.GroupID)
+
 	projectVerbMap := make(map[string][]string)
 	systemVerbs := make([]string, 0)
 	// TODO: add some powerful cache here
