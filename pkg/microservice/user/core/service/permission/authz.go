@@ -447,8 +447,8 @@ func ListAuthorizedEnvs(uid, projectKey string, logger *zap.SugaredLogger) (read
 	editEnvSet := sets.NewString()
 	collaborationInstance, findErr := mongodb.NewCollaborationInstanceColl().FindInstance(uid, projectKey)
 	if findErr != nil {
-		logger.Errorf("failed to find user collaboration mode, error: %s", err)
-		err = fmt.Errorf("failed to find user collaboration mode, error: %s", err)
+		logger.Errorf("failed to find user collaboration mode, error: %s", findErr)
+		err = fmt.Errorf("failed to find user collaboration mode, error: %s", findErr)
 		return
 	}
 
