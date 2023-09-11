@@ -192,6 +192,7 @@ func syncUserRoleBinding() {
 	allRoles, err := mongodb.NewRoleColl().List()
 	if err != nil {
 		if err != mongo.ErrNoDocuments {
+			tx.Rollback()
 			log.Panicf("failed to list all roles from previous system, error: %s", err)
 		} else {
 			// if no roles is in the previous mongodb, it is a fresh installation. We create the default role, which is just system admin, and finish
@@ -208,7 +209,6 @@ func syncUserRoleBinding() {
 				log.Panicf("failed to initialize admin role for system, tearing down user service...")
 			}
 		}
-		return
 	}
 
 	roleIDMap := make(map[string]uint)
@@ -235,8 +235,10 @@ func syncUserRoleBinding() {
 	projectList, err := mongodb.NewProjectColl().List()
 	if err != nil {
 		if err != mongo.ErrNoDocuments {
+			tx.Rollback()
 			log.Panicf("Failed to get project list to create project default role, error: %s", err)
 		} else {
+			tx.Commit()
 			return
 		}
 	}
@@ -369,6 +371,7 @@ RoleLoop:
 			tx.Rollback()
 			log.Panicf("failed to find role bindings to sync, error: %s", err)
 		} else {
+			tx.Commit()
 			return
 		}
 	}
@@ -410,6 +413,7 @@ RoleLoop:
 	for uid, roleIDList := range userRBmap {
 		userInfo, err := orm.GetUserByUid(uid, tx)
 		if err != nil {
+			tx.Rollback()
 			log.Panicf("failed to find user of uid: %s, error: %s", uid, err)
 		}
 
