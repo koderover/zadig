@@ -191,7 +191,7 @@ func syncUserRoleBinding() {
 
 	// if there are no role presented in the roles table, it means that the move all the roles and corresponding role binding into mysql
 	allRoles, err := mongodb.NewRoleColl().List()
-	log.Infof("find all roles count: %v, err: %v", len(allRoles), err)
+	log.Infof("find all roles count: %v, err: %+v", len(allRoles), err)
 	if err != nil && err != mongo.ErrNoDocuments {
 		tx.Rollback()
 		log.Panicf("failed to list all roles from previous system, error: %s", err)
@@ -240,7 +240,7 @@ func syncUserRoleBinding() {
 		log.Panicf("Failed to get project list to create project default role, error: %s", err)
 	}
 
-	log.Infof("projectList count: %v, err: %s", len(projectList), err)
+	log.Infof("projectList count: %v, err: %+v", len(projectList), err)
 
 	for _, project := range projectList {
 		projectAdminRole := &models.NewRole{
