@@ -192,24 +192,24 @@ func syncUserRoleBinding() {
 	// if there are no role presented in the roles table, it means that the move all the roles and corresponding role binding into mysql
 	allRoles, err := mongodb.NewRoleColl().List()
 	log.Infof("find all roles count: %v, err: %v", len(allRoles), err)
-	if err != nil {
-		if err != mongo.ErrNoDocuments {
-			tx.Rollback()
-			log.Panicf("failed to list all roles from previous system, error: %s", err)
-		} else {
-			// if no roles is in the previous mongodb, it is a fresh installation. We create the default role, which is just system admin, and finish
-			adminRole := &models.NewRole{
-				Name:        "admin",
-				Description: "拥有系统中任何操作的权限",
-				Type:        int64(setting.RoleTypeSystem),
-				Namespace:   "*",
-			}
+	if err != nil && err != mongo.ErrNoDocuments {
+		tx.Rollback()
+		log.Panicf("failed to list all roles from previous system, error: %s", err)
+	}
 
-			err := orm.CreateRole(adminRole, tx)
-			if err != nil {
-				tx.Rollback()
-				log.Panicf("failed to initialize admin role for system, tearing down user service...")
-			}
+	if len(allRoles) == 0 {
+		// if no roles is in the previous mongodb, it is a fresh installation. We create the default role, which is just system admin, and finish
+		adminRole := &models.NewRole{
+			Name:        "admin",
+			Description: "拥有系统中任何操作的权限",
+			Type:        int64(setting.RoleTypeSystem),
+			Namespace:   "*",
+		}
+
+		err := orm.CreateRole(adminRole, tx)
+		if err != nil {
+			tx.Rollback()
+			log.Panicf("failed to initialize admin role for system, tearing down user service...")
 		}
 	}
 
