@@ -233,14 +233,9 @@ func syncUserRoleBinding() {
 	// 2. read-only
 	// 3. read-project-only
 	projectList, err := mongodb.NewProjectColl().List()
-	if err != nil {
-		if err != mongo.ErrNoDocuments {
-			tx.Rollback()
-			log.Panicf("Failed to get project list to create project default role, error: %s", err)
-		} else {
-			tx.Commit()
-			return
-		}
+	if err != nil && err != mongo.ErrNoDocuments {
+		tx.Rollback()
+		log.Panicf("Failed to get project list to create project default role, error: %s", err)
 	}
 
 	for _, project := range projectList {
@@ -366,14 +361,9 @@ RoleLoop:
 
 	// after syncing all the roles into the database, sync the user-role binding into the mysql table and we are done
 	rbList, err := mongodb.NewRoleBindingColl().List()
-	if err != nil {
-		if err != mongo.ErrNoDocuments {
-			tx.Rollback()
-			log.Panicf("failed to find role bindings to sync, error: %s", err)
-		} else {
-			tx.Commit()
-			return
-		}
+	if err != nil && err != mongo.ErrNoDocuments {
+		tx.Rollback()
+		log.Panicf("failed to find role bindings to sync, error: %s", err)
 	}
 
 	userRBmap := make(map[string][]uint)
