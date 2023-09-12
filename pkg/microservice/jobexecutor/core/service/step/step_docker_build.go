@@ -110,7 +110,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		setProxy(s.spec)
 	}
 
-	fmt.Printf("Runing Docker Build.\n")
+	fmt.Printf("Running Docker Build.\n")
 	startTimeDockerBuild := time.Now()
 	envs := s.envs
 	for _, c := range s.dockerCommands() {
