@@ -77,7 +77,7 @@ func CreateVariableSet(args *CreateVariableSetRequest) error {
 	return nil
 }
 
-func getRelatedEnvs(variableSetId, projectName string) ([]commonmodels.RenderSet, error) {
+func getRelatedEnvs(variableSetId, projectName string) ([]*commonmodels.Product, error) {
 	// check if this variable set is used by some environments
 	helmEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		Source:     setting.HelmDeployType,
@@ -87,26 +87,35 @@ func getRelatedEnvs(variableSetId, projectName string) ([]commonmodels.RenderSet
 		return nil, err
 	}
 
-	renderSetOption := &commonrepo.RenderSetListOption{
-		ProductTmpl: projectName,
-		FindOpts:    make([]commonrepo.RenderSetFindOption, 0),
-	}
+	//renderSetOption := &commonrepo.RenderSetListOption{
+	//	ProductTmpl: projectName,
+	//	FindOpts:    make([]commonrepo.RenderSetFindOption, 0),
+	//}
 
+	relatedProducts := make([]*commonmodels.Product, 0)
 	for _, singleHelmEnv := range helmEnvs {
-		if singleHelmEnv.Render == nil {
+
+		if singleHelmEnv.YamlData == nil {
 			continue
 		}
-		renderSetOption.FindOpts = append(renderSetOption.FindOpts, commonrepo.RenderSetFindOption{
-			ProductTmpl:       singleHelmEnv.ProductName,
-			EnvName:           singleHelmEnv.EnvName,
-			IsDefault:         false,
-			Revision:          singleHelmEnv.Render.Revision,
-			Name:              singleHelmEnv.Render.Name,
-			YamlVariableSetID: variableSetId,
-		})
+		if singleHelmEnv.YamlData.Source != setting.SourceFromVariableSet || singleHelmEnv.YamlData.SourceID != variableSetId {
+			continue
+		}
+		relatedProducts = append(relatedProducts, singleHelmEnv)
+		//if singleHelmEnv.Render == nil {
+		//	continue
+		//}
+		//renderSetOption.FindOpts = append(renderSetOption.FindOpts, commonrepo.RenderSetFindOption{
+		//	ProductTmpl:       singleHelmEnv.ProductName,
+		//	EnvName:           singleHelmEnv.EnvName,
+		//	IsDefault:         false,
+		//	Revision:          singleHelmEnv.Render.Revision,
+		//	Name:              singleHelmEnv.Render.Name,
+		//	YamlVariableSetID: variableSetId,
+		//})
 	}
-
-	return commonrepo.NewRenderSetColl().ListByFindOpts(renderSetOption)
+	//return commonrepo.NewRenderSetColl().ListByFindOpts(renderSetOption)
+	return relatedProducts, nil
 }
 
 func UpdateVariableSet(args *CreateVariableSetRequest, requestID string, log *zap.SugaredLogger) error {
@@ -166,15 +175,15 @@ func ListVariableSets(option *VariableSetFindOption, log *zap.SugaredLogger) (*V
 
 func DeleteVariableSet(id, projectName string, log *zap.SugaredLogger) error {
 	// check if this variable set is used by some environments
-	renderSets, err := getRelatedEnvs(id, projectName)
+	relatedEnv, err := getRelatedEnvs(id, projectName)
 	if err != nil {
 		log.Errorf("DeleteVariableSet failed, err: %s", err)
 		return errors.ErrDeleteVariableSet.AddErr(err)
 	}
-	if len(renderSets) > 0 {
+	if len(relatedEnv) > 0 {
 		envNames := make([]string, 0)
-		for _, render := range renderSets {
-			envNames = append(envNames, fmt.Sprintf("%s:%s", render.ProductTmpl, render.EnvName))
+		for _, render := range relatedEnv {
+			envNames = append(envNames, fmt.Sprintf("%s:%s", render.ProductName, render.EnvName))
 		}
 		return errors.ErrDeleteVariableSet.AddDesc(fmt.Sprintf("variableSet is used by envs: %v", envNames))
 	}
