@@ -195,24 +195,24 @@ func (c *RenderSetColl) Update(args *models.RenderSet) error {
 	return err
 }
 
-func (c *RenderSetColl) SetDefault(renderTmplName, productTmplName string) error {
-	query := bson.M{"name": renderTmplName, "product_tmpl": productTmplName}
-	change := bson.M{"$set": bson.M{
-		"is_default": true,
-	}}
-
-	if _, err := c.UpdateMany(context.TODO(), query, change); err != nil {
-		return err
-	}
-
-	notEq := bson.M{"name": bson.M{"$ne": renderTmplName}, "product_tmpl": productTmplName}
-	falseChange := bson.M{"$set": bson.M{
-		"is_default": false,
-	}}
-
-	_, err := c.UpdateMany(context.TODO(), notEq, falseChange)
-	return err
-}
+//func (c *RenderSetColl) SetDefault(renderTmplName, productTmplName string) error {
+//	query := bson.M{"name": renderTmplName, "product_tmpl": productTmplName}
+//	change := bson.M{"$set": bson.M{
+//		"is_default": true,
+//	}}
+//
+//	if _, err := c.UpdateMany(context.TODO(), query, change); err != nil {
+//		return err
+//	}
+//
+//	notEq := bson.M{"name": bson.M{"$ne": renderTmplName}, "product_tmpl": productTmplName}
+//	falseChange := bson.M{"$set": bson.M{
+//		"is_default": false,
+//	}}
+//
+//	_, err := c.UpdateMany(context.TODO(), notEq, falseChange)
+//	return err
+//}
 
 // Delete 根据项目名称删除renderset
 func (c *RenderSetColl) Delete(productName string) error {
@@ -222,25 +222,25 @@ func (c *RenderSetColl) Delete(productName string) error {
 }
 
 // Delete renderSet According to productName、name and revision
-func (c *RenderSetColl) DeleteRenderSet(productName, name string, revision int64) error {
-	query := bson.M{"product_tmpl": productName, "name": name, "revision": revision}
-	_, err := c.DeleteOne(context.TODO(), query)
-	return err
-}
+//func (c *RenderSetColl) DeleteRenderSet(productName, name string, revision int64) error {
+//	query := bson.M{"product_tmpl": productName, "name": name, "revision": revision}
+//	_, err := c.DeleteOne(context.TODO(), query)
+//	return err
+//}
 
-func (c *RenderSetColl) ListAllRenders() ([]*models.RenderSet, error) {
-	resp := make([]*models.RenderSet, 0)
-	query := bson.M{}
-
-	cursor, err := c.Collection.Find(context.TODO(), query)
-	if err != nil {
-		return nil, err
-	}
-
-	err = cursor.All(context.TODO(), &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, err
-}
+//func (c *RenderSetColl) ListAllRenders() ([]*models.RenderSet, error) {
+//	resp := make([]*models.RenderSet, 0)
+//	query := bson.M{}
+//
+//	cursor, err := c.Collection.Find(context.TODO(), query)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	err = cursor.All(context.TODO(), &resp)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return resp, err
+//}

@@ -75,6 +75,13 @@ type Product struct {
 	// New Since v1.19.0, env sleep configs
 	PreSleepStatus map[string]int `bson:"pre_sleep_status" json:"pre_sleep_status"`
 
+	// New Since v1.19.0, for env global variables
+	// GlobalValues for helm projects
+	DefaultValues string                     `bson:"default_values,omitempty"       json:"default_values,omitempty"`
+	YamlData      *templatemodels.CustomYaml `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
+	// GlobalValues for k8s projects
+	GlobalVariables []*commontypes.GlobalVariableKV `bson:"global_variables,omitempty"     json:"global_variables,omitempty"`
+
 	// For production environment
 	Production bool   `json:"production" bson:"production"`
 	Alias      string `json:"alias" bson:"alias"`
@@ -150,13 +157,15 @@ type ProductAuth struct {
 }
 
 type ProductService struct {
-	ServiceName    string                          `bson:"service_name"               json:"service_name"`
-	ReleaseName    string                          `bson:"release_name"               json:"release_name"`
-	ProductName    string                          `bson:"product_name"               json:"product_name"`
-	Type           string                          `bson:"type"                       json:"type"`
-	Revision       int64                           `bson:"revision"                   json:"revision"`
-	Containers     []*Container                    `bson:"containers"                 json:"containers,omitempty"`
-	Error          string                          `bson:"error,omitempty"            json:"error,omitempty"`
+	ServiceName string                        `bson:"service_name"               json:"service_name"`
+	ReleaseName string                        `bson:"release_name"               json:"release_name"`
+	ProductName string                        `bson:"product_name"               json:"product_name"`
+	Type        string                        `bson:"type"                       json:"type"`
+	Revision    int64                         `bson:"revision"                   json:"revision"`
+	Containers  []*Container                  `bson:"containers"                 json:"containers,omitempty"`
+	Error       string                        `bson:"error,omitempty"            json:"error,omitempty"`
+	Render      *templatemodels.ServiceRender `bson:"render"                     json:"render,omitempty"` // New since 1.9.0 used to replace service renders in render_set
+
 	EnvConfigs     []*EnvConfig                    `bson:"-"                          json:"env_configs,omitempty"`
 	VariableYaml   string                          `bson:"-"                          json:"variable_yaml,omitempty"`
 	VariableKVs    []*commontypes.RenderVariableKV `bson:"-"                          json:"variable_kvs,omitempty"`
