@@ -1446,20 +1446,20 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find service in environment: %s", envName))
 		}
 
-		env.EnsureRenderInfo()
-		renderSetFindOpt := &commonrepo.RenderSetFindOption{
-			Name:        env.Render.Name,
-			Revision:    env.Render.Revision,
-			ProductTmpl: env.ProductName,
-			EnvName:     envName,
-		}
-		rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
-		if err != nil {
-			log.Errorf("find renderset[%s] error: %v", env.Render.Name, err)
-			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
-		}
+		//env.EnsureRenderInfo()
+		//renderSetFindOpt := &commonrepo.RenderSetFindOption{
+		//	Name:        env.Render.Name,
+		//	Revision:    env.Render.Revision,
+		//	ProductTmpl: env.ProductName,
+		//	EnvName:     envName,
+		//}
+		//rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
+		//if err != nil {
+		//	log.Errorf("find renderset[%s] error: %v", env.Render.Name, err)
+		//	return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
+		//}
 
-		parsedYaml, err := kube.RenderServiceYaml(serviceTmpl.Yaml, productName, serviceTmpl.ServiceName, rs)
+		parsedYaml, err := kube.RenderServiceYaml(serviceTmpl.Yaml, productName, serviceTmpl.ServiceName, service.GetServiceRender())
 		if err != nil {
 			log.Errorf("failed to render service yaml, err: %s", err)
 			return nil, err

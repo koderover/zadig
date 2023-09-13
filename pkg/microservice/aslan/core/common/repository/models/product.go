@@ -177,6 +177,19 @@ func (svc *ProductService) FromZadig() bool {
 	return svc.Type != setting.HelmChartDeployType
 }
 
+func (svc *ProductService) GetServiceRender() *templatemodels.ServiceRender {
+	if svc.Render == nil {
+		svc.Render = &templatemodels.ServiceRender{
+			ServiceName:  svc.ServiceName,
+			OverrideYaml: &templatemodels.CustomYaml{},
+		}
+	}
+	if svc.Render.OverrideYaml == nil {
+		svc.Render.OverrideYaml = &templatemodels.CustomYaml{}
+	}
+	return svc.Render
+}
+
 type ServiceConfig struct {
 	ConfigName string `bson:"config_name"           json:"config_name"`
 	Revision   int64  `bson:"revision"              json:"revision"`
@@ -207,6 +220,20 @@ func (p *Product) GetGroupServiceNames() [][]string {
 		resp = append(resp, services)
 	}
 	return resp
+}
+
+func (p *Product) GetSvcRender(svcName string) *templatemodels.ServiceRender {
+	for _, group := range p.Services {
+		for _, svc := range group {
+			if svc.ServiceName == svcName {
+				return svc.GetServiceRender()
+			}
+		}
+	}
+	return &templatemodels.ServiceRender{
+		ServiceName:  svcName,
+		OverrideYaml: &templatemodels.CustomYaml{},
+	}
 }
 
 func (p *Product) GetServiceMap() map[string]*ProductService {

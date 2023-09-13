@@ -73,18 +73,18 @@ func ExportProductionYaml(envName, productName, serviceName string, log *zap.Sug
 		return res, errors.Wrapf(err, "failed to init kube client for cluster %s", env.ClusterID)
 	}
 
-	opt := &commonrepo.RenderSetFindOption{
-		Name:        env.Render.Name,
-		Revision:    env.Render.Revision,
-		EnvName:     env.EnvName,
-		ProductTmpl: env.ProductName,
-	}
-	renderset, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		log.Errorf("failed to find renderset for env: %s, err: %v", envName, err)
-		return res, errors.Wrapf(err, "failed to find renderset for env: %s", envName)
-	}
-	rederedYaml, err := kube.RenderEnvService(env, renderset, productService)
+	//opt := &commonrepo.RenderSetFindOption{
+	//	Name:        env.Render.Name,
+	//	Revision:    env.Render.Revision,
+	//	EnvName:     env.EnvName,
+	//	ProductTmpl: env.ProductName,
+	//}
+	//renderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	//if err != nil {
+	//	log.Errorf("failed to find renderset for env: %s, err: %v", envName, err)
+	//	return res, errors.Wrapf(err, "failed to find renderset for env: %s", envName)
+	//}
+	rederedYaml, err := kube.RenderEnvService(env, productService.GetServiceRender(), productService)
 	if err != nil {
 		log.Errorf("failed to render service yaml, err: %s", err)
 		return res, errors.Wrapf(err, "failed to render service yaml")

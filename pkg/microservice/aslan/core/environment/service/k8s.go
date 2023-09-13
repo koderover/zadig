@@ -448,7 +448,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 }
 
 func fetchWorkloadImages(productService *commonmodels.ProductService, product *commonmodels.Product, renderSet *commonmodels.RenderSet, kubeClient client.Client) ([]*commonmodels.Container, error) {
-	rederedYaml, err := kube.RenderEnvService(product, renderSet, productService)
+	rederedYaml, err := kube.RenderEnvService(product, renderSet.GetServiceRenderMap()[productService.ServiceName], productService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render env service yaml for service: %s, err: %s", productService.ServiceName, err)
 	}

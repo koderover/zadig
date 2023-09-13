@@ -2460,8 +2460,8 @@ func getProjectType(productName string) string {
 }
 
 func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.ProductService,
-	renderSet *commonmodels.RenderSet, kubeClient client.Client, log *zap.SugaredLogger) error {
-	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
+	kubeClient client.Client, log *zap.SugaredLogger) error {
+	parsedYaml, err := kube.RenderEnvService(env, service.GetServiceRender(), service)
 	if err != nil {
 		return fmt.Errorf("service template %s error: %v", service.ServiceName, err)
 	}
@@ -2524,7 +2524,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		service.Containers = nil
 	}
 
-	parsedYaml, err := kube.RenderEnvService(env, renderSet, service)
+	parsedYaml, err := kube.RenderEnvService(env, renderSet.GetServiceRenderMap()[service.ServiceName], service)
 	if err != nil {
 		log.Errorf("Failed to render service %s, error: %v", service.ServiceName, err)
 		errList = multierror.Append(errList, fmt.Errorf("service template %s error: %v", service.ServiceName, err))
@@ -2539,8 +2539,8 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 
 	preResourceYaml := ""
 	// compatibility: prevSvc.Render could be null when prev update failed
-	if prevSvc != nil && preRenderInfo != nil {
-		preResourceYaml, err = getOldSvcYaml(env, prevSvc, preRenderInfo, log)
+	if prevSvc != nil {
+		preResourceYaml, err = getOldSvcYaml(env, prevSvc, log)
 		if err != nil {
 			return nil, errors.Wrapf(err, "get old svc yaml failed")
 		}
@@ -2565,23 +2565,22 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 
 func getOldSvcYaml(env *commonmodels.Product,
 	oldService *commonmodels.ProductService,
-	oldRenderInfo *commonmodels.RenderInfo,
 	log *zap.SugaredLogger) (string, error) {
 
-	opt := &commonrepo.RenderSetFindOption{
-		Name:        oldRenderInfo.Name,
-		Revision:    oldRenderInfo.Revision,
-		EnvName:     env.EnvName,
-		ProductTmpl: env.ProductName,
-		IsDefault:   false,
-	}
-	oldRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		log.Errorf("find renderset[%s/%d] error: %v", opt.Name, opt.Revision, err)
-		return "", err
-	}
+	//opt := &commonrepo.RenderSetFindOption{
+	//	Name:        oldRenderInfo.Name,
+	//	Revision:    oldRenderInfo.Revision,
+	//	EnvName:     env.EnvName,
+	//	ProductTmpl: env.ProductName,
+	//	IsDefault:   false,
+	//}
+	//oldRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
+	//if err != nil {
+	//	log.Errorf("find renderset[%s/%d] error: %v", opt.Name, opt.Revision, err)
+	//	return "", err
+	//}
 
-	parsedYaml, err := kube.RenderEnvService(env, oldRenderset, oldService)
+	parsedYaml, err := kube.RenderEnvService(env, oldService.GetServiceRender(), oldService)
 	if err != nil {
 		log.Errorf("failed to find old service revision %s/%d", oldService.ServiceName, oldService.Revision)
 		return "", err
@@ -4093,6 +4092,7 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 
 	productRenderset.GlobalVariables = args
 	updatedSvcList := make([]*templatemodels.ServiceRender, 0)
+	serviceRenderMap := make(map[string]*templatemodels.ServiceRender)
 	for _, argKV := range argMap {
 		productKV, ok := productMap[argKV.Key]
 		if !ok {
@@ -4125,6 +4125,7 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 					return nil, fmt.Errorf("failed to convert service %s's render variables to yaml, err: %s", svc, err)
 				}
 				updatedSvcList = append(updatedSvcList, curVariable)
+				serviceRenderMap[svc] = curVariable
 			} else {
 				log.Errorf("UNEXPECT ERROR: service %s not found in environment", svc)
 			}
@@ -4134,7 +4135,7 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 	retList := make([]*SvcDiffResult, 0)
 	productRenderset.ServiceVariables = updatedSvcList
 
-	for _, svcRender := range updatedSvcList {
+	for _, svcRender := range serviceRenderMap {
 		curYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
 			ProductName:           product.ProductName,
 			EnvName:               product.EnvName,
@@ -4158,7 +4159,7 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, prod
 			continue
 		}
 
-		ret.Latest.Yaml, err = kube.RenderEnvService(product, productRenderset, prodSvc)
+		ret.Latest.Yaml, err = kube.RenderEnvService(product, serviceRenderMap[svcRender.ServiceName], prodSvc)
 		if err != nil {
 			retList = append(retList, ret)
 			continue
@@ -4321,18 +4322,18 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 	}
 
 	if templateProduct.IsK8sYamlProduct() {
-		renderSetFindOpt := &commonrepo.RenderSetFindOption{
-			Name:        prod.Render.Name,
-			Revision:    prod.Render.Revision,
-			ProductTmpl: prod.ProductName,
-			EnvName:     envName,
-		}
-		rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
-		if err != nil {
-			wrapErr := fmt.Errorf("failed to find render set %s:%d, err: %s", prod.Render.Name, prod.Render.Revision, err)
-			return e.ErrEnvSleep.AddErr(wrapErr)
-		}
-
+		//renderSetFindOpt := &commonrepo.RenderSetFindOption{
+		//	Name:        prod.Render.Name,
+		//	Revision:    prod.Render.Revision,
+		//	ProductTmpl: prod.ProductName,
+		//	EnvName:     envName,
+		//}
+		//rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
+		//if err != nil {
+		//	wrapErr := fmt.Errorf("failed to find render set %s:%d, err: %s", prod.Render.Name, prod.Render.Revision, err)
+		//	return e.ErrEnvSleep.AddErr(wrapErr)
+		//}
+		//
 		prodSvcMap := prod.GetServiceMap()
 		svcs, err := commonutil.GetProductUsedTemplateSvcs(prod)
 		if err != nil {
@@ -4348,7 +4349,7 @@ func EnvSleep(productName, envName string, isEnable, isProduction bool, log *zap
 				return e.ErrEnvSleep.AddErr(wrapErr)
 			}
 
-			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, rs, prodSvc, svc)
+			parsedYaml, err := kube.RenderEnvServiceWithTempl(prod, prodSvc.GetServiceRender(), prodSvc, svc)
 			if err != nil {
 				return e.ErrEnvSleep.AddErr(fmt.Errorf("failed to render service %s, err: %s", svc.ServiceName, err))
 			}

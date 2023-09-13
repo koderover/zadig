@@ -452,17 +452,17 @@ func updateServiceImage(serviceName, image, containerName string, product *commo
 
 func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commonmodels.Container, serviceName, deployType string, log *zap.SugaredLogger) (string, error) {
 	if deployType == setting.K8SDeployType {
-		opt := &commonrepo.RenderSetFindOption{
-			Name:        productInfo.Render.Name,
-			Revision:    productInfo.Render.Revision,
-			EnvName:     productInfo.EnvName,
-			ProductTmpl: productInfo.ProductName,
-		}
-		newRender, err := commonrepo.NewRenderSetColl().Find(opt)
-		if err != nil {
-			log.Errorf("[%s][P:%s]renderset Find error: %v", productInfo.EnvName, productInfo.ProductName, err)
-			return "", fmt.Errorf("get pure yaml %s error: %v", serviceName, err)
-		}
+		//opt := &commonrepo.RenderSetFindOption{
+		//	Name:        productInfo.Render.Name,
+		//	Revision:    productInfo.Render.Revision,
+		//	EnvName:     productInfo.EnvName,
+		//	ProductTmpl: productInfo.ProductName,
+		//}
+		//newRender, err := commonrepo.NewRenderSetColl().Find(opt)
+		//if err != nil {
+		//	log.Errorf("[%s][P:%s]renderset Find error: %v", productInfo.EnvName, productInfo.ProductName, err)
+		//	return "", fmt.Errorf("get pure yaml %s error: %v", serviceName, err)
+		//}
 
 		serviceInfo := productInfo.GetServiceMap()[serviceName]
 		if serviceInfo == nil {
@@ -480,7 +480,7 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 			return "", fmt.Errorf("service template %s error: %v", serviceName, err)
 		}
 
-		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, newRender)
+		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, serviceInfo.GetServiceRender())
 		if err != nil {
 			log.Errorf("RenderServiceYaml failed, err: %s", err)
 			return "", err
