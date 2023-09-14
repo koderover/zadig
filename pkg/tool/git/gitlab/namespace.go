@@ -51,7 +51,7 @@ func (c *Client) listUsers(keyword string, opts *ListOptions) ([]*gitlab.Namespa
 		namespace := n.(*gitlab.Namespace)
 		log.Infof("--------- namespace kind is %v", namespace.Kind)
 		if namespace.Kind == "user" {
-			res = append(res)
+			res = append(res, namespace)
 		}
 	}
 
