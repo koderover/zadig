@@ -17,6 +17,9 @@ limitations under the License.
 package gitlab
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -131,17 +134,30 @@ func (c *Client) listNamespaces(keyword string, opts *ListOptions) ([]*gitlab.Na
 }
 
 func (c *Client) ListNamespaces(keyword string, opts *ListOptions) ([]*gitlab.Namespace, error) {
-	ret := make([]*gitlab.Namespace, 0)
-	users, err := c.listUsers(keyword, opts)
-	if err != nil {
-		return nil, err
-	}
-	ret = append(ret, users...)
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
 
-	groups, err := c.listGroups(keyword, opts)
-	if err != nil {
-		return nil, err
+	var users, groups []*gitlab.Namespace
+	var userErr, groupErr error
+
+	go func() {
+		defer wg.Done()
+		users, userErr = c.listUsers(keyword, opts)
+	}()
+
+	go func() {
+		defer wg.Done()
+		groups, groupErr = c.listGroups(keyword, opts)
+	}()
+
+	wg.Wait()
+
+	if userErr != nil {
+		return nil, fmt.Errorf("failed to list users: %v", userErr)
 	}
-	ret = append(ret, groups...)
-	return ret, nil
+	if groupErr != nil {
+		return nil, fmt.Errorf("failed to list groups: %v", groupErr)
+	}
+
+	return append(users, groups...), nil
 }
