@@ -449,6 +449,16 @@ type ApolloKV struct {
 	Val string `bson:"val" json:"val" yaml:"val"`
 }
 
+type JobTaskJenkinsSpec struct {
+	JenkinsID string                `bson:"jenkins_id" json:"jenkins_id" yaml:"jenkins_id"`
+	Job       JobTaskJenkinsJobInfo `bson:"job" json:"job" yaml:"job"`
+}
+
+type JobTaskJenkinsJobInfo struct {
+	JobName   string `bson:"job_name" json:"job_name" yaml:"job_name"`
+	JobOutput string `bson:"job_output" json:"job_output" yaml:"job_output"`
+}
+
 type JobTaskWorkflowTriggerSpec struct {
 	TriggerType           config.WorkflowTriggerType `bson:"trigger_type" json:"trigger_type" yaml:"trigger_type"`
 	IsEnableCheck         bool                       `bson:"is_enable_check" json:"is_enable_check" yaml:"is_enable_check"`
