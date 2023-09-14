@@ -17,7 +17,6 @@ limitations under the License.
 package gitlab
 
 import (
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -49,7 +48,6 @@ func (c *Client) listUsers(keyword string, opts *ListOptions) ([]*gitlab.Namespa
 	}
 	for _, n := range ns {
 		namespace := n.(*gitlab.Namespace)
-		log.Infof("--------- namespace kind is %v", namespace.Kind)
 		if namespace.Kind == "user" {
 			res = append(res, namespace)
 		}
