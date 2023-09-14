@@ -335,7 +335,7 @@ func (r *Reaper) runDockerBuild() error {
 		r.setProxy(r.Ctx.DockerBuildCtx, r.Ctx.Proxy)
 	}
 
-	log.Info("Runing Docker Build.")
+	log.Info("Running Docker Build.")
 	startTimeDockerBuild := time.Now()
 	envs := r.getUserEnvs()
 	for _, c := range r.dockerCommands() {
