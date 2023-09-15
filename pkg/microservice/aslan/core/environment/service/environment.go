@@ -1149,11 +1149,8 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
 		return err
 	}
-
-	product.EnsureRenderInfo()
 	opt := &commonrepo.RenderSetFindOption{
-		Name:        product.Render.Name,
-		Revision:    product.Render.Revision,
+		Name:        product.Namespace,
 		EnvName:     envName,
 		ProductTmpl: productName,
 	}
@@ -1217,11 +1214,9 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
 		return err
 	}
-	product.EnsureRenderInfo()
 	opt := &commonrepo.RenderSetFindOption{
-		Name:        product.Render.Name,
+		Name:        product.Namespace,
 		EnvName:     envName,
-		Revision:    product.Render.Revision,
 		ProductTmpl: productName,
 	}
 	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)

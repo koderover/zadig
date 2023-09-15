@@ -147,10 +147,9 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 
 	exitedProd.EnsureRenderInfo()
 	curRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-		Name:        exitedProd.Render.Name,
-		EnvName:     exitedProd.EnvName,
-		Revision:    exitedProd.Render.Revision,
-		ProductTmpl: exitedProd.ProductName,
+		Name:     exitedProd.Render.Name,
+		EnvName:  exitedProd.EnvName,
+		Revision: exitedProd.Render.Revision,
 	})
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to find render set, err: %s", err))
