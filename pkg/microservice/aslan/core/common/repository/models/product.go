@@ -222,6 +222,14 @@ func (p *Product) GetGroupServiceNames() [][]string {
 	return resp
 }
 
+func (p *Product) GetAllSvcRenders() []*templatemodels.ServiceRender {
+	ret := make([]*templatemodels.ServiceRender, 0)
+	for _, svc := range p.GetServiceMap() {
+		ret = append(ret, svc.GetServiceRender())
+	}
+	return ret
+}
+
 func (p *Product) GetSvcRender(svcName string) *templatemodels.ServiceRender {
 	for _, group := range p.Services {
 		for _, svc := range group {

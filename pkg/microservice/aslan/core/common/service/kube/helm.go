@@ -41,7 +41,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
@@ -547,39 +546,39 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		log.Errorf("failed to update product deploy strategy, err: %s", err)
 	}
 
-	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:        productInfo.Render.Name,
-		EnvName:     productInfo.EnvName,
-		ProductTmpl: productInfo.ProductName,
-		Revision:    productInfo.Render.Revision,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to find renderset: %s/%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, err)
-	}
-	rcs := make([]*template.ServiceRender, 0)
-	for _, v := range renderset.ChartInfos {
-		if v.IsHelmChartDeploy {
-			if _, ok := releaseNameToChartProdSvcMap[v.ReleaseName]; !ok {
-				rcs = append(rcs, v)
-			}
-		} else {
-			if _, ok := serviceNameToProdSvcMap[v.ServiceName]; !ok {
-				rcs = append(rcs, v)
-			}
-		}
-	}
-	renderset.ChartInfos = rcs
-
-	// create new renderset
-	if err := render.CreateK8sHelmRenderSet(renderset, log); err != nil {
-		return fmt.Errorf("failed to create renderset, name %s, err: %s", renderset.Name, err)
-	}
-
-	productInfo.Render.Revision = renderset.Revision
-	err = commonrepo.NewProductColl().UpdateRender(renderset.EnvName, productInfo.ProductName, productInfo.Render)
-	if err != nil {
-		return fmt.Errorf("failed to update product render info, renderName: %s, err: %s", productInfo.Render.Name, err)
-	}
+	//renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+	//	Name:        productInfo.Render.Name,
+	//	EnvName:     productInfo.EnvName,
+	//	ProductTmpl: productInfo.ProductName,
+	//	Revision:    productInfo.Render.Revision,
+	//})
+	//if err != nil {
+	//	return fmt.Errorf("failed to find renderset: %s/%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, err)
+	//}
+	//rcs := make([]*template.ServiceRender, 0)
+	//for _, v := range renderset.ChartInfos {
+	//	if v.IsHelmChartDeploy {
+	//		if _, ok := releaseNameToChartProdSvcMap[v.ReleaseName]; !ok {
+	//			rcs = append(rcs, v)
+	//		}
+	//	} else {
+	//		if _, ok := serviceNameToProdSvcMap[v.ServiceName]; !ok {
+	//			rcs = append(rcs, v)
+	//		}
+	//	}
+	//}
+	//renderset.ChartInfos = rcs
+	//
+	//// create new renderset
+	//if err := render.CreateK8sHelmRenderSet(renderset, log); err != nil {
+	//	return fmt.Errorf("failed to create renderset, name %s, err: %s", renderset.Name, err)
+	//}
+	//
+	//productInfo.Render.Revision = renderset.Revision
+	//err = commonrepo.NewProductColl().UpdateRender(renderset.EnvName, productInfo.ProductName, productInfo.Render)
+	//if err != nil {
+	//	return fmt.Errorf("failed to update product render info, renderName: %s, err: %s", productInfo.Render.Name, err)
+	//}
 
 	go func() {
 		failedServices := sync.Map{}
@@ -706,33 +705,33 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 		log.Errorf("failed to update product deploy strategy, err: %s", err)
 	}
 
-	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:        productInfo.Render.Name,
-		EnvName:     productInfo.EnvName,
-		ProductTmpl: productInfo.ProductName,
-		Revision:    productInfo.Render.Revision,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to find renderset: %s/%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, err)
-	}
-	rcs := make([]*template.ServiceRender, 0)
-	for _, v := range renderset.ChartInfos {
-		if !deleteServiceSet.Has(v.ServiceName) {
-			rcs = append(rcs, v)
-		}
-	}
-	renderset.ChartInfos = rcs
-
-	// create new renderset
-	if err := render.CreateK8sHelmRenderSet(renderset, log); err != nil {
-		return fmt.Errorf("failed to create renderset, name %s, err: %s", renderset.Name, err)
-	}
-
-	productInfo.Render.Revision = renderset.Revision
-	err = commonrepo.NewProductColl().UpdateRender(renderset.EnvName, productInfo.ProductName, productInfo.Render)
-	if err != nil {
-		return fmt.Errorf("failed to update product render info, renderName: %s, err: %s", productInfo.Render.Name, err)
-	}
+	//renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+	//	Name:        productInfo.Render.Name,
+	//	EnvName:     productInfo.EnvName,
+	//	ProductTmpl: productInfo.ProductName,
+	//	Revision:    productInfo.Render.Revision,
+	//})
+	//if err != nil {
+	//	return fmt.Errorf("failed to find renderset: %s/%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, err)
+	//}
+	//rcs := make([]*template.ServiceRender, 0)
+	//for _, v := range renderset.ChartInfos {
+	//	if !deleteServiceSet.Has(v.ServiceName) {
+	//		rcs = append(rcs, v)
+	//	}
+	//}
+	//renderset.ChartInfos = rcs
+	//
+	//// create new renderset
+	//if err := render.CreateK8sHelmRenderSet(renderset, log); err != nil {
+	//	return fmt.Errorf("failed to create renderset, name %s, err: %s", renderset.Name, err)
+	//}
+	//
+	//productInfo.Render.Revision = renderset.Revision
+	//err = commonrepo.NewProductColl().UpdateRender(renderset.EnvName, productInfo.ProductName, productInfo.Render)
+	//if err != nil {
+	//	return fmt.Errorf("failed to update product render info, renderName: %s, err: %s", productInfo.Render.Name, err)
+	//}
 
 	go func() {
 		failedServices := sync.Map{}
