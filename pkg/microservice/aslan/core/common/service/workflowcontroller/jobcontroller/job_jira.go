@@ -57,7 +57,7 @@ func (c *JiraJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
-	info, err := mongodb.NewProjectManagementColl().GetJira()
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(c.jobTaskSpec.JiraID)
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return

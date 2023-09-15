@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	userservice "github.com/koderover/zadig/pkg/microservice/user/core/service/user"
+	userservice "github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/types"

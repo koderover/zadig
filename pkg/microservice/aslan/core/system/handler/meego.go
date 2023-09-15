@@ -26,22 +26,54 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
+// @Summary List Meego Projects
+// @Description List Meego Projects
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 		path		string										true	"meego id"
+// @Success 200 	{object} 	service.MeegoProjectResp
+// @Router /api/aslan/system/meego/{id}/projects [get]
 func GetMeegoProjects(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetMeegoProjects()
+	id := c.Param("id")
+	ctx.Resp, ctx.Err = service.GetMeegoProjects(id)
 }
 
+// @Summary Get Meego Work Item Type List
+// @Description Get Meego Work Item Type List
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 		        path		string										true	"meego id"
+// @Param 	projectID 		path		string										true	"project id"
+// @Success 200 			{object} 	service.MeegoWorkItemTypeResp
+// @Router /api/aslan/system/meego/{id}/projects/{projectID}/work_item/types [get]
 func GetWorkItemTypeList(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	id := c.Param("id")
 	projectID := c.Param("projectID")
 
-	ctx.Resp, ctx.Err = service.GetWorkItemTypeList(projectID)
+	ctx.Resp, ctx.Err = service.GetWorkItemTypeList(id, projectID)
 }
 
+// @Summary List Meego Work Items
+// @Description List Meego Work Items
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	id 		        path		string										true	"meego id"
+// @Param 	projectID 		path		string										true	"project id"
+// @Param 	type_key 		query		string										true	"type key"
+// @Param 	page_num 		query		string										true	"page num"
+// @Param 	page_size 		query		string										true	"page size"
+// @Param 	item_name 		query		string										true	"item name"
+// @Success 200 			{object} 	service.MeegoWorkItemResp
+// @Router /api/aslan/system/meego/{id}/projects/{projectID}/work_item [get]
 func ListMeegoWorkItems(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -73,9 +105,10 @@ func ListMeegoWorkItems(c *gin.Context) {
 		return
 	}
 
+	id := c.Param("id")
 	nameQuery := c.Query("item_name")
 
-	ctx.Resp, ctx.Err = service.ListMeegoWorkItems(projectID, typeKey, nameQuery, pageNum, pageSize)
+	ctx.Resp, ctx.Err = service.ListMeegoWorkItems(id, projectID, typeKey, nameQuery, pageNum, pageSize)
 }
 
 func ListAvailableWorkItemTransitions(c *gin.Context) {
@@ -91,5 +124,6 @@ func ListAvailableWorkItemTransitions(c *gin.Context) {
 	}
 	workItemTypeKey := c.Query("type_key")
 
-	ctx.Resp, ctx.Err = service.ListAvailableWorkItemTransitions(projectID, workItemTypeKey, workItemID)
+	id := c.Param("id")
+	ctx.Resp, ctx.Err = service.ListAvailableWorkItemTransitions(id, projectID, workItemTypeKey, workItemID)
 }

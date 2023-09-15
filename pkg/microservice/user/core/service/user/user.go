@@ -177,7 +177,7 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*types.UserInfo, error) {
 		return nil, err
 	}
 	userInfo := mergeUserLogin([]models.User{*user}, []models.UserLogin{*userLogin}, logger)
-	userInfoRes := &userInfo[0]
+	userInfoRes := userInfo[0]
 	userInfoRes.APIToken = user.APIToken
 	//TODO Create a permanent OpenAPI token
 	if user.APIToken == "" {
@@ -295,15 +295,15 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*types.UsersResp, 
 	}, nil
 }
 
-func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *zap.SugaredLogger) []types.UserInfo {
+func mergeUserLogin(users []models.User, userLogins []models.UserLogin, logger *zap.SugaredLogger) []*types.UserInfo {
 	userLoginMap := make(map[string]models.UserLogin)
 	for _, userLogin := range userLogins {
 		userLoginMap[userLogin.UID] = userLogin
 	}
-	var usersInfo []types.UserInfo
+	var usersInfo []*types.UserInfo
 	for _, user := range users {
 		if userLogin, ok := userLoginMap[user.UID]; ok {
-			usersInfo = append(usersInfo, types.UserInfo{
+			usersInfo = append(usersInfo, &types.UserInfo{
 				LastLoginTime: userLogin.LastLoginTime,
 				Uid:           user.UID,
 				Phone:         user.Phone,

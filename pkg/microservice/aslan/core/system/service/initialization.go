@@ -24,9 +24,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
@@ -117,25 +114,8 @@ func InitializeUser(username, password, company, email string, phone int64, reas
 		}
 	}
 
-	role, found, err := mongodb.NewRoleColl().Get("*", string(setting.SystemAdmin))
-	if err != nil {
-		logger.Errorf("Failed to get role %s in namespace %s, err: %s", string(setting.SystemAdmin), "*", err)
-		return err
-	} else if !found {
-		logger.Errorf("Role %s is not found in namespace %s", string(setting.SystemAdmin), "*")
-		return fmt.Errorf("role %s not found", string(setting.SystemAdmin))
-	}
-
-	args := &models.RoleBinding{
-		Name:      config.RoleBindingNameFromUIDAndRole(userInfo.Uid, setting.SystemAdmin, "*"),
-		Namespace: "*",
-		Subjects:  []*models.Subject{{Kind: models.UserKind, UID: userInfo.Uid}},
-		RoleRef: &models.RoleRef{
-			Name:      role.Name,
-			Namespace: role.Namespace,
-		},
-	}
-	return mongodb.NewRoleBindingColl().UpdateOrCreate(args)
+	// this role must exist since when this api is working, user service has already done the initialization.
+	return user.New().CreateUserRoleBinding(userInfo.Uid, "*", "admin")
 }
 
 type InitializeInfo struct {

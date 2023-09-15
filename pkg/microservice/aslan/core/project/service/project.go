@@ -19,7 +19,6 @@ package service
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/setting"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -45,6 +44,7 @@ type ProjectListOptions struct {
 	PageNum          int64
 	Filter           string
 	GroupName        string
+	Ungrouped        bool
 }
 type ProjectDetailedResponse struct {
 	ProjectDetailedRepresentation []*ProjectDetailedRepresentation `json:"projects"`
@@ -77,29 +77,58 @@ type ProjectMinimalRepresentation struct {
 }
 
 func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interface{}, error) {
-	var err error
-	if opts.GroupName != "" {
-		if opts.GroupName == setting.UNGROUPED {
-			opts.Names, err = GetUnGroupedProjectKeys()
-			if err != nil {
-				msg := fmt.Errorf("failed to list ungrouped projects, err: %s", err)
-				logger.Error(msg)
-				return nil, msg
-			}
-		} else {
-			opts.Names = make([]string, 0)
-			group, err := mongodb.NewProjectGroupColl().Find(mongodb.ProjectGroupOpts{Name: opts.GroupName})
-			if err != nil && (err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument) {
-				logger.Errorf("Failed to list projects, err: %s", err)
-				return nil, err
-			}
+	authorizedProjectList := sets.NewString(opts.Names...)
+	projectKeys := make([]string, 0)
 
-			if group != nil && group.Projects != nil {
-				for _, project := range group.Projects {
-					opts.Names = append(opts.Names, project.ProjectKey)
-				}
+	var err error
+	if opts.Ungrouped {
+		projectKeys, err = GetUnGroupedProjectKeys()
+		if err != nil {
+			msg := fmt.Errorf("failed to list ungrouped projects, err: %s", err)
+			logger.Error(msg)
+			return nil, msg
+		}
+
+		if len(projectKeys) == 0 {
+			return &ProjectDetailedResponse{
+				ProjectDetailedRepresentation: nil,
+				Total:                         0,
+			}, nil
+		}
+	} else if opts.GroupName != "" {
+		group, err := mongodb.NewProjectGroupColl().Find(mongodb.ProjectGroupOpts{Name: opts.GroupName})
+		if err != nil && (err != mongo.ErrNoDocuments && err != mongo.ErrNilDocument) {
+			logger.Errorf("Failed to list projects, err: %s", err)
+			return nil, err
+		}
+
+		// if the project group does not hava any projects, return empty
+		if group != nil && len(group.Projects) == 0 {
+			return &ProjectDetailedResponse{
+				ProjectDetailedRepresentation: nil,
+				Total:                         0,
+			}, nil
+		}
+
+		if group != nil && group.Projects != nil {
+			for _, project := range group.Projects {
+				projectKeys = append(projectKeys, project.ProjectKey)
 			}
 		}
+	}
+
+	if len(projectKeys) > 0 && len(authorizedProjectList) > 0 {
+		opts.Names = authorizedProjectList.Intersection(sets.NewString(projectKeys...)).List()
+		if len(opts.Names) == 0 {
+			return &ProjectDetailedResponse{
+				ProjectDetailedRepresentation: nil,
+				Total:                         0,
+			}, nil
+		}
+	} else if len(projectKeys) == 0 && len(authorizedProjectList) > 0 {
+		opts.Names = authorizedProjectList.List()
+	} else {
+		opts.Names = projectKeys
 	}
 
 	switch opts.Verbosity {

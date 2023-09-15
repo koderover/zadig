@@ -26,7 +26,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -53,15 +52,8 @@ func (c *ConfigurationManagementColl) GetCollectionName() string {
 }
 
 func (c *ConfigurationManagementColl) EnsureIndex(ctx context.Context) error {
-	mod := mongo.IndexModel{
-		Keys: bson.D{
-			bson.E{Key: "server_address", Value: 1},
-		},
-		Options: options.Index().SetUnique(true),
-	}
-
-	_, err := c.Indexes().CreateOne(ctx, mod)
-	return err
+	_, _ = c.Indexes().DropOne(ctx, "server_address_1")
+	return nil
 }
 
 func (c *ConfigurationManagementColl) Create(ctx context.Context, args *models.ConfigurationManagement) error {
@@ -97,6 +89,15 @@ func (c *ConfigurationManagementColl) GetByID(ctx context.Context, idString stri
 
 	resp := new(models.ConfigurationManagement)
 	return resp, c.FindOne(ctx, query).Decode(resp)
+}
+
+func (c *ConfigurationManagementColl) GetBySystemIdentity(systemIdentity string) (*models.ConfigurationManagement, error) {
+	configManagement := &models.ConfigurationManagement{}
+	query := bson.M{"system_identity": systemIdentity}
+	if err := c.Collection.FindOne(context.TODO(), query).Decode(configManagement); err != nil {
+		return nil, err
+	}
+	return configManagement, nil
 }
 
 func (c *ConfigurationManagementColl) GetApolloByID(ctx context.Context, idString string) (*models.ApolloConfig, error) {

@@ -50,7 +50,7 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/policy"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -141,6 +141,14 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	if err != nil {
 		log.Errorf("ProductTmpl.Create error: %v", err)
 		return e.ErrCreateProduct.AddDesc(err.Error())
+	}
+
+	// after the project is created, create roles for it
+	// TODO: i can't think of a good way to make this full logic robust, anyone who sees this should try to fix it
+	err = user.New().InitializeProject(args.ProductName, args.Public, args.Admins)
+	if err != nil {
+		log.Errorf("failed to initialize project authorization info for project: %s, error: %s", args.ProductName, err)
+		return e.ErrCreateProduct.AddDesc(fmt.Sprintf("failed to initialize project authorization info for project: %s, error: %s", args.ProductName, err))
 	}
 
 	// add project to current project group
@@ -258,6 +266,12 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 		}, log); err != nil {
 			log.Warnf("ProductTmpl.Update CreateRenderSet error: %v", err)
 		}
+	}
+
+	// update role-bindings in case the visibility changes
+	err = user.New().SetProjectVisibility(args.ProductName, args.Public)
+	if err != nil {
+		log.Errorf("failed to change project visibility, error: %s", err)
 	}
 
 	//// 更新子环境渲染集
@@ -710,16 +724,6 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		return err
 	}
 
-	if err = DeletePolicy(productName, log); err != nil {
-		log.Errorf("DeletePolicy  productName %s  err: %s", productName, err)
-		return err
-	}
-
-	if err = DeleteLabels(productName, log); err != nil {
-		log.Errorf("DeleteLabels  productName %s  err: %s", productName, err)
-		return err
-	}
-
 	if err = commonservice.DeleteWorkflows(productName, requestID, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s workflow err: %s", productName, err)
 		return err
@@ -760,6 +764,12 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 	services, _ := commonrepo.NewServiceColl().ListMaxRevisions(
 		&commonrepo.ServiceListOption{ProductName: productName, Type: setting.K8SDeployType},
 	)
+
+	err = user.New().DeleteAllProjectRoles(productName)
+	if err != nil {
+		log.Errorf("delete all roles in namespace %s failed, error: %s", productName, err)
+		return err
+	}
 
 	//删除交付中心
 	//删除构建/删除测试/删除服务
@@ -808,6 +818,25 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 			log.Errorf("failed to bulk delete privateKey, error:%s", err)
 		}
 	}()
+
+	// delete project key in related project group
+	groups, err := commonrepo.NewProjectGroupColl().List()
+	for _, group := range groups {
+		projects := make([]*commonmodels.ProjectDetail, 0)
+		for _, project := range group.Projects {
+			if project.ProjectKey != productName {
+				projects = append(projects, project)
+			}
+		}
+		if len(projects) != len(group.Projects) {
+			group.Projects = projects
+			if err = commonrepo.NewProjectGroupColl().Update(group); err != nil {
+				log.Errorf("failed to update project group, error:%s", err)
+				return err
+			}
+			break
+		}
+	}
 
 	return nil
 }
@@ -1155,17 +1184,6 @@ func DeleteCollabrationMode(productName string, userName string, log *zap.Sugare
 	return nil
 }
 
-func DeletePolicy(productName string, log *zap.SugaredLogger) error {
-	policy.NewDefault()
-	if err := policy.NewDefault().DeletePolicies(productName, policy.DeletePoliciesArgs{
-		Names: []string{},
-	}); err != nil {
-		log.Errorf("DeletePolicies err :%s", err)
-		return err
-	}
-	return nil
-}
-
 func DeleteLabels(productName string, log *zap.SugaredLogger) error {
 	if err := service2.DeleteLabelsAndBindingsByProject(productName, log); err != nil {
 		log.Errorf("delete labels and bindings by project fail , err :%s", err)
@@ -1338,10 +1356,18 @@ func UpdateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.Sugared
 		return e.ErrCreateProjectGroup.AddErr(errMsg)
 	}
 
+	oldGroup, err := commonrepo.NewProjectGroupColl().Find(commonrepo.ProjectGroupOpts{ID: args.GroupID})
+	if err != nil {
+		return e.ErrUpdateProjectGroup.AddErr(fmt.Errorf("failed to find project group %s, error: %v", args.GroupName, err))
+	}
+
 	// find all project keys that have been set
 	set := sets.NewString()
 	for _, group := range groups {
-		if group.Name != args.GroupName {
+		if oldGroup.Name != args.GroupName && group.Name == args.GroupName {
+			return fmt.Errorf("group name %s has been used", args.GroupName)
+		}
+		if group.Name != oldGroup.Name {
 			for _, project := range group.Projects {
 				set.Insert(project.ProjectKey)
 			}
@@ -1381,10 +1407,6 @@ func UpdateProjectGroup(args *ProjectGroupArgs, user string, logger *zap.Sugared
 		}
 	}
 
-	oldGroup, err := commonrepo.NewProjectGroupColl().Find(commonrepo.ProjectGroupOpts{ID: args.GroupID})
-	if err != nil {
-		return e.ErrUpdateProjectGroup.AddErr(fmt.Errorf("failed to find project group %s, error: %v", args.GroupName, err))
-	}
 	group.ID = oldGroup.ID
 	group.CreatedTime = oldGroup.CreatedTime
 	group.CreatedBy = oldGroup.CreatedBy
@@ -1409,9 +1431,6 @@ func ListProjectGroupNames() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list project groups, error: %v", err)
 	}
-
-	// create the default group ungrouped
-	// groups = append(groups, setting.UNGROUPED)
 
 	return groups, nil
 }
@@ -1448,19 +1467,23 @@ func GetProjectGroupRelation(name string, logger *zap.SugaredLogger) (resp *Proj
 	if err != nil {
 		return nil, fmt.Errorf("failed to list ungrouped projects, error: %v", err)
 	}
-	projects, err := templaterepo.NewProductColl().ListProjectBriefs(unGrouped)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list projects, error: %v", err)
+
+	if len(unGrouped) > 0 {
+		projects, err := templaterepo.NewProductColl().ListProjectBriefs(unGrouped)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list projects, error: %v", err)
+		}
+
+		for _, project := range projects {
+			resp.Projects = append(resp.Projects, &ProjectGroupRelation{
+				ProjectKey:  project.Name,
+				ProjectName: project.Alias,
+				DeployType:  project.DeployType,
+				Enabled:     false,
+			})
+		}
 	}
 
-	for _, project := range projects {
-		resp.Projects = append(resp.Projects, &ProjectGroupRelation{
-			ProjectKey:  project.Name,
-			ProjectName: project.Alias,
-			DeployType:  project.DeployType,
-			Enabled:     false,
-		})
-	}
 	sort.Slice(resp.Projects, func(i, j int) bool {
 		return resp.Projects[i].ProjectKey < resp.Projects[j].ProjectKey
 	})

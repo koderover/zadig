@@ -19,9 +19,10 @@ package models
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type SonarIntegration struct {
-	ID            primitive.ObjectID `bson:"_id,omitempty"`
-	ServerAddress string             `bson:"server_address"`
-	Token         string             `bson:"token"`
+	ID             primitive.ObjectID `bson:"_id,omitempty"`
+	SystemIdentity string             `bson:"system_identity"`
+	ServerAddress  string             `bson:"server_address"`
+	Token          string             `bson:"token"`
 }
 
 func (SonarIntegration) TableName() string {

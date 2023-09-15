@@ -60,6 +60,8 @@ func ProcessLicense() gin.HandlerFunc {
 			c.Request.URL.Path == "/api/v1/users" ||
 			c.Request.URL.Path == "/api/system/concurrency/workflow" ||
 			c.Request.URL.Path == "/api/workflow/plugin/enterprise" ||
+			c.Request.URL.Path == "/api/cluster/clusters" ||
+			c.Request.URL.Path == "/api/system/initialization/user" ||
 			strings.HasPrefix(c.Request.URL.Path, "/api/v1/bundles") ||
 			strings.HasPrefix(c.Request.URL.Path, "/api/v1/callback") ||
 			strings.HasPrefix(c.Request.URL.Path, "/api/callback") ||

@@ -341,11 +341,11 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		}
 		// init local cluster
 	} else {
-		args.AdvancedConfig = &AdvancedConfig{
+		advancedConfig = &commonmodels.AdvancedConfig{
 			ClusterAccessYaml: kube.ClusterAccessYamlTemplate,
 			ScheduleWorkflow:  true,
 			Strategy:          setting.NormalSchedule,
-			ScheduleStrategy: []*ScheduleStrategy{
+			ScheduleStrategy: []*commonmodels.ScheduleStrategy{
 				{
 					StrategyID:   primitive.NewObjectID().Hex(),
 					StrategyName: setting.NormalScheduleName,

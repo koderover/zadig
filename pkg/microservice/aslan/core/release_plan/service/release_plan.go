@@ -86,16 +86,27 @@ func CreateReleasePlan(c *handler.Context, args *models.ReleasePlan) error {
 	args.CreateTime = time.Now().Unix()
 	args.UpdateTime = time.Now().Unix()
 	args.Status = config.StatusPlanning
-	args.Logs = append(args.Logs, &models.ReleasePlanLog{
-		Username:   c.UserName,
-		Account:    c.Account,
-		Verb:       VerbCreate,
-		TargetName: args.Name,
-		TargetType: TargetTypeReleasePlan,
-		CreatedAt:  time.Now().Unix(),
-	})
 
-	return mongodb.NewReleasePlanColl().Create(args)
+	planID, err := mongodb.NewReleasePlanColl().Create(args)
+	if err != nil {
+		return errors.Wrap(err, "create release plan error")
+	}
+
+	go func() {
+		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+			PlanID:     planID,
+			Username:   c.UserName,
+			Account:    c.Account,
+			Verb:       VerbCreate,
+			TargetName: args.Name,
+			TargetType: TargetTypeReleasePlan,
+			CreatedAt:  time.Now().Unix(),
+		}); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
+	}()
+
+	return nil
 }
 
 type ListReleasePlanResp struct {
@@ -121,6 +132,13 @@ func ListReleasePlans(pageNum, pageSize int64) (*ListReleasePlanResp, error) {
 
 func GetReleasePlan(id string) (*models.ReleasePlan, error) {
 	return mongodb.NewReleasePlanColl().GetByID(context.Background(), id)
+}
+
+func GetReleasePlanLogs(id string) ([]*models.ReleasePlanLog, error) {
+	return mongodb.NewReleasePlanLogColl().ListByOptions(&mongodb.ListReleasePlanLogOption{
+		PlanID: id,
+		IsSort: true,
+	})
 }
 
 func DeleteReleasePlan(c *gin.Context, username, id string) error {
@@ -166,20 +184,27 @@ func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePla
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
-	plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-		Username:   c.UserName,
-		Account:    c.Account,
-		Verb:       updater.Verb(),
-		Before:     before,
-		After:      after,
-		TargetName: updater.TargetName(),
-		TargetType: updater.TargetType(),
-		CreatedAt:  time.Now().Unix(),
-	})
 
 	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
 	}
+
+	go func() {
+		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+			PlanID:     planID,
+			Username:   c.UserName,
+			Account:    c.Account,
+			Verb:       updater.Verb(),
+			Before:     before,
+			After:      after,
+			TargetName: updater.TargetName(),
+			TargetType: updater.TargetType(),
+			CreatedAt:  time.Now().Unix(),
+		}); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
+	}()
+
 	return nil
 }
 
@@ -190,13 +215,13 @@ type ExecuteReleaseJobArgs struct {
 	Spec interface{} `json:"spec"`
 }
 
-func ExecuteReleaseJob(c *handler.Context, id string, args *ExecuteReleaseJobArgs) error {
-	getLock(id).Lock()
-	defer getLock(id).Unlock()
+func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJobArgs) error {
+	getLock(planID).Lock()
+	defer getLock(planID).Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, id)
+	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
 	}
@@ -216,7 +241,12 @@ func ExecuteReleaseJob(c *handler.Context, id string, args *ExecuteReleaseJobArg
 		return errors.Errorf("only manager can execute")
 	}
 
-	executor, err := NewReleaseJobExecutor(c.UserName, args)
+	executor, err := NewReleaseJobExecutor(&ExecuteReleaseJobContext{
+		AuthResources: c.Resources,
+		UserID:        c.UserID,
+		Account:       c.Account,
+		UserName:      c.UserName,
+	}, args)
 	if err != nil {
 		return errors.Wrap(err, "new release job executor")
 	}
@@ -226,14 +256,6 @@ func ExecuteReleaseJob(c *handler.Context, id string, args *ExecuteReleaseJobArg
 
 	plan.UpdatedBy = c.UserName
 	plan.UpdateTime = time.Now().Unix()
-	plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-		Username:   c.UserName,
-		Account:    c.Account,
-		Verb:       VerbExecute,
-		TargetName: args.Name,
-		TargetType: TargetTypeReleaseJob,
-		CreatedAt:  time.Now().Unix(),
-	})
 
 	if checkReleasePlanJobsAllDone(plan) {
 		plan.ExecutingTime = time.Now().Unix()
@@ -241,19 +263,34 @@ func ExecuteReleaseJob(c *handler.Context, id string, args *ExecuteReleaseJobArg
 		plan.Status = config.StatusSuccess
 	}
 
-	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, id, plan); err != nil {
+	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
 	}
+
+	go func() {
+		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+			PlanID:     planID,
+			Username:   c.UserName,
+			Account:    c.Account,
+			Verb:       VerbExecute,
+			TargetName: args.Name,
+			TargetType: TargetTypeReleaseJob,
+			CreatedAt:  time.Now().Unix(),
+		}); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
+	}()
+
 	return nil
 }
 
-func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
-	getLock(id).Lock()
-	defer getLock(id).Unlock()
+func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
+	getLock(planID).Lock()
+	defer getLock(planID).Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, id)
+	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
 	}
@@ -271,7 +308,6 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		return errors.Wrap(err, "get user")
 	}
 
-	//targetName := plan.Name + "状态"
 	detail := ""
 
 	// target status check and update
@@ -294,6 +330,9 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		if err := createApprovalInstance(plan, userInfo.Phone); err != nil {
 			return errors.Wrap(err, "create approval instance")
 		}
+	case config.StatusCancel:
+		// set executing status final time
+		plan.ExecutingTime = time.Now().Unix()
 	}
 
 	// original status check and update
@@ -305,22 +344,29 @@ func UpdateReleasePlanStatus(c *handler.Context, id, status string) error {
 		}
 		plan.PlanningTime = time.Now().Unix()
 	}
-	plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-		Username: c.UserName,
-		Account:  c.Account,
-		Verb:     VerbUpdate,
-		//TargetName: targetName,
-		TargetType: TargetTypeReleasePlanStatus,
-		Detail:     detail,
-		Before:     plan.Status,
-		After:      status,
-		CreatedAt:  time.Now().Unix(),
-	})
 	plan.Status = config.ReleasePlanStatus(status)
 
-	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, id, plan); err != nil {
+	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
 	}
+
+	go func() {
+		if err := mongodb.NewReleasePlanLogColl().Create(&models.ReleasePlanLog{
+			PlanID:     planID,
+			Username:   c.UserName,
+			Account:    c.Account,
+			Verb:       VerbUpdate,
+			TargetName: TargetTypeReleasePlanStatus,
+			TargetType: TargetTypeReleasePlanStatus,
+			Detail:     detail,
+			Before:     plan.Status,
+			After:      status,
+			CreatedAt:  time.Now().Unix(),
+		}); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
+	}()
+
 	return nil
 }
 
@@ -329,13 +375,13 @@ type ApproveRequest struct {
 	Comment string `json:"comment"`
 }
 
-func ApproveReleasePlan(c *handler.Context, id string, req *ApproveRequest) error {
-	getLock(id).Lock()
-	defer getLock(id).Unlock()
+func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) error {
+	getLock(planID).Lock()
+	defer getLock(planID).Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, id)
+	plan, err := mongodb.NewReleasePlanColl().GetByID(ctx, planID)
 	if err != nil {
 		return errors.Wrap(err, "get plan")
 	}
@@ -367,28 +413,42 @@ func ApproveReleasePlan(c *handler.Context, id string, req *ApproveRequest) erro
 	if approved {
 		plan.Approval.Status = config.StatusPassed
 	}
+	var planLog *models.ReleasePlanLog
 	switch plan.Approval.Status {
 	case config.StatusPassed:
-		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
+		planLog = &models.ReleasePlanLog{
+			PlanID:     planID,
+			Username:   "系统",
 			Verb:       VerbUpdate,
+			TargetName: TargetTypeReleasePlanStatus,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
+			After:      config.StatusExecuting,
 			CreatedAt:  time.Now().Unix(),
-		})
+		}
 		plan.Status = config.StatusExecuting
 		plan.ApprovalTime = time.Now().Unix()
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
-		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-			Verb:       VerbUpdate,
-			TargetType: TargetTypeReleasePlanStatus,
-			Detail:     "审批拒绝",
-			CreatedAt:  time.Now().Unix(),
-		})
+		planLog = &models.ReleasePlanLog{
+			PlanID:    planID,
+			Detail:    "审批被拒绝",
+			CreatedAt: time.Now().Unix(),
+		}
 	}
-	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, id, plan); err != nil {
+	if err = mongodb.NewReleasePlanColl().UpdateByID(ctx, planID, plan); err != nil {
 		return errors.Wrap(err, "update plan")
 	}
+
+	go func() {
+		if planLog == nil {
+			return
+		}
+		if err := mongodb.NewReleasePlanLogColl().Create(planLog); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
+	}()
+
 	return nil
 }
 

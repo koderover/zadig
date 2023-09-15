@@ -16,9 +16,7 @@ limitations under the License.
 
 package types
 
-import (
-	"github.com/koderover/zadig/pkg/setting"
-)
+import "github.com/koderover/zadig/pkg/setting"
 
 type UserInfo struct {
 	LastLoginTime      int64          `json:"last_login_time"`
@@ -34,8 +32,8 @@ type UserInfo struct {
 }
 
 type UsersResp struct {
-	Users      []UserInfo `json:"users"`
-	TotalCount int64      `json:"total_count"`
+	Users      []*UserInfo `json:"users"`
+	TotalCount int64       `json:"total_count"`
 }
 
 type RoleBinding struct {
@@ -62,4 +60,10 @@ type UserSetting struct {
 	Theme        string `json:"theme"`
 	LogBgColor   string `json:"log_bg_color"`
 	LogFontColor string `json:"log_font_color"`
+}
+
+type Identity struct {
+	IdentityType string `json:"identity_type"`
+	UID          string `json:"uid,omitempty"`
+	GID          string `json:"gid,omitempty"`
 }

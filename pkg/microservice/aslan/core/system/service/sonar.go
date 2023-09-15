@@ -27,14 +27,20 @@ import (
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func CreateSonarIntegration(args *SonarIntegration, log *zap.SugaredLogger) error {
+	if _, err := commonrepo.NewSonarIntegrationColl().GetBySystemIdentity(args.SystemIdentity); err == nil {
+		err = fmt.Errorf("can't set the same system identity")
+		return e.ErrCreateExternalLink.AddErr(err)
+	}
 	err := commonrepo.NewSonarIntegrationColl().Create(context.TODO(), &commonmodels.SonarIntegration{
-		ServerAddress: args.ServerAddress,
-		Token:         args.Token,
+		SystemIdentity: args.SystemIdentity,
+		ServerAddress:  args.ServerAddress,
+		Token:          args.Token,
 	})
 	if err != nil {
 		log.Errorf("Create external system error: %s", err)
@@ -44,12 +50,24 @@ func CreateSonarIntegration(args *SonarIntegration, log *zap.SugaredLogger) erro
 }
 
 func UpdateSonarIntegration(id string, integration *SonarIntegration, log *zap.SugaredLogger) error {
-	err := commonrepo.NewSonarIntegrationColl().Update(
+	var oldSystemIdentity string
+	oldSonar, err := mongodb.NewSonarIntegrationColl().GetByID(context.Background(), id)
+	if err == nil {
+		oldSystemIdentity = oldSonar.SystemIdentity
+	}
+	if oldSonar.SystemIdentity != "" && integration.SystemIdentity != oldSystemIdentity {
+		if _, err := mongodb.NewSonarIntegrationColl().GetBySystemIdentity(integration.SystemIdentity); err == nil {
+			return fmt.Errorf("can't set the same system identity")
+		}
+	}
+
+	err = commonrepo.NewSonarIntegrationColl().Update(
 		context.TODO(),
 		id,
 		&commonmodels.SonarIntegration{
-			ServerAddress: integration.ServerAddress,
-			Token:         integration.Token,
+			SystemIdentity: integration.SystemIdentity,
+			ServerAddress:  integration.ServerAddress,
+			Token:          integration.Token,
 		},
 	)
 	if err != nil {
@@ -68,9 +86,10 @@ func ListSonarIntegration(log *zap.SugaredLogger) ([]*SonarIntegration, int64, e
 	resp := make([]*SonarIntegration, 0)
 	for _, sonar := range sonarList {
 		resp = append(resp, &SonarIntegration{
-			ID:            sonar.ID.Hex(),
-			ServerAddress: sonar.ServerAddress,
-			Token:         sonar.Token,
+			ID:             sonar.ID.Hex(),
+			SystemIdentity: sonar.SystemIdentity,
+			ServerAddress:  sonar.ServerAddress,
+			Token:          sonar.Token,
 		})
 	}
 	return resp, length, nil

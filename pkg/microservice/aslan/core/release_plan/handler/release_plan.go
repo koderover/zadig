@@ -37,16 +37,16 @@ func ListReleasePlans(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
-	//	ctx.UnAuthorized = true
-	//	return
-	//}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	opt := new(ListReleasePlanOption)
 	if err := c.ShouldBindQuery(&opt); err != nil {
@@ -62,21 +62,21 @@ func GetReleasePlan(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
-	//	ctx.UnAuthorized = true
-	//	return
-	//}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Resp, ctx.Err = service.GetReleasePlan(c.Param("id"))
 }
 
-func CreateReleasePlan(c *gin.Context) {
+func GetReleasePlanLogs(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -87,10 +87,29 @@ func CreateReleasePlan(c *gin.Context) {
 		return
 	}
 
-	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Create {
-	//	ctx.UnAuthorized = true
-	//	return
-	//}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetReleasePlanLogs(c.Param("id"))
+}
+
+func CreateReleasePlan(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Create {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	req := new(models.ReleasePlan)
 	if err := c.ShouldBindJSON(req); err != nil {
@@ -105,16 +124,16 @@ func UpdateReleasePlan(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Edit {
-	//	ctx.UnAuthorized = true
-	//	return
-	//}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Edit {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	req := new(service.UpdateReleasePlanArgs)
 	if err := c.ShouldBindJSON(req); err != nil {
@@ -129,16 +148,16 @@ func DeleteReleasePlan(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Delete {
-	//	ctx.UnAuthorized = true
-	//	return
-	//}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Delete {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Err = service.DeleteReleasePlan(c, ctx.UserName, c.Param("id"))
 }
@@ -147,7 +166,7 @@ func ExecuteReleaseJob(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -168,7 +187,7 @@ func UpdateReleaseJobStatus(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -183,7 +202,7 @@ func ApproveReleasePlan(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return

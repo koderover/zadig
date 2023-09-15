@@ -136,41 +136,61 @@ func updatePlanApproval(plan *models.ReleasePlan) error {
 		return nil
 	}
 
+	// skip if plan has been rejected
+	if plan.Approval.Status == config.StatusReject {
+		return nil
+	}
+
 	switch plan.Approval.Type {
 	case config.LarkApproval:
 		err = updateLarkApproval(ctx, plan.Approval)
 	case config.DingTalkApproval:
 		err = updateDingTalkApproval(ctx, plan.Approval)
-		// NativeApproval is update when approve
+	// NativeApproval is update when approve
 	case config.NativeApproval:
+		return nil
 	default:
 		err = errors.Errorf("unknown approval type %s", plan.Approval.Type)
 	}
 	if err != nil {
 		return errors.Errorf("update plan %s approval error: %v", plan.Name, err)
 	}
+	var planLog *models.ReleasePlanLog
 	switch plan.Approval.Status {
 	case config.StatusPassed:
-		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
+		planLog = &models.ReleasePlanLog{
+			PlanID:     plan.ID.Hex(),
+			Username:   "系统",
 			Verb:       VerbUpdate,
+			TargetName: TargetTypeReleasePlanStatus,
 			TargetType: TargetTypeReleasePlanStatus,
 			Detail:     "审批通过",
+			After:      config.StatusExecuting,
 			CreatedAt:  time.Now().Unix(),
-		})
+		}
 		plan.Status = config.StatusExecuting
 		plan.ApprovalTime = time.Now().Unix()
 		setReleaseJobsForExecuting(plan)
 	case config.StatusReject:
-		plan.Logs = append(plan.Logs, &models.ReleasePlanLog{
-			Verb:       VerbUpdate,
-			TargetType: TargetTypeReleasePlanStatus,
-			Detail:     "审批拒绝",
-			CreatedAt:  time.Now().Unix(),
-		})
+		planLog = &models.ReleasePlanLog{
+			PlanID:    plan.ID.Hex(),
+			Detail:    "审批被拒绝",
+			CreatedAt: time.Now().Unix(),
+		}
 	}
 
 	if err := mongodb.NewReleasePlanColl().UpdateByID(ctx, plan.ID.Hex(), plan); err != nil {
 		return errors.Errorf("update plan %s error: %v", plan.ID.Hex(), err)
 	}
+
+	go func() {
+		if planLog == nil {
+			return
+		}
+		if err := mongodb.NewReleasePlanLogColl().Create(planLog); err != nil {
+			log.Errorf("create release plan log error: %v", err)
+		}
+	}()
+
 	return nil
 }

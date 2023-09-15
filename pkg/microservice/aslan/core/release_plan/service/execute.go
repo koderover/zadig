@@ -23,18 +23,30 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/pkg/shared/client/user"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type ReleaseJobExecutor interface {
 	Execute(plan *models.ReleasePlan) error
 }
 
-func NewReleaseJobExecutor(username string, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
+type ExecuteReleaseJobContext struct {
+	AuthResources *user.AuthorizedResources
+	UserID        string
+	Account       string
+	UserName      string
+}
+
+func NewReleaseJobExecutor(c *ExecuteReleaseJobContext, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
 	switch config.ReleasePlanJobType(args.Type) {
 	case config.JobText:
-		return NewTextReleaseJobExecutor(username, args)
+		return NewTextReleaseJobExecutor(c, args)
 	case config.JobWorkflow:
-		return NewWorkflowReleaseJobExecutor(username, args)
+		return NewWorkflowReleaseJobExecutor(c, args)
 	default:
 		return nil, errors.Errorf("invalid release job type: %s", args.Type)
 	}
@@ -50,13 +62,13 @@ type TextReleaseJobSpec struct {
 	Remark string `json:"remark"`
 }
 
-func NewTextReleaseJobExecutor(username string, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
+func NewTextReleaseJobExecutor(c *ExecuteReleaseJobContext, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
 	var executor TextReleaseJobExecutor
 	if err := models.IToi(args.Spec, &executor.Spec); err != nil {
 		return nil, errors.Wrap(err, "invalid spec")
 	}
 	executor.ID = args.ID
-	executor.ExecutedBy = username
+	executor.ExecutedBy = c.UserName
 	return &executor, nil
 }
 
@@ -83,22 +95,21 @@ func (e *TextReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 }
 
 type WorkflowReleaseJobExecutor struct {
-	ID         string
-	ExecutedBy string
-	Spec       WorkflowReleaseJobSpec
+	ID   string
+	Ctx  *ExecuteReleaseJobContext
+	Spec WorkflowReleaseJobSpec
 }
 
 type WorkflowReleaseJobSpec struct {
-	TaskID int64 `json:"task_id"`
 }
 
-func NewWorkflowReleaseJobExecutor(username string, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
+func NewWorkflowReleaseJobExecutor(c *ExecuteReleaseJobContext, args *ExecuteReleaseJobArgs) (ReleaseJobExecutor, error) {
 	var executor WorkflowReleaseJobExecutor
 	if err := models.IToi(args.Spec, &executor.Spec); err != nil {
 		return nil, errors.Wrap(err, "invalid spec")
 	}
 	executor.ID = args.ID
-	executor.ExecutedBy = username
+	executor.Ctx = c
 	return &executor, nil
 }
 
@@ -111,15 +122,44 @@ func (e *WorkflowReleaseJobExecutor) Execute(plan *models.ReleasePlan) error {
 		if err := models.IToi(job.Spec, spec); err != nil {
 			return errors.Wrap(err, "invalid spec")
 		}
+		if spec.Workflow == nil {
+			return errors.Errorf("workflow is nil")
+		}
 		// workflow support retry after failed
 		if job.Status != config.ReleasePlanJobStatusTodo && job.Status != config.ReleasePlanJobStatusFailed {
 			return errors.Errorf("job %s status %s can't execute", job.Name, job.Status)
 		}
-		spec.TaskID = e.Spec.TaskID
+		// check workflow execute permission
+		ctx := e.Ctx
+		if !ctx.AuthResources.IsSystemAdmin {
+			if _, ok := ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project]; !ok {
+				return ErrPermissionDenied
+			}
+
+			if !ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project].IsProjectAdmin &&
+				!ctx.AuthResources.ProjectAuthInfo[spec.Workflow.Project].Workflow.Execute {
+				// check if the permission is given by collaboration mode
+				permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, spec.Workflow.Project, types.ResourceTypeWorkflow, spec.Workflow.Name, types.WorkflowActionRun)
+				if err != nil || !permitted {
+					return ErrPermissionDenied
+				}
+			}
+		}
+
+		result, err := workflow.CreateWorkflowTaskV4(&workflow.CreateWorkflowTaskV4Args{
+			Name:    ctx.UserName,
+			Account: ctx.Account,
+			UserID:  ctx.UserID,
+		}, spec.Workflow, log.SugaredLogger().With("source", "release plan"))
+		if err != nil {
+			return errors.Wrapf(err, "failed to create workflow task %s", spec.Workflow.Name)
+		}
+
+		spec.TaskID = result.TaskID
 		spec.Status = config.StatusPrepare
 		job.Spec = spec
 		job.Status = config.ReleasePlanJobStatusRunning
-		job.ExecutedBy = e.ExecutedBy
+		job.ExecutedBy = ctx.UserName
 		job.ExecutedTime = time.Now().Unix()
 		return nil
 	}

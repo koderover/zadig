@@ -18,12 +18,17 @@ package workflowcontroller
 
 import (
 	"context"
+	"fmt"
+	"regexp"
+	"strings"
 
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 )
+
+var reg = regexp.MustCompile(`{{\.job\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\.output\.IMAGE}}`)
 
 type CustomStageCtl struct {
 	stage       *commonmodels.StageTask
@@ -52,4 +57,24 @@ func (c *CustomStageCtl) Run(ctx context.Context, concurrency int) {
 
 	}
 	jobcontroller.RunJobs(ctx, c.stage.Jobs, c.workflowCtx, workerConcurrency, c.logger, c.ack)
+}
+
+func (c *CustomStageCtl) AfterRun() {
+	// set IMAGES workflow variable
+	// set after a stage has been done for build and some other type job maybe split to many job tasks in one stage
+	// after stage run, concurrent competition of workflowCtx.GlobalContext is not exist
+	
+	jobImages := map[string][]string{}
+	for k, v := range c.workflowCtx.GlobalContextGetAll() {
+		list := reg.FindStringSubmatch(k)
+		if len(list) > 0 {
+			jobImages[list[1]] = append(jobImages[list[1]], v)
+		}
+	}
+	for jobName, images := range jobImages {
+		key := fmt.Sprintf("{{.job.%s.IMAGES}}", jobName)
+		if _, ok := c.workflowCtx.GlobalContextGet(key); !ok {
+			c.workflowCtx.GlobalContextSet(key, strings.Join(images, ","))
+		}
+	}
 }

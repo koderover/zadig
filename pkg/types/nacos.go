@@ -27,4 +27,8 @@ type NacosConfig struct {
 	Desc    string `bson:"description,omitempty"   json:"description,omitempty"   yaml:"description,omitempty"`
 	Format  string `bson:"format,omitempty"        json:"format,omitempty"        yaml:"format,omitempty"`
 	Content string `bson:"content,omitempty"       json:"content,omitempty"       yaml:"content,omitempty"`
+
+	// for frontend
+	Diff        interface{} `bson:"diff,omitempty" json:"diff,omitempty" yaml:"diff,omitempty"`
+	Persistence interface{} `bson:"persistence,omitempty" json:"persistence,omitempty" yaml:"persistence,omitempty"`
 }

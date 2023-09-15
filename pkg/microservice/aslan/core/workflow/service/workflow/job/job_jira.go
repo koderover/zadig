@@ -70,7 +70,7 @@ func (j *JiraJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return nil, errors.New("需要指定至少一个 Jira Issue")
 	}
 	j.job.Spec = j.spec
-	info, err := mongodb.NewProjectManagementColl().GetJira()
+	info, err := mongodb.NewProjectManagementColl().GetJiraByID(j.spec.JiraID)
 	if err != nil {
 		return nil, errors.Errorf("get jira info error: %v", err)
 	}
@@ -86,6 +86,7 @@ func (j *JiraJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		JobType: string(config.JobJira),
 		Spec: &commonmodels.JobTaskJiraSpec{
 			ProjectID:    j.spec.ProjectID,
+			JiraID:       j.spec.JiraID,
 			IssueType:    j.spec.IssueType,
 			Issues:       j.spec.Issues,
 			TargetStatus: j.spec.TargetStatus,

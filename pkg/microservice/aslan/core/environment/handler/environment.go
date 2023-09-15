@@ -71,7 +71,7 @@ func ListProducts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -116,7 +116,7 @@ func ListProductionEnvs(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -174,7 +174,7 @@ func UpdateMultiProducts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -214,7 +214,7 @@ func UpdateMultiProductionProducts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -310,7 +310,7 @@ func CreateProduct(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -422,7 +422,7 @@ func CreateProductionProduct(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -509,7 +509,7 @@ func UpdateProduct(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -560,7 +560,7 @@ func UpdateProductRegistry(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -615,7 +615,7 @@ func UpdateProductionProductRegistry(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -667,7 +667,7 @@ func UpdateProductRecycleDay(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -716,7 +716,7 @@ func UpdateProductAlias(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -848,7 +848,7 @@ func SyncHelmProductRenderset(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -904,7 +904,7 @@ func UpdateHelmProductRenderset(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -960,7 +960,7 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1013,7 +1013,7 @@ func UpdateProductionHelmProductDefaultValues(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1063,7 +1063,7 @@ func PreviewHelmProductDefaultValues(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1112,7 +1112,7 @@ func PreviewProductionHelmProductDefaultValues(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1153,7 +1153,7 @@ func PreviewGlobalVariables(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1196,7 +1196,7 @@ func PreviewProductionEnvGlobalVariables(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1246,7 +1246,7 @@ func UpdateK8sProductGlobalVariables(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1296,7 +1296,7 @@ func UpdateProductionEnvK8sProductGlobalVariables(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1353,7 +1353,7 @@ func UpdateHelmProductCharts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1413,7 +1413,7 @@ func UpdateProductionEnvHelmProductCharts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1710,7 +1710,7 @@ func GetEnvironment(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1745,7 +1745,7 @@ func GetProductionEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1778,7 +1778,7 @@ func GetProductInfo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1812,7 +1812,7 @@ func GetHelmChartVersions(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1848,7 +1848,7 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1898,7 +1898,7 @@ func GetProductionEstimatedRenderCharts(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1940,12 +1940,22 @@ func GetProductionEstimatedRenderCharts(c *gin.Context) {
 	}
 }
 
+// @Summary Delete Product
+// @Description Delete Product
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	name			path		string							true	"env name"
+// @Param 	is_delete		query		string							true	"is delete"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name} [delete]
 func DeleteProduct(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -1981,7 +1991,7 @@ func DeleteProductionProduct(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -2022,7 +2032,7 @@ func DeleteProductServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -2085,7 +2095,7 @@ func DeleteProductionProductServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -2138,7 +2148,7 @@ func DeleteProductionHelmReleases(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -2172,7 +2182,7 @@ func ListGroups(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -2220,7 +2230,7 @@ func ListProductionGroups(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -2775,7 +2785,7 @@ func EnvSleep(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -2803,17 +2813,31 @@ func EnvSleep(c *gin.Context) {
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, method, "环境", envName, "", ctx.Logger, envName)
 
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
 
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
-			ctx.UnAuthorized = true
-			return
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Env.EditConfig {
+			permitted = true
 		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+		if err == nil && collaborationAuthorizedEdit {
+			permitted = true
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", false, ctx.Logger)
@@ -2834,7 +2858,7 @@ func ProductionEnvSleep(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -2862,17 +2886,31 @@ func ProductionEnvSleep(c *gin.Context) {
 	}
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneEnv, method, "生产环境", envName, "", ctx.Logger, envName)
 
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
 
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Env.EditConfig {
+			permitted = true
 		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
+		if err == nil && collaborationAuthorizedEdit {
+			permitted = true
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", true, ctx.Logger)
@@ -2892,7 +2930,7 @@ func GetEnvSleepCron(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -2910,17 +2948,31 @@ func GetEnvSleepCron(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
 
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Env.View {
-			ctx.UnAuthorized = true
-			return
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Env.View {
+			permitted = true
 		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedView, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionView)
+		if err == nil && collaborationAuthorizedView {
+			permitted = true
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, boolptr.False(), ctx.Logger)
@@ -2940,7 +2992,7 @@ func GetProductionEnvSleepCron(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -2958,17 +3010,31 @@ func GetProductionEnvSleepCron(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
 
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.View {
-			ctx.UnAuthorized = true
-			return
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Env.View {
+			permitted = true
 		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedView, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionView)
+		if err == nil && collaborationAuthorizedView {
+			permitted = true
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, boolptr.True(), ctx.Logger)
@@ -2989,7 +3055,7 @@ func UpsertEnvSleepCron(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -3007,19 +3073,6 @@ func UpsertEnvSleepCron(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].Env.EditConfig {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
-
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpsertEnvSleepCron c.GetRawData() err : %v", err)
@@ -3031,6 +3084,33 @@ func UpsertEnvSleepCron(c *gin.Context) {
 	err = c.BindJSON(arg)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
+		}
+
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Env.EditConfig {
+			permitted = true
+		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.EnvActionEditConfig)
+		if err == nil && collaborationAuthorizedEdit {
+			permitted = true
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
 		return
 	}
 
@@ -3052,7 +3132,7 @@ func UpsertProductionEnvSleepCron(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -3084,17 +3164,31 @@ func UpsertProductionEnvSleepCron(c *gin.Context) {
 		return
 	}
 
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-			ctx.UnAuthorized = true
-			return
+	permitted := false
+
+	if ctx.Resources.IsSystemAdmin {
+		permitted = true
+	} else if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectName]; ok {
+		// first check if the user is projectAdmin
+		if projectAuthInfo.IsProjectAdmin {
+			permitted = true
 		}
 
-		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectName].ProductionEnv.EditConfig {
-			ctx.UnAuthorized = true
-			return
+		// then check if user has edit workflow permission
+		if projectAuthInfo.Env.EditConfig {
+			permitted = true
 		}
+
+		// finally check if the permission is given by collaboration mode
+		collaborationAuthorizedEdit, err := internalhandler.CheckPermissionGivenByCollaborationMode(ctx.UserID, projectName, types.ResourceTypeEnvironment, types.ProductionEnvActionEditConfig)
+		if err == nil && collaborationAuthorizedEdit {
+			permitted = true
+		}
+	}
+
+	if !permitted {
+		ctx.UnAuthorized = true
+		return
 	}
 
 	ctx.Err = service.UpsertEnvSleepCron(projectName, envName, boolptr.True(), arg, ctx.Logger)

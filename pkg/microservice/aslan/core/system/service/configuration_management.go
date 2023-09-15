@@ -39,6 +39,9 @@ func CreateConfigurationManagement(args *commonmodels.ConfigurationManagement, l
 		return e.ErrCreateConfigurationManagement.AddErr(err)
 	}
 
+	if _, err := mongodb.NewConfigurationManagementColl().GetBySystemIdentity(args.SystemIdentity); err == nil {
+		return e.ErrCreateConfigurationManagement.AddErr(fmt.Errorf("can't set the same system identity"))
+	}
 	err := mongodb.NewConfigurationManagementColl().Create(context.Background(), args)
 	if err != nil {
 		log.Errorf("create configuration management error: %v", err)
@@ -66,7 +69,17 @@ func UpdateConfigurationManagement(id string, args *commonmodels.ConfigurationMa
 		return e.ErrUpdateConfigurationManagement.AddErr(err)
 	}
 
-	err := mongodb.NewConfigurationManagementColl().Update(context.Background(), id, args)
+	var oldSystemIdentity string
+	oldCm, err := mongodb.NewConfigurationManagementColl().GetByID(context.Background(), id)
+	if err == nil {
+		oldSystemIdentity = oldCm.SystemIdentity
+	}
+	if oldCm.SystemIdentity != "" && args.SystemIdentity != oldSystemIdentity {
+		if _, err := mongodb.NewConfigurationManagementColl().GetBySystemIdentity(args.SystemIdentity); err == nil {
+			return e.ErrUpdateConfigurationManagement.AddErr(fmt.Errorf("can't set the same system identity"))
+		}
+	}
+	err = mongodb.NewConfigurationManagementColl().Update(context.Background(), id, args)
 	if err != nil {
 		log.Errorf("update configuration management error: %v", err)
 		return e.ErrUpdateConfigurationManagement.AddErr(err)

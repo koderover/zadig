@@ -216,7 +216,7 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 	}
 	approval := plan.Approval.NativeApproval
 
-	func() {
+	go func() {
 		email, err := systemconfig.New().GetEmailHost()
 		if err != nil {
 			log.Errorf("CreateNativeApproval GetEmailHost error, error msg:%s", err)
@@ -449,7 +449,7 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 		}
 		if finalInstance.ApproveOrReject == config.Reject && !isApprove {
 			approval.Status = config.StatusReject
-			return errors.New("Approval has been rejected")
+			return nil
 		}
 		return errors.New("check final larkApproval status failed")
 	}
