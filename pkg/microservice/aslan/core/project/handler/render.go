@@ -16,27 +16,17 @@ limitations under the License.
 
 package handler
 
-import (
-	"strconv"
-
-	"github.com/gin-gonic/gin"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	e "github.com/koderover/zadig/pkg/tool/errors"
-)
-
 // Deprecated apis
 // TODO: remove this file
 
-func GetRenderSetInfo(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	//默认取revision最大的渲染集
-	revision, err := strconv.ParseInt(c.Param("revision"), 10, 64)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
-		return
-	}
-	ctx.Resp, ctx.Err = render.GetRenderSetInfo(c.Param("name"), revision)
-}
+//func GetRenderSetInfo(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//	//默认取revision最大的渲染集
+//	revision, err := strconv.ParseInt(c.Param("revision"), 10, 64)
+//	if err != nil {
+//		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
+//		return
+//	}
+//	ctx.Resp, ctx.Err = render.GetRenderSetInfo(c.Param("name"), revision)
+//}

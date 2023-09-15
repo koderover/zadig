@@ -1018,19 +1018,19 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 	}
 
 	productInfo.EnsureRenderInfo()
-	rendersetInfo, exists, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-		ProductTmpl: productName,
-		EnvName:     envName,
-		IsDefault:   false,
-		Name:        productInfo.Render.Name,
-		Revision:    productInfo.Render.Revision,
-	})
-	if err != nil {
-		return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find renderset for env %s:%s", productName, envName))
-	}
-	if !exists {
-		rendersetInfo = &models.RenderSet{}
-	}
+	//rendersetInfo, exists, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+	//	ProductTmpl: productName,
+	//	EnvName:     envName,
+	//	IsDefault:   false,
+	//	Name:        productInfo.Render.Name,
+	//	Revision:    productInfo.Render.Revision,
+	//})
+	//if err != nil {
+	//	return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find renderset for env %s:%s", productName, envName))
+	//}
+	//if !exists {
+	//	rendersetInfo = &models.RenderSet{}
+	//}
 
 	svcModulesMap := make(map[string]map[string]*commonmodels.Container)
 	templateSvcMap := make(map[string]*commonmodels.Service)
@@ -1079,14 +1079,16 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		return false
 	}
 
-	variables := func(svcName string) (string, []*commontypes.RenderVariableKV, string, []*commontypes.RenderVariableKV, error) {
-		svcRender := rendersetInfo.GetServiceRenderMap()[svcName]
-		if svcRender == nil {
-			svcRender = &template.ServiceRender{
-				ServiceName:  svcName,
-				OverrideYaml: &template.CustomYaml{},
-			}
-		}
+	variables := func(prodSvc *commonmodels.ProductService) (string, []*commontypes.RenderVariableKV, string, []*commontypes.RenderVariableKV, error) {
+		svcName := prodSvc.ServiceName
+		svcRender := prodSvc.GetServiceRender()
+		//svcRender := rendersetInfo.GetServiceRenderMap()[svcName]
+		//if svcRender == nil {
+		//	svcRender = &template.ServiceRender{
+		//		ServiceName:  svcName,
+		//		OverrideYaml: &template.CustomYaml{},
+		//	}
+		//}
 
 		getVarsAndKVs := func(svcName string, updateSvcRevision bool) (string, []*commontypes.RenderVariableKV, error) {
 			var tmplSvc *commonmodels.Service
@@ -1124,67 +1126,70 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		return svcRenderYaml, kvs, latestSvcRenderYaml, latestKvs, nil
 	}
 
-	values := func(svcName string) (string, []*commonmodels.VariableKV, string, []*commonmodels.VariableKV, error) {
-		currentValues := ""
-		latestValues := ""
-
-		svcRender := rendersetInfo.GetServiceRenderMap()[svcName]
-		if svcRender != nil {
-			currentValues = svcRender.ValuesYaml
-		}
-
-		getValuesAndKVs := func(svcName string, updateSvcRevision bool) (string, []*commonmodels.VariableKV, error) {
-			var tmplSvc *commonmodels.Service
-			if updateSvcRevision {
-				tmplSvc = templateSvcMap[svcName]
-			} else {
-				tmplSvc = productTemplateSvcMap[svcName]
-			}
-			if tmplSvc != nil {
-				latestValues = tmplSvc.HelmChart.ValuesYaml
-			} else {
-				log.Errorf("failed to find service %s in template service, updateRevision: %v", svcName, updateSvcRevision)
-				tmplSvc = &commonmodels.Service{
-					ServiceName: svcName,
-				}
-			}
-
-			mergedValues := ""
-			if newSvcKVsMap[svcName] == nil {
-				// config phase
-				mergedBs, err := util.OverrideValues([]byte(currentValues), []byte(latestValues))
-				if err != nil {
-					return "", nil, errors.Wrapf(err, "failed to override values")
-				}
-				mergedValues = string(mergedBs)
-			} else {
-				// "exec" phase
-				mergedValues, err = prefixOverride(latestValues, currentValues, newSvcKVsMap[svcName])
-				if err != nil {
-					return "", nil, errors.Wrapf(err, "failed to partial override values yaml for service %s", svcName)
-				}
-			}
-
-			kvs, err := kube.GeneKVFromYaml(mergedValues)
-			if err != nil {
-				return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to gene kvs from yaml, err %s", err))
-			}
-			return mergedValues, kvs, nil
-		}
-
-		mergeValues, kvs, err := getValuesAndKVs(svcName, false)
-		if err != nil {
-			return "", nil, "", nil, fmt.Errorf("failed to get values and kvs for service %s, updateSvcRevision %v: %w", svcName, false, err)
-		}
-		latestMergeValues, latestKvs, err := getValuesAndKVs(svcName, true)
-		if err != nil {
-			return "", nil, "", nil, fmt.Errorf("failed to get values and kvs for service %s, updateSvcRevision %v: %w", svcName, true, err)
-		}
-
-		return mergeValues, kvs, latestMergeValues, latestKvs, nil
-	}
-	// TODO FIXME refactor helm values
-	_ = values
+	//values := func(prodSvc *commonmodels.ProductService) (string, []*commonmodels.VariableKV, string, []*commonmodels.VariableKV, error) {
+	//	currentValues := ""
+	//	latestValues := ""
+	//
+	//	svcName, svcRender := prodSvc.ServiceName, prodSvc.GetServiceRender()
+	//	currentValues = svcRender.ValuesYaml
+	//
+	//	//svcRender := rendersetInfo.GetServiceRenderMap()[svcName]
+	//	//if svcRender != nil {
+	//	//	currentValues = svcRender.ValuesYaml
+	//	//}
+	//
+	//	getValuesAndKVs := func(svcName string, updateSvcRevision bool) (string, []*commonmodels.VariableKV, error) {
+	//		var tmplSvc *commonmodels.Service
+	//		if updateSvcRevision {
+	//			tmplSvc = templateSvcMap[svcName]
+	//		} else {
+	//			tmplSvc = productTemplateSvcMap[svcName]
+	//		}
+	//		if tmplSvc != nil {
+	//			latestValues = tmplSvc.HelmChart.ValuesYaml
+	//		} else {
+	//			log.Errorf("failed to find service %s in template service, updateRevision: %v", svcName, updateSvcRevision)
+	//			tmplSvc = &commonmodels.Service{
+	//				ServiceName: svcName,
+	//			}
+	//		}
+	//
+	//		mergedValues := ""
+	//		if newSvcKVsMap[svcName] == nil {
+	//			// config phase
+	//			mergedBs, err := util.OverrideValues([]byte(currentValues), []byte(latestValues))
+	//			if err != nil {
+	//				return "", nil, errors.Wrapf(err, "failed to override values")
+	//			}
+	//			mergedValues = string(mergedBs)
+	//		} else {
+	//			// "exec" phase
+	//			mergedValues, err = prefixOverride(latestValues, currentValues, newSvcKVsMap[svcName])
+	//			if err != nil {
+	//				return "", nil, errors.Wrapf(err, "failed to partial override values yaml for service %s", svcName)
+	//			}
+	//		}
+	//
+	//		kvs, err := kube.GeneKVFromYaml(mergedValues)
+	//		if err != nil {
+	//			return "", nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to gene kvs from yaml, err %s", err))
+	//		}
+	//		return mergedValues, kvs, nil
+	//	}
+	//
+	//	mergeValues, kvs, err := getValuesAndKVs(svcName, false)
+	//	if err != nil {
+	//		return "", nil, "", nil, fmt.Errorf("failed to get values and kvs for service %s, updateSvcRevision %v: %w", svcName, false, err)
+	//	}
+	//	latestMergeValues, latestKvs, err := getValuesAndKVs(svcName, true)
+	//	if err != nil {
+	//		return "", nil, "", nil, fmt.Errorf("failed to get values and kvs for service %s, updateSvcRevision %v: %w", svcName, true, err)
+	//	}
+	//
+	//	return mergeValues, kvs, latestMergeValues, latestKvs, nil
+	//}
+	//// TODO FIXME refactor helm values
+	//_ = values
 
 	// get all service values info
 
@@ -1200,7 +1205,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		}
 
 		if deployType == setting.K8SDeployType {
-			svc.VariableYaml, svc.VariableKVs, svc.LatestVariableYaml, svc.LatestVariableKVs, err = variables(serviceName)
+			svc.VariableYaml, svc.VariableKVs, svc.LatestVariableYaml, svc.LatestVariableKVs, err = variables(productSvc)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
 			}

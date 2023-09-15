@@ -369,27 +369,30 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		return err
 	}
 
-	curRender, err := render.GetRenderSetInfo(exitedProd.Render.Name, exitedProd.Render.Revision)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to get render set, render name: %s, revision: %d, error: %w", exitedProd.Render.Name, exitedProd.Render.Revision, err))
-	}
+	//curRender, err := render.GetRenderSetInfo(exitedProd.Render.Name, exitedProd.Render.Revision)
+	//if err != nil {
+	//	return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to get render set, render name: %s, revision: %d, error: %w", exitedProd.Render.Name, exitedProd.Render.Revision, err))
+	//}
 
-	curSvcRenderMap := make(map[string]*templatemodels.ServiceRender)
-	for _, svcRender := range curRender.ServiceVariables {
-		curSvcRenderMap[svcRender.ServiceName] = svcRender
-	}
+	//curSvcRenderMap := make(map[string]*templatemodels.ServiceRender)
+	//for _, svcRender := range curRender.ServiceVariables {
+	//	curSvcRenderMap[svcRender.ServiceName] = svcRender
+	//}
 
 	updateRevisionSvcSet := sets.NewString(updateRevisionSvc...)
 
 	// @fixme improve update revision and filter logic
 	// merge render variable and global variable
 	for _, svc := range updatedSvcs {
-		curSvcRender, ok := curSvcRenderMap[svc.ServiceName]
-		if !ok {
-			curSvcRender = &templatemodels.ServiceRender{
-				OverrideYaml: &templatemodels.CustomYaml{},
-			}
-		}
+
+		curSvcRender := exitedProd.GetSvcRender(svc.ServiceName)
+
+		//curSvcRender, ok := curSvcRenderMap[svc.ServiceName]
+		//if !ok {
+		//	curSvcRender = &templatemodels.ServiceRender{
+		//		OverrideYaml: &templatemodels.CustomYaml{},
+		//	}
+		//}
 
 		if updateRevisionSvcSet.Has(svc.ServiceName) {
 			svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{

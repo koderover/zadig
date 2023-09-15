@@ -33,38 +33,38 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func GetRenderSet(renderName string, revision int64, isDefault bool, envName string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
-	if renderName == "" {
-		return &commonmodels.RenderSet{}, nil
-	}
-	opt := &commonrepo.RenderSetFindOption{
-		Name:      renderName,
-		Revision:  revision,
-		IsDefault: isDefault,
-		EnvName:   envName,
-	}
-	resp, found, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil {
-		return nil, err
-	} else if !found {
-		return &commonmodels.RenderSet{}, nil
-	}
+//func GetRenderSet(renderName string, revision int64, isDefault bool, envName string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+//	if renderName == "" {
+//		return &commonmodels.RenderSet{}, nil
+//	}
+//	opt := &commonrepo.RenderSetFindOption{
+//		Name:      renderName,
+//		Revision:  revision,
+//		IsDefault: isDefault,
+//		EnvName:   envName,
+//	}
+//	resp, found, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+//	if err != nil {
+//		return nil, err
+//	} else if !found {
+//		return &commonmodels.RenderSet{}, nil
+//	}
+//
+//	return resp, nil
+//}
 
-	return resp, nil
-}
-
-func GetRenderSetInfo(renderName string, revision int64) (*commonmodels.RenderSet, error) {
-	opt := &commonrepo.RenderSetFindOption{
-		Name:     renderName,
-		Revision: revision,
-	}
-	resp, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		return resp, err
-	}
-
-	return resp, nil
-}
+//func GetRenderSetInfo(renderName string, revision int64) (*commonmodels.RenderSet, error) {
+//	opt := &commonrepo.RenderSetFindOption{
+//		Name:     renderName,
+//		Revision: revision,
+//	}
+//	resp, err := commonrepo.NewRenderSetColl().Find(opt)
+//	if err != nil {
+//		return resp, err
+//	}
+//
+//	return resp, nil
+//}
 
 func mergeServiceVariables(newVariables []*templatemodels.ServiceRender, oldVariables []*templatemodels.ServiceRender) []*templatemodels.ServiceRender {
 	allVarMap := make(map[string]*templatemodels.ServiceRender)
@@ -85,9 +85,7 @@ func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger
 	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl, EnvName: args.EnvName}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
 	if rs != nil && err == nil {
-		if rs.K8sServiceRenderDiff(args) {
-			args.IsDefault = rs.IsDefault
-		} else {
+		if !rs.K8sServiceRenderDiff(args) {
 			args.Revision = rs.Revision
 			return args, nil
 		}

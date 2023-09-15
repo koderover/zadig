@@ -119,17 +119,17 @@ func (c *RenderSetColl) EnsureIndex(ctx context.Context) error {
 //	return resp, nil
 //}
 
-func (c *RenderSetColl) FindRenderSet(opt *RenderSetFindOption) (*models.RenderSet, bool, error) {
-	res, err := c.Find(opt)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, false, nil
-		}
-		return nil, false, err
-	}
-
-	return res, true, nil
-}
+//func (c *RenderSetColl) FindRenderSet(opt *RenderSetFindOption) (*models.RenderSet, bool, error) {
+//	res, err := c.Find(opt)
+//	if err != nil {
+//		if err == mongo.ErrNoDocuments {
+//			return nil, false, nil
+//		}
+//		return nil, false, err
+//	}
+//
+//	return res, true, nil
+//}
 
 func (c *RenderSetColl) Find(opt *RenderSetFindOption) (*models.RenderSet, error) {
 	if opt == nil {
@@ -179,19 +179,19 @@ func (c *RenderSetColl) Create(args *models.RenderSet) error {
 }
 
 // use it in caution, it won't update revision
-func (c *RenderSetColl) Update(args *models.RenderSet) error {
-	query := bson.M{"name": args.Name, "revision": args.Revision}
-	change := bson.M{"$set": bson.M{
-		"chart_infos":       args.ChartInfos,
-		"service_variables": args.ServiceVariables,
-		"update_time":       time.Now().Unix(),
-		"update_by":         args.UpdateBy,
-	}}
-
-	_, err := c.UpdateOne(context.TODO(), query, change)
-
-	return err
-}
+//func (c *RenderSetColl) Update(args *models.RenderSet) error {
+//	query := bson.M{"name": args.Name, "revision": args.Revision}
+//	change := bson.M{"$set": bson.M{
+//		"chart_infos":       args.ChartInfos,
+//		"service_variables": args.ServiceVariables,
+//		"update_time":       time.Now().Unix(),
+//		"update_by":         args.UpdateBy,
+//	}}
+//
+//	_, err := c.UpdateOne(context.TODO(), query, change)
+//
+//	return err
+//}
 
 //func (c *RenderSetColl) SetDefault(renderTmplName, productTmplName string) error {
 //	query := bson.M{"name": renderTmplName, "product_tmpl": productTmplName}
