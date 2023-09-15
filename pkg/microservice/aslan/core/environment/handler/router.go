@@ -137,6 +137,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	production := router.Group("production")
 	{
 		production.POST("/environments", CreateProductionProduct)
+		production.POST("/environments/namespace/validate", ValidateProductionNamespace)
 
 		production.PUT("/environments", UpdateMultiProductionProducts)
 		production.PUT("/environments/:name/services", DeleteProductionProductServices)
