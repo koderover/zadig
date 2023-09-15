@@ -142,34 +142,12 @@ func UpdateMultiProductionProducts(c *gin.Context) {
 	updateMultiEnvWrapper(c, request, true, ctx)
 }
 
-func checkNamespaceUsed(clusterID, namespace string) string {
-	productionEnvs, err := mongodb.NewProductColl().ListProductByNamespace(clusterID, namespace)
-	if err != nil {
-		log.Errorf("failed to find ")
-		return ""
-	}
-
-	geneEnvDes := func(env *commonmodels.Product) string {
-		return fmt.Sprintf("%s/%s", env.ProductName, env.EnvName)
-	}
-
-	retStr := ""
-	if len(productionEnvs) > 0 {
-		nsStrs := make([]string, 0)
-		for _, env := range productionEnvs {
-			nsStrs = append(nsStrs, geneEnvDes(env))
-		}
-		retStr = fmt.Sprintf("命名空间%s已被以下环境使用: [%s]，请确认后再操作", namespace, strings.Join(nsStrs, ","))
-	}
-	return retStr
-}
-
 func ensureProductionNamespace(createArgs []*service.CreateSingleProductArg) error {
 	for _, arg := range createArgs {
-		//namespace, err := service.ListNamespaceFromCluster(arg.ClusterID)
-		//if err != nil {
-		//	return err
-		//}
+		namespace, err := service.ListNamespaceFromCluster(arg.ClusterID)
+		if err != nil {
+			return err
+		}
 
 		// 1. check specified namespace
 		filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
@@ -188,27 +166,26 @@ func ensureProductionNamespace(createArgs []*service.CreateSingleProductArg) err
 		}
 
 		// 3. check production namespace
-		//productionEnvs, err := mongodb.NewProductColl().ListProductByNamespace(arg.ClusterID, arg.Namespace)
-		//if err != nil {
-		//	return err
-		//}
-
-		//filterK8sNamespaces.Insert(productionEnvs...)
-		//if filterK8sNamespaces.Has(arg.Namespace) {
-		//	return fmt.Errorf("namespace %s is invalid, it has been used for other production environment", arg.Namespace)
-		//}
+		productionEnvs, err := mongodb.NewProductColl().ListProductionNamespace(arg.ClusterID)
+		if err != nil {
+			return err
+		}
+		filterK8sNamespaces.Insert(productionEnvs...)
+		if filterK8sNamespaces.Has(arg.Namespace) {
+			return fmt.Errorf("namespace %s is invalid, it has been used for other production environment", arg.Namespace)
+		}
 
 		// 4. check namespace created by koderover
-		//for _, ns := range namespace {
-		//	if ns.Name == arg.Namespace {
-		//		if value, IsExist := ns.Labels[setting.EnvCreatedBy]; IsExist {
-		//			if value == setting.EnvCreator {
-		//				return fmt.Errorf("namespace %s is invalid, namespace created by koderover cannot be used", arg.Namespace)
-		//			}
-		//		}
-		//		return nil
-		//	}
-		//}
+		for _, ns := range namespace {
+			if ns.Name == arg.Namespace {
+				if value, IsExist := ns.Labels[setting.EnvCreatedBy]; IsExist {
+					if value == setting.EnvCreator {
+						return fmt.Errorf("namespace %s is invalid, namespace created by koderover cannot be used", arg.Namespace)
+					}
+				}
+				return nil
+			}
+		}
 
 		//5. arg.namespace is not in valid namespace list
 		//return fmt.Errorf("namespace %s does not belong to legal namespace", arg.Namespace)
@@ -364,13 +341,6 @@ func CreateProduct(c *gin.Context) {
 
 		ctx.Err = service.CreateProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
 	}
-}
-
-func ValidateProductionNamespace(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp = checkNamespaceUsed(c.Query("clusterId"), c.Query("namespace"))
 }
 
 func CreateProductionProduct(c *gin.Context) {
