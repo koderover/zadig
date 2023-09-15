@@ -1,10 +1,20 @@
 package jenkins
 
+import "github.com/koderover/zadig/pkg/microservice/aslan/config"
+
+type ParameterType string
+
 var (
-	Choice = "ChoiceParameterDefinition"
-	Bool   = "BooleanParameterDefinition"
-	Text   = "TextParameterDefinition"
+	Choice ParameterType = "ChoiceParameterDefinition"
+	Bool   ParameterType = "BooleanParameterDefinition"
+	Text   ParameterType = "TextParameterDefinition"
 )
+
+var ParameterTypeMap = map[ParameterType]config.ParamType{
+	Choice: config.ParamTypeChoice,
+	Bool:   config.ParamTypeBool,
+	Text:   config.ParamTypeString,
+}
 
 type ListJobsResp struct {
 	Class string `json:"_class"`
@@ -65,15 +75,15 @@ func (j Job) GetParameters() []ParameterDefinitions {
 }
 
 type DefaultParameterValue struct {
-	Class string `json:"_class"`
-	Value bool   `json:"value"`
+	Class string      `json:"_class"`
+	Value interface{} `json:"value"`
 }
 type ParameterDefinitions struct {
 	Class                 string                `json:"_class"`
 	DefaultParameterValue DefaultParameterValue `json:"defaultParameterValue"`
 	Description           string                `json:"description"`
 	Name                  string                `json:"name"`
-	Type                  string                `json:"type"`
+	Type                  ParameterType         `json:"type"`
 	Choices               []string              `json:"choices,omitempty"`
 }
 type Actions struct {

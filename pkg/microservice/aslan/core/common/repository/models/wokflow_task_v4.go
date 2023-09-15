@@ -455,8 +455,9 @@ type JobTaskJenkinsSpec struct {
 }
 
 type JobTaskJenkinsJobInfo struct {
-	JobName   string `bson:"job_name" json:"job_name" yaml:"job_name"`
-	JobOutput string `bson:"job_output" json:"job_output" yaml:"job_output"`
+	JobName   string                 `bson:"job_name" json:"job_name" yaml:"job_name"`
+	JobOutput string                 `bson:"job_output" json:"job_output" yaml:"job_output"`
+	Parameter []*JenkinsJobParameter `bson:"parameter" json:"parameter" yaml:"parameter"`
 }
 
 type JobTaskWorkflowTriggerSpec struct {
