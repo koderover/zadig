@@ -567,3 +567,22 @@ func (c *ProductColl) ListProductionNamespace(clusterID string) ([]string, error
 	}
 	return resp.List(), nil
 }
+
+func (c *ProductColl) ListProductByNamespace(clusterID string, namespace string) ([]*models.Product, error) {
+	ret := make([]*models.Product, 0)
+	query := bson.M{"cluster_id": clusterID, "namespace": namespace}
+	opt := options.Find()
+	ctx := context.Background()
+
+	cursor, err := c.Collection.Find(ctx, query, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &ret)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
