@@ -108,12 +108,15 @@ type PmHealthCheck struct {
 }
 
 type PrivateKeyHosts struct {
-	ID           primitive.ObjectID   `json:"id,omitempty"`
-	IP           string               `json:"ip"`
-	Port         int64                `json:"port"`
-	Status       setting.PMHostStatus `json:"status"`
-	Probe        *types.Probe         `json:"probe"`
-	UpdateStatus bool                 `json:"update_status"`
+	ID           primitive.ObjectID    `json:"id,omitempty"`
+	IP           string                `json:"ip"`
+	Port         int64                 `json:"port"`
+	Status       setting.PMHostStatus  `json:"status"`
+	Error        string                `json:"error"`
+	Probe        *types.Probe          `json:"probe"`
+	UpdateStatus bool                  `json:"update_status"`
+	Agent        *commonmodels.VMAgent `json:"agent,omitempty"`
+	Type         string                `json:"type"`
 }
 
 type EnvStatus struct {

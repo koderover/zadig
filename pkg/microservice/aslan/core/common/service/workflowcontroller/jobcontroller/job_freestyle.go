@@ -34,7 +34,9 @@ import (
 	zadigconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	vmmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/vm"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	vmmongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/stepcontroller"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -86,11 +88,23 @@ func (c *FreestyleJobCtl) Run(ctx context.Context) {
 	if err := c.prepare(ctx); err != nil {
 		return
 	}
-	if err := c.run(ctx); err != nil {
-		return
+
+	// check the job is k8s job or vm job
+	if c.job.Infrastructure == setting.JobVMInfrastructure {
+		var vmJobID string
+		var err error
+		if vmJobID, err = c.runVMjob(ctx); err != nil {
+			return
+		}
+		c.vmJobWait(ctx, vmJobID)
+		c.vmComplete(ctx, vmJobID)
+	} else {
+		if err := c.run(ctx); err != nil {
+			return
+		}
+		c.wait(ctx)
+		c.complete(ctx)
 	}
-	c.wait(ctx)
-	c.complete(ctx)
 }
 
 func (c *FreestyleJobCtl) prepare(ctx context.Context) error {
@@ -242,6 +256,40 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 	return nil
 }
 
+func (c *FreestyleJobCtl) runVMjob(ctx context.Context) (string, error) {
+	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.jobTaskSpec, c.job, c.workflowCtx, c.logger))
+	if err != nil {
+		msg := fmt.Sprintf("cannot Jobexcutor.Context data: %v", err)
+		logError(c.job, msg, c.logger)
+		return "", errors.New(msg)
+	}
+	jobInfo := new(commonmodels.TaskJobInfo)
+	if err := commonmodels.IToi(c.job.JobInfo, jobInfo); err != nil {
+		return "", fmt.Errorf("convert job info to task job info error: %v", err)
+	}
+
+	vmJob := new(vmmodels.VMJob)
+	if c.workflowCtx != nil {
+		vmJob.ProjectName = c.workflowCtx.ProjectName
+		vmJob.WorkflowName = c.workflowCtx.WorkflowName
+		vmJob.TaskID = c.workflowCtx.TaskID
+		vmJob.JobName = c.job.Name
+		vmJob.JobType = c.job.JobType
+		vmJob.JobOriginName = jobInfo.JobName
+	}
+
+	vmJob.JobCtx = string(jobCtxBytes)
+	vmJob.VMLabels = c.job.VMLabels
+	vmJob.Status = setting.VMJobStatusCreated
+
+	if err := vmmongodb.NewVMJobColl().Create(vmJob); err != nil {
+		msg := fmt.Sprintf("create vm job error: %v", err)
+		logError(c.job, msg, c.logger)
+		return "", errors.New(msg)
+	}
+	return vmJob.ID.Hex(), nil
+}
+
 func (c *FreestyleJobCtl) wait(ctx context.Context) {
 	var err error
 	taskTimeout := time.After(time.Duration(c.jobTaskSpec.Properties.Timeout) * time.Minute)
@@ -255,6 +303,39 @@ func (c *FreestyleJobCtl) wait(ctx context.Context) {
 		return
 	}
 	c.job.Status, c.job.Error = waitJobEndByCheckingConfigMap(ctx, taskTimeout, c.jobTaskSpec.Properties.Namespace, c.job.K8sJobName, true, c.kubeclient, c.clientset, c.restConfig, c.informer, c.job, c.ack, c.logger)
+}
+
+func (c *FreestyleJobCtl) vmJobWait(ctx context.Context, jobID string) {
+	var err error
+	timeout := time.After(time.Duration(c.jobTaskSpec.Properties.Timeout) * time.Minute)
+
+	// check job whether start
+	c.job.Status, err = waitVMJobStart(ctx, jobID, timeout, c.job, c.logger)
+	if err != nil {
+		c.job.Error = err.Error()
+	}
+	if c.job.Status == config.StatusRunning {
+		c.ack()
+	} else {
+		return
+	}
+
+	c.job.Status, c.job.Error = waitVMJobEndByCheckStatus(ctx, jobID, timeout, c.job, c.ack, c.logger)
+
+	switch c.job.Status {
+	case config.StatusCancelled:
+		err := vmmongodb.NewVMJobColl().UpdateStatus(jobID, string(config.StatusCancelled))
+		if err != nil {
+			c.logger.Errorf("update vm job status error: %v", err)
+			c.job.Error = fmt.Errorf("update vm job status %s error: %v", string(config.StatusCancel), err).Error()
+		}
+	case config.StatusTimeout:
+		err := vmmongodb.NewVMJobColl().UpdateStatus(jobID, string(config.StatusTimeout))
+		if err != nil {
+			c.logger.Errorf("update vm job status error: %v", err)
+			c.job.Error = fmt.Errorf("update vm job status %s error: %v", string(config.StatusTimeout), err).Error()
+		}
+	}
 }
 
 func (c *FreestyleJobCtl) complete(ctx context.Context) {
@@ -293,6 +374,43 @@ func (c *FreestyleJobCtl) complete(ctx context.Context) {
 		c.job.Error = err.Error()
 		return
 	}
+}
+
+func (c *FreestyleJobCtl) vmComplete(ctx context.Context, jobID string) {
+	defer func() {
+		go func() {
+			if err := vmmongodb.NewVMJobColl().DeleteByID(jobID, string(c.job.Status)); err != nil {
+				c.logger.Error(fmt.Errorf("delete vm job error: %v", err))
+			}
+		}()
+	}()
+
+	// get job outputs info from job db
+	if err := getVMJobOutputFromJobDB(jobID, c.job.Name, c.job, c.workflowCtx); err != nil {
+		c.logger.Error(fmt.Errorf("get job outputs from job db error: %v", err))
+		c.job.Status, c.job.Error = config.StatusFailed, fmt.Errorf("get job outputs from job db error: %v", err).Error()
+	}
+
+	// summarize steps
+	if err := stepcontroller.SummarizeSteps(ctx, c.workflowCtx, &c.jobTaskSpec.Properties.Paths, c.job.Name, c.jobTaskSpec.Steps, c.logger); err != nil {
+		c.logger.Error(err)
+		c.job.Error = err.Error()
+		return
+	}
+}
+
+func getVMJobOutputFromJobDB(jobID, jobName string, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx) error {
+	vmJob, err := vmmongodb.NewVMJobColl().FindByID(jobID)
+	if err != nil {
+		return err
+	}
+	if vmJob == nil {
+		return errors.New("vm job not found")
+	}
+	outputs := vmJob.Outputs
+	writeOutputs(outputs, job.Key, workflowCtx)
+
+	return nil
 }
 
 func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger) *JobContext {
