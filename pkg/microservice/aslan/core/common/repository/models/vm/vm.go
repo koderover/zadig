@@ -1,17 +1,17 @@
-package host
+package vm
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
-type ZadigHost struct {
+type ZadigVM struct {
 	ID                primitive.ObjectID `bson:"_id,omitempty"        json:"id,omitempty"`
 	Token             string             `bson:"token"                json:"-"`
 	Name              string             `bson:"name"                 json:"name"`
 	Description       string             `bson:"description"          json:"description"`
 	Provider          string             `bson:"provider"             json:"provider"`
 	Tags              []string           `bson:"tags"                 json:"tags"`
-	HostIP            string             `bson:"host_ip"              json:"host_ip"`
-	HostPort          int                `bson:"host_port"            json:"host_port"`
-	HostUser          string             `bson:"host_user"            json:"host_user"`
+	IP                string             `bson:"ip"                   json:"ip"`
+	Port              int                `bson:"port"                 json:"port"`
+	User              string             `bson:"user"                 json:"user"`
 	SSHPrivateKey     string             `bson:"ssh_private_key"      json:"ssh_private_key"`
 	ScheduleWorkflow  bool               `bson:"schedule_workflow"    json:"schedule_workflow"`
 	Workspace         string             `bson:"workspace"            json:"workspace"`
@@ -26,11 +26,11 @@ type ZadigHost struct {
 	CreatedBy         string             `bson:"created_by"           json:"created_by"`
 	UpdateTime        int64              `bson:"update_time"          json:"update_time"`
 	UpdateBy          string             `bson:"update_by"            json:"update_by"`
-	HostInfo          *HostInfo          `bson:"host_info"            json:"host_info"`
+	VMInfo            *VMInfo            `bson:"vm_info"              json:"vm_info"`
 	LastHeartbeatTime int64              `bson:"last_heartbeat_time"  json:"last_heartbeat_time"`
 }
 
-type HostInfo struct {
+type VMInfo struct {
 	IP            string `bson:"ip"                   json:"ip"`
 	Platform      string `bson:"platform"             json:"platform"`
 	Architecture  string `bson:"architecture"         json:"architecture"`
@@ -39,9 +39,9 @@ type HostInfo struct {
 	CpuNum        int    `bson:"cpu_num"              json:"cpu_num"`
 	DiskSpace     uint64 `bson:"disk_space"           json:"disk_space"`
 	FreeDiskSpace uint64 `bson:"free_disk_space"      json:"free_disk_space"`
-	Hostname      string `bson:"hostname"             json:"hostname"`
+	VMname        string `bson:"vm_name"              json:"vm_name"`
 }
 
-func (ZadigHost) TableName() string {
+func (ZadigVM) TableName() string {
 	return "zadig_host"
 }

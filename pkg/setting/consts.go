@@ -818,18 +818,18 @@ const (
 
 const (
 	// vm status
-	HostCreated    = "created"
-	HostRegistered = "registered"
-	HostNomal      = "normal"
-	HostAbnormal   = "abnormal"
-	HostOffline    = "offline"
+	VMCreated    = "created"
+	VMRegistered = "registered"
+	VMNomal      = "normal"
+	VMAbnormal   = "abnormal"
+	VMOffline    = "offline"
 
 	AgentDefaultHeartbeatTimeout = 10
 
 	// vm job status
-	HostJobStatusCreated     = "created"
-	HostJobStatusDistributed = "distributed"
-	HostJobStatusRunning     = "running"
-	HostJobStatusSuccess     = "success"
-	HostJobStatusFailed      = "failed"
+	VMJobStatusCreated     = "created"
+	VMJobStatusDistributed = "distributed"
+	VMJobStatusRunning     = "running"
+	VMJobStatusSuccess     = "success"
+	VMJobStatusFailed      = "failed"
 )

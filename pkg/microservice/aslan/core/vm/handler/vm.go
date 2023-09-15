@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/host"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/vm"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/vm/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -279,7 +279,7 @@ func CreateWfJob2DB(c *gin.Context) {
 		return
 	}
 
-	args := new(host.HostJob)
+	args := new(vm.VMJob)
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = fmt.Errorf("invalid request: %s", err)
 		return

@@ -1,10 +1,10 @@
-package host
+package vm
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/host"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/vm"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -14,25 +14,25 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type ZadigHostColl struct {
+type ZadigVMColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewZadigHostColl() *ZadigHostColl {
-	name := host.ZadigHost{}.TableName()
-	return &ZadigHostColl{
+func NewZadigVMColl() *ZadigVMColl {
+	name := vm.ZadigVM{}.TableName()
+	return &ZadigVMColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
 }
 
-func (c *ZadigHostColl) GetCollectionName() string {
+func (c *ZadigVMColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *ZadigHostColl) EnsureIndex(ctx context.Context) error {
+func (c *ZadigVMColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "name", Value: 1},
@@ -46,7 +46,7 @@ func (c *ZadigHostColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *ZadigHostColl) Create(obj *host.ZadigHost) error {
+func (c *ZadigVMColl) Create(obj *vm.ZadigVM) error {
 	if obj == nil {
 		return nil
 	}
@@ -55,7 +55,7 @@ func (c *ZadigHostColl) Create(obj *host.ZadigHost) error {
 	return err
 }
 
-func (c *ZadigHostColl) Update(idString string, obj *host.ZadigHost) error {
+func (c *ZadigVMColl) Update(idString string, obj *vm.ZadigVM) error {
 	if obj == nil {
 		return nil
 	}
@@ -72,7 +72,7 @@ func (c *ZadigHostColl) Update(idString string, obj *host.ZadigHost) error {
 	return err
 }
 
-func (c *ZadigHostColl) Delete(idString string) error {
+func (c *ZadigVMColl) Delete(idString string) error {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
 		return err
@@ -83,24 +83,24 @@ func (c *ZadigHostColl) Delete(idString string) error {
 	return err
 }
 
-func (c *ZadigHostColl) FindByToken(token string) (*host.ZadigHost, error) {
+func (c *ZadigVMColl) FindByToken(token string) (*vm.ZadigVM, error) {
 	query := bson.M{"token": token}
-	res := &host.ZadigHost{}
+	res := &vm.ZadigVM{}
 	err := c.FindOne(context.Background(), query).Decode(res)
 	return res, err
 }
 
-func (c *ZadigHostColl) FindByName(name string) (*host.ZadigHost, error) {
+func (c *ZadigVMColl) FindByName(name string) (*vm.ZadigVM, error) {
 	query := bson.M{
 		"name":       name,
 		"is_deleted": false,
 	}
-	res := &host.ZadigHost{}
+	res := &vm.ZadigVM{}
 	err := c.FindOne(context.Background(), query).Decode(res)
 	return res, err
 }
 
-func (c *ZadigHostColl) FindByID(idString string) (*host.ZadigHost, error) {
+func (c *ZadigVMColl) FindByID(idString string) (*vm.ZadigVM, error) {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
 		return nil, err
@@ -109,18 +109,18 @@ func (c *ZadigHostColl) FindByID(idString string) (*host.ZadigHost, error) {
 		"_id":        id,
 		"is_deleted": false,
 	}
-	res := &host.ZadigHost{}
+	res := &vm.ZadigVM{}
 	err = c.FindOne(context.Background(), query).Decode(res)
 	return res, err
 }
 
-type ZadigHostListOptions struct {
+type ZadigVMListOptions struct {
 	Name     []string
 	PageNum  int64
 	PageSize int64
 }
 
-func (c *ZadigHostColl) ListByOptions(opt ZadigHostListOptions) ([]*host.ZadigHost, int64, error) {
+func (c *ZadigVMColl) ListByOptions(opt ZadigVMListOptions) ([]*vm.ZadigVM, int64, error) {
 	query := bson.M{}
 	if len(opt.Name) > 0 {
 		query["name"] = bson.M{"$in": opt.Name}
@@ -138,14 +138,14 @@ func (c *ZadigHostColl) ListByOptions(opt ZadigHostListOptions) ([]*host.ZadigHo
 		opts.SetLimit(opt.PageSize)
 	}
 
-	res := make([]*host.ZadigHost, 0)
+	res := make([]*vm.ZadigVM, 0)
 	cursor, err := c.Collection.Find(context.Background(), query, opts)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	for cursor.Next(context.Background()) {
-		agent := new(host.ZadigHost)
+		agent := new(vm.ZadigVM)
 		if err := cursor.Decode(agent); err != nil {
 			return nil, 0, err
 		}

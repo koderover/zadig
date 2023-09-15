@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	agentmodel "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/host"
-	agentmongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/host"
+	agentmodel "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/vm"
+	agentmongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -16,19 +16,19 @@ import (
 )
 
 func CreateHost(args *CreateHostRequest, user string, logger *zap.SugaredLogger) error {
-	_, err := agentmongodb.NewZadigHostColl().FindByName(args.Name)
+	_, err := agentmongodb.NewZadigVMColl().FindByName(args.Name)
 	if err == nil {
 		return e.ErrCreateZadigHost.AddErr(fmt.Errorf("vm %s already exists", args.Name))
 	}
 
-	host := &agentmodel.ZadigHost{
+	host := &agentmodel.ZadigVM{
 		Name:             args.Name,
 		Description:      args.Description,
 		Provider:         args.Provider,
 		Tags:             args.Tags,
-		HostIP:           args.HostIP,
-		HostUser:         args.HostUser,
-		HostPort:         args.HostPort,
+		IP:               args.HostIP,
+		User:             args.HostUser,
+		Port:             args.HostPort,
 		SSHPrivateKey:    args.SSHPrivateKey,
 		ScheduleWorkflow: args.ScheduleWorkflow,
 		Workspace:        args.Workspace,
@@ -37,13 +37,13 @@ func CreateHost(args *CreateHostRequest, user string, logger *zap.SugaredLogger)
 		CreateTime:       time.Now().Unix(),
 		UpdateTime:       time.Now().Unix(),
 		UpdateBy:         user,
-		Status:           setting.HostCreated,
+		Status:           setting.VMCreated,
 	}
 
 	// generate token
 	host.Token = GenerateAgentToken()
 
-	err = agentmongodb.NewZadigHostColl().Create(host)
+	err = agentmongodb.NewZadigVMColl().Create(host)
 	if err != nil {
 		logger.Errorf("failed to create vm %s, error: %s", args.Name, err)
 		return e.ErrCreateZadigHost.AddErr(fmt.Errorf("failed to create vm %s, error: %s", args.Name, err))
@@ -57,7 +57,7 @@ func GetAgentAccessCmd(platform, agentID string, logger *zap.SugaredLogger) ([]*
 }
 
 func UpdateHost(args *CreateHostRequest, agentID, user string, logger *zap.SugaredLogger) error {
-	host, err := agentmongodb.NewZadigHostColl().FindByName(args.Name)
+	host, err := agentmongodb.NewZadigVMColl().FindByName(args.Name)
 	if err != nil {
 		return e.ErrUpdateZadigHost.AddErr(fmt.Errorf("vm %s not exists", args.Name))
 	}
@@ -66,9 +66,9 @@ func UpdateHost(args *CreateHostRequest, agentID, user string, logger *zap.Sugar
 	host.Description = args.Description
 	host.Provider = args.Provider
 	host.Tags = args.Tags
-	host.HostIP = args.HostIP
-	host.HostPort = args.HostPort
-	host.HostUser = args.HostUser
+	host.IP = args.HostIP
+	host.Port = args.HostPort
+	host.User = args.HostUser
 	host.SSHPrivateKey = args.SSHPrivateKey
 	host.ScheduleWorkflow = args.ScheduleWorkflow
 	host.Workspace = args.Workspace
@@ -76,7 +76,7 @@ func UpdateHost(args *CreateHostRequest, agentID, user string, logger *zap.Sugar
 	host.UpdateBy = user
 	host.UpdateTime = time.Now().Unix()
 
-	err = agentmongodb.NewZadigHostColl().Update(agentID, host)
+	err = agentmongodb.NewZadigVMColl().Update(agentID, host)
 	if err != nil {
 		logger.Errorf("failed to update vm %s, error: %s", args.Name, err)
 		return e.ErrUpdateZadigHost.AddErr(fmt.Errorf("failed to update vm %s, error: %s", args.Name, err))
@@ -89,7 +89,7 @@ func DeleteHost(idString, user string, logger *zap.SugaredLogger) error {
 	if idString == "" {
 		return e.ErrDeleteZadigHost.AddDesc("empty vm id")
 	}
-	host, err := agentmongodb.NewZadigHostColl().FindByName(idString)
+	host, err := agentmongodb.NewZadigVMColl().FindByName(idString)
 	if err != nil {
 		return e.ErrDeleteZadigHost.AddErr(fmt.Errorf("vm %s not exists", idString))
 	}
@@ -97,7 +97,7 @@ func DeleteHost(idString, user string, logger *zap.SugaredLogger) error {
 	host.IsDeleted = true
 	host.UpdateBy = user
 	host.UpdateTime = time.Now().Unix()
-	err = agentmongodb.NewZadigHostColl().Update(idString, host)
+	err = agentmongodb.NewZadigVMColl().Update(idString, host)
 	if err != nil {
 		logger.Errorf("failed to delete vm %s, error: %s", idString, err)
 		return e.ErrDeleteZadigHost.AddErr(fmt.Errorf("failed to delete vm %s, error: %s", idString, err))
@@ -110,15 +110,15 @@ func OfflineHost(idString, user string, logger *zap.SugaredLogger) error {
 	if idString == "" {
 		return e.ErrOfflineZadigHost.AddDesc("empty vm id")
 	}
-	host, err := agentmongodb.NewZadigHostColl().FindByName(idString)
+	host, err := agentmongodb.NewZadigVMColl().FindByName(idString)
 	if err != nil {
 		return e.ErrOfflineZadigHost.AddErr(fmt.Errorf("vm %s not exists", idString))
 	}
 
-	host.Status = setting.HostOffline
+	host.Status = setting.VMOffline
 	host.UpdateBy = user
 	host.UpdateTime = time.Now().Unix()
-	err = agentmongodb.NewZadigHostColl().Update(idString, host)
+	err = agentmongodb.NewZadigVMColl().Update(idString, host)
 	if err != nil {
 		logger.Errorf("failed to offline vm %s, error: %s", idString, err)
 		return e.ErrOfflineZadigHost.AddErr(fmt.Errorf("failed to offline vm %s, error: %s", idString, err))
@@ -131,7 +131,7 @@ func UpgradeAgent(idString, user string, logger *zap.SugaredLogger) error {
 	if idString == "" {
 		return e.ErrUpgradeZadigHost.AddDesc("empty vm id")
 	}
-	host, err := agentmongodb.NewZadigHostColl().FindByName(idString)
+	host, err := agentmongodb.NewZadigVMColl().FindByName(idString)
 	if err != nil {
 		return e.ErrUpgradeZadigHost.AddErr(fmt.Errorf("vm %s not exists", idString))
 	}
@@ -141,7 +141,7 @@ func UpgradeAgent(idString, user string, logger *zap.SugaredLogger) error {
 
 	host.UpdateBy = user
 	host.UpdateTime = time.Now().Unix()
-	err = agentmongodb.NewZadigHostColl().Update(idString, host)
+	err = agentmongodb.NewZadigVMColl().Update(idString, host)
 	if err != nil {
 		logger.Errorf("failed to upgrade vm %s, error: %s", idString, err)
 		return e.ErrUpgradeZadigHost.AddErr(fmt.Errorf("failed to upgrade vm %s, error: %s", idString, err))
@@ -151,7 +151,7 @@ func UpgradeAgent(idString, user string, logger *zap.SugaredLogger) error {
 }
 
 func ListHosts(logger *zap.SugaredLogger) ([]*AgentBriefListResp, error) {
-	hosts, _, err := agentmongodb.NewZadigHostColl().ListByOptions(agentmongodb.ZadigHostListOptions{})
+	hosts, _, err := agentmongodb.NewZadigVMColl().ListByOptions(agentmongodb.ZadigVMListOptions{})
 	if err != nil {
 		logger.Errorf("failed to list hosts, error: %s", err)
 		return nil, e.ErrListZadigHost.AddErr(fmt.Errorf("failed to list hosts, error: %s", err))
@@ -161,7 +161,7 @@ func ListHosts(logger *zap.SugaredLogger) ([]*AgentBriefListResp, error) {
 	for _, host := range hosts {
 		// if vm is not heartbeat for a long time, set vm status to abnormal
 		if host.LastHeartbeatTime < time.Now().Unix()-setting.AgentDefaultHeartbeatTimeout {
-			host.Status = setting.HostAbnormal
+			host.Status = setting.VMAbnormal
 			host.Error = fmt.Errorf("vm heartbeat timeout").Error()
 		}
 
@@ -171,10 +171,10 @@ func ListHosts(logger *zap.SugaredLogger) ([]*AgentBriefListResp, error) {
 			Status: host.Status,
 			Error:  host.Error,
 		}
-		if host.HostInfo != nil {
-			a.IP = host.HostInfo.IP
-			a.Platform = host.HostInfo.Platform
-			a.Architecture = host.HostInfo.Architecture
+		if host.VMInfo != nil {
+			a.IP = host.VMInfo.IP
+			a.Platform = host.VMInfo.Platform
+			a.Architecture = host.VMInfo.Architecture
 		}
 		resp = append(resp, a)
 	}
@@ -183,7 +183,7 @@ func ListHosts(logger *zap.SugaredLogger) ([]*AgentBriefListResp, error) {
 }
 
 func GetHost(idString string, logger *zap.SugaredLogger) (*AgentDetails, error) {
-	host, err := agentmongodb.NewZadigHostColl().FindByName(idString)
+	host, err := agentmongodb.NewZadigVMColl().FindByName(idString)
 	if err != nil {
 		logger.Errorf("failed to find vm %s, error: %s", idString, err)
 		return nil, fmt.Errorf("failed to find vm %s, error: %s", idString, err)
@@ -191,7 +191,7 @@ func GetHost(idString string, logger *zap.SugaredLogger) (*AgentDetails, error) 
 
 	// if vm is not heartbeat for a long time, set vm status to abnormal
 	if host.LastHeartbeatTime < time.Now().Unix()-setting.AgentDefaultHeartbeatTimeout {
-		host.Status = setting.HostAbnormal
+		host.Status = setting.VMAbnormal
 		host.Error = fmt.Errorf("vm heartbeat timeout").Error()
 	}
 
@@ -200,17 +200,17 @@ func GetHost(idString string, logger *zap.SugaredLogger) (*AgentDetails, error) 
 		Description:      host.Description,
 		Provider:         host.Provider,
 		Tags:             host.Tags,
-		HostIP:           host.HostIP,
-		HostPort:         host.HostPort,
-		HostUser:         host.HostUser,
+		HostIP:           host.IP,
+		HostPort:         host.Port,
+		HostUser:         host.User,
 		SSHPrivateKey:    host.SSHPrivateKey,
 		ScheduleWorkflow: host.ScheduleWorkflow,
 		Workspace:        host.Workspace,
 		Status:           host.Status,
 	}
-	if host.HostInfo != nil {
-		resp.Architecture = host.HostInfo.Architecture
-		resp.Platform = host.HostInfo.Platform
+	if host.VMInfo != nil {
+		resp.Architecture = host.VMInfo.Architecture
+		resp.Platform = host.VMInfo.Platform
 	}
 
 	return resp, nil
@@ -221,15 +221,15 @@ func ListVMLabels(logger *zap.SugaredLogger) ([]string, error) {
 }
 
 func RegisterAgent(args *RegisterAgentRequest, logger *zap.SugaredLogger) (*RegisterAgentResponse, error) {
-	host, err := agentmongodb.NewZadigHostColl().FindByToken(args.Token)
+	host, err := agentmongodb.NewZadigVMColl().FindByToken(args.Token)
 	if err != nil {
 		logger.Errorf("failed to find vm by token %s, error: %s", args.Token, err)
 		return nil, err
 	}
 
-	host.Status = setting.HostRegistered
+	host.Status = setting.VMRegistered
 	if args.Parameters != nil {
-		host.HostInfo = &agentmodel.HostInfo{
+		host.VMInfo = &agentmodel.VMInfo{
 			Platform:      args.Parameters.OS,
 			Architecture:  args.Parameters.Arch,
 			MemeryTotal:   args.Parameters.MemTotal,
@@ -237,10 +237,10 @@ func RegisterAgent(args *RegisterAgentRequest, logger *zap.SugaredLogger) (*Regi
 			CpuNum:        args.Parameters.CpuNum,
 			DiskSpace:     args.Parameters.DiskSpace,
 			FreeDiskSpace: args.Parameters.FreeDiskSpace,
-			Hostname:      args.Parameters.Hostname,
+			VMname:        args.Parameters.Hostname,
 		}
 	}
-	err = agentmongodb.NewZadigHostColl().Update(host.ID.Hex(), host)
+	err = agentmongodb.NewZadigVMColl().Update(host.ID.Hex(), host)
 	if err != nil {
 		logger.Errorf("failed to update vm %s, error: %s", args.Token, err)
 		return nil, err
@@ -258,7 +258,7 @@ func RegisterAgent(args *RegisterAgentRequest, logger *zap.SugaredLogger) (*Regi
 }
 
 func VerifyAgent(args *VerifyAgentRequest, logger *zap.SugaredLogger) (*VerifyAgentResponse, error) {
-	host, err := agentmongodb.NewZadigHostColl().FindByToken(args.Token)
+	host, err := agentmongodb.NewZadigVMColl().FindByToken(args.Token)
 	if err != nil {
 		logger.Errorf("failed to find vm by token %s, error: %s", args.Token, err)
 		return nil, err
@@ -267,7 +267,7 @@ func VerifyAgent(args *VerifyAgentRequest, logger *zap.SugaredLogger) (*VerifyAg
 	resp := &VerifyAgentResponse{
 		Verified: false,
 	}
-	if host.HostInfo != nil && host.HostInfo.Platform == args.Parameters.OS && host.HostInfo.Architecture == args.Parameters.Arch {
+	if host.VMInfo != nil && host.VMInfo.Platform == args.Parameters.OS && host.VMInfo.Architecture == args.Parameters.Arch {
 		resp.Verified = true
 	}
 
@@ -275,19 +275,19 @@ func VerifyAgent(args *VerifyAgentRequest, logger *zap.SugaredLogger) (*VerifyAg
 }
 
 func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatResponse, error) {
-	host, err := agentmongodb.NewZadigHostColl().FindByToken(args.Token)
+	host, err := agentmongodb.NewZadigVMColl().FindByToken(args.Token)
 	if err != nil {
 		logger.Errorf("failed to find vm by token %s, error: %s", args.Token, err)
 		return nil, err
 	}
 
-	host.Status = setting.HostNomal
-	if args.Parameters != nil && host.HostInfo != nil {
-		host.HostInfo.MemeryTotal = args.Parameters.MemTotal
-		host.HostInfo.UsedMemery = args.Parameters.UsedMem
-		host.HostInfo.DiskSpace = args.Parameters.DiskSpace
-		host.HostInfo.FreeDiskSpace = args.Parameters.FreeDiskSpace
-		host.HostInfo.Hostname = args.Parameters.Hostname
+	host.Status = setting.VMNomal
+	if args.Parameters != nil && host.VMInfo != nil {
+		host.VMInfo.MemeryTotal = args.Parameters.MemTotal
+		host.VMInfo.UsedMemery = args.Parameters.UsedMem
+		host.VMInfo.DiskSpace = args.Parameters.DiskSpace
+		host.VMInfo.FreeDiskSpace = args.Parameters.FreeDiskSpace
+		host.VMInfo.VMname = args.Parameters.Hostname
 	}
 	host.UpdateBy = setting.SystemUser
 	host.UpdateTime = time.Now().Unix()
@@ -295,7 +295,7 @@ func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatRes
 	// set vm heartbeat time
 	host.LastHeartbeatTime = time.Now().Unix()
 
-	err = agentmongodb.NewZadigHostColl().Update(host.ID.Hex(), host)
+	err = agentmongodb.NewZadigVMColl().Update(host.ID.Hex(), host)
 	if err != nil {
 		logger.Errorf("failed to update vm %s, error: %s", args.Token, err)
 		return nil, err
@@ -348,15 +348,15 @@ var jobGetter = &hostJobGetterMap{
 	M:         sync.Mutex{},
 }
 
-func PollingAgentJob(token string, logger *zap.SugaredLogger) (job *agentmodel.HostJob, err error) {
-	host, err := agentmongodb.NewZadigHostColl().FindByToken(token)
+func PollingAgentJob(token string, logger *zap.SugaredLogger) (job *agentmodel.VMJob, err error) {
+	host, err := agentmongodb.NewZadigVMColl().FindByToken(token)
 	if err != nil {
 		logger.Errorf("failed to find vm by token %s, error: %s", token, err)
 		return nil, fmt.Errorf("failed to find vm by token %s, error: %s", token, err)
 	}
 
 	// get job
-	job, err = agentmongodb.NewHostJobColl().FindOldestByTags(host.Tags)
+	job, err = agentmongodb.NewVMJobColl().FindOldestByTags(host.Tags)
 	if err != nil {
 		if err == mongo.ErrNilDocument || err == mongo.ErrNoDocuments {
 			return nil, nil
@@ -366,9 +366,9 @@ func PollingAgentJob(token string, logger *zap.SugaredLogger) (job *agentmodel.H
 	}
 
 	if job != nil && jobGetter.AddGetter(job.ID.Hex()) {
-		job.Status = setting.HostJobStatusDistributed
-		job.HostID = host.ID.Hex()
-		err := agentmongodb.NewHostJobColl().Update(job.ID.Hex(), job)
+		job.Status = setting.VMJobStatusDistributed
+		job.VMID = host.ID.Hex()
+		err := agentmongodb.NewVMJobColl().Update(job.ID.Hex(), job)
 		if err != nil {
 			logger.Errorf("failed to update job %s, error: %s", job.ID.Hex(), err)
 			return nil, fmt.Errorf("failed to update job %s, error: %s", job.ID.Hex(), err)
@@ -383,7 +383,7 @@ func PollingAgentJob(token string, logger *zap.SugaredLogger) (job *agentmodel.H
 }
 
 func ReportAgentJob(args *ReportJobArgs, logger *zap.SugaredLogger) error {
-	_, err := agentmongodb.NewZadigHostColl().FindByToken(args.Token)
+	_, err := agentmongodb.NewZadigVMColl().FindByToken(args.Token)
 	if err != nil {
 		logger.Errorf("failed to find vm by token %s, error: %s", args.Token, err)
 		return fmt.Errorf("failed to find vm by token %s, error: %s", args.Token, err)
@@ -399,8 +399,8 @@ func GenerateAgentToken() string {
 	return primitive.NewObjectID().Hex()
 }
 
-func CreateWfJob2DB(args *agentmodel.HostJob, logger *zap.SugaredLogger) error {
-	err := agentmongodb.NewHostJobColl().Create(args)
+func CreateWfJob2DB(args *agentmodel.VMJob, logger *zap.SugaredLogger) error {
+	err := agentmongodb.NewVMJobColl().Create(args)
 	if err != nil {
 		logger.Errorf("failed to create job %s, error: %s", args.ID.Hex(), err)
 		return fmt.Errorf("failed to create job %s, error: %s", args.ID.Hex(), err)

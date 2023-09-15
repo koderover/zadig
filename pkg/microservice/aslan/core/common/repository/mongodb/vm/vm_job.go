@@ -1,10 +1,10 @@
-package host
+package vm
 
 import (
 	"context"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/host"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/vm"
 	"github.com/koderover/zadig/pkg/setting"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"go.mongodb.org/mongo-driver/bson"
@@ -13,25 +13,25 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type HostJobColl struct {
+type VMJobColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewHostJobColl() *HostJobColl {
-	name := host.HostJob{}.TableName()
-	return &HostJobColl{
+func NewVMJobColl() *VMJobColl {
+	name := vm.VMJob{}.TableName()
+	return &VMJobColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
 }
 
-func (c *HostJobColl) GetCollectionName() string {
+func (c *VMJobColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *HostJobColl) EnsureIndex(ctx context.Context) error {
+func (c *VMJobColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "name", Value: 1},
@@ -44,7 +44,7 @@ func (c *HostJobColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *HostJobColl) Create(obj *host.HostJob) error {
+func (c *VMJobColl) Create(obj *vm.VMJob) error {
 	if obj == nil {
 		return nil
 	}
@@ -53,7 +53,7 @@ func (c *HostJobColl) Create(obj *host.HostJob) error {
 	return err
 }
 
-func (c *HostJobColl) Update(idString string, obj *host.HostJob) error {
+func (c *VMJobColl) Update(idString string, obj *vm.VMJob) error {
 	if obj == nil {
 		return nil
 	}
@@ -70,7 +70,7 @@ func (c *HostJobColl) Update(idString string, obj *host.HostJob) error {
 	return err
 }
 
-func (c *HostJobColl) FindByID(idString string) (*host.HostJob, error) {
+func (c *VMJobColl) FindByID(idString string) (*vm.VMJob, error) {
 	id, err := primitive.ObjectIDFromHex(idString)
 	if err != nil {
 		return nil, err
@@ -78,36 +78,36 @@ func (c *HostJobColl) FindByID(idString string) (*host.HostJob, error) {
 
 	query := bson.M{"_id": id}
 
-	res := &host.HostJob{}
+	res := &vm.VMJob{}
 	err = c.FindOne(context.Background(), query).Decode(res)
 	return res, err
 }
 
-func (c *HostJobColl) FindOldestByTags(tags []string) (*host.HostJob, error) {
+func (c *VMJobColl) FindOldestByTags(tags []string) (*vm.VMJob, error) {
 	query := bson.M{
 		"tags":   bson.M{"$in": tags},
-		"status": setting.HostJobStatusCreated,
+		"status": setting.VMJobStatusCreated,
 	}
 
 	opts := options.FindOne()
 	opts.SetSort(bson.M{"created_time": 1})
 
-	res := &host.HostJob{}
+	res := &vm.VMJob{}
 	err := c.FindOne(context.Background(), query, opts).Decode(res)
 	return res, err
 }
 
-type HostJobOpts struct {
+type VMJobOpts struct {
 	Names []string
 }
 
-func (c *HostJobColl) ListByOpts(opts *HostJobOpts) ([]*host.HostJob, error) {
+func (c *VMJobColl) ListByOpts(opts *VMJobOpts) ([]*vm.VMJob, error) {
 	query := bson.M{}
 	if len(opts.Names) > 0 {
 		query["name"] = bson.M{"$in": opts.Names}
 	}
 
-	res := make([]*host.HostJob, 0)
+	res := make([]*vm.VMJob, 0)
 	cursor, err := c.Collection.Find(context.Background(), query)
 	if err != nil {
 		return nil, err

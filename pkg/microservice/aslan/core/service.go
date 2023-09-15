@@ -26,7 +26,7 @@ import (
 	newgoCron "github.com/go-co-op/gocron"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/host"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -461,10 +461,10 @@ func initDatabase() {
 		commonrepo.NewProjectGroupColl(),
 
 		// zadig vm related db index
-		host.NewHostJobColl(),
+		vm.NewVMJobColl(),
 
 		// vm job related db index
-		host.NewHostJobColl(),
+		vm.NewVMJobColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

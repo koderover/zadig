@@ -1,8 +1,8 @@
-package host
+package vm
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
-type HostJob struct {
+type VMJob struct {
 	ID           primitive.ObjectID `bson:"_id"                    json:"id"`
 	ProjectName  string             `bson:"project_name"           json:"project_name"`
 	WorkflowName string             `bson:"workflow_name"          json:"workflow_name"`
@@ -16,12 +16,12 @@ type HostJob struct {
 	Steps        []*Step            `bson:"steps"                  json:"steps"`
 	Outputs      []string           `bson:"outputs"                json:"outputs"`
 	Status       string             `bson:"status"                 json:"status"`
-	HostID       string             `bson:"host_id"                json:"host_id"`
+	VMID         string             `bson:"vm_id"                  json:"vm_id"`
 	StartTime    int64              `bson:"start_time"             json:"start_time"`
 	EndTime      int64              `bson:"end_time"               json:"end_time"`
 	Error        string             `bson:"error"                  json:"error"`
-	HostTags     []string           `bson:"host_tags"              json:"host_tags"`
-	HostName     []string           `bson:"host_name"              json:"host_name"`
+	VMLabels     []string           `bson:"vm_labels"              json:"vm_labels"`
+	VMName       []string           `bson:"vm_name"                json:"vm_name"`
 }
 
 type Step struct {
@@ -47,6 +47,6 @@ type ReportJobParameters struct {
 	EndTime   int64
 }
 
-func (HostJob) TableName() string {
-	return "host_job"
+func (VMJob) TableName() string {
+	return "vm_job"
 }
