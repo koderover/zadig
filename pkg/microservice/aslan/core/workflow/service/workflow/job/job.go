@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -391,49 +390,6 @@ func jobNameFormat(jobName string) string {
 	jobName = strings.Trim(jobName, "-")
 	jobName = strings.ToLower(jobName)
 	return jobName
-}
-
-func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
-	ret := make([]*commonmodels.KeyVal, 0)
-	for index, repo := range repos {
-
-		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
-		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
-
-		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
-		repoName = strings.Replace(repoName, ".", "_", -1)
-
-		repoIndex := fmt.Sprintf("REPO_%d", index)
-		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf(repoIndex), Value: repoName, IsCredential: false})
-
-		if len(repo.Branch) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false})
-		}
-
-		if len(repo.Tag) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false})
-		}
-
-		if repo.PR > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
-		}
-
-		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_ORG", repoName), Value: repo.RepoOwner, IsCredential: false})
-
-		if len(repo.PRs) > 0 {
-			prStrs := []string{}
-			for _, pr := range repo.PRs {
-				prStrs = append(prStrs, strconv.Itoa(pr))
-			}
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strings.Join(prStrs, ","), IsCredential: false})
-		}
-
-		if len(repo.CommitID) > 0 {
-			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_COMMIT_ID", repoName), Value: repo.CommitID, IsCredential: false})
-		}
-		ret = append(ret, getEnvFromCommitMsg(repo.CommitMessage)...)
-	}
-	return ret
 }
 
 // before workflowflow task was created, we need to remove the fixed mark from variables.

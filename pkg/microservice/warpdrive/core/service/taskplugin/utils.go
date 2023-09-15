@@ -260,10 +260,56 @@ func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes
 	return controllerRuntimeClient, clientset, restConfig, kubeClientReader, nil
 }
 
-// InstantiateBuildSysVariables instantiate system variables for build module
-func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
+// getReaperImage generates the image used to run reaper
+// depends on the setting on page 'Build'
+func getReaperImage(reaperImage, buildOS, imageFrom string) string {
+	// for built-in image, reaperImage and buildOs can generate a complete image
+	// reaperImage: koderover.tencentcloudcr.com/koderover-public/build-base:${BuildOS}-amd64
+	// buildOS: focal xenial bionic
+	jobImage := strings.ReplaceAll(reaperImage, "${BuildOS}", buildOS)
+	// for custom image, buildOS represents the exact custom image
+	if imageFrom == setting.ImageFromCustom {
+		jobImage = buildOS
+	}
+	return jobImage
+}
+
+func GetProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
+	httpClient := httpclient.New(
+		httpclient.SetHostURL(configbase.AslanServiceAddress()),
+	)
+	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.EnvName)
+	prod := &types.Product{}
+	_, err := httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", args.ProductName), httpclient.SetQueryParam("ifPassFilter", "true"))
+	if err != nil {
+		return nil, err
+	}
+	return prod, nil
+}
+
+// System level default environment variables (every workflow type will have it)
+func PrepareDefaultWorkflowTaskEnvs(t *task.Task) []*task.KeyVal {
+	envs := make([]*task.KeyVal, 0)
+
+	envs = append(envs,
+		&task.KeyVal{Key: "WORKSPACE", Value: "/workspace"},
+		&task.KeyVal{Key: "CI", Value: "true"},
+		&task.KeyVal{Key: "ZADIG", Value: "true"},
+		&task.KeyVal{Key: "PROJECT", Value: t.ProductName},
+	)
+
+	url := GetLink(t, configbase.SystemAddress(), t.Type)
+
+	envs = append(envs, &task.KeyVal{Key: "TASK_URL", Value: url})
+	envs = append(envs, &task.KeyVal{Key: "TASK_ID", Value: strconv.FormatInt(t.TaskID, 10)})
+
+	return envs
+}
+
+func CreateEnvsFromRepoInfo(repos []*task.Repository) []*task.KeyVal {
 	ret := make([]*task.KeyVal, 0)
-	for index, repo := range jobCtx.Builds {
+
+	for index, repo := range repos {
 
 		repoNameIndex := fmt.Sprintf("REPONAME_%d", index)
 		ret = append(ret, &task.KeyVal{Key: fmt.Sprintf(repoNameIndex), Value: repo.RepoName, IsCredential: false})
@@ -301,29 +347,23 @@ func InstantiateBuildSysVariables(jobCtx *task.JobCtx) []*task.KeyVal {
 	return ret
 }
 
-// getReaperImage generates the image used to run reaper
-// depends on the setting on page 'Build'
-func getReaperImage(reaperImage, buildOS, imageFrom string) string {
-	// for built-in image, reaperImage and buildOs can generate a complete image
-	// reaperImage: koderover.tencentcloudcr.com/koderover-public/build-base:${BuildOS}-amd64
-	// buildOS: focal xenial bionic
-	jobImage := strings.ReplaceAll(reaperImage, "${BuildOS}", buildOS)
-	// for custom image, buildOS represents the exact custom image
-	if imageFrom == setting.ImageFromCustom {
-		jobImage = buildOS
+func GetLink(p *task.Task, baseURI string, taskType config.PipelineType) string {
+	url := ""
+	switch taskType {
+	case config.WorkflowType:
+		url = fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/%s/%s/%d", baseURI, p.ProductName, UIType(p.Type), p.PipelineName, p.TaskID)
+	case config.TestType:
+		url = fmt.Sprintf("%s/v1/projects/detail/%s/test/detail/function/%s/%d", baseURI, p.ProductName, p.PipelineName, p.TaskID)
+	case config.ScanningType:
+		url = fmt.Sprintf("%s/v1/projects/detail/%s/scanner/detail/%s/%d", baseURI, p.ProductName, p.PipelineName, p.TaskID)
 	}
-	return jobImage
+	return url
 }
 
-func GetProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
-	httpClient := httpclient.New(
-		httpclient.SetHostURL(configbase.AslanServiceAddress()),
-	)
-	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.EnvName)
-	prod := &types.Product{}
-	_, err := httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", args.ProductName), httpclient.SetQueryParam("ifPassFilter", "true"))
-	if err != nil {
-		return nil, err
+// UIType is a legacy logic copied from other part of the system
+func UIType(pipelineType config.PipelineType) string {
+	if pipelineType == config.SingleType {
+		return "single"
 	}
-	return prod, nil
+	return "multi"
 }

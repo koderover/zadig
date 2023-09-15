@@ -26,19 +26,20 @@ import (
 const DefaultScanningTimeout = 60 * 60
 
 type Scanning struct {
-	ID          string               `json:"id"`
-	Name        string               `json:"name"`
-	ProjectName string               `json:"project_name"`
-	Description string               `json:"description"`
-	ScannerType string               `json:"scanner_type"`
-	ImageID     string               `json:"image_id"`
-	SonarID     string               `json:"sonar_id"`
-	Installs    []*commonmodels.Item `json:"installs"`
-	Repos       []*types.Repository  `json:"repos"`
-	PreScript   string               `json:"pre_script"`
+	ID            string               `json:"id"`
+	Name          string               `json:"name"`
+	ProjectName   string               `json:"project_name"`
+	Description   string               `json:"description"`
+	ScannerType   string               `json:"scanner_type"`
+	EnableScanner bool                 `json:"enable_scanner"`
+	ImageID       string               `json:"image_id"`
+	SonarID       string               `json:"sonar_id"`
+	Installs      []*commonmodels.Item `json:"installs"`
+	Repos         []*types.Repository  `json:"repos"`
 	// Parameter is for sonarQube type only
 	Parameter string `json:"parameter"`
-	// Script is for other type only
+	// Envs is the user defined key/values
+	Envs             []*commonmodels.KeyVal                `json:"envs"`
 	Script           string                                `json:"script"`
 	AdvancedSetting  *commonmodels.ScanningAdvancedSetting `json:"advanced_settings"`
 	CheckQualityGate bool                                  `json:"check_quality_gate"`
@@ -46,6 +47,7 @@ type Scanning struct {
 	NotifyCtls       []*commonmodels.NotifyCtl             `json:"notify_ctls"`
 }
 
+// TODO: change the logic of create scanning
 type OpenAPICreateScanningReq struct {
 	Name        string                    `json:"name"`
 	ProjectName string                    `json:"project_key"`
@@ -55,7 +57,6 @@ type OpenAPICreateScanningReq struct {
 	RepoInfo    []*types.OpenAPIRepoInput `json:"repo_info"`
 	// FIMXE: currently only one sonar system is required, so we just fill in the default sonar ID.
 	Addons            []*commonmodels.Item          `json:"addons"`
-	PrelaunchScript   string                        `json:"prelaunch_script"`
 	SonarParameter    string                        `json:"sonar_parameter"`
 	Script            string                        `json:"script"`
 	EnableQualityGate bool                          `json:"enable_quality_gate"`
@@ -167,6 +168,7 @@ func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 		ProjectName:      args.ProjectName,
 		Description:      args.Description,
 		ScannerType:      args.ScannerType,
+		EnableScanner:    args.EnableScanner,
 		ImageID:          args.ImageID,
 		SonarID:          args.SonarID,
 		Repos:            args.Repos,
@@ -174,7 +176,6 @@ func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 		Script:           args.Script,
 		AdvancedSetting:  args.AdvancedSetting,
 		Installs:         args.Installs,
-		PreScript:        args.PreScript,
 		CheckQualityGate: args.CheckQualityGate,
 		Outputs:          args.Outputs,
 	}
@@ -190,6 +191,7 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		ProjectName:      scanning.ProjectName,
 		Description:      scanning.Description,
 		ScannerType:      scanning.ScannerType,
+		EnableScanner:    scanning.EnableScanner,
 		ImageID:          scanning.ImageID,
 		SonarID:          scanning.SonarID,
 		Repos:            scanning.Repos,
@@ -197,7 +199,6 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		Script:           scanning.Script,
 		AdvancedSetting:  scanning.AdvancedSetting,
 		Installs:         scanning.Installs,
-		PreScript:        scanning.PreScript,
 		CheckQualityGate: scanning.CheckQualityGate,
 		Outputs:          scanning.Outputs,
 	}

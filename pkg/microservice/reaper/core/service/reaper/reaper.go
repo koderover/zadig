@@ -400,7 +400,7 @@ func (r *Reaper) Exec() (err error) {
 	}
 	log.Infof("Execution ended. Duration: %.2f seconds.", time.Since(startTimeRunBuildScript).Seconds())
 
-	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar {
+	if r.Ctx.ScannerFlag && r.Ctx.ScannerType == types.ScanningTypeSonar && r.Ctx.SonarEnableScanner {
 		// for sonar type we write the sonar parameter into config file and go with sonar-scanner command
 		log.Info("Executing SonarQube Scanning process.")
 		startTimeRunSonar := time.Now()
@@ -617,8 +617,6 @@ func (r *Reaper) maskSecretEnvs(message string) string {
 func (r *Reaper) getUserEnvs() []string {
 	envs := os.Environ()
 	envs = append(envs,
-		"CI=true",
-		"ZADIG=true",
 		fmt.Sprintf("HOME=%s", config.Home()),
 		fmt.Sprintf("WORKSPACE=%s", r.ActiveWorkspace),
 		// TODO: readme文件可以使用别的方式代替

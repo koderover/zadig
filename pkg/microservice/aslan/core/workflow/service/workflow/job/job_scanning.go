@@ -163,10 +163,12 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Timeout: timeout,
 			Outputs: scanningInfo.Outputs,
 		}
-		scanningNameKV := &commonmodels.KeyVal{
+		envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name)
+		envs = append(envs, &commonmodels.KeyVal{
 			Key:   "SCANNING_NAME",
 			Value: scanning.Name,
-		}
+		})
+		envs = append(envs, scanningInfo.Envs...)
 
 		scanningImage := basicImage.Value
 		if basicImage.ImageFrom == commonmodels.ImageFromKoderover {
@@ -180,7 +182,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			StrategyID:          scanningInfo.AdvancedSetting.StrategyID,
 			BuildOS:             scanningImage,
 			ImageFrom:           setting.ImageFromCustom,
-			Envs:                []*commonmodels.KeyVal{scanningNameKV},
+			Envs:                envs,
 			Registries:          registries,
 			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, scanning.ShareStorageInfo, j.workflow.Name, taskID),
 		}
@@ -235,7 +237,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				JobName:  jobTask.Name,
 				StepType: config.StepShell,
 				Spec: &step.StepShellSpec{
-					Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.PreScript), "\n"), outputScript(scanningInfo.Outputs)...),
+					Scripts:     append(strings.Split(replaceWrapLine(scanningInfo.Script), "\n"), outputScript(scanningInfo.Outputs)...),
 					SkipPrepare: true,
 				},
 			}
@@ -258,19 +260,26 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Value: resultAddr,
 			}
 			jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, sonarLinkKeyVal)
-			sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
-			sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
-			sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, sonarConfig)
-			sonarShellStep := &commonmodels.StepTask{
-				Name:     scanning.Name + "-sonar-shell",
-				JobName:  jobTask.Name,
-				StepType: config.StepShell,
-				Spec: &step.StepShellSpec{
-					Scripts:     strings.Split(replaceWrapLine(sonarScript), "\n"),
-					SkipPrepare: true,
-				},
+			jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, &commonmodels.KeyVal{
+				Key:   "SONAR_TOKEN",
+				Value: sonarInfo.Token,
+			})
+
+			if scanningInfo.EnableScanner {
+				sonarConfig := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", sonarInfo.Token, sonarInfo.ServerAddress, scanningInfo.Parameter)
+				sonarConfig = strings.ReplaceAll(sonarConfig, "$branch", branch)
+				sonarScript := fmt.Sprintf("set -e\ncd %s\ncat > sonar-project.properties << EOF\n%s\nEOF\nsonar-scanner", repoName, sonarConfig)
+				sonarShellStep := &commonmodels.StepTask{
+					Name:     scanning.Name + "-sonar-shell",
+					JobName:  jobTask.Name,
+					StepType: config.StepShell,
+					Spec: &step.StepShellSpec{
+						Scripts:     strings.Split(replaceWrapLine(sonarScript), "\n"),
+						SkipPrepare: true,
+					},
+				}
+				jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarShellStep)
 			}
-			jobTaskSpec.Steps = append(jobTaskSpec.Steps, sonarShellStep)
 
 			if scanningInfo.CheckQualityGate {
 				sonarChekStep := &commonmodels.StepTask{
@@ -334,4 +343,15 @@ func (j *ScanningJob) GetOutPuts(log *zap.SugaredLogger) []string {
 		resp = append(resp, getOutputKey(jobKey, scanningInfo.Outputs)...)
 	}
 	return resp
+}
+
+func getScanningJobVariables(repos []*types.Repository, taskID int64, project, workflowName string) []*commonmodels.KeyVal {
+	ret := []*commonmodels.KeyVal{}
+
+	// basic envs
+	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, taskID)...)
+	// repo envs
+	ret = append(ret, getReposVariables(repos)...)
+
+	return ret
 }

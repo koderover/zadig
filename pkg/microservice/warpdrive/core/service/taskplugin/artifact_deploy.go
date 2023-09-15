@@ -195,7 +195,7 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
 
 	//instantiates variables like ${<REPO>_BRANCH} ${${REPO_index}_BRANCH} ..
-	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, InstantiateBuildSysVariables(&p.Task.JobCtx)...)
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, CreateEnvsFromRepoInfo(p.Task.JobCtx.Builds)...)
 
 	jobCtx := JobCtxBuilder{
 		JobName:     p.JobName,
