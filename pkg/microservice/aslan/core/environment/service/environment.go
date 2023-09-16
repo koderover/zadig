@@ -2528,7 +2528,8 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		service.Containers = nil
 	}
 
-	parsedYaml, err := kube.RenderEnvService(env, renderSet.GetServiceRenderMap()[service.ServiceName], service)
+	//parsedYaml, err := kube.RenderEnvService(env, renderSet.GetServiceRenderMap()[service.ServiceName], service)
+	parsedYaml, err := kube.RenderEnvService(env, service.GetServiceRender(), service)
 	if err != nil {
 		log.Errorf("Failed to render service %s, error: %v", service.ServiceName, err)
 		errList = multierror.Append(errList, fmt.Errorf("service template %s error: %v", service.ServiceName, err))
@@ -2596,8 +2597,8 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	log *zap.SugaredLogger) error {
 	var (
 		productTemplateName = args.ProductName
-		renderSetName       = commonservice.GetProductEnvNamespace(envName, args.ProductName, args.Namespace)
-		err                 error
+		//renderSetName       = commonservice.GetProductEnvNamespace(envName, args.ProductName, args.Namespace)
+		err error
 	)
 	args.EnsureRenderInfo()
 
@@ -2609,7 +2610,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		return e.ErrCreateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
 
-	//检查产品是否包含服务
 	var serviceCount int
 	for _, group := range args.Services {
 		serviceCount = serviceCount + len(group)
@@ -2618,9 +2618,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		log.Errorf("[%s][P:%s] not service found", envName, args.ProductName)
 		return e.ErrCreateEnv.AddDesc(e.FindProductServiceErrMsg)
 	}
-	if args.Revision == 0 {
-		args.Revision = productTmpl.Revision
-	}
+	args.Revision = productTmpl.Revision
 
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: envName}
 	if _, err := commonrepo.NewProductColl().Find(opt); err == nil {
@@ -2628,10 +2626,10 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		return e.ErrCreateEnv.AddDesc(e.DuplicateEnvErrMsg)
 	}
 
-	tmpRenderInfo := &commonmodels.RenderInfo{Name: renderSetName, ProductTmpl: args.ProductName}
-	if args.Render != nil && args.Render.Revision > 0 {
-		tmpRenderInfo.Revision = args.Render.Revision
-	}
+	//tmpRenderInfo := &commonmodels.RenderInfo{Name: renderSetName, ProductTmpl: args.ProductName}
+	//if args.Render != nil && args.Render.Revision > 0 {
+	//	tmpRenderInfo.Revision = args.Render.Revision
+	//}
 
 	if productTmpl.ProductFeature.DeployType == setting.HelmDeployType || productTmpl.ProductFeature.DeployType == setting.K8SDeployType {
 		args.AnalysisConfig = &commonmodels.AnalysisConfig{
@@ -2651,7 +2649,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		}
 	}
 
-	args.Render = tmpRenderInfo
+	//args.Render = tmpRenderInfo
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
 		return ensureKubeEnv(args.Namespace, args.RegistryID, map[string]string{setting.ProductLabel: args.ProductName}, args.ShareEnv.Enable, kubeClient, log)
 	}
@@ -2772,7 +2770,7 @@ func buildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 	return ret, nil
 }
 
-func installProductHelmCharts(user, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient *helmtool.HelmClient,
+func installProductHelmCharts(user, requestID string, args *commonmodels.Product, _ *commonmodels.RenderSet, eventStart int64, helmClient *helmtool.HelmClient,
 	kclient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) {
 	var (
 		err     error
@@ -2795,12 +2793,12 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 		}
 	}()
 
-	chartInfoMap := make(map[string]*templatemodels.ServiceRender)
-	for _, renderChart := range args.ServiceRenders {
-		chartInfoMap[renderChart.ServiceName] = renderChart
-	}
+	//chartInfoMap := make(map[string]*templatemodels.ServiceRender)
+	//for _, renderChart := range args.ServiceRenders {
+	//	chartInfoMap[renderChart.ServiceName] = renderChart
+	//}
 
-	err = proceedHelmRelease(args, renderset, helmClient, nil, log)
+	err = proceedHelmRelease(args, nil, helmClient, nil, log)
 	if err != nil {
 		log.Errorf("error occurred when installing services in env: %s/%s, err: %s ", args.ProductName, envName, err)
 		errList = multierror.Append(errList, err)

@@ -448,7 +448,8 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 }
 
 func fetchWorkloadImages(productService *commonmodels.ProductService, product *commonmodels.Product, renderSet *commonmodels.RenderSet, kubeClient client.Client) ([]*commonmodels.Container, error) {
-	rederedYaml, err := kube.RenderEnvService(product, renderSet.GetServiceRenderMap()[productService.ServiceName], productService)
+	//rederedYaml, err := kube.RenderEnvService(product, renderSet.GetServiceRenderMap()[productService.ServiceName], productService)
+	rederedYaml, err := kube.RenderEnvService(product, productService.Render, productService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render env service yaml for service: %s, err: %s", productService.ServiceName, err)
 	}
@@ -542,7 +543,7 @@ func waitResourceRunning(
 	})
 }
 
-func (k *K8sService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {
+func (k *K8sService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, _ *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {
 	envName, productName := product.EnvName, product.ProductName
 	k.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
 	updatableServiceNameList := make([]string, 0)
@@ -581,7 +582,8 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 	for i := range group {
 		if !commonutil.ServiceDeployed(group[i].ServiceName, product.ServiceDeployStrategy) {
 			// services are only imported, we do not deploy them again, but we need to fetch the images
-			containers, err := fetchWorkloadImages(group[i], product, renderSet, kubeClient)
+			//containers, err := fetchWorkloadImages(group[i], product, renderSet, kubeClient)
+			containers, err := fetchWorkloadImages(group[i], product, nil, kubeClient)
 			if err != nil {
 				return fmt.Errorf("failed to fetch related containers: %s", err)
 			}
@@ -592,7 +594,8 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			items, err := upsertService(prod, svc, svc, renderSet, nil, !prod.Production, informer, kubeClient, istioClient, k.log)
+			//items, err := upsertService(prod, svc, svc, renderSet, nil, !prod.Production, informer, kubeClient, istioClient, k.log)
+			items, err := upsertService(prod, svc, svc, nil, nil, !prod.Production, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {

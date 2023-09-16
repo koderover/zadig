@@ -27,7 +27,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -91,6 +90,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 				ProductName: serviceTmpl.ProductName,
 				Type:        serviceTmpl.Type,
 				Revision:    serviceTmpl.Revision,
+				Render:      rc,
 			}
 			serviceResp.Containers = make([]*commonmodels.Container, 0)
 			var err error
@@ -116,29 +116,32 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	}
 	productObj.Services = serviceGroup
 
-	renderset := &commonmodels.RenderSet{
-		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
-		EnvName:       arg.EnvName,
-		ProductTmpl:   arg.ProductName,
-		UpdateBy:      productObj.UpdateBy,
-		IsDefault:     false,
-		DefaultValues: arg.DefaultValues,
-		ChartInfos:    productObj.ServiceRenders,
-		YamlData:      geneYamlData(arg.ValuesData),
-	}
+	productObj.DefaultValues = arg.DefaultValues
+	productObj.YamlData = geneYamlData(arg.ValuesData)
 
-	// insert renderset info into db
-	err = render.CreateK8sHelmRenderSet(renderset, log)
-	if err != nil {
-		log.Errorf("rennderset create fail when creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
-		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to create renderset, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
-	}
-
-	productObj.Render = &commonmodels.RenderInfo{
-		Name:        renderset.Name,
-		Revision:    renderset.Revision,
-		ProductTmpl: productObj.ProductName,
-	}
+	//renderset := &commonmodels.RenderSet{
+	//	Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+	//	EnvName:       arg.EnvName,
+	//	ProductTmpl:   arg.ProductName,
+	//	UpdateBy:      productObj.UpdateBy,
+	//	IsDefault:     false,
+	//	DefaultValues: arg.DefaultValues,
+	//	ChartInfos:    productObj.ServiceRenders,
+	//	YamlData:      geneYamlData(arg.ValuesData),
+	//}
+	//
+	//// insert renderset info into db
+	//err = render.CreateK8sHelmRenderSet(renderset, log)
+	//if err != nil {
+	//	log.Errorf("rennderset create fail when creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
+	//	return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to create renderset, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
+	//}
+	//
+	//productObj.Render = &commonmodels.RenderInfo{
+	//	Name:        renderset.Name,
+	//	Revision:    renderset.Revision,
+	//	ProductTmpl: productObj.ProductName,
+	//}
 	return nil
 }
 
@@ -213,7 +216,7 @@ func CreateHostProductionProduct(productName, userName, requestID string, args [
 	return errList.ErrorOrNil()
 }
 
-// create helm product, only works in test product
+// CreateHelmProduct create helm product, only works in test product
 func CreateHelmProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil || templateProduct == nil {
@@ -223,7 +226,7 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateSi
 		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query product %s ", productName))
 	}
 
-	// fill all chart infos from product renderset
+	// fill all chart infos from product template services
 	err = commonservice.FillProductTemplateValuesYamls(templateProduct, false, log)
 	if err != nil {
 		return e.ErrCreateEnv.AddDesc(err.Error())
@@ -289,29 +292,32 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 		return fmt.Errorf("global variables not match the definition")
 	}
 
-	renderset := &commonmodels.RenderSet{
-		Name:             commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
-		EnvName:          arg.EnvName,
-		ProductTmpl:      arg.ProductName,
-		UpdateBy:         productObj.UpdateBy,
-		IsDefault:        false,
-		DefaultValues:    arg.DefaultValues,
-		GlobalVariables:  arg.GlobalVariables,
-		ServiceVariables: productObj.ServiceRenders,
-	}
+	productObj.DefaultValues = arg.DefaultValues
+	productObj.GlobalVariables = arg.GlobalVariables
 
-	// insert renderset info into db
-	err := render.CreateK8sHelmRenderSet(renderset, log)
-	if err != nil {
-		log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
-		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
-	}
+	//renderset := &commonmodels.RenderSet{
+	//	Name:             commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+	//	EnvName:          arg.EnvName,
+	//	ProductTmpl:      arg.ProductName,
+	//	UpdateBy:         productObj.UpdateBy,
+	//	IsDefault:        false,
+	//	DefaultValues:    arg.DefaultValues,
+	//	GlobalVariables:  arg.GlobalVariables,
+	//	ServiceVariables: productObj.ServiceRenders,
+	//}
+	//
+	//// insert renderset info into db
+	//err := render.CreateK8sHelmRenderSet(renderset, log)
+	//if err != nil {
+	//	log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
+	//	return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
+	//}
 
-	productObj.Render = &commonmodels.RenderInfo{
-		Name:        renderset.Name,
-		Revision:    renderset.Revision,
-		ProductTmpl: productObj.ProductName,
-	}
+	//productObj.Render = &commonmodels.RenderInfo{
+	//	Name:        renderset.Name,
+	//	Revision:    renderset.Revision,
+	//	ProductTmpl: productObj.ProductName,
+	//}
 
 	return nil
 }
@@ -347,13 +353,20 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 				return fmt.Errorf("failed to convert render variable kvs to yaml, svcName: %s, err: %w", sv.ServiceName, err)
 			}
 
-			productObj.ServiceRenders = append(productObj.ServiceRenders, &templatemodels.ServiceRender{
+			//productObj.ServiceRenders = append(productObj.ServiceRenders, &templatemodels.ServiceRender{
+			//	ServiceName: sv.ServiceName,
+			//	OverrideYaml: &templatemodels.CustomYaml{
+			//		YamlContent:       variableYaml,
+			//		RenderVariableKVs: sv.VariableKVs,
+			//	},
+			//})
+			sv.Render = &templatemodels.ServiceRender{
 				ServiceName: sv.ServiceName,
 				OverrideYaml: &templatemodels.CustomYaml{
 					YamlContent:       variableYaml,
 					RenderVariableKVs: sv.VariableKVs,
 				},
-			})
+			}
 		}
 	}
 
