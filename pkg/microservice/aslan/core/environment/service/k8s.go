@@ -187,6 +187,8 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 
 	newProductSvc.GetServiceRender().OverrideYaml.RenderVariableKVs = args.ServiceRev.VariableKVs
 	newProductSvc.GetServiceRender().OverrideYaml.YamlContent = args.ServiceRev.VariableYaml
+	log.Infof("----- args service variable is %s", args.ServiceRev.VariableYaml)
+	log.Infof("----- args service variablekv count is %v", len(args.ServiceRev.VariableKVs))
 
 	//foundServiceVariable := false
 	//for _, newProductSvc := range curRenderset.ServiceVariables {
