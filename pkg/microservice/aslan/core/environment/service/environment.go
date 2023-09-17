@@ -1347,7 +1347,7 @@ func UpdateProductDefaultValuesWithRender(productRenderset *models.RenderSet, us
 			}
 		}
 	}
-	return UpdateProductVariable(productRenderset.ProductTmpl, productRenderset.EnvName, userName, requestID, updatedSvcList, productRenderset, args.DeployType, log)
+	return UpdateProductVariable(productRenderset.ProductTmpl, productRenderset.EnvName, userName, requestID, updatedSvcList, nil, productRenderset, args.DeployType, log)
 }
 
 func UpdateHelmProductCharts(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
@@ -1437,7 +1437,7 @@ func UpdateHelmProductCharts(productName, envName, userName, requestID string, a
 			rcList = append(rcList, rc)
 		}
 
-		return UpdateProductVariable(productName, envName, userName, requestID, rcList, productRenderset, setting.HelmDeployType, log)
+		return UpdateProductVariable(productName, envName, userName, requestID, rcList, nil, productRenderset, setting.HelmDeployType, log)
 	}
 }
 
@@ -1528,7 +1528,7 @@ func SyncHelmProductEnvironment(productName, envName, requestID string, log *zap
 		updatedRcList = append(updatedRcList, updatedRc)
 	}
 
-	err = UpdateProductVariable(productName, envName, "cron", requestID, updatedRcList, productRenderset, setting.HelmDeployType, log)
+	err = UpdateProductVariable(productName, envName, "cron", requestID, updatedRcList, nil, productRenderset, setting.HelmDeployType, log)
 	if err != nil {
 		return err
 	}
@@ -1588,7 +1588,7 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 		updatedRcList = append(updatedRcList, updatedRc)
 	}
 
-	err = UpdateProductVariable(productName, envName, userName, requestID, updatedRcList, productRenderset, setting.HelmDeployType, log)
+	err = UpdateProductVariable(productName, envName, userName, requestID, updatedRcList, nil, productRenderset, setting.HelmDeployType, log)
 	if err != nil {
 		return err
 	}
@@ -1600,7 +1600,7 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
 }
 
-func UpdateProductVariable(productName, envName, username, requestID string, updatedSvcs []*templatemodels.ServiceRender, renderset *commonmodels.RenderSet, deployType string, log *zap.SugaredLogger) error {
+func UpdateProductVariable(productName, envName, username, requestID string, updatedSvcs []*templatemodels.ServiceRender, globalVariables []*commontypes.GlobalVariableKV, renderset *commonmodels.RenderSet, deployType string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -1659,6 +1659,7 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 	//	return e.ErrUpdateEnv.AddErr(err)
 	//}
 
+	productResp.GlobalVariables = globalVariables
 	// only update renderset value to db, no need to upgrade chart release
 	if len(updatedSvcs) == 0 {
 		log.Infof("no need to update svc")
@@ -3548,6 +3549,8 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 	if err != nil {
 		return fmt.Errorf("failed to check if product and args global variable is equal, err: %s", err)
 	}
+
+	log.Infof("product global variable equal: %v", equal)
 	if equal {
 		return nil
 	}
@@ -3619,7 +3622,7 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 			}
 		}
 	}
-	return UpdateProductVariable(product.ProductName, product.EnvName, userName, requestID, updatedSvcList, productRenderset, setting.K8SDeployType, log)
+	return UpdateProductVariable(product.ProductName, product.EnvName, userName, requestID, updatedSvcList, product.GlobalVariables, productRenderset, setting.K8SDeployType, log)
 }
 
 type EnvConfigsArgs struct {
