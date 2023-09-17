@@ -26,7 +26,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 func init() {
@@ -79,56 +78,56 @@ func missContainerImagePath(container *commonmodels.Container) bool {
 }
 
 func fillImageParseInfo(prod *commonmodels.Product) error {
-	rendersetMap := make(map[string]string)
-	for _, singleData := range prod.ServiceRenders {
-		rendersetMap[singleData.ServiceName] = singleData.ValuesYaml
-	}
-
-	fillHappen := false
-
-	// fill the parse info
-	serviceMap := prod.GetServiceMap()
-	for _, singleService := range serviceMap {
-		findEmptySpec := false
-		for _, container := range singleService.Containers {
-			if missContainerImagePath(container) {
-				findEmptySpec = true
-				break
-			}
-		}
-		if !findEmptySpec {
-			continue
-		}
-		flatMap, err := converter.YamlToFlatMap([]byte(rendersetMap[singleService.ServiceName]))
-		if err != nil {
-			log.Errorf("get flat map fail for service: %s.%s, err %s", prod.ProductName, singleService.ServiceName, err.Error())
-			continue
-		}
-		matchedPath, err := commonutil.ParseImagesByPresetRules(flatMap)
-		if err != nil {
-			log.Errorf("failed to parse images from service:%s.%s in product:%s", prod.ProductName, singleService.ServiceName, singleService.ProductName)
-			continue
-		}
-		for _, container := range singleService.Containers {
-			if !missContainerImagePath(container) {
-				continue
-			}
-			err = findImageByContainerName(flatMap, matchedPath, container)
-			if err != nil {
-				log.Errorf("failed to find image pathL %s.%s, err: %s", prod.ProductName, singleService.ServiceName, err.Error())
-				continue
-			}
-			fillHappen = true
-			log.Infof("fill parse data to  %s.%s.%s successfully", prod.ProductName, singleService.ServiceName, container.Name)
-		}
-	}
-
-	if fillHappen {
-		err := commonrepo.NewProductColl().Update(prod)
-		if err != nil {
-			return err
-		}
-	}
+	//rendersetMap := make(map[string]string)
+	//for _, singleData := range prod.ServiceRenders {
+	//	rendersetMap[singleData.ServiceName] = singleData.ValuesYaml
+	//}
+	//
+	//fillHappen := false
+	//
+	//// fill the parse info
+	//serviceMap := prod.GetServiceMap()
+	//for _, singleService := range serviceMap {
+	//	findEmptySpec := false
+	//	for _, container := range singleService.Containers {
+	//		if missContainerImagePath(container) {
+	//			findEmptySpec = true
+	//			break
+	//		}
+	//	}
+	//	if !findEmptySpec {
+	//		continue
+	//	}
+	//	flatMap, err := converter.YamlToFlatMap([]byte(rendersetMap[singleService.ServiceName]))
+	//	if err != nil {
+	//		log.Errorf("get flat map fail for service: %s.%s, err %s", prod.ProductName, singleService.ServiceName, err.Error())
+	//		continue
+	//	}
+	//	matchedPath, err := commonutil.ParseImagesByPresetRules(flatMap)
+	//	if err != nil {
+	//		log.Errorf("failed to parse images from service:%s.%s in product:%s", prod.ProductName, singleService.ServiceName, singleService.ProductName)
+	//		continue
+	//	}
+	//	for _, container := range singleService.Containers {
+	//		if !missContainerImagePath(container) {
+	//			continue
+	//		}
+	//		err = findImageByContainerName(flatMap, matchedPath, container)
+	//		if err != nil {
+	//			log.Errorf("failed to find image pathL %s.%s, err: %s", prod.ProductName, singleService.ServiceName, err.Error())
+	//			continue
+	//		}
+	//		fillHappen = true
+	//		log.Infof("fill parse data to  %s.%s.%s successfully", prod.ProductName, singleService.ServiceName, container.Name)
+	//	}
+	//}
+	//
+	//if fillHappen {
+	//	err := commonrepo.NewProductColl().Update(prod)
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
 	return nil
 }
 

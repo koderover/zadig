@@ -259,20 +259,21 @@ func GetGlobalVariables(productName, envName string, log *zap.SugaredLogger) ([]
 		return nil, 0, fmt.Errorf("failed to query product info, productName %s envName %s", productName, envName)
 	}
 
-	if productInfo.Render == nil {
-		return nil, 0, fmt.Errorf("invalid product, nil render data")
-	}
-
-	opt := &commonrepo.RenderSetFindOption{
-		Name:        productInfo.Render.Name,
-		Revision:    productInfo.Render.Revision,
-		ProductTmpl: productName,
-		EnvName:     productInfo.EnvName,
-	}
-	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
-		return nil, 0, err
-	}
-	return rendersetObj.GlobalVariables, rendersetObj.Revision, nil
+	//if productInfo.Render == nil {
+	//	return nil, 0, fmt.Errorf("invalid product, nil render data")
+	//}
+	//
+	//opt := &commonrepo.RenderSetFindOption{
+	//	Name:        productInfo.Render.Name,
+	//	Revision:    productInfo.Render.Revision,
+	//	ProductTmpl: productName,
+	//	EnvName:     productInfo.EnvName,
+	//}
+	//rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
+	//if err != nil {
+	//	log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
+	//	return nil, 0, err
+	//}
+	return productInfo.GlobalVariables, 0, nil
+	//return rendersetObj.GlobalVariables, rendersetObj.Revision, nil
 }

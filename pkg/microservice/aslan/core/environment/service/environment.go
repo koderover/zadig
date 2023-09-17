@@ -2235,38 +2235,38 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		log.Errorf("failed to update product deploy strategy, err: %s", err)
 	}
 
-	rs, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		EnvName:     productInfo.EnvName,
-		Name:        productInfo.Render.Name,
-		Revision:    productInfo.Render.Revision,
-		ProductTmpl: productInfo.ProductName,
-	})
-	if err != nil {
-		log.Errorf("get renderSet error: %v", err)
-		return err
-	}
-
-	// update variables
-	rs.GlobalVariables = commontypes.RemoveGlobalVariableRelatedService(rs.GlobalVariables, serviceNames...)
-	validServiceVars := make([]*templatemodels.ServiceRender, 0)
-	for _, svcRender := range rs.ServiceVariables {
-		if !util.InStringArray(svcRender.ServiceName, serviceNames) {
-			validServiceVars = append(validServiceVars, svcRender)
-		}
-	}
-	rs.ServiceVariables = validServiceVars
-
-	err = render.CreateRenderSet(rs, log)
-	if err != nil {
-		return fmt.Errorf("failed to update renderSet, error: %w", err)
-	}
-	renderInfo := &commonmodels.RenderInfo{
-		Name:        productInfo.Render.Name,
-		Revision:    rs.Revision,
-		ProductTmpl: productInfo.Render.ProductTmpl,
-		Description: productInfo.Render.Description,
-	}
-	commonrepo.NewProductColl().UpdateRender(productInfo.EnvName, productInfo.ProductName, renderInfo)
+	//rs, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+	//	EnvName:     productInfo.EnvName,
+	//	Name:        productInfo.Render.Name,
+	//	Revision:    productInfo.Render.Revision,
+	//	ProductTmpl: productInfo.ProductName,
+	//})
+	//if err != nil {
+	//	log.Errorf("get renderSet error: %v", err)
+	//	return err
+	//}
+	//
+	//// update variables
+	//rs.GlobalVariables = commontypes.RemoveGlobalVariableRelatedService(rs.GlobalVariables, serviceNames...)
+	//validServiceVars := make([]*templatemodels.ServiceRender, 0)
+	//for _, svcRender := range rs.ServiceVariables {
+	//	if !util.InStringArray(svcRender.ServiceName, serviceNames) {
+	//		validServiceVars = append(validServiceVars, svcRender)
+	//	}
+	//}
+	//rs.ServiceVariables = validServiceVars
+	//
+	//err = render.CreateRenderSet(rs, log)
+	//if err != nil {
+	//	return fmt.Errorf("failed to update renderSet, error: %w", err)
+	//}
+	//renderInfo := &commonmodels.RenderInfo{
+	//	Name:        productInfo.Render.Name,
+	//	Revision:    rs.Revision,
+	//	ProductTmpl: productInfo.Render.ProductTmpl,
+	//	Description: productInfo.Render.Description,
+	//}
+	//commonrepo.NewProductColl().UpdateRender(productInfo.EnvName, productInfo.ProductName, renderInfo)
 
 	ctx := context.TODO()
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
@@ -2495,7 +2495,7 @@ func restartRelatedWorkloads(env *commonmodels.Product, service *commonmodels.Pr
 }
 
 // upsertService
-func upsertService(env *commonmodels.Product, service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
+func upsertService(env *commonmodels.Product, newService *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
 	renderSet *commonmodels.RenderSet, preRenderInfo *commonmodels.RenderInfo, addLabel bool, informer informers.SharedInformerFactory,
 	kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
 	isUpdate := prevSvc == nil
@@ -2507,7 +2507,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 			}
 
 			if len(es) == 1 {
-				return fmt.Sprintf(format+" %s 失败:%v", service.ServiceName, es[0])
+				return fmt.Sprintf(format+" %s 失败:%v", newService.ServiceName, es[0])
 			}
 
 			points := make([]string, len(es))
@@ -2515,31 +2515,31 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 				points[i] = fmt.Sprintf("* %v", err)
 			}
 
-			return fmt.Sprintf(format+" %s 失败:\n%s", service.ServiceName, strings.Join(points, "\n"))
+			return fmt.Sprintf(format+" %s 失败:\n%s", newService.ServiceName, strings.Join(points, "\n"))
 		},
 	}
 
-	if service.Type != setting.K8SDeployType {
+	if newService.Type != setting.K8SDeployType {
 		return nil, nil
 	}
 
-	// for service not deployed in envs, we should not replace containers in case variables exist in containers
+	// for newService not deployed in envs, we should not replace containers in case variables exist in containers
 	if prevSvc == nil {
-		service.Containers = nil
+		newService.Containers = nil
 	}
 
-	//parsedYaml, err := kube.RenderEnvService(env, renderSet.GetServiceRenderMap()[service.ServiceName], service)
-	parsedYaml, err := kube.RenderEnvService(env, service.GetServiceRender(), service)
+	//parsedYaml, err := kube.RenderEnvService(env, renderSet.GetServiceRenderMap()[newService.ServiceName], newService)
+	parsedYaml, err := kube.RenderEnvService(env, newService.GetServiceRender(), newService)
 	if err != nil {
-		log.Errorf("Failed to render service %s, error: %v", service.ServiceName, err)
-		errList = multierror.Append(errList, fmt.Errorf("service template %s error: %v", service.ServiceName, err))
+		log.Errorf("Failed to render newService %s, error: %v", newService.ServiceName, err)
+		errList = multierror.Append(errList, fmt.Errorf("newService template %s error: %v", newService.ServiceName, err))
 		return nil, errList
 	}
 
 	if prevSvc == nil {
-		fakeTemplateSvc := &commonmodels.Service{ServiceName: service.ServiceName, ProductName: service.ServiceName, KubeYamls: util.SplitYaml(parsedYaml)}
+		fakeTemplateSvc := &commonmodels.Service{ServiceName: newService.ServiceName, ProductName: newService.ServiceName, KubeYamls: util.SplitYaml(parsedYaml)}
 		commonutil.SetCurrentContainerImages(fakeTemplateSvc)
-		service.Containers = fakeTemplateSvc.Containers
+		newService.Containers = fakeTemplateSvc.Containers
 	}
 
 	preResourceYaml := ""
@@ -2553,7 +2553,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 
 	resourceApplyParam := &kube.ResourceApplyParam{
 		ProductInfo:         env,
-		ServiceName:         service.ServiceName,
+		ServiceName:         newService.ServiceName,
 		CurrentResourceYaml: preResourceYaml,
 		UpdateResourceYaml:  parsedYaml,
 		Informer:            informer,

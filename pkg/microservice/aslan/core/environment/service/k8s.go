@@ -39,12 +39,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -102,7 +99,7 @@ func (k *K8sService) queryWorkloadStatus(serviceTmpl *commonmodels.Service, prod
 }
 
 func (k *K8sService) updateService(args *SvcOptArgs) error {
-	svc := &commonmodels.ProductService{
+	newProductSvc := &commonmodels.ProductService{
 		ServiceName: args.ServiceName,
 		Type:        args.ServiceType,
 		Revision:    0,
@@ -117,27 +114,27 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return errors.New(e.UpsertServiceErrMsg)
 	}
 	if exitedProd.IsSleeping() {
-		return e.ErrUpdateEnv.AddErr(fmt.Errorf("Environment is sleeping"))
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("environment is sleeping"))
 	}
 
-	currentProductSvc := exitedProd.GetServiceMap()[svc.ServiceName]
+	currentProductSvc := exitedProd.GetServiceMap()[newProductSvc.ServiceName]
 	if currentProductSvc == nil {
-		return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service: %s in env: %s", svc.ServiceName, exitedProd.EnvName))
+		return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service: %s in env: %s", newProductSvc.ServiceName, exitedProd.EnvName))
 	}
 
-	svc.Containers = currentProductSvc.Containers
+	newProductSvc.Containers = currentProductSvc.Containers
 
 	if !args.UpdateServiceTmpl {
-		svc.Revision = currentProductSvc.Revision
+		newProductSvc.Revision = currentProductSvc.Revision
 	} else {
 		latestSvcRevision, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-			ServiceName: svc.ServiceName,
-			ProductName: svc.ProductName,
+			ServiceName: newProductSvc.ServiceName,
+			ProductName: newProductSvc.ProductName,
 		}, exitedProd.Production)
 		if err != nil {
 			return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service, err: %s", err))
 		}
-		svc.Revision = latestSvcRevision.Revision
+		newProductSvc.Revision = latestSvcRevision.Revision
 
 		curUsedSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ServiceName: currentProductSvc.ServiceName,
@@ -147,7 +144,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		if err != nil {
 			curUsedSvc = nil
 		}
-		svc.Containers = kube.CalculateContainer(currentProductSvc, curUsedSvc, latestSvcRevision.Containers, exitedProd)
+		newProductSvc.Containers = kube.CalculateContainer(currentProductSvc, curUsedSvc, latestSvcRevision.Containers, exitedProd)
 	}
 
 	switch exitedProd.Status {
@@ -156,28 +153,30 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddDesc(e.EnvCantUpdatedMsg)
 	}
 
-	exitedProd.EnsureRenderInfo()
-	curRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:     exitedProd.Render.Name,
-		EnvName:  exitedProd.EnvName,
-		Revision: exitedProd.Render.Revision,
-	})
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to find render set, err: %s", err))
-	}
+	//exitedProd.EnsureRenderInfo()
+	//curRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+	//	Name:     exitedProd.Render.Name,
+	//	EnvName:  exitedProd.EnvName,
+	//	Revision: exitedProd.Render.Revision,
+	//})
+	//if err != nil {
+	//	return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to find render set, err: %s", err))
+	//}
+	//
+	//curSvcRender := &templatemodels.ServiceRender{
+	//	ServiceName:  args.ServiceName,
+	//	OverrideYaml: &templatemodels.CustomYaml{},
+	//}
+	//for _, svcRender := range curRenderset.ServiceVariables {
+	//	if svcRender.ServiceName == args.ServiceName {
+	//		curSvcRender = svcRender
+	//		break
+	//	}
+	//}
+	curSvcRender := exitedProd.GetSvcRender(args.ServiceName)
+	globalVars := exitedProd.GlobalVariables
 
-	curSvcRender := &templatemodels.ServiceRender{
-		ServiceName:  args.ServiceName,
-		OverrideYaml: &templatemodels.CustomYaml{},
-	}
-	for _, svcRender := range curRenderset.ServiceVariables {
-		if svcRender.ServiceName == args.ServiceName {
-			curSvcRender = svcRender
-			break
-		}
-	}
-
-	curRenderset.GlobalVariables, args.ServiceRev.VariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, curRenderset.GlobalVariables, args.ServiceRev.VariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
+	globalVars, args.ServiceRev.VariableKVs, err = commontypes.UpdateGlobalVariableKVs(newProductSvc.ServiceName, globalVars, args.ServiceRev.VariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to update global variable, err: %s", err))
 	}
@@ -186,34 +185,37 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to convert render variable to yaml, err: %s", err))
 	}
 
-	foundServiceVariable := false
-	for _, svc := range curRenderset.ServiceVariables {
-		if svc.ServiceName != args.ServiceName {
-			continue
-		}
+	newProductSvc.GetServiceRender().OverrideYaml.RenderVariableKVs = args.ServiceRev.VariableKVs
+	newProductSvc.GetServiceRender().OverrideYaml.YamlContent = args.ServiceRev.VariableYaml
 
-		foundServiceVariable = true
-		svc.OverrideYaml = &template.CustomYaml{
-			YamlContent:       args.ServiceRev.VariableYaml,
-			RenderVariableKVs: args.ServiceRev.VariableKVs,
-		}
-	}
-	if !foundServiceVariable {
-		curRenderset.ServiceVariables = append(curRenderset.ServiceVariables, &template.ServiceRender{
-			ServiceName: args.ServiceName,
-			OverrideYaml: &template.CustomYaml{
-				YamlContent:       args.ServiceRev.VariableYaml,
-				RenderVariableKVs: args.ServiceRev.VariableKVs,
-			},
-		})
-	}
-	err = render.CreateK8sHelmRenderSet(curRenderset, k.log)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to craete renderset, err: %s", err))
-	}
+	//foundServiceVariable := false
+	//for _, newProductSvc := range curRenderset.ServiceVariables {
+	//	if newProductSvc.ServiceName != args.ServiceName {
+	//		continue
+	//	}
+	//
+	//	foundServiceVariable = true
+	//	newProductSvc.OverrideYaml = &template.CustomYaml{
+	//		YamlContent:       args.ServiceRev.VariableYaml,
+	//		RenderVariableKVs: args.ServiceRev.VariableKVs,
+	//	}
+	//}
+	//if !foundServiceVariable {
+	//	curRenderset.ServiceVariables = append(curRenderset.ServiceVariables, &template.ServiceRender{
+	//		ServiceName: args.ServiceName,
+	//		OverrideYaml: &template.CustomYaml{
+	//			YamlContent:       args.ServiceRev.VariableYaml,
+	//			RenderVariableKVs: args.ServiceRev.VariableKVs,
+	//		},
+	//	})
+	//}
+	//err = render.CreateK8sHelmRenderSet(curRenderset, k.log)
+	//if err != nil {
+	//	return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to craete renderset, err: %s", err))
+	//}
 
 	preRevision := exitedProd.Render
-	exitedProd.Render = &commonmodels.RenderInfo{Name: curRenderset.Name, Revision: curRenderset.Revision, ProductTmpl: curRenderset.ProductTmpl}
+	//exitedProd.Render = &commonmodels.RenderInfo{Name: curRenderset.Name, Revision: curRenderset.Revision, ProductTmpl: curRenderset.ProductTmpl}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
@@ -257,24 +259,29 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	if previewResult.Current.Yaml == previewResult.Latest.Yaml {
 		k.log.Infof("[%s][P:%s] Service yaml is not changed", args.EnvName, args.ProductName)
 	} else {
+		//_, err = upsertService(
+		//	exitedProd,
+		//	newProductSvc,
+		//	currentProductSvc,
+		//	curRenderset, preRevision, !exitedProd.Production, inf, kubeClient, istioClient, k.log)
 		_, err = upsertService(
 			exitedProd,
-			svc,
+			newProductSvc,
 			currentProductSvc,
-			curRenderset, preRevision, !exitedProd.Production, inf, kubeClient, istioClient, k.log)
+			nil, preRevision, !exitedProd.Production, inf, kubeClient, istioClient, k.log)
 
 		if err != nil {
 			k.log.Error(err)
-			svc.Error = err.Error()
+			newProductSvc.Error = err.Error()
 			return e.ErrUpdateProduct.AddDesc(err.Error())
 		}
 	}
 
-	svc.Error = ""
+	newProductSvc.Error = ""
 	for _, group := range exitedProd.Services {
 		for i, service := range group {
 			if service.ServiceName == args.ServiceName && service.Type == args.ServiceType {
-				group[i] = svc
+				group[i] = newProductSvc
 			}
 		}
 	}
