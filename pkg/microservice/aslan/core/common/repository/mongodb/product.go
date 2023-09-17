@@ -441,6 +441,18 @@ func (c *ProductColl) UpdateDeployStrategy(envName, productName string, deploySt
 	return err
 }
 
+func (c *ProductColl) UpdateProductVariables(product *models.Product) error {
+	query := bson.M{"env_name": product.EnvName, "product_name": product.ProductName}
+
+	change := bson.M{"$set": bson.M{
+		"default_values":   product.DefaultValues,
+		"yaml_data":        product.YamlData,
+		"global_variables": product.GlobalVariables,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *ProductColl) UpdateProductRecycleDay(envName, productName string, recycleDay int) error {
 	query := bson.M{"env_name": envName, "product_name": productName}
 

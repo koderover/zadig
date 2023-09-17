@@ -1661,7 +1661,8 @@ func UpdateProductVariable(productName, envName, username, requestID string, upd
 
 	// only update renderset value to db, no need to upgrade chart release
 	if len(updatedSvcs) == 0 {
-		return nil
+		log.Infof("no need to update svc")
+		return commonrepo.NewProductColl().UpdateProductVariables(productResp)
 	}
 
 	if deployType == setting.K8SDeployType {
