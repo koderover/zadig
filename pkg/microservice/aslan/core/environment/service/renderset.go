@@ -274,6 +274,6 @@ func GetGlobalVariables(productName, envName string, log *zap.SugaredLogger) ([]
 	//	log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
 	//	return nil, 0, err
 	//}
-	return productInfo.GlobalVariables, 0, nil
+	return productInfo.GlobalVariables, productInfo.UpdateTime, nil
 	//return rendersetObj.GlobalVariables, rendersetObj.Revision, nil
 }

@@ -34,7 +34,6 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
@@ -365,7 +364,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, map[string]string{setting.ProductLabel: productName}, exitedProd.ShareEnv.Enable, kubeClient, log)
 	if err != nil {
-		log.Errorf("[%s][P:%s] service.UpdateProductV2 create kubeEnv error: %v", envName, productName, err)
+		log.Errorf("[%s][P:%s] service.updateK8sProduct create kubeEnv error: %v", envName, productName, err)
 		return err
 	}
 
@@ -381,11 +380,20 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	updateRevisionSvcSet := sets.NewString(updateRevisionSvc...)
 
+	curProdInDB, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		log.Errorf("[%s][P:%s] service.updateK8sProduct find product error: %v", envName, productName, err)
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
 	// @fixme improve update revision and filter logic
 	// merge render variable and global variable
 	for _, svc := range updatedSvcs {
 
-		curSvcRender := exitedProd.GetSvcRender(svc.ServiceName)
+		curSvcRender := curProdInDB.GetSvcRender(svc.ServiceName)
 
 		//curSvcRender, ok := curSvcRenderMap[svc.ServiceName]
 		//if !ok {
@@ -393,6 +401,11 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		//		OverrideYaml: &templatemodels.CustomYaml{},
 		//	}
 		//}
+
+		existedProductSvc := exitedProd.GetServiceMap()[svc.ServiceName]
+		if existedProductSvc != nil {
+			existedProductSvc.Render = svc
+		}
 
 		if updateRevisionSvcSet.Has(svc.ServiceName) {
 			svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -435,21 +448,21 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		}
 	}
 
-	// @fixme best to render yaml before create renderset
-	renderSet, err := render.CreateRenderSetByMerge(
-		&commonmodels.RenderSet{
-			Name:             exitedProd.Namespace,
-			EnvName:          envName,
-			ProductTmpl:      productName,
-			ServiceVariables: updatedSvcs,
-			GlobalVariables:  globalVariables,
-		},
-		log,
-	)
-	if err != nil {
-		log.Errorf("[%s][P:%s] create renderset error: %v", envName, productName, err)
-		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
-	}
+	//// @fixme best to render yaml before create renderset
+	//renderSet, err := render.CreateRenderSetByMerge(
+	//	&commonmodels.RenderSet{
+	//		Name:             exitedProd.Namespace,
+	//		EnvName:          envName,
+	//		ProductTmpl:      productName,
+	//		ServiceVariables: updatedSvcs,
+	//		GlobalVariables:  globalVariables,
+	//	},
+	//	log,
+	//)
+	//if err != nil {
+	//	log.Errorf("[%s][P:%s] create renderset error: %v", envName, productName, err)
+	//	return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
+	//}
 
 	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, updateRevisionSvc)
 
@@ -459,6 +472,9 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
 	updateProd.Production = exitedProd.Production
+	updateProd.GlobalVariables = exitedProd.GlobalVariables
+	updateProd.DefaultValues = exitedProd.DefaultValues
+	updateProd.YamlData = exitedProd.YamlData
 
 	// build services
 	productSvcs := exitedProd.GetServiceMap()
@@ -509,7 +525,8 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	go func() {
 		productErrMsg := ""
-		err = updateProductImpl(updateRevisionSvc, deployStrategy, exitedProd, updateProd, renderSet, filter, log)
+		//err = updateProductImpl(updateRevisionSvc, deployStrategy, exitedProd, updateProd, renderSet, filter, log)
+		err = updateProductImpl(updateRevisionSvc, deployStrategy, exitedProd, updateProd, nil, filter, log)
 		if err != nil {
 			productErrMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
