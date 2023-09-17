@@ -3515,7 +3515,7 @@ func UpdateProductGlobalVariables(productName, envName, userName, requestID stri
 	//	return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
 	//}
 
-	if product.Revision != currentRevision {
+	if product.UpdateTime != currentRevision {
 		return e.ErrUpdateEnv.AddDesc("renderset revision is not the latest, please refresh and try again")
 	}
 
