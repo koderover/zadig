@@ -367,10 +367,12 @@ func BatchPreviewService(args []*PreviewServiceArgs, logger *zap.SugaredLogger) 
 }
 
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
+	log.Infof("------- start preview service")
 	newVariableYaml, err := commontypes.RenderVariableKVToYaml(args.VariableKVs)
 	if err != nil {
 		return nil, e.ErrPreviewYaml.AddErr(err)
 	}
+	log.Infof("newVariableYaml: %s", newVariableYaml)
 
 	ret := &SvcDiffResult{
 		ServiceName: args.ServiceName,
