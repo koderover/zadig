@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -27,7 +28,7 @@ import (
 )
 
 // System level default environment variables (every workflow type will have it)
-func PrepareDefaultWorkflowTaskEnvs(projectKey, workflowName string, taskID int64) []*commonmodels.KeyVal {
+func PrepareDefaultWorkflowTaskEnvs(projectKey, workflowName, workflowDisplayName string, taskID int64) []*commonmodels.KeyVal {
 	envs := make([]*commonmodels.KeyVal, 0)
 
 	envs = append(envs,
@@ -38,7 +39,7 @@ func PrepareDefaultWorkflowTaskEnvs(projectKey, workflowName string, taskID int6
 		&commonmodels.KeyVal{Key: "WORKFLOW", Value: workflowName},
 	)
 
-	url := GetLink(configbase.SystemAddress(), projectKey, workflowName, taskID)
+	url := GetLink(configbase.SystemAddress(), projectKey, workflowName, workflowDisplayName, taskID)
 
 	envs = append(envs, &commonmodels.KeyVal{Key: "TASK_URL", Value: url})
 	envs = append(envs, &commonmodels.KeyVal{Key: "TASK_ID", Value: strconv.FormatInt(taskID, 10)})
@@ -46,8 +47,8 @@ func PrepareDefaultWorkflowTaskEnvs(projectKey, workflowName string, taskID int6
 	return envs
 }
 
-func GetLink(baseURI, projectKey, workflowName string, taskID int64) string {
-	return fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", baseURI, projectKey, workflowName, taskID)
+func GetLink(baseURI, projectKey, workflowName, workflowDisplayName string, taskID int64) string {
+	return fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", baseURI, projectKey, workflowName, taskID, url.QueryEscape(workflowDisplayName))
 }
 
 func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {

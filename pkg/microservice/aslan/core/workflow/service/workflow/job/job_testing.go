@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"net/url"
 	"path"
 	"strings"
 
@@ -358,7 +359,7 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		jobTaskSpec.Properties.CacheDirType = testingInfo.CacheDirType
 		jobTaskSpec.Properties.CacheUserDir = testingInfo.CacheUserDir
 	}
-	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, logger)...)
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, logger)...)
 
 	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
 		jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
@@ -538,7 +539,7 @@ func (j *TestingJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	return resp
 }
 
-func getTestingJobVariables(repos []*types.Repository, taskID int64, project, workflowName, testingProject, testingName, testType, serviceName, serviceModule string, log *zap.SugaredLogger) []*commonmodels.KeyVal {
+func getTestingJobVariables(repos []*types.Repository, taskID int64, project, workflowName, workflowDisplayName, testingProject, testingName, testType, serviceName, serviceModule string, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	// basic envs
 	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, taskID)...)
@@ -551,7 +552,7 @@ func getTestingJobVariables(repos []*types.Repository, taskID int64, project, wo
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE", Value: serviceName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_NAME", Value: serviceName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: serviceModule, IsCredential: false})
-	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", configbase.SystemAddress(), project, workflowName, taskID)
+	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", configbase.SystemAddress(), project, workflowName, taskID, url.QueryEscape(workflowDisplayName))
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
 	return ret
 }

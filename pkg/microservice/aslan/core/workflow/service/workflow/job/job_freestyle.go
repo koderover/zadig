@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"go.uber.org/zap"
@@ -211,7 +212,7 @@ func (j *FreeStyleJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	jobTaskSpec.Properties.BuildOS = basicImage.Value
 	// save user defined variables.
 	jobTaskSpec.Properties.CustomEnvs = jobTaskSpec.Properties.Envs
-	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getfreestyleJobVariables(jobTaskSpec.Steps, taskID, j.workflow.Project, j.workflow.Name)...)
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, getfreestyleJobVariables(jobTaskSpec.Steps, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName)...)
 	return []*commonmodels.JobTask{jobTask}, nil
 }
 
@@ -296,7 +297,7 @@ func (j *FreeStyleJob) stepsToStepTasks(step []*commonmodels.Step) []*commonmode
 	return resp
 }
 
-func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, project, workflowName string) []*commonmodels.KeyVal {
+func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, project, workflowName, workflowDisplayName string) []*commonmodels.KeyVal {
 	ret := []*commonmodels.KeyVal{}
 	repos := []*types.Repository{}
 	for _, step := range steps {
@@ -315,7 +316,7 @@ func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, proj
 	// repo envs
 	ret = append(ret, getReposVariables(repos)...)
 
-	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", configbase.SystemAddress(), project, workflowName, taskID)
+	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", configbase.SystemAddress(), project, workflowName, taskID, url.QueryEscape(workflowDisplayName))
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
 	return ret
 }
