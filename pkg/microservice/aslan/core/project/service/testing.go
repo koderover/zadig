@@ -20,11 +20,11 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	"go.uber.org/zap"
 
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 )
 
 func DeleteTestModules(productName, requestID string, log *zap.SugaredLogger) error {
