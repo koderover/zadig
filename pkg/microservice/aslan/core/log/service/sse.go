@@ -430,7 +430,7 @@ func JenkinsJobLogStream(ctx context.Context, jenkinsID, jobName string, jobID i
 	}
 
 	var offset int64 = 0
-	for build.IsRunning(context.TODO()) {
+	for {
 		select {
 		case <-ctx.Done():
 			log.Infof("context done, stop streaming")
@@ -441,10 +441,13 @@ func JenkinsJobLogStream(ctx context.Context, jenkinsID, jobName string, jobID i
 		build.Poll(context.TODO())
 		consoleOutput, err := build.GetConsoleOutputFromIndex(context.TODO(), offset)
 		if err != nil {
-			log.Warnf("[Jenkins Plugin] failed to get logs from jenkins job, error: %s", err)
+			log.Warnf("failed to get logs from jenkins job, error: %s", err)
+			return
 		}
 		streamChan <- consoleOutput.Content
 		offset += consoleOutput.Offset
+		if !build.IsRunning(context.TODO()) {
+			return
+		}
 	}
-	return
 }
