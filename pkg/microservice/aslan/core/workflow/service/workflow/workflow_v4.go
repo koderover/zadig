@@ -2697,10 +2697,10 @@ func generateOPAInput(header http.Header, method string, endpoint string) *opa.I
 }
 
 type JenkinsJobParams struct {
-	Name    string
-	Default string
-	Type    config.ParamType
-	Choices []string
+	Name    string           `json:"name"`
+	Default string           `json:"default"`
+	Type    config.ParamType `json:"type"`
+	Choices []string         `json:"choices"`
 }
 
 func GetJenkinsJobParams(id, jobName string) ([]*JenkinsJobParams, error) {
