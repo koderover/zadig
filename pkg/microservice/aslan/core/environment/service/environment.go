@@ -1687,7 +1687,7 @@ func updateK8sProductVariable(productResp *commonmodels.Product, renderset *comm
 		return false
 	}
 	//return updateK8sProduct(productResp, userName, requestID, nil, filter, renderset.ServiceVariables, nil, false, renderset.GlobalVariables, log)
-	return updateK8sProduct(productResp, userName, requestID, nil, filter, productResp.GetAllSvcRenders(), nil, false, productResp.GlobalVariables, log)
+	return updateK8sProduct(productResp, userName, requestID, nil, filter, productResp.ServiceRenders, nil, false, productResp.GlobalVariables, log)
 }
 
 func updateHelmProductVariable(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, userName, requestID string, log *zap.SugaredLogger) error {
