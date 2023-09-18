@@ -449,5 +449,7 @@ func JenkinsJobLogStream(ctx context.Context, jenkinsID, jobName string, jobID i
 		if !build.IsRunning(context.TODO()) {
 			return
 		}
+		//debug
+		fmt.Printf("debug %v\n", build.IsRunning(context.TODO()))
 	}
 }
