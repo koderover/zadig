@@ -454,8 +454,10 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				ProductName: prodService.ProductName,
 				Type:        prodService.Type,
 				Revision:    prodService.Revision,
+				Render:      prodService.Render,
+				Containers:  prodService.Containers,
 			}
-			service.Containers = prodService.Containers
+			//service.Containers = prodService.Containers
 
 			// need update service revision
 			if util.InStringArray(prodService.ServiceName, updateRevisionSvcs) {

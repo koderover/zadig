@@ -380,66 +380,68 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	updateRevisionSvcSet := sets.NewString(updateRevisionSvc...)
 
-	curProdInDB, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
-	})
-	if err != nil {
-		log.Errorf("[%s][P:%s] service.updateK8sProduct find product error: %v", envName, productName, err)
-		return e.ErrUpdateEnv.AddErr(err)
-	}
+	//curProdInDB, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+	//	Name:    productName,
+	//	EnvName: envName,
+	//})
+	//if err != nil {
+	//	log.Errorf("[%s][P:%s] service.updateK8sProduct find product error: %v", envName, productName, err)
+	//	return e.ErrUpdateEnv.AddErr(err)
+	//}
+
+	updatedSvcMap := make(map[string]*templatemodels.ServiceRender)
 
 	// @fixme improve update revision and filter logic
 	// merge render variable and global variable
-	for _, svc := range updatedSvcs {
+	for _, svcRender := range updatedSvcs {
+		updatedSvcMap[svcRender.ServiceName] = svcRender
+		curSvcRender := exitedProd.GetSvcRender(svcRender.ServiceName)
 
-		curSvcRender := curProdInDB.GetSvcRender(svc.ServiceName)
-
-		//curSvcRender, ok := curSvcRenderMap[svc.ServiceName]
+		//curSvcRender, ok := curSvcRenderMap[svcRender.ServiceName]
 		//if !ok {
 		//	curSvcRender = &templatemodels.ServiceRender{
 		//		OverrideYaml: &templatemodels.CustomYaml{},
 		//	}
 		//}
 
-		existedProductSvc := exitedProd.GetServiceMap()[svc.ServiceName]
-		if existedProductSvc != nil {
-			existedProductSvc.Render = svc
-		}
+		//existedProductSvc := exitedProd.GetServiceMap()[svcRender.ServiceName]
+		//if existedProductSvc != nil {
+		//	existedProductSvc.Render = svcRender
+		//}
 
-		if updateRevisionSvcSet.Has(svc.ServiceName) {
+		if updateRevisionSvcSet.Has(svcRender.ServiceName) {
 			svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ProductName: exitedProd.ProductName,
-				ServiceName: svc.ServiceName,
+				ServiceName: svcRender.ServiceName,
 			}, exitedProd.Production)
 			if err != nil {
-				fmtErr := fmt.Errorf("failed to get latest service template %s, err: %v", svc.ServiceName, err)
+				fmtErr := fmt.Errorf("failed to get latest service template %s, err: %v", svcRender.ServiceName, err)
 				log.Error(fmtErr)
 				return e.ErrUpdateEnv.AddErr(fmtErr)
 			}
 
-			globalVariables, svc.OverrideYaml.RenderVariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
+			globalVariables, svcRender.OverrideYaml.RenderVariableKVs, err = commontypes.UpdateGlobalVariableKVs(svcRender.ServiceName, globalVariables, svcRender.OverrideYaml.RenderVariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
 			if err != nil {
-				fmtErr := fmt.Errorf("failed to merge global and render variables for service %s, err: %w", svc.ServiceName, err)
+				fmtErr := fmt.Errorf("failed to merge global and render variables for service %s, err: %w", svcRender.ServiceName, err)
 				log.Error(fmtErr)
 				return e.ErrUpdateEnv.AddErr(fmtErr)
 			}
 
-			svc.OverrideYaml.YamlContent, svc.OverrideYaml.RenderVariableKVs, err = commontypes.MergeRenderAndServiceTemplateVariableKVs(svc.OverrideYaml.RenderVariableKVs, svcTemplate.ServiceVariableKVs)
+			svcRender.OverrideYaml.YamlContent, svcRender.OverrideYaml.RenderVariableKVs, err = commontypes.MergeRenderAndServiceTemplateVariableKVs(svcRender.OverrideYaml.RenderVariableKVs, svcTemplate.ServiceVariableKVs)
 			if err != nil {
 				fmtErr := fmt.Errorf("failed to merge render and service template variable kv, err: %w", err)
 				log.Error(fmtErr)
 				return e.ErrUpdateEnv.AddErr(fmtErr)
 			}
 		} else {
-			globalVariables, svc.OverrideYaml.RenderVariableKVs, err = commontypes.UpdateGlobalVariableKVs(svc.ServiceName, globalVariables, svc.OverrideYaml.RenderVariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
+			globalVariables, svcRender.OverrideYaml.RenderVariableKVs, err = commontypes.UpdateGlobalVariableKVs(svcRender.ServiceName, globalVariables, svcRender.OverrideYaml.RenderVariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
 			if err != nil {
-				fmtErr := fmt.Errorf("failed to merge global and render variables for service %s, err: %w", svc.ServiceName, err)
+				fmtErr := fmt.Errorf("failed to merge global and render variables for service %s, err: %w", svcRender.ServiceName, err)
 				log.Error(fmtErr)
 				return e.ErrUpdateEnv.AddErr(fmtErr)
 			}
 
-			svc.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(svc.OverrideYaml.RenderVariableKVs)
+			svcRender.OverrideYaml.YamlContent, err = commontypes.RenderVariableKVToYaml(svcRender.OverrideYaml.RenderVariableKVs)
 			if err != nil {
 				fmtErr := fmt.Errorf("failed to convert render variable kvs to yaml, err: %w", err)
 				log.Error(fmtErr)
@@ -508,6 +510,12 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	}
 
 	updateProd.Services = svcGroups
+
+	for _, updateProdSvc := range updateProd.GetServiceMap() {
+		if svcRender, ok := updatedSvcMap[updateProdSvc.ServiceName]; ok {
+			updateProdSvc.Render = svcRender
+		}
+	}
 
 	switch exitedProd.Status {
 	case setting.ProductStatusCreating, setting.ProductStatusUpdating, setting.ProductStatusDeleting:
