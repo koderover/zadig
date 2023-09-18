@@ -474,7 +474,7 @@ func replaceWrapLine(script string) string {
 func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, workflowDisplayName, image string, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	// basic envs
-	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, taskID)...)
+	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, taskID)...)
 	// repo envs
 	ret = append(ret, getReposVariables(build.Repos)...)
 	// build specific envs

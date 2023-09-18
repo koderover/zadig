@@ -542,7 +542,7 @@ func (j *TestingJob) GetOutPuts(log *zap.SugaredLogger) []string {
 func getTestingJobVariables(repos []*types.Repository, taskID int64, project, workflowName, workflowDisplayName, testingProject, testingName, testType, serviceName, serviceModule string, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	// basic envs
-	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, taskID)...)
+	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, taskID)...)
 	// repo envs
 	ret = append(ret, getReposVariables(repos)...)
 

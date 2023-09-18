@@ -312,7 +312,7 @@ func getfreestyleJobVariables(steps []*commonmodels.StepTask, taskID int64, proj
 		repos = append(repos, stepSpec.Repos...)
 	}
 	// basic envs
-	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, taskID)...)
+	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, taskID)...)
 	// repo envs
 	ret = append(ret, getReposVariables(repos)...)
 

@@ -163,7 +163,7 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Timeout: timeout,
 			Outputs: scanningInfo.Outputs,
 		}
-		envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name)
+		envs := getScanningJobVariables(scanning.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName)
 		envs = append(envs, &commonmodels.KeyVal{
 			Key:   "SCANNING_NAME",
 			Value: scanning.Name,
@@ -345,11 +345,11 @@ func (j *ScanningJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	return resp
 }
 
-func getScanningJobVariables(repos []*types.Repository, taskID int64, project, workflowName string) []*commonmodels.KeyVal {
+func getScanningJobVariables(repos []*types.Repository, taskID int64, project, workflowName, workflowDisplayName string) []*commonmodels.KeyVal {
 	ret := []*commonmodels.KeyVal{}
 
 	// basic envs
-	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, taskID)...)
+	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, taskID)...)
 	// repo envs
 	ret = append(ret, getReposVariables(repos)...)
 
