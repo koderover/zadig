@@ -150,7 +150,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 
 		resKind := new(types.KubeResourceKind)
 		if err := yaml.Unmarshal([]byte(yamlStr), &resKind); err != nil {
-			return "", nil, fmt.Errorf("unmarshal ResourceKind error: %v", err)
+			return "", nil, fmt.Errorf("unmarshal ResourceKind error: %v, yamlStr: %s", err, yamlStr)
 		}
 		decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(yamlStr)), 5*1024*1024)
 
@@ -158,7 +158,7 @@ func ReplaceWorkloadImages(rawYaml string, images []*commonmodels.Container) (st
 		case setting.Deployment:
 			deployment := &appsv1.Deployment{}
 			if err := decoder.Decode(deployment); err != nil {
-				return "", nil, fmt.Errorf("unmarshal Deployment error: %v", err)
+				return "", nil, fmt.Errorf("unmarshal Deployment error: %v, yamlStr: %s", err, yamlStr)
 			}
 			workloadRes = append(workloadRes, &WorkloadResource{
 				Name: resKind.Metadata.Name,
