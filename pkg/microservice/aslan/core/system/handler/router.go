@@ -387,10 +387,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	dbs := router.Group("dbinstance")
 	{
 		dbs.POST("", CreateDBInstance)
-		dbs.GET("", ListDBInstance)
+		dbs.GET("", ListDBInstanceInfo)
+		dbs.GET("/detail", ListDBInstance)
 		dbs.GET("/:id", GetDBInstance)
 		dbs.PUT("/:id", UpdateDBInstance)
 		dbs.DELETE("/:id", DeleteDBInstance)
+		dbs.POST("/validate", ValidateDBInstance)
 	}
 }
 

@@ -234,6 +234,13 @@ const (
 	ZadigLastAppliedReplicas = "last-applied-replicas"
 )
 
+type DBInstanceType string
+
+const (
+	DBInstanceTypeMySQL   DBInstanceType = "mysql"
+	DBInstanceTypeMariaDB DBInstanceType = "mariadb"
+)
+
 type ApprovalType string
 
 const (
