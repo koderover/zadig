@@ -345,7 +345,7 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 func GetJenkinsJobContainerLogsSSE(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 
-	jobID, err := strconv.Atoi(c.Param("jobID"))
+	jobID, err := strconv.ParseInt(c.Param("jobID"), 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		internalhandler.JSONResponse(c, ctx)
