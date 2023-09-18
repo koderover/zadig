@@ -355,7 +355,8 @@ func GetLink(p *task.Task, baseURI string, taskType config.PipelineType) string 
 	case config.TestType:
 		url = fmt.Sprintf("%s/v1/projects/detail/%s/test/detail/function/%s/%d", baseURI, p.ProductName, p.PipelineName, p.TaskID)
 	case config.ScanningType:
-		url = fmt.Sprintf("%s/v1/projects/detail/%s/scanner/detail/%s/%d", baseURI, p.ProductName, p.PipelineName, p.TaskID)
+		seg := strings.Split(p.PipelineName, "_")
+		url = fmt.Sprintf("%s/v1/projects/detail/%s/scanner/detail/%s/%d", baseURI, p.ProductName, seg[0], p.TaskID)
 	}
 	return url
 }

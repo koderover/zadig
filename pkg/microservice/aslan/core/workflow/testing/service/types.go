@@ -178,6 +178,7 @@ func ConvertToDBScanningModule(args *Scanning) *commonmodels.Scanning {
 		Installs:         args.Installs,
 		CheckQualityGate: args.CheckQualityGate,
 		Outputs:          args.Outputs,
+		Envs:             args.Envs,
 	}
 }
 
@@ -201,6 +202,7 @@ func ConvertDBScanningModule(scanning *commonmodels.Scanning) *Scanning {
 		Installs:         scanning.Installs,
 		CheckQualityGate: scanning.CheckQualityGate,
 		Outputs:          scanning.Outputs,
+		Envs:             scanning.Envs,
 	}
 }
 
