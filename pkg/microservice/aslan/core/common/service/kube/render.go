@@ -572,7 +572,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		},
 	}}
 
-	log.Infof("latestSvcTemplate.Yaml is %s", latestSvcTemplate.Yaml)
+	//log.Infof("latestSvcTemplate.Yaml is %s", latestSvcTemplate.Yaml)
 
 	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset)
 	if err != nil {
@@ -598,6 +598,7 @@ func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmo
 		return originYaml, nil
 	}
 	variableYaml := extractValidSvcVariable(serviceName, rs)
+	log.Infof("------- extracted variable yaml is %s", variableYaml)
 	return commonutil.RenderK8sSvcYamlStrict(originYaml, productName, serviceName, variableYaml)
 }
 

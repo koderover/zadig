@@ -23,6 +23,8 @@ import (
 	"strings"
 	gotemplate "text/template"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"gopkg.in/yaml.v2"
 
 	commomtemplate "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
@@ -77,11 +79,15 @@ func renderK8sSvcYamlImpl(originYaml, productName, serviceName, templateOption s
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableProduct, productName)
 	variableYaml = strings.ReplaceAll(variableYaml, setting.TemplateVariableService, serviceName)
 
+	log.Infof("------- variableYaml: %s", variableYaml)
+
 	variableMap := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(variableYaml), &variableMap)
 	if err != nil {
 		return originYaml, fmt.Errorf("failed to unmarshal variable yaml, err: %s", err)
 	}
+
+	log.Infof("------- variableMap: %+v", variableMap)
 
 	buf := bytes.NewBufferString("")
 	err = tmpl.Execute(buf, variableMap)
