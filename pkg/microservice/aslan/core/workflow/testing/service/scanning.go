@@ -209,7 +209,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		return 0, err
 	}
 
-	scanningName := fmt.Sprintf("%s_%s_%s", scanningInfo.Name, id, "scanning-job")
+	scanningName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, id, "scanning-job")
 
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.ScanningTaskFmt, scanningName))
 	if err != nil {
