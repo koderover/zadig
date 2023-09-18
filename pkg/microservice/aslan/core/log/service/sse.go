@@ -429,22 +429,32 @@ func JenkinsJobLogStream(ctx context.Context, jenkinsID, jobName string, jobID i
 		return
 	}
 
+	defer func() {
+		fmt.Println("debug 0")
+	}()
 	var offset int64 = 0
 	for {
+		fmt.Println("debug 1")
 		select {
 		case <-ctx.Done():
 			log.Infof("context done, stop streaming")
 			return
 		default:
 		}
+		fmt.Println("debug 2")
 		time.Sleep(1000 * time.Millisecond)
 		build.Poll(context.TODO())
+		fmt.Println("debug 3")
 		consoleOutput, err := build.GetConsoleOutputFromIndex(context.TODO(), offset)
+		fmt.Println("debug 4")
 		if err != nil {
+			fmt.Println("debug 5")
 			log.Warnf("failed to get logs from jenkins job, error: %s", err)
 			return
 		}
+		fmt.Println("debug 6")
 		streamChan <- consoleOutput.Content
+		fmt.Println("debug 7")
 		offset += consoleOutput.Offset
 		if !build.IsRunning(context.TODO()) {
 			return
