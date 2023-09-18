@@ -63,7 +63,7 @@ func (j *JenkinsJob) SetPreset() error {
 		if parameters := result.GetParameters(); len(parameters) > 0 {
 			newParameter := make([]*commonmodels.JenkinsJobParameter, len(parameters))
 			rawParametersMap := make(map[string]*commonmodels.JenkinsJobParameter)
-			for _, parameter := range job.Parameter {
+			for _, parameter := range job.Parameters {
 				rawParametersMap[parameter.Name] = parameter
 			}
 			for _, parameter := range parameters {
@@ -78,7 +78,7 @@ func (j *JenkinsJob) SetPreset() error {
 					newParameter = append(newParameter, rawParameter)
 				}
 			}
-			job.Parameter = newParameter
+			job.Parameters = newParameter
 		}
 	}
 	j.job.Spec = j.spec
@@ -115,8 +115,8 @@ func (j *JenkinsJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Spec: &commonmodels.JobTaskJenkinsSpec{
 				ID: j.spec.ID,
 				Job: commonmodels.JobTaskJenkinsJobInfo{
-					JobName:   job.JobName,
-					Parameter: job.Parameter,
+					JobName:    job.JobName,
+					Parameters: job.Parameters,
 				},
 			},
 			Timeout: 0,
