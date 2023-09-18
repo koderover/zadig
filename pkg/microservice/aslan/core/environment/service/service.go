@@ -393,6 +393,8 @@ func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffRes
 		log.Errorf(ret.Error)
 	}
 
+	log.Infof("curYaml: %s", curYaml)
+
 	// for situations only update images, replace images directly
 	if !args.UpdateServiceRevision && len(args.VariableKVs) == 0 {
 		latestYaml, _, err := kube.ReplaceWorkloadImages(curYaml, args.ServiceModules)
