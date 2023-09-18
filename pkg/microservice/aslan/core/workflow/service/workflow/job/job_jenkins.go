@@ -108,9 +108,10 @@ func (j *JenkinsJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		resp = append(resp, &commonmodels.JobTask{
 			Name: j.job.Name,
 			JobInfo: map[string]string{
-				JobNameKey: j.job.Name,
+				JobNameKey:         j.job.Name,
+				"jenkins_job_name": job.JobName,
 			},
-			Key:     j.job.Name,
+			Key:     j.job.Name + "." + job.JobName,
 			JobType: string(config.JobJenkins),
 			Spec: &commonmodels.JobTaskJenkinsSpec{
 				ID: j.spec.ID,
