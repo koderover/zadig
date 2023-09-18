@@ -450,14 +450,16 @@ type ApolloKV struct {
 }
 
 type JobTaskJenkinsSpec struct {
-	JenkinsID string                `bson:"jenkins_id" json:"jenkins_id" yaml:"jenkins_id"`
-	Job       JobTaskJenkinsJobInfo `bson:"job" json:"job" yaml:"job"`
+	ID   string                `bson:"id" json:"id" yaml:"id"`
+	Host string                `bson:"host" json:"host" yaml:"host"`
+	Job  JobTaskJenkinsJobInfo `bson:"job" json:"job" yaml:"job"`
 }
 
 type JobTaskJenkinsJobInfo struct {
-	JobName   string                 `bson:"job_name" json:"job_name" yaml:"job_name"`
-	JobOutput string                 `bson:"job_output" json:"job_output" yaml:"job_output"`
-	Parameter []*JenkinsJobParameter `bson:"parameter" json:"parameter" yaml:"parameter"`
+	JobName    string                 `bson:"job_name" json:"job_name" yaml:"job_name"`
+	JobID      int                    `bson:"job_id" json:"job_id" yaml:"job_id"`
+	JobOutput  string                 `bson:"job_output" json:"job_output" yaml:"job_output"`
+	Parameters []*JenkinsJobParameter `bson:"parameters" json:"parameters" yaml:"parameters"`
 }
 
 type JobTaskWorkflowTriggerSpec struct {

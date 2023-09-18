@@ -401,3 +401,38 @@ func getWorkflowSelector(options *GetContainerOptions) labels.Selector {
 	}
 	return labels.Set(retMap).AsSelector()
 }
+
+func JenkinsJobLogStream(ctx context.Context, jenkinsID, jobName string, jobID int, streamChan chan interface{}) {
+	//log := log.SugaredLogger().With("func", "JenkinsJobLogStream")
+	//info, err := commonrepo.NewJenkinsIntegrationColl().Get(jenkinsID)
+	//if err != nil {
+	//	log.Errorf("Failed to get jenkins integration info, err: %s", err)
+	//	return
+	//}
+	//
+	//transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	//client := &http.Client{Transport: transport}
+	//jenkinsClient, err := jenkins.CreateJenkins(client, info.URL, info.Username, info.Password).Init(context.TODO())
+	//
+	//if err != nil {
+	//	log.Errorf("failed to create jenkins client for server, the error is: %s", err)
+	//	return
+	//}
+	//
+	//build, err := jenkinsClient.GetBuild(context.Background(), )
+	//if err != nil {
+	//	log.Infof("failed to get build info from jenkins, error is: %s", err)
+	//	os.Exit(1)
+	//}
+	//
+	//for build.IsRunning(context.TODO()) {
+	//	time.Sleep(5000 * time.Millisecond)
+	//	build.Poll(context.TODO())
+	//	consoleOutput, err := build.GetConsoleOutputFromIndex(context.TODO(), offset)
+	//	if err != nil {
+	//		log.Warnf("[Jenkins Plugin] failed to get logs from jenkins job, error: %s", err)
+	//	}
+	//	fmt.Printf("%s", consoleOutput.Content)
+	//	offset += consoleOutput.Offset
+	//}
+}

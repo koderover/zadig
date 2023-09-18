@@ -641,13 +641,13 @@ type GuanceyunMonitor struct {
 }
 
 type JenkinsJobSpec struct {
-	JenkinsID string            `bson:"jenkins_id" json:"jenkins_id" yaml:"jenkins_id"`
-	Jobs      []*JenkinsJobInfo `bson:"jobs" json:"jobs" yaml:"jobs"`
+	ID   string            `bson:"id" json:"id" yaml:"id"`
+	Jobs []*JenkinsJobInfo `bson:"jobs" json:"jobs" yaml:"jobs"`
 }
 
 type JenkinsJobInfo struct {
-	JobName   string                 `bson:"job_name" json:"job_name" yaml:"job_name"`
-	Parameter []*JenkinsJobParameter `bson:"parameter" json:"parameter" yaml:"parameter"`
+	JobName    string                 `bson:"job_name" json:"job_name" yaml:"job_name"`
+	Parameters []*JenkinsJobParameter `bson:"parameters" json:"parameters" yaml:"parameters"`
 }
 
 type JenkinsJobParameter struct {

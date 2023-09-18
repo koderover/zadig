@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"time"
 
 	jenkins "github.com/bndr/gojenkins"
 	"go.uber.org/zap"
@@ -28,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type JenkinsJobCtl struct {
@@ -59,11 +61,12 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
-	info, err := mongodb.NewJenkinsIntegrationColl().Get(c.jobTaskSpec.JenkinsID)
+	info, err := mongodb.NewJenkinsIntegrationColl().Get(c.jobTaskSpec.ID)
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return
 	}
+	c.jobTaskSpec.Host = info.URL
 
 	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	client := &http.Client{Transport: transport}
@@ -81,15 +84,41 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 	}
 
 	params := make(map[string]string)
-
-	for _, parameter := range c.jobTaskSpec.Job.Parameter {
+	for _, parameter := range c.jobTaskSpec.Job.Parameters {
 		params[parameter.Name] = parameter.Value
 	}
 
-	var offset int64 = 0
-
 	queueid, err := job.InvokeSimple(context.TODO(), params)
+	if err != nil {
+		logError(c.job, fmt.Sprintf("failed to invoke jenkins job, error is: %s", err), c.logger)
+		return
+	}
 
+	build, err := jenkinsClient.GetBuildFromQueueID(context.TODO(), queueid)
+	if err != nil {
+		logError(c.job, fmt.Sprintf("failed to get jenkins build, error is: %s", err), c.logger)
+		return
+	}
+
+	c.jobTaskSpec.Job.JobID = int(build.GetBuildNumber())
+	c.ack()
+	for build.IsRunning(context.TODO()) {
+		time.Sleep(5000 * time.Millisecond)
+		build.Poll(context.TODO())
+	}
+
+	consoleOutput, err := build.GetConsoleOutputFromIndex(context.TODO(), 0)
+	if err != nil {
+		log.Warnf("[Jenkins Plugin] failed to get logs from jenkins job, error: %s", err)
+	}
+	c.jobTaskSpec.Job.JobOutput = consoleOutput.Content
+
+	if !build.IsGood(context.TODO()) {
+		c.job.Status = config.StatusFailed
+		return
+	}
+
+	c.job.Status = config.StatusPassed
 	return
 }
 

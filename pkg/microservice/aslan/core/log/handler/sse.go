@@ -341,3 +341,18 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 			ctx.Logger)
 	}, ctx.Logger)
 }
+
+func GetJenkinsJobContainerLogsSSE(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	jobID, err := strconv.Atoi(c.Param("jobID"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+
+	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
+		logservice.JenkinsJobLogStream(ctx1, c.Param("id"), c.Param("jobName"), jobID, streamChan)
+	}, ctx.Logger)
+}
