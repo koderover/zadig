@@ -3563,22 +3563,22 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		argMap[kv.Key] = kv
 		argSet.Insert(kv.Key)
 	}
-	productMap := make(map[string]*commontypes.GlobalVariableKV)
+	productVariableMap := make(map[string]*commontypes.GlobalVariableKV)
 	productSet := sets.NewString()
 	//for _, kv := range productRenderset.GlobalVariables {
 	for _, kv := range product.GlobalVariables {
-		productMap[kv.Key] = kv
+		productVariableMap[kv.Key] = kv
 		productSet.Insert(kv.Key)
 	}
 
 	// TODO: validate added new variable
 	deletedVariableSet := productSet.Difference(argSet)
 	for _, key := range deletedVariableSet.List() {
-		if _, ok := productMap[key]; !ok {
+		if _, ok := productVariableMap[key]; !ok {
 			return fmt.Errorf("UNEXPECT ERROR: global variable %s not found in environment", key)
 		}
-		if len(productMap[key].RelatedServices) != 0 {
-			return fmt.Errorf("global variable %s is used by service %v, can't delete it", key, productMap[key].RelatedServices)
+		if len(productVariableMap[key].RelatedServices) != 0 {
+			return fmt.Errorf("global variable %s is used by service %v, can't delete it", key, productVariableMap[key].RelatedServices)
 		}
 	}
 
@@ -3586,7 +3586,7 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 	product.GlobalVariables = args
 	updatedSvcList := make([]*templatemodels.ServiceRender, 0)
 	for _, argKV := range argMap {
-		productKV, ok := productMap[argKV.Key]
+		productKV, ok := productVariableMap[argKV.Key]
 		if !ok {
 			// new global variable, don't need to update service
 			if len(argKV.RelatedServices) != 0 {
@@ -3595,6 +3595,7 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 			continue
 		}
 
+		log.Infof("product global variable %s value: %s, arg global variable %s value: %s", argKV.Key, productKV.Value, argKV.Key, argKV.Value)
 		if productKV.Value == argKV.Value {
 			continue
 		}
@@ -3603,6 +3604,7 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		for _, svc := range productKV.RelatedServices {
 			svcSet.Insert(svc)
 		}
+		log.Infof("product global variable %s related services: %v", argKV.Key, svcSet.List())
 
 		svcVariableMap := make(map[string]*templatemodels.ServiceRender)
 		//for _, svc := range productRenderset.ServiceVariables {
