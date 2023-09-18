@@ -1303,7 +1303,7 @@ func GetJenkinsJobParams(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	jobParams, err := workflow.GetJenkinsJobParams(c.Param("jobName"), c.Query("projectName"))
+	jobParams, err := workflow.GetJenkinsJobParams(c.Param("id"), c.Param("jobName"))
 	if err != nil {
 		ctx.Err = err
 		return
