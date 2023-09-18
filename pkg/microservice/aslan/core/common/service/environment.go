@@ -220,7 +220,7 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 		productInfo = nil
 	}
 
-	serviceVarsMap := make(map[string][]string)
+	//serviceVarsMap := make(map[string][]string)
 	svcRenders := make(map[string]*templatemodels.ServiceRender)
 
 	// product template svcs
@@ -234,45 +234,52 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 			ServiceName:  svc.ServiceName,
 			OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
 		}
-		serviceVarsMap[svc.ServiceName] = svc.ServiceVars
+		//serviceVarsMap[svc.ServiceName] = svc.ServiceVars
 		templateSvcMap[svc.ServiceName] = svc
 	}
+
+	rendersetObj := &models.RenderSet{}
 
 	// svc used in products
 	productSvcMap := make(map[string]*models.ProductService)
 	if productInfo != nil {
+		rendersetObj.GlobalVariables = productInfo.GlobalVariables
+		rendersetObj.DefaultValues = productInfo.DefaultValues
+		rendersetObj.YamlData = productInfo.YamlData
+		rendersetObj.ServiceVariables = productInfo.GetAllSvcRenders()
+
 		svcs, err := commonutil.GetProductUsedTemplateSvcs(productInfo)
 		if err != nil {
 			return nil, nil, err
 		}
 		for _, svc := range svcs {
-			svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
-				ServiceName:  svc.ServiceName,
-				OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
-			}
-			serviceVarsMap[svc.ServiceName] = svc.ServiceVars
+			//svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
+			//	ServiceName:  svc.ServiceName,
+			//	OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
+			//}
+			svcRenders[svc.ServiceName] = productInfo.GetSvcRender(svc.ServiceName)
+			//serviceVarsMap[svc.ServiceName] = svc.ServiceVars
 		}
 		productSvcMap = productInfo.GetServiceMap()
 	}
 
-	var rendersetObj *models.RenderSet
-	if productInfo != nil {
-		// svc render in renderchart
-		opt := &commonrepo.RenderSetFindOption{
-			ProductTmpl: productName,
-			EnvName:     envName,
-			Name:        productInfo.Render.Name,
-			Revision:    productInfo.Render.Revision,
-		}
-		rendersetObj, err = commonrepo.NewRenderSetColl().Find(opt)
-		if err == nil {
-			for _, svcRender := range rendersetObj.ServiceVariables {
-				if _, ok := svcRenders[svcRender.ServiceName]; ok {
-					svcRenders[svcRender.ServiceName] = svcRender
-				}
-			}
-		}
-	}
+	//if productInfo != nil {
+	//	// svc render in renderchart
+	//	opt := &commonrepo.RenderSetFindOption{
+	//		ProductTmpl: productName,
+	//		EnvName:     envName,
+	//		Name:        productInfo.Render.Name,
+	//		Revision:    productInfo.Render.Revision,
+	//	}
+	//	rendersetObj, err = commonrepo.NewRenderSetColl().Find(opt)
+	//	if err == nil {
+	//		for _, svcRender := range rendersetObj.ServiceVariables {
+	//			if _, ok := svcRenders[svcRender.ServiceName]; ok {
+	//				svcRenders[svcRender.ServiceName] = svcRender
+	//			}
+	//		}
+	//	}
+	//}
 
 	validSvcs := sets.NewString(strings.Split(serviceName, ",")...)
 	filter := func(name string) bool {
