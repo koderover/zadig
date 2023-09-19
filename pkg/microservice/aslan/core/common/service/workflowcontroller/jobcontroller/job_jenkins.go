@@ -58,7 +58,7 @@ func NewJenkinsJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Workf
 func (c *JenkinsJobCtl) Clean(ctx context.Context) {}
 
 func (c *JenkinsJobCtl) Run(ctx context.Context) {
-	c.job.Status = config.StatusRunning
+	c.job.Status = config.StatusPrepare
 	c.ack()
 
 	info, err := mongodb.NewJenkinsIntegrationColl().Get(c.jobTaskSpec.ID)
@@ -102,7 +102,9 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 		return
 	}
 
+	// frontend will try to get log when job is running, so we need to set running status after setting job id
 	c.jobTaskSpec.Job.JobID = int(build.GetBuildNumber())
+	c.job.Status = config.StatusRunning
 	c.ack()
 	for build.IsRunning(context.TODO()) {
 		time.Sleep(5000 * time.Millisecond)
