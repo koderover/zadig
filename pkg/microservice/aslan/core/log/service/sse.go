@@ -439,7 +439,9 @@ func JenkinsJobLogStream(ctx context.Context, jenkinsID, jobName string, jobID i
 			log.Warnf("failed to get logs from jenkins job, error: %s", err)
 			return
 		}
-		streamChan <- strings.ReplaceAll(consoleOutput.Content, "\r\n", "\n")
+		for _, str := range strings.Split(consoleOutput.Content, "\r\n") {
+			streamChan <- str + "\r"
+		}
 		offset += consoleOutput.Offset
 		if !build.IsRunning(context.TODO()) {
 			return
