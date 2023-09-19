@@ -62,7 +62,7 @@ func (j *JenkinsJob) SetPreset() error {
 			continue
 		}
 		if currentParameters := currentJob.GetParameters(); len(currentParameters) > 0 {
-			finalParameters := make([]*commonmodels.JenkinsJobParameter, len(currentParameters))
+			finalParameters := make([]*commonmodels.JenkinsJobParameter, 0)
 			rawParametersMap := make(map[string]*commonmodels.JenkinsJobParameter)
 			for _, parameter := range job.Parameters {
 				rawParametersMap[parameter.Name] = parameter
