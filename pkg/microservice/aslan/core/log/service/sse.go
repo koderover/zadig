@@ -440,7 +440,7 @@ func JenkinsJobLogStream(ctx context.Context, jenkinsID, jobName string, jobID i
 			return
 		}
 		for _, str := range strings.Split(consoleOutput.Content, "\r\n") {
-			streamChan <- str + "\r"
+			streamChan <- str
 		}
 		offset += consoleOutput.Offset
 		if !build.IsRunning(context.TODO()) {
