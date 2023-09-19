@@ -157,7 +157,6 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 	if options == nil {
 		return
 	}
-	log.Debugf("Start to get task container log.")
 
 	serviceName, serviceModule := parseServiceName(options.ServiceName, options.ServiceModule)
 
@@ -258,7 +257,6 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 	if options == nil {
 		return
 	}
-	log.Debugf("Start to get task container log.")
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(options.PipelineName, options.TaskID)
 	if err != nil {
 		log.Errorf("Failed to find workflow %s taskID %s: %v", options.PipelineName, options.TaskID, err)
@@ -352,7 +350,6 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 	PodCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	log.Debugf("Waiting until pod is running before establishing the stream. labelSelector: %+v, clusterId: %s, namespace: %s", selector, options.ClusterID, options.Namespace)
 	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), options.ClusterID)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get client set error: %s", err)
@@ -376,8 +373,6 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 		log.Errorf("GetContainerLogs, get pod error: %+v", err)
 		return
 	}
-
-	log.Debugf("Found %d running pods", len(pods))
 
 	if len(pods) > 0 {
 		containerLogStream(
@@ -429,37 +424,25 @@ func JenkinsJobLogStream(ctx context.Context, jenkinsID, jobName string, jobID i
 		return
 	}
 
-	defer func() {
-		fmt.Println("debug 0")
-	}()
 	var offset int64 = 0
 	for {
-		fmt.Println("debug 1")
 		select {
 		case <-ctx.Done():
 			log.Infof("context done, stop streaming")
 			return
 		default:
 		}
-		fmt.Println("debug 2")
 		time.Sleep(1000 * time.Millisecond)
 		build.Poll(context.TODO())
-		fmt.Println("debug 3")
 		consoleOutput, err := build.GetConsoleOutputFromIndex(context.TODO(), offset)
-		fmt.Println("debug 4")
 		if err != nil {
-			fmt.Println("debug 5")
 			log.Warnf("failed to get logs from jenkins job, error: %s", err)
 			return
 		}
-		fmt.Println("debug 6")
-		streamChan <- consoleOutput.Content
-		fmt.Println("debug 7")
+		streamChan <- strings.ReplaceAll(consoleOutput.Content, "\r\n", "\n")
 		offset += consoleOutput.Offset
 		if !build.IsRunning(context.TODO()) {
 			return
 		}
-		//debug
-		fmt.Printf("debug %v\n", build.IsRunning(context.TODO()))
 	}
 }
