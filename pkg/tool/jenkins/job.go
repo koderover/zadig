@@ -8,12 +8,15 @@ var (
 	Choice ParameterType = "ChoiceParameterDefinition"
 	Bool   ParameterType = "BooleanParameterDefinition"
 	Text   ParameterType = "TextParameterDefinition"
+	String ParameterType = "StringParameterDefinition"
 )
 
 var ParameterTypeMap = map[ParameterType]config.ParamType{
 	Choice: config.ParamTypeChoice,
 	Bool:   config.ParamTypeBool,
 	Text:   config.ParamTypeString,
+	// todo
+	String: config.ParamTypeString,
 }
 
 type ListJobsResp struct {
