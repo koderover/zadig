@@ -264,8 +264,12 @@ func (r *Reaper) runScripts() error {
 func (r *Reaper) runSonarScanner() error {
 	// first we write the sonar scanner config to the config file
 	for _, repo := range r.Ctx.Repos {
-		log.Infof("Writing sonar-project.properties for repo: %s", repo.Name)
-		repoConfigPath := filepath.Join("/workspace", repo.Name, "sonar-project.properties")
+		repoPath := repo.Name
+		if repo.CheckoutPath != "" {
+			repoPath = repo.CheckoutPath
+		}
+		log.Infof("Writing sonar-project.properties for repo: %s under relative path %s", repo.Name, repoPath)
+		repoConfigPath := filepath.Join("/workspace", repoPath, "sonar-project.properties")
 		// renders the scanned repository branch information to the user configuration
 		r.Ctx.SonarParameter = strings.ReplaceAll(r.Ctx.SonarParameter, "$BRANCH", repo.Branch)
 		configContent := fmt.Sprintf("sonar.login=%s\nsonar.host.url=%s\n%s", r.Ctx.SonarLogin, r.Ctx.SonarServer, r.Ctx.SonarParameter)
@@ -275,10 +279,14 @@ func (r *Reaper) runSonarScanner() error {
 			return err
 		}
 	}
+	scanPath := r.Ctx.Repos[0].Name
+	if r.Ctx.Repos[0].CheckoutPath != "" {
+		scanPath = r.Ctx.Repos[0].CheckoutPath
+	}
 	// then we simply run the sonar-scanner command to commence the scan
 	cmd := exec.Command("sonar-scanner")
 	// since currently only one codehost is supported, we will just use the first repository
-	cmd.Dir = filepath.Join("/workspace", r.Ctx.Repos[0].Name)
+	cmd.Dir = filepath.Join("/workspace", scanPath)
 	fileName := filepath.Join(os.TempDir(), "sonar.log")
 	util.WriteFile(fileName, []byte{}, 0700)
 	var wg sync.WaitGroup

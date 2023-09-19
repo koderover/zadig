@@ -156,6 +156,14 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 
 	envVars = append(envVars, CreateEnvsFromRepoInfo(repoList)...)
 
+	for _, env := range p.Task.Envs {
+		envVars = append(envVars, &task.KeyVal{
+			Key:          env.Key,
+			Value:        env.Value,
+			IsCredential: env.IsCredential,
+		})
+	}
+
 	if len(repoList) > 0 {
 		envVars = append(envVars, &task.KeyVal{
 			Key:   "BRANCH",
@@ -165,8 +173,15 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 
 	if p.Task.SonarInfo != nil {
 		envVars = append(envVars, &task.KeyVal{
-			Key:   "SONAR_TOKEN",
-			Value: p.Task.SonarInfo.Token,
+			Key:          "SONAR_TOKEN",
+			Value:        p.Task.SonarInfo.Token,
+			IsCredential: true,
+		})
+
+		envVars = append(envVars, &task.KeyVal{
+			Key:          "SONAR_URL",
+			Value:        p.Task.SonarInfo.ServerAddress,
+			IsCredential: false,
 		})
 	}
 

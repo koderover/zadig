@@ -220,7 +220,12 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		repoName := ""
 		branch := ""
 		if len(scanningInfo.Repos) > 0 {
-			repoName = scanningInfo.Repos[0].RepoName
+			if scanningInfo.Repos[0].CheckoutPath != "" {
+				repoName = scanningInfo.Repos[0].CheckoutPath
+			} else {
+				repoName = scanningInfo.Repos[0].RepoName
+			}
+
 			branch = scanningInfo.Repos[0].Branch
 		}
 		// init debug before step
@@ -261,8 +266,14 @@ func (j *ScanningJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 			jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, sonarLinkKeyVal)
 			jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, &commonmodels.KeyVal{
-				Key:   "SONAR_TOKEN",
-				Value: sonarInfo.Token,
+				Key:          "SONAR_TOKEN",
+				Value:        sonarInfo.Token,
+				IsCredential: true,
+			})
+
+			jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.Envs, &commonmodels.KeyVal{
+				Key:   "SONAR_URL",
+				Value: sonarInfo.ServerAddress,
 			})
 
 			if scanningInfo.EnableScanner {
