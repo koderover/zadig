@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -55,30 +56,36 @@ func (j *JenkinsJob) SetPreset() error {
 
 	client := jenkins.NewClient(info.URL, info.Username, info.Password)
 	for _, job := range j.spec.Jobs {
-		result, err := client.GetJob(job.JobName)
+		currentJob, err := client.GetJob(job.JobName)
 		if err != nil {
 			log.Warnf("Preset JenkinsJob: get job %s error: %v", job.JobName, err)
 			continue
 		}
-		if parameters := result.GetParameters(); len(parameters) > 0 {
-			newParameter := make([]*commonmodels.JenkinsJobParameter, len(parameters))
+		if currentParameters := currentJob.GetParameters(); len(currentParameters) > 0 {
+			finalParameters := make([]*commonmodels.JenkinsJobParameter, len(currentParameters))
 			rawParametersMap := make(map[string]*commonmodels.JenkinsJobParameter)
 			for _, parameter := range job.Parameters {
 				rawParametersMap[parameter.Name] = parameter
 			}
-			for _, parameter := range parameters {
-				if rawParameter, ok := rawParametersMap[parameter.Name]; !ok {
-					newParameter = append(newParameter, &commonmodels.JenkinsJobParameter{
-						Name:    parameter.Name,
-						Value:   fmt.Sprintf("%v", parameter.DefaultParameterValue.Value),
-						Type:    jenkins.ParameterTypeMap[parameter.Type],
-						Choices: parameter.Choices,
+			// debug
+			b, _ := json.MarshalIndent(rawParametersMap, "", "  ")
+			log.Infof("rawParametersMap: %s", string(b))
+			for _, currentParameter := range currentParameters {
+				if rawParameter, ok := rawParametersMap[currentParameter.Name]; !ok {
+					finalParameters = append(finalParameters, &commonmodels.JenkinsJobParameter{
+						Name:    currentParameter.Name,
+						Value:   fmt.Sprintf("%v", currentParameter.DefaultParameterValue.Value),
+						Type:    jenkins.ParameterTypeMap[currentParameter.Type],
+						Choices: currentParameter.Choices,
 					})
 				} else {
-					newParameter = append(newParameter, rawParameter)
+					finalParameters = append(finalParameters, rawParameter)
 				}
 			}
-			job.Parameters = newParameter
+			job.Parameters = finalParameters
+			// debug
+			b2, _ := json.MarshalIndent(finalParameters, "", "  ")
+			log.Infof("finalParametersMap: %s", string(b2))
 		}
 	}
 	j.job.Spec = j.spec
