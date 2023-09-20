@@ -17,16 +17,15 @@ limitations under the License.
 package job
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/jenkins"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type JenkinsJob struct {
@@ -55,38 +54,41 @@ func (j *JenkinsJob) SetPreset() error {
 	}
 
 	client := jenkins.NewClient(info.URL, info.Username, info.Password)
+	var (
+		eg errgroup.Group
+	)
 	for _, job := range j.spec.Jobs {
-		currentJob, err := client.GetJob(job.JobName)
-		if err != nil {
-			log.Warnf("Preset JenkinsJob: get job %s error: %v", job.JobName, err)
-			continue
-		}
-		if currentParameters := currentJob.GetParameters(); len(currentParameters) > 0 {
-			finalParameters := make([]*commonmodels.JenkinsJobParameter, 0)
-			rawParametersMap := make(map[string]*commonmodels.JenkinsJobParameter)
-			for _, parameter := range job.Parameters {
-				rawParametersMap[parameter.Name] = parameter
+		job := job
+		eg.Go(func() error {
+			currentJob, err := client.GetJob(job.JobName)
+			if err != nil {
+				return errors.Errorf("Preset JenkinsJob: get job %s error: %v", job.JobName, err)
 			}
-			// debug
-			b, _ := json.MarshalIndent(rawParametersMap, "", "  ")
-			log.Infof("rawParametersMap: %s", string(b))
-			for _, currentParameter := range currentParameters {
-				if rawParameter, ok := rawParametersMap[currentParameter.Name]; !ok {
-					finalParameters = append(finalParameters, &commonmodels.JenkinsJobParameter{
-						Name:    currentParameter.Name,
-						Value:   fmt.Sprintf("%v", currentParameter.DefaultParameterValue.Value),
-						Type:    jenkins.ParameterTypeMap[currentParameter.Type],
-						Choices: currentParameter.Choices,
-					})
-				} else {
-					finalParameters = append(finalParameters, rawParameter)
+			if currentParameters := currentJob.GetParameters(); len(currentParameters) > 0 {
+				finalParameters := make([]*commonmodels.JenkinsJobParameter, 0)
+				rawParametersMap := make(map[string]*commonmodels.JenkinsJobParameter)
+				for _, parameter := range job.Parameters {
+					rawParametersMap[parameter.Name] = parameter
 				}
+				for _, currentParameter := range currentParameters {
+					if rawParameter, ok := rawParametersMap[currentParameter.Name]; !ok {
+						finalParameters = append(finalParameters, &commonmodels.JenkinsJobParameter{
+							Name:    currentParameter.Name,
+							Value:   fmt.Sprintf("%v", currentParameter.DefaultParameterValue.Value),
+							Type:    jenkins.ParameterTypeMap[currentParameter.Type],
+							Choices: currentParameter.Choices,
+						})
+					} else {
+						finalParameters = append(finalParameters, rawParameter)
+					}
+				}
+				job.Parameters = finalParameters
 			}
-			job.Parameters = finalParameters
-			// debug
-			b2, _ := json.MarshalIndent(finalParameters, "", "  ")
-			log.Infof("finalParametersMap: %s", string(b2))
-		}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
 	}
 	j.job.Spec = j.spec
 	return nil
