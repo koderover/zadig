@@ -2720,7 +2720,12 @@ func GetJenkinsJobParams(id, jobName string) ([]*JenkinsJobParams, error) {
 		resp = append(resp, &JenkinsJobParams{
 			Name:    definition.Name,
 			Default: fmt.Sprintf("%v", definition.DefaultParameterValue.Value),
-			Type:    jenkins.ParameterTypeMap[definition.Type],
+			Type: func() config.ParamType {
+				if t, ok := jenkins.ParameterTypeMap[definition.Type]; ok {
+					return t
+				}
+				return config.ParamTypeString
+			}(),
 			Choices: definition.Choices,
 		})
 	}

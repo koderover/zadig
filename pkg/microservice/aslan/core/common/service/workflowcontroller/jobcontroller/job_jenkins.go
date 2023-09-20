@@ -107,13 +107,22 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 	for build.IsRunning(context.TODO()) {
-		time.Sleep(5000 * time.Millisecond)
-		build.Poll(context.TODO())
+		select {
+		case <-ctx.Done():
+			if _, err := build.Stop(context.Background()); err != nil {
+				log.Warnf("job jenkins failed to stop jenkins job, error: %s", err)
+				c.job.Status = config.StatusCancelled
+				return
+			}
+		default:
+			time.Sleep(time.Second)
+			build.Poll(context.TODO())
+		}
 	}
 
 	consoleOutput, err := build.GetConsoleOutputFromIndex(context.TODO(), 0)
 	if err != nil {
-		log.Warnf("[Jenkins Plugin] failed to get logs from jenkins job, error: %s", err)
+		log.Warnf("job jenkins failed to get logs from jenkins job, error: %s", err)
 	}
 	c.jobTaskSpec.Job.JobOutput = consoleOutput.Content
 

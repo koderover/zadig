@@ -79,9 +79,14 @@ func (j *JenkinsJob) SetPreset() error {
 				for _, currentParameter := range currentParameters {
 					if rawParameter, ok := rawParametersMap[currentParameter.Name]; !ok {
 						finalParameters = append(finalParameters, &commonmodels.JenkinsJobParameter{
-							Name:    currentParameter.Name,
-							Value:   fmt.Sprintf("%v", currentParameter.DefaultParameterValue.Value),
-							Type:    jenkins.ParameterTypeMap[currentParameter.Type],
+							Name:  currentParameter.Name,
+							Value: fmt.Sprintf("%v", currentParameter.DefaultParameterValue.Value),
+							Type: func() config.ParamType {
+								if t, ok := jenkins.ParameterTypeMap[currentParameter.Type]; ok {
+									return t
+								}
+								return config.ParamTypeString
+							}(),
 							Choices: currentParameter.Choices,
 						})
 					} else {

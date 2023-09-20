@@ -15,7 +15,6 @@ var ParameterTypeMap = map[ParameterType]config.ParamType{
 	Choice: config.ParamTypeChoice,
 	Bool:   config.ParamTypeBool,
 	Text:   config.ParamTypeString,
-	// todo
 	String: config.ParamTypeString,
 }
 
