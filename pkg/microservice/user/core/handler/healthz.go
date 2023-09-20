@@ -18,13 +18,33 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
+	"github.com/koderover/zadig/pkg/tool/log"
 
-	"github.com/koderover/zadig/pkg/microservice/user/core"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
 func Healthz(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = core.Healthz()
+	ctx.Err = Health()
+}
+
+func Health() error {
+	userDB, err := repository.DB.DB()
+	if err != nil {
+		log.Errorf("Healthz get db error:%s", err.Error())
+		return err
+	}
+	if err := userDB.Ping(); err != nil {
+		return err
+	}
+
+	dexDB, err := repository.DexDB.DB()
+	if err != nil {
+		log.Errorf("Healthz get dex db error:%s", err.Error())
+		return err
+	}
+
+	return dexDB.Ping()
 }

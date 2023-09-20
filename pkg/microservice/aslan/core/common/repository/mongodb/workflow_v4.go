@@ -328,6 +328,9 @@ func (c *WorkflowV4Coll) ListByCursor(opt *ListWorkflowV4Option) (*mongo.Cursor,
 	if len(opt.Names) > 0 {
 		query["name"] = bson.M{"$in": opt.Names}
 	}
+	if len(opt.JobTypes) > 0 {
+		query["stages.jobs.type"] = bson.M{"$in": opt.JobTypes}
+	}
 	return c.Collection.Find(context.TODO(), query)
 }
 

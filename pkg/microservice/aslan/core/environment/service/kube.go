@@ -1105,7 +1105,6 @@ func setResourceDeployStatus(namespace string, resourceMap map[string]map[string
 			continue
 		}
 		for _, item := range u.Items {
-			log.Infof("item: %s", item.GetName())
 			if deployStatus, ok := resources[item.GetName()]; ok && deployStatus.Status == StatusUnDeployed {
 				deployStatus.Status = StatusDeployed
 			}
@@ -1281,4 +1280,88 @@ func GetReleaseInstanceDeployStatus(productName string, request *HelmDeployStatu
 	}
 
 	return resp, err
+}
+
+type ListPodsInfoRespone struct {
+	Name       string   `json:"name"`
+	Ready      string   `json:"ready"`
+	Status     string   `json:"status"`
+	Images     []string `json:"images"`
+	CreateTime int64    `json:"create_time"`
+}
+
+func ListPodsInfo(projectName, envName string, log *zap.SugaredLogger) ([]*ListPodsInfoRespone, error) {
+	res := make([]*ListPodsInfoRespone, 0)
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return nil, e.ErrListPod.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return res, e.ErrListPod.AddErr(err)
+	}
+
+	pods, err := getter.ListPods(productInfo.Namespace, labels.Everything(), kubeClient)
+	if err != nil {
+		errMsg := fmt.Sprintf("[%s] ListPods error: %v", productInfo.Namespace, err)
+		log.Error(errMsg)
+		return res, e.ErrListPod.AddDesc(errMsg)
+	}
+
+	for _, pod := range pods {
+		resPod := wrapper.Pod(pod).Resource()
+		images := []string{}
+		readyTotal := 0
+		ready := 0
+		for _, c := range resPod.Containers {
+			images = append(images, c.Image)
+			readyTotal++
+			if c.Ready {
+				ready++
+			}
+		}
+		elem := &ListPodsInfoRespone{
+			Name:       resPod.Name,
+			Ready:      fmt.Sprintf("%d/%d", ready, readyTotal),
+			Status:     resPod.Status,
+			Images:     images,
+			CreateTime: resPod.CreateTime,
+		}
+		res = append(res, elem)
+	}
+	return res, nil
+}
+
+func GetPodDetailInfo(projectName, envName, podName string, log *zap.SugaredLogger) (*resource.Pod, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    projectName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return nil, e.ErrGetPodDetail.AddErr(fmt.Errorf("failed to get product info, err: %s", err))
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return nil, e.ErrGetPodDetail.AddErr(err)
+	}
+
+	pod, found, err := getter.GetPod(productInfo.Namespace, podName, kubeClient)
+	if err != nil {
+		errMsg := fmt.Sprintf("[%s] GetPod error: %v", productInfo.Namespace, err)
+		log.Error(errMsg)
+		return nil, e.ErrGetPodDetail.AddDesc(errMsg)
+	}
+	if !found {
+		errMsg := fmt.Sprintf("[%s] can't find pod %s", productInfo.Namespace, podName)
+		log.Error(errMsg)
+		return nil, e.ErrGetPodDetail.AddDesc(errMsg)
+	}
+
+	res := wrapper.Pod(pod).Resource()
+	return res, nil
 }

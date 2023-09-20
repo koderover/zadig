@@ -78,6 +78,7 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 	log.Infof("LarkEventHandler: new request approval received")
 	larkAppInfo, err := mongodb.NewIMAppColl().GetLarkByAppID(context.Background(), appID)
 	if err != nil {
+		log.Errorf("get lark app info failed: %v", err)
 		return nil, errors.Wrap(err, "get approval by appID")
 	}
 	key := larkAppInfo.EncryptKey
@@ -86,15 +87,17 @@ func EventHandler(appID, sign, ts, nonce, body string) (*EventHandlerResponse, e
 
 	raw, err := larkDecrypt(gjson.Get(body, "encrypt").String(), key)
 	if err != nil {
+		log.Errorf("decrypt body failed: %v", err)
 		return nil, errors.Wrap(err, "decrypt body")
 	}
-
 	// handle lark open platform webhook URL check request, which only need reply the challenge field.
 	if sign == "" {
+		log.Infof("LarkEventHandler: challenge request received, challenge: %s", gjson.Get(raw, "challenge").String())
 		return &EventHandlerResponse{Challenge: gjson.Get(raw, "challenge").String()}, nil
 	}
 
 	if sign != larkCalculateSignature(ts, nonce, key, body) {
+		log.Errorf("check sign failed")
 		return nil, errors.New("check sign failed")
 	}
 

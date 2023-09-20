@@ -90,6 +90,7 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	return md5.Sum(jsonBytes)
 }
 
+// @todo job spec
 type WorkflowStage struct {
 	Name     string    `bson:"name"          yaml:"name"         json:"name"`
 	Parallel bool      `bson:"parallel"      yaml:"parallel"     json:"parallel"`
@@ -114,6 +115,8 @@ type NativeApproval struct {
 	ApproveUsers    []*User                `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	NeededApprovers int                    `bson:"needed_approvers"            yaml:"needed_approvers"           json:"needed_approvers"`
 	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
+	// InstanceCode: native approval instance code, save for working after restart aslan
+	InstanceCode string `bson:"instance_code"               yaml:"instance_code"              json:"instance_code"`
 }
 
 type DingTalkApproval struct {
@@ -123,6 +126,8 @@ type DingTalkApproval struct {
 	// DefaultApprovalInitiator if not set, use workflow task creator as approval initiator
 	DefaultApprovalInitiator *DingTalkApprovalUser   `bson:"default_approval_initiator" yaml:"default_approval_initiator" json:"default_approval_initiator"`
 	ApprovalNodes            []*DingTalkApprovalNode `bson:"approval_nodes"             yaml:"approval_nodes"             json:"approval_nodes"`
+	// InstanceCode: dingtalk approval instance code
+	InstanceCode string `bson:"instance_code"              yaml:"instance_code"              json:"instance_code"`
 }
 
 type DingTalkApprovalNode struct {
@@ -149,6 +154,8 @@ type LarkApproval struct {
 	// Deprecated: use ApprovalNodes instead
 	ApproveUsers  []*LarkApprovalUser `bson:"approve_users"               yaml:"approve_users"              json:"approve_users"`
 	ApprovalNodes []*LarkApprovalNode `bson:"approval_nodes"               yaml:"approval_nodes"              json:"approval_nodes"`
+	// InstanceCode: lark approval instance code
+	InstanceCode string `bson:"instance_code"               yaml:"instance_code"              json:"instance_code"`
 }
 
 // GetNodeTypeKey get node type key for deduplication
@@ -190,8 +197,11 @@ type LarkApprovalUser struct {
 }
 
 type User struct {
-	UserID          string                 `bson:"user_id"                     yaml:"user_id"                    json:"user_id"`
-	UserName        string                 `bson:"user_name"                   yaml:"user_name"                  json:"user_name"`
+	Type            string                 `bson:"type"                        yaml:"type"                       json:"type"`
+	UserID          string                 `bson:"user_id,omitempty"           yaml:"user_id,omitempty"          json:"user_id,omitempty"`
+	UserName        string                 `bson:"user_name,omitempty"         yaml:"user_name,omitempty"        json:"user_name,omitempty"`
+	GroupID         string                 `bson:"group_id,omitempty"          yaml:"group_id,omitempty"         json:"group_id,omitempty"`
+	GroupName       string                 `bson:"group_name,omitempty"        yaml:"group_name,omitempty"       json:"group_name,omitempty"`
 	RejectOrApprove config.ApproveOrReject `bson:"reject_or_approve"           yaml:"-"                          json:"reject_or_approve"`
 	Comment         string                 `bson:"comment"                     yaml:"-"                          json:"comment"`
 	OperationTime   int64                  `bson:"operation_time"              yaml:"-"                          json:"operation_time"`
@@ -532,7 +542,10 @@ type GrayRollbackTarget struct {
 }
 
 type JiraJobSpec struct {
-	ProjectID string `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	ProjectID          string `bson:"project_id"  json:"project_id"  yaml:"project_id"`
+	JiraID             string `bson:"jira_id" json:"jira_id" yaml:"jira_id"`
+	JiraSystemIdentity string `bson:"jira_system_identity" json:"jira_system_identity" yaml:"jira_system_identity"`
+	JiraURL            string `bson:"jira_url" json:"jira_url" yaml:"jira_url"`
 	// QueryType: "" means common, "advanced" means use custom jql
 	QueryType string `bson:"query_type" json:"query_type" yaml:"query_type"`
 	// JQL: when query type is advanced, use this
@@ -578,13 +591,16 @@ type ApolloNamespace struct {
 }
 
 type MeegoTransitionJobSpec struct {
-	Source          string                     `bson:"source"             json:"source"`
-	ProjectKey      string                     `bson:"project_key"        json:"project_key"        yaml:"project_key"`
-	ProjectName     string                     `bson:"project_name"       json:"project_name"       yaml:"project_name"`
-	WorkItemType    string                     `bson:"work_item_type"     json:"work_item_type"     yaml:"work_item_type"`
-	WorkItemTypeKey string                     `bson:"work_item_type_key" json:"work_item_type_key" yaml:"work_item_type_key"`
-	Link            string                     `bson:"link"               json:"link"               yaml:"link"`
-	WorkItems       []*MeegoWorkItemTransition `bson:"work_items"         json:"work_items"         yaml:"work_items"`
+	Source              string                     `bson:"source"                json:"source"`
+	ProjectKey          string                     `bson:"project_key"           json:"project_key"           yaml:"project_key"`
+	ProjectName         string                     `bson:"project_name"          json:"project_name"          yaml:"project_name"`
+	MeegoID             string                     `bson:"meego_id"              json:"meego_id"              yaml:"meego_id"`
+	MeegoSystemIdentity string                     `bson:"meego_system_identity" json:"meego_system_identity" yaml:"meego_system_identity"`
+	MeegoURL            string                     `bson:"meego_url"             json:"meego_url"             yaml:"meego_url"`
+	WorkItemType        string                     `bson:"work_item_type"        json:"work_item_type"        yaml:"work_item_type"`
+	WorkItemTypeKey     string                     `bson:"work_item_type_key"    json:"work_item_type_key"    yaml:"work_item_type_key"`
+	Link                string                     `bson:"link"                  json:"link"                  yaml:"link"`
+	WorkItems           []*MeegoWorkItemTransition `bson:"work_items"            json:"work_items"            yaml:"work_items"`
 }
 
 type MeegoWorkItemTransition struct {
@@ -761,10 +777,13 @@ type JiraHook struct {
 }
 
 type MeegoHook struct {
-	Name        string      `bson:"name" json:"name"`
-	Enabled     bool        `bson:"enabled" json:"enabled"`
-	Description string      `bson:"description" json:"description"`
-	WorkflowArg *WorkflowV4 `bson:"workflow_arg" json:"workflow_arg"`
+	Name                string      `bson:"name" json:"name"`
+	MeegoID             string      `bson:"meego_id" json:"meego_id"`
+	MeegoSystemIdentity string      `bson:"meego_system_identity" json:"meego_system_identity"`
+	MeegoURL            string      `bson:"meego_url"             json:"meego_url"`
+	Enabled             bool        `bson:"enabled" json:"enabled"`
+	Description         string      `bson:"description" json:"description"`
+	WorkflowArg         *WorkflowV4 `bson:"workflow_arg" json:"workflow_arg"`
 }
 
 type GeneralHook struct {

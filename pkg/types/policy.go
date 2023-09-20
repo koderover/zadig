@@ -16,12 +16,15 @@ limitations under the License.
 
 package types
 
-//PolicyMetaScope resource scope for permission
+// PolicyMetaScope resource scope for permission
 type PolicyMetaScope string
 
 const (
 	SystemScope  PolicyMetaScope = "system"
 	ProjectScope PolicyMetaScope = "project"
+
+	DBProjectScope int = 1
+	DBSystemScope  int = 2
 )
 
 type Policy struct {

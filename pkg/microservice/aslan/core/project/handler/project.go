@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -34,7 +35,7 @@ type projectListArgs struct {
 	PageSize         int64    `json:"page_size"        form:"page_size,default=20"`
 	PageNum          int64    `json:"page_num"         form:"page_num,default=1"`
 	Filter           string   `json:"filter"           form:"filter"`
-	GroupName        string   `json:"view_name"        form:"view_name"`
+	GroupName        string   `json:"group_name"       form:"group_name"`
 }
 
 type projectResp struct {
@@ -47,7 +48,7 @@ func ListProjects(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -80,6 +81,12 @@ func ListProjects(c *gin.Context) {
 		}
 	}
 
+	ungrouped, err := strconv.ParseBool(c.Query("ungrouped"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("ungrouped is not bool"))
+		return
+	}
+
 	ctx.Resp, ctx.Err = projectservice.ListProjects(
 		&projectservice.ProjectListOptions{
 			IgnoreNoEnvs:     args.IgnoreNoEnvs,
@@ -90,6 +97,7 @@ func ListProjects(c *gin.Context) {
 			PageNum:          args.PageNum,
 			Filter:           args.Filter,
 			GroupName:        args.GroupName,
+			Ungrouped:        ungrouped,
 		},
 		ctx.Logger,
 	)

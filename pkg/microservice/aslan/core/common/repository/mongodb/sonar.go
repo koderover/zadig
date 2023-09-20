@@ -130,3 +130,12 @@ func (c *SonarIntegrationColl) DeleteByID(ctx context.Context, idstring string) 
 	_, err = c.DeleteOne(ctx, query)
 	return err
 }
+
+func (c *SonarIntegrationColl) GetBySystemIdentity(systemIdentity string) (*models.SonarIntegration, error) {
+	obj := &models.SonarIntegration{}
+	query := bson.M{"system_identity": systemIdentity}
+	if err := c.Collection.FindOne(context.TODO(), query).Decode(obj); err != nil {
+		return nil, err
+	}
+	return obj, nil
+}

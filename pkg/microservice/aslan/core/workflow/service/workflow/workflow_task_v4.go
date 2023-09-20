@@ -29,6 +29,7 @@ import (
 	"gorm.io/gorm/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/shared/client/user"
 
@@ -232,6 +233,7 @@ func GetWorkflowv4Preset(encryptedKey, workflowName, uid, username string, log *
 	if err := ensureWorkflowV4Resp(encryptedKey, workflow, log); err != nil {
 		return workflow, err
 	}
+	clearWorkflowV4Triggers(workflow)
 	return workflow, nil
 }
 
@@ -1242,7 +1244,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 				continue
 			}
 			for _, arg := range taskJobSpec.Properties.Envs {
-				if arg.Key == "SERVICE" {
+				if arg.Key == "SERVICE_NAME" {
 					spec.ServiceName = arg.Value
 					continue
 				}
@@ -1312,7 +1314,7 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					spec.TestType = arg.Value
 					continue
 				}
-				if arg.Key == "SERVICE" {
+				if arg.Key == "SERVICE_NAME" {
 					spec.ServiceName = arg.Value
 					continue
 				}
@@ -1576,6 +1578,47 @@ func workflowTaskLint(workflowTask *commonmodels.WorkflowTask, logger *zap.Sugar
 			errMsg := fmt.Sprintf("no job found in workflow task: %s,taskID: %d,stage: %s", workflowTask.WorkflowName, workflowTask.TaskID, stage.Name)
 			logger.Error(errMsg)
 			return e.ErrCreateTask.AddDesc(errMsg)
+		}
+
+		// deal with users in user groups
+		if stage.Approval != nil && stage.Approval.Type == config.NativeApproval && len(stage.Approval.NativeApproval.ApproveUsers) != 0 {
+			newApproveUserList := make([]*commonmodels.User, 0)
+			userSet := sets.NewString()
+			for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {
+				if approveUser.Type == "" || approveUser.Type == "user" {
+					newApproveUserList = append(newApproveUserList, approveUser)
+					userSet.Insert(approveUser.UserID)
+				}
+			}
+			for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {
+				if approveUser.Type == "group" {
+					users, err := user.New().GetGroupDetailedInfo(approveUser.GroupID)
+					if err != nil {
+						errMsg := fmt.Sprintf("failed to find users for group %s in stage: %s, error: %s", approveUser.GroupName, stage.Name, err)
+						logger.Errorf(errMsg)
+						return e.ErrCreateTask.AddDesc(errMsg)
+					}
+					for _, userID := range users.UIDs {
+						if userSet.Has(userID) {
+							continue
+						}
+						userDetailedInfo, err := user.New().GetUserByID(userID)
+						if err != nil {
+							errMsg := fmt.Sprintf("failed to find user %s, error: %s", userID, err)
+							logger.Errorf(errMsg)
+							return e.ErrCreateTask.AddDesc(errMsg)
+						}
+
+						userSet.Insert(userID)
+						newApproveUserList = append(newApproveUserList, &commonmodels.User{
+							Type:     "user",
+							UserID:   userID,
+							UserName: userDetailedInfo.Name,
+						})
+					}
+				}
+			}
+			stage.Approval.NativeApproval.ApproveUsers = newApproveUserList
 		}
 	}
 	return nil

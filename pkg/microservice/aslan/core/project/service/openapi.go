@@ -23,7 +23,6 @@ import (
 
 	"go.uber.org/zap"
 
-	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -34,37 +33,11 @@ import (
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	envService "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	svcService "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
-	policyservice "github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util"
 )
 
 func CreateProjectOpenAPI(userID, username string, args *OpenAPICreateProductReq, logger *zap.SugaredLogger) error {
-	var rbs []*policyservice.RoleBinding
-	rbs = append(rbs, &policyservice.RoleBinding{
-		Name:   configbase.RoleBindingNameFromUIDAndRole(userID, setting.ProjectAdmin, ""),
-		UID:    userID,
-		Role:   string(setting.ProjectAdmin),
-		Preset: true,
-	})
-
-	if args.IsPublic {
-		rbs = append(rbs, &policyservice.RoleBinding{
-			Name:   configbase.RoleBindingNameFromUIDAndRole("*", setting.ReadOnly, ""),
-			UID:    "*",
-			Role:   string(setting.ReadOnly),
-			Preset: true,
-		})
-	}
-
-	for _, rb := range rbs {
-		err := policyservice.UpdateOrCreateRoleBinding(args.ProjectName, rb, logger)
-		if err != nil {
-			logger.Errorf("failed to create rolebinding %s, err: %s", rb.Name, err)
-			return err
-		}
-	}
-
 	// generate required information to create the project
 	// 1. find all current clusters
 	clusterList := make([]string, 0)
@@ -110,6 +83,7 @@ func CreateProjectOpenAPI(userID, username string, args *OpenAPICreateProductReq
 		ClusterIDs:     clusterList,
 		ProductFeature: feature,
 		Public:         args.IsPublic,
+		Admins:         []string{userID},
 	}
 
 	return CreateProductTemplate(createArgs, logger)
@@ -117,33 +91,6 @@ func CreateProjectOpenAPI(userID, username string, args *OpenAPICreateProductReq
 }
 
 func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInitializeProjectReq, logger *zap.SugaredLogger) error {
-
-	// =========================== FIRST STEP: project creation ===============================
-	var rbs []*policyservice.RoleBinding
-	rbs = append(rbs, &policyservice.RoleBinding{
-		Name:   configbase.RoleBindingNameFromUIDAndRole(userID, setting.ProjectAdmin, ""),
-		UID:    userID,
-		Role:   string(setting.ProjectAdmin),
-		Preset: true,
-	})
-
-	if args.IsPublic {
-		rbs = append(rbs, &policyservice.RoleBinding{
-			Name:   configbase.RoleBindingNameFromUIDAndRole("*", setting.ReadOnly, ""),
-			UID:    "*",
-			Role:   string(setting.ReadOnly),
-			Preset: true,
-		})
-	}
-
-	for _, rb := range rbs {
-		err := policyservice.UpdateOrCreateRoleBinding(args.ProjectName, rb, logger)
-		if err != nil {
-			logger.Errorf("failed to create rolebinding %s, err: %s", rb.Name, err)
-			return err
-		}
-	}
-
 	// generate required information to create the project
 	// 1. find all current clusters
 	clusterList := make([]string, 0)
@@ -174,6 +121,7 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 		ClusterIDs:     clusterList,
 		ProductFeature: feature,
 		Public:         args.IsPublic,
+		Admins:         []string{userID},
 	}
 
 	err = CreateProductTemplate(createArgs, logger)
@@ -305,32 +253,6 @@ func InitializeYAMLProject(userID, username, requestID string, args *OpenAPIInit
 }
 
 func OpenAPIInitializeHelmProject(userID, username, requestID string, args *OpenAPIInitializeProjectReq, logger *zap.SugaredLogger) error {
-	// =========================== FIRST STEP: project creation ===============================
-	var rbs []*policyservice.RoleBinding
-	rbs = append(rbs, &policyservice.RoleBinding{
-		Name:   configbase.RoleBindingNameFromUIDAndRole(userID, setting.ProjectAdmin, ""),
-		UID:    userID,
-		Role:   string(setting.ProjectAdmin),
-		Preset: true,
-	})
-
-	if args.IsPublic {
-		rbs = append(rbs, &policyservice.RoleBinding{
-			Name:   configbase.RoleBindingNameFromUIDAndRole("*", setting.ReadOnly, ""),
-			UID:    "*",
-			Role:   string(setting.ReadOnly),
-			Preset: true,
-		})
-	}
-
-	for _, rb := range rbs {
-		err := policyservice.UpdateOrCreateRoleBinding(args.ProjectName, rb, logger)
-		if err != nil {
-			logger.Errorf("failed to create rolebinding %s, err: %s", rb.Name, err)
-			return err
-		}
-	}
-
 	// generate required information to create the project
 	// 1. find all current clusters
 	clusterList := make([]string, 0)
@@ -361,6 +283,7 @@ func OpenAPIInitializeHelmProject(userID, username, requestID string, args *Open
 		ClusterIDs:     clusterList,
 		ProductFeature: feature,
 		Public:         args.IsPublic,
+		Admins:         []string{userID},
 	}
 
 	err = CreateProductTemplate(createArgs, logger)

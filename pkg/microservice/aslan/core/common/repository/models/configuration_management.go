@@ -19,11 +19,12 @@ package models
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type ConfigurationManagement struct {
-	ID            primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Type          string             `json:"type" bson:"type" binding:"required"`
-	AuthConfig    interface{}        `json:"auth_config" bson:"auth_config"`
-	ServerAddress string             `json:"server_address" bson:"server_address" binding:"required"`
-	UpdateTime    int64              `json:"update_time" bson:"update_time"`
+	ID             primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	SystemIdentity string             `json:"system_identity" bson:"system_identity" binding:"required"`
+	Type           string             `json:"type" bson:"type" binding:"required"`
+	AuthConfig     interface{}        `json:"auth_config" bson:"auth_config"`
+	ServerAddress  string             `json:"server_address" bson:"server_address" binding:"required"`
+	UpdateTime     int64              `json:"update_time" bson:"update_time"`
 }
 
 func (ConfigurationManagement) TableName() string {

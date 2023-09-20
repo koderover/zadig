@@ -1,0 +1,232 @@
+description: "public urls: url not need to authentication ; system_admin urls: urls that only system admin has permission ; project_admin: urls that project admin has permission"
+exemption_urls:
+  public:
+    - endpoint: api/aslan/system/initialization/status
+      methods:
+        - GET
+    - endpoint: api/aslan/system/initialization/user
+      methods:
+        - POST
+    - endpoint: /api/debug/pprof/**
+      methods:
+        - GET
+    - endpoint: /api/debug/pprof
+      methods:
+        - GET
+    - endpoint: /api/plutus/license
+      methods:
+        - GET
+        - POST
+    - endpoint: api/plutus/health
+      methods:
+        - GET
+    - endpoint: api/plutus/organization
+      methods:
+        - GET
+    - endpoint: api/plutus/version/new/check
+      methods:
+        - GET
+    - endpoint: api/plutus/license/sync
+      methods:
+        - POST
+    - endpoint: api/plutus/license/download/**
+      methods:
+        - GET
+    - endpoint: api/plutus/customer/uploadBaseUri
+      methods:
+        - POST
+    - endpoint: api/plutus/customer/uploadCurrentVersion
+      methods:
+        - POST
+    - endpoint: api/plutus/version/latest
+      methods:
+        - GET
+    - endpoint: api/plutus/license/check
+      methods:
+        - POST
+    - endpoint: api/plutus/signature
+      methods:
+        - POST
+    - endpoint: api/plutus/signature/status
+      methods:
+        - GET
+    - endpoint: api/plutus/customer/installer/**
+      methods:
+        - GET
+    - endpoint: api/plutus/connect
+      methods:
+        - GET
+    - endpoint: plutus-vendor/**
+      methods:
+        - GET
+    - endpoint: plutus/deliveryBoard
+      methods:
+        - GET
+    - endpoint: api/aslan/metrics
+      methods:
+        - GET
+    - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/patch
+      methods:
+        - POST
+    - endpoint: api/aslan/environment/environments/?*/services/?*/devmode/recover
+      methods:
+        - POST
+    - endpoint: api/aslan/system/favorite/?*/?*
+      methods:
+        - POST
+        - DELETE
+    - endpoint: api/v1/permission/project/?*
+      methods:
+        - GET
+    - endpoint: api/aslan/health
+      methods:
+        - GET
+    - endpoint: api/aslan/webhook
+      methods:
+        - POST
+    - endpoint: api/hub/connect
+      methods:
+        - GET
+    - endpoint: api/aslan/system/registry
+      methods:
+        - GET
+    - endpoint: api/aslan/system/lark/?*/webhook
+      methods:
+        - POST
+    - endpoint: api/aslan/system/dingtalk/?*/webhook
+      methods:
+        - POST
+    - endpoint: api/aslan/system/project_management/jira/webhook/?*/?*
+      methods:
+        - POST
+    - endpoint: api/aslan/system/project_management/meego/webhook/?*/?*
+      methods:
+        - POST
+    - endpoint: api/aslan/workflow/v4/generalhook/?*/?*/webhook
+      methods:
+        - POST
+    - endpoint: api/aslan/testing/report
+      methods:
+        - GET
+    - endpoint: api/aslan/testing/report/workflowv4/?*/id/?*/job/?*
+      methods:
+        - GET
+    - endpoint: api/aslan/cluster/agent/?*/agent.yaml
+      methods:
+        - GET
+    - endpoint: api/podexec/health
+      methods:
+        - GET
+    - endpoint: api/v1/login
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/captcha
+      methods:
+        - GET
+    - endpoint: api/v1/signup
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/retrieve
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/login-enabled
+      methods:
+        - GET
+        - POST
+    - endpoint: login/password
+      methods:
+        - GET
+        - POST
+    - endpoint: api/v1/codehosts/?*/auth
+      methods:
+        - GET
+    - endpoint: api/v1/codehosts/callback
+      methods:
+        - GET
+    - endpoint: api/v1/callback
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+    - endpoint: dex/**
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+    # endpoint = '' is p0 level
+    - endpoint: ""
+      methods:
+        - GET
+    - endpoint: signin
+      methods:
+        - GET
+    - endpoint: setup
+      methods:
+        - GET
+    - endpoint: static/**
+      methods:
+        - GET
+    - endpoint: v1/**
+      methods:
+        - GET
+    - endpoint: mobile/**
+      methods:
+        - GET
+    - endpoint: ai
+      methods:
+        - GET
+    - endpoint: ai/**
+      methods:
+        - GET
+    - endpoint: zadigx-ai/**
+      methods:
+        - GET
+    - endpoint: zadigx-ai
+      methods:
+        - GET
+    - endpoint: workflows/**
+      methods:
+        - GET
+    - endpoint: favicon.ico
+      methods:
+        - GET
+    - endpoint: api/directory/codehosts/callback
+      methods:
+        - GET
+    - endpoint: api/v1/features/?*
+      methods:
+        - GET
+    - endpoint: api/aslan/system/jenkins/exist
+      methods:
+        - GET
+    - endpoint: api/callback
+      methods:
+        - POST
+    - endpoint: api/aslan/environment/environments/?*/check/workloads/k8services
+      methods:
+        - GET
+    - endpoint: api/aslan/environment/environments/?*/check/sharenv/enable/ready
+      methods:
+        - GET
+    - endpoint: api/aslan/environment/environments/?*/check/sharenv/disable/ready
+      methods:
+        - GET
+    - endpoint: api/aslan/service/services/?*/environments/deployable
+      methods:
+        - GET
+    - endpoint: api/aslan/apidocs/?*
+      methods:
+        - GET
+    - endpoint: api/aslan/system/theme
+      methods:
+        - GET
+    - endpoint: api/aslan/system/llm/integration/check
+      methods:
+        - GET

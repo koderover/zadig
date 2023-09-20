@@ -33,11 +33,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -154,24 +151,11 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 			args.KubeYamls = util.SplitYaml(args.Yaml)
 		}
 
-		// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
-		if err := commonutil.SetCurrentContainerImages(args); err != nil {
+		_, err := service.CreateServiceTemplate(userName, args, true, log)
+		if err != nil {
+			log.Infof("failed to create svc tempalte, err: %s", err)
 			return err
 		}
-		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
-
-		// generate new revision
-		rev, err := commonutil.GenerateServiceNextRevision(false, args.ServiceName, args.ProductName)
-		if err != nil {
-			return fmt.Errorf("get next service template revision error: %v", err)
-		}
-		args.Revision = rev
-		// update service template
-		if err := commonrepo.NewServiceColl().Create(args); err != nil {
-			log.Errorf("Failed to sync service %s from github path %s error: %v", args.ServiceName, args.SrcPath, err)
-			return e.ErrCreateTemplate.AddDesc(err.Error())
-		}
-		return environmentservice.AutoDeployYamlServiceToEnvs(args.CreateBy, "", args, log)
 	} else if args.Type == setting.HelmDeployType {
 		if args.Source == setting.SourceFromGitlab {
 			// Set args.Commit
@@ -284,25 +268,6 @@ func getGitlabClientByCodehostId(codehostId int) (*gitlabtool.Client, error) {
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(fmt.Sprintf("failed to get codehost:%d, err: %s", codehost, err))
-	}
-	client, err := gitlabtool.NewClient(codehost.ID, codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
-	if err != nil {
-		log.Error(err)
-		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
-	}
-
-	return client, nil
-}
-
-func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
-	opt := &systemconfig.Option{
-		Address:      address,
-		CodeHostType: systemconfig.GitLabProvider,
-	}
-	codehost, err := systemconfig.GetCodeHostInfo(opt)
-	if err != nil {
-		log.Error(err)
-		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
 	}
 	client, err := gitlabtool.NewClient(codehost.ID, codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
 	if err != nil {

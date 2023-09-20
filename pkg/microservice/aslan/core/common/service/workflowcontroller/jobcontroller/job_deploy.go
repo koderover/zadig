@@ -53,6 +53,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/types/job"
 )
 
 type DeployJobCtl struct {
@@ -89,6 +90,7 @@ func (c *DeployJobCtl) Clean(ctx context.Context) {}
 func (c *DeployJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
+	c.preRun()
 	if err := c.run(ctx); err != nil {
 		return
 	}
@@ -97,6 +99,14 @@ func (c *DeployJobCtl) Run(ctx context.Context) {
 		return
 	}
 	c.wait(ctx)
+}
+
+func (c *DeployJobCtl) preRun() {
+	// set IMAGE job output
+	for _, svc := range c.jobTaskSpec.ServiceAndImages {
+		// deploy job key is jobName.serviceName
+		c.workflowCtx.GlobalContextSet(job.GetJobOutputKey(c.job.Key+"."+svc.ServiceModule, IMAGEKEY), svc.Image)
+	}
 }
 
 func (c *DeployJobCtl) run(ctx context.Context) error {
@@ -532,7 +542,7 @@ func (c *DeployJobCtl) wait(ctx context.Context) {
 				for _, pod := range pods {
 					podResource := wrapper.Pod(pod).Resource()
 					if podResource.Status != setting.StatusRunning && podResource.Status != setting.StatusSucceeded {
-						for _, cs := range podResource.ContainerStatuses {
+						for _, cs := range podResource.Containers {
 							// message为空不认为是错误状态，有可能还在waiting
 							if cs.Message != "" {
 								msg = append(msg, fmt.Sprintf("Status: %s, Reason: %s, Message: %s", cs.Status, cs.Reason, cs.Message))

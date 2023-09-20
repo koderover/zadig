@@ -633,11 +633,11 @@ func fillServiceVariable(args *commonmodels.Service, curRevision *commonmodels.S
 		return nil
 	}
 
-	extractVariableYmal, err := yamlutil.ExtractVariableYaml(args.Yaml)
+	extractVariableYaml, err := yamlutil.ExtractVariableYaml(args.Yaml)
 	if err != nil {
 		return fmt.Errorf("failed to extract variable yaml from service yaml, err: %w", err)
 	}
-	extractServiceVariableKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYmal, nil)
+	extractServiceVariableKVs, err := commontypes.YamlToServiceVariableKV(extractVariableYaml, nil)
 	if err != nil {
 		return fmt.Errorf("failed to convert variable yaml to service variable kv, err: %w", err)
 	}
@@ -653,7 +653,7 @@ func fillServiceVariable(args *commonmodels.Service, curRevision *commonmodels.S
 			return fmt.Errorf("failed to merge service variables, err %w", err)
 		}
 	} else {
-		args.VariableYaml = extractVariableYmal
+		args.VariableYaml = extractVariableYaml
 		args.ServiceVariableKVs = extractServiceVariableKVs
 	}
 
@@ -685,7 +685,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, force bo
 	// fill serviceVars and variableYaml and serviceVariableKVs
 	err := fillServiceVariable(args, serviceTmpl)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fill service variable, err: %w", err)
 	}
 
 	// 校验args

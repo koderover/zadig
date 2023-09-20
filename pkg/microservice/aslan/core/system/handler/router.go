@@ -298,15 +298,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	pm := router.Group("project_management")
 	{
 		pm.GET("", ListProjectManagement)
+		pm.GET("/project", ListProjectManagementForProject)
 		pm.POST("", CreateProjectManagement)
 		pm.POST("/validate", Validate)
 		pm.PATCH("/:id", UpdateProjectManagement)
 		pm.DELETE("/:id", DeleteProjectManagement)
-		pm.GET("/jira/project", ListJiraProjects)
-		pm.GET("/jira/issue", SearchJiraIssues)
-		pm.GET("/jira/issue/jql", SearchJiraProjectIssuesWithJQL)
-		pm.GET("/jira/type", GetJiraTypes)
-		pm.GET("/jira/status", GetJiraAllStatus)
+		pm.GET("/:id/jira/project", ListJiraProjects)
+		pm.GET("/:id/jira/issue", SearchJiraIssues)
+		pm.GET("/:id/jira/issue/jql", SearchJiraProjectIssuesWithJQL)
+		pm.GET("/:id/jira/type", GetJiraTypes)
+		pm.GET("/:id/jira/status", GetJiraAllStatus)
 		pm.POST("/jira/webhook/:workflowName/:hookName", HandleJiraEvent)
 		pm.POST("/meego/webhook/:workflowName/:hookName", HandleMeegoEvent)
 	}
@@ -340,10 +341,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// feishu project management module
 	meego := router.Group("meego")
 	{
-		meego.GET("/projects", GetMeegoProjects)
-		meego.GET("/projects/:projectID/work_item/types", GetWorkItemTypeList)
-		meego.GET("/projects/:projectID/work_item", ListMeegoWorkItems)
-		meego.GET("/projects/:projectID/work_item/:workItemID/transitions", ListAvailableWorkItemTransitions)
+		meego.GET("/:id/projects", GetMeegoProjects)
+		meego.GET("/:id/projects/:projectID/work_item/types", GetWorkItemTypeList)
+		meego.GET("/:id/projects/:projectID/work_item", ListMeegoWorkItems)
+		meego.GET("/:id/projects/:projectID/work_item/:workItemID/transitions", ListAvailableWorkItemTransitions)
 	}
 
 	// guanceyun api
@@ -378,6 +379,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	webhook := router.Group("webhook")
 	{
 		webhook.GET("/config", GetWebhookConfig)
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// database instance
+	// ---------------------------------------------------------------------------------------
+	dbs := router.Group("dbinstance")
+	{
+		dbs.POST("", CreateDBInstance)
+		dbs.GET("", ListDBInstance)
+		dbs.GET("/:id", GetDBInstance)
+		dbs.PUT("/:id", UpdateDBInstance)
+		dbs.DELETE("/:id", DeleteDBInstance)
 	}
 }
 

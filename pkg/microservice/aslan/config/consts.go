@@ -127,6 +127,10 @@ const (
 	StatusDebugAfter     Status = "debug_after"
 )
 
+func FailedStatus() []Status {
+	return []Status{StatusFailed, StatusTimeout, StatusCancelled, StatusReject}
+}
+
 func InCompletedStatus() []Status {
 	return []Status{StatusCreated, StatusRunning, StatusWaiting, StatusQueued, StatusBlocked, QueueItemPending, StatusPrepare, StatusWaitingApprove}
 }
@@ -490,4 +494,37 @@ const (
 
 const (
 	CUSTOME_THEME = "custom"
+)
+
+type ReleasePlanStatus string
+
+const (
+	StatusPlanning       ReleasePlanStatus = "planning"
+	StatusWaitForApprove ReleasePlanStatus = "waitforapprove"
+	StatusExecuting      ReleasePlanStatus = "executing"
+	StatusSuccess        ReleasePlanStatus = "success"
+	StatusCancel         ReleasePlanStatus = "cancel"
+)
+
+// ReleasePlanStatusMap is a map of status and its available next status
+var ReleasePlanStatusMap = map[ReleasePlanStatus][]ReleasePlanStatus{
+	StatusPlanning:       {StatusWaitForApprove, StatusExecuting},
+	StatusWaitForApprove: {StatusPlanning, StatusExecuting},
+	StatusExecuting:      {StatusPlanning, StatusSuccess, StatusCancel},
+}
+
+type ReleasePlanJobType string
+
+const (
+	JobText     ReleasePlanJobType = "text"
+	JobWorkflow ReleasePlanJobType = "workflow"
+)
+
+type ReleasePlanJobStatus string
+
+const (
+	ReleasePlanJobStatusTodo    ReleasePlanJobStatus = "todo"
+	ReleasePlanJobStatusDone    ReleasePlanJobStatus = "done"
+	ReleasePlanJobStatusFailed  ReleasePlanJobStatus = "failed"
+	ReleasePlanJobStatusRunning ReleasePlanJobStatus = "running"
 )

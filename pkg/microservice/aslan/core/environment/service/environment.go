@@ -36,12 +36,9 @@ import (
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -68,12 +65,10 @@ import (
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/analysis"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/helmclient"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
@@ -1853,13 +1848,15 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 		return nil, e.ErrGetEnv
 	}
 
-	renderSetOpt := &commonrepo.RenderSetFindOption{Name: prod.Render.Name, Revision: prod.Render.Revision, ProductTmpl: productName}
-	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
-	if err != nil {
-		log.Errorf("find helm renderset[%s] error: %v", prod.Render.Name, err)
-		return prod, nil
+	if prod.Render != nil {
+		renderSetOpt := &commonrepo.RenderSetFindOption{Name: prod.Render.Name, Revision: prod.Render.Revision, ProductTmpl: productName}
+		renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
+		if err != nil {
+			log.Errorf("find helm renderset[%s] error: %v", prod.Render.Name, err)
+			return prod, nil
+		}
+		prod.ServiceRenders = renderSet.ChartInfos
 	}
-	prod.ServiceRenders = renderSet.ChartInfos
 
 	return prod, nil
 }
@@ -2534,24 +2531,10 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		return nil, errList
 	}
 
-	manifests := releaseutil.SplitManifests(parsedYaml)
 	if prevSvc == nil {
 		fakeTemplateSvc := &commonmodels.Service{ServiceName: service.ServiceName, ProductName: service.ServiceName, KubeYamls: util.SplitYaml(parsedYaml)}
 		commonutil.SetCurrentContainerImages(fakeTemplateSvc)
 		service.Containers = fakeTemplateSvc.Containers
-	}
-
-	// validate service yaml
-	resources := make([]*unstructured.Unstructured, 0, len(manifests))
-	for _, item := range manifests {
-		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
-		if err != nil {
-			log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", item, err)
-			errList = multierror.Append(errList, err)
-			continue
-		}
-
-		resources = append(resources, u)
 	}
 
 	preResourceYaml := ""
@@ -2576,6 +2559,7 @@ func upsertService(env *commonmodels.Product, service *commonmodels.ProductServi
 		AddZadigLabel:       addLabel,
 		SharedEnvHandler:    EnsureUpdateZadigService,
 	}
+
 	return kube.CreateOrPatchResource(resourceApplyParam, log)
 }
 
@@ -2603,53 +2587,6 @@ func getOldSvcYaml(env *commonmodels.Product,
 		return "", err
 	}
 	return parsedYaml, nil
-}
-
-func waitResourceRunning(
-	kubeClient client.Client, namespace string,
-	resources []*unstructured.Unstructured, timeoutSeconds int, log *zap.SugaredLogger,
-) error {
-	log.Infof("wait service group to run in %d seconds", timeoutSeconds)
-
-	return wait.Poll(1*time.Second, time.Duration(timeoutSeconds)*time.Second, func() (bool, error) {
-		for _, r := range resources {
-			var ready bool
-			found := true
-			var err error
-			switch r.GetKind() {
-			case setting.Deployment:
-				var d *appsv1.Deployment
-				d, found, err = getter.GetDeployment(namespace, r.GetName(), kubeClient)
-				if err == nil && found {
-					ready = wrapper.Deployment(d).Ready()
-				}
-			case setting.StatefulSet:
-				var s *appsv1.StatefulSet
-				s, found, err = getter.GetStatefulSet(namespace, r.GetName(), kubeClient)
-				if err == nil && found {
-					ready = wrapper.StatefulSet(s).Ready()
-				}
-			case setting.Job:
-				var j *batchv1.Job
-				j, found, err = getter.GetJob(namespace, r.GetName(), kubeClient)
-				if err == nil && found {
-					ready = wrapper.Job(j).Complete()
-				}
-			default:
-				ready = true
-			}
-
-			if err != nil {
-				return false, err
-			}
-
-			if !found || !ready {
-				return false, nil
-			}
-		}
-
-		return true, nil
-	})
 }
 
 func preCreateProduct(envName string, args *commonmodels.Product, kubeClient client.Client,

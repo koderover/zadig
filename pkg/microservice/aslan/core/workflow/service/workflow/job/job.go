@@ -418,6 +418,8 @@ func getReposVariables(repos []*types.Repository) []*commonmodels.KeyVal {
 			ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false})
 		}
 
+		ret = append(ret, &commonmodels.KeyVal{Key: fmt.Sprintf("%s_ORG", repoName), Value: repo.RepoOwner, IsCredential: false})
+
 		if len(repo.PRs) > 0 {
 			prStrs := []string{}
 			for _, pr := range repo.PRs {
@@ -510,15 +512,21 @@ func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, cre
 				if err := commonmodels.IToi(job.Spec, build); err != nil {
 					return nil, errors.Wrap(err, "Itoi")
 				}
-				var serviceAndModuleName, branchList []string
+				var serviceAndModuleName, branchList, gitURLs []string
 				for _, serviceAndBuild := range build.ServiceAndBuilds {
 					serviceAndModuleName = append(serviceAndModuleName, serviceAndBuild.ServiceModule+"/"+serviceAndBuild.ServiceName)
-					branch, commitID := "", ""
+					branch, commitID, gitURL := "", "", ""
 					if len(serviceAndBuild.Repos) > 0 {
 						branch = serviceAndBuild.Repos[0].Branch
 						commitID = serviceAndBuild.Repos[0].CommitID
+						if serviceAndBuild.Repos[0].AuthType == types.SSHAuthType {
+							gitURL = fmt.Sprintf("%s:%s/%s", serviceAndBuild.Repos[0].Address, serviceAndBuild.Repos[0].RepoOwner, serviceAndBuild.Repos[0].RepoName)
+						} else {
+							gitURL = fmt.Sprintf("%s/%s/%s", serviceAndBuild.Repos[0].Address, serviceAndBuild.Repos[0].RepoOwner, serviceAndBuild.Repos[0].RepoName)
+						}
 					}
 					branchList = append(branchList, branch)
+					gitURLs = append(gitURLs, gitURL)
 					resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.%s.%s.BRANCH",
 						job.Name, serviceAndBuild.ServiceName, serviceAndBuild.ServiceModule),
 						Value: branch, ParamsType: "string", IsCredential: false})
@@ -528,6 +536,7 @@ func getWorkflowStageParams(workflow *commonmodels.WorkflowV4, taskID int64, cre
 				}
 				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.SERVICES", job.Name), Value: strings.Join(serviceAndModuleName, ","), ParamsType: "string", IsCredential: false})
 				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.BRANCHES", job.Name), Value: strings.Join(branchList, ","), ParamsType: "string", IsCredential: false})
+				resp = append(resp, &commonmodels.Param{Name: fmt.Sprintf("job.%s.GITURLS", job.Name), Value: strings.Join(gitURLs, ","), ParamsType: "string", IsCredential: false})
 			case config.JobZadigDeploy:
 				deploy := new(commonmodels.ZadigDeployJobSpec)
 				if err := commonmodels.IToi(job.Spec, deploy); err != nil {

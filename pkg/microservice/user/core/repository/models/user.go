@@ -18,13 +18,18 @@ package models
 
 type User struct {
 	Model
-	UID          string `json:"uid"`
+	UID          string `gorm:"primary" json:"uid"`
 	Name         string `json:"name"`
 	IdentityType string `gorm:"default:'unknown'" json:"identity_type"`
 	Email        string `json:"email"`
 	Phone        string `json:"phone"`
 	Account      string `json:"account"`
 	APIToken     string `gorm:"api_token" json:"api_token"`
+
+	// used to mention the foreign key relationship between user and groupBinding
+	// and specify the onDelete action.
+	GroupBindings    []GroupBinding   `gorm:"foreignKey:UID;references:UID;constraint:OnDelete:CASCADE;" json:"-"`
+	UserRoleBindings []NewRoleBinding `gorm:"foreignKey:UID;references:UID;constraint:OnDelete:CASCADE;" json:"-"`
 }
 
 // TableName sets the insert table name for this struct type

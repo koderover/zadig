@@ -18,7 +18,6 @@ package core
 
 import (
 	"context"
-	"database/sql"
 	_ "embed"
 	"fmt"
 	"sync"
@@ -46,15 +45,13 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	multiclusterservice "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
-	policyservice "github.com/koderover/zadig/pkg/microservice/aslan/core/policy/service"
+	releaseplanservice "github.com/koderover/zadig/pkg/microservice/aslan/core/release_plan/service"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	hubserverconfig "github.com/koderover/zadig/pkg/microservice/hubserver/config"
 	"github.com/koderover/zadig/pkg/microservice/hubserver/core/repository/mongodb"
-	policydb "github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
-	policybundle "github.com/koderover/zadig/pkg/microservice/policy/core/service/bundle"
 	mongodb2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	configmongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
 	configservice "github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/service"
@@ -68,17 +65,11 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/tool/rsa"
-	"github.com/koderover/zadig/pkg/types"
 )
 
 const (
 	webhookController = iota
-	bundleController
 )
-
-type policyGetter interface {
-	Policies() []*types.PolicyMeta
-}
 
 type Controller interface {
 	Run(workers int, stopCh <-chan struct{})
@@ -87,11 +78,9 @@ type Controller interface {
 func StartControllers(stopCh <-chan struct{}) {
 	controllerWorkers := map[int]int{
 		webhookController: 1,
-		bundleController:  1,
 	}
 	controllers := map[int]Controller{
 		webhookController: webhook.NewWebhookController(),
-		bundleController:  policybundle.NewBundleController(),
 	}
 
 	var wg sync.WaitGroup
@@ -143,6 +132,7 @@ func Start(ctx context.Context) {
 
 	initDatabase()
 	initKlock()
+	initReleasePlanWatcher()
 
 	initService()
 	initDinD()
@@ -170,10 +160,6 @@ func Start(ctx context.Context) {
 	go multiclusterservice.ClusterApplyUpgrade()
 
 	initRsaKey()
-
-	// policy initialization process
-	policybundle.GenerateOPABundle()
-	policyservice.MigratePolicyData()
 
 	initCron()
 }
@@ -336,10 +322,14 @@ func initKlock() {
 	_ = klock.Init(config.Namespace())
 }
 
-func initDatabase() {
-	// old user service initialization
-	InitializeUserDBAndTables()
+// initReleasePlanWatcher watch release plan status and update release plan status
+// for working after aslan restart
+func initReleasePlanWatcher() {
+	go releaseplanservice.WatchExecutingWorkflow()
+	go releaseplanservice.WatchApproval()
+}
 
+func initDatabase() {
 	err := gormtool.Open(configbase.MysqlUser(),
 		configbase.MysqlPassword(),
 		configbase.MysqlHost(),
@@ -443,6 +433,8 @@ func initDatabase() {
 		commonrepo.NewProjectManagementColl(),
 		commonrepo.NewImageTagsCollColl(),
 		commonrepo.NewLLMIntegrationColl(),
+		commonrepo.NewReleasePlanColl(),
+		commonrepo.NewReleasePlanLogColl(),
 
 		// msg queue
 		commonrepo.NewMsgQueueCommonColl(),
@@ -458,10 +450,6 @@ func initDatabase() {
 		// config related db index
 		configmongodb.NewEmailHostColl(),
 
-		// policy related db index
-		policydb.NewRoleColl(),
-		policydb.NewRoleBindingColl(),
-
 		// user related db index
 		userdb.NewUserSettingColl(),
 
@@ -470,6 +458,9 @@ func initDatabase() {
 
 		// project group related db index
 		commonrepo.NewProjectGroupColl(),
+
+		// db instances
+		commonrepo.NewDBInstanceColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {
@@ -513,37 +504,4 @@ func InitializeConfigFeatureGates() error {
 	}
 	configservice.Features.MergeFeatureGates(flagFG, dbFG)
 	return nil
-}
-
-//go:embed init/mysql.sql
-var mysql []byte
-
-//go:embed init/dex_database.sql
-var dexSchema []byte
-
-func InitializeUserDBAndTables() {
-	if len(mysql) == 0 {
-		return
-	}
-	db, err := sql.Open("mysql", fmt.Sprintf(
-		"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
-		configbase.MysqlUser(), configbase.MysqlPassword(), configbase.MysqlHost(),
-	))
-	if err != nil {
-		log.Panic(err)
-	}
-	defer db.Close()
-	initSql := fmt.Sprintf(string(mysql), config.MysqlUserDB(), config.MysqlUserDB())
-	_, err = db.Exec(initSql)
-
-	if err != nil {
-		log.Panic(err)
-	}
-
-	dexDatabaseSql := fmt.Sprintf(string(dexSchema), config.MysqlDexDB())
-	_, err = db.Exec(dexDatabaseSql)
-
-	if err != nil {
-		log.Panic(err)
-	}
 }

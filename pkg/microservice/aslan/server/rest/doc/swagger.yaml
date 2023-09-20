@@ -37,6 +37,14 @@ definitions:
     x-enum-varnames:
     - SourceRuntime
     - SourceFromJob
+  config.JiraAuthType:
+    enum:
+    - password_or_token
+    - personal_access_token
+    type: string
+    x-enum-varnames:
+    - JiraBasicAuth
+    - JiraPersonalAccessToken
   github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService:
     properties:
       deployed:
@@ -241,7 +249,7 @@ definitions:
       variable_yaml:
         type: string
     type: object
-  handler.getInitProductRespone:
+  handler.getInitProductResponse:
     properties:
       chart_infos:
         items:
@@ -578,6 +586,37 @@ definitions:
       is_base:
         type: boolean
     type: object
+  models.ProjectManagement:
+    properties:
+      id:
+        type: string
+      jira_auth_type:
+        $ref: '#/definitions/config.JiraAuthType'
+      jira_host:
+        type: string
+      jira_personal_access_token:
+        description: JiraPersonalAccessToken is used for bearer token
+        type: string
+      jira_token:
+        description: JiraToken is used in place of password for basic auth with username
+        type: string
+      jira_user:
+        type: string
+      meego_host:
+        type: string
+      meego_plugin_id:
+        type: string
+      meego_plugin_secret:
+        type: string
+      meego_user_key:
+        type: string
+      system_identity:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: integer
+    type: object
   models.RenderInfo:
     properties:
       description:
@@ -812,6 +851,10 @@ definitions:
         type: string
       name:
         type: string
+      ports:
+        items:
+          $ref: '#/definitions/resource.ContainerPort'
+        type: array
       ready:
         type: boolean
       reason:
@@ -833,6 +876,42 @@ definitions:
         type: string
       name:
         type: string
+    type: object
+  resource.ContainerPort:
+    properties:
+      containerPort:
+        description: |-
+          Number of port to expose on the pod's IP address.
+          This must be a valid port number, 0 < x < 65536.
+        type: integer
+      hostIP:
+        description: |-
+          What host IP to bind the external port to.
+          +optional
+        type: string
+      hostPort:
+        description: |-
+          Number of port to expose on the host.
+          If specified, this must be a valid port number, 0 < x < 65536.
+          If HostNetwork is specified, this must match ContainerPort.
+          Most containers do not need this.
+          +optional
+        type: integer
+      name:
+        description: |-
+          If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
+          named port in a pod must have a unique name. Name for the port that can be
+          referred to by services.
+          +optional
+        type: string
+      protocol:
+        allOf:
+        - $ref: '#/definitions/resource.Protocol'
+        description: |-
+          Protocol for port. Must be UDP, TCP, or SCTP.
+          Defaults to "TCP".
+          +optional
+          +default="TCP"
     type: object
   resource.CronJob:
     properties:
@@ -920,6 +999,16 @@ definitions:
       status:
         type: string
     type: object
+  resource.Protocol:
+    enum:
+    - TCP
+    - UDP
+    - SCTP
+    type: string
+    x-enum-varnames:
+    - ProtocolTCP
+    - ProtocolUDP
+    - ProtocolSCTP
   resource.Service:
     properties:
       age:
@@ -1104,7 +1193,7 @@ definitions:
     properties:
       cluster_name:
         type: string
-      env_name:
+      env_key:
         type: string
       namespace:
         type: string
@@ -1258,6 +1347,13 @@ definitions:
           $ref: '#/definitions/resource.HostInfo'
         type: array
     type: object
+  service.JiraProjectsResp:
+    properties:
+      key:
+        type: string
+      name:
+        type: string
+    type: object
   service.K8sDeployStatusCheckRequest:
     properties:
       cluster_id:
@@ -1299,6 +1395,21 @@ definitions:
         type: string
       value: {}
     type: object
+  service.ListPodsInfoRespone:
+    properties:
+      create_time:
+        type: integer
+      images:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      ready:
+        type: string
+      status:
+        type: string
+    type: object
   service.LoadServiceFromYamlTemplateReq:
     properties:
       auto_sync:
@@ -1315,6 +1426,50 @@ definitions:
         type: string
       variable_yaml:
         type: string
+    type: object
+  service.MeegoProject:
+    properties:
+      key:
+        type: string
+      name:
+        type: string
+    type: object
+  service.MeegoProjectResp:
+    properties:
+      projects:
+        items:
+          $ref: '#/definitions/service.MeegoProject'
+        type: array
+    type: object
+  service.MeegoWorkItem:
+    properties:
+      current_state:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  service.MeegoWorkItemResp:
+    properties:
+      work_items:
+        items:
+          $ref: '#/definitions/service.MeegoWorkItem'
+        type: array
+    type: object
+  service.MeegoWorkItemType:
+    properties:
+      name:
+        type: string
+      type_key:
+        type: string
+    type: object
+  service.MeegoWorkItemTypeResp:
+    properties:
+      work_item_types:
+        items:
+          $ref: '#/definitions/service.MeegoWorkItemType'
+        type: array
     type: object
   service.OpenAPIInitializeProjectReq:
     properties:
@@ -2065,6 +2220,35 @@ paths:
       summary: Update Multi products
       tags:
       - environment
+  /api/aslan/environment/environments/{name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete Product
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: is delete
+        in: query
+        name: is_delete
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Delete Product
+      tags:
+      - environment
   /api/aslan/environment/environments/{name}/analysis:
     post:
       consumes:
@@ -2542,7 +2726,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handler.getInitProductRespone'
+            $ref: '#/definitions/handler.getInitProductResponse'
       summary: Get init product
       tags:
       - environment
@@ -2602,6 +2786,65 @@ paths:
               $ref: '#/definitions/service.ServiceDeployStatus'
             type: array
       summary: Get Resource Deploy Status
+      tags:
+      - environment
+  /api/aslan/environment/kube/pods:
+    get:
+      consumes:
+      - application/json
+      description: Get Pods Info
+      parameters:
+      - description: projectName
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: envName
+        in: query
+        name: envName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListPodsInfoRespone'
+            type: array
+      summary: Get Pods Info
+      tags:
+      - environment
+  /api/aslan/environment/kube/pods/{podName}:
+    get:
+      consumes:
+      - application/json
+      description: Get Pods Detail Info
+      parameters:
+      - description: projectName
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: envName
+        in: query
+        name: envName
+        required: true
+        type: string
+      - description: podName
+        in: path
+        name: podName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/resource.Pod'
+      summary: Get Pods Detail Info
       tags:
       - environment
   /api/aslan/environment/production/environments:
@@ -3617,6 +3860,139 @@ paths:
           schema:
             $ref: '#/definitions/handler.checkLLMIntegrationResponse'
       summary: Check llm integrations
+      tags:
+      - system
+  /api/aslan/system/meego/{id}/projects:
+    get:
+      consumes:
+      - application/json
+      description: List Meego Projects
+      parameters:
+      - description: meego id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.MeegoProjectResp'
+      summary: List Meego Projects
+      tags:
+      - system
+  /api/aslan/system/meego/{id}/projects/{projectID}/work_item:
+    get:
+      consumes:
+      - application/json
+      description: List Meego Work Items
+      parameters:
+      - description: meego id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: project id
+        in: path
+        name: projectID
+        required: true
+        type: string
+      - description: type key
+        in: query
+        name: type_key
+        required: true
+        type: string
+      - description: page num
+        in: query
+        name: page_num
+        required: true
+        type: string
+      - description: page size
+        in: query
+        name: page_size
+        required: true
+        type: string
+      - description: item name
+        in: query
+        name: item_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.MeegoWorkItemResp'
+      summary: List Meego Work Items
+      tags:
+      - system
+  /api/aslan/system/meego/{id}/projects/{projectID}/work_item/types:
+    get:
+      consumes:
+      - application/json
+      description: Get Meego Work Item Type List
+      parameters:
+      - description: meego id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: project id
+        in: path
+        name: projectID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.MeegoWorkItemTypeResp'
+      summary: Get Meego Work Item Type List
+      tags:
+      - system
+  /api/aslan/system/project_management/{id}/jira/project:
+    get:
+      consumes:
+      - application/json
+      description: List Jira Projects
+      parameters:
+      - description: jira id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.JiraProjectsResp'
+            type: array
+      summary: List Jira Projects
+      tags:
+      - system
+  /api/aslan/system/project_management/project:
+    get:
+      consumes:
+      - application/json
+      description: List Project Management For Project
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ProjectManagement'
+            type: array
+      summary: List Project Management For Project
       tags:
       - system
   /api/aslan/system/webhook/config:

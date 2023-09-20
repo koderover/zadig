@@ -28,6 +28,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+// Deprecated
 func SyncLdapUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -22,6 +22,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
@@ -488,6 +493,53 @@ func fetchWorkloadImages(productService *commonmodels.ProductService, product *c
 		ret = append(ret, container)
 	}
 	return ret, nil
+}
+
+func waitResourceRunning(
+	kubeClient client.Client, namespace string,
+	resources []*unstructured.Unstructured, timeoutSeconds int, log *zap.SugaredLogger,
+) error {
+	log.Infof("wait service group to run in %d seconds", timeoutSeconds)
+
+	return wait.Poll(1*time.Second, time.Duration(timeoutSeconds)*time.Second, func() (bool, error) {
+		for _, r := range resources {
+			var ready bool
+			found := true
+			var err error
+			switch r.GetKind() {
+			case setting.Deployment:
+				var d *appsv1.Deployment
+				d, found, err = getter.GetDeployment(namespace, r.GetName(), kubeClient)
+				if err == nil && found {
+					ready = wrapper.Deployment(d).Ready()
+				}
+			case setting.StatefulSet:
+				var s *appsv1.StatefulSet
+				s, found, err = getter.GetStatefulSet(namespace, r.GetName(), kubeClient)
+				if err == nil && found {
+					ready = wrapper.StatefulSet(s).Ready()
+				}
+			case setting.Job:
+				var j *batchv1.Job
+				j, found, err = getter.GetJob(namespace, r.GetName(), kubeClient)
+				if err == nil && found {
+					ready = wrapper.Job(j).Complete()
+				}
+			default:
+				ready = true
+			}
+
+			if err != nil {
+				return false, err
+			}
+
+			if !found || !ready {
+				return false, nil
+			}
+		}
+
+		return true, nil
+	})
 }
 
 func (k *K8sService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {

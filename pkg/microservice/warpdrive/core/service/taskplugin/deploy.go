@@ -441,16 +441,6 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 	return s, nil
 }
 
-func getProductInfo(ctx context.Context, httpClient *httpclient.Client, envName, productName string) (*types.Product, error) {
-	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", envName)
-	prod := &types.Product{}
-	_, err := httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", productName), httpclient.SetQueryParam("ifPassFilter", "true"))
-	if err != nil {
-		return nil, err
-	}
-	return prod, nil
-}
-
 func getRenderedManifests(ctx context.Context, httpClient *httpclient.Client, envName, productName string, serviceName string) ([]string, error) {
 	url := "/api/environment/export/service"
 	prod := make([]string, 0)
@@ -585,7 +575,7 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 				for _, pod := range pods {
 					podResource := wrapper.Pod(pod).Resource()
 					if podResource.Status != setting.StatusRunning && podResource.Status != setting.StatusSucceeded {
-						for _, cs := range podResource.ContainerStatuses {
+						for _, cs := range podResource.Containers {
 							// message为空不认为是错误状态，有可能还在waiting
 							if cs.Message != "" {
 								msg = append(msg, fmt.Sprintf("Status: %s, Reason: %s, Message: %s", cs.Status, cs.Reason, cs.Message))

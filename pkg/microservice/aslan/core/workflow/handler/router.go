@@ -75,17 +75,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	// Pipeline 任务管理接口
 	// ---------------------------------------------------------------------------------------
-	//taskV2 := router.Group("v2/tasks")
-	//{
-	//	taskV2.POST("", GetProductNameByPipelineTask, CreatePipelineTask)
-	//	taskV2.GET("/max/:max/start/:start/pipelines/:name", ListPipelineTasksResult)
-	//	taskV2.GET("/id/:id/pipelines/:name", GetPipelineTask)
-	//	taskV2.POST("/id/:id/pipelines/:name/restart", GetProductNameByPipeline, RestartPipelineTask)
-	//	taskV2.DELETE("/id/:id/pipelines/:name", GetProductNameByPipeline, CancelTaskV2)
-	//	taskV2.GET("/pipelines/:name/products", ListPipelineUpdatableProductNames)
-	//	taskV2.GET("/file", GetPackageFile)
-	//	taskV2.GET("/workflow/:pipelineName/taskId/:taskId", GetArtifactFile)
-	//}
+	taskV2 := router.Group("v2/tasks")
+	{
+		//	taskV2.POST("", GetProductNameByPipelineTask, CreatePipelineTask)
+		//	taskV2.GET("/max/:max/start/:start/pipelines/:name", ListPipelineTasksResult)
+		//	taskV2.GET("/id/:id/pipelines/:name", GetPipelineTask)
+		//	taskV2.POST("/id/:id/pipelines/:name/restart", GetProductNameByPipeline, RestartPipelineTask)
+		//	taskV2.DELETE("/id/:id/pipelines/:name", GetProductNameByPipeline, CancelTaskV2)
+		//	taskV2.GET("/pipelines/:name/products", ListPipelineUpdatableProductNames)
+		//	taskV2.GET("/file", GetPackageFile)
+		taskV2.GET("/workflow/:pipelineName/taskId/:taskId", GetArtifactFile)
+	}
 
 	// ---------------------------------------------------------------------------------------
 	// Pipeline Favorite 接口

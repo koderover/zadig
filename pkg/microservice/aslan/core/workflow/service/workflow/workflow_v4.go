@@ -695,6 +695,13 @@ func getRecentTaskV4Info(workflow *Workflow, tasks []*commonmodels.WorkflowTask)
 	}
 }
 
+func clearWorkflowV4Triggers(workflow *commonmodels.WorkflowV4) {
+	workflow.HookCtls = nil
+	workflow.MeegoHookCtls = nil
+	workflow.GeneralHookCtls = nil
+	workflow.JiraHookCtls = nil
+}
+
 func ensureWorkflowV4Resp(encryptedKey string, workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger) error {
 	for _, stage := range workflow.Stages {
 		for _, job := range stage.Jobs {
@@ -1880,12 +1887,17 @@ func getDefaultVars(workflow *commonmodels.WorkflowV4, currentJobName string) []
 				}
 				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "SERVICES"}, ".")))
 				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "BRANCHES"}, ".")))
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "IMAGES"}, ".")))
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "GITURLS"}, ".")))
 				for _, s := range spec.ServiceAndBuilds {
 					vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, s.ServiceName, s.ServiceModule, "COMMITID"}, ".")))
 					vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, s.ServiceName, s.ServiceModule, "BRANCH"}, ".")))
 				}
 			case config.JobZadigDeploy:
 				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "envName"}, ".")))
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "IMAGES"}, ".")))
+			case config.JobZadigDistributeImage:
+				vars = append(vars, fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", j.Name, "IMAGES"}, ".")))
 			}
 		}
 	}

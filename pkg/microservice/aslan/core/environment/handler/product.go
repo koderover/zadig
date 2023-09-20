@@ -57,14 +57,14 @@ type getInitProductResponse struct {
 // @Param 	envType 		query		string								true	"env type"
 // @Param 	isBaseEnv 		query		string								true	"is base env"
 // @Param 	baseEnv 		query		string								true	"base env"
-// @Success 200 			{object} 	getInitProductRespone
+// @Success 200 			{object} 	getInitProductResponse
 // @Router /api/aslan/environment/init_info/{name} [get]
 func GetInitProduct(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return

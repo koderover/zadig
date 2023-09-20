@@ -158,6 +158,7 @@ type TestingOpt struct {
 	Repos       []*types.Repository        `bson:"repos"                  json:"repos"`
 	KeyVals     []*commonmodels.KeyVal     `bson:"key_vals"               json:"key_vals"`
 	ClusterID   string                     `bson:"cluster_id"             json:"cluster_id"`
+	Verbs       []string                   `bson:"-"                      json:"verbs,omitempty"`
 }
 
 func ListTestingOpt(productNames []string, testType string, log *zap.SugaredLogger) ([]*TestingOpt, error) {

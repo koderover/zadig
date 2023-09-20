@@ -108,6 +108,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.GET("/pods/:podName/events", ListPodEvents)
 		kube.GET("/workloads", ListWorkloads)
 		kube.GET("/nodes", ListNodes)
+		kube.GET("/pods", ListPodsInfo)
+		kube.GET("/pods/:podName", GetPodsDetailInfo)
 
 		kube.POST("/k8s/resources", GetResourceDeployStatus)
 		kube.POST("/helm/releases", GetReleaseDeployStatus)

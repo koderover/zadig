@@ -273,3 +273,12 @@ type OpenAPITestCase struct {
 	Failure *commonmodels.Failure `json:"failure"`
 	Error   *commonmodels.Error   `json:"error"`
 }
+
+const (
+	// test
+	VerbGetTest    = "get_test"
+	VerbCreateTest = "create_test"
+	VerbEditTest   = "edit_test"
+	VerbDeleteTest = "delete_test"
+	VerbRunTest    = "run_test"
+)

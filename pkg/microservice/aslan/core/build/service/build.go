@@ -70,7 +70,7 @@ func FindBuild(name, productName string, log *zap.SugaredLogger) (*commonmodels.
 		return nil, e.ErrGetBuildModule.AddErr(err)
 	}
 
-	if resp.TemplateID == "" && resp.PreBuild != nil && resp.PreBuild.StrategyID == "" {
+	if resp.TemplateID == "" && resp.Source == setting.ZadigBuild && resp.PreBuild != nil && resp.PreBuild.StrategyID == "" {
 		cluster, err := commonrepo.NewK8SClusterColl().FindByID(resp.PreBuild.ClusterID)
 		if err != nil {
 			if err != mongo.ErrNoDocuments {
