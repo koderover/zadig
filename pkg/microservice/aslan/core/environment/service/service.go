@@ -520,9 +520,9 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		}
 	default:
 		var serviceTmpl *commonmodels.Service
-		var newRender *commonmodels.RenderSet
+		//var newRender *commonmodels.RenderSet
 		productObj.EnsureRenderInfo()
-		oldRenderInfo := productObj.Render
+		//oldRenderInfo := productObj.Render
 		var productService *commonmodels.ProductService
 
 		serviceObj, ok := productObj.GetServiceMap()[args.ServiceName]
@@ -539,26 +539,31 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 			Type:        setting.K8SDeployType,
 		}, productObj.Production)
 
-		opt := &commonrepo.RenderSetFindOption{
-			Name:        oldRenderInfo.Name,
-			Revision:    oldRenderInfo.Revision,
-			ProductTmpl: productObj.ProductName,
-			EnvName:     productObj.EnvName,
-		}
-		newRender, err = commonrepo.NewRenderSetColl().Find(opt)
-		if err != nil {
-			log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
-			err = e.ErrRestartService.AddErr(err)
-			return
-		}
+		//opt := &commonrepo.RenderSetFindOption{
+		//	Name:        oldRenderInfo.Name,
+		//	Revision:    oldRenderInfo.Revision,
+		//	ProductTmpl: productObj.ProductName,
+		//	EnvName:     productObj.EnvName,
+		//}
+		//newRender, err = commonrepo.NewRenderSetColl().Find(opt)
+		//if err != nil {
+		//	log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
+		//	err = e.ErrRestartService.AddErr(err)
+		//	return
+		//}
 
 		// for services deployed by zadig, service will be applied when restarting
 		if commonutil.ServiceDeployed(serviceTmpl.ServiceName, productObj.ServiceDeployStrategy) {
+			//_, err = upsertService(
+			//	productObj,
+			//	productService,
+			//	productService,
+			//	newRender, oldRenderInfo, !productObj.Production, inf, kubeClient, istioClient, log)
 			_, err = upsertService(
 				productObj,
 				productService,
 				productService,
-				newRender, oldRenderInfo, !productObj.Production, inf, kubeClient, istioClient, log)
+				nil, nil, !productObj.Production, inf, kubeClient, istioClient, log)
 		} else {
 			err = restartRelatedWorkloads(productObj, productService, kubeClient, log)
 		}

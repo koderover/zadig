@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -430,6 +432,22 @@ func (c *ProductColl) UpdateGroup(envName, productName string, groupIndex int, g
 	change := bson.M{
 		"update_time": time.Now().Unix(),
 		serviceGroup:  group,
+	}
+
+	_, err := c.UpdateOne(context.TODO(), query, bson.M{"$set": change})
+
+	return err
+}
+
+func (c *ProductColl) UpdateDeployStrategyAndGlobalVariable(envName, productName string, deployStrategy map[string]string, globalVariables []*types.GlobalVariableKV) error {
+	query := bson.M{
+		"env_name":     envName,
+		"product_name": productName,
+	}
+	change := bson.M{
+		"update_time":             time.Now().Unix(),
+		"global_variables":        globalVariables,
+		"service_deploy_strategy": deployStrategy,
 	}
 
 	_, err := c.UpdateOne(context.TODO(), query, bson.M{"$set": change})

@@ -2240,10 +2240,13 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		}
 	}
 
+	// remove related service in global variables
+	productInfo.GlobalVariables = commontypes.RemoveGlobalVariableRelatedService(productInfo.GlobalVariables, serviceNames...)
+
 	for _, singleName := range serviceNames {
 		delete(productInfo.ServiceDeployStrategy, singleName)
 	}
-	err := commonrepo.NewProductColl().UpdateDeployStrategy(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy)
+	err := commonrepo.NewProductColl().UpdateDeployStrategyAndGlobalVariable(productInfo.EnvName, productInfo.ProductName, productInfo.ServiceDeployStrategy, productInfo.GlobalVariables)
 	if err != nil {
 		log.Errorf("failed to update product deploy strategy, err: %s", err)
 	}
