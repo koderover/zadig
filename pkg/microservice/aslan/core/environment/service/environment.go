@@ -514,9 +514,10 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		}
 	}
 
-	err = commonrepo.NewProductColl().UpdateRender(envName, productName, updateProd.Render)
+	//err = commonrepo.NewProductColl().UpdateRender(envName, productName, updateProd.Render)
+	err = commonrepo.NewProductColl().UpdateGlobalVariable(updateProd)
 	if err != nil {
-		log.Errorf("failed to update product render error: %v", err)
+		log.Errorf("failed to update product globalvariable error: %v", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())
 		return
 	}
