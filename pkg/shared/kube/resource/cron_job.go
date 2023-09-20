@@ -20,6 +20,7 @@ type CronJob struct {
 	Name         string            `json:"name"`
 	Labels       map[string]string `json:"labels"`
 	Images       []*ContainerImage `json:"images"`
+	Pods         []*Pod            `json:"pods"`
 	CreateTime   int64             `json:"create_time,omitempty"`
 	Suspend      bool              `json:"suspend"`
 	Schedule     string            `json:"schedule,omitempty"`
