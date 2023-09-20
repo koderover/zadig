@@ -368,6 +368,17 @@ func (c *ProductColl) Delete(owner, productName string) error {
 	return err
 }
 
+func (c *ProductColl) UpdateGlobalVariable(args *models.Product) error {
+	query := bson.M{"env_name": args.EnvName, "product_name": args.ProductName}
+	changePayload := bson.M{
+		"update_time":      time.Now().Unix(),
+		"global_variables": args.GlobalVariables,
+	}
+	change := bson.M{"$set": changePayload}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 // Update  Cannot update owner & product name
 func (c *ProductColl) Update(args *models.Product) error {
 	query := bson.M{"env_name": args.EnvName, "product_name": args.ProductName}
