@@ -23,11 +23,6 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	//// 查看自定义变量是否被引用
-	//render := router.Group("renders")
-	//{
-	//	render.GET("/render/:name/revision/:revision", GetRenderSetInfo)
-	//}
 
 	// ---------------------------------------------------------------------------------------
 	// 项目管理接口

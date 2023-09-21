@@ -101,15 +101,6 @@ func GetLatestRenderSetFromHelmProject(productName string, isProduction bool) (*
 	}, nil
 }
 
-//func DeleteRenderSet(productName string, log *zap.SugaredLogger) error {
-//	if err := commonrepo.NewRenderSetColl().Delete(productName); err != nil {
-//		errMsg := fmt.Sprintf("[RenderSet.Delete] %s error: %v", productName, err)
-//		log.Error(errMsg)
-//		return e.ErrDeleteRenderSet.AddDesc(errMsg)
-//	}
-//	return nil
-//}
-
 func ValidateKVs(kvs []*templatemodels.RenderKV, services []*templatemodels.ServiceInfo, log *zap.SugaredLogger) error {
 	resp := make(map[string][]string)
 	keys, err := ListServicesRenderKeys(services, log)

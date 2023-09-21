@@ -421,16 +421,6 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 	if err != nil {
 		return nil, e.ErrGetHelmCharts.AddErr(err)
 	}
-	//renderSet, err := FindProductRenderSet(productName, prod.Render.Name, prod.EnvName, prod.Render.Revision, log)
-	//if err != nil {
-	//	log.Errorf("[%s][P:%s] find product renderset error: %v", envName, productName, err)
-	//	return nil, e.ErrGetHelmCharts.AddErr(err)
-	//}
-
-	//chartMap := make(map[string]*template.ServiceRender)
-	//for _, chart := range renderSet.ChartInfos {
-	//	chartMap[chart.ServiceName] = chart
-	//}
 
 	allServiceMap := prod.GetServiceMap()
 	serviceMap := make(map[string]*models.ProductService)

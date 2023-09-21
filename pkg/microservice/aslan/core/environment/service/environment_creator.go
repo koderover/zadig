@@ -173,12 +173,6 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	//renderSet, err := FindProductRenderSet(args.ProductName, args.Render.Name, args.EnvName, args.Render.Revision, log)
-	//if err != nil {
-	//	log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
-	//	return e.ErrCreateEnv.AddDesc(err.Error())
-	//}
-
 	// before create product, do install -dryRun to expose errors earlier
 	dryRunClient := client.NewDryRunClient(kubeClient)
 	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, true, dryRunClient)
@@ -187,7 +181,6 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddErr(err)
 	}
 
-	//args.Render.Revision = renderSet.Revision
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
 	args.ClusterID = clusterID
@@ -208,7 +201,6 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		}
 	}
 
-	//go installProductHelmCharts(user, requestID, args, renderSet, time.Now().Unix(), helmClient, kubeClient, istioClient, log)
 	go installProductHelmCharts(user, requestID, args, nil, time.Now().Unix(), helmClient, kubeClient, istioClient, log)
 	return nil
 }
@@ -250,25 +242,6 @@ func newPMProductCreator() *PMProductCreator {
 
 func (creator *PMProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
 	// technically renderset is not used for pm projects, this logic is used for compatibility with previous logic
-	//renderSet := &commonmodels.RenderSet{
-	//	Name:        commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName, ""),
-	//	Revision:    0,
-	//	EnvName:     args.EnvName,
-	//	ProductTmpl: args.ProductName,
-	//	UpdateBy:    args.UpdateBy,
-	//	ChartInfos:  args.ServiceRenders,
-	//}
-	//err := render.CreateRenderSet(renderSet, log)
-	//if err != nil {
-	//	log.Errorf("[%s][P:%s] create renderset error: %v", args.EnvName, args.ProductName, err)
-	//	return e.ErrCreateEnv.AddDesc(e.FindProductTmplErrMsg)
-	//}
-	//args.Render = &commonmodels.RenderInfo{
-	//	Name:        renderSet.EnvName,
-	//	Revision:    renderSet.Revision,
-	//	ProductTmpl: args.ProductName,
-	//}
-
 	if err := preCreateProduct(args.EnvName, args, nil, log); err != nil {
 		log.Errorf("CreateProduct preCreateProduct error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
@@ -282,7 +255,7 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(user, requestID, args, time.Now().Unix(), nil, nil, nil, nil, log)
+	go createGroups(user, requestID, args, time.Now().Unix(), nil, nil, nil, log)
 	return nil
 }
 
@@ -343,16 +316,6 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	//renderSet, err := FindProductRenderSet(args.ProductName, args.Render.Name, args.EnvName, args.Render.Revision, log)
-	//if err != nil {
-	//	log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
-	//	return e.ErrCreateEnv.AddDesc(err.Error())
-	//}
-	//
-	//if err != nil {
-	//	return e.ErrCreateEnv.AddErr(fmt.Errorf("failed to find renderset: %v/%v", args.Render.Name, args.Render.Revision))
-	//}
-
 	// before we apply yaml to k8s, we run kubectl apply --dry-run to expose problems early
 	dryRunClient := client.NewDryRunClient(kubeClient)
 	err = initEnvConfigSetAction(args.EnvName, args.Namespace, args.ProductName, user, args.EnvConfigs, true, dryRunClient)
@@ -369,8 +332,7 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	//go createGroups(user, requestID, args, time.Now().Unix(), renderSet, inf, kubeClient, istioClient, log)
-	go createGroups(user, requestID, args, time.Now().Unix(), nil, inf, kubeClient, istioClient, log)
+	go createGroups(user, requestID, args, time.Now().Unix(), inf, kubeClient, istioClient, log)
 	return nil
 }
 

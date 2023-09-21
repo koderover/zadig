@@ -27,7 +27,7 @@ import (
 )
 
 type envHandle interface {
-	createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, inf informers.SharedInformerFactory, kubeClient client.Client) error
+	createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, inf informers.SharedInformerFactory, kubeClient client.Client) error
 	listGroupServices(allServices []*commonmodels.ProductService, envName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) []*commonservice.ServiceResp
 	updateService(args *SvcOptArgs) error
 }

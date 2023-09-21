@@ -186,7 +186,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 	chartInfo.OverrideYaml.YamlContent = param.VariableYaml
 
 	// this function is just to make sure a values.yaml can be generated without error
-	mergedValues, err := kube.GeneMergedValues(productService, renderSet, productService.GetServiceRender(), productInfo.DefaultValues, param.Images, false)
+	mergedValues, err := kube.GeneMergedValues(productService, productService.GetServiceRender(), productInfo.DefaultValues, param.Images, false)
 	if err != nil {
 		log.Errorf("failed to generate merged values.yaml, err: %w", err)
 		logError(c.job, fmt.Sprintf("fail to generate merged values.yaml, err: %s", err.Error()), c.logger)
@@ -204,7 +204,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 
 	done := make(chan bool)
 	go func(chan bool) {
-		if err = kube.UpgradeHelmRelease(productInfo, renderSet, productService, svcTemplate, param.Images, param.Timeout); err != nil {
+		if err = kube.UpgradeHelmRelease(productInfo, productService, svcTemplate, param.Images, param.Timeout); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",

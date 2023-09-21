@@ -1083,23 +1083,6 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 		return nil, fmt.Errorf("failed to prepare estimated value data, err %s", err)
 	}
 
-	//var targetChart *templatemodels.ServiceRender
-	//if isHelmChartDeploy {
-	//	targetChart = renderSet.GetChartDeployRenderMap()[serviceOrReleaseName]
-	//	if targetChart == nil {
-	//		targetChart = &templatemodels.ServiceRender{
-	//			ServiceName:       serviceOrReleaseName,
-	//			ReleaseName:       serviceOrReleaseName,
-	//			IsHelmChartDeploy: true,
-	//		}
-	//	}
-	//} else {
-	//	targetChart = renderSet.GetChartRenderMap()[serviceOrReleaseName]
-	//	if targetChart == nil {
-	//		return nil, fmt.Errorf("failed to find chart info, name: %s", serviceOrReleaseName)
-	//	}
-	//}
-
 	targetChart := productSvc.Render
 
 	tempArg := &commonservice.HelmSvcRenderArg{OverrideValues: arg.OverrideValues}
@@ -1148,7 +1131,7 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 			images = append(images, container.Image)
 		}
 
-		mergedValues, err = kube.GeneMergedValues(productSvc, renderSet, productSvc.GetServiceRender(), productInfo.DefaultValues, images, true)
+		mergedValues, err = kube.GeneMergedValues(productSvc, productSvc.GetServiceRender(), productInfo.DefaultValues, images, true)
 		if err != nil {
 			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
 		}
@@ -2131,7 +2114,7 @@ func GetEstimatedRenderCharts(productName, envName string, getSvcRenderArgs []*c
 	return ret, nil
 }
 
-func createGroups(user, requestID string, args *commonmodels.Product, eventStart int64, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) {
+func createGroups(user, requestID string, args *commonmodels.Product, eventStart int64, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) {
 	var err error
 	envName := args.EnvName
 	defer func() {
@@ -2162,7 +2145,7 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 	}
 
 	for groupIndex, group := range args.Services {
-		err = envHandleFunc(getProjectType(args.ProductName), log).createGroup(user, args, group, renderSet, informer, kubeClient)
+		err = envHandleFunc(getProjectType(args.ProductName), log).createGroup(user, args, group, informer, kubeClient)
 		if err != nil {
 			args.Status = setting.ProductStatusFailed
 			log.Errorf("createGroup error :%+v", err)
@@ -2658,11 +2641,6 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 
 	mergeRenderSetAndRenderChart(productResp, overrideCharts, deletedRelease)
 
-	//renderSet, err := mergeRenderSetAndRenderChart(username, productName, envName, productResp, overrideCharts, deletedRelease, log)
-	//if err != nil {
-	//	return e.ErrUpdateEnv.AddDesc("对比环境中的value.yaml和系统默认的value.yaml失败")
-	//}
-
 	productResp.ServiceRenders = productResp.GetAllSvcRenders()
 	svcNameSet := sets.NewString()
 	for _, singleChart := range overrideCharts {
@@ -2683,8 +2661,6 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 			return svcNameSet.Has(svc.ReleaseName)
 		}
 	}
-
-	//productResp.Render.Revision = renderSet.Revision
 
 	if productResp.ServiceDeployStrategy != nil {
 		for _, svcName := range dupSvcNameSet.List() {
@@ -2974,7 +2950,6 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 		return ret, nil
 	}
 
-	//for _, chartInfo := range productRenderset.ChartInfos {
 	for _, chartInfo := range product.GetAllSvcRenders() {
 		svcRevision := int64(0)
 		if chartInfo.DeployedFromZadig() {
@@ -3075,7 +3050,6 @@ func UpdateProductGlobalVariables(productName, envName, userName, requestID stri
 }
 
 func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, productRenderset *models.RenderSet, userName, requestID string, args []*commontypes.GlobalVariableKV, log *zap.SugaredLogger) error {
-	//productYaml, err := commontypes.GlobalVariableKVToYaml(productRenderset.GlobalVariables)
 	productYaml, err := commontypes.GlobalVariableKVToYaml(product.GlobalVariables)
 	if err != nil {
 		return fmt.Errorf("failed to convert proudct's global variables to yaml, err: %s", err)
@@ -3165,10 +3139,6 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 	}
 
 	product.ServiceRenders = updatedSvcList
-
-	//productResp.GlobalVariables = renderset.GlobalVariables
-	//productResp.DefaultValues = renderset.DefaultValues
-	//productResp.YamlData = renderset.YamlData
 
 	if product.ServiceDeployStrategy == nil {
 		product.ServiceDeployStrategy = make(map[string]string)

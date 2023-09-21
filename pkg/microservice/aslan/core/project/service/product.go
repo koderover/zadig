@@ -675,11 +675,6 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		}
 	}
 
-	//if err = render.DeleteRenderSet(productName, log); err != nil {
-	//	log.Errorf("DeleteProductTemplate DeleteRenderSet err: %s", err)
-	//	return err
-	//}
-
 	if err = DeleteTestModules(productName, requestID, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s test err: %s", productName, err)
 		return err

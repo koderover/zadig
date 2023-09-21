@@ -159,7 +159,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 
 // GeneMergedValues generate values.yaml used to install or upgrade helm chart, like param in after option -f
 // If fullValues is set to true, full values yaml content will be returned, this case is used to preview values when running workflows
-func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *commonmodels.RenderSet, svcRender *templatemodels.ServiceRender, defaultValues string, images []string, fullValues bool) (string, error) {
+func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templatemodels.ServiceRender, defaultValues string, images []string, fullValues bool) (string, error) {
 	serviceName := productSvc.ServiceName
 	var targetContainers []*commonmodels.Container
 
@@ -176,10 +176,6 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 		targetContainers = append(targetContainers, container)
 	}
 
-	//targetChart := renderSet.GetChartRenderMap()[serviceName]
-	//if targetChart == nil {
-	//	return "", fmt.Errorf("failed to find chart info %s", serviceName)
-	//}
 	targetChart := svcRender
 
 	replaceValuesMaps := make([]map[string]interface{}, 0)
@@ -221,7 +217,6 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 	}
 
 	// merge override values and kvs into service's yaml
-	//mergedValuesYaml, err := helmtool.MergeOverrideValues(baseValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, imageKVS)
 	mergedValuesYaml, err := helmtool.MergeOverrideValues(baseValuesYaml, defaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, imageKVS)
 	if err != nil {
 		return "", fmt.Errorf("failed to merge override values, err: %s", err)
@@ -230,7 +225,7 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 }
 
 // UpgradeHelmRelease upgrades helm release with some specific images
-func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
+func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.ProductService,
 	svcTemp *commonmodels.Service, images []string, timeout int) error {
 
 	chartInfoMap := product.GetChartRenderMap()
@@ -246,7 +241,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 	if productSvc.FromZadig() {
 		releaseName = util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName)
 		chartInfo = chartInfoMap[productSvc.ServiceName]
-		replacedMergedValuesYaml, err = GeneMergedValues(productSvc, nil, chartInfo, product.DefaultValues, images, false)
+		replacedMergedValuesYaml, err = GeneMergedValues(productSvc, chartInfo, product.DefaultValues, images, false)
 		if err != nil {
 			return fmt.Errorf("failed to gene merged values, err: %s", err)
 		}

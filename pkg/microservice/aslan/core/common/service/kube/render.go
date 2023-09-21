@@ -109,22 +109,6 @@ func GenerateYamlFromKV(kvs []*commonmodels.VariableKV) (string, error) {
 	return string(bs), nil
 }
 
-// extract valid svc variable from service variable
-//func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet) string {
-//	serviceVariable := ""
-//	for _, v := range rs.ServiceVariables {
-//		if v.ServiceName != serviceName {
-//			continue
-//		}
-//		if v.OverrideYaml != nil {
-//			serviceVariable = v.OverrideYaml.YamlContent
-//		}
-//		break
-//	}
-//
-//	return serviceVariable
-//}
-
 func resourceToYaml(obj runtime.Object) (string, error) {
 	y := printers.YAMLPrinter{}
 	writer := bytes.NewBuffer(nil)
@@ -562,7 +546,6 @@ func RenderServiceYaml(originYaml, productName, serviceName string, svcRender *t
 		originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
 		return originYaml, nil
 	}
-	//variableYaml := extractValidSvcVariable(serviceName, rs)
 	variableYaml := svcRender.GetSafeVariable()
 	return commonutil.RenderK8sSvcYamlStrict(originYaml, productName, serviceName, variableYaml)
 }

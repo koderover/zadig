@@ -330,26 +330,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		return err
 	}
 
-	//curRender, err := render.GetRenderSetInfo(exitedProd.Render.Name, exitedProd.Render.Revision)
-	//if err != nil {
-	//	return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to get render set, render name: %s, revision: %d, error: %w", exitedProd.Render.Name, exitedProd.Render.Revision, err))
-	//}
-
-	//curSvcRenderMap := make(map[string]*templatemodels.ServiceRender)
-	//for _, svcRender := range curRender.ServiceVariables {
-	//	curSvcRenderMap[svcRender.ServiceName] = svcRender
-	//}
-
 	updateRevisionSvcSet := sets.NewString(updateRevisionSvc...)
-
-	//curProdInDB, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-	//	Name:    productName,
-	//	EnvName: envName,
-	//})
-	//if err != nil {
-	//	log.Errorf("[%s][P:%s] service.updateK8sProduct find product error: %v", envName, productName, err)
-	//	return e.ErrUpdateEnv.AddErr(err)
-	//}
 
 	updatedSvcMap := make(map[string]*templatemodels.ServiceRender)
 
@@ -358,18 +339,6 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	for _, svcRender := range updatedSvcs {
 		updatedSvcMap[svcRender.ServiceName] = svcRender
 		curSvcRender := exitedProd.GetSvcRender(svcRender.ServiceName)
-
-		//curSvcRender, ok := curSvcRenderMap[svcRender.ServiceName]
-		//if !ok {
-		//	curSvcRender = &templatemodels.ServiceRender{
-		//		OverrideYaml: &templatemodels.CustomYaml{},
-		//	}
-		//}
-
-		//existedProductSvc := exitedProd.GetServiceMap()[svcRender.ServiceName]
-		//if existedProductSvc != nil {
-		//	existedProductSvc.Render = svcRender
-		//}
 
 		if updateRevisionSvcSet.Has(svcRender.ServiceName) {
 			svcTemplate, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
@@ -411,22 +380,6 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			}
 		}
 	}
-
-	//// @fixme best to render yaml before create renderset
-	//renderSet, err := render.CreateRenderSetByMerge(
-	//	&commonmodels.RenderSet{
-	//		Name:             exitedProd.Namespace,
-	//		EnvName:          envName,
-	//		ProductTmpl:      productName,
-	//		ServiceVariables: updatedSvcs,
-	//		GlobalVariables:  globalVariables,
-	//	},
-	//	log,
-	//)
-	//if err != nil {
-	//	log.Errorf("[%s][P:%s] create renderset error: %v", envName, productName, err)
-	//	return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
-	//}
 
 	log.Infof("[%s][P:%s] updateProductImpl, services: %v", envName, productName, updateRevisionSvc)
 

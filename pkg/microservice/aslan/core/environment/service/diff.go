@@ -84,13 +84,6 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 		log.Errorf("[%s][%s][%s]find max revision config template error: %v", envName, productName, serviceName, err)
 		return resp, e.ErrGetService.AddDesc("查找service template失败")
 	}
-	//curRender := &commonmodels.RenderSet{}
-	//if productInfo.Render != nil {
-	//	curRender, err = render.GetRenderSet(productInfo.Render.Name, productInfo.Render.Revision, false, envName, log)
-	//	if err != nil {
-	//		return resp, err
-	//	}
-	//}
 
 	svcRender := serviceInfo.GetServiceRender()
 
@@ -102,20 +95,6 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 
 	resp.Current.Revision = oldService.Revision
 	resp.Current.UpdateBy = oldService.CreateBy
-
-	//for _, svcRender := range curRender.ServiceVariables {
-	//	if svcRender.ServiceName == serviceName {
-	//		mergedYaml, mergedServiceVariableKVs, err := commontypes.MergeRenderAndServiceTemplateVariableKVs(svcRender.OverrideYaml.RenderVariableKVs, newService.ServiceVariableKVs)
-	//		if err != nil {
-	//			return nil, fmt.Errorf("failed to merge render and service variable kvs serviceName: %s, error: %v", svcRender.ServiceName, err)
-	//		}
-	//
-	//		svcRender.OverrideYaml.YamlContent = mergedYaml
-	//		svcRender.OverrideYaml.RenderVariableKVs = mergedServiceVariableKVs
-	//
-	//		break
-	//	}
-	//}
 
 	mergedYaml, mergedServiceVariableKVs, err := commontypes.MergeRenderAndServiceTemplateVariableKVs(svcRender.OverrideYaml.RenderVariableKVs, newService.ServiceVariableKVs)
 	if err != nil {

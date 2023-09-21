@@ -119,29 +119,6 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	productObj.DefaultValues = arg.DefaultValues
 	productObj.YamlData = geneYamlData(arg.ValuesData)
 
-	//renderset := &commonmodels.RenderSet{
-	//	Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
-	//	EnvName:       arg.EnvName,
-	//	ProductTmpl:   arg.ProductName,
-	//	UpdateBy:      productObj.UpdateBy,
-	//	IsDefault:     false,
-	//	DefaultValues: arg.DefaultValues,
-	//	ChartInfos:    productObj.ServiceRenders,
-	//	YamlData:      geneYamlData(arg.ValuesData),
-	//}
-	//
-	//// insert renderset info into db
-	//err = render.CreateK8sHelmRenderSet(renderset, log)
-	//if err != nil {
-	//	log.Errorf("rennderset create fail when creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
-	//	return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to create renderset, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
-	//}
-	//
-	//productObj.Render = &commonmodels.RenderInfo{
-	//	Name:        renderset.Name,
-	//	Revision:    renderset.Revision,
-	//	ProductTmpl: productObj.ProductName,
-	//}
 	return nil
 }
 
@@ -294,30 +271,6 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 
 	productObj.DefaultValues = arg.DefaultValues
 	productObj.GlobalVariables = arg.GlobalVariables
-
-	//renderset := &commonmodels.RenderSet{
-	//	Name:             commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
-	//	EnvName:          arg.EnvName,
-	//	ProductTmpl:      arg.ProductName,
-	//	UpdateBy:         productObj.UpdateBy,
-	//	IsDefault:        false,
-	//	DefaultValues:    arg.DefaultValues,
-	//	GlobalVariables:  arg.GlobalVariables,
-	//	ServiceVariables: productObj.ServiceRenders,
-	//}
-	//
-	//// insert renderset info into db
-	//err := render.CreateK8sHelmRenderSet(renderset, log)
-	//if err != nil {
-	//	log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
-	//	return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
-	//}
-
-	//productObj.Render = &commonmodels.RenderInfo{
-	//	Name:        renderset.Name,
-	//	Revision:    renderset.Revision,
-	//	ProductTmpl: productObj.ProductName,
-	//}
 
 	return nil
 }

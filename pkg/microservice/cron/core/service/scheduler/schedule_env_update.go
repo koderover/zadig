@@ -76,16 +76,6 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 			log.Errorf("failed to get env data, productName:%s envName:%s err:%v", env.ProductName, env.EnvName, err)
 			continue
 		}
-		//if envObj.Render == nil {
-		//	log.Errorf("render info of product: %s:%s is nil", env.ProductName, env.EnvName)
-		//	continue
-		//}
-
-		//rendersetObj, err := c.AslanCli.GetRenderset(envObj.Render.Name, envObj.Render.Revision, log)
-		//if err != nil {
-		//	log.Errorf("failed to get renderset data: %s, err:%s", envObj.Render.Name, err)
-		//	continue
-		//}
 
 		envKey := buildEnvNameKey(env)
 		if lastEnvData, ok := c.lastEnvSchedulerData[envKey]; ok {
@@ -106,9 +96,6 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 			delete(c.Schedulers, envKey)
 		}
 
-		//if !needCreateSchedule(rendersetObj) {
-		//	continue
-		//}
 		if !needCreateProdSchedule(envObj) {
 			continue
 		}

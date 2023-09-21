@@ -87,11 +87,6 @@ func getRelatedEnvs(variableSetId, projectName string) ([]*commonmodels.Product,
 		return nil, err
 	}
 
-	//renderSetOption := &commonrepo.RenderSetListOption{
-	//	ProductTmpl: projectName,
-	//	FindOpts:    make([]commonrepo.RenderSetFindOption, 0),
-	//}
-
 	relatedProducts := make([]*commonmodels.Product, 0)
 	for _, singleHelmEnv := range helmEnvs {
 
@@ -102,19 +97,7 @@ func getRelatedEnvs(variableSetId, projectName string) ([]*commonmodels.Product,
 			continue
 		}
 		relatedProducts = append(relatedProducts, singleHelmEnv)
-		//if singleHelmEnv.Render == nil {
-		//	continue
-		//}
-		//renderSetOption.FindOpts = append(renderSetOption.FindOpts, commonrepo.RenderSetFindOption{
-		//	ProductTmpl:       singleHelmEnv.ProductName,
-		//	EnvName:           singleHelmEnv.EnvName,
-		//	IsDefault:         false,
-		//	Revision:          singleHelmEnv.Render.Revision,
-		//	Name:              singleHelmEnv.Render.Name,
-		//	YamlVariableSetID: variableSetId,
-		//})
 	}
-	//return commonrepo.NewRenderSetColl().ListByFindOpts(renderSetOption)
 	return relatedProducts, nil
 }
 

@@ -209,7 +209,6 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 		productInfo = nil
 	}
 
-	//serviceVarsMap := make(map[string][]string)
 	svcRenders := make(map[string]*templatemodels.ServiceRender)
 
 	// product template svcs
@@ -223,7 +222,6 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 			ServiceName:  svc.ServiceName,
 			OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
 		}
-		//serviceVarsMap[svc.ServiceName] = svc.ServiceVars
 		templateSvcMap[svc.ServiceName] = svc
 	}
 
@@ -343,8 +341,6 @@ type GetSvcRenderArg struct {
 }
 
 func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRenderArg, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
-	//renderSetName := GetProductEnvNamespace(envName, productName, "")
-	//renderRevision := int64(0)
 	ret := make([]*HelmSvcRenderArg, 0)
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,

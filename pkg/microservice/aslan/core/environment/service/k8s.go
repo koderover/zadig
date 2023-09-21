@@ -500,7 +500,7 @@ func waitResourceRunning(
 	})
 }
 
-func (k *K8sService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, _ *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {
+func (k *K8sService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, informer informers.SharedInformerFactory, kubeClient client.Client) error {
 	envName, productName := product.EnvName, product.ProductName
 	k.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
 	updatableServiceNameList := make([]string, 0)
