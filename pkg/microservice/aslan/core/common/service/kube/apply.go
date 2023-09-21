@@ -558,18 +558,18 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Rende
 		return nil, nil, nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, svcFindOption.Revision, productInfo.ProductName)
 	}
 
-	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		ProductTmpl: productInfo.ProductName,
-		Name:        productInfo.Render.Name,
-		EnvName:     productInfo.EnvName,
-		Revision:    productInfo.Render.Revision,
-	})
-	if err != nil {
-		err = fmt.Errorf("failed to find redset name %s revision %d", productInfo.Namespace, productInfo.Render.Revision)
-		return nil, nil, nil, err
-	}
+	//renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+	//	ProductTmpl: productInfo.ProductName,
+	//	Name:        productInfo.Render.Name,
+	//	EnvName:     productInfo.EnvName,
+	//	Revision:    productInfo.Render.Revision,
+	//})
+	//if err != nil {
+	//	err = fmt.Errorf("failed to find redset name %s revision %d", productInfo.Namespace, productInfo.Render.Revision)
+	//	return nil, nil, nil, err
+	//}
 
-	targetChart := renderSet.GetChartRenderMap()[applyParam.ServiceName]
+	targetChart := productInfo.GetChartRenderMap()[applyParam.ServiceName]
 	if targetChart == nil {
 		targetChart = &template.ServiceRender{
 			ServiceName:  applyParam.ServiceName,
@@ -577,7 +577,7 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Rende
 			ChartVersion: svcTemplate.HelmChart.Version,
 			OverrideYaml: &template.CustomYaml{},
 		}
-		renderSet.ChartInfos = append(renderSet.ChartInfos, targetChart)
+		productService.Render = targetChart
 	}
 
 	if applyParam.UpdateServiceRevision && productService.Revision != svcTemplate.Revision {
@@ -617,7 +617,7 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Rende
 
 	productService.Revision = svcTemplate.Revision
 
-	return renderSet, productService, svcTemplate, nil
+	return nil, productService, svcTemplate, nil
 }
 
 // RemoveHelmResource create or patch helm services

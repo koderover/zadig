@@ -19,7 +19,6 @@ package render
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 
 	"go.uber.org/zap"
@@ -81,42 +80,42 @@ func mergeServiceVariables(newVariables []*templatemodels.ServiceRender, oldVari
 	return ret
 }
 
-func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
-	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl, EnvName: args.EnvName}
-	rs, err := commonrepo.NewRenderSetColl().Find(opt)
-	if rs != nil && err == nil {
-		if !rs.K8sServiceRenderDiff(args) {
-			args.Revision = rs.Revision
-			return args, nil
-		}
-		args.ServiceVariables = mergeServiceVariables(args.ServiceVariables, rs.ServiceVariables)
-	}
-	err = createRenderset(args, log)
-	return args, err
-}
+//func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+//	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl, EnvName: args.EnvName}
+//	rs, err := commonrepo.NewRenderSetColl().Find(opt)
+//	if rs != nil && err == nil {
+//		if !rs.K8sServiceRenderDiff(args) {
+//			args.Revision = rs.Revision
+//			return args, nil
+//		}
+//		args.ServiceVariables = mergeServiceVariables(args.ServiceVariables, rs.ServiceVariables)
+//	}
+//	err = createRenderset(args, log)
+//	return args, err
+//}
 
 func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	return createRenderset(args, log)
 }
 
-// CreateK8sHelmRenderSet creates renderset for k8s/helm projects
-func CreateK8sHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	opt := &commonrepo.RenderSetFindOption{
-		Name:        args.Name,
-		ProductTmpl: args.ProductTmpl,
-		EnvName:     args.EnvName,
-	}
-	rs, err := commonrepo.NewRenderSetColl().Find(opt)
-	if rs != nil && err == nil {
-		if rs.HelmRenderDiff(args) || !reflect.DeepEqual(rs.YamlData, args.YamlData) || rs.K8sServiceRenderDiff(args) || rs.Diff(args) {
-			args.IsDefault = rs.IsDefault
-		} else {
-			args.Revision = rs.Revision
-			return nil
-		}
-	}
-	return CreateRenderSet(args, log)
-}
+//// CreateK8sHelmRenderSet creates renderset for k8s/helm projects
+//func CreateK8sHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+//	opt := &commonrepo.RenderSetFindOption{
+//		Name:        args.Name,
+//		ProductTmpl: args.ProductTmpl,
+//		EnvName:     args.EnvName,
+//	}
+//	rs, err := commonrepo.NewRenderSetColl().Find(opt)
+//	if rs != nil && err == nil {
+//		if rs.HelmRenderDiff(args) || !reflect.DeepEqual(rs.YamlData, args.YamlData) || rs.K8sServiceRenderDiff(args) || rs.Diff(args) {
+//			args.IsDefault = rs.IsDefault
+//		} else {
+//			args.Revision = rs.Revision
+//			return nil
+//		}
+//	}
+//	return CreateRenderSet(args, log)
+//}
 
 func createRenderset(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	if err := ensureRenderSetArgs(args); err != nil {

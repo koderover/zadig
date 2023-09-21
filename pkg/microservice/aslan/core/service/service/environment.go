@@ -354,21 +354,22 @@ func getAllGeneralEnvs(templateProduct *template.Product) ([]*DeployableEnv, err
 
 	envNames := make([]string, len(envs))
 	for i, env := range envs {
-		renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-			Name:     env.Render.Name,
-			EnvName:  env.EnvName,
-			Revision: env.Render.Revision,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to find render set, name: %s, envName: %s, revision: %d, err: %s", env.Render.Name, env.EnvName, env.Render.Revision, err)
-		}
+		//renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		//	Name:     env.Render.Name,
+		//	EnvName:  env.EnvName,
+		//	Revision: env.Render.Revision,
+		//})
+		//if err != nil {
+		//	return nil, fmt.Errorf("failed to find render set, name: %s, envName: %s, revision: %d, err: %s", env.Render.Name, env.EnvName, env.Render.Revision, err)
+		//}
 
 		envNames[i] = env.EnvName
 		ret[i] = &DeployableEnv{
-			EnvName:           env.EnvName,
-			Namespace:         env.Namespace,
-			ClusterID:         env.ClusterID,
-			GlobalVariableKVs: renderSet.GlobalVariables,
+			EnvName:   env.EnvName,
+			Namespace: env.Namespace,
+			ClusterID: env.ClusterID,
+			//GlobalVariableKVs: renderSet.GlobalVariables,
+			GlobalVariableKVs: env.GlobalVariables,
 			Services:          getServiceVariables(templateProduct, env),
 		}
 	}
@@ -390,20 +391,21 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product) (
 
 	ret := make([]*DeployableEnv, 0)
 	for _, baseEnv := range baseEnvs {
-		renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-			Name:     baseEnv.Render.Name,
-			EnvName:  baseEnv.EnvName,
-			Revision: baseEnv.Render.Revision,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to find render set, name: %s, envName: %s, revision: %d, err: %s", baseEnv.Render.Name, baseEnv.EnvName, baseEnv.Render.Revision, err)
-		}
+		//renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		//	Name:     baseEnv.Render.Name,
+		//	EnvName:  baseEnv.EnvName,
+		//	Revision: baseEnv.Render.Revision,
+		//})
+		//if err != nil {
+		//	return nil, fmt.Errorf("failed to find render set, name: %s, envName: %s, revision: %d, err: %s", baseEnv.Render.Name, baseEnv.EnvName, baseEnv.Render.Revision, err)
+		//}
 
 		ret = append(ret, &DeployableEnv{
-			EnvName:           baseEnv.EnvName,
-			Namespace:         baseEnv.Namespace,
-			ClusterID:         baseEnv.ClusterID,
-			GlobalVariableKVs: renderSet.GlobalVariables,
+			EnvName:   baseEnv.EnvName,
+			Namespace: baseEnv.Namespace,
+			ClusterID: baseEnv.ClusterID,
+			//GlobalVariableKVs: renderSet.GlobalVariables,
+			GlobalVariableKVs: baseEnv.GlobalVariables,
 			Services:          getServiceVariables(templateProduct, baseEnv),
 		})
 
@@ -437,20 +439,21 @@ func getSubEnvs(baseEnvName string, templateProduct *template.Product) ([]*Deplo
 
 	ret := make([]*DeployableEnv, len(envs))
 	for i, env := range envs {
-		renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-			Name:     env.Render.Name,
-			EnvName:  env.EnvName,
-			Revision: env.Render.Revision,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to find render set, name: %s, envName: %s, revision: %d, err: %s", env.Render.Name, env.EnvName, env.Render.Revision, err)
-		}
+		//renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		//	Name:     env.Render.Name,
+		//	EnvName:  env.EnvName,
+		//	Revision: env.Render.Revision,
+		//})
+		//if err != nil {
+		//	return nil, fmt.Errorf("failed to find render set, name: %s, envName: %s, revision: %d, err: %s", env.Render.Name, env.EnvName, env.Render.Revision, err)
+		//}
 
 		ret[i] = &DeployableEnv{
-			EnvName:           env.EnvName,
-			Namespace:         env.Namespace,
-			ClusterID:         env.ClusterID,
-			GlobalVariableKVs: renderSet.GlobalVariables,
+			EnvName:   env.EnvName,
+			Namespace: env.Namespace,
+			ClusterID: env.ClusterID,
+			//GlobalVariableKVs: renderSet.GlobalVariables,
+			GlobalVariableKVs: env.GlobalVariables,
 			Services:          getServiceVariables(templateProduct, env),
 		}
 	}

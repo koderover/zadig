@@ -174,25 +174,27 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 	}
 
 	// svc render in renderchart
-	opt := &commonrepo.RenderSetFindOption{
-		ProductTmpl: productName,
-		EnvName:     envName,
-		Name:        productInfo.Render.Name,
-		Revision:    productInfo.Render.Revision,
-	}
-	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Errorf("failed to find render set : %s/%s", productName, envName).Error())
-	}
-
-	svcRender := rendersetObj.GetServiceRenderMap()[serviceName]
+	//opt := &commonrepo.RenderSetFindOption{
+	//	ProductTmpl: productName,
+	//	EnvName:     envName,
+	//	Name:        productInfo.Render.Name,
+	//	Revision:    productInfo.Render.Revision,
+	//}
+	//rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
+	//if err != nil {
+	//	return nil, errors.Wrapf(err, fmt.Errorf("failed to find render set : %s/%s", productName, envName).Error())
+	//}
+	//
+	//svcRender := rendersetObj.GetServiceRenderMap()[serviceName]
+	svcRender := prodSvc.GetServiceRender()
 
 	ret := make([]*K8sSvcRenderArg, 0)
 	rArg := &K8sSvcRenderArg{
 		ServiceName:  serviceName,
 		VariableYaml: prodTemplateSvc.VariableYaml,
 	}
-	if svcRender != nil && svcRender.OverrideYaml != nil {
+	//if svcRender != nil && svcRender.OverrideYaml != nil {
+	if len(svcRender.OverrideYaml.RenderVariableKVs) > 0 {
 		prodTemplateSvc.ServiceVars = setting.ServiceVarWildCard
 		rArg.VariableKVs, rArg.VariableYaml, err = latestVariables(svcRender.OverrideYaml.RenderVariableKVs, prodTemplateSvc)
 		if err != nil {
@@ -377,8 +379,8 @@ type GetSvcRenderArg struct {
 }
 
 func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRenderArg, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
-	renderSetName := GetProductEnvNamespace(envName, productName, "")
-	renderRevision := int64(0)
+	//renderSetName := GetProductEnvNamespace(envName, productName, "")
+	//renderRevision := int64(0)
 	ret := make([]*HelmSvcRenderArg, 0)
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
@@ -389,23 +391,28 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 		return nil, nil, nil
 	}
 
-	if err != nil && err != mongo.ErrNoDocuments {
-		return nil, nil, err
-	}
-
-	renderSetName = productInfo.Render.Name
-	renderRevision = productInfo.Render.Revision
-
-	opt := &commonrepo.RenderSetFindOption{
-		ProductTmpl: productName,
-		EnvName:     envName,
-		Name:        renderSetName,
-		Revision:    renderRevision,
-	}
-	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	//renderSetName = productInfo.Render.Name
+	//renderRevision = productInfo.Render.Revision
+
+	//opt := &commonrepo.RenderSetFindOption{
+	//	ProductTmpl: productName,
+	//	EnvName:     envName,
+	//	Name:        renderSetName,
+	//	Revision:    renderRevision,
+	//}
+	//rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
+	//if err != nil {
+	//	return nil, nil, err
+	//}
+
+	rendersetObj := &models.RenderSet{}
+	rendersetObj.DefaultValues = productInfo.DefaultValues
+	rendersetObj.YamlData = productInfo.YamlData
+	rendersetObj.ChartInfos = productInfo.GetAllSvcRenders()
 
 	svcChartRenderArgSet := sets.NewString()
 	svcRenderArgSet := sets.NewString()
@@ -418,9 +425,9 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 	}
 	matchedRenderChartModels := make([]*templatemodels.ServiceRender, 0)
 	if len(getSvcRendersArgs) == 0 {
-		matchedRenderChartModels = rendersetObj.ChartInfos
+		matchedRenderChartModels = productInfo.GetAllSvcRenders()
 	} else {
-		for _, singleChart := range rendersetObj.ChartInfos {
+		for _, singleChart := range productInfo.GetAllSvcRenders() {
 			if singleChart.IsHelmChartDeploy {
 				if svcChartRenderArgSet.Has(singleChart.ReleaseName) {
 					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
@@ -437,7 +444,7 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 		rcaObj := &HelmSvcRenderArg{}
 		rcaObj.LoadFromRenderChartModel(singleChart)
 		rcaObj.EnvName = envName
-		err = FillGitNamespace(rendersetObj.YamlData)
+		err = FillGitNamespace(productInfo.YamlData)
 		if err != nil {
 			// Note, since user can always reselect the git info, error should not block normal logic
 			log.Warnf("failed to fill git namespace data, err: %s", err)

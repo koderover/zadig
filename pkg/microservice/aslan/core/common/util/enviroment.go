@@ -3,8 +3,6 @@ package util
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
@@ -122,19 +120,7 @@ func GetReleaseNameToChartNameMap(prod *models.Product) (map[string]string, erro
 		releaseNameMap[util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)] = svcInfo.ServiceName
 	}
 
-	// svc render in renderchart
-	opt := &commonrepo.RenderSetFindOption{
-		ProductTmpl: productName,
-		EnvName:     envName,
-		Name:        prod.Render.Name,
-		Revision:    prod.Render.Revision,
-	}
-	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Errorf("failed to find render set : %s/%s", productName, envName).Error())
-	}
-	renderMap := rendersetObj.GetChartDeployRenderMap()
-
+	renderMap := prod.GetChartDeployRenderMap()
 	for _, svc := range prod.GetChartServiceMap() {
 		if renderInfo, ok := renderMap[svc.ReleaseName]; ok {
 			releaseNameMap[svc.ReleaseName] = renderInfo.ChartName

@@ -291,3 +291,23 @@ func (p *Product) EnsureRenderInfo() {
 func (p *Product) IsSleeping() bool {
 	return p.Status == setting.ProductStatusSleeping
 }
+
+func (p *Product) GetChartRenderMap() map[string]*templatemodels.ServiceRender {
+	serviceRenderMap := make(map[string]*templatemodels.ServiceRender)
+	for _, render := range p.GetAllSvcRenders() {
+		if !render.IsHelmChartDeploy {
+			serviceRenderMap[render.ServiceName] = render
+		}
+	}
+	return serviceRenderMap
+}
+
+func (p *Product) GetChartDeployRenderMap() map[string]*templatemodels.ServiceRender {
+	serviceRenderMap := make(map[string]*templatemodels.ServiceRender)
+	for _, render := range p.GetAllSvcRenders() {
+		if render.IsHelmChartDeploy {
+			serviceRenderMap[render.ReleaseName] = render
+		}
+	}
+	return serviceRenderMap
+}

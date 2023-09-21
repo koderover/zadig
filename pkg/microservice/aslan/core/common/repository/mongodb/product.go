@@ -385,13 +385,16 @@ func (c *ProductColl) UpdateGlobalVariable(args *models.Product) error {
 func (c *ProductColl) Update(args *models.Product) error {
 	query := bson.M{"env_name": args.EnvName, "product_name": args.ProductName}
 	changePayload := bson.M{
-		"update_time": time.Now().Unix(),
-		"services":    args.Services,
-		"status":      args.Status,
-		"revision":    args.Revision,
-		"render":      args.Render,
-		"error":       args.Error,
-		"share_env":   args.ShareEnv,
+		"update_time":      time.Now().Unix(),
+		"services":         args.Services,
+		"status":           args.Status,
+		"revision":         args.Revision,
+		"render":           args.Render,
+		"error":            args.Error,
+		"share_env":        args.ShareEnv,
+		"global_variables": args.GlobalVariables,
+		"default_values":   args.DefaultValues,
+		"yaml_data":        args.YamlData,
 	}
 	if len(args.Source) > 0 {
 		changePayload["source"] = args.Source

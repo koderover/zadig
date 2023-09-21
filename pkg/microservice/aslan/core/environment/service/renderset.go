@@ -142,28 +142,37 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 		return nil, fmt.Errorf("failed to query product info, productName %s envName %s", productName, envName)
 	}
 
-	if productInfo.Render == nil {
-		return nil, fmt.Errorf("invalid product, nil render data")
-	}
+	//if productInfo.Render == nil {
+	//	return nil, fmt.Errorf("invalid product, nil render data")
+	//}
 
-	opt := &commonrepo.RenderSetFindOption{
-		Name:        productInfo.Render.Name,
-		Revision:    productInfo.Render.Revision,
-		ProductTmpl: productName,
-		EnvName:     productInfo.EnvName,
-	}
-	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
-		return nil, err
-	}
-	ret.DefaultVariable = rendersetObj.DefaultValues
-	err = service.FillGitNamespace(rendersetObj.YamlData)
+	//opt := &commonrepo.RenderSetFindOption{
+	//	Name:        productInfo.Render.Name,
+	//	Revision:    productInfo.Render.Revision,
+	//	ProductTmpl: productName,
+	//	EnvName:     productInfo.EnvName,
+	//}
+	//rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
+	//if err != nil {
+	//	log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
+	//	return nil, err
+	//}
+	//ret.DefaultVariable = rendersetObj.DefaultValues
+	//err = service.FillGitNamespace(rendersetObj.YamlData)
+	//if err != nil {
+	//	// Note, since user can always reselect the git info, error should not block normal logic
+	//	log.Warnf("failed to fill git namespace data, err: %s", err)
+	//}
+	//ret.YamlData = rendersetObj.YamlData
+
+	ret.DefaultVariable = productInfo.DefaultValues
+	err = service.FillGitNamespace(productInfo.YamlData)
 	if err != nil {
 		// Note, since user can always reselect the git info, error should not block normal logic
 		log.Warnf("failed to fill git namespace data, err: %s", err)
 	}
-	ret.YamlData = rendersetObj.YamlData
+	ret.YamlData = productInfo.YamlData
+
 	return ret, nil
 }
 

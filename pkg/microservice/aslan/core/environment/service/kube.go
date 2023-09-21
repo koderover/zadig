@@ -48,7 +48,6 @@ import (
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
@@ -988,19 +987,19 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		EnvName: request.EnvName,
 	})
 
-	fakeRenderSet := &models.RenderSet{}
-	if err == nil && productInfo != nil {
-		renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-			ProductTmpl: productName,
-			EnvName:     request.EnvName,
-			IsDefault:   false,
-			Revision:    productInfo.Render.Revision,
-			Name:        productInfo.Render.Name,
-		})
-		if err == nil {
-			fakeRenderSet.GlobalVariables = renderset.GlobalVariables
-		}
-	}
+	//fakeRenderSet := &models.RenderSet{}
+	//if err == nil && productInfo != nil {
+	//	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+	//		ProductTmpl: productName,
+	//		EnvName:     request.EnvName,
+	//		IsDefault:   false,
+	//		Revision:    productInfo.Render.Revision,
+	//		Name:        productInfo.Render.Name,
+	//	})
+	//	if err == nil {
+	//		fakeRenderSet.GlobalVariables = renderset.GlobalVariables
+	//	}
+	//}
 
 	productServices, err := repository.ListMaxRevisionsServices(productName, productInfo.Production)
 	if err != nil {

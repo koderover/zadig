@@ -264,15 +264,17 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 
 	ret := make([]*HelmReleaseResp, 0)
 
-	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:     prod.Render.Name,
-		Revision: prod.Render.Revision,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to find renderset: %s:%v, err: %s", prod.Render.Name, prod.Render.Revision, err)
-	}
-	chartInfoMap := renderset.GetChartRenderMap()
-	chartDeployInfoMap := renderset.GetChartDeployRenderMap()
+	//renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+	//	Name:     prod.Render.Name,
+	//	Revision: prod.Render.Revision,
+	//})
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to find renderset: %s:%v, err: %s", prod.Render.Name, prod.Render.Revision, err)
+	//}
+	//chartInfoMap := renderset.GetChartRenderMap()
+	//chartDeployInfoMap := renderset.GetChartDeployRenderMap()
+	chartInfoMap := prod.GetChartRenderMap()
+	chartDeployInfoMap := prod.GetChartDeployRenderMap()
 	for _, svcDataSet := range svcDataList {
 		if !filterFunc(svcDataSet) {
 			continue
@@ -428,16 +430,16 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 	if err != nil {
 		return nil, e.ErrGetHelmCharts.AddErr(err)
 	}
-	renderSet, err := FindProductRenderSet(productName, prod.Render.Name, prod.EnvName, prod.Render.Revision, log)
-	if err != nil {
-		log.Errorf("[%s][P:%s] find product renderset error: %v", envName, productName, err)
-		return nil, e.ErrGetHelmCharts.AddErr(err)
-	}
+	//renderSet, err := FindProductRenderSet(productName, prod.Render.Name, prod.EnvName, prod.Render.Revision, log)
+	//if err != nil {
+	//	log.Errorf("[%s][P:%s] find product renderset error: %v", envName, productName, err)
+	//	return nil, e.ErrGetHelmCharts.AddErr(err)
+	//}
 
-	chartMap := make(map[string]*template.ServiceRender)
-	for _, chart := range renderSet.ChartInfos {
-		chartMap[chart.ServiceName] = chart
-	}
+	//chartMap := make(map[string]*template.ServiceRender)
+	//for _, chart := range renderSet.ChartInfos {
+	//	chartMap[chart.ServiceName] = chart
+	//}
 
 	allServiceMap := prod.GetServiceMap()
 	serviceMap := make(map[string]*models.ProductService)
