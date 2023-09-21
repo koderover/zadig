@@ -131,15 +131,6 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 		return err
 	}
 
-	//renderSetMap := make(map[string]*commonmodels.RenderSet)
-	//for _, product := range products {
-	//	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: product.Render.Name, Revision: product.Render.Revision, IsDefault: false})
-	//	if err != nil {
-	//		return fmt.Errorf("failed to find renderset of base product %s/%s, err: %s", product.ProductName, product.EnvName, err)
-	//	}
-	//	renderSetMap[renderset.EnvName] = renderset
-	//}
-
 	productMap := make(map[string]*commonmodels.Product)
 	for _, product := range products {
 		productMap[product.EnvName] = product
@@ -159,15 +150,6 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 			newProduct.GlobalVariables = item.GlobalVariables
 			newProduct.DefaultValues = item.DefaultValues
 
-			//baseRenderset := renderSetMap[item.OldName]
-			// we need create render set info here
-			//newRenderset := *baseRenderset
-			//newRenderset.Name = newProduct.Namespace
-			//newRenderset.Revision = 0
-			//newRenderset.EnvName = newProduct.EnvName
-			//newRenderset.DefaultValues = item.DefaultValues
-			//newRenderset.GlobalVariables = item.GlobalVariables
-
 			svcVariableKVMap := make(map[string][]*commontypes.RenderVariableKV)
 			for _, sv := range item.Services {
 				svcVariableKVMap[sv.ServiceName] = sv.VariableKVs
@@ -185,28 +167,6 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 					}
 				}
 			}
-
-			//for _, sv := range newRenderset.ServiceVariables {
-			//	if variableKVs, ok := svcVariableKVMap[sv.ServiceName]; ok {
-			//		yamlContent, err := commontypes.RenderVariableKVToYaml(variableKVs)
-			//		if err != nil {
-			//			return fmt.Errorf("failed to convert variable kvs to yaml, err: %w", err)
-			//		}
-			//		sv.OverrideYaml = &templatemodels.CustomYaml{
-			//			YamlContent:       yamlContent,
-			//			RenderVariableKVs: variableKVs,
-			//		}
-			//	}
-			//}
-
-			//err = render.CreateRenderSet(&newRenderset, log)
-			//if err != nil {
-			//	return err
-			//}
-
-			//newProduct.Render.Name = newProduct.Namespace
-			//newProduct.Render.Revision = newRenderset.Revision
-			//newProduct.Render.ProductTmpl = newProduct.ProductName
 
 			err = CreateProduct(user, requestID, &newProduct, log)
 			if err != nil {
@@ -313,7 +273,6 @@ func CopyHelmProduct(productName, userName, requestID string, args []*CreateSing
 }
 
 func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo *commonmodels.Product, requestID, userName string, arg *CreateSingleProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
-	//sourceRendersetName := productInfo.Namespace
 	productInfo.ID = primitive.NilObjectID
 	productInfo.Revision = 1
 	productInfo.EnvName = arg.EnvName
@@ -324,16 +283,7 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 	productInfo.EnvConfigs = arg.EnvConfigs
 
 	// merge chart infos, use chart info in product to override charts in template_project
-	//sourceRenderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-	//	Name:        sourceRendersetName,
-	//	EnvName:     arg.BaseName,
-	//	ProductTmpl: arg.ProductName,
-	//})
-	//if err != nil {
-	//	return fmt.Errorf("failed to find source renderset: %s, err: %s", productInfo.Namespace, err)
-	//}
 	sourceChartMap := make(map[string]*templatemodels.ServiceRender)
-	//for _, singleChart := range sourceRenderSet.ChartInfos {
 	for _, singleChart := range productInfo.GetAllSvcRenders() {
 		sourceChartMap[singleChart.ServiceName] = singleChart
 	}

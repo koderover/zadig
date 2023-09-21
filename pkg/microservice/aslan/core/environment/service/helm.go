@@ -264,15 +264,6 @@ func ListReleases(args *HelmReleaseQueryArgs, envName string, production bool, l
 
 	ret := make([]*HelmReleaseResp, 0)
 
-	//renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-	//	Name:     prod.Render.Name,
-	//	Revision: prod.Render.Revision,
-	//})
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed to find renderset: %s:%v, err: %s", prod.Render.Name, prod.Render.Revision, err)
-	//}
-	//chartInfoMap := renderset.GetChartRenderMap()
-	//chartDeployInfoMap := renderset.GetChartDeployRenderMap()
 	chartInfoMap := prod.GetChartRenderMap()
 	chartDeployInfoMap := prod.GetChartDeployRenderMap()
 	for _, svcDataSet := range svcDataList {

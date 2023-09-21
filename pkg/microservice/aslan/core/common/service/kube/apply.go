@@ -558,17 +558,6 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Rende
 		return nil, nil, nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, svcFindOption.Revision, productInfo.ProductName)
 	}
 
-	//renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-	//	ProductTmpl: productInfo.ProductName,
-	//	Name:        productInfo.Render.Name,
-	//	EnvName:     productInfo.EnvName,
-	//	Revision:    productInfo.Render.Revision,
-	//})
-	//if err != nil {
-	//	err = fmt.Errorf("failed to find redset name %s revision %d", productInfo.Namespace, productInfo.Render.Revision)
-	//	return nil, nil, nil, err
-	//}
-
 	targetChart := productInfo.GetChartRenderMap()[applyParam.ServiceName]
 	if targetChart == nil {
 		targetChart = &template.ServiceRender{

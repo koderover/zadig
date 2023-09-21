@@ -810,16 +810,6 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 // validate chartInfo, make sure service is in environment
 // prepare data set for chart delivery
 func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productInfo *commonmodels.Product) (map[string]*DeliveryChartData, error) {
-
-	//renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-	//	Revision:    productInfo.Render.Revision,
-	//	Name:        productInfo.Render.Name,
-	//	EnvName:     productInfo.EnvName,
-	//	ProductTmpl: productInfo.ProductName,
-	//})
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed to find renderSet: %s, revision: %d", productInfo.Render.Name, productInfo.Render.Revision)
-	//}
 	chartMap := make(map[string]*template.ServiceRender)
 	for _, rChart := range productInfo.GetChartRenderMap() {
 		chartMap[rChart.ServiceName] = rChart
@@ -847,7 +837,6 @@ func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productI
 				RenderChart:    renderChart,
 				ServiceObj:     serviceObj,
 				ProductService: productService,
-				//RenderSet:      renderSet,
 			}
 		} else {
 			return nil, fmt.Errorf("service %s not found in environment", chartData.ServiceName)

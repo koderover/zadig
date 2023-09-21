@@ -108,24 +108,6 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		return errors.Wrapf(err, "failed to find service %s in product %s", deployInfo.ServiceName, deployInfo.ProductName)
 	}
 
-	//curRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-	//	ProductTmpl: deployInfo.ProductName,
-	//	EnvName:     deployInfo.EnvName,
-	//	IsDefault:   false,
-	//	Revision:    productInfo.Render.Revision,
-	//	Name:        productInfo.Render.Name,
-	//})
-	//if err != nil {
-	//	return errors.Wrapf(err, "failed to find renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
-	//}
-	//
-	//var svcRender *template.ServiceRender
-	//for _, sRender := range curRenderset.ServiceVariables {
-	//	if sRender.ServiceName == deployInfo.ServiceName {
-	//		svcRender = sRender
-	//		break
-	//	}
-	//}
 	svcRender := productInfo.GetSvcRender(deployInfo.ServiceName)
 
 	if len(productInfo.Services) == 0 {

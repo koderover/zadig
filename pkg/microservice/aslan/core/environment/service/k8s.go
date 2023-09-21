@@ -153,26 +153,6 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddDesc(e.EnvCantUpdatedMsg)
 	}
 
-	//exitedProd.EnsureRenderInfo()
-	//curRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-	//	Name:     exitedProd.Render.Name,
-	//	EnvName:  exitedProd.EnvName,
-	//	Revision: exitedProd.Render.Revision,
-	//})
-	//if err != nil {
-	//	return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to find render set, err: %s", err))
-	//}
-	//
-	//curSvcRender := &templatemodels.ServiceRender{
-	//	ServiceName:  args.ServiceName,
-	//	OverrideYaml: &templatemodels.CustomYaml{},
-	//}
-	//for _, svcRender := range curRenderset.ServiceVariables {
-	//	if svcRender.ServiceName == args.ServiceName {
-	//		curSvcRender = svcRender
-	//		break
-	//	}
-	//}
 	curSvcRender := exitedProd.GetSvcRender(args.ServiceName)
 	globalVars := exitedProd.GlobalVariables
 
@@ -184,38 +164,8 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to convert render variable to yaml, err: %s", err))
 	}
-
 	newProductSvc.GetServiceRender().OverrideYaml.RenderVariableKVs = args.ServiceRev.VariableKVs
 	newProductSvc.GetServiceRender().OverrideYaml.YamlContent = args.ServiceRev.VariableYaml
-
-	//foundServiceVariable := false
-	//for _, newProductSvc := range curRenderset.ServiceVariables {
-	//	if newProductSvc.ServiceName != args.ServiceName {
-	//		continue
-	//	}
-	//
-	//	foundServiceVariable = true
-	//	newProductSvc.OverrideYaml = &template.CustomYaml{
-	//		YamlContent:       args.ServiceRev.VariableYaml,
-	//		RenderVariableKVs: args.ServiceRev.VariableKVs,
-	//	}
-	//}
-	//if !foundServiceVariable {
-	//	curRenderset.ServiceVariables = append(curRenderset.ServiceVariables, &template.ServiceRender{
-	//		ServiceName: args.ServiceName,
-	//		OverrideYaml: &template.CustomYaml{
-	//			YamlContent:       args.ServiceRev.VariableYaml,
-	//			RenderVariableKVs: args.ServiceRev.VariableKVs,
-	//		},
-	//	})
-	//}
-	//err = render.CreateK8sHelmRenderSet(curRenderset, k.log)
-	//if err != nil {
-	//	return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to craete renderset, err: %s", err))
-	//}
-
-	preRevision := exitedProd.Render
-	//exitedProd.Render = &commonmodels.RenderInfo{Name: curRenderset.Name, Revision: curRenderset.Revision, ProductTmpl: curRenderset.ProductTmpl}
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
@@ -259,16 +209,11 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	if previewResult.Current.Yaml == previewResult.Latest.Yaml {
 		k.log.Infof("[%s][P:%s] Service yaml is not changed", args.EnvName, args.ProductName)
 	} else {
-		//_, err = upsertService(
-		//	exitedProd,
-		//	newProductSvc,
-		//	currentProductSvc,
-		//	curRenderset, preRevision, !exitedProd.Production, inf, kubeClient, istioClient, k.log)
 		_, err = upsertService(
 			exitedProd,
 			newProductSvc,
 			currentProductSvc,
-			nil, preRevision, !exitedProd.Production, inf, kubeClient, istioClient, k.log)
+			!exitedProd.Production, inf, kubeClient, istioClient, k.log)
 
 		if err != nil {
 			k.log.Error(err)
@@ -460,8 +405,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	return resp
 }
 
-func fetchWorkloadImages(productService *commonmodels.ProductService, product *commonmodels.Product, renderSet *commonmodels.RenderSet, kubeClient client.Client) ([]*commonmodels.Container, error) {
-	//rederedYaml, err := kube.RenderEnvService(product, renderSet.GetServiceRenderMap()[productService.ServiceName], productService)
+func fetchWorkloadImages(productService *commonmodels.ProductService, product *commonmodels.Product, kubeClient client.Client) ([]*commonmodels.Container, error) {
 	rederedYaml, err := kube.RenderEnvService(product, productService.Render, productService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render env service yaml for service: %s, err: %s", productService.ServiceName, err)
@@ -595,8 +539,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 	for i := range group {
 		if !commonutil.ServiceDeployed(group[i].ServiceName, product.ServiceDeployStrategy) {
 			// services are only imported, we do not deploy them again, but we need to fetch the images
-			//containers, err := fetchWorkloadImages(group[i], product, renderSet, kubeClient)
-			containers, err := fetchWorkloadImages(group[i], product, nil, kubeClient)
+			containers, err := fetchWorkloadImages(group[i], product, kubeClient)
 			if err != nil {
 				return fmt.Errorf("failed to fetch related containers: %s", err)
 			}
@@ -607,8 +550,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			//items, err := upsertService(prod, svc, svc, renderSet, nil, !prod.Production, informer, kubeClient, istioClient, k.log)
-			items, err := upsertService(prod, svc, svc, nil, nil, !prod.Production, informer, kubeClient, istioClient, k.log)
+			items, err := upsertService(prod, svc, svc, !prod.Production, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {

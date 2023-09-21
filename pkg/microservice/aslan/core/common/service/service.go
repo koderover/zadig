@@ -1018,19 +1018,6 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 	}
 
 	productInfo.EnsureRenderInfo()
-	//rendersetInfo, exists, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-	//	ProductTmpl: productName,
-	//	EnvName:     envName,
-	//	IsDefault:   false,
-	//	Name:        productInfo.Render.Name,
-	//	Revision:    productInfo.Render.Revision,
-	//})
-	//if err != nil {
-	//	return nil, e.ErrGetService.AddErr(errors.Wrapf(err, "failed to find renderset for env %s:%s", productName, envName))
-	//}
-	//if !exists {
-	//	rendersetInfo = &models.RenderSet{}
-	//}
 
 	svcModulesMap := make(map[string]map[string]*commonmodels.Container)
 	templateSvcMap := make(map[string]*commonmodels.Service)
@@ -1450,19 +1437,6 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 		if service == nil {
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("failed to find service in environment: %s", envName))
 		}
-
-		//env.EnsureRenderInfo()
-		//renderSetFindOpt := &commonrepo.RenderSetFindOption{
-		//	Name:        env.Render.Name,
-		//	Revision:    env.Render.Revision,
-		//	ProductTmpl: env.ProductName,
-		//	EnvName:     envName,
-		//}
-		//rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
-		//if err != nil {
-		//	log.Errorf("find renderset[%s] error: %v", env.Render.Name, err)
-		//	return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
-		//}
 
 		parsedYaml, err := kube.RenderServiceYaml(serviceTmpl.Yaml, productName, serviceTmpl.ServiceName, service.GetServiceRender())
 		if err != nil {

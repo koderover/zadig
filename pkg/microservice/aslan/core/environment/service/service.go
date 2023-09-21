@@ -242,18 +242,6 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 	ret := make([]*commonservice.Workload, 0)
 	envName, productName, namespace := env.EnvName, env.ProductName, env.Namespace
 
-	//renderSetFindOpt := &commonrepo.RenderSetFindOption{
-	//	Name:        env.Render.Name,
-	//	Revision:    env.Render.Revision,
-	//	ProductTmpl: env.ProductName,
-	//	EnvName:     envName,
-	//}
-	//rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
-	//if err != nil {
-	//	log.Errorf("find renderset[%s] error: %v", env.Render.Name, err)
-	//	return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
-	//}
-
 	svcRender := env.GetSvcRender(svcTmpl.ServiceName)
 	parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, svcRender)
 	if err != nil {
@@ -539,31 +527,13 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 			Type:        setting.K8SDeployType,
 		}, productObj.Production)
 
-		//opt := &commonrepo.RenderSetFindOption{
-		//	Name:        oldRenderInfo.Name,
-		//	Revision:    oldRenderInfo.Revision,
-		//	ProductTmpl: productObj.ProductName,
-		//	EnvName:     productObj.EnvName,
-		//}
-		//newRender, err = commonrepo.NewRenderSetColl().Find(opt)
-		//if err != nil {
-		//	log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
-		//	err = e.ErrRestartService.AddErr(err)
-		//	return
-		//}
-
 		// for services deployed by zadig, service will be applied when restarting
 		if commonutil.ServiceDeployed(serviceTmpl.ServiceName, productObj.ServiceDeployStrategy) {
-			//_, err = upsertService(
-			//	productObj,
-			//	productService,
-			//	productService,
-			//	newRender, oldRenderInfo, !productObj.Production, inf, kubeClient, istioClient, log)
 			_, err = upsertService(
 				productObj,
 				productService,
 				productService,
-				nil, nil, !productObj.Production, inf, kubeClient, istioClient, log)
+				!productObj.Production, inf, kubeClient, istioClient, log)
 		} else {
 			err = restartRelatedWorkloads(productObj, productService, kubeClient, log)
 		}

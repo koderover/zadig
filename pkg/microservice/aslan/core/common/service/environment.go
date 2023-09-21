@@ -173,19 +173,6 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 		return nil, errors.Wrapf(err, fmt.Errorf("failed to find production service : %s/%s/%s", productName, envName, serviceName).Error())
 	}
 
-	// svc render in renderchart
-	//opt := &commonrepo.RenderSetFindOption{
-	//	ProductTmpl: productName,
-	//	EnvName:     envName,
-	//	Name:        productInfo.Render.Name,
-	//	Revision:    productInfo.Render.Revision,
-	//}
-	//rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
-	//if err != nil {
-	//	return nil, errors.Wrapf(err, fmt.Errorf("failed to find render set : %s/%s", productName, envName).Error())
-	//}
-	//
-	//svcRender := rendersetObj.GetServiceRenderMap()[serviceName]
 	svcRender := prodSvc.GetServiceRender()
 
 	ret := make([]*K8sSvcRenderArg, 0)
@@ -255,33 +242,10 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 			return nil, nil, err
 		}
 		for _, svc := range svcs {
-			//svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
-			//	ServiceName:  svc.ServiceName,
-			//	OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
-			//}
 			svcRenders[svc.ServiceName] = productInfo.GetSvcRender(svc.ServiceName)
-			//serviceVarsMap[svc.ServiceName] = svc.ServiceVars
 		}
 		productSvcMap = productInfo.GetServiceMap()
 	}
-
-	//if productInfo != nil {
-	//	// svc render in renderchart
-	//	opt := &commonrepo.RenderSetFindOption{
-	//		ProductTmpl: productName,
-	//		EnvName:     envName,
-	//		Name:        productInfo.Render.Name,
-	//		Revision:    productInfo.Render.Revision,
-	//	}
-	//	rendersetObj, err = commonrepo.NewRenderSetColl().Find(opt)
-	//	if err == nil {
-	//		for _, svcRender := range rendersetObj.ServiceVariables {
-	//			if _, ok := svcRenders[svcRender.ServiceName]; ok {
-	//				svcRenders[svcRender.ServiceName] = svcRender
-	//			}
-	//		}
-	//	}
-	//}
 
 	validSvcs := sets.NewString(strings.Split(serviceName, ",")...)
 	filter := func(name string) bool {
@@ -394,20 +358,6 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 	if err != nil {
 		return nil, nil, err
 	}
-
-	//renderSetName = productInfo.Render.Name
-	//renderRevision = productInfo.Render.Revision
-
-	//opt := &commonrepo.RenderSetFindOption{
-	//	ProductTmpl: productName,
-	//	EnvName:     envName,
-	//	Name:        renderSetName,
-	//	Revision:    renderRevision,
-	//}
-	//rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
-	//if err != nil {
-	//	return nil, nil, err
-	//}
 
 	rendersetObj := &models.RenderSet{}
 	rendersetObj.DefaultValues = productInfo.DefaultValues

@@ -65,18 +65,6 @@ func updateContainerForHelmChart(serviceName, image, containerName string, produ
 		return err
 	}
 
-	//renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-	//	ProductTmpl: product.ProductName,
-	//	Name:        product.Render.Name,
-	//	EnvName:     product.EnvName,
-	//	Revision:    product.Render.Revision,
-	//})
-	//if err != nil {
-	//	err = fmt.Errorf("failed to find redset name %s revision %d", namespace, product.Render.Revision)
-	//	return err
-	//}
-
-	//err = kube.UpgradeHelmRelease(product, renderSet, targetProductService, serviceObj, []string{image}, 0)
 	err = kube.UpgradeHelmRelease(product, nil, targetProductService, serviceObj, []string{image}, 0)
 	if err != nil {
 		return fmt.Errorf("failed to upgrade helm release, err: %s", err.Error())

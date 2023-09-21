@@ -232,8 +232,6 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, renderSet *common
 // UpgradeHelmRelease upgrades helm release with some specific images
 func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.RenderSet, productSvc *commonmodels.ProductService,
 	svcTemp *commonmodels.Service, images []string, timeout int) error {
-	//chartInfoMap := renderSet.GetChartRenderMap()
-	//chartDeployInfoMap := renderSet.GetChartDeployRenderMap()
 
 	chartInfoMap := product.GetChartRenderMap()
 	chartDeployInfoMap := product.GetChartDeployRenderMap()
@@ -265,7 +263,6 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 			},
 		}
 
-		//replacedMergedValuesYaml, err = helmtool.MergeOverrideValues("", renderSet.DefaultValues, chartInfo.GetOverrideYaml(), chartInfo.OverrideValues, nil)
 		replacedMergedValuesYaml, err = helmtool.MergeOverrideValues("", product.DefaultValues, chartInfo.GetOverrideYaml(), chartInfo.OverrideValues, nil)
 		if err != nil {
 			return fmt.Errorf("failed to merge override values, err: %s", err)
@@ -346,53 +343,16 @@ func UpgradeHelmRelease(product *commonmodels.Product, renderSet *commonmodels.R
 		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
 	}
 
-	//curRenderInfo, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-	//	ProductTmpl: newProductInfo.ProductName,
-	//	Name:        newProductInfo.Render.Name,
-	//	EnvName:     newProductInfo.EnvName,
-	//	Revision:    newProductInfo.Render.Revision,
-	//})
-	//if err != nil {
-	//	return errors.Wrapf(err, "failed to find render set %s", newProductInfo.Render.Name)
-	//}
-
-	//chartMap := newProductInfo.GetChartRenderMap()
-	//chartDeployMap := newProductInfo.GetChartDeployRenderMap()
-	//
 	productSvcMap := newProductInfo.GetServiceMap()
 	productChartSvcMap := newProductInfo.GetChartServiceMap()
 	if productSvc.FromZadig() {
-		//	newProductInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(newProductInfo.ServiceDeployStrategy, productSvc.ServiceName)
-		//	chartMap[productSvc.ServiceName] = chartInfo
 		productSvcMap[productSvc.ServiceName] = product.GetServiceMap()[productSvc.ServiceName]
 	} else {
-		//	newProductInfo.ServiceDeployStrategy = commonutil.SetChartServiceDeployStrategyDepoly(newProductInfo.ServiceDeployStrategy, productSvc.ReleaseName)
-		//	chartDeployMap[productSvc.ReleaseName] = chartInfo
 		productChartSvcMap[productSvc.ReleaseName] = product.GetChartServiceMap()[productSvc.ReleaseName]
 		if productChartSvcMap[productSvc.ReleaseName] == nil {
 			productChartSvcMap[productSvc.ReleaseName] = productSvc
 		}
 	}
-	//
-	//curRenderInfo.ChartInfos = make([]*templatemodels.ServiceRender, 0)
-	//for _, chart := range chartMap {
-	//	if !productSvc.FromZadig() && chart.ReleaseName == releaseName {
-	//		continue
-	//	}
-	//	curRenderInfo.ChartInfos = append(curRenderInfo.ChartInfos, chart)
-	//}
-	//for _, chart := range chartDeployMap {
-	//	if productSvc.FromZadig() && chart.ReleaseName == releaseName {
-	//		continue
-	//	}
-	//	curRenderInfo.ChartInfos = append(curRenderInfo.ChartInfos, chart)
-	//}
-	//err = render.CreateRenderSet(curRenderInfo, log.SugaredLogger())
-	//if err != nil {
-	//	return errors.Wrapf(err, "failed to create render set %s", curRenderInfo.Name)
-	//}
-
-	//newProductInfo.Render.Revision = curRenderInfo.Revision
 
 	newProductInfo.Services = [][]*commonmodels.ProductService{{}}
 	for _, service := range productSvcMap {
@@ -551,40 +511,6 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 		log.Errorf("failed to update product deploy strategy, err: %s", err)
 	}
 
-	//renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-	//	Name:        productInfo.Render.Name,
-	//	EnvName:     productInfo.EnvName,
-	//	ProductTmpl: productInfo.ProductName,
-	//	Revision:    productInfo.Render.Revision,
-	//})
-	//if err != nil {
-	//	return fmt.Errorf("failed to find renderset: %s/%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, err)
-	//}
-	//rcs := make([]*template.ServiceRender, 0)
-	//for _, v := range renderset.ChartInfos {
-	//	if v.IsHelmChartDeploy {
-	//		if _, ok := releaseNameToChartProdSvcMap[v.ReleaseName]; !ok {
-	//			rcs = append(rcs, v)
-	//		}
-	//	} else {
-	//		if _, ok := serviceNameToProdSvcMap[v.ServiceName]; !ok {
-	//			rcs = append(rcs, v)
-	//		}
-	//	}
-	//}
-	//renderset.ChartInfos = rcs
-	//
-	//// create new renderset
-	//if err := render.CreateK8sHelmRenderSet(renderset, log); err != nil {
-	//	return fmt.Errorf("failed to create renderset, name %s, err: %s", renderset.Name, err)
-	//}
-	//
-	//productInfo.Render.Revision = renderset.Revision
-	//err = commonrepo.NewProductColl().UpdateRender(renderset.EnvName, productInfo.ProductName, productInfo.Render)
-	//if err != nil {
-	//	return fmt.Errorf("failed to update product render info, renderName: %s, err: %s", productInfo.Render.Name, err)
-	//}
-
 	go func() {
 		failedServices := sync.Map{}
 		wg := sync.WaitGroup{}
@@ -709,34 +635,6 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 	if err != nil {
 		log.Errorf("failed to update product deploy strategy, err: %s", err)
 	}
-
-	//renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-	//	Name:        productInfo.Render.Name,
-	//	EnvName:     productInfo.EnvName,
-	//	ProductTmpl: productInfo.ProductName,
-	//	Revision:    productInfo.Render.Revision,
-	//})
-	//if err != nil {
-	//	return fmt.Errorf("failed to find renderset: %s/%d, err: %s", productInfo.Render.Name, productInfo.Render.Revision, err)
-	//}
-	//rcs := make([]*template.ServiceRender, 0)
-	//for _, v := range renderset.ChartInfos {
-	//	if !deleteServiceSet.Has(v.ServiceName) {
-	//		rcs = append(rcs, v)
-	//	}
-	//}
-	//renderset.ChartInfos = rcs
-	//
-	//// create new renderset
-	//if err := render.CreateK8sHelmRenderSet(renderset, log); err != nil {
-	//	return fmt.Errorf("failed to create renderset, name %s, err: %s", renderset.Name, err)
-	//}
-	//
-	//productInfo.Render.Revision = renderset.Revision
-	//err = commonrepo.NewProductColl().UpdateRender(renderset.EnvName, productInfo.ProductName, productInfo.Render)
-	//if err != nil {
-	//	return fmt.Errorf("failed to update product render info, renderName: %s, err: %s", productInfo.Render.Name, err)
-	//}
 
 	go func() {
 		failedServices := sync.Map{}
