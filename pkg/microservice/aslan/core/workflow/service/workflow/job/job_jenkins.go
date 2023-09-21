@@ -18,7 +18,6 @@ package job
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -27,7 +26,6 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/jenkins"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type JenkinsJob struct {
@@ -61,10 +59,6 @@ func (j *JenkinsJob) SetPreset() error {
 	for _, job := range j.spec.Jobs {
 		job := job
 		eg.Go(func() error {
-			now := time.Now()
-			defer func() {
-				log.Infof("Preset JenkinsJob: get job %s cost %s", job.JobName, time.Since(now))
-			}()
 			currentJob, err := client.GetJob(job.JobName)
 			if err != nil {
 				return errors.Errorf("Preset JenkinsJob: get job %s error: %v", job.JobName, err)

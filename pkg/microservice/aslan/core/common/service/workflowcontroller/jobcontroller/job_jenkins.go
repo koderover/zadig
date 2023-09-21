@@ -84,7 +84,6 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 	}
 
 	params := make(map[string]string)
-	fmt.Printf("debug 100\n")
 	for _, parameter := range c.jobTaskSpec.Job.Parameters {
 		fmt.Printf("parameter: %v\n", parameter)
 		params[parameter.Name] = parameter.Value
