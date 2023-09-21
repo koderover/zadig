@@ -58,9 +58,10 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 		}
 		chartInfo := &templatemodels.ServiceRender{}
 		singleCV.FillRenderChartModel(chartInfo, tc.ChartVersion)
+		chartInfo.ChartVersion = tc.ChartVersion
 		chartInfo.ValuesYaml = tc.ValuesYaml
-		productObj.ServiceRenders = append(productObj.ServiceRenders, chartInfo)
 		cvMap[singleCV.ServiceName] = chartInfo
+		productObj.ServiceRenders = append(productObj.ServiceRenders, chartInfo)
 		serviceDeployStrategy[singleCV.ServiceName] = singleCV.DeployStrategy
 	}
 
@@ -92,6 +93,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 				Revision:    serviceTmpl.Revision,
 				Render:      rc,
 			}
+			log.Infof("--------- rcData: %v", *rc)
 			serviceResp.Containers = make([]*commonmodels.Container, 0)
 			var err error
 			for _, c := range serviceTmpl.Containers {
@@ -306,13 +308,6 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 				return fmt.Errorf("failed to convert render variable kvs to yaml, svcName: %s, err: %w", sv.ServiceName, err)
 			}
 
-			//productObj.ServiceRenders = append(productObj.ServiceRenders, &templatemodels.ServiceRender{
-			//	ServiceName: sv.ServiceName,
-			//	OverrideYaml: &templatemodels.CustomYaml{
-			//		YamlContent:       variableYaml,
-			//		RenderVariableKVs: sv.VariableKVs,
-			//	},
-			//})
 			sv.Render = &templatemodels.ServiceRender{
 				ServiceName: sv.ServiceName,
 				OverrideYaml: &templatemodels.CustomYaml{
