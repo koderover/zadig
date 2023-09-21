@@ -1300,6 +1300,22 @@ func GetMseTagsInEnv(c *gin.Context) {
 	}
 }
 
+func GetJenkinsJobParams(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	jobParams, err := workflow.GetJenkinsJobParams(c.Param("id"), c.Param("jobName"))
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = struct {
+		Parameters []*workflow.JenkinsJobParams `json:"parameters"`
+	}{
+		Parameters: jobParams,
+	}
+}
+
 func getBody(c *gin.Context) string {
 	b, err := c.GetRawData()
 	if err != nil {
