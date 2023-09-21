@@ -157,6 +157,7 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 	if options == nil {
 		return
 	}
+	log.Debugf("Start to get task container log.")
 
 	serviceName, serviceModule := parseServiceName(options.ServiceName, options.ServiceModule)
 
@@ -257,6 +258,7 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 	if options == nil {
 		return
 	}
+	log.Debugf("Start to get task container log.")
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(options.PipelineName, options.TaskID)
 	if err != nil {
 		log.Errorf("Failed to find workflow %s taskID %s: %v", options.PipelineName, options.TaskID, err)
@@ -350,6 +352,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 	PodCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	log.Debugf("Waiting until pod is running before establishing the stream. labelSelector: %+v, clusterId: %s, namespace: %s", selector, options.ClusterID, options.Namespace)
 	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), options.ClusterID)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get client set error: %s", err)
@@ -373,6 +376,8 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 		log.Errorf("GetContainerLogs, get pod error: %+v", err)
 		return
 	}
+
+	log.Debugf("Found %d running pods", len(pods))
 
 	if len(pods) > 0 {
 		containerLogStream(
