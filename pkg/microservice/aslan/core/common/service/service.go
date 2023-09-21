@@ -1124,30 +1124,7 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 				return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
 			}
 		} else if deployType == setting.HelmDeployType {
-			param := &kube.ResourceApplyParam{
-				ProductInfo:           productInfo,
-				ServiceName:           serviceName,
-				Images:                make([]string, 0),
-				Uninstall:             false,
-				UpdateServiceRevision: false,
-				Timeout:               setting.DeployTimeout,
-			}
-
-			renderSet, _, _, err := kube.PrepareHelmServiceData(param)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get variables for service %s", serviceName)
-			}
-
-			chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
-			if !ok {
-				return nil, errors.Wrapf(err, "failed to get variables for service %s in render map", serviceName)
-			}
-
-			if chartInfo.OverrideYaml == nil {
-				chartInfo.OverrideYaml = &template.CustomYaml{}
-			}
-
-			svc.VariableYaml = chartInfo.OverrideYaml.YamlContent
+			svc.VariableYaml = productInfo.GetSvcRender(serviceName).OverrideYaml.YamlContent
 		}
 
 		ret.Services = append(ret.Services, svc)

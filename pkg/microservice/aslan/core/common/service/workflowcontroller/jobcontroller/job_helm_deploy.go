@@ -30,7 +30,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
@@ -129,7 +128,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		return 0
 	}()
 
-	renderSet, productService, svcTemplate, err := kube.PrepareHelmServiceData(param)
+	productService, svcTemplate, err := kube.PrepareHelmServiceData(param)
 	if err != nil {
 		msg := fmt.Sprintf("prepare helm service data error: %v", err)
 		logError(c.job, msg, c.logger)
@@ -163,15 +162,7 @@ func (c *HelmDeployJobCtl) Run(ctx context.Context) {
 		param.Images = kube.MergeImages(calculatedContainers, param.Images)
 	}
 
-	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
-	if !ok {
-		msg := fmt.Sprintf("failed to find chart info in render")
-		logError(c.job, msg, c.logger)
-		return
-	}
-	if chartInfo.OverrideYaml == nil {
-		chartInfo.OverrideYaml = &template.CustomYaml{}
-	}
+	chartInfo := productService.GetServiceRender()
 
 	variableYaml := ""
 	// variable yaml from workflow task

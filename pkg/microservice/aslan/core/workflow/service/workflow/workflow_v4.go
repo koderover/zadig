@@ -2132,7 +2132,7 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		return 0
 	}()
 
-	renderSet, productService, _, err := kube.PrepareHelmServiceData(param)
+	productService, _, err := kube.PrepareHelmServiceData(param)
 	if err != nil {
 		log.Errorf("prepare helm service data error: %v", err)
 		return nil, err
@@ -2162,15 +2162,7 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		param.Images = images
 	}
 
-	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
-	if !ok {
-		log.Errorf("failed to find chart info in render")
-		return nil, err
-	}
-	if chartInfo.OverrideYaml == nil {
-		chartInfo.OverrideYaml = &template.CustomYaml{}
-	}
-
+	chartInfo := productService.GetServiceRender()
 	param.VariableYaml = variableYaml
 	chartInfo.OverrideYaml.YamlContent = variableYaml
 
