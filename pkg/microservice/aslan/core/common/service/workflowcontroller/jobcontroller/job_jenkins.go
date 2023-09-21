@@ -111,9 +111,14 @@ func (c *JenkinsJobCtl) Run(ctx context.Context) {
 		case <-ctx.Done():
 			if _, err := build.Stop(context.Background()); err != nil {
 				log.Warnf("job jenkins failed to stop jenkins job, error: %s", err)
-				c.job.Status = config.StatusCancelled
-				return
 			}
+			c.job.Status = config.StatusCancelled
+			consoleOutput, err := build.GetConsoleOutputFromIndex(context.TODO(), 0)
+			if err != nil {
+				log.Warnf("job jenkins failed to get logs from jenkins job, error: %s", err)
+			}
+			c.jobTaskSpec.Job.JobOutput = consoleOutput.Content
+			return
 		default:
 			time.Sleep(time.Second)
 			build.Poll(context.TODO())
