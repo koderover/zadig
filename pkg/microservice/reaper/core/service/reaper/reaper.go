@@ -300,6 +300,9 @@ func (r *Reaper) setProxy(ctx *meta.DockerBuildCtx, cfg *meta.Proxy) {
 
 func (r *Reaper) dockerCommands() []*exec.Cmd {
 	cmds := make([]*exec.Cmd, 0)
+	if r.Ctx.DockerBuildCtx.WorkDir == "" {
+		r.Ctx.DockerBuildCtx.WorkDir = "."
+	}
 	cmds = append(
 		cmds,
 		dockerBuildCmd(
