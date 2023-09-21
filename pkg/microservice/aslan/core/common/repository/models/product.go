@@ -244,6 +244,14 @@ func (p *Product) GetSvcRender(svcName string) *templatemodels.ServiceRender {
 	}
 }
 
+func (p *Product) GetSvcList() []*ProductService {
+	ret := make([]*ProductService, 0)
+	for _, svcGroup := range p.Services {
+		ret = append(ret, svcGroup...)
+	}
+	return ret
+}
+
 func (p *Product) GetServiceMap() map[string]*ProductService {
 	ret := make(map[string]*ProductService)
 	for _, group := range p.Services {

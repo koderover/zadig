@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
@@ -1317,8 +1319,8 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, log)
 }
 
-func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, productRenderset *models.RenderSet, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
-	equal, err := yamlutil.Equal(productRenderset.DefaultValues, args.DefaultValues)
+func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, _ *models.RenderSet, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
+	equal, err := yamlutil.Equal(product.DefaultValues, args.DefaultValues)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal default values in renderset, err: %s", err)
 	}
@@ -1339,16 +1341,16 @@ func UpdateProductDefaultValuesWithRender(product *commonmodels.Product, product
 				releaseSet.Insert(svc.ReleaseName)
 			}
 		}
-		for _, svcChart := range productRenderset.ChartInfos {
-			if svcChart.DeployedFromZadig() && svcSet.Has(svcChart.ServiceName) {
-				updatedSvcList = append(updatedSvcList, svcChart)
+		for _, svc := range product.GetSvcList() {
+			if svc.FromZadig() && svcSet.Has(svc.ServiceName) {
+				updatedSvcList = append(updatedSvcList, svc.GetServiceRender())
 			}
-			if !svcChart.DeployedFromZadig() && releaseSet.Has(svcChart.ReleaseName) {
-				updatedSvcList = append(updatedSvcList, svcChart)
+			if !svc.FromZadig() && releaseSet.Has(svc.ReleaseName) {
+				updatedSvcList = append(updatedSvcList, svc.GetServiceRender())
 			}
 		}
 	}
-	return UpdateProductVariable(productRenderset.ProductTmpl, productRenderset.EnvName, userName, requestID, updatedSvcList, nil, product.DefaultValues, product.YamlData, productRenderset, setting.HelmDeployType, log)
+	return UpdateProductVariable(product.ProductName, product.EnvName, userName, requestID, updatedSvcList, nil, product.DefaultValues, product.YamlData, nil, setting.HelmDeployType, log)
 }
 
 func UpdateHelmProductCharts(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
@@ -2870,6 +2872,8 @@ func batchExecutor(interval time.Duration, serviceList []*kube.ReleaseInstallPar
 func updateHelmProductGroup(username, productName, envName string, productResp *commonmodels.Product,
 	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, addedReleaseNameSet sets.String, log *zap.SugaredLogger) error {
 
+	log.Infof("----- updateHelmProductGroup delete svc revisions: %v, addedReleaseset: %v", deletedSvcRevision, addedReleaseNameSet)
+
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
@@ -2907,7 +2911,7 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 		return svcNameSet.Has(svc.ServiceName)
 	}
 
-	productResp.Render.Revision = renderSet.Revision
+	//productResp.Render.Revision = renderSet.Revision
 
 	if productResp.ServiceDeployStrategy != nil {
 		for _, releaseName := range addedReleaseNameSet.List() {
@@ -3013,17 +3017,17 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 // generate a new renderset and insert into db
 func diffRenderSet(username, productName, envName string, productResp *commonmodels.Product, overrideCharts []*commonservice.HelmSvcRenderArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	// default renderset created directly from the service template
-	//latestRenderSet, err := render.GetLatestRenderSetFromHelmProject(productName, productResp.Production)
-	//if err != nil {
-	//	log.Errorf("[RenderSet.find] err: %v", err)
-	//	return nil, err
-	//}
-	//
-	//// chart infos in template
-	//latestChartInfoMap := make(map[string]*templatemodels.ServiceRender)
-	//for _, renderInfo := range latestRenderSet.ChartInfos {
-	//	latestChartInfoMap[renderInfo.ServiceName] = renderInfo
-	//}
+	latestRenderSet, err := render.GetLatestRenderSetFromHelmProject(productName, productResp.Production)
+	if err != nil {
+		log.Errorf("[RenderSet.find] err: %v", err)
+		return nil, err
+	}
+
+	// chart infos in template
+	latestChartInfoMap := make(map[string]*templatemodels.ServiceRender)
+	for _, renderInfo := range latestRenderSet.ChartInfos {
+		latestChartInfoMap[renderInfo.ServiceName] = renderInfo
+	}
 
 	// chart infos from client
 	//addedReleaseNameSet := sets.NewString()
@@ -3087,15 +3091,37 @@ func diffRenderSet(username, productName, envName string, productResp *commonmod
 	//}
 
 	newChartInfos := make([]*templatemodels.ServiceRender, 0)
-	for _, svcGroup := range productResp.Services {
-		for _, svc := range svcGroup {
-			serviceName := svc.ServiceName
-			if svc.GetServiceRender().IsHelmChartDeploy && renderChartArgMap[serviceName] != nil {
-				renderChartArgMap[serviceName].FillRenderChartModel(svc.Render, svc.Render.ChartVersion)
-			} else if !svc.GetServiceRender().IsHelmChartDeploy && renderChartDeployArgMap[serviceName] != nil {
-				renderChartDeployArgMap[svc.ServiceName].FillRenderChartModel(svc.Render, svc.Render.ChartVersion)
-			}
-			newChartInfos = append(newChartInfos, svc.Render)
+	//for _, svcGroup := range productResp.Services {
+	//	for _, svc := range svcGroup {
+	//		serviceName := svc.ServiceName
+	//		if svc.GetServiceRender().IsHelmChartDeploy && renderChartArgMap[serviceName] != nil {
+	//			renderChartArgMap[serviceName].FillRenderChartModel(svc.Render, svc.Render.ChartVersion)
+	//			delete(renderChartArgMap, serviceName)
+	//		} else if !svc.GetServiceRender().IsHelmChartDeploy && renderChartDeployArgMap[serviceName] != nil {
+	//			renderChartDeployArgMap[svc.ServiceName].FillRenderChartModel(svc.Render, svc.Render.ChartVersion)
+	//			delete(renderChartDeployArgMap, serviceName)
+	//		}
+	//		newChartInfos = append(newChartInfos, svc.Render)
+	//	}
+	//}
+
+	for serviceName, latestChartInfo := range latestChartInfoMap {
+
+		if renderChartArgMap[serviceName] == nil {
+			continue
+		}
+
+		if productResp.GetServiceMap()[serviceName] == nil {
+			continue
+		}
+
+		productSvc := productResp.GetServiceMap()[serviceName]
+		if productSvc != nil {
+			renderChartArgMap[serviceName].FillRenderChartModel(productSvc.GetServiceRender(), productSvc.GetServiceRender().ChartVersion)
+			newChartInfos = append(newChartInfos, productSvc.GetServiceRender())
+		} else {
+			renderChartArgMap[serviceName].FillRenderChartModel(latestChartInfo, latestChartInfo.ChartVersion)
+			newChartInfos = append(newChartInfos, latestChartInfo)
 		}
 	}
 
@@ -3303,6 +3329,8 @@ func proceedHelmRelease(productResp *commonmodels.Product, renderset *commonmode
 				log.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", prodSvc.ServiceName, productResp.Namespace, err)
 				return err
 			}
+			prodSvc.Render = chartInfo
+			log.Infof("---- upgrade chart info: %+v", *chartInfo)
 			installParamList = append(installParamList, param)
 		}
 		groupServiceErr := batchExecutorWithRetry(3, time.Millisecond*500, installParamList, handler, log)
@@ -3422,19 +3450,6 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 		return nil, err
 	}
 
-	//opt := &commonrepo.RenderSetFindOption{
-	//	Name:        product.Render.Name,
-	//	EnvName:     envName,
-	//	ProductTmpl: product.Render.ProductTmpl,
-	//	Revision:    product.Render.Revision,
-	//}
-	//productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
-	//if err != nil {
-	//	log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-	//	return nil, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
-	//}
-
-	//equal, err := yamlutil.Equal(productRenderset.DefaultValues, globalVariable)
 	equal, err := yamlutil.Equal(product.DefaultValues, globalVariable)
 	if err != nil {
 		return ret, fmt.Errorf("failed to check if product and args global variable is equal, err: %s", err)
