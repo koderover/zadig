@@ -1289,18 +1289,6 @@ func UpdateProductDefaultValues(productName, envName, userName, requestID string
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("environment is sleeping"))
 	}
 
-	//opt := &commonrepo.RenderSetFindOption{
-	//	Name:        product.Render.Name,
-	//	Revision:    product.Render.Revision,
-	//	EnvName:     envName,
-	//	ProductTmpl: productName,
-	//}
-	//productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
-	//if err != nil {
-	//	log.Errorf("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-	//	return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
-	//}
-
 	err = validateArgs(args.ValuesData)
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to validate args: %s", err))
@@ -1693,6 +1681,11 @@ func updateHelmProductVariable(productResp *commonmodels.Product, renderset *com
 	}
 
 	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productResp.Namespace)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	err = commonrepo.NewProductColl().UpdateProductVariables(productResp)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -2922,12 +2915,12 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 		}
 	}
 
-	if err = commonrepo.NewProductColl().Update(productResp); err != nil {
+	if err = commonrepo.NewProductColl().UpdateDeployStrategy(productResp.EnvName, productResp.ProductName, productResp.ServiceDeployStrategy); err != nil {
 		log.Errorf("Failed to update env, err: %s", err)
 		return err
 	}
 
-	err = proceedHelmRelease(productResp, renderSet, helmClient, filter, log)
+	err = proceedHelmRelease(productResp, nil, helmClient, filter, log)
 	if err != nil {
 		log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 		return err
