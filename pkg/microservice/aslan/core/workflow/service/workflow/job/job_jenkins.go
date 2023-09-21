@@ -55,10 +55,9 @@ func (j *JenkinsJob) SetPreset() error {
 		return errors.Errorf("failed to get Jenkins info from mongo: %v", err)
 	}
 
+	// merge current jenkins job parameters
 	client := jenkins.NewClient(info.URL, info.Username, info.Password)
-	var (
-		eg errgroup.Group
-	)
+	var eg errgroup.Group
 	for _, job := range j.spec.Jobs {
 		job := job
 		eg.Go(func() error {
