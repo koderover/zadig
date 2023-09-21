@@ -20,6 +20,7 @@ import (
 	"context"
 
 	github2 "github.com/google/go-github/v35/github"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -150,6 +151,27 @@ func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 			Name:          o.GetName(),
 			DefaultBranch: o.GetDefaultBranch(),
 			Namespace:     o.GetOwner().GetLogin(),
+		})
+	}
+	return res, nil
+}
+
+func (c *Client) ListCommits(opt client.ListOpt) ([]*client.Commit, error) {
+	commits, err := c.Client.ListCommitsForBranch(context.TODO(), opt.Namespace, opt.ProjectName, opt.TargetBranch, &github.ListOptions{
+		Page:        opt.Page,
+		PerPage:     opt.PerPage,
+		NoPaginated: true,
+	})
+	if err != nil {
+		return nil, e.ErrCodehostListCommits.AddDesc(err.Error())
+	}
+	var res []*client.Commit
+	for _, c := range commits {
+		res = append(res, &client.Commit{
+			ID:        *c.SHA,
+			Message:   *c.Commit.Message,
+			Author:    *c.Commit.Author.Name,
+			CreatedAt: c.Author.CreatedAt.Unix(),
 		})
 	}
 	return res, nil

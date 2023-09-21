@@ -34,7 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -44,46 +43,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
-
-func syncContentFromCodehub(args *commonmodels.Service, logger *zap.SugaredLogger) error {
-	address, _, repo, branch, path, pathType, err := GetOwnerRepoBranchPath(args.SrcPath)
-	if err != nil {
-		logger.Errorf("Failed to parse url %s, err: %s", args.SrcPath, err)
-		return fmt.Errorf("url parse failure, err: %s", err)
-	}
-
-	if len(args.LoadPath) > 0 {
-		path = args.LoadPath
-	}
-	if len(args.BranchName) > 0 {
-		branch = args.BranchName
-	}
-	if len(args.RepoName) > 0 {
-		repo = args.RepoName
-	}
-
-	var yamls []string
-	client, err := getCodehubClientByAddress(address)
-	if err != nil {
-		logger.Errorf("Failed to get codehub client, error: %s", err)
-		return err
-	}
-	repoUUID, err := client.GetRepoUUID(repo)
-	if err != nil {
-		logger.Errorf("Failed to get repoUUID, error: %s", err)
-		return err
-	}
-	yamls, err = client.GetYAMLContents(repoUUID, branch, path, pathType == "tree", true)
-	if err != nil {
-		logger.Errorf("Failed to get yamls, error: %s", err)
-		return err
-	}
-
-	args.KubeYamls = yamls
-	args.Yaml = util.CombineManifests(yamls)
-
-	return nil
-}
 
 func reloadServiceTmplFromGit(svc *commonmodels.Service, log *zap.SugaredLogger) error {
 	_, err := service.CreateOrUpdateHelmServiceFromGitRepo(svc.ProductName, &service.HelmServiceCreationArgs{
@@ -135,12 +94,6 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 			err := syncContentFromGithub(args, log)
 			if err != nil {
 				log.Errorf("Sync content from github failed, error: %v", err)
-				return err
-			}
-		} else if args.Source == setting.SourceFromCodeHub {
-			err := syncContentFromCodehub(args, log)
-			if err != nil {
-				log.Errorf("Sync content from codehub failed, error: %v", err)
 				return err
 			}
 		} else {
@@ -222,47 +175,6 @@ func syncLatestCommit(service *commonmodels.Service) error {
 	return nil
 }
 
-func syncCodehubLatestCommit(service *commonmodels.Service) error {
-	if service.SrcPath == "" {
-		return fmt.Errorf("url不能是空的")
-	}
-
-	address, owner, repo, branch, _, _, err := GetOwnerRepoBranchPath(service.SrcPath)
-	if err != nil {
-		return fmt.Errorf("url 必须包含 owner/repo/tree/branch/path，具体请参考 Placeholder 提示")
-	}
-
-	client, err := getCodehubClientByAddress(address)
-	if err != nil {
-		return err
-	}
-
-	id, message, err := CodehubGetLatestCommit(client, owner, repo, branch)
-	if err != nil {
-		return err
-	}
-	service.Commit = &commonmodels.Commit{
-		SHA:     id,
-		Message: message,
-	}
-	return nil
-}
-
-func getCodehubClientByAddress(address string) (*codehub.Client, error) {
-	opt := &systemconfig.Option{
-		Address:      address,
-		CodeHostType: systemconfig.CodeHubProvider,
-	}
-	codehost, err := systemconfig.GetCodeHostInfo(opt)
-	if err != nil {
-		log.Error(err)
-		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
-	}
-	client := codehub.NewClient(codehost.AccessKey, codehost.SecretKey, codehost.Region, config.ProxyHTTPSAddr(), codehost.EnableProxy)
-
-	return client, nil
-}
-
 func getGitlabClientByCodehostId(codehostId int) (*gitlabtool.Client, error) {
 	codehost, err := systemconfig.New().GetCodeHost(codehostId)
 	if err != nil {
@@ -285,15 +197,6 @@ func GitlabGetLatestCommit(client *gitlabtool.Client, owner, repo string, ref, p
 			owner, repo, ref, path, err)
 	}
 	return commit, nil
-}
-
-func CodehubGetLatestCommit(client *codehub.Client, owner, repo string, branch string) (string, string, error) {
-	commit, err := client.GetLatestRepositoryCommit(owner, repo, branch)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get lastest commit with project %s/%s, ref: %s, error: %s",
-			owner, repo, branch, err)
-	}
-	return commit.ID, commit.Message, nil
 }
 
 // GitlabGetRawFiles ...

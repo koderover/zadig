@@ -87,7 +87,7 @@ func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 }
 
 func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
-	prs, err := c.Client.ListOpenedProjectMergeRequests(opt.Namespace, opt.ProjectName, opt.TargeBr, opt.Key, &gitlab.ListOptions{
+	prs, err := c.Client.ListOpenedProjectMergeRequests(opt.Namespace, opt.ProjectName, opt.TargetBranch, opt.Key, &gitlab.ListOptions{
 		Page:        opt.Page,
 		PerPage:     opt.PerPage,
 		NoPaginated: true,
@@ -160,6 +160,27 @@ func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 			Namespace:     o.Namespace.FullPath,
 			Description:   o.Description,
 			DefaultBranch: o.DefaultBranch,
+		})
+	}
+	return res, nil
+}
+
+func (c *Client) ListCommits(opt client.ListOpt) ([]*client.Commit, error) {
+	commits, err := c.Client.ListCommits(opt.Namespace, opt.ProjectName, opt.TargetBranch, &gitlab.ListOptions{
+		Page:        opt.Page,
+		PerPage:     opt.PerPage,
+		NoPaginated: true,
+	})
+	if err != nil {
+		return nil, e.ErrCodehostListCommits.AddDesc(err.Error())
+	}
+	var res []*client.Commit
+	for _, c := range commits {
+		res = append(res, &client.Commit{
+			ID:        c.ID,
+			Message:   c.Message,
+			CreatedAt: c.CreatedAt.Unix(),
+			Author:    c.AuthorName,
 		})
 	}
 	return res, nil

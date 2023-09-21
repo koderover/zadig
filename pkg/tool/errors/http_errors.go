@@ -526,6 +526,7 @@ var (
 	ErrCodehostListBranches   = NewHTTPError(6552, "请确认是否为有效代码源，列出分支失败")
 	ErrCodehostListPrs        = NewHTTPError(6553, "请确认是否为有效代码源，列出pr失败")
 	ErrCodehostListTags       = NewHTTPError(6554, "请确认是否为有效代码源，列出tag失败")
+	ErrCodehostListCommits    = NewHTTPError(6555, "请确认是否为有效代码源，列出commit失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// delivery_version APIs Range: 6560 - 6569

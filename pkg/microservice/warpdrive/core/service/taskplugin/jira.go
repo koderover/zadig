@@ -251,7 +251,7 @@ func (p *JiraPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 			// 2. parse all commits
 			if len(build.PRs) > 0 {
 				for _, pr := range build.PRs {
-					commits, err := gh.ListCommits(context.TODO(), build.RepoOwner, build.RepoName, pr, nil)
+					commits, err := gh.ListCommitsForPR(context.TODO(), build.RepoOwner, build.RepoName, pr, nil)
 					if err != nil {
 						p.Log.Errorf("github ListCommits [%s/%s:%d] error: %v", build.RepoOwner, build.RepoName, pr, err)
 						p.Task.TaskStatus = config.StatusSkipped

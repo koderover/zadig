@@ -29,7 +29,6 @@ const (
 	GitLabProvider  = "gitlab"
 	GitHubProvider  = "github"
 	GerritProvider  = "gerrit"
-	CodeHubProvider = "codehub"
 	GiteeProvider   = "gitee"
 	GiteeEEProvider = "gitee-enterprise"
 	OtherProvider   = "other"

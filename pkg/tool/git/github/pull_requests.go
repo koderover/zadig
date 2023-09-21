@@ -40,7 +40,7 @@ func (c *Client) ListPullRequests(ctx context.Context, owner string, repo string
 	return nil, err
 }
 
-func (c *Client) ListCommits(ctx context.Context, owner string, repo string, number int, opts *ListOptions) ([]*github.RepositoryCommit, error) {
+func (c *Client) ListCommitsForPR(ctx context.Context, owner string, repo string, number int, opts *ListOptions) ([]*github.RepositoryCommit, error) {
 	commits, err := wrap(paginated(func(o *github.ListOptions) ([]interface{}, *github.Response, error) {
 		cs, r, err := c.PullRequests.ListCommits(ctx, owner, repo, number, o)
 		var res []interface{}
@@ -49,6 +49,37 @@ func (c *Client) ListCommits(ctx context.Context, owner string, repo string, num
 		}
 		return res, r, err
 	}, opts))
+
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*github.RepositoryCommit
+	cs, ok := commits.([]interface{})
+	if !ok {
+		return nil, nil
+	}
+	for _, c := range cs {
+		res = append(res, c.(*github.RepositoryCommit))
+	}
+
+	return res, err
+}
+
+func (c *Client) ListCommitsForBranch(ctx context.Context, owner, repo, branch string, opts *ListOptions) ([]*github.RepositoryCommit, error) {
+	paginationOpts := &github.ListOptions{
+		Page:    1,
+		PerPage: 100,
+	}
+	if opts != nil {
+		paginationOpts.Page = opts.Page
+		paginationOpts.PerPage = opts.PerPage
+	}
+	listOpts := &github.CommitsListOptions{
+		SHA:         branch,
+		ListOptions: *paginationOpts,
+	}
+	commits, err := wrap(c.Repositories.ListCommits(ctx, owner, repo, listOpts))
 
 	if err != nil {
 		return nil, err
