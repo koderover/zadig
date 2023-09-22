@@ -699,8 +699,16 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 				releaseName := util.GeneReleaseName(templateSvcMap[svr.ServiceName].GetReleaseNaming(), svr.ProductName, productResp.Namespace, productResp.EnvName, svr.ServiceName)
 				overrideChartMap[svr.ServiceName].ReleaseName = releaseName
 				addedReleaseNameSet.Insert(releaseName)
+
+				if svr.Render == nil {
+					svr.GetServiceRender().ChartVersion = templateSvcMap[svr.ServiceName].HelmChart.Version
+					svr.GetServiceRender().ValuesYaml = templateSvcMap[svr.ServiceName].HelmChart.ValuesYaml
+				}
+				log.Infof("-------- svr render data: %+v", *svr.Render)
+
 			}
 			svcGroup = append(svcGroup, svr)
+
 			if ps == nil {
 				continue
 			}
