@@ -978,6 +978,10 @@ definitions:
         type: string
       name:
         type: string
+      pods:
+        items:
+          $ref: '#/definitions/resource.Pod'
+        type: array
       schedule:
         type: string
       suspend:
@@ -1455,6 +1459,17 @@ definitions:
       ready:
         type: string
       status:
+        type: string
+    type: object
+  service.ListServiceVersionsResponse:
+    properties:
+      create_by:
+        type: string
+      create_time:
+        type: integer
+      revision:
+        type: integer
+      service_name:
         type: string
     type: object
   service.LoadServiceFromYamlTemplateReq:
@@ -3824,6 +3839,99 @@ paths:
       summary: Update production_global variables
       tags:
       - project
+  /api/aslan/service/production/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Production Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListServiceVersionsResponse'
+            type: array
+      summary: List Production Service Versions
+      tags:
+      - service
+  /api/aslan/service/production/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Production Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: version a
+        in: query
+        name: versionA
+        required: true
+        type: integer
+      - description: version b
+        in: query
+        name: versionB
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListServiceVersionsResponse'
+      summary: Diff Production Service Versions
+      tags:
+      - service
+  /api/aslan/service/production/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Service Version
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: version
+        in: query
+        name: version
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Production Service Version
+      tags:
+      - service
   /api/aslan/service/services:
     post:
       consumes:
@@ -3967,6 +4075,99 @@ paths:
         "200":
           description: OK
       summary: Reload service from yaml template
+      tags:
+      - service
+  /api/aslan/service/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListServiceVersionsResponse'
+            type: array
+      summary: List Service Versions
+      tags:
+      - service
+  /api/aslan/service/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: version a
+        in: query
+        name: versionA
+        required: true
+        type: integer
+      - description: version b
+        in: query
+        name: versionB
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListServiceVersionsResponse'
+      summary: Diff Service Versions
+      tags:
+      - service
+  /api/aslan/service/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Service Version
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: version
+        in: query
+        name: version
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Service Version
       tags:
       - service
   /api/aslan/system/llm/integration:

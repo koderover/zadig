@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -64,6 +65,7 @@ func (c *ProductionServiceColl) GetCollectionName() string {
 }
 
 func (c *ProductionServiceColl) Create(args *models.Service) error {
+	args.CreateTime = time.Now().Unix()
 	_, err := c.InsertOne(context.Background(), args)
 	return err
 }
@@ -239,6 +241,50 @@ func (c *ProductionServiceColl) ListMaxRevisionsByProject(productName, serviceTy
 		pre["type"] = serviceType
 	}
 	return c.listMaxRevisions(pre, nil)
+}
+
+// ListServiceAllRevisionsAndStatus will list all revision include deleting status
+func (c *ProductionServiceColl) ListServiceAllRevisionsAndStatus(serviceName, productName string) ([]*models.Service, error) {
+	resp := make([]*models.Service, 0)
+	query := bson.M{}
+	query["product_name"] = productName
+	query["service_name"] = serviceName
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp) == 0 {
+		return nil, mongo.ErrNoDocuments
+	}
+	return resp, err
+}
+
+func (c *ProductionServiceColl) ListServiceAllRevisions(productName, serviceName string) ([]*models.Service, error) {
+	resp := make([]*models.Service, 0)
+	query := bson.M{}
+	query["product_name"] = productName
+	query["service_name"] = serviceName
+	query["status"] = bson.M{"$ne": setting.ProductStatusDeleting}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp) == 0 {
+		return nil, mongo.ErrNoDocuments
+	}
+	return resp, err
 }
 
 func (c *ProductionServiceColl) UpdateServiceVariables(args *models.Service) error {

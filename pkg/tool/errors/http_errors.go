@@ -109,6 +109,10 @@ var (
 	ErrValidateServiceUpdate = NewHTTPError(6057, "更新服务配置失败")
 	// ErrChartDryRun
 	ErrHelmDryRunFailed = NewHTTPError(6058, "helm chart --dry-run 失败，服务保存不成功")
+	ErrListServiceTemplateVersions = NewHTTPError(6059, "列出服务模版版本失败")
+	// FIXME: run out of error code
+	ErrDiffServiceTemplateVersions = NewHTTPError(6040, "Diff服务模版版本失败")
+	ErrRollbackServiceTemplateVersion = NewHTTPError(6041, "回滚服务模版版本失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product APIs Range: 6060 - 6079
