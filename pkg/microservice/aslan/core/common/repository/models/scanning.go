@@ -25,18 +25,21 @@ import (
 )
 
 type Scanning struct {
-	ID          primitive.ObjectID  `bson:"_id,omitempty" json:"id,omitempty"`
-	Name        string              `bson:"name"          json:"name"`
-	ProjectName string              `bson:"project_name"  json:"project_name"`
-	Description string              `bson:"description"   json:"description"`
-	ScannerType string              `bson:"scanner_type"  json:"scanner_type"`
-	ImageID     string              `bson:"image_id"      json:"image_id"`
-	SonarID     string              `bson:"sonar_id"      json:"sonar_id"`
-	Repos       []*types.Repository `bson:"repos"         json:"repos"`
-	Installs    []*Item             `bson:"installs"      json:"installs"`
-	PreScript   string              `bson:"pre_script"    json:"pre_script"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Name        string             `bson:"name"          json:"name"`
+	ProjectName string             `bson:"project_name"  json:"project_name"`
+	Description string             `bson:"description"   json:"description"`
+	ScannerType string             `bson:"scanner_type"  json:"scanner_type"`
+	// EnableScanner indicates whether user uses sonar scanner instead of the script
+	EnableScanner bool                `bson:"enable_scanner" json:"enable_scanner"`
+	ImageID       string              `bson:"image_id"      json:"image_id"`
+	SonarID       string              `bson:"sonar_id"      json:"sonar_id"`
+	Repos         []*types.Repository `bson:"repos"         json:"repos"`
+	Installs      []*Item             `bson:"installs"      json:"installs"`
 	// Parameter is for sonarQube type only
 	Parameter string `bson:"parameter" json:"parameter"`
+	// Envs is the user defined key/values
+	Envs []*KeyVal `bson:"envs" json:"envs"`
 	// Script is for other type only
 	Script           string                   `bson:"script"                json:"script"`
 	AdvancedSetting  *ScanningAdvancedSetting `bson:"advanced_setting"      json:"advanced_setting"`
@@ -53,13 +56,14 @@ func (Scanning) TableName() string {
 }
 
 type ScanningAdvancedSetting struct {
-	ClusterID  string              `bson:"cluster_id"   json:"cluster_id"`
-	StrategyID string              `bson:"strategy_id"  json:"strategy_id"`
-	Timeout    int64               `bson:"timeout"      json:"timeout"`
-	ResReq     setting.Request     `bson:"res_req"      json:"res_req"`
-	ResReqSpec setting.RequestSpec `bson:"res_req_spec" json:"res_req_spec"`
-	HookCtl    *ScanningHookCtl    `bson:"hook_ctl"     json:"hook_ctl"`
-	NotifyCtls []*NotifyCtl        `bson:"notify_ctls"     json:"notify_ctls"`
+	ClusterID  string                `bson:"cluster_id"   json:"cluster_id"`
+	StrategyID string                `bson:"strategy_id"  json:"strategy_id"`
+	Timeout    int64                 `bson:"timeout"      json:"timeout"`
+	ResReq     setting.Request       `bson:"res_req"      json:"res_req"`
+	ResReqSpec setting.RequestSpec   `bson:"res_req_spec" json:"res_req_spec"`
+	HookCtl    *ScanningHookCtl      `bson:"hook_ctl"     json:"hook_ctl"`
+	NotifyCtls []*NotifyCtl          `bson:"notify_ctls"  json:"notify_ctls"`
+	Cache      *ScanningCacheSetting `bson:"cache"        json:"cache"`
 }
 
 type ScanningHookCtl struct {
@@ -82,4 +86,10 @@ type ScanningHook struct {
 type SonarInfo struct {
 	ServerAddress string `bson:"server_address" json:"server_address"`
 	Token         string `bson:"token"          json:"token"`
+}
+
+type ScanningCacheSetting struct {
+	CacheEnable  bool               `bson:"cache_enable"        json:"cache_enable"`
+	CacheDirType types.CacheDirType `bson:"cache_dir_type"      json:"cache_dir_type"`
+	CacheUserDir string             `bson:"cache_user_dir"      json:"cache_user_dir"`
 }

@@ -14,16 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resource
+package models
 
-type CronJob struct {
-	Name         string            `json:"name"`
-	Labels       map[string]string `json:"labels"`
-	Images       []*ContainerImage `json:"images"`
-	Pods         []*Pod            `json:"pods"`
-	CreateTime   int64             `json:"create_time,omitempty"`
-	Suspend      bool              `json:"suspend"`
-	Schedule     string            `json:"schedule,omitempty"`
-	LastSchedule string            `json:"last_schedule,omitempty"`
-	Active       int               `json:"active,omitempty"`
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+type Migration struct {
+	ID             primitive.ObjectID `bson:"_id,omitempty"`
+	SonarMigration bool               `bson:"sonar_migration"`
+}
+
+func (Migration) TableName() string {
+	return "migration"
 }

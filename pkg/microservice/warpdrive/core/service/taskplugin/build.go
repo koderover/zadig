@@ -22,7 +22,6 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -181,6 +180,9 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 
 	pipelineCtx.UseHostDockerDaemon = p.Task.UseHostDockerDaemon
 
+	// universal envs
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, PrepareDefaultWorkflowTaskEnvs(pipelineTask)...)
+
 	if pipelineTask.Type == config.WorkflowType {
 		envName := pipelineTask.WorkflowArgs.Namespace
 		envNameVar := &task.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false}
@@ -198,11 +200,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	// Note: When 'pipelinetask.type == config.ServiceType', it may be `nil`.
 	if pipelineTask.WorkflowArgs != nil {
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "WORKFLOW", Value: pipelineTask.WorkflowArgs.WorkflowName})
-		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "PROJECT", Value: pipelineTask.WorkflowArgs.ProductTmplName})
 	}
-
-	taskIDVar := &task.KeyVal{Key: "TASK_ID", Value: strconv.FormatInt(pipelineTask.TaskID, 10), IsCredential: false}
-	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, taskIDVar)
 
 	privateKeys := sets.String{}
 	for _, privateKey := range pipelineTask.ConfigPayload.PrivateKeys {
@@ -235,7 +233,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	}
 
 	//instantiates variables like ${<REPO>_BRANCH} ${${REPO_index}_BRANCH} ..
-	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, InstantiateBuildSysVariables(&p.Task.JobCtx)...)
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, CreateEnvsFromRepoInfo(p.Task.JobCtx.Builds)...)
 
 	// Note: Currently, `SERVICE` in the environment variable represents a service module.
 	// Since variable rendering is required next, the `SERVICE_MODULE` environment variable is added to accurately

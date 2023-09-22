@@ -24,10 +24,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
+	internaldb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
@@ -67,6 +68,12 @@ func V1180ToV1190() error {
 	log.Infof("-------- start migrate sonar intergration system identity --------")
 	if err := migrateSonarIntegrationSystemIdentity(); err != nil {
 		log.Infof("migrateSonarIntegrationSystemIdentity err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate sonar scanning --------")
+	if err := migrateSonarScanningModules(); err != nil {
+		log.Infof("migrate sonar scanning err: %v", err)
 		return err
 	}
 
@@ -285,8 +292,8 @@ func migrateProjectManagementSystemIdentity() error {
 		for _, stage := range workflow.Stages {
 			for _, job := range stage.Jobs {
 				if job.JobType == config.JobJira {
-					spec := &commonmodels.JiraJobSpec{}
-					if err := commonmodels.IToiYaml(job.Spec, spec); err != nil {
+					spec := &models.JiraJobSpec{}
+					if err := models.IToiYaml(job.Spec, spec); err != nil {
 						return err
 					}
 
@@ -305,8 +312,8 @@ func migrateProjectManagementSystemIdentity() error {
 					job.Spec = spec
 					changed = true
 				} else if job.JobType == config.JobMeegoTransition {
-					spec := &commonmodels.MeegoTransitionJobSpec{}
-					if err := commonmodels.IToiYaml(job.Spec, spec); err != nil {
+					spec := &models.MeegoTransitionJobSpec{}
+					if err := models.IToiYaml(job.Spec, spec); err != nil {
 						return err
 					}
 
@@ -455,6 +462,45 @@ func migrateSonarIntegrationSystemIdentity() error {
 		sonar.SystemIdentity = fmt.Sprintf("sonar-%d", count)
 		if err := mongodb.NewSonarIntegrationColl().Update(context.Background(), sonar.ID.Hex(), sonar); err != nil {
 			return fmt.Errorf("failed to update sonar intergration system identity, err: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func migrateSonarScanningModules() error {
+	migrationInfo, err := getMigrationInfo()
+	if err != nil {
+		return fmt.Errorf("failed to get migration info from db, err: %s", err)
+	}
+
+	// if the migration hasn't been done, do a migration
+	if !migrationInfo.SonarMigration {
+		scannings, err := internaldb.NewScanningColl().List(&internaldb.ScanningListOption{Type: "sonarQube"})
+		if err != nil {
+			return fmt.Errorf("failed to list scannings to migrate, error: %s", err)
+		}
+
+		for _, scanning := range scannings {
+			scanning.EnableScanner = true
+			scanning.AdvancedSetting.Cache = &internalmodels.ScanningCacheSetting{
+				CacheEnable: false,
+			}
+			scanning.Script = scanning.PreScript
+			err = internaldb.NewScanningColl().Update(scanning.ID, scanning)
+			if err != nil {
+				return fmt.Errorf("failed to update scannings, error: %s", err)
+			}
+		}
+
+		err = internaldb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID,
+			map[string]interface{}{
+				"sonar_migration": true,
+			},
+		)
+
+		if err != nil {
+			return fmt.Errorf("failed to update migration status for sonar scanning migration, error: %s", err)
 		}
 	}
 

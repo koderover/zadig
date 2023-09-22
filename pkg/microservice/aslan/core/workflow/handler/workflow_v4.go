@@ -378,7 +378,8 @@ func FindWorkflowV4(c *gin.Context) {
 		}
 
 		if !ctx.Resources.ProjectAuthInfo[resp.Project].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[resp.Project].Workflow.Edit {
+			!ctx.Resources.ProjectAuthInfo[resp.Project].Workflow.Edit &&
+			!ctx.Resources.ProjectAuthInfo[resp.Project].Workflow.View {
 			// check if the permission is given by collaboration mode
 			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, resp.Project, types.ResourceTypeWorkflow, resp.Name, types.WorkflowActionView)
 			if err != nil || !permitted {
@@ -1296,6 +1297,22 @@ func GetMseTagsInEnv(c *gin.Context) {
 		Tags []string `json:"tags"`
 	}{
 		Tags: tags,
+	}
+}
+
+func GetJenkinsJobParams(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	jobParams, err := workflow.GetJenkinsJobParams(c.Param("id"), c.Param("jobName"))
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp = struct {
+		Parameters []*workflow.JenkinsJobParams `json:"parameters"`
+	}{
+		Parameters: jobParams,
 	}
 }
 

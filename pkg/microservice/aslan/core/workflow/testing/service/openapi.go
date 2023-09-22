@@ -78,7 +78,6 @@ func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *
 		Description:      req.Description,
 		ScannerType:      req.ScannerType,
 		Installs:         req.Addons,
-		PreScript:        req.PrelaunchScript,
 		Parameter:        req.SonarParameter,
 		Script:           req.Script,
 		CheckQualityGate: req.EnableQualityGate,

@@ -50,5 +50,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sse.GET("/v3/workflow/build/:workflowName/:taskId/:lines", GetWorkflowBuildV3JobContainerLogsSSE)
 		sse.GET("/scanning/:id/task/:scan_id", GetScanningContainerLogsSSE)
 		sse.GET("/v4/workflow/:workflowName/:taskID/:jobName/:lines", GetWorkflowJobContainerLogsSSE)
+		sse.GET("/jenkins/:id/:jobName/:jobID", GetJenkinsJobContainerLogsSSE)
 	}
 }

@@ -65,6 +65,8 @@ type Task struct {
 	WorkflowArgs *WorkflowTaskArgs `bson:"workflow_args"         json:"workflow_args,omitempty"`
 	// TestArgs test workflow args
 	TestArgs *TestTaskArgs `bson:"test_args,omitempty"         json:"test_args,omitempty"`
+	// ScanningArgs argument for scanning tasks
+	ScanningArgs *ScanningArgs `bson:"scanning_args,omitempty" json:"scanning_args,omitempty"`
 	// ServiceTaskArgs sh deploy args
 	ServiceTaskArgs *ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
 	// ArtifactPackageTaskArgs arguments for artifact-package type tasks
@@ -242,6 +244,14 @@ type TestTaskArgs struct {
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	RepoOwner      string `bson:"repo_owner"       json:"repo_owner"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
+}
+
+type ScanningArgs struct {
+	ScanningName string `json:"scanning_name" bson:"scanning_name"`
+	ScanningID   string `json:"scanning_id"   bson:"scanning_id"`
+
+	// NotificationID is the id of scmnotify.Notification
+	NotificationID string `bson:"notification_id" json:"notification_id"`
 }
 
 type BuildArgs struct {

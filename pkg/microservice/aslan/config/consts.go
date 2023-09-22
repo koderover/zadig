@@ -220,6 +220,7 @@ const (
 	JobJira                 JobType = "jira"
 	JobNacos                JobType = "nacos"
 	JobApollo               JobType = "apollo"
+	JobJenkins              JobType = "jenkins"
 	JobMeegoTransition      JobType = "meego-transition"
 	JobWorkflowTrigger      JobType = "workflow-trigger"
 	JobOfflineService       JobType = "offline-service"
@@ -417,6 +418,14 @@ const (
 	ProjectTypeYaml   = "yaml"
 	ProjectTypeVM     = "vm"
 	ProjectTypeLoaded = "loaded"
+)
+
+type ParamType string
+
+const (
+	ParamTypeString = "string"
+	ParamTypeBool   = "bool"
+	ParamTypeChoice = "choice"
 )
 
 type ParamSourceType string
