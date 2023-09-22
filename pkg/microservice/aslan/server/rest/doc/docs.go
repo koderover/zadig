@@ -2674,6 +2674,144 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/service/production/version/{serviceName}": {
+            "get": {
+                "description": "List Production Service Versions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "List Production Service Versions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.ListServiceVersionsResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/service/production/version/{serviceName}/diff": {
+            "get": {
+                "description": "Diff Production Service Versions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Diff Production Service Versions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version a",
+                        "name": "versionA",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version b",
+                        "name": "versionB",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.ListServiceVersionsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/service/production/version/{serviceName}/rollback": {
+            "post": {
+                "description": "Rollback Service Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Rollback Production Service Version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version",
+                        "name": "version",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/service/services": {
             "post": {
                 "description": "Create service template",
@@ -2895,9 +3033,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/aslan/system/helm/project": {
+        "/api/aslan/service/version/{serviceName}": {
             "get": {
-                "description": "List Helm Repos By Project",
+                "description": "List Service Versions",
                 "consumes": [
                     "application/json"
                 ],
@@ -2905,10 +3043,17 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "system"
+                    "service"
                 ],
-                "summary": "List Helm Repos By Project",
+                "summary": "List Service Versions",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "project name",
@@ -2923,9 +3068,105 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.HelmRepo"
+                                "$ref": "#/definitions/service.ListServiceVersionsResponse"
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/api/aslan/service/version/{serviceName}/diff": {
+            "get": {
+                "description": "Diff Service Versions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Diff Service Versions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version a",
+                        "name": "versionA",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version b",
+                        "name": "versionB",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.ListServiceVersionsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/service/version/{serviceName}/rollback": {
+            "post": {
+                "description": "Rollback Service Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Rollback Service Version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version",
+                        "name": "version",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
                     }
                 }
             }
@@ -6038,6 +6279,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ListServiceVersionsResponse": {
+            "type": "object",
+            "properties": {
+                "create_by": {
+                    "type": "string"
+                },
+                "create_time": {
+                    "type": "integer"
+                },
+                "revision": {
+                    "type": "integer"
+                },
+                "service_name": {
                     "type": "string"
                 }
             }

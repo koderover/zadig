@@ -114,6 +114,20 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		template.POST("/reload", ReloadServiceFromYamlTemplate)
 		template.POST("/preview", PreviewServiceYamlFromYamlTemplate)
 	}
+
+	version := router.Group("version")
+	{
+		version.GET("/:serviceName", ListServiceVersions)
+		version.GET("/:serviceName/diff", DiffServiceVersions)
+		version.POST("/:serviceName/rollback", RollbackServiceVersion)
+	}
+
+	productionVersion := router.Group("production/version")
+	{
+		productionVersion.GET("/:serviceName", ListProductionServiceVersions)
+		productionVersion.GET("/:serviceName/diff", DiffProductionServiceVersions)
+		productionVersion.GET("/:serviceName/rollback", DiffProductionServiceVersions)
+	}
 }
 
 type OpenAPIRouter struct{}
