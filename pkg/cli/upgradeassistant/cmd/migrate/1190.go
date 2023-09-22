@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	codehost_mongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -65,9 +66,15 @@ func V1180ToV1190() error {
 		return err
 	}
 
-	log.Infof("-------- start migrate sonar intergration system identity --------")
+	log.Infof("-------- start migrate sonar integration system identity --------")
 	if err := migrateSonarIntegrationSystemIdentity(); err != nil {
 		log.Infof("migrateSonarIntegrationSystemIdentity err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate codehost integration level --------")
+	if err := migrateCodeHostIntegrationLevel(); err != nil {
+		log.Infof("migrateConfigurationManagementSystemIdentity err: %v", err)
 		return err
 	}
 
@@ -179,7 +186,7 @@ func migrateWorkflowTemplate() error {
 		if len(ms) >= 50 {
 			log.Infof("update %d workflowV4 template", len(ms))
 			if _, err := mongodb.NewWorkflowV4TemplateColl().BulkWrite(context.Background(), ms); err != nil {
-				return fmt.Errorf("udpate workflowV4 templates for merging custom and release workflow, error: %s", err)
+				return fmt.Errorf("update workflowV4 templates for merging custom and release workflow, error: %s", err)
 			}
 			ms = []mongo.WriteModel{}
 		}
@@ -187,7 +194,7 @@ func migrateWorkflowTemplate() error {
 	if len(ms) > 0 {
 		log.Infof("update %d workflowV4 templates", len(ms))
 		if _, err := mongodb.NewWorkflowV4TemplateColl().BulkWrite(context.Background(), ms); err != nil {
-			return fmt.Errorf("udpate workflowV4 templates for merging custom and release workflow, error: %s", err)
+			return fmt.Errorf("update workflowV4 templates for merging custom and release workflow, error: %s", err)
 		}
 	}
 
@@ -216,7 +223,7 @@ func migrateWorkflowTemplate() error {
 		if len(ms) >= 50 {
 			log.Infof("update %d workflowV4", len(ms))
 			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-				return fmt.Errorf("udpate workflowV4s for merging custom and release workflow, error: %s", err)
+				return fmt.Errorf("update workflowV4s for merging custom and release workflow, error: %s", err)
 			}
 			ms = []mongo.WriteModel{}
 		}
@@ -224,7 +231,7 @@ func migrateWorkflowTemplate() error {
 	if len(ms) > 0 {
 		log.Infof("update %d workflowV4s", len(ms))
 		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-			return fmt.Errorf("udpate workflowV4s for merging custom and release workflow, error: %s", err)
+			return fmt.Errorf("update workflowV4s for merging custom and release workflow, error: %s", err)
 		}
 	}
 	return nil
@@ -350,7 +357,7 @@ func migrateProjectManagementSystemIdentity() error {
 		if len(ms) >= 50 {
 			log.Infof("update %d workflowV4", len(ms))
 			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-				return fmt.Errorf("udpate workflowV4s for jira/meego job system identity, error: %s", err)
+				return fmt.Errorf("update workflowV4s for jira/meego job system identity, error: %s", err)
 			}
 			ms = []mongo.WriteModel{}
 		}
@@ -358,7 +365,7 @@ func migrateProjectManagementSystemIdentity() error {
 	if len(ms) > 0 {
 		log.Infof("update %d workflowV4s", len(ms))
 		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-			return fmt.Errorf("udpate workflowV4s for jira/meego job system identity, error: %s", err)
+			return fmt.Errorf("update workflowV4s for jira/meego job system identity, error: %s", err)
 		}
 	}
 
@@ -407,7 +414,7 @@ func migrateProjectManagementSystemIdentity() error {
 		if len(ms) >= 50 {
 			log.Infof("update %d workflowV4", len(ms))
 			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-				return fmt.Errorf("udpate workflowV4s for meego hook system identity, error: %s", err)
+				return fmt.Errorf("update workflowV4s for meego hook system identity, error: %s", err)
 			}
 			ms = []mongo.WriteModel{}
 		}
@@ -415,7 +422,7 @@ func migrateProjectManagementSystemIdentity() error {
 	if len(ms) > 0 {
 		log.Infof("update %d workflowV4s", len(ms))
 		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-			return fmt.Errorf("udpate workflowV4s for meego hook system identity, error: %s", err)
+			return fmt.Errorf("update workflowV4s for meego hook system identity, error: %s", err)
 		}
 	}
 
@@ -449,7 +456,7 @@ func migrateConfigurationManagementSystemIdentity() error {
 func migrateSonarIntegrationSystemIdentity() error {
 	sonars, _, err := mongodb.NewSonarIntegrationColl().List(context.Background(), 0, 0)
 	if err != nil {
-		return fmt.Errorf("failed to list sonar intergration, err: %v", err)
+		return fmt.Errorf("failed to list sonar integration, err: %v", err)
 	}
 
 	count := 0
@@ -461,8 +468,23 @@ func migrateSonarIntegrationSystemIdentity() error {
 		count++
 		sonar.SystemIdentity = fmt.Sprintf("sonar-%d", count)
 		if err := mongodb.NewSonarIntegrationColl().Update(context.Background(), sonar.ID.Hex(), sonar); err != nil {
-			return fmt.Errorf("failed to update sonar intergration system identity, err: %v", err)
+			return fmt.Errorf("failed to update sonar integration system identity, err: %v", err)
 		}
+	}
+
+	return nil
+}
+
+func migrateCodeHostIntegrationLevel() error {
+	if _, err := codehost_mongodb.NewCodehostColl().UpdateMany(context.Background(),
+		bson.M{"integration_level": bson.M{
+			"$exists": false,
+		}},
+		bson.M{"$set": bson.M{
+			"integration_level": setting.IntegrationLevelSystem,
+		}},
+	); err != nil {
+		return fmt.Errorf("failed to update code host integration level, err: %v", err)
 	}
 
 	return nil

@@ -815,3 +815,10 @@ const (
 	ZadigBuild   = "zadig"
 	JenkinsBuild = "jenkins"
 )
+
+type IntegrationLevel string
+
+const (
+	IntegrationLevelSystem  IntegrationLevel = "system"
+	IntegrationLevelProject IntegrationLevel = "project"
+)
