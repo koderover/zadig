@@ -212,6 +212,8 @@ func (r *Repository) Ref() string {
 		return r.BranchRef()
 	} else if r.PR > 0 {
 		return r.PRRef()
+	} else if r.EnableCommit {
+		return r.CommitID
 	}
 
 	return ""
