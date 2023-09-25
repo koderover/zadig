@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -574,14 +576,12 @@ DistributeLoop:
 			// helm deployment type logic goes here
 			var (
 				productInfo              *types.Product
-				renderChart              *types.RenderChart
-				replacedValuesYaml       string
 				mergedValuesYaml         string
 				replacedMergedValuesYaml string
 				servicePath              string
+				serviceRender            *template.ServiceRender
 				chartPath                string
 				replaceValuesMap         map[string]interface{}
-				renderInfo               *types.RenderSet
 				helmClient               helmclient.Client
 			)
 
@@ -606,20 +606,12 @@ DistributeLoop:
 				continue DistributeLoop
 			}
 
-			renderInfo, err = p.getRenderSet(ctx, productInfo.Render.Name, productInfo.Render.Revision)
-			if err != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to get getRenderSet %s/%d",
-					productInfo.Render.Name, productInfo.Render.Revision)
-				return
-			}
-
 			serviceRevisionInProduct := int64(0)
 			var targetContainer *commonmodels.Container
 			for _, service := range productInfo.GetServiceMap() {
 				if service.ServiceName == distribute.DeployServiceName {
 					serviceRevisionInProduct = service.Revision
+					serviceRender = service.Render
 					for _, container := range service.Containers {
 						if container.Name == distribute.DeployContainerName {
 							targetContainer = container
@@ -628,6 +620,9 @@ DistributeLoop:
 					}
 					break
 				}
+			}
+			if serviceRender == nil {
+				serviceRender = &template.ServiceRender{ServiceName: distribute.DeployServiceName}
 			}
 
 			if targetContainer == nil {
@@ -639,23 +634,6 @@ DistributeLoop:
 
 			if targetContainer.ImagePath == nil {
 				err = errors.Errorf("failed to get image path of  %s from service %s", distribute.DeployContainerName, distribute.DeployServiceName)
-				distribute.DeployStatus = string(config.StatusFailed)
-				distribute.DeployEndTime = time.Now().Unix()
-				continue DistributeLoop
-			}
-
-			for _, chartInfo := range renderInfo.ChartInfos {
-				if chartInfo.ServiceName == distribute.DeployServiceName {
-					renderChart = chartInfo
-					break
-				}
-			}
-
-			if renderChart == nil {
-				err = errors.Errorf("failed to update container image in %s/%s，chart not found",
-					distribute.DeployNamespace,
-					distribute.DeployServiceName,
-				)
 				distribute.DeployStatus = string(config.StatusFailed)
 				distribute.DeployEndTime = time.Now().Unix()
 				continue DistributeLoop
@@ -721,12 +699,12 @@ DistributeLoop:
 			}
 
 			// merge override values and kvs into service's yaml
-			mergedValuesYaml, err = helmtool.MergeOverrideValues("", renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, imageKVS)
+			mergedValuesYaml, err = helmtool.MergeOverrideValues("", productInfo.DefaultValues, serviceRender.GetOverrideYaml(), serviceRender.OverrideValues, imageKVS)
 			if err != nil {
 				err = errors.WithMessagef(
 					err,
 					"failed to merge override values %s",
-					renderChart.OverrideValues,
+					productInfo.DefaultValues,
 				)
 				distribute.DeployStatus = string(config.StatusFailed)
 				distribute.DeployEndTime = time.Now().Unix()
@@ -781,7 +759,7 @@ DistributeLoop:
 				ChartName:   chartPath,
 				Namespace:   distribute.DeployNamespace,
 				ReuseValues: true,
-				Version:     renderChart.ChartVersion,
+				Version:     serviceRender.ChartVersion,
 				ValuesYaml:  replacedMergedValuesYaml,
 				SkipCRDs:    false,
 				UpgradeCRDs: true,
@@ -816,14 +794,6 @@ DistributeLoop:
 				distribute.DeployStatus = string(config.StatusFailed)
 				distribute.DeployEndTime = time.Now().Unix()
 				continue DistributeLoop
-			}
-
-			//替换环境变量中的chartInfos
-			for _, chartInfo := range renderInfo.ChartInfos {
-				if chartInfo.ServiceName == distribute.DeployServiceName {
-					chartInfo.ValuesYaml = replacedValuesYaml
-					break
-				}
 			}
 
 			distribute.DeployStatus = string(config.StatusPassed)
@@ -941,18 +911,6 @@ func (p *ReleaseImagePlugin) getProductInfo(ctx context.Context, args *EnvArgs) 
 		return nil, err
 	}
 	return prod, nil
-}
-
-func (p *ReleaseImagePlugin) getRenderSet(ctx context.Context, name string, revision int64) (*types.RenderSet, error) {
-	url := fmt.Sprintf("/api/project/renders/render/%s/revision/%d", name, revision)
-
-	rs := &types.RenderSet{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(rs))
-	if err != nil {
-		return nil, err
-	}
-
-	return rs, nil
 }
 
 func (p *ReleaseImagePlugin) downloadService(productName, serviceName, storageURI string, revision int64) (string, error) {
