@@ -21,7 +21,6 @@ import (
 
 	github2 "github.com/google/go-github/v35/github"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -166,16 +165,14 @@ func (c *Client) ListCommits(opt client.ListOpt) ([]*client.Commit, error) {
 	if err != nil {
 		return nil, e.ErrCodehostListCommits.AddDesc(err.Error())
 	}
-	for _, commit := range commits {
-		log.Infof("[[[[[[ commit is: %+v ]]]]]]]]]", commit)
-	}
 	var res []*client.Commit
 	for _, c := range commits {
 		res = append(res, &client.Commit{
-			ID:        *c.SHA,
-			Message:   *c.Commit.Message,
-			Author:    *c.Commit.Author.Name,
-			CreatedAt: c.Committer.CreatedAt.Unix(),
+			ID:      *c.SHA,
+			Message: *c.Commit.Message,
+			Author:  *c.Commit.Author.Name,
+			// GitHub won't give creation timestamp in listing API, we will have to set it to 0.
+			CreatedAt: 0,
 		})
 	}
 	return res, nil
