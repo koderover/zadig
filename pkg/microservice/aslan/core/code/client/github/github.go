@@ -21,6 +21,7 @@ import (
 
 	github2 "github.com/google/go-github/v35/github"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -164,6 +165,9 @@ func (c *Client) ListCommits(opt client.ListOpt) ([]*client.Commit, error) {
 	})
 	if err != nil {
 		return nil, e.ErrCodehostListCommits.AddDesc(err.Error())
+	}
+	for _, commit := range commits {
+		log.Infof("[[[[[[ commit is: %+v ]]]]]]]]]", commit)
 	}
 	var res []*client.Commit
 	for _, c := range commits {
