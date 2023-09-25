@@ -33,8 +33,11 @@ func (ConfigurationManagement) TableName() string {
 
 type ApolloConfig struct {
 	ServerAddress string `json:"server_address"`
+	// User is the username of apollo for update config
+	User string `json:"user"`
 	*ApolloAuthConfig
 }
+
 type ApolloAuthConfig struct {
 	Token string `json:"token" bson:"token"`
 }
