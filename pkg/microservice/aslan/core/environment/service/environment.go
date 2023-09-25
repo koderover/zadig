@@ -2850,6 +2850,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 	for groupIndex, groupServices := range productResp.Services {
 		installParamList := make([]*kube.ReleaseInstallParam, 0)
 		for _, prodSvc := range groupServices {
+			log.Infof("proceedHelmRelease handing single svc, svc name %s, release name: %s ", prodSvc.ServiceName, prodSvc.ReleaseName)
 			chartInfo := findRenderChartFromList(prodSvc, productResp.ServiceRenders)
 			if chartInfo == nil {
 				continue

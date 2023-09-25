@@ -183,6 +183,9 @@ func (svc *ProductService) GetServiceRender() *templatemodels.ServiceRender {
 			ServiceName:  svc.ServiceName,
 			OverrideYaml: &templatemodels.CustomYaml{},
 		}
+		if !svc.FromZadig() {
+			svc.Render.IsHelmChartDeploy = true
+		}
 	}
 	if svc.Render.OverrideYaml == nil {
 		svc.Render.OverrideYaml = &templatemodels.CustomYaml{}
@@ -224,8 +227,10 @@ func (p *Product) GetGroupServiceNames() [][]string {
 
 func (p *Product) GetAllSvcRenders() []*templatemodels.ServiceRender {
 	ret := make([]*templatemodels.ServiceRender, 0)
-	for _, svc := range p.GetServiceMap() {
-		ret = append(ret, svc.GetServiceRender())
+	for _, svcGroup := range p.Services {
+		for _, svc := range svcGroup {
+			ret = append(ret, svc.GetServiceRender())
+		}
 	}
 	return ret
 }
