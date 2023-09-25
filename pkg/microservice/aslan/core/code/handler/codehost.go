@@ -253,7 +253,7 @@ func CodeHostGetCommits(c *gin.Context) {
 		return
 	}
 
-	targetBr := c.Query("targetBranch")
+	targetBr := c.Query("branchName")
 
 	chID, _ := strconv.Atoi(codehostID)
 	ctx.Resp, ctx.Err = service.CodeHostListCommits(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Page, args.PerPage, ctx.Logger)
