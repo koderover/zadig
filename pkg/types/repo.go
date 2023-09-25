@@ -208,12 +208,12 @@ func (r *Repository) TagRef() string {
 func (r *Repository) Ref() string {
 	if len(r.Tag) > 0 {
 		return r.TagRef()
+	} else if r.EnableCommit {
+		return r.CommitID
 	} else if len(r.Branch) > 0 {
 		return r.BranchRef()
 	} else if r.PR > 0 {
 		return r.PRRef()
-	} else if r.EnableCommit {
-		return r.CommitID
 	}
 
 	return ""
