@@ -20,6 +20,8 @@ import (
 	"context"
 
 	"github.com/google/go-github/v35/github"
+
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func (c *Client) GetPullRequest(ctx context.Context, owner string, repo string, number int) (*github.PullRequest, error) {
@@ -88,6 +90,7 @@ func (c *Client) ListCommitsForBranch(ctx context.Context, owner, repo, branch s
 	var res []*github.RepositoryCommit
 	cs, ok := commits.([]interface{})
 	if !ok {
+		log.Infof("failed to convert resp into repository commit")
 		return nil, nil
 	}
 	for _, c := range cs {
