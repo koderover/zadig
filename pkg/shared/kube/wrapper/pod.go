@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -261,6 +262,10 @@ func (w *pod) Resource() *resource.Pod {
 				break
 			}
 		}
+	}
+
+	if p.Status == setting.PodSucceeded && p.Kind == setting.Job {
+		p.Status = setting.PodCompleted
 	}
 
 	if CheckEphemeralContainerFieldExist(&w.Spec) && len(w.Spec.EphemeralContainers) > 0 {

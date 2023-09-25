@@ -76,6 +76,7 @@ func ConvertQueueToTask(queueTask *commonmodels.Queue) *task.Task {
 		Features:                queueTask.Features,
 		IsRestart:               queueTask.IsRestart,
 		StorageEndpoint:         queueTask.StorageEndpoint,
+		ScanningArgs:            queueTask.ScanningArgs,
 	}
 }
 

@@ -179,6 +179,7 @@ func marshalConfigurationManagementAuthConfig(management *commonmodels.Configura
 	case setting.SourceFromApollo:
 		management.AuthConfig = &commonmodels.ApolloAuthConfig{
 			Token: gjson.Get(rawJson, "token").String(),
+			User:  gjson.Get(rawJson, "user").String(),
 		}
 	case setting.SourceFromNacos:
 		management.AuthConfig = &commonmodels.NacosAuthConfig{

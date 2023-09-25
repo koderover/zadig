@@ -37,9 +37,11 @@ type CodehostColl struct {
 }
 
 type ListArgs struct {
-	Owner   string
-	Address string
-	Source  string
+	IntegrationLevel setting.IntegrationLevel
+	Project          string
+	Owner            string
+	Address          string
+	Source           string
 }
 
 func NewCodehostColl() *CodehostColl {
@@ -56,7 +58,18 @@ func (c *CodehostColl) EnsureIndex(ctx context.Context) error {
 	return nil
 }
 
-func (c *CodehostColl) AddCodeHost(iCodeHost *models.CodeHost) (*models.CodeHost, error) {
+func (c *CodehostColl) AddSystemCodeHost(iCodeHost *models.CodeHost) (*models.CodeHost, error) {
+	iCodeHost.IntegrationLevel = setting.IntegrationLevelSystem
+	return c.addCodeHost(iCodeHost)
+}
+
+func (c *CodehostColl) AddProjectCodeHost(projectName string, iCodeHost *models.CodeHost) (*models.CodeHost, error) {
+	iCodeHost.IntegrationLevel = setting.IntegrationLevelProject
+	iCodeHost.Project = projectName
+	return c.addCodeHost(iCodeHost)
+}
+
+func (c *CodehostColl) addCodeHost(iCodeHost *models.CodeHost) (*models.CodeHost, error) {
 
 	_, err := c.Collection.InsertOne(context.TODO(), iCodeHost)
 	if err != nil {
@@ -66,35 +79,61 @@ func (c *CodehostColl) AddCodeHost(iCodeHost *models.CodeHost) (*models.CodeHost
 	return iCodeHost, nil
 }
 
-func (c *CodehostColl) DeleteCodeHost() error {
-	query := bson.M{"deleted_at": 0}
-	change := bson.M{"$set": bson.M{
-		"deleted_at": time.Now().Unix(),
-	}}
-
-	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
-	if err != nil {
-		log.Error("repository DeleteCodeHostByID err : %v", err)
-		return err
+func (c *CodehostColl) GetSystemCodeHostByAlias(alias string) (*models.CodeHost, error) {
+	query := bson.M{
+		"integration_level": setting.IntegrationLevelSystem,
+		"alias":             alias,
+		"deleted_at":        0,
 	}
-	return nil
+	return c.getCodeHost(query)
 }
 
-func (c *CodehostColl) GetCodeHostByAlias(alias string) (*models.CodeHost, error) {
-	codehost := new(models.CodeHost)
-	query := bson.M{"alias": alias, "deleted_at": 0}
-	if err := c.Collection.FindOne(context.TODO(), query).Decode(codehost); err != nil {
-		return nil, err
+func (c *CodehostColl) GetProjectCodeHostByAlias(projectName, alias string) (*models.CodeHost, error) {
+	query := bson.M{
+		"integration_level": setting.IntegrationLevelProject,
+		"project":           projectName,
+		"alias":             alias,
+		"deleted_at":        0,
 	}
-	return codehost, nil
+	return c.getCodeHost(query)
 }
 
-func (c *CodehostColl) GetCodeHostByID(ID int, ignoreDelete bool) (*models.CodeHost, error) {
-	codehost := new(models.CodeHost)
-	query := bson.M{"id": ID}
+func (c *CodehostColl) GetProjectCodeHostByID(ID int, projectName string, ignoreDelete bool) (*models.CodeHost, error) {
+	query := bson.M{
+		"id":                ID,
+		"integration_level": setting.IntegrationLevelProject,
+		"project":           projectName,
+	}
 	if !ignoreDelete {
 		query["deleted_at"] = 0
 	}
+	return c.getCodeHost(query)
+}
+
+func (c *CodehostColl) GetSystemCodeHostByID(ID int, ignoreDelete bool) (*models.CodeHost, error) {
+	query := bson.M{
+		"id":                ID,
+		"integration_level": setting.IntegrationLevelSystem,
+	}
+	if !ignoreDelete {
+		query["deleted_at"] = 0
+	}
+	return c.getCodeHost(query)
+}
+
+// Internal use only
+func (c *CodehostColl) GetCodeHostByID(ID int, ignoreDelete bool) (*models.CodeHost, error) {
+	query := bson.M{
+		"id": ID,
+	}
+	if !ignoreDelete {
+		query["deleted_at"] = 0
+	}
+	return c.getCodeHost(query)
+}
+
+func (c *CodehostColl) getCodeHost(query bson.M) (*models.CodeHost, error) {
+	codehost := new(models.CodeHost)
 	if err := c.Collection.FindOne(context.TODO(), query).Decode(codehost); err != nil {
 		return nil, err
 	}
@@ -107,6 +146,12 @@ func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 
 	if args == nil {
 		args = &ListArgs{}
+	}
+	if args.IntegrationLevel != "" {
+		query["integration_level"] = args.IntegrationLevel
+	}
+	if args.Project != "" {
+		query["project"] = args.Project
 	}
 	if args.Address != "" {
 		query["address"] = args.Address
@@ -129,9 +174,23 @@ func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 	return codeHosts, nil
 }
 
-func (c *CodehostColl) CodeHostList() ([]*models.CodeHost, error) {
+func (c *CodehostColl) AvailableCodeHost(projectName string) ([]*models.CodeHost, error) {
 	codeHosts := make([]*models.CodeHost, 0)
-	cursor, err := c.Collection.Find(context.TODO(), bson.M{})
+	query := bson.M{
+		"$or": bson.A{
+			bson.M{"$and": bson.A{
+				bson.M{"integration_level": setting.IntegrationLevelSystem},
+				bson.M{"deleted_at": 0},
+			}},
+			bson.M{"$and": bson.A{
+				bson.M{"integration_level": setting.IntegrationLevelProject},
+				bson.M{"project": projectName},
+				bson.M{"deleted_at": 0},
+			}},
+		},
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -142,8 +201,55 @@ func (c *CodehostColl) CodeHostList() ([]*models.CodeHost, error) {
 	return codeHosts, nil
 }
 
-func (c *CodehostColl) DeleteCodeHostByID(ID int) error {
-	query := bson.M{"id": ID, "deleted_at": 0}
+func (c *CodehostColl) CodeHostList() ([]*models.CodeHost, error) {
+	return c.codeHostList("")
+}
+
+func (c *CodehostColl) SystemCodeHostList() ([]*models.CodeHost, error) {
+	return c.codeHostList(setting.IntegrationLevelSystem)
+}
+
+func (c *CodehostColl) ProjectCodeHostList() ([]*models.CodeHost, error) {
+	return c.codeHostList(setting.IntegrationLevelProject)
+}
+
+func (c *CodehostColl) codeHostList(integrationLevel setting.IntegrationLevel) ([]*models.CodeHost, error) {
+	codeHosts := make([]*models.CodeHost, 0)
+	query := bson.M{}
+	if integrationLevel != "" {
+		query["integration_level"] = integrationLevel
+	}
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &codeHosts)
+	if err != nil {
+		return nil, err
+	}
+	return codeHosts, nil
+}
+
+func (c *CodehostColl) DeleteProjectCodeHostByID(projectName string, ID int) error {
+	query := bson.M{
+		"id":                ID,
+		"integration_level": setting.IntegrationLevelProject,
+		"project":           projectName,
+		"deleted_at":        0,
+	}
+	return c.deleteCodeHost(query)
+}
+
+func (c *CodehostColl) DeleteSystemCodeHostByID(ID int) error {
+	query := bson.M{
+		"id":                ID,
+		"integration_level": setting.IntegrationLevelSystem,
+		"deleted_at":        0,
+	}
+	return c.deleteCodeHost(query)
+}
+
+func (c *CodehostColl) deleteCodeHost(query bson.M) error {
 	change := bson.M{"$set": bson.M{
 		"deleted_at": time.Now().Unix(),
 	}}
@@ -155,8 +261,28 @@ func (c *CodehostColl) DeleteCodeHostByID(ID int) error {
 	return nil
 }
 
-func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, error) {
-	query := bson.M{"id": host.ID, "deleted_at": 0}
+func (c *CodehostColl) UpdateSystemCodeHost(host *models.CodeHost) (*models.CodeHost, error) {
+	query := bson.M{
+		"id":                host.ID,
+		"integration_level": setting.IntegrationLevelSystem,
+		"deleted_at":        0,
+	}
+
+	return c.updateCodeHost(query, host)
+}
+
+func (c *CodehostColl) UpdateProjectCodeHost(projectName string, host *models.CodeHost) (*models.CodeHost, error) {
+	query := bson.M{
+		"id":                host.ID,
+		"integration_level": setting.IntegrationLevelProject,
+		"project":           projectName,
+		"deleted_at":        0,
+	}
+
+	return c.updateCodeHost(query, host)
+}
+
+func (c *CodehostColl) updateCodeHost(query bson.M, host *models.CodeHost) (*models.CodeHost, error) {
 	modifyValue := bson.M{
 		"type":           host.Type,
 		"address":        host.Address,
@@ -187,7 +313,7 @@ func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, 
 	return host, err
 }
 
-func (c *CodehostColl) UpdateCodeHostByToken(host *models.CodeHost) (*models.CodeHost, error) {
+func (c *CodehostColl) UpdateCodeHostToken(host *models.CodeHost) (*models.CodeHost, error) {
 	query := bson.M{"id": host.ID, "deleted_at": 0}
 	change := bson.M{"$set": bson.M{
 		"is_ready":      "2",

@@ -32,6 +32,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/batch/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
@@ -1329,9 +1330,9 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 			}
 			cj, cjBeta, err := getter.GetCronJobByNameWithCache(serviceName, namespace, inf, kubeclient.VersionLessThan121(version))
 			if err != nil {
-				return ret, nil
+				return ret, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found for cronjob, err: %s", serviceName, err.Error()))
 			}
-			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
+			ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, inf, log))
 		default:
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found, unknow type", serviceName))
 		}
@@ -1385,7 +1386,7 @@ func GetServiceImpl(serviceName string, serviceTmpl *commonmodels.Service, workL
 				if err != nil {
 					continue
 				}
-				ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, log))
+				ret.CronJobs = append(ret.CronJobs, getCronJobWorkLoadResource(cj, cjBeta, inf, log))
 			case setting.Ingress:
 				version, err := clientset.Discovery().ServerVersion()
 				if err != nil {
@@ -1450,8 +1451,35 @@ func getStatefulSetWorkloadResource(sts *appsv1.StatefulSet, informer informers.
 	return wrapper.StatefulSet(sts).WorkloadResource(pods)
 }
 
-func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, log *zap.SugaredLogger) *internalresource.CronJob {
-	return wrapper.CronJob(cornJob, cronJobBeta).CronJobResource()
+func getCronJobWorkLoadResource(cornJob *batchv1.CronJob, cronJobBeta *v1beta1.CronJob, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *internalresource.CronJob {
+	cronJobName := wrapper.CronJob(cornJob, cronJobBeta).Name
+	jobs, err := informer.Batch().V1().Jobs().Lister().List(labels.NewSelector())
+	if err != nil {
+		log.Errorf("failed to list jobs, err: %s", err)
+		return nil
+	}
+	// find jobs created by particular cronjob
+	matchJobs := make([]*batchv1.Job, 0)
+	for _, job := range jobs {
+		for _, owner := range job.OwnerReferences {
+			if owner.Name == cronJobName && owner.Kind == setting.CronJob {
+				matchJobs = append(matchJobs, job)
+				break
+			}
+		}
+	}
+
+	pods := make([]*corev1.Pod, 0)
+	for _, job := range matchJobs {
+		cronGeneratedPods, err := getter.ListPodsWithCache(labels.SelectorFromValidatedSet(job.Spec.Selector.MatchLabels), informer)
+		if err != nil {
+			log.Errorf("failed to find related pods for cronjob: %s, err: %s", cronJobName, err)
+			continue
+		}
+		pods = append(pods, cronGeneratedPods...)
+	}
+
+	return wrapper.CronJob(cornJob, cronJobBeta).CronJobResource(pods)
 }
 
 func ToDeploymentWorkload(v *appsv1.Deployment) *Workload {

@@ -21,6 +21,7 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/batch/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
@@ -54,8 +55,8 @@ func CronJob(cj *batchv1.CronJob, cjBeta *v1beta1.CronJob) *cronJob {
 	}
 }
 
-func (cj *cronJob) CronJobResource() *resource.CronJob {
-	return &resource.CronJob{
+func (cj *cronJob) CronJobResource(pods []*corev1.Pod) *resource.CronJob {
+	ret := &resource.CronJob{
 		Name:         cj.GetName(),
 		Labels:       cj.GetLabels(),
 		Images:       cj.GetContainers(),
@@ -64,7 +65,14 @@ func (cj *cronJob) CronJobResource() *resource.CronJob {
 		Active:       cj.GetActive(),
 		Schedule:     cj.GetSchedule(),
 		LastSchedule: cj.GetLastSchedule(),
+		Pods:         make([]*resource.Pod, 0, len(pods)),
 	}
+
+	for _, p := range pods {
+		ret.Pods = append(ret.Pods, Pod(p).Resource())
+	}
+
+	return ret
 }
 
 func (cj *cronJob) GetName() string {

@@ -640,6 +640,24 @@ type GuanceyunMonitor struct {
 	Url    string          `bson:"url,omitempty" json:"url,omitempty" yaml:"url,omitempty"`
 }
 
+type JenkinsJobSpec struct {
+	ID   string            `bson:"id" json:"id" yaml:"id"`
+	Jobs []*JenkinsJobInfo `bson:"jobs" json:"jobs" yaml:"jobs"`
+}
+
+type JenkinsJobInfo struct {
+	JobName    string                 `bson:"job_name" json:"job_name" yaml:"job_name"`
+	Parameters []*JenkinsJobParameter `bson:"parameters" json:"parameters" yaml:"parameters"`
+}
+
+type JenkinsJobParameter struct {
+	Name    string           `bson:"name" json:"name" yaml:"name"`
+	Value   string           `bson:"value" json:"value" yaml:"value"`
+	Type    config.ParamType `bson:"type" json:"type" yaml:"type"`
+	Choices []string         `bson:"choices,omitempty" json:"choices,omitempty" yaml:"choices,omitempty"`
+	Source  string           `bson:"source" json:"source" yaml:"source"`
+}
+
 type MseGrayReleaseJobSpec struct {
 	Production         bool                     `bson:"production" json:"production" yaml:"production"`
 	GrayTag            string                   `bson:"gray_tag" json:"gray_tag" yaml:"gray_tag"`

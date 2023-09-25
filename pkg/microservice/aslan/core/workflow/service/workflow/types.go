@@ -158,7 +158,7 @@ func (p *FreestyleJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels.
 				return nil, errors.New("unable to cast git step Spec into commonmodels.StepGitSpec")
 			}
 			for _, inputRepo := range p.RepoInfo {
-				repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(inputRepo.CodeHostName)
+				repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
 				if err != nil {
 					return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
 				}
@@ -221,7 +221,7 @@ func (p *ZadigBuildJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmodels
 			if inputSvc.ServiceName == svcBuild.ServiceName && inputSvc.ServiceModule == svcBuild.ServiceModule {
 				// update build repo info with input build info
 				for _, inputRepo := range inputSvc.RepoInfo {
-					repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(inputRepo.CodeHostName)
+					repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
 					if err != nil {
 						return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
 					}
@@ -409,7 +409,7 @@ func (p *ZadigTestingJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmode
 			if inputTesting.TestingName == testing.Name {
 				// update build repo info with input build info
 				for _, inputRepo := range inputTesting.RepoInfo {
-					repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(inputRepo.CodeHostName)
+					repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
 					if err != nil {
 						return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
 					}
@@ -581,7 +581,7 @@ func (p *ZadigScanningJobInput) UpdateJobSpec(job *commonmodels.Job) (*commonmod
 			if inputScanning.ScanningName == scanning.Name {
 				// update build repo info with input build info
 				for _, inputRepo := range inputScanning.RepoInfo {
-					repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(inputRepo.CodeHostName)
+					repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
 					if err != nil {
 						return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
 					}

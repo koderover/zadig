@@ -29,12 +29,11 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func CreateCodeHost(c *gin.Context) {
+func CreateSystemCodeHost(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -50,10 +49,10 @@ func CreateCodeHost(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.CreateCodeHost(rep, ctx.Logger)
+	ctx.Resp, ctx.Err = service.CreateSystemCodeHost(rep, ctx.Logger)
 }
 
-func ListCodeHost(c *gin.Context) {
+func ListSystemCodeHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	encryptedKey := c.Query("encryptedKey")
@@ -61,7 +60,7 @@ func ListCodeHost(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.List(encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.SystemList(encryptedKey, c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
 func ListCodeHostInternal(c *gin.Context) {
@@ -70,12 +69,11 @@ func ListCodeHostInternal(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListInternal(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
-func DeleteCodeHost(c *gin.Context) {
+func DeleteSystemCodeHost(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -95,7 +93,7 @@ func DeleteCodeHost(c *gin.Context) {
 	ctx.Err = service.DeleteCodeHost(id, ctx.Logger)
 }
 
-func GetCodeHost(c *gin.Context) {
+func GetSystemCodeHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	idParam := c.Param("id")
@@ -151,12 +149,11 @@ func Callback(c *gin.Context) {
 	c.Redirect(http.StatusFound, redirectURL)
 }
 
-func UpdateCodeHost(c *gin.Context) {
+func UpdateSystemCodeHost(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -179,5 +176,5 @@ func UpdateCodeHost(c *gin.Context) {
 		return
 	}
 	req.ID = id
-	ctx.Resp, ctx.Err = service.UpdateCodeHost(req, ctx.Logger)
+	ctx.Resp, ctx.Err = service.UpdateSystemCodeHost(req, ctx.Logger)
 }

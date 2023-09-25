@@ -20,15 +20,18 @@ import (
 	"context"
 	"errors"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type ScanningListOption struct {
+	Type string
 }
 
 type ScanningColl struct {
@@ -51,6 +54,10 @@ func (c *ScanningColl) List(opt *ScanningListOption) ([]*models.Scanning, error)
 
 	query := bson.M{}
 
+	if len(opt.Type) != 0 {
+		query["scanner_type"] = opt.Type
+	}
+
 	var resp []*models.Scanning
 	ctx := context.Background()
 	opts := options.Find()
@@ -65,4 +72,12 @@ func (c *ScanningColl) List(opt *ScanningListOption) ([]*models.Scanning, error)
 	}
 
 	return resp, nil
+}
+
+func (c *ScanningColl) Update(id primitive.ObjectID, update *models.Scanning) error {
+	query := bson.M{"_id": id}
+	change := bson.M{"$set": update}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
 }

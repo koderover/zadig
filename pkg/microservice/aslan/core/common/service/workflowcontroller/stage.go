@@ -53,7 +53,7 @@ func runStage(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *c
 		return
 	}
 	defer func() {
-		updateStageStatus(stage)
+		updateStageStatus(ctx, stage)
 		stage.EndTime = time.Now().Unix()
 		logger.Infof("finish stage: %s,status: %s", stage.Name, stage.Status)
 		ack()
@@ -556,7 +556,13 @@ func statusFailed(status config.Status) bool {
 	return false
 }
 
-func updateStageStatus(stage *commonmodels.StageTask) {
+func updateStageStatus(ctx context.Context, stage *commonmodels.StageTask) {
+	select {
+	case <-ctx.Done():
+		stage.Status = config.StatusCancelled
+		return
+	default:
+	}
 	statusMap := map[config.Status]int{
 		config.StatusCancelled: 4,
 		config.StatusTimeout:   3,

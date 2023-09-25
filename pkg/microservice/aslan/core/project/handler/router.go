@@ -93,6 +93,20 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		variables.PUT("/:id", UpdateVariableSet)
 		variables.DELETE("/:id", DeleteVariableSet)
 	}
+
+	integration := router.Group("integration")
+	{
+		codehost := integration.Group(":name/codehosts")
+		{
+			codehost.GET("", ListProjectCodeHost)
+			codehost.DELETE("/:id", DeleteCodeHost)
+			codehost.POST("", CreateProjectCodeHost)
+			codehost.PATCH("/:id", UpdateProjectCodeHost)
+			codehost.GET("/:id", GetProjectCodeHost)
+			codehost.GET("/available", ListAvailableCodeHost)
+		}
+	}
+
 }
 
 type OpenAPIRouter struct{}
