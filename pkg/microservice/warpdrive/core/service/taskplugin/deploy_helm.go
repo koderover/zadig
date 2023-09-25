@@ -23,8 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -35,6 +33,7 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
@@ -313,7 +312,6 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		Namespace:   p.Task.Namespace,
 		ReuseValues: true,
 		Version:     serviceRender.ChartVersion,
-		//ValuesYaml:  replacedMergedValuesYaml,
 		ValuesYaml:  mergedValuesYaml,
 		SkipCRDs:    false,
 		UpgradeCRDs: true,

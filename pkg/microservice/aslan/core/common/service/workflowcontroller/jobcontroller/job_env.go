@@ -157,7 +157,6 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		// update product info
 		productSvc.Containers = mergeContainers(svcTemplate.Containers, productSvc.Containers, deployInfo.Containers)
 		productSvc.Revision = int64(deployInfo.ServiceRevision)
-		//productInfo.Render.Revision = curRenderset.Revision
 		log.Infof("UpdateServiceRevision : %v, sevOnline: %v, variableYamlNil %v, serviceName: %s", deployInfo.UpdateServiceRevision, sevOnline, variableYamlNil(deployInfo.VariableYaml), deployInfo.ServiceName)
 		if deployInfo.UpdateServiceRevision || sevOnline || !variableYamlNil(deployInfo.VariableYaml) {
 			productInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(productInfo.ServiceDeployStrategy, deployInfo.ServiceName)

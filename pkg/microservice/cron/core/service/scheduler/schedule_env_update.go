@@ -80,9 +80,6 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 		envKey := buildEnvNameKey(env)
 		if lastEnvData, ok := c.lastEnvSchedulerData[envKey]; ok {
 			// render not changed, no need to update scheduler
-			//if lastEnvData.Render.Revision == rendersetObj.Revision {
-			//	continue
-			//}
 			if lastEnvData.UpdateTime == envObj.UpdateTime {
 				continue
 			}

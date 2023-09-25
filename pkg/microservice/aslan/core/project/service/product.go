@@ -260,11 +260,6 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 		log.Errorf("failed to change project visibility, error: %s", err)
 	}
 
-	//// 更新子环境渲染集
-	//if err = commonservice.UpdateSubRenderSet(args.ProductName, kvs, log); err != nil {
-	//	log.Warnf("ProductTmpl.Update UpdateSubRenderSet error: %v", err)
-	//}
-
 	return nil
 }
 

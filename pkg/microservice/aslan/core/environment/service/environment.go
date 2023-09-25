@@ -435,7 +435,6 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				Render:      prodService.Render,
 				Containers:  prodService.Containers,
 			}
-			//service.Containers = prodService.Containers
 
 			// need update service revision
 			if util.InStringArray(prodService.ServiceName, updateRevisionSvcs) {
@@ -787,8 +786,6 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 		}
 	}
 
-	log.Infof("--------- length of overrideCharts: %d", len(overrideCharts))
-
 	addedReleaseNameSet := sets.NewString()
 	chartSvcMap := make(map[string]*commonmodels.ProductService)
 	for _, chart := range overrideCharts {
@@ -801,8 +798,6 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 		chartSvcMap[svc.ReleaseName] = svc
 		addedReleaseNameSet.Insert(svc.ReleaseName)
 	}
-
-	log.Infof("-------- chartSvcMap data is %v", chartSvcMap)
 
 	option := &mongodb.SvcRevisionListOption{
 		ProductName:      productResp.ProductName,
@@ -1075,19 +1070,19 @@ func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log 
 
 func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, format string, arg *EstimateValuesArg, isHelmChartDeploy bool, log *zap.SugaredLogger) (interface{}, error) {
 	var (
-		productSvc  *commonmodels.ProductService
-		latestSvc   *commonmodels.Service
-		renderSet   *commonmodels.RenderSet
+		productSvc *commonmodels.ProductService
+		latestSvc  *commonmodels.Service
+		//renderSet   *commonmodels.RenderSet
 		productInfo *commonmodels.Product
 		err         error
 	)
 
 	switch scene {
 	case usageScenarioCreateEnv:
-		productSvc, latestSvc, renderSet, err = prepareEstimateDataForEnvCreation(productName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
-		renderSet.DefaultValues = arg.DefaultValues
+		productSvc, latestSvc, _, err = prepareEstimateDataForEnvCreation(productName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
+		//renderSet.DefaultValues = arg.DefaultValues
 	default:
-		productSvc, latestSvc, productInfo, renderSet, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene, arg.Production, isHelmChartDeploy, log)
+		productSvc, latestSvc, productInfo, _, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene, arg.Production, isHelmChartDeploy, log)
 	}
 
 	if err != nil {
@@ -1665,8 +1660,6 @@ func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHel
 			break
 		}
 	}
-
-	log.Infof("update helm chart deploy environment: %v", productMap)
 
 	// extract values.yaml and update renderset
 	for envName := range productMap {
@@ -2372,7 +2365,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		}
 	}
 
-	//args.Render = tmpRenderInfo
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
 		return ensureKubeEnv(args.Namespace, args.RegistryID, map[string]string{setting.ProductLabel: args.ProductName}, args.ShareEnv.Enable, kubeClient, log)
 	}
@@ -2563,8 +2555,6 @@ func batchExecutor(interval time.Duration, serviceList []*kube.ReleaseInstallPar
 func updateHelmProductGroup(username, productName, envName string, productResp *commonmodels.Product,
 	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, addedReleaseNameSet sets.String, log *zap.SugaredLogger) error {
 
-	log.Infof("----- updateHelmProductGroup delete svc revisions: %v, addedReleaseset: %v", deletedSvcRevision, addedReleaseNameSet)
-
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
@@ -2601,8 +2591,6 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 	filter := func(svc *commonmodels.ProductService) bool {
 		return svcNameSet.Has(svc.ServiceName)
 	}
-
-	//productResp.Render.Revision = renderSet.Revision
 
 	if productResp.ServiceDeployStrategy != nil {
 		for _, releaseName := range addedReleaseNameSet.List() {
@@ -2850,7 +2838,6 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 	for groupIndex, groupServices := range productResp.Services {
 		installParamList := make([]*kube.ReleaseInstallParam, 0)
 		for _, prodSvc := range groupServices {
-			log.Infof("proceedHelmRelease handing single svc, svc name %s, release name: %s ", prodSvc.ServiceName, prodSvc.ReleaseName)
 			chartInfo := findRenderChartFromList(prodSvc, productResp.ServiceRenders)
 			if chartInfo == nil {
 				continue
@@ -2867,7 +2854,6 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 				return err
 			}
 			prodSvc.Render = chartInfo
-			log.Infof("---- upgrade chart info: %+v", *chartInfo)
 			installParamList = append(installParamList, param)
 		}
 		groupServiceErr := batchExecutorWithRetry(3, time.Millisecond*500, installParamList, handler, log)
@@ -3049,7 +3035,6 @@ func UpdateProductGlobalVariables(productName, envName, userName, requestID stri
 		return e.ErrUpdateEnv.AddDesc("renderset revision is not the latest, please refresh and try again")
 	}
 
-	//err = UpdateProductGlobalVariablesWithRender(product, productRenderset, userName, requestID, arg, log)
 	err = UpdateProductGlobalVariablesWithRender(product, nil, userName, requestID, arg, log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
@@ -3077,7 +3062,6 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		return fmt.Errorf("failed to check if product and args global variable is equal, err: %s", err)
 	}
 
-	log.Infof("product global variable equal: %v", equal)
 	if equal {
 		return nil
 	}
@@ -3090,7 +3074,6 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 	}
 	productVariableMap := make(map[string]*commontypes.GlobalVariableKV)
 	productSet := sets.NewString()
-	//for _, kv := range productRenderset.GlobalVariables {
 	for _, kv := range product.GlobalVariables {
 		productVariableMap[kv.Key] = kv
 		productSet.Insert(kv.Key)
@@ -3120,7 +3103,6 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 			continue
 		}
 
-		log.Infof("product global variable %s value: %s, arg global variable %s value: %s", argKV.Key, productKV.Value, argKV.Key, argKV.Value)
 		if productKV.Value == argKV.Value {
 			continue
 		}
@@ -3129,10 +3111,8 @@ func UpdateProductGlobalVariablesWithRender(product *commonmodels.Product, produ
 		for _, svc := range productKV.RelatedServices {
 			svcSet.Insert(svc)
 		}
-		log.Infof("product global variable %s related services: %v", argKV.Key, svcSet.List())
 
 		svcVariableMap := make(map[string]*templatemodels.ServiceRender)
-		//for _, svc := range productRenderset.ServiceVariables {
 		for _, svc := range product.GetAllSvcRenders() {
 			svcVariableMap[svc.ServiceName] = svc
 		}

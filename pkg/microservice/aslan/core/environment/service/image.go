@@ -46,7 +46,6 @@ type UpdateContainerImageArgs struct {
 }
 
 func updateContainerForHelmChart(serviceName, image, containerName string, product *models.Product) error {
-	//namespace := product.Namespace
 	targetProductService := product.GetServiceMap()[serviceName]
 	if targetProductService == nil {
 		return fmt.Errorf("failed to find service in product: %s", serviceName)

@@ -384,10 +384,9 @@ func getDeployableShareEnvs(svcName string, templateProduct *template.Product) (
 	for _, baseEnv := range baseEnvs {
 
 		ret = append(ret, &DeployableEnv{
-			EnvName:   baseEnv.EnvName,
-			Namespace: baseEnv.Namespace,
-			ClusterID: baseEnv.ClusterID,
-			//GlobalVariableKVs: renderSet.GlobalVariables,
+			EnvName:           baseEnv.EnvName,
+			Namespace:         baseEnv.Namespace,
+			ClusterID:         baseEnv.ClusterID,
 			GlobalVariableKVs: baseEnv.GlobalVariables,
 			Services:          getServiceVariables(templateProduct, baseEnv),
 		})

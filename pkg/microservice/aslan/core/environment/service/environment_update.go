@@ -270,18 +270,6 @@ func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service
 		}
 		svcRender := product.GetSvcRender(serviceName)
 
-		//svcRender := &templatemodels.ServiceRender{
-		//	ServiceName: templateSvc.ServiceName,
-		//}
-		//currentRenderset, err := FindProductRenderSet(product.ProductName, product.Render.Name, productInfo.EnvName, productInfo.Render.Revision, log.SugaredLogger())
-		//if err != nil {
-		//	return fmt.Errorf("failed to find renderset, err: %s", err)
-		//}
-		//for _, sv := range currentRenderset.ServiceVariables {
-		//	if sv.ServiceName == templateSvc.ServiceName {
-		//		svcRender = sv
-		//	}
-		//}
 		filter := func(service *commonmodels.ProductService) bool {
 			if templateSvc.ServiceName == service.ServiceName {
 				return true
@@ -289,8 +277,6 @@ func updateK8sSvcInAllEnvs(productName string, templateSvc *commonmodels.Service
 			return false
 		}
 		err = updateK8sProduct(product, "system", "", []string{svcRender.ServiceName}, filter, []*templatemodels.ServiceRender{svcRender}, nil, false, product.GlobalVariables, log.SugaredLogger())
-
-		//err := updateK8sServiceInEnv(product, templateSvc)
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
 		}

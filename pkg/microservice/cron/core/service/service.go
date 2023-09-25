@@ -17,11 +17,11 @@ limitations under the License.
 package service
 
 import (
-	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 )

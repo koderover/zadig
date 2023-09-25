@@ -22,8 +22,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -32,6 +30,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
