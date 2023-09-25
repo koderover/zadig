@@ -84,6 +84,12 @@ func V1180ToV1190() error {
 		return err
 	}
 
+	log.Infof("-------- start migrate apollo --------")
+	if err := migrateApolloIntegration(); err != nil {
+		log.Infof("migrateApolloIntegration err: %v", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -526,5 +532,26 @@ func migrateSonarScanningModules() error {
 		}
 	}
 
+	return nil
+}
+
+func migrateApolloIntegration() error {
+	resp, err := mongodb.NewConfigurationManagementColl().List(context.Background(), setting.SourceFromApollo)
+	if err != nil {
+		return fmt.Errorf("failed to list apollo config, err: %v", err)
+	}
+	for _, apolloInfo := range resp {
+		apolloAuthConfig, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), apolloInfo.ID.Hex())
+		if err != nil {
+			return fmt.Errorf("failed to get apollo config, id %s, err: %v", apolloInfo.ID.Hex(), err)
+		}
+		if apolloAuthConfig.ApolloAuthConfig.User == "" {
+			apolloAuthConfig.ApolloAuthConfig.User = "zadig"
+			apolloInfo.AuthConfig = apolloAuthConfig.ApolloAuthConfig
+			if err := mongodb.NewConfigurationManagementColl().Update(context.Background(), apolloInfo.ID.Hex(), apolloInfo); err != nil {
+				return fmt.Errorf("failed to update apollo config, id %s, err: %v", apolloInfo.ID.Hex(), err)
+			}
+		}
+	}
 	return nil
 }
