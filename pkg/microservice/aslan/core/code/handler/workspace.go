@@ -153,39 +153,6 @@ func GetRepoTree(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, owner, info.Repo, info.Path, info.Branch, ctx.Logger)
 }
 
-func GetCodehubRepoInfo(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	codehostIDStr := c.Param("codehostId")
-	if codehostIDStr == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehost ID")
-		return
-	}
-
-	codehostID, err := strconv.Atoi(codehostIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
-		return
-	}
-
-	repoUUID := c.Query("repoUUID")
-	if repoUUID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repo uuid")
-		return
-	}
-
-	branchName := c.Query("branchName")
-	if branchName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty branch name")
-		return
-	}
-
-	path := c.Query("path")
-
-	ctx.Resp, ctx.Err = service.GetCodehubRepoInfo(codehostID, repoUUID, branchName, path, ctx.Logger)
-}
-
 func GetContents(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

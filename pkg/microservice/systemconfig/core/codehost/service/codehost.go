@@ -40,7 +40,7 @@ import (
 const callback = "/api/directory/codehosts/callback"
 
 func CreateSystemCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	if codehost.Type == setting.SourceFromCodeHub || codehost.Type == setting.SourceFromOther {
+	if codehost.Type == setting.SourceFromOther {
 		codehost.IsReady = "2"
 	}
 	if codehost.Type == setting.SourceFromGerrit {

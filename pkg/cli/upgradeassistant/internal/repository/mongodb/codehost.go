@@ -38,8 +38,6 @@ func (c *CodehostColl) ChangeType(ID int, sourceType string) error {
 		sourceType = "github"
 	} else if sourceType == "3" {
 		sourceType = "gerrit"
-	} else if sourceType == "4" {
-		sourceType = "codehub"
 	} else {
 		return nil
 	}
@@ -65,8 +63,6 @@ func (c *CodehostColl) RollbackType(ID int, sourceType string) error {
 		sourceType = "2"
 	} else if sourceType == "gerrit" {
 		sourceType = "3"
-	} else if sourceType == "codehub" {
-		sourceType = "4"
 	} else {
 		return nil
 	}

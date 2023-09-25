@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2023 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,31 +25,24 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 )
 
-func CodeHostListPRs(codeHostID int, projectName, namespace, targetBranch string, key string, page, perPage int, log *zap.SugaredLogger) ([]*client.PullRequest, error) {
+func CodeHostListCommits(codeHostID int, projectName, namespace, targetBranch string, page, perPage int, log *zap.SugaredLogger) ([]*client.Commit, error) {
 	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		log.Errorf("get code host info err:%s", err)
 		return nil, err
 	}
 	if ch.Type == setting.SourceFromOther {
-		return []*client.PullRequest{}, nil
+		return []*client.Commit{}, nil
 	}
 	cli, err := open.OpenClient(ch, log)
 	if err != nil {
 		log.Errorf("open client err:%s", err)
 		return nil, err
 	}
-	prs, err := cli.ListPrs(client.ListOpt{
-		Namespace:    namespace,
-		ProjectName:  projectName,
-		Key:          key,
-		Page:         page,
-		PerPage:      perPage,
-		TargetBranch: targetBranch,
-	})
+	br, err := cli.ListCommits(client.ListOpt{Namespace: namespace, ProjectName: projectName, TargetBranch: targetBranch, Page: page, PerPage: perPage})
 	if err != nil {
-		log.Errorf("list prs err:%s", err)
+		log.Errorf("list branch err:%s", err)
 		return nil, err
 	}
-	return prs, nil
+	return br, nil
 }

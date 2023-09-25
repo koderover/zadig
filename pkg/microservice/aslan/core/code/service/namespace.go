@@ -26,12 +26,11 @@ import (
 )
 
 const (
-	codeHostGitlab  = "gitlab"
-	OrgKind         = "org"
-	GroupKind       = "group"
-	UserKind        = "user"
-	EnterpriseKind  = "enterprise"
-	CodeHostCodeHub = "codehub"
+	codeHostGitlab = "gitlab"
+	OrgKind        = "org"
+	GroupKind      = "group"
+	UserKind       = "user"
+	EnterpriseKind = "enterprise"
 )
 
 func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogger) ([]*client.Namespace, error) {

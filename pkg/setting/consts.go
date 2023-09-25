@@ -257,8 +257,6 @@ const (
 	SourceFromGithub = "github"
 	// SourceFromGerrit The configuration source is gerrit
 	SourceFromGerrit = "gerrit"
-	// SourceFromCodeHub The configuration source is codehub
-	SourceFromCodeHub = "codehub"
 	// SourceFromGitee Configure the source as gitee
 	SourceFromGitee = "gitee"
 	// SourceFromGiteeEE Configure the source as gitee-enterprise

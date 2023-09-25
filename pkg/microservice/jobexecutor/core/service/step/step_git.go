@@ -135,8 +135,6 @@ func (s *GitStep) runGitCmds() error {
 				repo.Password = password
 				tokens = append(tokens, repo.Password)
 			}
-		} else if repo.Source == types.ProviderCodehub {
-			tokens = append(tokens, repo.Password)
 		} else if repo.Source == types.ProviderOther {
 			tokens = append(tokens, repo.PrivateAccessToken)
 			tokens = append(tokens, repo.SSHKey)
@@ -244,14 +242,6 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			Cmd:          c.RemoteAdd(repo.RemoteName, u.String()),
 			DisableTrace: true,
 		})
-	} else if repo.Source == types.ProviderCodehub {
-		u, _ := url.Parse(repo.Address)
-		host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
-		user := url.QueryEscape(repo.Username)
-		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, host, owner, repo.RepoName)),
-			DisableTrace: true,
-		})
 	} else if repo.Source == types.ProviderGitee || repo.Source == types.ProviderGiteeEE {
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteAdd(repo.RemoteName, HTTPSCloneURL(repo.Source, repo.OauthToken, repo.RepoOwner, repo.RepoName, repo.Address)), DisableTrace: true})
 	} else if repo.Source == types.ProviderOther {
@@ -312,6 +302,13 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 				&c.Command{Cmd: c.Merge(newBranch)},
 			)
 		}
+	}
+
+	if repo.EnableCommit {
+		cmds = append(
+			cmds,
+			&c.Command{Cmd: c.CheckoutCommit(repo.CommitID)},
+		)
 	}
 
 	if repo.SubModules {

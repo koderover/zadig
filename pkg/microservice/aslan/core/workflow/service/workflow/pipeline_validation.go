@@ -36,7 +36,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -351,19 +350,6 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 				log.Errorf("getSubmissionID failed, use build %+v %s", build, err)
 			}
 		}
-	} else if codeHostInfo.Type == systemconfig.CodeHubProvider {
-		codeHubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey, codeHostInfo.Region, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
-		if build.CommitID == "" && build.Branch != "" {
-			branchList, _ := codeHubClient.BranchList(build.RepoUUID)
-			for _, branchInfo := range branchList {
-				if branchInfo.Name == build.Branch {
-					build.CommitID = branchInfo.Commit.ID
-					build.CommitMessage = branchInfo.Commit.Message
-					build.AuthorName = branchInfo.Commit.AuthorName
-					return
-				}
-			}
-		}
 	} else if codeHostInfo.Type == systemconfig.GiteeProvider || codeHostInfo.Type == systemconfig.GiteeEEProvider {
 		gitCli := gitee.NewClient(codeHostInfo.ID, codeHostInfo.Address, codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
 		if build.CommitID == "" {
@@ -397,7 +383,7 @@ func setBuildInfo(build *types.Repository, buildArgs []*types.Repository, log *z
 				build.CommitMessage = branch.Commit.Commit.Message
 				build.AuthorName = branch.Commit.Commit.Author.Name
 			} else if len(build.PRs) > 0 {
-				prCommits, err := gitCli.ListCommits(context.Background(), build.RepoOwner, build.RepoName, getlatestPrNum(build), nil)
+				prCommits, err := gitCli.ListCommitsForPR(context.Background(), build.RepoOwner, build.RepoName, getlatestPrNum(build), nil)
 				sort.SliceStable(prCommits, func(i, j int) bool {
 					return prCommits[i].Commit.Committer.Date.Unix() > prCommits[j].Commit.Committer.Date.Unix()
 				})

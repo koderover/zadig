@@ -29,6 +29,7 @@ type CodeHostClient interface {
 	ListPrs(opt ListOpt) ([]*PullRequest, error)
 	ListNamespaces(keyword string) ([]*Namespace, error)
 	ListProjects(opt ListOpt) ([]*Project, error)
+	ListCommits(opt ListOpt) ([]*Commit, error)
 }
 
 type ListOpt struct {
@@ -38,7 +39,7 @@ type ListOpt struct {
 	Key           string
 	Page          int
 	PerPage       int
-	TargeBr       string
+	TargetBranch  string
 }
 
 type Branch struct {
@@ -84,4 +85,11 @@ type Project struct {
 	Namespace     string `json:"namespace"`
 	RepoUUID      string `json:"repo_uuid,omitempty"`
 	RepoID        string `json:"repo_id,omitempty"`
+}
+
+type Commit struct {
+	ID        string `json:"commit_id"`
+	Message   string `json:"commit_message"`
+	Author    string `json:"author"`
+	CreatedAt int64  `json:"created_at"`
 }
