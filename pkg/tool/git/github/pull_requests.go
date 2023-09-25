@@ -88,13 +88,13 @@ func (c *Client) ListCommitsForBranch(ctx context.Context, owner, repo, branch s
 	}
 
 	var res []*github.RepositoryCommit
-	cs, ok := commits.([]interface{})
+	cs, ok := commits.([]*github.RepositoryCommit)
 	if !ok {
 		log.Infof("failed to convert resp into repository commit")
 		return nil, nil
 	}
 	for _, c := range cs {
-		res = append(res, c.(*github.RepositoryCommit))
+		res = append(res, c)
 	}
 
 	return res, err
