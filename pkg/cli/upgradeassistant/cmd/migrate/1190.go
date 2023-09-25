@@ -45,13 +45,6 @@ func init() {
 
 func V1180ToV1190() error {
 
-	log.Infof("-------- start migrate renderset info --------")
-	if err := migrateRendersets(); err != nil {
-		log.Infof("migrateRendersets err: %v", err)
-		return err
-	}
-	return nil
-
 	log.Infof("-------- start migrate cluster workflow schedule strategy --------")
 	if err := migrateClusterScheduleStrategy(); err != nil {
 		log.Errorf("migrateClusterScheduleStrategy err: %v", err)
