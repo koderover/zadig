@@ -47,13 +47,10 @@ type Product struct {
 	RecycleDay  int              `bson:"recycle_day"               json:"recycle_day"`
 	Source      string           `bson:"source"                    json:"source"`
 
-	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
+	// GlobalValues for helm projects
+	DefaultValues string `bson:"default_values,omitempty"       json:"default_values,omitempty"`
 
-	// used for cache
-	//KubeClient kubecli.Client `bson:"-" json:"-"`
-	//HelmClient helmclient.Client `bson:"-" json:"-"`
-	// TODO: temp flag
-	IsForkedProduct bool `bson:"-" json:"-"`
+	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
 }
 
 type RenderKV struct {

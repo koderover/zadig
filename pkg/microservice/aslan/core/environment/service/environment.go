@@ -704,7 +704,6 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 					svr.GetServiceRender().ChartVersion = templateSvcMap[svr.ServiceName].HelmChart.Version
 					svr.GetServiceRender().ValuesYaml = templateSvcMap[svr.ServiceName].HelmChart.ValuesYaml
 				}
-				log.Infof("-------- svr render data: %+v", *svr.Render)
 
 			}
 			svcGroup = append(svcGroup, svr)
@@ -757,6 +756,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 	return nil
 }
 
+// updateHelmChartProduct update products with services from helm chart repo
 func updateHelmChartProduct(productName, envName, username, requestID string, overrideCharts []*commonservice.HelmSvcRenderArg, deletedReleases []string, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
@@ -780,12 +780,14 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 	productServiceMap := productResp.GetServiceMap()
 	productChartServiceMap := productResp.GetChartServiceMap()
 
-	// get dejeted services map[releaseName]=>serviceRevision
+	// get deleted services map[releaseName]=>serviceRevision
 	for _, svc := range productChartServiceMap {
 		if deletedReleaseSet.Has(svc.ReleaseName) {
 			deletedReleaseRevision[svc.ReleaseName] = svc.Revision
 		}
 	}
+
+	log.Infof("--------- length of overrideCharts: %d", len(overrideCharts))
 
 	addedReleaseNameSet := sets.NewString()
 	chartSvcMap := make(map[string]*commonmodels.ProductService)
@@ -796,10 +798,11 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 			ProductName: productName,
 			Type:        setting.HelmChartDeployType,
 		}
-
 		chartSvcMap[svc.ReleaseName] = svc
 		addedReleaseNameSet.Insert(svc.ReleaseName)
 	}
+
+	log.Infof("-------- chartSvcMap data is %v", chartSvcMap)
 
 	option := &mongodb.SvcRevisionListOption{
 		ProductName:      productResp.ProductName,
@@ -1028,11 +1031,11 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 		if prodSvc.Render == nil {
 			prodSvc.Render = &templatemodels.ServiceRender{
 				ServiceName:  serviceOrReleaseName,
-				ValuesYaml:   templateService.HelmChart.ValuesYaml,
 				OverrideYaml: &templatemodels.CustomYaml{},
 			}
 		}
 		prodSvc.Render.ValuesYaml = templateService.HelmChart.ValuesYaml
+		prodSvc.Render.ChartVersion = templateService.HelmChart.Version
 	}
 
 	return prodSvc, templateService, productInfo, nil, nil
@@ -1128,7 +1131,6 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 			return nil, fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", arg.ChartRepo, arg.ChartName, arg.ChartVersion, err)
 		}
 
-		//mergedValues, err = helmtool.MergeOverrideValues(valuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, nil)
 		mergedValues, err = helmtool.MergeOverrideValues(valuesYaml, productInfo.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues, nil)
 		if err != nil {
 			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge override values, err %s", err))
@@ -1663,6 +1665,8 @@ func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHel
 			break
 		}
 	}
+
+	log.Infof("update helm chart deploy environment: %v", productMap)
 
 	// extract values.yaml and update renderset
 	for envName := range productMap {
@@ -2679,6 +2683,7 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 		}
 	}
 
+	productResp.UpdateBy = username
 	if err = commonrepo.NewProductColl().Update(productResp); err != nil {
 		log.Errorf("Failed to update env, err: %s", err)
 		return err
@@ -2776,7 +2781,7 @@ func mergeRenderSetAndRenderChart(productResp *commonmodels.Product, overrideCha
 			if deletedReleasesSet.Has(svc.ReleaseName) {
 				continue
 			}
-			if requestArg, ok := requestChartInfoMap[svc.ServiceName]; ok {
+			if requestArg, ok := requestChartInfoMap[svc.ReleaseName]; ok && !svc.FromZadig() {
 				svc.Render = requestArg
 			}
 			updatedGroup = append(updatedGroup, svc)

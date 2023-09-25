@@ -93,7 +93,6 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 				Revision:    serviceTmpl.Revision,
 				Render:      rc,
 			}
-			log.Infof("--------- rcData: %v", *rc)
 			serviceResp.Containers = make([]*commonmodels.Container, 0)
 			var err error
 			for _, c := range serviceTmpl.Containers {
