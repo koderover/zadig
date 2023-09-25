@@ -171,7 +171,7 @@ func (c *Client) ListCommits(opt client.ListOpt) ([]*client.Commit, error) {
 			ID:        *c.SHA,
 			Message:   *c.Commit.Message,
 			Author:    *c.Commit.Author.Name,
-			CreatedAt: c.Author.CreatedAt.Unix(),
+			CreatedAt: c.Committer.CreatedAt.Unix(),
 		})
 	}
 	return res, nil
