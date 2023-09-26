@@ -191,6 +191,19 @@ func UpdateMultiProducts(c *gin.Context) {
 		return
 	}
 
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[request.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[request.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[request.ProjectName].Env.EditConfig {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	// this function has several implementations, we do the authorization checks in the individual function.
 	updateMultiEnvWrapper(c, request, false, ctx)
 }
@@ -2362,7 +2375,7 @@ func GetGlobalVariableCandidates(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetGlobalVariableCandidate(projectKey, envName, ctx.Logger)
 }
 
-// @Summary Get enviroment configs
+// @Summary Get environment configs
 // @Description Get environment configs
 // @Tags 	environment
 // @Accept 	json
@@ -2390,7 +2403,7 @@ func GetEnvConfigs(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetEnvConfigs(projectName, envName, boolptr.False(), ctx.Logger)
 }
 
-// @Summary Update enviroment configs
+// @Summary Update environment configs
 // @Description Update environment configs
 // @Tags 	environment
 // @Accept 	json
@@ -2433,7 +2446,7 @@ func UpdateEnvConfigs(c *gin.Context) {
 	ctx.Err = service.UpdateEnvConfigs(projectName, envName, arg, boolptr.False(), ctx.Logger)
 }
 
-// @Summary Get production enviroment configs
+// @Summary Get production environment configs
 // @Description Get production environment configs
 // @Tags 	environment
 // @Accept 	json
@@ -2461,7 +2474,7 @@ func GetProductionEnvConfigs(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetProductionEnvConfigs(projectName, envName, ctx.Logger)
 }
 
-// @Summary Update production enviroment configs
+// @Summary Update production environment configs
 // @Description Update production environment configs
 // @Tags 	environment
 // @Accept 	json
@@ -2504,8 +2517,8 @@ func UpdateProductionEnvConfigs(c *gin.Context) {
 	ctx.Err = service.UpdateProductionEnvConfigs(projectName, envName, arg, ctx.Logger)
 }
 
-// @Summary Run Enviroment Analysis
-// @Description Run Enviroment Analysis
+// @Summary Run environment Analysis
+// @Description Run environment Analysis
 // @Tags 	environment
 // @Accept 	json
 // @Produce json
@@ -2532,8 +2545,8 @@ func RunAnalysis(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.EnvAnalysis(projectName, envName, boolptr.False(), c.Query("triggerName"), ctx.UserName, ctx.Logger)
 }
 
-// @Summary Run Production Enviroment Analysis
-// @Description Run Production Enviroment Analysis
+// @Summary Run Production environment Analysis
+// @Description Run Production environment Analysis
 // @Tags 	environment
 // @Accept 	json
 // @Produce json
