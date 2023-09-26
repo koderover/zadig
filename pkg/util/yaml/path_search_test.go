@@ -117,6 +117,23 @@ var testYaml9 = `
       tag: 0.1.0
 `
 
+var testYaml10 = `
+  image:
+    pullPolicy: IfNotPresent
+
+  imagePullSecrets:
+    - name: default-registry-secret
+
+  global:
+    hub: koderover.tencentcloudcr.com
+    namespace: test
+
+  deploy:
+    image:
+      name: go-sample-site
+      tag: 0.1.0
+`
+
 var err error
 var lcpMatedPaths []map[string]string
 
@@ -205,6 +222,18 @@ var _ = Describe("Testing search", func() {
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			gomega.Expect(lcpMatedPaths).Should(gomega.ConsistOf([]map[string]string{
 				{"image": "deploy.image.name", "repo": "global.hub", "tag": "deploy.image.tag"},
+			}))
+		})
+
+		It("match multiple rules of pattern", func() {
+			pattern := []map[string]string{
+				{"repo": "global.hub", "namespace": "global.namespace", "tag": "deploy.image.tag", "image": "deploy.image.name"},
+			}
+			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml10))
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(lcpMatedPaths).Should(gomega.ConsistOf([]map[string]string{
+				{"image": "deploy.image.name", "repo": "global.hub", "tag": "deploy.image.tag", "namespace": "global.namespace"},
 			}))
 		})
 

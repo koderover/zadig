@@ -25,10 +25,6 @@ import (
 	"k8s.io/utils/strings/slices"
 )
 
-const (
-	separator = "."
-)
-
 func getKey(prefix, k string) string {
 	if prefix == "" {
 		return k
@@ -419,17 +415,22 @@ func search(flatMap map[string]interface{}, pattern map[string]string) ([]map[st
 // output: app paths found which match the relative-path rule, []{map[name]=>absolute-path}
 // eg: sourceYaml:
 // ---------- yaml begin
-//env: dev
-//svc1:
-//  image:
-//    repository: go-sample-site
-//    tag: "0.2.1"
-//svc2:
-//  image:
-//    repository: go-sample-site-2
-//    tag: "0.2.2"
-//imagePullSecrets:
-//  - name: default-secret
+// env: dev
+// svc1:
+//
+//	image:
+//	  repository: go-sample-site
+//	  tag: "0.2.1"
+//
+// svc2:
+//
+//	image:
+//	  repository: go-sample-site-2
+//	  tag: "0.2.2"
+//
+// imagePullSecrets:
+//   - name: default-secret
+//
 // ----------- yaml end
 // pattern: []{"image": "repository", "tag": "tag"}
 // output: []{{"image": "svc1.image.repository", "tag": "svc1.image.tag"}, {"image": "svc2.image.repository", "tag": "svc2.image.tag"}}

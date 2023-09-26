@@ -392,9 +392,10 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 			ImageName: name,
 			Image:     imageUrl,
 			ImagePath: &commonmodels.ImagePathSpec{
-				Repo:  searchResult[setting.PathSearchComponentRepo],
-				Image: searchResult[setting.PathSearchComponentImage],
-				Tag:   searchResult[setting.PathSearchComponentTag],
+				Repo:      searchResult[setting.PathSearchComponentRepo],
+				Namespace: searchResult[setting.PathSearchComponentNamespace],
+				Image:     searchResult[setting.PathSearchComponentImage],
+				Tag:       searchResult[setting.PathSearchComponentTag],
 			},
 		})
 	}
@@ -421,18 +422,19 @@ func GetPresetRules() []*templatemodels.ImageSearchingRule {
 	ret := make([]*templatemodels.ImageSearchingRule, 0, len(presetPatterns))
 	for id, pattern := range presetPatterns {
 		ret = append(ret, &templatemodels.ImageSearchingRule{
-			Repo:     pattern[setting.PathSearchComponentRepo],
-			Image:    pattern[setting.PathSearchComponentImage],
-			Tag:      pattern[setting.PathSearchComponentTag],
-			InUse:    true,
-			PresetId: id + 1,
+			Repo:      pattern[setting.PathSearchComponentRepo],
+			Namespace: pattern[setting.PathSearchComponentNamespace],
+			Image:     pattern[setting.PathSearchComponentImage],
+			Tag:       pattern[setting.PathSearchComponentTag],
+			InUse:     true,
+			PresetId:  id + 1,
 		})
 	}
 	return ret
 }
 
 func generateUniquePath(pathData map[string]string) string {
-	keys := []string{setting.PathSearchComponentRepo, setting.PathSearchComponentImage, setting.PathSearchComponentTag}
+	keys := []string{setting.PathSearchComponentRepo, setting.PathSearchComponentNamespace, setting.PathSearchComponentImage, setting.PathSearchComponentTag}
 	values := make([]string, 0)
 	for _, key := range keys {
 		if value := pathData[key]; value != "" {

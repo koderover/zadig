@@ -633,9 +633,10 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 	imagePathSpecs := make([]map[string]string, 0)
 	for _, container := range serviceObj.Containers {
 		imageSearchRule := &template.ImageSearchingRule{
-			Repo:  container.ImagePath.Repo,
-			Image: container.ImagePath.Image,
-			Tag:   container.ImagePath.Tag,
+			Repo:      container.ImagePath.Repo,
+			Namespace: container.ImagePath.Namespace,
+			Image:     container.ImagePath.Image,
+			Tag:       container.ImagePath.Tag,
 		}
 		pattern := imageSearchRule.GetSearchingPattern()
 		imagePathSpecs = append(imagePathSpecs, pattern)
