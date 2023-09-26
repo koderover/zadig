@@ -23,8 +23,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/setting"
 	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/setting"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -153,6 +154,7 @@ func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
 			return err
 		}
+		log.Debugf("registerID %s %s", j.spec.DockerRegistryID, argsSpec.DockerRegistryID)
 		j.spec.DockerRegistryID = argsSpec.DockerRegistryID
 		newBuilds := []*commonmodels.ServiceAndBuild{}
 		for _, build := range j.spec.ServiceAndBuilds {
