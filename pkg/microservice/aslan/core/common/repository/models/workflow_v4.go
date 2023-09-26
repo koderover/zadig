@@ -740,6 +740,8 @@ type JobProperties struct {
 	Retry           int64               `bson:"retry"                  json:"retry"                 yaml:"retry"`
 	ResourceRequest setting.Request     `bson:"res_req"                json:"res_req"               yaml:"res_req"`
 	ResReqSpec      setting.RequestSpec `bson:"res_req_spec"           json:"res_req_spec"          yaml:"res_req_spec"`
+	Infrastructure  string              `bson:"infrastructure"         json:"infrastructure"        yaml:"infrastructure"`
+	VMLabels        []string            `bson:"vm_labels"              json:"vm_labels"             yaml:"vm_labels"`
 	ClusterID       string              `bson:"cluster_id"             json:"cluster_id"            yaml:"cluster_id"`
 	StrategyID      string              `bson:"strategy_id"            json:"strategy_id"           yaml:"strategy_id"`
 	BuildOS         string              `bson:"build_os"               json:"build_os"              yaml:"build_os,omitempty"`

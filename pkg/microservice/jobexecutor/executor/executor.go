@@ -34,12 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
-// const (
-// 	ZadigContextDir    = "/zadig/"
-// 	ZadigLogFile       = ZadigContextDir + "zadig.log"
-// 	ZadigLifeCycleFile = ZadigContextDir + "lifecycle"
-// )
-
 func Execute(ctx context.Context) error {
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),

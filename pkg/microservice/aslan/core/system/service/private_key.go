@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -34,13 +35,23 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
-func ListPrivateKeys(encryptedKey, projectName, keyword string, systemOnly bool, log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
+func ListPrivateKeys(encryptedKey, projectName, keyword string, systemOnly bool, vmRange string, log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
 	var resp []*commonmodels.PrivateKey
 	var err error
-	privateKeys, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{ProjectName: projectName, SystemOnly: systemOnly})
+	vms, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{ProjectName: projectName, SystemOnly: systemOnly})
 	if err != nil {
 		log.Errorf("PrivateKey.List error: %s", err)
 		return resp, e.ErrListPrivateKeys
+	}
+
+	privateKeys := make([]*commonmodels.PrivateKey, 0)
+	for _, vm := range vms {
+		if vmRange == "" && vm.Agent == nil {
+			privateKeys = append(privateKeys, vm)
+		}
+		if vmRange == "all" {
+			privateKeys = append(privateKeys, vm)
+		}
 	}
 
 	if keyword == "" {
@@ -92,9 +103,13 @@ func GetPrivateKey(id string, log *zap.SugaredLogger) (*commonmodels.PrivateKey,
 	return resp, nil
 }
 
-func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) error {
+type CreatePrivateKeyResp struct {
+	VmID string `json:"vm_id"`
+}
+
+func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) (*CreatePrivateKeyResp, error) {
 	if !config.CVMNameRegex.MatchString(args.Name) {
-		return e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
+		return nil, e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 	}
 
 	privateKeyArgs := &commonrepo.PrivateKeyArgs{
@@ -102,22 +117,44 @@ func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) err
 	}
 
 	if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(privateKeyArgs); len(privateKeys) > 0 {
-		return e.ErrCreatePrivateKey.AddDesc("Name already exists")
+		return nil, e.ErrCreatePrivateKey.AddDesc("Name already exists")
+	}
+
+	if args.Agent == nil {
+		args.Agent = &commonmodels.VMAgent{}
+	}
+	args.Type = setting.NewVMType
+	args.Status = setting.VMCreated
+
+	if args.IP != "" && !util.IsValidIPv4(args.IP) {
+		return nil, e.ErrCreatePrivateKey.AddDesc("IP is invalid")
 	}
 
 	err := commonrepo.NewPrivateKeyColl().Create(args)
 	if err != nil {
 		log.Errorf("failed to create privateKey, error: %s", err)
-		return e.ErrCreatePrivateKey
+		return nil, e.ErrCreatePrivateKey
 	}
-	return nil
+	return &CreatePrivateKeyResp{
+		VmID: args.ID.Hex(),
+	}, nil
 }
 
 func UpdatePrivateKey(id string, args *commonmodels.PrivateKey, log *zap.SugaredLogger) error {
-	_, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: id})
+	vm, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: id})
 	if err != nil {
 		log.Errorf("failed to find privateKey with id: %s, error: %s", id, err)
 		return e.ErrUpdatePrivateKey.AddErr(fmt.Errorf("failed to find privateKey with id: %s, err: %s", id, err))
+	}
+
+	if args.IP != "" && !util.IsValidIPv4(args.IP) {
+		return e.ErrUpdatePrivateKey.AddDesc("IP is invalid")
+	}
+
+	if vm.Agent != nil {
+		vm.Agent.TaskConcurrency = args.Agent.TaskConcurrency
+		vm.Agent.Workspace = args.Agent.Workspace
+		args.Agent = vm.Agent
 	}
 
 	err = commonrepo.NewPrivateKeyColl().Update(id, args)
@@ -195,7 +232,17 @@ func DeletePrivateKey(id, userName string, log *zap.SugaredLogger) error {
 }
 
 func ListLabels() ([]string, error) {
-	return commonrepo.NewPrivateKeyColl().DistinctLabels()
+	vms, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list vms: %v", err)
+	}
+	resp := make([]string, 0)
+	for _, vm := range vms {
+		if vm.Agent == nil {
+			resp = append(resp, vm.Label)
+		}
+	}
+	return resp, nil
 }
 
 // override: Full coverage (temporarily reserved)

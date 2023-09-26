@@ -17,6 +17,7 @@ limitations under the License.
 package scheduler
 
 import (
+	"errors"
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
@@ -34,6 +35,26 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 
 	log.Info("start init pm host status scheduler..")
 	for _, hostElem := range hosts {
+		if hostElem.Type == setting.NewVMType && hostElem.Agent != nil {
+			if hostElem.Status != setting.VMNormal {
+				continue
+			}
+
+			var newStatus setting.PMHostStatus
+			if time.Unix(hostElem.Agent.LastHeartbeatTime, 0).Add(time.Duration(setting.AgentDefaultHeartbeatTimeout) * time.Second).Before(time.Now()) {
+				newStatus = setting.VMAbnormal
+
+				if hostElem.Status != newStatus {
+					hostElem.Error = "agent heartbeat timeout"
+					hostElem.Status = newStatus
+					err = c.AslanCli.UpdatePmHost(hostElem, log)
+					if err != nil {
+						log.Error(err)
+					}
+				}
+			}
+			continue
+		}
 		go func(hostPm *service.PrivateKeyHosts, log *zap.SugaredLogger) {
 			if hostPm.Port == 0 {
 				hostPm.Port = setting.PMHostDefaultPort
@@ -69,6 +90,7 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 				return
 			}
 			hostPm.Status = newStatus
+			hostPm.Error = errors.New("probe failed to connect to the host").Error()
 
 			err = c.AslanCli.UpdatePmHost(hostPm, log)
 			if err != nil {

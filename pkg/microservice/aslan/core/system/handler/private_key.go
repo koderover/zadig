@@ -66,7 +66,7 @@ func ListPrivateKeys(c *gin.Context) {
 	//	return
 	//}
 
-	ctx.Resp, ctx.Err = service.ListPrivateKeys(encryptedKey, "", c.Query("keyword"), true, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPrivateKeys(encryptedKey, "", c.Query("keyword"), true, c.Query("range"), ctx.Logger)
 }
 
 func GetPrivateKey(c *gin.Context) {
@@ -124,7 +124,7 @@ func CreatePrivateKey(c *gin.Context) {
 	}
 	args.UpdateBy = ctx.UserName
 
-	ctx.Err = service.CreatePrivateKey(args, ctx.Logger)
+	ctx.Resp, ctx.Err = service.CreatePrivateKey(args, ctx.Logger)
 }
 
 func UpdatePrivateKey(c *gin.Context) {

@@ -820,3 +820,42 @@ const (
 	IntegrationLevelSystem  IntegrationLevel = "system"
 	IntegrationLevelProject IntegrationLevel = "project"
 )
+
+const (
+	// NewVMType agent type
+	NewVMType = "agent"
+	// vm status
+	VMCreated    = "created"
+	VMRegistered = "registered"
+	VMNormal     = "normal"
+	VMAbnormal   = "abnormal"
+	VMOffline    = "offline"
+
+	// VMLabelAnyOne vm preserve label key
+	VMLabelAnyOne = "VM_LABEL_ANY_ONE"
+
+	AgentDefaultHeartbeatTimeout = 10
+
+	// vm job status
+	VMJobStatusCreated     = "created"
+	VMJobStatusDistributed = "distributed"
+	VMJobStatusRunning     = "running"
+	VMJobStatusSuccess     = "success"
+	VMJobStatusFailed      = "failed"
+
+	// vm platform type
+	LinuxAmd64 = "linux_amd64"
+	LinuxArm64 = "linux_arm64"
+	MacOSAmd64 = "darwin_amd64"
+	MacOSArm64 = "darwin_arm64"
+)
+
+const (
+	// zadig build infrastructure
+	JobK8sInfrastructure = "kubernetes"
+	JobVMInfrastructure  = "vm"
+)
+
+const (
+// zadig-agent version
+)
