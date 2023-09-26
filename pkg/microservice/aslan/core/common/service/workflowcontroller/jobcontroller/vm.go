@@ -2,6 +2,7 @@ package jobcontroller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -66,6 +67,9 @@ func waitVMJobEndByCheckStatus(ctx context.Context, jobID string, taskTimeout <-
 				jobTask.Status = config.StatusRunning
 				ack()
 			case string(config.StatusPassed):
+				out := vmJob.Outputs
+				str, _ := json.Marshal(out)
+				logger.Infof("%s-%s ---------> num:%d, out:%s", jobTask.WorkflowKey, jobTask.Name, len(out), string(str))
 				jobTask.Status = config.StatusPassed
 				return config.StatusPassed, ""
 			default:
