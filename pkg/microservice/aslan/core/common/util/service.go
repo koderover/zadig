@@ -410,8 +410,6 @@ func ParseImagesByRules(nested map[string]interface{}, matchRules []*templatemod
 		}
 		patterns = append(patterns, rule.GetSearchingPattern())
 	}
-	log.Infof("------- nested data: +%v \n", nested)
-	log.Infof("------- patterns: +%v \n", patterns)
 	return parseImagesByPattern(nested, patterns)
 }
 
@@ -459,6 +457,15 @@ func GeneImageURI(pathData map[string]string, flatMap map[string]interface{}) (s
 	// if repo value is set, use as repo
 	if repo, ok := valuesMap[setting.PathSearchComponentRepo]; ok {
 		ret = fmt.Sprintf("%v", repo)
+		ret = strings.TrimSuffix(ret, "/")
+	}
+	// if namespace is set, use repo/namespace
+	if namespace, ok := valuesMap[setting.PathSearchComponentNamespace]; ok {
+		if len(ret) == 0 {
+			ret = fmt.Sprintf("%v", namespace)
+		} else {
+			ret = fmt.Sprintf("%s/%s", ret, namespace)
+		}
 		ret = strings.TrimSuffix(ret, "/")
 	}
 	// if image value is set, append to repo, if repo is not set, image values represents repo+image

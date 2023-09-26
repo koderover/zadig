@@ -118,20 +118,20 @@ var testYaml9 = `
 `
 
 var testYaml10 = `
+  env: dev
+  fullnameOverride: service1
+  github: {}
   image:
     pullPolicy: IfNotPresent
-
+    repo: koderover.tencentcloudcr.com
+    project: koderover-demo
+    name: go-sample-site
+    tag: 0.1.0
   imagePullSecrets:
-    - name: default-registry-secret
-
-  global:
-    hub: koderover.tencentcloudcr.com
-    namespace: test
-
-  deploy:
-    image:
-      name: go-sample-site
-      tag: 0.1.0
+  - name: default-registry-secret
+  imagePullSecretsName: default-registry-secret
+  port: 22222
+  replicaCount: 4	
 `
 
 var err error
@@ -227,7 +227,7 @@ var _ = Describe("Testing search", func() {
 
 		It("match multiple rules of pattern", func() {
 			pattern := []map[string]string{
-				{"repo": "global.hub", "namespace": "global.namespace", "tag": "deploy.image.tag", "image": "deploy.image.name"},
+				{"repo": "image.repo", "namespace": "image.project", "tag": "image.tag", "image": "image.name"},
 			}
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml10))
 			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
