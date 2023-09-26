@@ -277,7 +277,11 @@ func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels
 	}
 
 	if resp.PreTest != nil && resp.PreTest.StrategyID == "" {
-		cluster, err := commonrepo.NewK8SClusterColl().FindByID(resp.PreTest.ClusterID)
+		clusterID := resp.PreTest.ClusterID
+		if clusterID == "" {
+			clusterID = setting.LocalClusterID
+		}
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
 		if err != nil {
 			if err != mongo.ErrNoDocuments {
 				return nil, fmt.Errorf("failed to find cluster %s, error: %v", resp.PreTest.ClusterID, err)

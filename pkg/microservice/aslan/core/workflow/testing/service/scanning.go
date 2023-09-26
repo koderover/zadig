@@ -162,7 +162,11 @@ func GetScanningModuleByID(id string, log *zap.SugaredLogger) (*Scanning, error)
 	}
 
 	if scanning.AdvancedSetting != nil && scanning.AdvancedSetting.StrategyID == "" {
-		cluster, err := commonrepo.NewK8SClusterColl().FindByID(scanning.AdvancedSetting.ClusterID)
+		clusterID := scanning.AdvancedSetting.ClusterID
+		if clusterID == "" {
+			clusterID = setting.LocalClusterID
+		}
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
 		if err != nil {
 			if err != mongo.ErrNoDocuments {
 				return nil, fmt.Errorf("failed to find cluster %s, error: %v", scanning.AdvancedSetting.ClusterID, err)
