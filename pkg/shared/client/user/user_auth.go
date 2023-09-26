@@ -28,13 +28,19 @@ type ProjectActions struct {
 }
 
 type SystemActions struct {
-	Project        *SystemProjectActions  `json:"project"`
-	Template       *TemplateActions       `json:"template"`
-	TestCenter     *TestCenterActions     `json:"test_center"`
-	ReleaseCenter  *ReleaseCenterActions  `json:"release_center"`
-	DeliveryCenter *DeliveryCenterActions `json:"delivery_center"`
-	DataCenter     *DataCenterActions     `json:"data_center"`
-	ReleasePlan    *ReleasePlanActions    `json:"release_plan"`
+	Project             *SystemProjectActions       `json:"project"`
+	Template            *TemplateActions            `json:"template"`
+	TestCenter          *TestCenterActions          `json:"test_center"`
+	ReleaseCenter       *ReleaseCenterActions       `json:"release_center"`
+	DeliveryCenter      *DeliveryCenterActions      `json:"delivery_center"`
+	DataCenter          *DataCenterActions          `json:"data_center"`
+	ReleasePlan         *ReleasePlanActions         `json:"release_plan"`
+	BusinessDirectory   *BusinessDirectoryActions   `json:"business_directory"`
+	ClusterManagement   *ClusterManagementActions   `json:"cluster_management"`
+	VMManagement        *VMManagementActions        `json:"vm_management"`
+	RegistryManagement  *RegistryManagementActions  `json:"registry_management"`
+	S3StorageManagement *S3StorageManagementActions `json:"s3storage_management"`
+	HelmRepoManagement  *HelmRepoManagementActions  `json:"helmrepo_management"`
 }
 
 type WorkflowActions struct {
@@ -145,6 +151,45 @@ type DataCenterActions struct {
 }
 
 type ReleasePlanActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type BusinessDirectoryActions struct {
+	View bool
+}
+
+type ClusterManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type VMManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type RegistryManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type S3StorageManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type HelmRepoManagementActions struct {
 	Create bool
 	View   bool
 	Edit   bool

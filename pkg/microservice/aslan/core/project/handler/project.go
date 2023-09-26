@@ -121,6 +121,13 @@ func GetBizDirProject(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.BusinessDirectory.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Resp, ctx.Err = projectservice.GetBizDirProject()
 }
 
@@ -141,6 +148,13 @@ func GetBizDirProjectServices(c *gin.Context) {
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.BusinessDirectory.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	projectName := c.Query("projectName")
@@ -171,6 +185,13 @@ func SearchBizDirByProject(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.BusinessDirectory.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	projectName := c.Query("projectName")
 	if projectName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid project name")
@@ -197,6 +218,13 @@ func SearchBizDirByService(c *gin.Context) {
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.BusinessDirectory.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	serviceName := c.Query("serviceName")
@@ -226,6 +254,13 @@ func GetBizDirServiceDetail(c *gin.Context) {
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.BusinessDirectory.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	projectName := c.Query("projectName")

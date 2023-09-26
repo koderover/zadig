@@ -230,7 +230,9 @@ func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, e
 }
 
 type GetBizDirServiceDetailResponse struct {
+	ProjectName  string   `json:"project_name"`
 	EnvName      string   `json:"env_name"`
+	Production   bool     `json:"production"`
 	Name         string   `json:"name"`
 	Type         string   `json:"type"`
 	Status       string   `json:"status"`
@@ -272,10 +274,12 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 			}
 
 			detail := GetBizDirServiceDetailResponse{
-				EnvName:    env.EnvName,
-				Name:       serviceName,
-				Type:       setting.K8SDeployType,
-				UpdateTime: prodSvc.UpdateTime,
+				ProjectName: env.ProductName,
+				EnvName:     env.EnvName,
+				Production:  env.Production,
+				Name:        serviceName,
+				Type:        setting.K8SDeployType,
+				UpdateTime:  prodSvc.UpdateTime,
 			}
 			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: prodSvc.ServiceName,
@@ -314,9 +318,11 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 			}
 
 			detail := GetBizDirServiceDetailResponse{
-				EnvName: env.EnvName,
-				Name:    fmt.Sprintf("%s(%s)", releaseName, serviceName),
-				Type:    setting.HelmDeployType,
+				ProjectName: env.ProductName,
+				EnvName:     env.EnvName,
+				Production:  env.Production,
+				Name:        fmt.Sprintf("%s(%s)", releaseName, serviceName),
+				Type:        setting.HelmDeployType,
 			}
 
 			listClient := action.NewList(helmClient.ActionConfig)
@@ -339,10 +345,12 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 			resp = append(resp, detail)
 		} else if project.IsHostProduct() {
 			detail := GetBizDirServiceDetailResponse{
-				EnvName:    env.EnvName,
-				Name:       serviceName,
-				Type:       setting.PMDeployType,
-				UpdateTime: prodSvc.UpdateTime,
+				ProjectName: env.ProductName,
+				EnvName:     env.EnvName,
+				Production:  env.Production,
+				Name:        serviceName,
+				Type:        setting.PMDeployType,
+				UpdateTime:  prodSvc.UpdateTime,
 			}
 
 			serviceTmpl, err := commonservice.GetServiceTemplate(

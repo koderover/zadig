@@ -20,7 +20,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/setting"
+	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -43,6 +46,8 @@ func init() {
 
 	_ = viper.BindPFlag(setting.ENVMongoDBConnectionString, rootCmd.PersistentFlags().Lookup("connection-string"))
 	_ = viper.BindPFlag(setting.ENVAslanDBName, rootCmd.PersistentFlags().Lookup("database"))
+
+	initMysql()
 }
 
 func initConfig() {
@@ -52,4 +57,23 @@ func initConfig() {
 		Level:    "debug",
 		NoCaller: true,
 	})
+}
+
+func initMysql() {
+	err := gormtool.Open(config.MysqlUser(),
+		config.MysqlPassword(),
+		config.MysqlHost(),
+		config.MysqlUserDB(),
+	)
+	if err != nil {
+		log.Panicf("Failed to open database %s", config.MysqlUserDB())
+	}
+
+	repository.DB = gormtool.DB(config.MysqlUserDB())
+	sqlDB, err := repository.DB.DB()
+	if err != nil {
+		panic("failed to create sqldb for user database")
+	}
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(200)
 }

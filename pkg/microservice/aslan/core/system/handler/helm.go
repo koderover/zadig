@@ -106,7 +106,6 @@ func CreateHelmRepo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -120,8 +119,10 @@ func CreateHelmRepo(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.HelmRepoManagement.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	args.UpdateBy = ctx.UserName
@@ -152,8 +153,10 @@ func UpdateHelmRepo(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.HelmRepoManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	args.UpdateBy = ctx.UserName
@@ -165,7 +168,6 @@ func DeleteHelmRepo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -173,8 +175,10 @@ func DeleteHelmRepo(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.HelmRepoManagement.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = service.DeleteHelmRepo(c.Param("id"), ctx.Logger)

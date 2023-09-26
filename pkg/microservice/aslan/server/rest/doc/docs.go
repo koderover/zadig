@@ -5752,6 +5752,12 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "production": {
+                    "type": "boolean"
+                },
+                "project_name": {
+                    "type": "string"
+                },
                 "status": {
                     "type": "string"
                 },

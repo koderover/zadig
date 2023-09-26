@@ -310,7 +310,7 @@ const (
 
 	FunctionTestType = "function"
 
-	AllProjects = "all_projects"
+	AllProjects = "<all_projects>"
 )
 
 const (

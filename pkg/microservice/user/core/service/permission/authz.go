@@ -733,5 +733,47 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.ReleasePlan.Delete = true
 	case VerbGetReleasePlan:
 		systemActions.ReleasePlan.View = true
+	case VerbGetBusinessDirectory:
+		systemActions.BusinessDirectory.View = true
+	case VerbGetClusterManagement:
+		systemActions.ClusterManagement.View = true
+	case VerbCreateClusterManagement:
+		systemActions.ClusterManagement.Create = true
+	case VerbEditClusterManagement:
+		systemActions.ClusterManagement.Edit = true
+	case VerbDeleteClusterManagement:
+		systemActions.ClusterManagement.Delete = true
+	case VerbGetVMManagement:
+		systemActions.VMManagement.View = true
+	case VerbCreateVMManagement:
+		systemActions.VMManagement.Create = true
+	case VerbEditVMManagement:
+		systemActions.VMManagement.Edit = true
+	case VerbDeleteVMManagement:
+		systemActions.VMManagement.Delete = true
+	case VerbGetRegistryManagement:
+		systemActions.RegistryManagement.View = true
+	case VerbCreateRegistryManagement:
+		systemActions.RegistryManagement.Create = true
+	case VerbEditRegistryManagement:
+		systemActions.RegistryManagement.Edit = true
+	case VerbDeleteRegistryManagement:
+		systemActions.RegistryManagement.Delete = true
+	case VerbGetS3StorageManagement:
+		systemActions.S3StorageManagement.View = true
+	case VerbCreateS3StorageManagement:
+		systemActions.S3StorageManagement.Create = true
+	case VerbEditS3StorageManagement:
+		systemActions.S3StorageManagement.Edit = true
+	case VerbDeleteS3StorageManagement:
+		systemActions.S3StorageManagement.Delete = true
+	case VerbGetHelmRepoManagement:
+		systemActions.HelmRepoManagement.View = true
+	case VerbCreateHelmRepoManagement:
+		systemActions.HelmRepoManagement.Create = true
+	case VerbEditHelmRepoManagement:
+		systemActions.HelmRepoManagement.Edit = true
+	case VerbDeleteHelmRepoManagement:
+		systemActions.HelmRepoManagement.Delete = true
 	}
 }
