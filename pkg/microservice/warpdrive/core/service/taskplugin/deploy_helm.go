@@ -33,6 +33,7 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
@@ -140,11 +141,10 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 
 	var (
 		productInfo      *types.Product
-		renderChart      *types.RenderChart
+		serviceRender    *template.ServiceRender
 		mergedValuesYaml string
 		servicePath      string
 		chartPath        string
-		renderInfo       *types.RenderSet
 		helmClient       helmclient.Client
 	)
 
@@ -164,15 +164,6 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		return
 	}
 
-	renderInfo, err = p.getRenderSet(ctx, productInfo.Render.Name, productInfo.Render.Revision)
-	if err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to get getRenderSet %s/%d",
-			productInfo.Render.Name, productInfo.Render.Revision)
-		return
-	}
-
 	serviceRevisionInProduct := int64(0)
 	involvedImagePaths := make(map[string]*commonmodels.ImagePathSpec)
 	targetContainers := make(map[string]*commonmodels.Container, 0)
@@ -181,6 +172,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		if service.ServiceName != p.Task.ServiceName {
 			continue
 		}
+		serviceRender = service.Render
 		serviceRevisionInProduct = service.Revision
 		for _, container := range service.Containers {
 			if container.ImagePath == nil {
@@ -201,17 +193,10 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		return
 	}
 
-	for _, chartInfo := range renderInfo.ChartInfos {
-		if chartInfo.ServiceName == p.Task.ServiceName {
-			renderChart = chartInfo
-			break
+	if serviceRender == nil {
+		serviceRender = &template.ServiceRender{
+			OverrideYaml: &template.CustomYaml{},
 		}
-	}
-
-	if renderChart == nil {
-		err = errors.Errorf("failed to update container image in %s/%s，chart not found",
-			p.Task.Namespace, p.Task.ServiceName)
-		return
 	}
 
 	// use revision of service currently applied in environment instead of the latest revision
@@ -274,12 +259,12 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 	}
 
 	// merge override values and kvs into service's yaml
-	mergedValuesYaml, err = helmtool.MergeOverrideValues("", renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, imageKVS)
+	mergedValuesYaml, err = helmtool.MergeOverrideValues("", productInfo.DefaultValues, serviceRender.GetOverrideYaml(), serviceRender.OverrideValues, imageKVS)
 	if err != nil {
 		err = errors.WithMessagef(
 			err,
 			"failed to merge override values %s",
-			renderChart.OverrideValues,
+			serviceRender.OverrideValues,
 		)
 		return
 	}
@@ -326,8 +311,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 		ChartName:   chartPath,
 		Namespace:   p.Task.Namespace,
 		ReuseValues: true,
-		Version:     renderChart.ChartVersion,
-		//ValuesYaml:  replacedMergedValuesYaml,
+		Version:     serviceRender.ChartVersion,
 		ValuesYaml:  mergedValuesYaml,
 		SkipCRDs:    false,
 		UpgradeCRDs: true,
@@ -409,16 +393,6 @@ func (p *HelmDeployTaskPlugin) downloadService(productName, serviceName, storage
 		return "", fmt.Errorf("file %s on s3 not found", s3Storage.GetObjectPath(tarball))
 	}
 	return tarFilePath, nil
-}
-
-func (p *HelmDeployTaskPlugin) getRenderSet(ctx context.Context, name string, revision int64) (*types.RenderSet, error) {
-	url := fmt.Sprintf("/api/project/renders/render/%s/revision/%d", name, revision)
-	rs := &types.RenderSet{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(rs), httpclient.SetQueryParam("ifPassFilter", "true"))
-	if err != nil {
-		return nil, err
-	}
-	return rs, nil
 }
 
 // Wait ...

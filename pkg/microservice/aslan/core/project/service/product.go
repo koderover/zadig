@@ -255,30 +255,11 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 		return
 	}
 
-	for _, envVars := range args.EnvVars {
-		//创建环境变量
-		if err = render.CreateRenderSet(&commonmodels.RenderSet{
-			EnvName:     envVars.EnvName,
-			Name:        args.ProductName,
-			ProductTmpl: args.ProductName,
-			UpdateBy:    args.UpdateBy,
-			IsDefault:   false,
-			//KVs:         envVars.Vars,
-		}, log); err != nil {
-			log.Warnf("ProductTmpl.Update CreateRenderSet error: %v", err)
-		}
-	}
-
 	// update role-bindings in case the visibility changes
 	err = user.New().SetProjectVisibility(args.ProductName, args.Public)
 	if err != nil {
 		log.Errorf("failed to change project visibility, error: %s", err)
 	}
-
-	//// 更新子环境渲染集
-	//if err = commonservice.UpdateSubRenderSet(args.ProductName, kvs, log); err != nil {
-	//	log.Warnf("ProductTmpl.Update UpdateSubRenderSet error: %v", err)
-	//}
 
 	return nil
 }
@@ -531,25 +512,6 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 
 	// build rendersets and services, set necessary attributes
 	for _, product := range products {
-		rendersetInfo := &commonmodels.RenderSet{
-			Name:        product.Namespace,
-			EnvName:     product.EnvName,
-			ProductTmpl: product.ProductName,
-			UpdateBy:    user,
-			IsDefault:   false,
-		}
-		err = render.CreateRenderSet(rendersetInfo, logger)
-		if err != nil {
-			return nil, err
-		}
-
-		product.Render = &commonmodels.RenderInfo{
-			Name:        rendersetInfo.Name,
-			Revision:    rendersetInfo.Revision,
-			ProductTmpl: rendersetInfo.ProductTmpl,
-			Description: rendersetInfo.Description,
-		}
-
 		currentWorkloads, err := commonservice.ListWorkloadTemplate(projectInfo.ProductName, product.EnvName, logger)
 		if err != nil {
 			return nil, err
@@ -707,11 +669,6 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 			log.Errorf("DeleteProductTemplate Update product Status error: %s", err)
 			return e.ErrDeleteProduct
 		}
-	}
-
-	if err = render.DeleteRenderSet(productName, log); err != nil {
-		log.Errorf("DeleteProductTemplate DeleteRenderSet err: %s", err)
-		return err
 	}
 
 	if err = DeleteTestModules(productName, requestID, log); err != nil {

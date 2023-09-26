@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -30,6 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	codehost_mongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
@@ -42,6 +44,7 @@ func init() {
 }
 
 func V1180ToV1190() error {
+
 	log.Infof("-------- start migrate cluster workflow schedule strategy --------")
 	if err := migrateClusterScheduleStrategy(); err != nil {
 		log.Errorf("migrateClusterScheduleStrategy err: %v", err)
@@ -87,6 +90,12 @@ func V1180ToV1190() error {
 	log.Infof("-------- start migrate apollo --------")
 	if err := migrateApolloIntegration(); err != nil {
 		log.Infof("migrateApolloIntegration err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate renderset info --------")
+	if err := migrateRendersets(); err != nil {
+		log.Infof("migrateRendersets err: %v", err)
 		return err
 	}
 
@@ -526,7 +535,7 @@ func migrateSonarScanningModules() error {
 				return fmt.Errorf("failed to update scannings, error: %s", err)
 			}
 		}
-		
+
 		err = internaldb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID,
 			map[string]interface{}{
 				"sonar_migration": true,
@@ -556,6 +565,86 @@ func migrateApolloIntegration() error {
 			apolloInfo.AuthConfig = apolloAuthConfig.ApolloAuthConfig
 			if err := mongodb.NewConfigurationManagementColl().Update(context.Background(), apolloInfo.ID.Hex(), apolloInfo); err != nil {
 				return fmt.Errorf("failed to update apollo config, id %s, err: %v", apolloInfo.ID.Hex(), err)
+			}
+		}
+	}
+	return nil
+}
+
+// migrateRendersets used to remove renderset, global variables will be set in product, service render will be set in product.service
+func migrateRendersets() error {
+	allProjects, err := template.NewProductColl().ListWithOption(&template.ProductListOpt{})
+	if err != nil {
+		return errors.Wrapf(err, "failed to list projects")
+	}
+
+	for _, project := range allProjects {
+		if !project.IsK8sYamlProduct() && !project.IsHelmProduct() {
+			continue
+		}
+
+		log.Infof("migrating render set for project: %s", project.ProductName)
+
+		envs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{Name: project.ProductName})
+		if err != nil {
+			return errors.Wrapf(err, "failed to list envs of project: %s", project.ProductName)
+		}
+		for _, env := range envs {
+			if env.Render == nil {
+				continue
+			}
+
+			if len(env.DefaultValues) > 0 || len(env.GlobalVariables) > 0 {
+				continue
+			}
+			svcRenderSet := false
+			for _, svcGroup := range env.Services {
+				for _, svc := range svcGroup {
+					if svc.Render != nil && len(svc.Render.ServiceName) > 0 {
+						svcRenderSet = true
+						break
+					}
+				}
+			}
+			if svcRenderSet {
+				continue
+			}
+
+			curRender, err := mongodb.NewRenderSetColl().Find(&mongodb.RenderSetFindOption{ProductTmpl: project.ProductName, EnvName: env.EnvName, Name: env.Render.Name, Revision: env.Render.Revision})
+			if err != nil {
+				return errors.Wrapf(err, "failed to find render info for product: %s/%s, render info: %s/%d", env.ProductName, curRender.EnvName, env.Render.Name, env.Render.Revision)
+			}
+
+			if len(curRender.DefaultValues) == 0 && len(curRender.GlobalVariables) == 0 && len(env.GetServiceMap()) == 0 {
+				continue
+			}
+			log.Infof("migrating render set for product: %s/%s", project.ProductName, env.EnvName)
+
+			env.DefaultValues = curRender.DefaultValues
+			env.YamlData = curRender.YamlData
+			env.GlobalVariables = curRender.GlobalVariables
+
+			for _, svcGroup := range env.Services {
+				for _, svc := range svcGroup {
+					if project.IsHelmProduct() {
+						if svc.FromZadig() {
+							svc.Render = curRender.GetChartRenderMap()[svc.ServiceName]
+						} else {
+							svc.Render = curRender.GetChartDeployRenderMap()[svc.ReleaseName]
+						}
+					} else {
+						svc.Render = curRender.GetServiceRenderMap()[svc.ServiceName]
+					}
+					// ensure render is set, technically this should not happen
+					if svc.Render == nil {
+						svc.Render = svc.GetServiceRender()
+					}
+				}
+			}
+
+			err = mongodb.NewProductColl().Update(env)
+			if err != nil {
+				return errors.Wrapf(err, "failed to update render for product: %v/%v", env.ProductName, env.EnvName)
 			}
 		}
 	}

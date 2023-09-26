@@ -93,18 +93,7 @@ func ExportYaml(envName, productName, serviceName, source string, log *zap.Sugar
 			log.Errorf("failed to find product service: %s", serviceName)
 			return res
 		}
-		opt := &commonrepo.RenderSetFindOption{
-			Name:        env.Render.Name,
-			Revision:    env.Render.Revision,
-			EnvName:     env.EnvName,
-			ProductTmpl: env.ProductName,
-		}
-		renderset, err := commonrepo.NewRenderSetColl().Find(opt)
-		if err != nil {
-			log.Errorf("failed to find renderset for env: %s, err: %v", envName, err)
-			return res
-		}
-		rederedYaml, err := kube.RenderEnvService(env, renderset, productService)
+		rederedYaml, err := kube.RenderEnvService(env, productService.GetServiceRender(), productService)
 		if err != nil {
 			log.Errorf("failed to render service yaml, err: %s", err)
 			return res

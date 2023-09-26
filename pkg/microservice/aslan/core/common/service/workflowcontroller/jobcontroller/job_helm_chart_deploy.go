@@ -84,26 +84,25 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 	c.namespace = productInfo.Namespace
 	c.jobTaskSpec.ClusterID = productInfo.ClusterID
 
-	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		ProductTmpl: productInfo.ProductName,
-		Name:        productInfo.Render.Name,
-		EnvName:     productInfo.EnvName,
-		Revision:    productInfo.Render.Revision,
-	})
-	if err != nil {
-		err = fmt.Errorf("failed to find redset name %s revision %d", productInfo.Namespace, productInfo.Render.Revision)
-		logError(c.job, err.Error(), c.logger)
-		return
+	deploy := c.jobTaskSpec.DeployHelmChart
+
+	productChartService := productInfo.GetChartServiceMap()[deploy.ReleaseName]
+	if productChartService == nil {
+		productChartService = &commonmodels.ProductService{
+			ReleaseName:    deploy.ReleaseName,
+			ProductName:    c.workflowCtx.ProjectName,
+			Type:           setting.HelmChartDeployType,
+			DeployStrategy: setting.ServiceDeployStrategyDeploy,
+		}
 	}
 
-	deploy := c.jobTaskSpec.DeployHelmChart
-	chartInfo, ok := renderSet.GetChartRenderMap()[deploy.ReleaseName]
+	chartInfo, ok := productInfo.GetChartRenderMap()[deploy.ReleaseName]
 	if !ok {
 		chartInfo = &template.ServiceRender{
 			ReleaseName:       deploy.ReleaseName,
 			IsHelmChartDeploy: true,
 		}
-		renderSet.ChartInfos = append(renderSet.ChartInfos, chartInfo)
+		productChartService.Render = chartInfo
 	}
 	if chartInfo.OverrideYaml == nil {
 		chartInfo.OverrideYaml = &template.CustomYaml{}
@@ -121,19 +120,9 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 
 	timeOut := c.timeout()
 
-	productChartService := productInfo.GetChartServiceMap()[deploy.ReleaseName]
-	if productChartService == nil {
-		productChartService = &commonmodels.ProductService{
-			ReleaseName:    deploy.ReleaseName,
-			ProductName:    c.workflowCtx.ProjectName,
-			Type:           setting.HelmChartDeployType,
-			DeployStrategy: setting.ServiceDeployStrategyDeploy,
-		}
-	}
-
 	done := make(chan bool)
 	go func(chan bool) {
-		if err = kube.UpgradeHelmRelease(productInfo, renderSet, productChartService, nil, nil, timeOut); err != nil {
+		if err = kube.UpgradeHelmRelease(productInfo, productChartService, nil, nil, timeOut); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",

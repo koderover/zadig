@@ -27,7 +27,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -109,24 +108,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		return errors.Wrapf(err, "failed to find service %s in product %s", deployInfo.ServiceName, deployInfo.ProductName)
 	}
 
-	curRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		ProductTmpl: deployInfo.ProductName,
-		EnvName:     deployInfo.EnvName,
-		IsDefault:   false,
-		Revision:    productInfo.Render.Revision,
-		Name:        productInfo.Render.Name,
-	})
-	if err != nil {
-		return errors.Wrapf(err, "failed to find renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
-	}
-
-	var svcRender *template.ServiceRender
-	for _, sRender := range curRenderset.ServiceVariables {
-		if sRender.ServiceName == deployInfo.ServiceName {
-			svcRender = sRender
-			break
-		}
-	}
+	svcRender := productInfo.GetSvcRender(deployInfo.ServiceName)
 
 	if len(productInfo.Services) == 0 {
 		// DO NOT REMOVE []*models.ProductService{}, it's for compatibility
@@ -151,7 +133,6 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 				ServiceName:  deployInfo.ServiceName,
 				OverrideYaml: &template.CustomYaml{},
 			}
-			curRenderset.ServiceVariables = append(curRenderset.ServiceVariables, svcRender)
 		}
 
 		// merge render variables and deploy variables
@@ -173,21 +154,9 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			RenderVariableKVs: mergedVariableKVs,
 		}
 
-		// update global variables
-		// curRenderset.GlobalVariables, _, err = commontypes.UpdateGlobalVariableKVs(deployInfo.ServiceName, curRenderset.GlobalVariables, svcRender.OverrideYaml.RenderVariableKVs)
-		// if err != nil {
-		// 	return errors.Wrapf(err, "failed to update global variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
-		// }
-
-		err = render.CreateRenderSet(curRenderset, log.SugaredLogger())
-		if err != nil {
-			return errors.Wrapf(err, "failed to update renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
-		}
-
 		// update product info
 		productSvc.Containers = mergeContainers(svcTemplate.Containers, productSvc.Containers, deployInfo.Containers)
 		productSvc.Revision = int64(deployInfo.ServiceRevision)
-		productInfo.Render.Revision = curRenderset.Revision
 		log.Infof("UpdateServiceRevision : %v, sevOnline: %v, variableYamlNil %v, serviceName: %s", deployInfo.UpdateServiceRevision, sevOnline, variableYamlNil(deployInfo.VariableYaml), deployInfo.ServiceName)
 		if deployInfo.UpdateServiceRevision || sevOnline || !variableYamlNil(deployInfo.VariableYaml) {
 			productInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(productInfo.ServiceDeployStrategy, deployInfo.ServiceName)
@@ -195,15 +164,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 	} else {
 		// uninstall service
 		// update render set
-		filteredRenders := make([]*template.ServiceRender, 0)
-		for _, svcRender := range curRenderset.ServiceVariables {
-			if svcRender.ServiceName == deployInfo.ServiceName {
-				curRenderset.GlobalVariables = commontypes.RemoveGlobalVariableRelatedService(curRenderset.GlobalVariables, svcRender.ServiceName)
-			} else {
-				filteredRenders = append(filteredRenders, svcRender)
-			}
-		}
-		curRenderset.ServiceVariables = filteredRenders
+		productInfo.GlobalVariables = commontypes.RemoveGlobalVariableRelatedService(productInfo.GlobalVariables, svcRender.ServiceName)
 
 		// update product service
 		svcGroups := make([][]*models.ProductService, 0)
@@ -225,12 +186,6 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 				delete(productInfo.ServiceDeployStrategy, svcName)
 			}
 		}
-
-		err := render.CreateRenderSet(curRenderset, log.SugaredLogger())
-		if err != nil {
-			return errors.Wrapf(err, "failed to update renderset for %s/%s", deployInfo.ProductName, deployInfo.EnvName)
-		}
-		productInfo.Render.Revision = curRenderset.Revision
 	}
 
 	err = commonrepo.NewProductColl().Update(productInfo)

@@ -19,7 +19,6 @@ package render
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 
 	"go.uber.org/zap"
@@ -33,91 +32,8 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func GetRenderSet(renderName string, revision int64, isDefault bool, envName string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
-	if renderName == "" {
-		return &commonmodels.RenderSet{}, nil
-	}
-	opt := &commonrepo.RenderSetFindOption{
-		Name:      renderName,
-		Revision:  revision,
-		IsDefault: isDefault,
-		EnvName:   envName,
-	}
-	resp, found, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil {
-		return nil, err
-	} else if !found {
-		return &commonmodels.RenderSet{}, nil
-	}
-
-	return resp, nil
-}
-
-func GetRenderSetInfo(renderName string, revision int64) (*commonmodels.RenderSet, error) {
-	opt := &commonrepo.RenderSetFindOption{
-		Name:     renderName,
-		Revision: revision,
-	}
-	resp, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		return resp, err
-	}
-
-	return resp, nil
-}
-
-func mergeServiceVariables(newVariables []*templatemodels.ServiceRender, oldVariables []*templatemodels.ServiceRender) []*templatemodels.ServiceRender {
-	allVarMap := make(map[string]*templatemodels.ServiceRender)
-	for _, sv := range oldVariables {
-		allVarMap[sv.ServiceName] = sv
-	}
-	for _, sv := range newVariables {
-		allVarMap[sv.ServiceName] = sv
-	}
-	ret := make([]*templatemodels.ServiceRender, 0)
-	for _, sv := range allVarMap {
-		ret = append(ret, sv)
-	}
-	return ret
-}
-
-func CreateRenderSetByMerge(args *commonmodels.RenderSet, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
-	opt := &commonrepo.RenderSetFindOption{Name: args.Name, ProductTmpl: args.ProductTmpl, EnvName: args.EnvName}
-	rs, err := commonrepo.NewRenderSetColl().Find(opt)
-	if rs != nil && err == nil {
-		if rs.K8sServiceRenderDiff(args) {
-			args.IsDefault = rs.IsDefault
-		} else {
-			args.Revision = rs.Revision
-			return args, nil
-		}
-		args.ServiceVariables = mergeServiceVariables(args.ServiceVariables, rs.ServiceVariables)
-	}
-	err = createRenderset(args, log)
-	return args, err
-}
-
 func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	return createRenderset(args, log)
-}
-
-// CreateK8sHelmRenderSet creates renderset for k8s/helm projects
-func CreateK8sHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	opt := &commonrepo.RenderSetFindOption{
-		Name:        args.Name,
-		ProductTmpl: args.ProductTmpl,
-		EnvName:     args.EnvName,
-	}
-	rs, err := commonrepo.NewRenderSetColl().Find(opt)
-	if rs != nil && err == nil {
-		if rs.HelmRenderDiff(args) || !reflect.DeepEqual(rs.YamlData, args.YamlData) || rs.K8sServiceRenderDiff(args) || rs.Diff(args) {
-			args.IsDefault = rs.IsDefault
-		} else {
-			args.Revision = rs.Revision
-			return nil
-		}
-	}
-	return CreateRenderSet(args, log)
 }
 
 func createRenderset(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
@@ -183,15 +99,6 @@ func GetLatestRenderSetFromHelmProject(productName string, isProduction bool) (*
 		ProductTmpl: productName,
 		ChartInfos:  chartInfo,
 	}, nil
-}
-
-func DeleteRenderSet(productName string, log *zap.SugaredLogger) error {
-	if err := commonrepo.NewRenderSetColl().Delete(productName); err != nil {
-		errMsg := fmt.Sprintf("[RenderSet.Delete] %s error: %v", productName, err)
-		log.Error(errMsg)
-		return e.ErrDeleteRenderSet.AddDesc(errMsg)
-	}
-	return nil
 }
 
 func ValidateKVs(kvs []*templatemodels.RenderKV, services []*templatemodels.ServiceInfo, log *zap.SugaredLogger) error {
