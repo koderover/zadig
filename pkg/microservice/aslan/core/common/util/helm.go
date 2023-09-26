@@ -241,6 +241,7 @@ func AssignImageData(imageUrl string, matchData map[string]string) (map[string]i
 		repoUrlStrs := strings.Split(namespace, "/")
 		if len(repoUrlStrs) > 1 {
 			resolvedImageUrl[setting.PathSearchComponentNamespace] = strings.Join(repoUrlStrs[1:], "/")
+			resolvedImageUrl[setting.PathSearchComponentRepo] = repoUrlStrs[0]
 		}
 
 		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")

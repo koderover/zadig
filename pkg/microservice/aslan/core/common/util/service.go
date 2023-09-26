@@ -446,6 +446,7 @@ func generateUniquePath(pathData map[string]string) string {
 
 // GeneImageURI generate valid image uri, legal formats:
 // {repo}
+// {repo}/ {namespace}/{image}
 // {repo}/{image}
 // {repo}/{image}:{tag}
 // {repo}:{tag}
