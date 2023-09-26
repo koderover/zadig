@@ -18,8 +18,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,29 +34,25 @@ import (
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/reporter"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
 	"github.com/koderover/zadig/pkg/types/job"
 )
 
-func NewJobExecutor(ctx context.Context, job *common.ZadigJobTask, client *network.ZadigClient) *JobExecutor {
-	result := &common.JobExecuteResult{
-		JobInfo: &common.JobInfo{
-			JobID:   job.ID,
-			JobName: job.JobName,
-		},
-		Status: common.StatusPrepare.String(),
-		Error:  errors.New(""),
-	}
+func NewJobExecutor(ctx context.Context, job *types.ZadigJobTask, client *network.ZadigClient, reporterCancel context.CancelFunc) *JobExecutor {
+	result := types.NetJobExecuteResult(&types.JobInfo{JobID: job.ID, JobName: job.JobName})
+	result.SetStatus(common.StatusPrepare)
 
 	cancel := new(bool)
 	return &JobExecutor{
-		Ctx:          ctx,
-		Job:          job,
-		Client:       client,
-		Reporter:     reporter.NewJobReporter(result, client, cancel),
-		JobResult:    result,
-		Cancel:       cancel,
-		FinishedChan: make(chan struct{}, 1),
+		Ctx:            ctx,
+		Job:            job,
+		Client:         client,
+		Reporter:       reporter.NewJobReporter(result, client, cancel),
+		JobResult:      result,
+		Cancel:         cancel,
+		FinishedChan:   make(chan struct{}, 1),
+		ReporterCancel: reporterCancel,
 	}
 }
 
@@ -66,18 +60,18 @@ type JobExecutor struct {
 	Ctx              context.Context
 	Wg               *sync.WaitGroup
 	Cmd              *common.Command
-	Job              *common.ZadigJobTask
-	JobCtx           *common.JobContext
+	Job              *types.ZadigJobTask
+	JobCtx           *types.JobContext
 	Client           *network.ZadigClient
 	Logger           *log.JobLogger
 	Writer           *io.Writer
 	Reporter         *reporter.JobReporter
 	DockerHost       string
-	OutPuts          []*common.JobOutput
-	JobResult        *common.JobExecuteResult
+	JobResult        *types.JobExecuteResult
 	OutputsJsonBytes []byte
 	Cancel           *bool
 	FinishedChan     chan struct{}
+	ReporterCancel   context.CancelFunc
 	Workspace        string
 	LogPath          string
 	OutputDir        string
@@ -102,7 +96,7 @@ func (e *JobExecutor) InitWorkDirectory() error {
 	if e.Job != nil && e.Job.ProjectName != "" && e.Job.WorkflowName != "" && e.Job.JobName != "" {
 		// init default work directory
 
-		e.Workspace = filepath.Join(workDir, fmt.Sprintf("/%s/%s/%s", e.Job.ProjectName, e.Job.WorkflowName, e.Job.JobName))
+		e.Workspace = filepath.Join(workDir, fmt.Sprintf("/%s/%s/%s/%s", e.Job.ProjectName, e.Job.WorkflowName, fmt.Sprintf("task-%d", e.Job.TaskID), e.Job.JobName))
 	}
 
 	// init work directory
@@ -125,7 +119,7 @@ func (e *JobExecutor) InitWorkDirectory() error {
 	e.Reporter.Logger = e.Logger
 
 	// init job OutputDir
-	outputDir := filepath.Join(e.Workspace, common.JobOutputDir)
+	outputDir := filepath.Join(e.Workspace, types.JobOutputDir)
 	if _, err := os.Stat(outputDir); err == nil {
 		if err := os.RemoveAll(outputDir); err != nil {
 			log.Errorf("failed to delete job output dir, error: %s", err)
@@ -160,41 +154,28 @@ func (e *JobExecutor) InitWorkDirectory() error {
 
 func (e *JobExecutor) Execute() {
 	if e.Job == nil {
-		e.JobResult.Error = fmt.Errorf("job is nil")
+		e.JobResult.SetError(fmt.Errorf("job is nil"))
 		return
 	}
 	var err error
 
 	start := time.Now()
-	e.JobResult.StartTime = start.Unix()
-	e.JobResult.Status = common.StatusRunning.String()
+	e.JobResult.SetStartTime(start.Unix())
+	e.JobResult.SetStatus(common.StatusRunning)
 
 	defer func() {
-		if e.JobResult.Error != nil && e.JobResult.Error.Error() != "" {
-			e.JobResult.Status = common.StatusFailed.String()
+		e.ReporterCancel()
+
+		if outputs, err := e.getJobOutputVars(); err != nil {
+			e.Logger.Errorf("failed to collect job result, error: %s", err)
+			e.JobResult.SetError(fmt.Errorf("failed to collect job result, error: %s", err))
 		} else {
-			err := e.collectJobResult(e.Ctx)
+			err = e.JobResult.SetOutputs(outputs)
 			if err != nil {
-				e.Logger.Errorf("failed to collect job result, error: %s", err)
-				e.JobResult.Error = fmt.Errorf("failed to collect job result, error: %s", err)
-				e.JobResult.Status = common.StatusFailed.String()
-			} else {
-				err = e.Reporter.SetOutputsJsonBytes(e.OutputsJsonBytes)
-				if err != nil {
-					e.Logger.Errorf("failed to set job outputs, error: %s", err)
-					e.JobResult.Error = fmt.Errorf("failed to set job outputs, error: %s", err)
-					e.JobResult.Status = common.StatusFailed.String()
-				} else {
-					// ensure that the passed state and output variables are passed at the same time.
-					e.JobResult.Status = common.StatusPassed.String()
-					_, err := e.Reporter.ReportWithData(e.JobResult)
-					if err != nil {
-						e.JobResult.Error = err
-					}
-				}
+				e.Logger.Errorf("failed to set job outputs, error: %s", err)
+				e.JobResult.SetError(fmt.Errorf("failed to set job outputs, error: %s", err))
 			}
 		}
-		e.JobResult.EndTime = time.Now().Unix()
 
 		e.Logger.Printf("====================== Job Executor End. Duration: %.2f seconds ======================\n", time.Since(start).Seconds())
 	}()
@@ -207,7 +188,7 @@ func (e *JobExecutor) Execute() {
 	err = e.run()
 	if err != nil {
 		e.Logger.Errorf("failed to execute job, error: %v", err)
-		e.JobResult.Error = err
+		e.JobResult.SetError(err)
 		return
 	}
 }
@@ -218,7 +199,7 @@ func (e *JobExecutor) run() error {
 	if e.Job.JobCtx == "" {
 		return fmt.Errorf("job context is empty")
 	}
-	e.JobCtx = new(common.JobContext)
+	e.JobCtx = new(types.JobContext)
 	if err := e.JobCtx.Decode(e.Job.JobCtx); err != nil {
 		return fmt.Errorf("decode job context error: %v", err)
 	}
@@ -269,7 +250,7 @@ func (e *JobExecutor) AfterExecute() error {
 	log.Infof("start to workflow %s job %s AfterExecute stage", e.Job.WorkflowName, e.Job.JobName)
 	for logStr, EOFErr, err := e.Reporter.GetJobLog(); err == nil; {
 		resp, err := e.Reporter.ReportWithData(
-			&common.JobExecuteResult{
+			&types.JobExecuteResult{
 				JobInfo: e.JobResult.JobInfo,
 				Status:  e.JobResult.Status,
 				Log:     logStr,
@@ -288,24 +269,6 @@ func (e *JobExecutor) AfterExecute() error {
 			break
 		}
 	}
-	return nil
-}
-
-func (j *JobExecutor) collectJobResult(ctx context.Context) error {
-	outputs, err := j.getJobOutputVars()
-	if err != nil {
-		return fmt.Errorf("get job output vars error: %v", err)
-	}
-	jsonOutput, err := json.Marshal(outputs)
-	if err != nil {
-		return err
-	}
-
-	if len(jsonOutput) > common.MaxContainerTerminationMessageLength {
-		return fmt.Errorf("termination message is above max allowed size 4096, caused by large task result")
-	}
-
-	j.OutputsJsonBytes = jsonOutput
 	return nil
 }
 
