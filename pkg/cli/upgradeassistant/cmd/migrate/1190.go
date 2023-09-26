@@ -526,7 +526,7 @@ func migrateSonarScanningModules() error {
 				return fmt.Errorf("failed to update scannings, error: %s", err)
 			}
 		}
-
+		
 		err = internaldb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID,
 			map[string]interface{}{
 				"sonar_migration": true,
