@@ -19,7 +19,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -153,13 +152,9 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 	if err != nil {
 		return nil, fmt.Errorf("failed to get zadig-agent version, error: %s", err)
 	}
-	version = strings.Split(version, "-")[0]
 
 	if vm.Agent == nil {
 		return nil, fmt.Errorf("vm %s not install zadig-agent", vm.Name)
-	}
-	if vm.Agent.AgentVersion == version {
-		cmd.Upgrade = false
 	}
 
 	linuxAMD64Name, linuxARM64Name := fmt.Sprintf("zadig-agent-linux-amd64-v%s", version), fmt.Sprintf("zadig-agent-linux-arm64-v%s", version)
@@ -573,7 +568,6 @@ func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to get zadig-agent version, error: %s", err)
 	}
-	version = strings.Split(version, "-")[0]
 
 	var serverURL string
 	serverURL = commonconfig.SystemAddress()
