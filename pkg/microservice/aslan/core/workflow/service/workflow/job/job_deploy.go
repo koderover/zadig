@@ -311,23 +311,10 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 						jobTaskSpec.VariableKVs = service.VariableKVs
 					}
 
-					usedRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-						ProductTmpl: product.ProductName,
-						EnvName:     product.EnvName,
-						IsDefault:   false,
-						Revision:    product.Render.Revision,
-						Name:        product.Render.Name,
-					})
-					if err != nil {
-						return nil, fmt.Errorf("failed to find renderset for %s/%s, err: %w", product.ProductName, product.EnvName, err)
-					}
-
+					serviceRender := product.GetSvcRender(serviceName)
 					svcRenderVarMap := map[string]*commontypes.RenderVariableKV{}
-					serviceRender := usedRenderset.GetServiceRenderMap()[serviceName]
-					if serviceRender != nil {
-						for _, varKV := range serviceRender.OverrideYaml.RenderVariableKVs {
-							svcRenderVarMap[varKV.Key] = varKV
-						}
+					for _, varKV := range serviceRender.OverrideYaml.RenderVariableKVs {
+						svcRenderVarMap[varKV.Key] = varKV
 					}
 
 					// filter variables that used global variable

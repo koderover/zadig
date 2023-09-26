@@ -115,33 +115,6 @@ func (c *Client) GetEnvService(productName, envName string, log *zap.SugaredLogg
 	return envObj, errors.WithMessage(err, "failed to get service")
 }
 
-func (c *Client) GetRenderset(name string, revision int64, log *zap.SugaredLogger) (*service.ProductRenderset, error) {
-	var (
-		err          error
-		rendersetObj = new(service.ProductRenderset)
-	)
-	url := fmt.Sprintf("%s/project/renders/render/%s/revision/%d", c.APIBase, name, revision)
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Errorf("GetService new http request error: %v", err)
-		return nil, err
-	}
-
-	var ret *http.Response
-	if ret, err = c.Conn.Do(request); err == nil {
-		defer func() { _ = ret.Body.Close() }()
-		var body []byte
-		body, err = ioutil.ReadAll(ret.Body)
-		if err == nil {
-			if err = json.Unmarshal(body, &rendersetObj); err == nil {
-				return rendersetObj, nil
-			}
-		}
-	}
-
-	return rendersetObj, errors.WithMessage(err, "failed to get renderset")
-}
-
 func (c *Client) GetService(serviceName, productName, serviceType string, revision int64, log *zap.SugaredLogger) (*service.Service, error) {
 	var (
 		err     error

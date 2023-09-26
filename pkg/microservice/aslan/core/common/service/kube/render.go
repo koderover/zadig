@@ -109,22 +109,6 @@ func GenerateYamlFromKV(kvs []*commonmodels.VariableKV) (string, error) {
 	return string(bs), nil
 }
 
-// extract valid svc variable from service variable
-func extractValidSvcVariable(serviceName string, rs *commonmodels.RenderSet) string {
-	serviceVariable := ""
-	for _, v := range rs.ServiceVariables {
-		if v.ServiceName != serviceName {
-			continue
-		}
-		if v.OverrideYaml != nil {
-			serviceVariable = v.OverrideYaml.YamlContent
-		}
-		break
-	}
-
-	return serviceVariable
-}
-
 func resourceToYaml(obj runtime.Object) (string, error) {
 	y := printers.YAMLPrinter{}
 	writer := bytes.NewBuffer(nil)
@@ -369,19 +353,7 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 		return "", 0, errors.Wrapf(err, "failed to find service %s with revision %d", option.ServiceName, curProductSvc.Revision)
 	}
 
-	var usedRenderset *commonmodels.RenderSet
-	usedRenderset, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		ProductTmpl: productInfo.ProductName,
-		EnvName:     productInfo.EnvName,
-		IsDefault:   false,
-		Revision:    productInfo.Render.Revision,
-		Name:        productInfo.Render.Name,
-	})
-	if err != nil {
-		return "", 0, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)
-	}
-
-	fullRenderedYaml, err := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset)
+	fullRenderedYaml, err := RenderServiceYaml(prodSvcTemplate.Yaml, option.ProductName, option.ServiceName, curProductSvc.GetServiceRender())
 	if err != nil {
 		return "", 0, err
 	}
@@ -391,8 +363,8 @@ func FetchCurrentAppliedYaml(option *GeneSvcYamlOption) (string, int, error) {
 	return fullRenderedYaml, 0, nil
 }
 
-func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service, renderset *commonmodels.RenderSet) (string, []*WorkloadResource, error) {
-	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, option.ProductName, option.ServiceName, renderset)
+func fetchImportedManifests(option *GeneSvcYamlOption, productInfo *models.Product, serviceTmp *models.Service, svcRender *template.ServiceRender) (string, []*WorkloadResource, error) {
+	fullRenderedYaml, err := RenderServiceYaml(serviceTmp.Yaml, option.ProductName, option.ServiceName, svcRender)
 	if err != nil {
 		return "", nil, err
 	}
@@ -527,20 +499,11 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		return "", 0, nil, fmt.Errorf("failed to find service template for service %s, isProduction %v", option.ServiceName, productInfo.Production)
 	}
 
-	usedRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		ProductTmpl: productInfo.ProductName,
-		EnvName:     productInfo.EnvName,
-		IsDefault:   false,
-		Revision:    productInfo.Render.Revision,
-		Name:        productInfo.Render.Name,
-	})
-	if err != nil {
-		return "", 0, nil, errors.Wrapf(err, "failed to find renderset for %s/%s", productInfo.ProductName, productInfo.EnvName)
-	}
+	serviceRender := productInfo.GetSvcRender(option.ServiceName)
 
 	// service not deployed by zadig, should only be updated with images
 	if !option.UnInstall && !option.UpdateServiceRevision && variableYamlNil(option.VariableYaml) && curProductSvc != nil && !commonutil.ServiceDeployed(option.ServiceName, productInfo.ServiceDeployStrategy) {
-		manifest, workloads, err := fetchImportedManifests(option, productInfo, prodSvcTemplate, usedRenderset)
+		manifest, workloads, err := fetchImportedManifests(option, productInfo, prodSvcTemplate, serviceRender)
 		return manifest, int(curProductSvc.Revision), workloads, err
 	}
 
@@ -551,25 +514,18 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	}
 
 	renderVariableKVs := []*commontypes.RenderVariableKV{}
-	serviceRender := usedRenderset.GetServiceRenderMap()[option.ServiceName]
-	if serviceRender != nil && serviceRender.OverrideYaml != nil {
-		renderVariableKVs = serviceRender.OverrideYaml.RenderVariableKVs
-	}
+	renderVariableKVs = serviceRender.OverrideYaml.RenderVariableKVs
 
-	// merge service template, renderset and opton variables
+	// merge service template, renderset and option variables
 	templVariableKV := commontypes.ServiceToRenderVariableKVs(latestSvcTemplate.ServiceVariableKVs)
 	mergedYaml, _, err := commontypes.MergeRenderVariableKVs(templVariableKV, renderVariableKVs, option.VariableKVs)
 	if err != nil {
 		return "", 0, nil, errors.Wrapf(err, "failed to merge service variable yaml")
 	}
-	usedRenderset.ServiceVariables = []*template.ServiceRender{{
-		ServiceName: option.ServiceName,
-		OverrideYaml: &template.CustomYaml{
-			YamlContent: mergedYaml,
-		},
-	}}
 
-	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, usedRenderset)
+	serviceRender.OverrideYaml.YamlContent = mergedYaml
+
+	fullRenderedYaml, err := RenderServiceYaml(latestSvcTemplate.Yaml, option.ProductName, option.ServiceName, serviceRender)
 	if err != nil {
 		return "", 0, nil, err
 	}
@@ -584,18 +540,18 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 	return fullRenderedYaml, int(latestSvcTemplate.Revision), workloadResource, err
 }
 
-func RenderServiceYaml(originYaml, productName, serviceName string, rs *commonmodels.RenderSet) (string, error) {
-	if rs == nil {
+func RenderServiceYaml(originYaml, productName, serviceName string, svcRender *template.ServiceRender) (string, error) {
+	if svcRender == nil {
 		originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableProduct, productName)
 		originYaml = strings.ReplaceAll(originYaml, setting.TemplateVariableService, serviceName)
 		return originYaml, nil
 	}
-	variableYaml := extractValidSvcVariable(serviceName, rs)
+	variableYaml := svcRender.GetSafeVariable()
 	return commonutil.RenderK8sSvcYamlStrict(originYaml, productName, serviceName, variableYaml)
 }
 
 // RenderEnvService renders service with particular revision and service vars in environment
-func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet, service *commonmodels.ProductService) (yaml string, err error) {
+func RenderEnvService(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService) (yaml string, err error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName: service.ServiceName,
 		ProductName: service.ProductName,
@@ -607,12 +563,12 @@ func RenderEnvService(prod *commonmodels.Product, render *commonmodels.RenderSet
 		return "", err
 	}
 
-	return RenderEnvServiceWithTempl(prod, render, service, svcTmpl)
+	return RenderEnvServiceWithTempl(prod, serviceRender, service, svcTmpl)
 }
 
-func RenderEnvServiceWithTempl(prod *commonmodels.Product, render *commonmodels.RenderSet, service *commonmodels.ProductService, svcTmpl *commonmodels.Service) (yaml string, err error) {
+func RenderEnvServiceWithTempl(prod *commonmodels.Product, serviceRender *template.ServiceRender, service *commonmodels.ProductService, svcTmpl *commonmodels.Service) (yaml string, err error) {
 	// Note only the keys in TemplateService.ServiceVar can work
-	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, render)
+	parsedYaml, err := RenderServiceYaml(svcTmpl.Yaml, prod.ProductName, svcTmpl.ServiceName, serviceRender)
 	if err != nil {
 		log.Errorf("failed to render service yaml, err: %s", err)
 		return "", err

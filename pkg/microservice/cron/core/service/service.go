@@ -21,6 +21,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -69,6 +70,11 @@ type ProductResp struct {
 	RecycleDay  int                              `json:"recycle_day"`
 	IsProd      bool                             `json:"is_prod"`
 	Source      string                           `json:"source"`
+
+	DefaultValues string                     `bson:"default_values,omitempty"       json:"default_values,omitempty"`
+	YamlData      *templatemodels.CustomYaml `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
+	// GlobalValues for k8s projects
+	GlobalVariables []*commontypes.GlobalVariableKV `bson:"global_variables,omitempty"     json:"global_variables,omitempty"`
 }
 
 type ProductRenderset struct {

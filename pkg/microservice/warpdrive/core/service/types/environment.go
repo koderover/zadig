@@ -18,6 +18,7 @@ package types
 
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
@@ -47,13 +48,10 @@ type Product struct {
 	RecycleDay  int              `bson:"recycle_day"               json:"recycle_day"`
 	Source      string           `bson:"source"                    json:"source"`
 
-	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
+	// GlobalValues for helm projects
+	DefaultValues string `bson:"default_values,omitempty"       json:"default_values,omitempty"`
 
-	// used for cache
-	//KubeClient kubecli.Client `bson:"-" json:"-"`
-	//HelmClient helmclient.Client `bson:"-" json:"-"`
-	// TODO: temp flag
-	IsForkedProduct bool `bson:"-" json:"-"`
+	ServiceDeployStrategy map[string]string `bson:"service_deploy_strategy" json:"service_deploy_strategy"`
 }
 
 type RenderKV struct {
@@ -86,13 +84,13 @@ type ProductAuth struct {
 }
 
 type Service struct {
-	ServiceName string              `bson:"service_name"               json:"service_name"`
-	Type        string              `bson:"type"                       json:"type"`
-	Revision    int64               `bson:"revision"                   json:"revision"`
-	Containers  []*models.Container `bson:"containers"                 json:"containers,omitempty"`
-	Configs     []*Config           `bson:"configs,omitempty"          json:"configs,omitempty"`
-	Render      *task.RenderInfo    `bson:"render,omitempty"           json:"render,omitempty"` // 记录每个服务render信息 便于更新单个服务
-	EnvConfigs  []*EnvConfig        `bson:"-"                          json:"env_configs,omitempty"`
+	ServiceName string                  `bson:"service_name"               json:"service_name"`
+	Type        string                  `bson:"type"                       json:"type"`
+	Revision    int64                   `bson:"revision"                   json:"revision"`
+	Containers  []*models.Container     `bson:"containers"                 json:"containers,omitempty"`
+	Configs     []*Config               `bson:"configs,omitempty"          json:"configs,omitempty"`
+	Render      *template.ServiceRender `bson:"render,omitempty"           json:"render,omitempty"` // 记录每个服务render信息 便于更新单个服务
+	EnvConfigs  []*EnvConfig            `bson:"-"                          json:"env_configs,omitempty"`
 }
 
 // Config ...

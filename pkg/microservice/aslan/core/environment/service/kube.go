@@ -48,7 +48,6 @@ import (
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
@@ -988,37 +987,25 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 		EnvName: request.EnvName,
 	})
 
-	fakeRenderSet := &models.RenderSet{}
-	if err == nil && productInfo != nil {
-		renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-			ProductTmpl: productName,
-			EnvName:     request.EnvName,
-			IsDefault:   false,
-			Revision:    productInfo.Render.Revision,
-			Name:        productInfo.Render.Name,
-		})
-		if err == nil {
-			fakeRenderSet.GlobalVariables = renderset.GlobalVariables
-		}
-	}
-
 	productServices, err := repository.ListMaxRevisionsServices(productName, productInfo.Production)
 	if err != nil {
 		return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to find product services, err: %s", err))
 	}
+
+	fakeRenderMap := make(map[string]*template.ServiceRender)
 
 	for _, sv := range request.Services {
 		variableYaml, err := commontypes.RenderVariableKVToYaml(sv.VariableKVs)
 		if err != nil {
 			return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to convert render variable yaml, err: %s", err))
 		}
-		fakeRenderSet.ServiceVariables = append(fakeRenderSet.ServiceVariables, &template.ServiceRender{
+		fakeRenderMap[sv.ServiceName] = &template.ServiceRender{
 			ServiceName: sv.ServiceName,
 			OverrideYaml: &template.CustomYaml{
 				YamlContent:       variableYaml,
 				RenderVariableKVs: sv.VariableKVs,
 			},
-		})
+		}
 	}
 
 	for _, svc := range productServices {
@@ -1027,7 +1014,7 @@ func GetResourceDeployStatus(productName string, request *K8sDeployStatusCheckRe
 			continue
 		}
 
-		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productInfo.ProductName, svc.ServiceName, fakeRenderSet)
+		rederedYaml, err := kube.RenderServiceYaml(svc.Yaml, productInfo.ProductName, svc.ServiceName, fakeRenderMap[svc.ServiceName])
 		if err != nil {
 			return nil, e.ErrGetResourceDeployInfo.AddErr(fmt.Errorf("failed to render service yaml, serviceName：%s, err: %w", svc.ServiceName, err))
 		}

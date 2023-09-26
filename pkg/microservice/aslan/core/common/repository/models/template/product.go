@@ -151,6 +151,13 @@ func (rc *ServiceRender) DeployedFromZadig() bool {
 	return !rc.IsHelmChartDeploy
 }
 
+func (rc *ServiceRender) GetSafeVariable() string {
+	if rc.OverrideYaml != nil {
+		return rc.OverrideYaml.YamlContent
+	}
+	return ""
+}
+
 type ProductFeature struct {
 	// 基础设施，kubernetes 或者 cloud_host
 	BasicFacility string `bson:"basic_facility"            json:"basic_facility"`
