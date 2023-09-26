@@ -155,7 +155,7 @@ func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 		log.Debugf("registerID %s %s", j.spec.DockerRegistryID, argsSpec.DockerRegistryID)
-		j.spec.DockerRegistryID = argsSpec.DockerRegistryID
+		//j.spec.DockerRegistryID = argsSpec.DockerRegistryID
 		newBuilds := []*commonmodels.ServiceAndBuild{}
 		for _, build := range j.spec.ServiceAndBuilds {
 			for _, argsBuild := range argsSpec.ServiceAndBuilds {
