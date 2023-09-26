@@ -16,4 +16,4 @@ limitations under the License.
 
 package config
 
-const AGENT_VERSION = "v1.7.0"
+const AGENT_VERSION = "v1.8.0-rc"
