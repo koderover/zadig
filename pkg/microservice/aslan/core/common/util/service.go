@@ -410,6 +410,8 @@ func ParseImagesByRules(nested map[string]interface{}, matchRules []*templatemod
 		}
 		patterns = append(patterns, rule.GetSearchingPattern())
 	}
+	log.Infof("------- nested data: +v \n", nested)
+	log.Infof("------- patterns: +v \n", patterns)
 	return parseImagesByPattern(nested, patterns)
 }
 
