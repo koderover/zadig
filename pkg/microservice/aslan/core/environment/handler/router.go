@@ -208,6 +208,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.POST("/environments/:name/sleep", ProductionEnvSleep)
 		production.GET("/environments/:name/sleep/cron", GetProductionEnvSleepCron)
 		production.PUT("/environments/:name/sleep/cron", UpsertProductionEnvSleepCron)
+
+		production.GET("/environments/version/:serviceName", ListProductionEnvServiceVersions)
+		production.GET("/environments/version/:serviceName/diff", DiffProductionEnvServiceVersions)
+		production.GET("/environments/version/:serviceName/rollback", RollbackProductionEnvServiceVersion)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -280,6 +284,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/sleep", EnvSleep)
 		environments.GET("/:name/sleep/cron", GetEnvSleepCron)
 		environments.PUT("/:name/sleep/cron", UpsertEnvSleepCron)
+
+		environments.GET("/version/:serviceName", ListEnvServiceVersions)
+		environments.GET("/version/:serviceName/diff", DiffEnvServiceVersions)
+		environments.GET("/version/:serviceName/rollback", RollbackEnvServiceVersion)
 	}
 
 	// ---------------------------------------------------------------------------------------

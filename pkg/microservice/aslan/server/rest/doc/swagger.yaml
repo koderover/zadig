@@ -609,6 +609,10 @@ definitions:
         type: string
       release_name:
         type: string
+      render:
+        allOf:
+        - $ref: '#/definitions/template.ServiceRender'
+        description: New since 1.9.0 used to replace service renders in render_set
       revision:
         type: integer
       service_name:
@@ -1446,6 +1450,17 @@ definitions:
         type: string
       value: {}
     type: object
+  service.ListEnvServiceVersionsResponse:
+    properties:
+      create_by:
+        type: string
+      create_time:
+        type: integer
+      revision:
+        type: integer
+      service_name:
+        type: string
+    type: object
   service.ListPodsInfoRespone:
     properties:
       create_time:
@@ -1651,6 +1666,10 @@ definitions:
         type: string
       release_name:
         type: string
+      render:
+        allOf:
+        - $ref: '#/definitions/template.ServiceRender'
+        description: New since 1.9.0 used to replace service renders in render_set
       revision:
         type: integer
       service_name:
@@ -2331,7 +2350,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Run Enviroment Analysis
+      description: Run environment Analysis
       parameters:
       - description: env name
         in: path
@@ -2350,7 +2369,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvAnalysisRespone'
-      summary: Run Enviroment Analysis
+      summary: Run environment Analysis
       tags:
       - environment
   /api/aslan/environment/environments/{name}/analysis/cron:
@@ -2431,7 +2450,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvConfigsArgs'
-      summary: Get enviroment configs
+      summary: Get environment configs
       tags:
       - environment
     put:
@@ -2460,7 +2479,7 @@ paths:
       responses:
         "200":
           description: OK
-      summary: Update enviroment configs
+      summary: Update environment configs
       tags:
       - environment
   /api/aslan/environment/environments/{name}/globalVariableCandidates:
@@ -2772,6 +2791,99 @@ paths:
       summary: Upsert Env Sleep Cron
       tags:
       - environment
+  /api/aslan/environment/environments/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Environment Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+            type: array
+      summary: List Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/environments/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Environment Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: version a
+        in: query
+        name: versionA
+        required: true
+        type: integer
+      - description: version b
+        in: query
+        name: versionB
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+      summary: Diff Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/environments/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Environment Service Version
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: version
+        in: query
+        name: version
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Environment Service Version
+      tags:
+      - service
   /api/aslan/environment/init_info/{name}:
     get:
       consumes:
@@ -3040,7 +3152,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Run Production Enviroment Analysis
+      description: Run Production environment Analysis
       parameters:
       - description: env name
         in: path
@@ -3059,7 +3171,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvAnalysisRespone'
-      summary: Run Production Enviroment Analysis
+      summary: Run Production environment Analysis
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/analysis/cron:
@@ -3140,7 +3252,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvConfigsArgs'
-      summary: Get production enviroment configs
+      summary: Get production environment configs
       tags:
       - environment
     put:
@@ -3169,7 +3281,7 @@ paths:
       responses:
         "200":
           description: OK
-      summary: Update production enviroment configs
+      summary: Update production environment configs
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/estimated-values:
@@ -3396,6 +3508,99 @@ paths:
       summary: List Workloads In Env
       tags:
       - environment
+  /api/aslan/environment/production/environments/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Production Environment Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+            type: array
+      summary: List Production Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Production Environment Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: version a
+        in: query
+        name: versionA
+        required: true
+        type: integer
+      - description: version b
+        in: query
+        name: versionB
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+      summary: Diff Production Environment Service Versions
+      tags:
+      - service
+  /api/aslan/environment/production/environments/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Production Environment Service Version
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: version
+        in: query
+        name: version
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Production Environment Service Version
+      tags:
+      - service
   /api/aslan/environment/production/rendersets/renderchart:
     post:
       consumes:
