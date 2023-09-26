@@ -24,6 +24,7 @@ import (
 	errhelper "github.com/koderover/zadig/pkg/cli/zadig-agent/helper/error"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
 )
 
@@ -35,10 +36,10 @@ type JobReporter struct {
 	Offset    uint
 	Log       string
 	JobCancel *bool
-	Result    *common.JobExecuteResult
+	Result    *types.JobExecuteResult
 }
 
-func NewJobReporter(result *common.JobExecuteResult, client *network.ZadigClient, cancel *bool) *JobReporter {
+func NewJobReporter(result *types.JobExecuteResult, client *network.ZadigClient, cancel *bool) *JobReporter {
 	return &JobReporter{
 		Seq:       0,
 		Client:    client,
@@ -48,7 +49,7 @@ func NewJobReporter(result *common.JobExecuteResult, client *network.ZadigClient
 }
 
 func (r *JobReporter) Start(ctx context.Context) {
-	log.Infof("agent job %s reporter.", r.Result.JobInfo.JobName)
+	log.Infof("Start job %s reporter.", r.Result.JobInfo.JobName)
 	r.Ctx = ctx
 	ticker := time.NewTicker(time.Second)
 
@@ -66,7 +67,7 @@ func (r *JobReporter) Start(ctx context.Context) {
 				log.Error(err)
 			}
 		case <-ctx.Done():
-			log.Infof("stop job reporter, received context cancel signal.")
+			log.Infof("stop job reporter, received context cancel signal from job executor.")
 			return
 		}
 	}
@@ -86,7 +87,7 @@ func (r *JobReporter) Report() error {
 		return fmt.Errorf("reporter result is nil")
 	}
 
-	resp, err := r.Client.ReportJob(&common.ReportJobParameters{
+	resp, err := r.Client.ReportJob(&types.ReportJobParameters{
 		Seq:       r.Seq,
 		JobID:     r.Result.JobInfo.JobID,
 		JobStatus: r.Result.Status,
@@ -105,7 +106,7 @@ func (r *JobReporter) Report() error {
 	return nil
 }
 
-func (r *JobReporter) ReportWithData(result *common.JobExecuteResult) (*common.ReportAgentJobResp, error) {
+func (r *JobReporter) ReportWithData(result *types.JobExecuteResult) (*types.ReportAgentJobResp, error) {
 	if result == nil {
 		return nil, fmt.Errorf("reporter result is nil")
 	}
@@ -113,33 +114,14 @@ func (r *JobReporter) ReportWithData(result *common.JobExecuteResult) (*common.R
 		return nil, fmt.Errorf("reporter result job info is nil")
 	}
 
-	resp, err := r.Client.ReportJob(&common.ReportJobParameters{
+	resp, err := r.Client.ReportJob(&types.ReportJobParameters{
 		JobID:     result.JobInfo.JobID,
 		JobStatus: result.Status,
 		JobError:  errhelper.ErrHandler(result.Error),
 		JobLog:    result.Log,
+		JobOutput: result.OutputsJsonBytes,
 	})
 	return resp, err
-}
-
-func (r *JobReporter) SetStatus(status string) error {
-	if r.Result == nil {
-		return fmt.Errorf("reporter job result is nil")
-	}
-
-	r.Result.Status = status
-
-	return nil
-}
-
-func (r *JobReporter) SetError(err error) error {
-	if r.Result == nil {
-		return fmt.Errorf("reporter result is nil")
-	}
-
-	r.Result.Error = err
-
-	return nil
 }
 
 func (r *JobReporter) SetLog() error {
@@ -157,32 +139,24 @@ func (r *JobReporter) SetLog() error {
 	return nil
 }
 
-func (r *JobReporter) SetStartTime(startTime int64) error {
-	if r.Result == nil {
-		return fmt.Errorf("reporter result is nil")
+func (r *JobReporter) FinishedJobReport(status common.Status, err error) error {
+	r.Result.SetError(err)
+	r.Result.SetStatus(status)
+	r.Result.SetEndTime(time.Now().Unix())
+	r.Result.SetLog("")
+
+	retry := 3
+	for retry > 0 {
+		_, err = r.ReportWithData(r.Result)
+		if err == nil {
+			return nil
+		}
+
+		retry--
 	}
 
-	r.Result.StartTime = startTime
-
-	return nil
-}
-
-func (r *JobReporter) SetEndTime(endTime int64) error {
-	if r.Result == nil {
-		return fmt.Errorf("reporter result is nil")
+	if retry == 0 {
+		return fmt.Errorf("failed to report job finished result, error: %s", err)
 	}
-
-	r.Result.EndTime = endTime
-
-	return nil
-}
-
-func (r *JobReporter) SetOutputsJsonBytes(outputsJsonBytes []byte) error {
-	if r.Result == nil {
-		return fmt.Errorf("reporter result is nil")
-	}
-
-	r.Result.OutputsJsonBytes = outputsJsonBytes
-
 	return nil
 }

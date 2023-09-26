@@ -24,11 +24,11 @@ import (
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/docker"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/git"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/script"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 )
 
 type StepInfos struct {
-	Step      *common.Step
+	Step      *types.Step
 	Workspace string
 	Paths     string
 	Envs      []string
@@ -38,7 +38,7 @@ type Step interface {
 	Run(ctx context.Context) error
 }
 
-func RunStep(ctx context.Context, jobCtx *common.JobContext, step *common.StepTask, workspace, paths string, envs, secretEnvs []string, logger *log.JobLogger) error {
+func RunStep(ctx context.Context, jobCtx *types.JobContext, step *types.StepTask, workspace, paths string, envs, secretEnvs []string, logger *log.JobLogger) error {
 	var stepInstance Step
 	var err error
 

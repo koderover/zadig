@@ -1062,7 +1062,6 @@ func writeOutputs(outputs []*job.JobOutput, outputKey string, workflowCtx *commo
 		}
 	}
 	for _, output := range outputsMap {
-		log.Infof("key: %s =========> %s: %s", job.GetJobOutputKey(outputKey, output.Name), output.Name, output.Value)
 		workflowCtx.GlobalContextSet(job.GetJobOutputKey(outputKey, output.Name), output.Value)
 	}
 }

@@ -527,12 +527,6 @@ func ReportAgentJob(args *ReportJobArgs, logger *zap.SugaredLogger) (*ReportAgen
 	job.Status = args.JobStatus
 	job.Error = args.JobError
 
-	if args.JobStatus == string(config.StatusPassed) {
-		out := args.JobOutput
-		str, _ := json.Marshal(out)
-		logger.Infof("%s-%s <<<<<<--------->>>>>>> num:%d, out:%s", job.WorkflowName, job.JobName, len(out), string(str))
-	}
-
 	if args.JobOutput != nil {
 		outputs := make([]*commonjob.JobOutput, 0)
 		if err := json.Unmarshal(args.JobOutput, &outputs); err != nil {
