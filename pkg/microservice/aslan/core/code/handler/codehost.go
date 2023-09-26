@@ -231,7 +231,7 @@ func CodeHostGetCommits(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
-	repoOwner := c.Query("repoOwner")
+	repoNamespace := c.Query("repoNamespace")
 	repoName := c.Query("repoName") // pro Name, id/name -> gitlab = id
 
 	args := new(CodeHostGetPageNateListArgs)
@@ -244,8 +244,8 @@ func CodeHostGetCommits(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
-	if repoOwner == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoOwner")
+	if repoNamespace == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty repoNamespace")
 		return
 	}
 	if repoName == "" {
@@ -256,7 +256,7 @@ func CodeHostGetCommits(c *gin.Context) {
 	targetBr := c.Query("branchName")
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListCommits(chID, repoName, strings.Replace(repoOwner, "%2F", "/", -1), targetBr, args.Page, args.PerPage, ctx.Logger)
+	ctx.Resp, ctx.Err = service.CodeHostListCommits(chID, repoName, strings.Replace(repoNamespace, "%2F", "/", -1), targetBr, args.Page, args.PerPage, ctx.Logger)
 }
 
 func ListRepoInfos(c *gin.Context) {
