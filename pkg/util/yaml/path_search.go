@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-
 	"k8s.io/utils/strings/slices"
 )
 
