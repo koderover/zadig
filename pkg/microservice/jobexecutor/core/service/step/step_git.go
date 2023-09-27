@@ -17,7 +17,6 @@ limitations under the License.
 package step
 
 import (
-	"bufio"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -27,8 +26,13 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/util"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -40,14 +44,17 @@ import (
 )
 
 type GitStep struct {
-	spec       *step.StepGitSpec
-	envs       []string
-	secretEnvs []string
-	workspace  string
+	spec           *step.StepGitSpec
+	envs           []string
+	secretEnvs     []string
+	dirs           *meta.ExecutorWorkDirs
+	logger         *zap.SugaredLogger
+	infrastructure string
 }
 
-func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (*GitStep, error) {
-	gitStep := &GitStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewGitStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*GitStep, error) {
+	gitStep := &GitStep{dirs: metaData.Dirs, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs, logger: logger}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return gitStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -60,9 +67,9 @@ func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (
 
 func (s *GitStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("Start git clone.")
+	s.logger.Infof("Start git clone.")
 	defer func() {
-		log.Infof("Git clone ended. Duration: %.2f seconds.", time.Since(start).Seconds())
+		s.logger.Infof("Git clone ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
 	return s.runGitCmds()
 }
@@ -70,51 +77,75 @@ func (s *GitStep) Run(ctx context.Context) error {
 func (s *GitStep) RunGitGc(folder string) error {
 	// envs := r.getUserEnvs()
 	cmd := c.Gc()
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	//cmd.Stdout = os.Stdout
+	//cmd.Stderr = os.Stderr
+	var fileName string
+	if s.infrastructure != setting.JobVMInfrastructure {
+		fileName = filepath.Join(os.TempDir(), "git-gc.log")
+		// if the file does not exist, create the file to avoid errors in the following use of the variable
+		_ = util.WriteFile(fileName, []byte{}, 0700)
+	} else {
+		fileName = s.dirs.JobLogPath
+	}
+
+	wg := &sync.WaitGroup{}
+	err := SetCmdStdout(cmd, fileName, s.secretEnvs, true, wg)
+	if err != nil {
+		s.logger.Errorf("set cmd stdout error: %v", err)
+	}
+
 	// cmd.Env = envs
-	cmd.Dir = path.Join(s.workspace, folder)
-	return cmd.Run()
+	cmd.Dir = path.Join(s.dirs.Workspace, folder)
+	err = cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	wg.Wait()
+	return nil
 }
 
 func (s *GitStep) runGitCmds() error {
-	if err := os.MkdirAll(path.Join(config.Home(), "/.ssh"), os.ModePerm); err != nil {
-		return fmt.Errorf("create ssh folder error: %v", err)
-	}
-	envs := s.envs
-	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
-	if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && s.spec.Proxy.Type == "http" {
-		noProxy := ""
-		proxyFlag := false
-		for _, repo := range s.spec.Repos {
-			if repo.EnableProxy {
-				if !proxyFlag {
-					envs = append(envs, fmt.Sprintf("http_proxy=%s", s.spec.Proxy.GetProxyURL()))
-					envs = append(envs, fmt.Sprintf("https_proxy=%s", s.spec.Proxy.GetProxyURL()))
-					proxyFlag = true
-				}
-			} else {
-				uri, err := url.Parse(repo.Address)
-				if err == nil {
-					if noProxy != "" {
-						noProxy += ","
-					}
-					noProxy += uri.Host
-				}
-			}
-		}
-		envs = append(envs, fmt.Sprintf("no_proxy=%s", noProxy))
-	}
-
 	// 获取git代码
 	cmds := make([]*c.Command, 0)
 
-	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("user.email", "ci@koderover.com"), DisableTrace: true})
-	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("user.name", "koderover"), DisableTrace: true})
+	envs := s.envs
+	if s.infrastructure != setting.JobVMInfrastructure {
+		if err := os.MkdirAll(path.Join(config.Home(), "/.ssh"), os.ModePerm); err != nil {
+			return fmt.Errorf("create ssh folder error: %v", err)
+		}
 
-	// https://stackoverflow.com/questions/24952683/git-push-error-rpc-failed-result-56-http-code-200-fatal-the-remote-end-hun/36843260
-	//cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "524288000"), DisableTrace: true})
-	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "2097152000"), DisableTrace: true})
+		// 如果存在github代码库，则设置代理，同时保证非github库不走代理
+		if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && s.spec.Proxy.Type == "http" {
+			noProxy := ""
+			proxyFlag := false
+			for _, repo := range s.spec.Repos {
+				if repo.EnableProxy {
+					if !proxyFlag {
+						envs = append(envs, fmt.Sprintf("http_proxy=%s", s.spec.Proxy.GetProxyURL()))
+						envs = append(envs, fmt.Sprintf("https_proxy=%s", s.spec.Proxy.GetProxyURL()))
+						proxyFlag = true
+					}
+				} else {
+					uri, err := url.Parse(repo.Address)
+					if err == nil {
+						if noProxy != "" {
+							noProxy += ","
+						}
+						noProxy += uri.Host
+					}
+				}
+			}
+			envs = append(envs, fmt.Sprintf("no_proxy=%s", noProxy))
+		}
+
+		cmds = append(cmds, &c.Command{Cmd: c.SetConfig("user.email", "ci@koderover.com"), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.SetConfig("user.name", "koderover"), DisableTrace: true})
+		// https://stackoverflow.com/questions/24952683/git-push-error-rpc-failed-result-56-http-code-200-fatal-the-remote-end-hun/36843260
+		//cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "524288000"), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "2097152000"), DisableTrace: true})
+	}
+
 	var tokens []string
 	var hostNames = sets.NewString()
 	for _, repo := range s.spec.Repos {
@@ -142,37 +173,29 @@ func (s *GitStep) runGitCmds() error {
 		tokens = append(tokens, repo.OauthToken)
 		cmds = append(cmds, s.buildGitCommands(repo, hostNames)...)
 	}
-	// write ssh key
-	if len(hostNames.List()) > 0 {
-		if err := writeSSHConfigFile(hostNames, s.spec.Proxy); err != nil {
-			return err
+
+	if s.infrastructure != setting.JobVMInfrastructure {
+		// write ssh key
+		if len(hostNames.List()) > 0 {
+			if err := writeSSHConfigFile(hostNames, s.spec.Proxy); err != nil {
+				return err
+			}
 		}
 	}
 
 	for _, c := range cmds {
-		cmdOutReader, err := c.Cmd.StdoutPipe()
+		var fileName string
+		needPersistentLog := false
+		if s.infrastructure == setting.JobVMInfrastructure {
+			needPersistentLog = true
+			fileName = s.dirs.JobLogPath
+		}
+		wg := &sync.WaitGroup{}
+		err := SetCmdStdout(c.Cmd, fileName, s.secretEnvs, needPersistentLog, wg)
 		if err != nil {
+			s.logger.Errorf("set cmd stdout error: %v", err)
 			return err
 		}
-
-		outScanner := bufio.NewScanner(cmdOutReader)
-		go func() {
-			for outScanner.Scan() {
-				fmt.Printf("%s\n", maskSecret(tokens, outScanner.Text()))
-			}
-		}()
-
-		cmdErrReader, err := c.Cmd.StderrPipe()
-		if err != nil {
-			return err
-		}
-
-		errScanner := bufio.NewScanner(cmdErrReader)
-		go func() {
-			for errScanner.Scan() {
-				fmt.Printf("%s\n", maskSecret(tokens, errScanner.Text()))
-			}
-		}()
 
 		c.Cmd.Env = envs
 		if !c.DisableTrace {
@@ -184,6 +207,8 @@ func (s *GitStep) runGitCmds() error {
 			}
 			return err
 		}
+
+		wg.Wait()
 	}
 	return nil
 }
@@ -196,9 +221,9 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		return cmds
 	}
 
-	workDir := filepath.Join(s.workspace, repo.RepoName)
+	workDir := filepath.Join(s.dirs.Workspace, repo.RepoName)
 	if len(repo.CheckoutPath) != 0 {
-		workDir = filepath.Join(s.workspace, repo.CheckoutPath)
+		workDir = filepath.Join(s.dirs.Workspace, repo.CheckoutPath)
 	}
 
 	if _, err := os.Stat(workDir); os.IsNotExist(err) {

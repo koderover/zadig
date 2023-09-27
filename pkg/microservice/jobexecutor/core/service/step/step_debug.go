@@ -23,24 +23,28 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/types"
+	"go.uber.org/zap"
 )
 
 type DebugStep struct {
-	Type       string
-	envs       []string
-	secretEnvs []string
-	workspace  string
-	updater    configmap.Updater
+	Type           string
+	envs           []string
+	secretEnvs     []string
+	dirs           *meta.ExecutorWorkDirs
+	logger         *zap.SugaredLogger
+	infrastructure string
+	updater        configmap.Updater
 }
 
-func NewDebugStep(_type string, workspace string, envs, secretEnvs []string, updater configmap.Updater) (*DebugStep, error) {
+func NewDebugStep(_type string, metaData *meta.JobMetaData, updater configmap.Updater, logger *zap.SugaredLogger) (*DebugStep, error) {
 	return &DebugStep{
 		Type:       _type,
-		envs:       envs,
-		secretEnvs: secretEnvs,
-		workspace:  workspace,
+		envs:       metaData.Envs,
+		secretEnvs: metaData.SecretEnvs,
+		dirs:       metaData.Dirs,
+		logger:     logger,
 		updater:    updater,
 	}, nil
 }
@@ -50,38 +54,38 @@ func (s *DebugStep) Run(ctx context.Context) (err error) {
 	_, err = os.Stat(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			log.Warnf("debug step unexpected stat error: %v", err)
+			s.logger.Warnf("debug step unexpected stat error: %v", err)
 		}
 		return nil
 	}
 	// This is to record that the debug step beginning and finished
 	cm, err := s.updater.Get()
 	if err != nil {
-		log.Errorf("debug step unexpected get configmap error: %v", err)
+		s.logger.Errorf("debug step unexpected get configmap error: %v", err)
 		return err
 	}
 	cm.Data[types.JobDebugStatusKey] = s.Type
 	if s.updater.UpdateWithRetry(cm, 3, 3*time.Second) != nil {
-		log.Errorf("debug step unexpected update configmap error: %v", err)
+		s.logger.Errorf("debug step unexpected update configmap error: %v", err)
 		return err
 	}
 	defer func() {
 		cm, err = s.updater.Get()
 		if err != nil {
-			log.Errorf("debug step unexpected get configmap error: %v", err)
+			s.logger.Errorf("debug step unexpected get configmap error: %v", err)
 			return
 		}
 		cm.Data[types.JobDebugStatusKey] = types.JobDebugStatusNotIn
 		if s.updater.UpdateWithRetry(cm, 3, 3*time.Second) != nil {
-			log.Errorf("debug step unexpected update configmap error: %v", err)
+			s.logger.Errorf("debug step unexpected update configmap error: %v", err)
 		}
 	}()
 
-	log.Infof("Running debugger %s job, Use debugger console.", s.Type)
+	s.logger.Infof("Running debugger %s job, Use debugger console.", s.Type)
 	for _, err := os.Stat(path); err == nil; {
 		time.Sleep(time.Second)
 		_, err = os.Stat(path)
 	}
-	log.Infof("debug step %s done", s.Type)
+	s.logger.Infof("debug step %s done", s.Type)
 	return nil
 }

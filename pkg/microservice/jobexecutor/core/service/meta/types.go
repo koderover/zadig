@@ -16,6 +16,16 @@ limitations under the License.
 
 package meta
 
+type JobMetaData struct {
+	Infrastructure string
+	Ctx            *JobContext
+	Step           *Step
+	Dirs           *ExecutorWorkDirs
+	Envs           []string
+	SecretEnvs     []string
+	Paths          string
+}
+
 type JobContext struct {
 	Name string `yaml:"name"`
 	// Workspace 容器工作目录 [必填]
@@ -45,3 +55,12 @@ type Step struct {
 }
 
 type EnvVar []string
+
+type ExecutorWorkDirs struct {
+	WorkDir       string
+	Workspace     string
+	JobLogPath    string
+	JobOutputsDir string
+	JobScriptDir  string
+	CacheDir      string
+}

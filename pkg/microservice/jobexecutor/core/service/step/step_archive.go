@@ -25,23 +25,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
 type ArchiveStep struct {
-	spec       *step.StepArchiveSpec
-	envs       []string
-	secretEnvs []string
-	workspace  string
+	spec           *step.StepArchiveSpec
+	envs           []string
+	secretEnvs     []string
+	dirs           *meta.ExecutorWorkDirs
+	logger         *zap.SugaredLogger
+	infrastructure string
 }
 
-func NewArchiveStep(spec interface{}, workspace string, envs, secretEnvs []string) (*ArchiveStep, error) {
-	archiveStep := &ArchiveStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewArchiveStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*ArchiveStep, error) {
+	archiveStep := &ArchiveStep{dirs: metaData.Dirs, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs, logger: logger}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return archiveStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -55,11 +59,11 @@ func NewArchiveStep(spec interface{}, workspace string, envs, secretEnvs []strin
 func (s *ArchiveStep) Run(ctx context.Context) error {
 	start := time.Now()
 	defer func() {
-		log.Infof("Archive ended. Duration: %.2f seconds", time.Since(start).Seconds())
+		s.logger.Infof("Archive ended. Duration: %.2f seconds", time.Since(start).Seconds())
 	}()
 
 	for _, upload := range s.spec.UploadDetail {
-		log.Infof("Start archive %s.", upload.FilePath)
+		s.logger.Infof("Start archive %s.", upload.FilePath)
 		if upload.DestinationPath == "" || upload.FilePath == "" {
 			return nil
 		}
@@ -73,7 +77,7 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 		}
 
 		envmaps := makeEnvMap(s.envs, s.secretEnvs)
-		
+
 		upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
 		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
 		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)

@@ -12,25 +12,29 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
 type ToolInstallStep struct {
-	spec       *step.StepToolInstallSpec
-	envs       []string
-	secretEnvs []string
-	workspace  string
+	spec           *step.StepToolInstallSpec
+	envs           []string
+	secretEnvs     []string
+	dirs           *meta.ExecutorWorkDirs
+	logger         *zap.SugaredLogger
+	infrastructure string
 }
 
-func NewToolInstallStep(spec interface{}, workspace string, envs, secretEnvs []string) (*ToolInstallStep, error) {
-	toolInstallStep := &ToolInstallStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewToolInstallStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*ToolInstallStep, error) {
+	toolInstallStep := &ToolInstallStep{dirs: metaData.Dirs, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs, logger: logger}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return toolInstallStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -43,13 +47,13 @@ func NewToolInstallStep(spec interface{}, workspace string, envs, secretEnvs []s
 
 func (s *ToolInstallStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("Installing tools.")
+	s.logger.Infof("Installing tools.")
 	defer func() {
-		log.Infof("Install tools ended. Duration: %.2f seconds.", time.Since(start).Seconds())
+		s.logger.Infof("Install tools ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
 
 	for _, tool := range s.spec.Installs {
-		log.Infof("Installing %s %s.", tool.Name, tool.Version)
+		s.logger.Infof("Installing %s %s.", tool.Name, tool.Version)
 		if err := s.runIntallationScripts(tool); err != nil {
 			return err
 		}
@@ -136,7 +140,7 @@ func (s *ToolInstallStep) runIntallationScripts(tool *step.Tool) error {
 	}
 
 	cmd := exec.Command("/bin/bash", file)
-	cmd.Dir = s.workspace
+	cmd.Dir = s.dirs.Workspace
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = s.envs

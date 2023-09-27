@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
+	"sync"
 
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/cmd"
@@ -30,74 +32,75 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
+	"go.uber.org/zap"
 )
 
 type Step interface {
 	Run(ctx context.Context) error
 }
 
-func RunStep(ctx context.Context, step *meta.Step, workspace, paths string, envs, secretEnvs []string, updater configmap.Updater) error {
+func RunStep(ctx context.Context, metaData *meta.JobMetaData, updater configmap.Updater, logger *zap.SugaredLogger) error {
 	var stepInstance Step
 	var err error
 
-	switch step.StepType {
+	switch metaData.Step.StepType {
 	case "shell":
-		stepInstance, err = NewShellStep(step.Spec, workspace, paths, envs, secretEnvs)
+		stepInstance, err = NewShellStep(metaData, logger)
 		if err != nil {
 			return err
 		}
 	case "git":
-		stepInstance, err = NewGitStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewGitStep(metaData, logger)
 		if err != nil {
 			return err
 		}
 	case "docker_build":
-		stepInstance, err = NewDockerBuildStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewDockerBuildStep(metaData, logger)
 		if err != nil {
 			return err
 		}
 	case "tools":
-		stepInstance, err = NewToolInstallStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewToolInstallStep(metaData, logger)
 		if err != nil {
 			return err
 		}
 	case "archive":
-		stepInstance, err = NewArchiveStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewArchiveStep(metaData, logger)
 		if err != nil {
 			return err
 		}
 	case "junit_report":
-		stepInstance, err = NewJunitReportStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewJunitReportStep(metaData, logger)
 		if err != nil {
 			return err
 		}
 	case "tar_archive":
-		stepInstance, err = NewTararchiveStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewTararchiveStep(metaData, logger)
 		if err != nil {
 			return err
 		}
 	case "sonar_check":
-		stepInstance, err = NewSonarCheckStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewSonarCheckStep(metaData, logger)
 		if err != nil {
 			return err
 		}
 	case "distribute_image":
-		stepInstance, err = NewDistributeImageStep(step.Spec, workspace, envs, secretEnvs)
+		stepInstance, err = NewDistributeImageStep(metaData, logger)
 		if err != nil {
 			return err
 		}
 	case "debug_before":
-		stepInstance, err = NewDebugStep("before", workspace, envs, secretEnvs, updater)
+		stepInstance, err = NewDebugStep("before", metaData, updater, logger)
 		if err != nil {
 			return err
 		}
 	case "debug_after":
-		stepInstance, err = NewDebugStep("after", workspace, envs, secretEnvs, updater)
+		stepInstance, err = NewDebugStep("after", metaData, updater, logger)
 		if err != nil {
 			return err
 		}
 	default:
-		err := fmt.Errorf("step type: %s does not match any known type", step.StepType)
+		err := fmt.Errorf("step type: %s does not match any known type", metaData.Step.StepType)
 		log.Error(err)
 		return err
 	}
@@ -213,4 +216,31 @@ func makeEnvMap(envs ...[]string) map[string]string {
 		}
 	}
 	return envMap
+}
+
+func SetCmdStdout(cmd *exec.Cmd, fileName string, secretEnvs []string, needPersistentLog bool, wg *sync.WaitGroup) error {
+	cmdStdoutReader, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		handleCmdOutput(cmdStdoutReader, needPersistentLog, fileName, secretEnvs)
+	}()
+
+	cmdStdErrReader, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		handleCmdOutput(cmdStdErrReader, needPersistentLog, fileName, secretEnvs)
+	}()
+	return nil
 }

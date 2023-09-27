@@ -17,19 +17,19 @@ limitations under the License.
 package step
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util/fs"
 )
@@ -37,14 +37,17 @@ import (
 const dockerExe = "docker"
 
 type DockerBuildStep struct {
-	spec       *step.StepDockerBuildSpec
-	envs       []string
-	secretEnvs []string
-	workspace  string
+	spec           *step.StepDockerBuildSpec
+	envs           []string
+	secretEnvs     []string
+	dirs           *meta.ExecutorWorkDirs
+	logger         *zap.SugaredLogger
+	infrastructure string
 }
 
-func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs []string) (*DockerBuildStep, error) {
-	dockerBuildStep := &DockerBuildStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewDockerBuildStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*DockerBuildStep, error) {
+	dockerBuildStep := &DockerBuildStep{dirs: metaData.Dirs, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs, logger: logger}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return dockerBuildStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -57,9 +60,9 @@ func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs []s
 
 func (s *DockerBuildStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("Start docker build.")
+	s.logger.Infof("Start docker build.")
 	defer func() {
-		log.Infof("Docker build ended. Duration: %.2f seconds.", time.Since(start).Seconds())
+		s.logger.Infof("Docker build ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
 
 	envMap := makeEnvMap(s.envs, s.secretEnvs)
@@ -78,17 +81,33 @@ func (s DockerBuildStep) dockerLogin() error {
 		return nil
 	}
 	if s.spec.DockerRegistry.UserName != "" {
-		fmt.Printf("Logining Docker Registry: %s.\n", s.spec.DockerRegistry.Host)
+		s.logger.Infof("Logining Docker Registry: %s.\n", s.spec.DockerRegistry.Host)
 		startTimeDockerLogin := time.Now()
 		cmd := dockerLogin(s.spec.DockerRegistry.UserName, s.spec.DockerRegistry.Password, s.spec.DockerRegistry.Host)
-		var out bytes.Buffer
-		cmd.Stdout = &out
-		cmd.Stderr = &out
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
+
+		needPersistentLog := false
+		var fileName string
+		if s.infrastructure == setting.JobVMInfrastructure {
+			fileName = s.dirs.JobLogPath
+			needPersistentLog = true
 		}
 
-		fmt.Printf("Login ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerLogin).Seconds())
+		wg := &sync.WaitGroup{}
+		err := SetCmdStdout(cmd, fileName, s.secretEnvs, needPersistentLog, wg)
+		if err != nil {
+			s.logger.Errorf("set cmd stdout error: %v", err)
+			return err
+		}
+		//var out bytes.Buffer
+		//
+		//cmd.Stdout = &out
+		//cmd.Stderr = &out
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to login docker registry: %v", err)
+		}
+
+		wg.Wait()
+		s.logger.Infof("Login ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerLogin).Seconds())
 	}
 	return nil
 }
@@ -98,31 +117,46 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		return nil
 	}
 
-	fmt.Printf("Preparing Dockerfile.\n")
+	s.logger.Infof("Preparing Dockerfile.\n")
 	startTimePrepareDockerfile := time.Now()
 	err := prepareDockerfile(s.spec.Source, s.spec.DockerTemplateContent)
 	if err != nil {
 		return fmt.Errorf("failed to prepare dockerfile: %s", err)
 	}
-	fmt.Printf("Preparation ended. Duration: %.2f seconds.\n", time.Since(startTimePrepareDockerfile).Seconds())
+	s.logger.Infof("Preparation ended. Duration: %.2f seconds.\n", time.Since(startTimePrepareDockerfile).Seconds())
 
 	if s.spec.Proxy != nil {
 		setProxy(s.spec)
 	}
 
-	fmt.Printf("Running Docker Build.\n")
+	s.logger.Infof("Running Docker Build.\n")
 	startTimeDockerBuild := time.Now()
 	envs := s.envs
 	for _, c := range s.dockerCommands() {
-		c.Stdout = os.Stdout
-		c.Stderr = os.Stderr
-		c.Dir = s.workspace
+		//c.Stdout = os.Stdout
+		//c.Stderr = os.Stderr
+		needPersistentLog := false
+		var fileName string
+		if s.infrastructure == setting.JobVMInfrastructure {
+			fileName = s.dirs.JobLogPath
+			needPersistentLog = true
+		}
+
+		wg := &sync.WaitGroup{}
+		err := SetCmdStdout(c, fileName, s.secretEnvs, needPersistentLog, wg)
+		if err != nil {
+			s.logger.Errorf("set cmd stdout error: %v", err)
+			return err
+		}
+
+		c.Dir = s.dirs.Workspace
 		c.Env = envs
 		if err := c.Run(); err != nil {
 			return fmt.Errorf("failed to run docker build: %s", err)
 		}
+		wg.Wait()
 	}
-	fmt.Printf("Docker build ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerBuild).Seconds())
+	s.logger.Infof("Docker build ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerBuild).Seconds())
 
 	return nil
 }

@@ -22,8 +22,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "zadig-agent",
-	Short: "An workflow job executor for Zadig",
-	Long:  `zadig-agent is a workflow job executor, it supports different architectures of multiple operating systems and mainly performs construction and common tasks in work tasks. Support for other tasks will continue to be added in the future.`,
+	Short: "An workflow job job for Zadig",
+	Long:  `zadig-agent is a workflow job job, it supports different architectures of multiple operating systems and mainly performs construction and common tasks in work tasks. Support for other tasks will continue to be added in the future.`,
 }
 
 // Execute executes the root command.

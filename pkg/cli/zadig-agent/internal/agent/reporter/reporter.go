@@ -63,7 +63,7 @@ func (r *JobReporter) Start(ctx context.Context) {
 				log.Error(err)
 			}
 		case <-ctx.Done():
-			log.Infof("stop job reporter, received context cancel signal from job executor.")
+			log.Infof("stop job reporter, received context cancel signal from job job.")
 			return
 		}
 	}

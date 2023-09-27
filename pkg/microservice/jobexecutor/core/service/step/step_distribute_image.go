@@ -28,21 +28,26 @@ import (
 	"github.com/regclient/regclient/config"
 	"github.com/regclient/regclient/types/ref"
 	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
 type DistributeImageStep struct {
-	spec       *step.StepImageDistributeSpec
-	envs       []string
-	secretEnvs []string
-	workspace  string
+	spec           *step.StepImageDistributeSpec
+	envs           []string
+	secretEnvs     []string
+	dirs           *meta.ExecutorWorkDirs
+	logger         *zap.SugaredLogger
+	infrastructure string
 }
 
-func NewDistributeImageStep(spec interface{}, workspace string, envs, secretEnvs []string) (*DistributeImageStep, error) {
-	distributeImageStep := &DistributeImageStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewDistributeImageStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*DistributeImageStep, error) {
+	distributeImageStep := &DistributeImageStep{dirs: metaData.Dirs, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs, logger: logger}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return distributeImageStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -54,7 +59,7 @@ func NewDistributeImageStep(spec interface{}, workspace string, envs, secretEnvs
 }
 
 func (s *DistributeImageStep) Run(ctx context.Context) error {
-	log.Info("Start distribute images.")
+	s.logger.Info("Start distribute images.")
 	if s.spec.SourceRegistry == nil || s.spec.TargetRegistry == nil {
 		return errors.New("image registry infos are missing")
 	}
@@ -78,7 +83,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 	if err := errList.ErrorOrNil(); err != nil {
 		return fmt.Errorf("copy images error: %v", err)
 	}
-	log.Info("Finish distribute images.")
+	s.logger.Info("Finish distribute images.")
 	return nil
 }
 

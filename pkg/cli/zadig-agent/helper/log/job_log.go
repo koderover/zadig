@@ -221,6 +221,10 @@ func (l *JobLogger) GetLogfilePath() string {
 	return l.logPath
 }
 
+func (l *JobLogger) GetZapLogger() *zap.SugaredLogger {
+	return l.logger
+}
+
 func (l *JobLogger) Close() {
 	l.mu.Lock()
 	defer l.mu.Unlock()

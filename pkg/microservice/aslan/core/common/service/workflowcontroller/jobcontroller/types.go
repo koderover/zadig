@@ -18,8 +18,8 @@ package jobcontroller
 
 import (
 	"gopkg.in/yaml.v2"
-	
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -39,10 +39,9 @@ type JobContext struct {
 	// Paths 执行脚本Path
 	Paths string `yaml:"paths"`
 	// ConfigMapName save the name of the configmap in which the jobContext resides
-	ConfigMapName string `yaml:"config_map_name"`
-
-	Steps   []*commonmodels.StepTask `yaml:"steps"`
-	Outputs []string                 `yaml:"outputs"`
+	ConfigMapName string       `yaml:"config_map_name"`
+	Steps         []*meta.Step `yaml:"steps"`
+	Outputs       []string     `yaml:"outputs"`
 	// used to vm job
 	Cache *JobCacheConfig `yaml:"cache"`
 }

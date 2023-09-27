@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
