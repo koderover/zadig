@@ -913,9 +913,10 @@ func genImageFromYaml(c *commonmodels.Container, valuesYaml, defaultValues, over
 		return "", err
 	}
 	imageRule := templatemodels.ImageSearchingRule{
-		Repo:  c.ImagePath.Repo,
-		Image: c.ImagePath.Image,
-		Tag:   c.ImagePath.Tag,
+		Repo:      c.ImagePath.Repo,
+		Namespace: c.ImagePath.Namespace,
+		Image:     c.ImagePath.Image,
+		Tag:       c.ImagePath.Tag,
 	}
 	image, err := commonutil.GeneImageURI(imageRule.GetSearchingPattern(), mergedValuesYamlFlattenMap)
 	if err != nil {

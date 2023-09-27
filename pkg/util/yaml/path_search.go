@@ -20,13 +20,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/strings/slices"
-)
-
-const (
-	separator = "."
 )
 
 func getKey(prefix, k string) string {
@@ -419,17 +417,22 @@ func search(flatMap map[string]interface{}, pattern map[string]string) ([]map[st
 // output: app paths found which match the relative-path rule, []{map[name]=>absolute-path}
 // eg: sourceYaml:
 // ---------- yaml begin
-//env: dev
-//svc1:
-//  image:
-//    repository: go-sample-site
-//    tag: "0.2.1"
-//svc2:
-//  image:
-//    repository: go-sample-site-2
-//    tag: "0.2.2"
-//imagePullSecrets:
-//  - name: default-secret
+// env: dev
+// svc1:
+//
+//	image:
+//	  repository: go-sample-site
+//	  tag: "0.2.1"
+//
+// svc2:
+//
+//	image:
+//	  repository: go-sample-site-2
+//	  tag: "0.2.2"
+//
+// imagePullSecrets:
+//   - name: default-secret
+//
 // ----------- yaml end
 // pattern: []{"image": "repository", "tag": "tag"}
 // output: []{{"image": "svc1.image.repository", "tag": "svc1.image.tag"}, {"image": "svc2.image.repository", "tag": "svc2.image.tag"}}
@@ -447,5 +450,54 @@ func SearchByPattern(flatMap map[string]interface{}, patterns []map[string]strin
 		}
 		ret = append(ret, pRet...)
 	}
-	return ret, nil
+	return uniquePatterns(ret), nil
+}
+
+type PathPattern map[string]string
+
+func containsPattern(pa map[string]string, pb map[string]string) bool {
+	paValueSet := sets.NewString()
+	for _, path := range pa {
+		paValueSet.Insert(path)
+	}
+
+	pbValueSet := sets.NewString()
+	for _, path := range pb {
+		pbValueSet.Insert(path)
+	}
+	return paValueSet.HasAll(pbValueSet.List()...)
+}
+
+func patternID(pattern map[string]string) string {
+	names := make([]string, 0)
+	for _, path := range pattern {
+		names = append(names, path)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ",")
+}
+
+// unique patterns generate unique patterns
+func uniquePatterns(patterns []map[string]string) []map[string]string {
+	patternMap := make(map[string]map[string]string)
+	for _, pattern := range patterns {
+		patternMap[patternID(pattern)] = pattern
+	}
+
+	for paid, patterna := range patternMap {
+		for pbid, patternb := range patternMap {
+			if paid == pbid {
+				continue
+			}
+			if containsPattern(patterna, patternb) {
+				delete(patternMap, patternID(patternb))
+			}
+		}
+	}
+
+	ret := make([]map[string]string, 0)
+	for _, pattern := range patternMap {
+		ret = append(ret, pattern)
+	}
+	return ret
 }

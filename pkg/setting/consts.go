@@ -573,9 +573,10 @@ const (
 // helm related
 const (
 	// components used to search image paths from yaml
-	PathSearchComponentRepo  = "repo"
-	PathSearchComponentImage = "image"
-	PathSearchComponentTag   = "tag"
+	PathSearchComponentRepo      = "repo"
+	PathSearchComponentNamespace = "namespace"
+	PathSearchComponentImage     = "image"
+	PathSearchComponentTag       = "tag"
 )
 
 // host for multiple cloud provider

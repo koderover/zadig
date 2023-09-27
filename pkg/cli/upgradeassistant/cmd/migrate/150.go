@@ -144,9 +144,10 @@ func findImageByContainerName(flatMap map[string]interface{}, matchedPath []map[
 			continue
 		}
 		container.ImagePath = &commonmodels.ImagePathSpec{
-			Repo:  searchResult[setting.PathSearchComponentRepo],
-			Image: searchResult[setting.PathSearchComponentImage],
-			Tag:   searchResult[setting.PathSearchComponentTag],
+			Repo:      searchResult[setting.PathSearchComponentRepo],
+			Namespace: searchResult[setting.PathSearchComponentNamespace],
+			Image:     searchResult[setting.PathSearchComponentImage],
+			Tag:       searchResult[setting.PathSearchComponentTag],
 		}
 		return nil
 	}

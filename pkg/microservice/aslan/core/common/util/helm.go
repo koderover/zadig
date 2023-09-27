@@ -234,6 +234,23 @@ func AssignImageData(imageUrl string, matchData map[string]string) (map[string]i
 
 	resolvedImageUrl := resolveImageUrl(imageUrl)
 
+	// image url assigned into repo/namespace/image+tag
+	if len(matchData) == 4 {
+		// build namespace data
+		namespace := strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+		repoUrlStrs := strings.Split(namespace, "/")
+		if len(repoUrlStrs) > 1 {
+			resolvedImageUrl[setting.PathSearchComponentNamespace] = strings.Join(repoUrlStrs[1:], "/")
+			resolvedImageUrl[setting.PathSearchComponentRepo] = repoUrlStrs[0]
+		}
+
+		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+		ret[matchData[setting.PathSearchComponentNamespace]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentNamespace], "/")
+		ret[matchData[setting.PathSearchComponentImage]] = resolvedImageUrl[setting.PathSearchComponentImage]
+		ret[matchData[setting.PathSearchComponentTag]] = resolvedImageUrl[setting.PathSearchComponentTag]
+		return ret, nil
+	}
+
 	// image url assigned into repo/image+tag
 	if len(matchData) == 3 {
 		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")

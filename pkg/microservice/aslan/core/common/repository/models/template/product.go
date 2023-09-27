@@ -168,11 +168,12 @@ type ForkProject struct {
 }
 
 type ImageSearchingRule struct {
-	Repo     string `bson:"repo,omitempty"`
-	Image    string `bson:"image,omitempty"`
-	Tag      string `bson:"tag,omitempty"`
-	InUse    bool   `bson:"in_use,omitempty"`
-	PresetId int    `bson:"preset_id,omitempty"`
+	Repo      string `bson:"repo,omitempty"`
+	Namespace string `bson:"namespace,omitempty"`
+	Image     string `bson:"image,omitempty"`
+	Tag       string `bson:"tag,omitempty"`
+	InUse     bool   `bson:"in_use,omitempty"`
+	PresetId  int    `bson:"preset_id,omitempty"`
 }
 
 type CustomRule struct {
@@ -305,6 +306,9 @@ func (rule *ImageSearchingRule) GetSearchingPattern() map[string]string {
 	ret := make(map[string]string)
 	if rule.Repo != "" {
 		ret[setting.PathSearchComponentRepo] = rule.Repo
+	}
+	if rule.Namespace != "" {
+		ret[setting.PathSearchComponentNamespace] = rule.Namespace
 	}
 	if rule.Image != "" {
 		ret[setting.PathSearchComponentImage] = rule.Image
