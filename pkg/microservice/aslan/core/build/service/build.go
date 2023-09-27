@@ -39,16 +39,17 @@ import (
 )
 
 type BuildResp struct {
-	ID          string                              `json:"id"`
-	Name        string                              `json:"name"`
-	Targets     []*commonmodels.ServiceModuleTarget `json:"targets"`
-	KeyVals     []*commonmodels.KeyVal              `json:"key_vals"`
-	Repos       []*types.Repository                 `json:"repos"`
-	UpdateTime  int64                               `json:"update_time"`
-	UpdateBy    string                              `json:"update_by"`
-	Pipelines   []string                            `json:"pipelines"`
-	ProductName string                              `json:"productName"`
-	ClusterID   string                              `json:"cluster_id"`
+	ID             string                              `json:"id"`
+	Name           string                              `json:"name"`
+	Targets        []*commonmodels.ServiceModuleTarget `json:"targets"`
+	KeyVals        []*commonmodels.KeyVal              `json:"key_vals"`
+	Repos          []*types.Repository                 `json:"repos"`
+	UpdateTime     int64                               `json:"update_time"`
+	UpdateBy       string                              `json:"update_by"`
+	Pipelines      []string                            `json:"pipelines"`
+	ProductName    string                              `json:"productName"`
+	ClusterID      string                              `json:"cluster_id"`
+	Infrastructure string                              `json:"infrastructure"`
 }
 
 type ServiceModuleAndBuildResp struct {
@@ -117,13 +118,14 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 	resp := make([]*BuildResp, 0)
 	for _, build := range currentProductBuilds {
 		b := &BuildResp{
-			ID:          build.ID.Hex(),
-			Name:        build.Name,
-			Targets:     build.Targets,
-			UpdateTime:  build.UpdateTime,
-			UpdateBy:    build.UpdateBy,
-			ProductName: build.ProductName,
-			Pipelines:   []string{},
+			ID:             build.ID.Hex(),
+			Name:           build.Name,
+			Targets:        build.Targets,
+			UpdateTime:     build.UpdateTime,
+			UpdateBy:       build.UpdateBy,
+			ProductName:    build.ProductName,
+			Pipelines:      []string{},
+			Infrastructure: build.Infrastructure,
 		}
 
 		for _, pipe := range pipes {
@@ -183,11 +185,12 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 				continue
 			}
 			build := &BuildResp{
-				ID:        buildModule.ID.Hex(),
-				Name:      buildModule.Name,
-				KeyVals:   buildModule.PreBuild.Envs,
-				Repos:     buildModule.Repos,
-				ClusterID: buildModule.PreBuild.ClusterID,
+				ID:             buildModule.ID.Hex(),
+				Name:           buildModule.Name,
+				KeyVals:        buildModule.PreBuild.Envs,
+				Repos:          buildModule.Repos,
+				ClusterID:      buildModule.PreBuild.ClusterID,
+				Infrastructure: buildModule.Infrastructure,
 			}
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{
 				ServiceName:   serviceTmpl.ServiceName,
@@ -232,17 +235,19 @@ func ListBuildModulesByServiceModule(encryptedKey, productName, envName string, 
 						}
 					}
 					build.PreBuild.ClusterID = buildTemplate.PreBuild.ClusterID
+					build.Infrastructure = buildTemplate.Infrastructure
 					build.PreBuild.Envs = commonservice.MergeBuildEnvs(templateEnvs, build.PreBuild.Envs)
 				}
 				if err := commonservice.EncryptKeyVals(encryptedKey, build.PreBuild.Envs, log); err != nil {
 					return serviceModuleAndBuildResp, err
 				}
 				resp = append(resp, &BuildResp{
-					ID:        build.ID.Hex(),
-					Name:      build.Name,
-					KeyVals:   build.PreBuild.Envs,
-					Repos:     build.Repos,
-					ClusterID: build.PreBuild.ClusterID,
+					ID:             build.ID.Hex(),
+					Name:           build.Name,
+					KeyVals:        build.PreBuild.Envs,
+					Repos:          build.Repos,
+					ClusterID:      build.PreBuild.ClusterID,
+					Infrastructure: build.Infrastructure,
 				})
 			}
 			serviceModuleAndBuildResp = append(serviceModuleAndBuildResp, &ServiceModuleAndBuildResp{

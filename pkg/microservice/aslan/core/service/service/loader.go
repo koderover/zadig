@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -35,7 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	gitlab2 "github.com/koderover/zadig/pkg/tool/git/gitlab"
@@ -64,8 +62,6 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, repoUUID, b
 		ret, err = preloadService(ch, repoOwner, repoName, branchName, path, isDir, log)
 	case setting.SourceFromGerrit:
 		ret, err = preloadGerritService(ch, repoName, branchName, remoteName, path, isDir)
-	case setting.SourceFromCodeHub:
-		ret, err = preloadCodehubService(ch, repoName, repoUUID, branchName, path, isDir)
 	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		ret, err = preloadGiteeService(ch, repoOwner, repoName, branchName, remoteName, path, isDir)
 	default:
@@ -87,8 +83,6 @@ func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, namespa
 		return loadService(username, ch, repoOwner, namespace, repoName, branchName, args, force, log)
 	case setting.SourceFromGerrit:
 		return loadGerritService(username, ch, repoOwner, repoName, branchName, remoteName, args, force, log)
-	case setting.SourceFromCodeHub:
-		return loadCodehubService(username, ch, repoOwner, repoName, repoUUID, branchName, args, force, log)
 	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		return loadGiteeService(username, ch, repoOwner, repoName, branchName, remoteName, args, force, log)
 	default:
@@ -110,8 +104,6 @@ func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, rep
 		return validateServiceUpdateGitlab(detail, serviceName, repoOwner, repoName, branchName, path, isDir)
 	case setting.SourceFromGerrit:
 		return validateServiceUpdateGerrit(detail, serviceName, repoName, branchName, remoteName, path, isDir)
-	case setting.SourceFromCodeHub:
-		return validateServiceUpdateCodehub(detail, serviceName, repoName, repoUUID, branchName, path, isDir)
 	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		return validateServiceUpdateGitee(detail, serviceName, repoOwner, repoName, branchName, remoteName, path, isDir)
 	default:
@@ -177,63 +169,6 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 			return ret, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml，请重新选择")
 		}
 	}
-	return ret, nil
-}
-
-// 根据 repo 信息获取 codehub 可以加载的服务列表
-func preloadCodehubService(detail *systemconfig.CodeHost, repoName, repoUUID, branchName, path string, isDir bool) ([]string, error) {
-	var ret []string
-
-	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region, config.ProxyHTTPSAddr(), detail.EnableProxy)
-	// 非文件夹情况下直接获取文件信息
-	if !isDir {
-		if !isYaml(path) {
-			return ret, e.ErrPreloadServiceTemplate.AddDesc("File is not of type yaml or yml, select again")
-		}
-		fileInfo, err := codeHubClient.FileContent(repoUUID, branchName, path)
-		if err != nil {
-			log.Errorf("Failed to get file info from codehub with path: %s, the error is %+v", path, err)
-			return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-		}
-		fileName := getFileName(fileInfo.FileName)
-		ret = append(ret, fileName)
-		return ret, nil
-	}
-
-	treeInfo, err := codeHubClient.FileTree(repoUUID, branchName, path)
-	if err != nil {
-		log.Errorf("Failed to get dir content from codehub with path: %s, the error is: %+v", path, err)
-		return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-	}
-	if isValidCodehubServiceDir(treeInfo) {
-		svcName := path
-		if path == "" {
-			svcName = repoName
-		}
-		pathList := strings.Split(svcName, "/")
-		folderName := pathList[len(pathList)-1]
-		ret = append(ret, folderName)
-		return ret, nil
-	}
-	isGrandparent := false
-	for _, entry := range treeInfo {
-		if entry.Type == "tree" {
-			subTreeInfo, err := codeHubClient.FileTree(repoUUID, branchName, entry.Path)
-			if err != nil {
-				log.Errorf("Failed to get dir content from codehub with path: %s, the error is: %+v", path, err)
-				return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-			}
-			if isValidCodehubServiceDir(subTreeInfo) {
-				isGrandparent = true
-				ret = append(ret, entry.Name)
-			}
-		}
-	}
-	if !isGrandparent {
-		log.Errorf("invalid folder selected since no yaml is presented in path: %s", path)
-		return ret, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml，请重新选择")
-	}
-
 	return ret, nil
 }
 
@@ -439,133 +374,6 @@ func loadServiceFromGerrit(tree []os.FileInfo, id int, username, branchName, loa
 
 	_, err = CreateServiceTemplate(username, createSvcArgs, force, log)
 	if err != nil {
-		_, messageMap := e.ErrorMessage(err)
-		if description, ok := messageMap["description"]; ok {
-			err = e.ErrLoadServiceTemplate.AddDesc(description.(string))
-		} else {
-			err = e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-		}
-	}
-	return err
-}
-
-// load codehub service
-func loadCodehubService(username string, ch *systemconfig.CodeHost, repoOwner, repoName, repoUUID, branchName string, args *LoadServiceReq, force bool, log *zap.SugaredLogger) error {
-	codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region, config.ProxyHTTPSAddr(), ch.EnableProxy)
-
-	if !args.LoadFromDir {
-		yamls, err := codeHubClient.GetYAMLContents(repoUUID, branchName, args.LoadPath, args.LoadFromDir, true)
-		if err != nil {
-			log.Errorf("Failed to get yamls under path %s, error: %s", args.LoadPath, err)
-			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		}
-
-		commit, err := codeHubClient.GetLatestRepositoryCommit(repoOwner, repoName, branchName)
-		if err != nil {
-			log.Errorf("Failed to get latest commit under path %s, error: %s", args.LoadPath, err)
-			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		}
-
-		srcPath := fmt.Sprintf("%s/%s/%s/blob/%s/%s", ch.Address, repoOwner, repoName, branchName, args.LoadPath)
-		createSvcArgs := &models.Service{
-			CodehostID:    ch.ID,
-			RepoOwner:     repoOwner,
-			RepoNamespace: repoOwner, // TODO codehub need fill namespace?
-			RepoName:      repoName,
-			RepoUUID:      repoUUID,
-			BranchName:    branchName,
-			SrcPath:       srcPath,
-			LoadPath:      args.LoadPath,
-			LoadFromDir:   args.LoadFromDir,
-			KubeYamls:     yamls,
-			CreateBy:      username,
-			ServiceName:   getFileName(args.LoadPath),
-			Type:          args.Type,
-			ProductName:   args.ProductName,
-			Source:        ch.Type,
-			Yaml:          util.CombineManifests(yamls),
-			Commit:        &models.Commit{SHA: commit.ID, Message: commit.Message},
-			Visibility:    args.Visibility,
-		}
-		if _, err = CreateServiceTemplate(username, createSvcArgs, force, log); err != nil {
-			log.Errorf("Failed to create service template, serviceName:%s error: %s", createSvcArgs.ServiceName, err)
-			_, messageMap := e.ErrorMessage(err)
-			if description, ok := messageMap["description"]; ok {
-				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
-			}
-			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-		}
-	}
-	treeNodes, err := codeHubClient.FileTree(repoUUID, branchName, args.LoadPath)
-	if err != nil {
-		log.Errorf("Failed to get dir content from codehub with path: %s, the error is: %s", args.LoadPath, err)
-		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-	}
-	if isValidCodehubServiceDir(treeNodes) {
-		return loadServiceFromCodehub(codeHubClient, treeNodes, ch, username, repoOwner, repoName, repoUUID, branchName, args.LoadPath, args, force, log)
-	}
-
-	for _, treeNode := range treeNodes {
-		if treeNode.Type == "tree" {
-			subtree, err := codeHubClient.FileTree(repoUUID, branchName, treeNode.Path)
-			if err != nil {
-				log.Errorf("Failed to get dir content from codehub with path: %s, the error is %s", treeNode.Path, err)
-				return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-			}
-			if isValidCodehubServiceDir(subtree) {
-				if err := loadServiceFromCodehub(codeHubClient, subtree, ch, username, repoOwner, repoName, repoUUID, branchName, treeNode.Path, args, force, log); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeNode, ch *systemconfig.CodeHost, username, repoOwner, repoName, repoUUID, branchName, path string, args *LoadServiceReq, force bool, log *zap.SugaredLogger) error {
-	pathList := strings.Split(path, "/")
-	var splittedYaml []string
-	serviceName := pathList[len(pathList)-1]
-	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
-	yamlList, err := extractCodehubYamls(client, tree, repoUUID, branchName)
-	if err != nil {
-		log.Errorf("Failed to extract yamls from codehub, the error is: %s", err)
-		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-	}
-
-	for _, yamlEntry := range yamlList {
-		splittedYaml = append(splittedYaml, util.SplitYaml(yamlEntry)...)
-	}
-	yml := util.JoinYamls(yamlList)
-
-	commit, err := client.GetLatestRepositoryCommit(repoOwner, repoName, branchName)
-	if err != nil {
-		log.Errorf("Failed to get latest commit under path %s, error: %s", args.LoadPath, err)
-		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-	}
-
-	srcPath := fmt.Sprintf("%s/%s/tree/%s/%s", ch.Address, repoInfo, branchName, path)
-	createSvcArgs := &models.Service{
-		CodehostID:  ch.ID,
-		RepoOwner:   repoOwner,
-		RepoName:    repoName,
-		BranchName:  branchName,
-		RepoUUID:    repoUUID,
-		LoadPath:    path,
-		LoadFromDir: args.LoadFromDir,
-		KubeYamls:   splittedYaml,
-		SrcPath:     srcPath,
-		CreateBy:    username,
-		ServiceName: serviceName,
-		Type:        args.Type,
-		ProductName: args.ProductName,
-		Source:      setting.SourceFromCodeHub,
-		Yaml:        yml,
-		Commit:      &models.Commit{SHA: commit.ID, Message: commit.Message},
-		Visibility:  args.Visibility,
-	}
-
-	if _, err = CreateServiceTemplate(username, createSvcArgs, force, log); err != nil {
 		_, messageMap := e.ErrorMessage(err)
 		if description, ok := messageMap["description"]; ok {
 			err = e.ErrLoadServiceTemplate.AddDesc(description.(string))
@@ -864,46 +672,6 @@ func validateServiceUpdateGerrit(detail *systemconfig.CodeHost, serviceName, rep
 	return e.ErrValidateServiceUpdate.AddDesc("所选路径中没有yaml，请重新选择")
 }
 
-func validateServiceUpdateCodehub(detail *systemconfig.CodeHost, serviceName, repoName, repoUUID, branchName, loadPath string, isDir bool) error {
-	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region, config.ProxyHTTPSAddr(), detail.EnableProxy)
-	// 非文件夹情况下直接获取文件信息
-	if !isDir {
-		if !isYaml(loadPath) {
-			return e.ErrValidateServiceUpdate.AddDesc("File is not of type yaml or yml, select again")
-		}
-		fileInfo, err := codeHubClient.FileContent(repoUUID, branchName, loadPath)
-		if err != nil {
-			log.Errorf("Failed to get file info from codehub with path: %s, the error is %s", loadPath, err)
-			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
-		}
-		if getFileName(fileInfo.FileName) != serviceName {
-			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", fileInfo.FileName, serviceName)
-			return e.ErrValidateServiceUpdate.AddDesc("文件名称和服务名称不一致")
-		}
-		return nil
-	}
-
-	treeInfo, err := codeHubClient.FileTree(repoUUID, branchName, loadPath)
-	if err != nil {
-		log.Errorf("Failed to get dir content from codehub with path: %s, the error is: %+v", loadPath, err)
-		return e.ErrValidateServiceUpdate.AddDesc(err.Error())
-	}
-	if isValidCodehubServiceDir(treeInfo) {
-		svcName := loadPath
-		if loadPath == "" {
-			svcName = repoName
-		}
-		pathList := strings.Split(svcName, "/")
-		folderName := pathList[len(pathList)-1]
-		if folderName != serviceName {
-			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", folderName, serviceName)
-			return e.ErrValidateServiceUpdate.AddDesc("文件夹名称和服务名称不一致")
-		}
-		return nil
-	}
-	return e.ErrValidateServiceUpdate.AddDesc("所选路径中没有yaml，请重新选择")
-}
-
 // Determine whether the service can update the repo address according to the gitee repo
 func validateServiceUpdateGitee(detail *systemconfig.CodeHost, serviceName, repoOwner, repoName, branchName, remoteName, loadPath string, isDir bool) error {
 	if remoteName == "" {
@@ -978,35 +746,6 @@ func isValidServiceDir(child []os.FileInfo) bool {
 		}
 	}
 	return false
-}
-
-func isValidCodehubServiceDir(child []*codehub.TreeNode) bool {
-	for _, entry := range child {
-		if entry.Type == "blob" && isYaml(entry.Name) {
-			return true
-		}
-	}
-	return false
-}
-
-func extractCodehubYamls(client *codehub.CodeHubClient, tree []*codehub.TreeNode, repoUUID, branchName string) ([]string, error) {
-	var ret []string
-	for _, entry := range tree {
-		if isYaml(entry.Name) {
-			fileInfo, err := client.FileContent(repoUUID, branchName, entry.Path)
-			if err != nil {
-				log.Errorf("Failed to download codehub file: %s, the error is: %s", entry.Path, err)
-				return nil, err
-			}
-			contentByte, err := base64.StdEncoding.DecodeString(fileInfo.Content)
-			if err != nil {
-				log.Errorf("Failed to decode content from the given file of path: %s, the error is: %s", entry.Path, err)
-				return nil, err
-			}
-			ret = append(ret, string(contentByte))
-		}
-	}
-	return ret, nil
 }
 
 func extractYamls(basePath string, tree []os.FileInfo) ([]string, error) {

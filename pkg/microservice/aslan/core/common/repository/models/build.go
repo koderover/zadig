@@ -57,6 +57,8 @@ type Build struct {
 	// New since V1.10.0. Only to tell the webpage should the advanced settings be displayed
 	AdvancedSettingsModified bool      `bson:"advanced_setting_modified" json:"advanced_setting_modified"`
 	Outputs                  []*Output `bson:"outputs"                   json:"outputs"`
+	Infrastructure           string    `bson:"infrastructure"            json:"infrastructure"`
+	VMLabels                 []string  `bson:"vm_labels"                 json:"vm_labels"`
 }
 
 // PreBuild prepares an environment for a job

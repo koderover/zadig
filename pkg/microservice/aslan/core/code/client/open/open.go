@@ -23,7 +23,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/codehub"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/gitee"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/github"
@@ -40,7 +39,6 @@ var ClientsConfig = map[string]func() ClientConfig{
 	setting.SourceFromGitlab:  func() ClientConfig { return new(gitlab.Config) },
 	setting.SourceFromGithub:  func() ClientConfig { return new(github.Config) },
 	setting.SourceFromGerrit:  func() ClientConfig { return new(gerrit.Config) },
-	setting.SourceFromCodeHub: func() ClientConfig { return new(codehub.Config) },
 	setting.SourceFromGitee:   func() ClientConfig { return new(gitee.Config) },
 	setting.SourceFromGiteeEE: func() ClientConfig { return new(gitee.EEConfig) },
 }

@@ -122,6 +122,7 @@ const (
 	StatusNotRun         Status = "notRun"
 	StatusPrepare        Status = "prepare"
 	StatusReject         Status = "reject"
+	StatusDistributed    Status = "distributed"
 	StatusWaitingApprove Status = "waitforapprove"
 	StatusDebugBefore    Status = "debug_before"
 	StatusDebugAfter     Status = "debug_after"

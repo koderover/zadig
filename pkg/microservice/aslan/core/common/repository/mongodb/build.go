@@ -347,3 +347,9 @@ func (c *BuildColl) GetBuildTemplateReference(templateID string) ([]*models.Buil
 	}
 	return ret, nil
 }
+
+func (c *BuildColl) ListByCursor(opt *BuildListOption) (*mongo.Cursor, error) {
+	query := bson.M{}
+
+	return c.Collection.Find(context.TODO(), query)
+}

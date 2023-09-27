@@ -101,9 +101,6 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				wg.Done()
 			}()
 			projectName := info.Repo
-			if info.Source == CodeHostCodeHub {
-				projectName = info.RepoUUID
-			}
 			info.Branches, err = codehostClient.ListBranches(client.ListOpt{
 				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: projectName,
@@ -124,9 +121,6 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				wg.Done()
 			}()
 			projectName := info.Repo
-			if info.Source == CodeHostCodeHub {
-				projectName = info.RepoID
-			}
 
 			info.Tags, err = codehostClient.ListTags(client.ListOpt{
 				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),

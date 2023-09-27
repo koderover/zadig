@@ -35,7 +35,10 @@ type ApolloConfig struct {
 	ServerAddress string `json:"server_address"`
 	*ApolloAuthConfig
 }
+
 type ApolloAuthConfig struct {
+	// User is the username of apollo for update config
+	User  string `json:"user"`
 	Token string `json:"token" bson:"token"`
 }
 

@@ -18,7 +18,15 @@ func getMigrationInfo() (*internalmodels.Migration, error) {
 		if err != mongo.ErrNoDocuments {
 			return nil, fmt.Errorf("failed to get migration info from db, err: %s", err)
 		} else {
-			return internaldb.NewMigrationColl().InitializeMigrationInfo()
+			err := internaldb.NewMigrationColl().InitializeMigrationInfo()
+			if err != nil {
+				return nil, fmt.Errorf("failed to create migration info in db, err: %s", err)
+			}
+			createdInfo, err := internaldb.NewMigrationColl().GetMigrationInfo()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get migration info from db, err: %s", err)
+			}
+			return createdInfo, nil
 		}
 	}
 	return migrationInfo, nil

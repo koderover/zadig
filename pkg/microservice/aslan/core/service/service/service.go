@@ -166,7 +166,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	serviceOption.ServiceVariableKVs = args.ServiceVariableKVs
 
 	if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub ||
-		args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromCodeHub || args.Source == setting.SourceFromGitee {
+		args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromGitee {
 		serviceOption.Yaml = args.Yaml
 	}
 	return serviceOption, nil

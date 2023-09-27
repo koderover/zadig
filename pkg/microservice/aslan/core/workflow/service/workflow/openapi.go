@@ -286,7 +286,7 @@ func OpenAPICreateProductWorkflowTask(username string, args *OpenAPICreateProduc
 				if targetInfo.Name == inputTarget.ServiceModule && targetInfo.ServiceName == inputTarget.ServiceName {
 					// update build repo info with input build info
 					for _, inputRepo := range inputTarget.RepoInfo {
-						repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(inputRepo.CodeHostName)
+						repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(inputRepo.CodeHostName)
 						if err != nil {
 							return nil, errors.New("failed to find code host with name:" + inputRepo.CodeHostName)
 						}

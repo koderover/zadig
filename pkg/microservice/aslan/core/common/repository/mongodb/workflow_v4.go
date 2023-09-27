@@ -41,11 +41,12 @@ type WorkflowV4Coll struct {
 }
 
 type ListWorkflowV4Option struct {
-	ProjectName string
-	DisplayName string
-	Names       []string
-	Category    setting.WorkflowCategory
-	JobTypes    []config.JobType
+	ProjectName    string
+	DisplayName    string
+	Names          []string
+	Category       setting.WorkflowCategory
+	JobTypes       []config.JobType
+	Infrastructure string
 }
 
 func NewWorkflowV4Coll() *WorkflowV4Coll {
@@ -331,6 +332,7 @@ func (c *WorkflowV4Coll) ListByCursor(opt *ListWorkflowV4Option) (*mongo.Cursor,
 	if len(opt.JobTypes) > 0 {
 		query["stages.jobs.type"] = bson.M{"$in": opt.JobTypes}
 	}
+
 	return c.Collection.Find(context.TODO(), query)
 }
 

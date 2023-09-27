@@ -66,7 +66,7 @@ func ToScanningHookCtl(req *types.OpenAPIWebhookSetting) (*models.ScanningHookCt
 	ret := make([]*models.ScanningHook, 0)
 
 	for _, hook := range req.HookList {
-		repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(hook.CodeHostName)
+		repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(hook.CodeHostName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to find codehost with name [%s], error is: %s", hook.CodeHostName, err)
 		}
@@ -88,7 +88,7 @@ func ToScanningHookCtl(req *types.OpenAPIWebhookSetting) (*models.ScanningHookCt
 }
 
 func ToScanningRepository(repo *types.OpenAPIRepoInput) (*types.Repository, error) {
-	repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(repo.CodeHostName)
+	repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(repo.CodeHostName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find codehost with name [%s], error is: %s", repo.CodeHostName, err)
 	}
@@ -107,7 +107,7 @@ func ToScanningRepository(repo *types.OpenAPIRepoInput) (*types.Repository, erro
 }
 
 func ToBuildRepository(repo *types.OpenAPIRepoInput) (*types.Repository, error) {
-	repoInfo, err := mongodb.NewCodehostColl().GetCodeHostByAlias(repo.CodeHostName)
+	repoInfo, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(repo.CodeHostName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find codehost with name [%s], error is: %s", repo.CodeHostName, err)
 	}

@@ -319,6 +319,53 @@ definitions:
           $ref: '#/definitions/models.ResourceType'
         type: array
     type: object
+  models.CodeHost:
+    properties:
+      access_token:
+        type: string
+      address:
+        type: string
+      alias:
+        type: string
+      application_id:
+        type: string
+      auth_type:
+        $ref: '#/definitions/types.AuthType'
+      client_secret:
+        type: string
+      created_at:
+        type: integer
+      deleted_at:
+        type: integer
+      enable_proxy:
+        type: boolean
+      id:
+        type: integer
+      integration_level:
+        $ref: '#/definitions/setting.IntegrationLevel'
+      is_ready:
+        type: string
+      namespace:
+        type: string
+      password:
+        type: string
+      private_access_token:
+        type: string
+      project:
+        type: string
+      refresh_token:
+        type: string
+      region:
+        type: string
+      ssh_key:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: integer
+      username:
+        type: string
+    type: object
   models.Commit:
     properties:
       message:
@@ -1892,6 +1939,14 @@ definitions:
       valuesYaml:
         type: string
     type: object
+  setting.IntegrationLevel:
+    enum:
+    - system
+    - project
+    type: string
+    x-enum-varnames:
+    - IntegrationLevelSystem
+    - IntegrationLevelProject
   setting.PMHostStatus:
     enum:
     - normal
@@ -2005,6 +2060,14 @@ definitions:
       variable_yaml:
         type: string
     type: object
+  types.AuthType:
+    enum:
+    - SSH
+    - PrivateAccessToken
+    type: string
+    x-enum-varnames:
+    - SSHAuthType
+    - PrivateAccessTokenAuthType
   types.GlobalVariableKV:
     properties:
       desc:
@@ -3463,6 +3526,164 @@ paths:
       summary: '[DONT USE]  ZadigDeployJobSpec'
       tags:
       - placeholder
+  /api/aslan/project/integration/{name}/codehosts:
+    get:
+      consumes:
+      - application/json
+      description: List Project CodeHost
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: encrypted key
+        in: query
+        name: encryptedKey
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.CodeHost'
+            type: array
+      summary: List Project CodeHost
+      tags:
+      - project
+    post:
+      consumes:
+      - application/json
+      description: Create Project CodeHost
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CodeHost'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Create Project CodeHost
+      tags:
+      - project
+  /api/aslan/project/integration/{name}/codehosts/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete Project CodeHost
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: code host id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Delete Project CodeHost
+      tags:
+      - project
+    get:
+      consumes:
+      - application/json
+      description: Get Project CodeHost
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: code host id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CodeHost'
+      summary: Get Project CodeHost
+      tags:
+      - project
+    patch:
+      consumes:
+      - application/json
+      description: Update Project CodeHost
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: code host id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CodeHost'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Update Project CodeHost
+      tags:
+      - project
+  /api/aslan/project/integration/{name}/codehosts/available:
+    get:
+      consumes:
+      - application/json
+      description: List Available CodeHost
+      parameters:
+      - description: project name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: encrypted key
+        in: query
+        name: encryptedKey
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.CodeHost'
+            type: array
+      summary: List Available CodeHost
+      tags:
+      - project
   /api/aslan/project/products/{name}/globalProductionGlobalVariables:
     get:
       consumes:

@@ -72,7 +72,9 @@ type StageTask struct {
 }
 
 type JobTask struct {
-	Name string `bson:"name"                json:"name"`
+	ProjectKey  string `bson:"project_key"         json:"project_key"`
+	WorkflowKey string `bson:"workflow_key"        json:"workflow_key"`
+	Name        string `bson:"name"                json:"name"`
 	// jobTask unique id, unique in the workflow
 	Key        string `bson:"key"                 json:"key"`
 	K8sJobName string `bson:"k8s_job_name"        json:"k8s_job_name"`
@@ -90,6 +92,8 @@ type JobTask struct {
 	BreakpointBefore bool                     `bson:"breakpoint_before"   json:"breakpoint_before"`
 	BreakpointAfter  bool                     `bson:"breakpoint_after"    json:"breakpoint_after"`
 	ServiceModules   []*WorkflowServiceModule `bson:"service_modules"     json:"service_modules"`
+	Infrastructure   string                   `bson:"infrastructure"      json:"infrastructure"`
+	VMLabels         []string                 `bson:"vm_labels"           json:"vm_labels"`
 }
 
 type TaskJobInfo struct {

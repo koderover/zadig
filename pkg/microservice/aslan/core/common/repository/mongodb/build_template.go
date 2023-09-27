@@ -144,3 +144,13 @@ func (c *BuildTemplateColl) DeleteByID(idStr string) error {
 	_, err = c.DeleteOne(context.TODO(), query)
 	return err
 }
+
+type ListBuildTemplateOption struct {
+	Infrastructure string
+}
+
+func (c *BuildTemplateColl) ListByCursor(opts *ListBuildTemplateOption) (*mongo.Cursor, error) {
+	query := bson.M{}
+
+	return c.Collection.Find(context.Background(), query)
+}
