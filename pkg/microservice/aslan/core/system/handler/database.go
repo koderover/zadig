@@ -128,7 +128,7 @@ func UpdateDBInstance(c *gin.Context) {
 
 	args := new(commonmodels.DBInstance)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid db json args")
 		return
 	}
 	args.UpdateBy = ctx.UserName

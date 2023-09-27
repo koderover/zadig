@@ -62,7 +62,7 @@ func (c *SQLJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
-	info, err := mongodb.NewDBInstanceColl().Find(&mongodb.DBInstanceCollFindOption{Id: c.jobTaskSpec.DBInstanceID})
+	info, err := mongodb.NewDBInstanceColl().Find(&mongodb.DBInstanceCollFindOption{Id: c.jobTaskSpec.ID})
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return

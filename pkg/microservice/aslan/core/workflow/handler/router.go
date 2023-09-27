@@ -217,7 +217,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.GET("/mse/:envName/tag", GetMseTagsInEnv)
 		workflowV4.GET("/bluegreen/:envName/:serviceName", GetBlueGreenServiceK8sServiceYaml)
 		workflowV4.GET("/jenkins/:id/:jobName", GetJenkinsJobParams)
-		workflowV4.GET("/sql/validate", ValidateSQL)
+		workflowV4.POST("/sql/validate", ValidateSQL)
 	}
 
 	// ---------------------------------------------------------------------------------------

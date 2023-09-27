@@ -72,9 +72,9 @@ func (j *SQLJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		Key:     j.job.Name,
 		JobType: string(config.JobSQL),
 		Spec: &commonmodels.JobTaskSQLSpec{
-			DBInstanceID: j.spec.DBInstanceID,
-			Type:         j.spec.Type,
-			SQL:          j.spec.SQL,
+			ID:   j.spec.ID,
+			Type: j.spec.Type,
+			SQL:  j.spec.SQL,
 		},
 		Timeout: 0,
 	}
@@ -86,7 +86,7 @@ func (j *SQLJob) LintJob() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
-	if _, err := mongodb.NewDBInstanceColl().Find(&mongodb.DBInstanceCollFindOption{Id: j.spec.DBInstanceID}); err != nil {
+	if _, err := mongodb.NewDBInstanceColl().Find(&mongodb.DBInstanceCollFindOption{Id: j.spec.ID}); err != nil {
 		return errors.Errorf("not found db instance in mongo, err: %v", err)
 	}
 	return nil

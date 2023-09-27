@@ -2753,4 +2753,5 @@ func ValidateMySQL(sql string) error {
 	if err != nil {
 		return errors.Errorf("parse sql statement error: %v", err)
 	}
+	return nil
 }

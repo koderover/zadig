@@ -1322,6 +1322,10 @@ type ValidateSQLReq struct {
 	SQL  string                `json:"sql"`
 }
 
+type ValidateSQLResp struct {
+	Message string `json:"message"`
+}
+
 func ValidateSQL(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -1332,7 +1336,17 @@ func ValidateSQL(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = workflow.ValidateSQL(req.Type, req.SQL)
+	err := workflow.ValidateSQL(req.Type, req.SQL)
+	if err == nil {
+		ctx.Resp = []ValidateSQLResp{}
+		return
+	}
+	ctx.Resp = []ValidateSQLResp{
+		{
+			Message: err.Error(),
+		},
+	}
+	return
 }
 
 func getBody(c *gin.Context) string {
