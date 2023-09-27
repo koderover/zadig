@@ -24,7 +24,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 )
 
 func generateScript(spec *StepShellSpec, workspace string, jobOutput []string, logger *log.JobLogger) (string, error) {
@@ -50,7 +50,7 @@ func generateScript(spec *StepShellSpec, workspace string, jobOutput []string, l
 func outputScript(workspace string, outputs []string) []string {
 	resp := []string{"set +ex"}
 	for _, output := range outputs {
-		resp = append(resp, fmt.Sprintf("echo $%s > %s", output, path.Join(workspace, common.JobOutputDir, output)))
+		resp = append(resp, fmt.Sprintf("echo $%s > %s", output, path.Join(workspace, types.JobOutputDir, output)))
 	}
 	return resp
 }

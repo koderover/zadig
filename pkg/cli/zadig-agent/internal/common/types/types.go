@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package types
 
 import (
 	"fmt"
@@ -104,30 +104,6 @@ type Proxy struct {
 
 type EnvVar []string
 
-type JobInfo struct {
-	ProjectName  string
-	WorkflowName string
-	StageName    string
-	JobName      string
-	JobID        string
-	JobType      string
-	Status       string
-	Error        error
-	Log          string
-	StartTime    int64
-	EndTime      int64
-}
-
-type JobExecuteResult struct {
-	JobInfo          *JobInfo
-	Error            error
-	Log              string
-	Status           string
-	StartTime        int64
-	EndTime          int64
-	OutputsJsonBytes []byte
-}
-
 type ReportJobParameters struct {
 	Seq       int    `json:"seq"`
 	Token     string `json:"token"`
@@ -142,11 +118,6 @@ const (
 	JobOutputDir       = "zadig/results/"
 	JobTerminationFile = "/zadig/termination"
 )
-
-type JobOutput struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
 
 func GetJobOutputKey(key, outputName string) string {
 	return fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", key, "output", outputName}, "."))
