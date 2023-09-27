@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -40,8 +42,9 @@ type TarArchiveStep struct {
 	workspace  string
 }
 
-func NewTararchiveStep(spec interface{}, workspace string, envs, secretEnvs []string) (*TarArchiveStep, error) {
-	tarArchiveStep := &TarArchiveStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewTararchiveStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*TarArchiveStep, error) {
+	tarArchiveStep := &TarArchiveStep{workspace: metaData.Dirs.Workspace, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return tarArchiveStep, fmt.Errorf("marshal spec %+v failed", spec)

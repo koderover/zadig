@@ -71,7 +71,7 @@ func (p *Pool) work() {
 	}
 }
 
-// Define a type to hold task executor function
+// Define a type to hold task job function
 type taskOperater func(ctx context.Context, plugin plugins.TaskPlugin, subTask map[string]interface{}, pos int, servicename string, xl *zap.SugaredLogger) (config.Status, error)
 
 // Task encapsulates a taskOperator item that should go in a worker pool

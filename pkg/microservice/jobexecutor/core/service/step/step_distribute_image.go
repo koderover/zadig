@@ -24,9 +24,11 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/regclient/regclient"
 	"github.com/regclient/regclient/config"
 	"github.com/regclient/regclient/types/ref"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -40,8 +42,9 @@ type DistributeImageStep struct {
 	workspace  string
 }
 
-func NewDistributeImageStep(spec interface{}, workspace string, envs, secretEnvs []string) (*DistributeImageStep, error) {
-	distributeImageStep := &DistributeImageStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewDistributeImageStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*DistributeImageStep, error) {
+	distributeImageStep := &DistributeImageStep{workspace: metaData.Dirs.Workspace, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return distributeImageStep, fmt.Errorf("marshal spec %+v failed", spec)

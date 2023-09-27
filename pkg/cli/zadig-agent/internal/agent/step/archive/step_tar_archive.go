@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
@@ -40,10 +41,11 @@ type TarArchiveStep struct {
 	secretEnvs []string
 	workspace  string
 	logger     *log.JobLogger
+	dirs       *types.AgentWorkDirs
 }
 
-func NewTararchiveStep(spec interface{}, workspace string, envs, secretEnvs []string, logger *log.JobLogger) (*TarArchiveStep, error) {
-	tarArchiveStep := &TarArchiveStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, logger: logger}
+func NewTararchiveStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*TarArchiveStep, error) {
+	tarArchiveStep := &TarArchiveStep{dirs: dirs, envs: envs, secretEnvs: secretEnvs, logger: logger}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return tarArchiveStep, fmt.Errorf("marshal spec %+v failed", spec)

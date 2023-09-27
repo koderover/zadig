@@ -22,28 +22,36 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/util"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/step"
-	"github.com/koderover/zadig/pkg/util"
 )
 
 type ShellStep struct {
-	spec       *step.StepShellSpec
-	envs       []string
-	secretEnvs []string
-	workspace  string
-	Paths      string
+	spec           *step.StepShellSpec
+	envs           []string
+	secretEnvs     []string
+	Paths          string
+	jobOutput      []string
+	dirs           *meta.ExecutorWorkDirs
+	logger         *zap.SugaredLogger
+	infrastructure string
 }
 
-func NewShellStep(spec interface{}, workspace, paths string, envs, secretEnvs []string) (*ShellStep, error) {
-	shellStep := &ShellStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewShellStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*ShellStep, error) {
+	shellStep := &ShellStep{dirs: metaData.Dirs, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs, infrastructure: metaData.Infrastructure, logger: logger}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return shellStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -56,44 +64,45 @@ func NewShellStep(spec interface{}, workspace, paths string, envs, secretEnvs []
 
 func (s *ShellStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("Executing user script.")
+	s.logger.Infof("Executing user script.")
 	defer func() {
-		log.Infof("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds())
+		s.logger.Infof("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
 
-	// This is to record that the shell step beginning and finished, for debug
-	err := os.WriteFile("/zadig/debug/shell_step", nil, 0700)
-	if err != nil {
-		log.Warnf("Failed to record shell_step file, error: %v", err)
-	}
-	defer func() {
-		err := os.WriteFile("/zadig/debug/shell_step_done", nil, 0700)
+	if s.infrastructure != setting.JobVMInfrastructure {
+		// This is to record that the shell step beginning and finished, for debug
+		err := os.WriteFile("/zadig/debug/shell_step", nil, 0700)
 		if err != nil {
-			log.Warnf("Failed to record shell_step_done file, error: %v", err)
+			s.logger.Warnf("Failed to record shell_step file, error: %v", err)
 		}
-	}()
-	
+		defer func() {
+			err := os.WriteFile("/zadig/debug/shell_step_done", nil, 0700)
+			if err != nil {
+				s.logger.Warnf("Failed to record shell_step_done file, error: %v", err)
+			}
+		}()
+	}
+
 	if len(s.spec.Scripts) == 0 {
 		return nil
 	}
-	scripts := []string{}
-	if !s.spec.SkipPrepare {
-		scripts = prepareScriptsEnv()
-	}
-	scripts = append(scripts, s.spec.Scripts...)
-
-	userScriptFile := "user_script.sh"
-	if err := ioutil.WriteFile(filepath.Join(os.TempDir(), userScriptFile), []byte(strings.Join(scripts, "\n")), 0700); err != nil {
-		return fmt.Errorf("write script file error: %v", err)
+	scriptFile, err := s.prepareScripts()
+	if err != nil {
+		return fmt.Errorf("prepare script file error: %v", err)
 	}
 
-	cmd := exec.Command("/bin/bash", filepath.Join(os.TempDir(), userScriptFile))
-	cmd.Dir = s.workspace
+	cmd := exec.Command("/bin/bash", scriptFile)
+	cmd.Dir = s.dirs.Workspace
 	cmd.Env = s.envs
 
-	fileName := filepath.Join(os.TempDir(), "user_script.log")
-	//如果文件不存在就创建文件，避免后面使用变量出错
-	util.WriteFile(fileName, []byte{}, 0700)
+	var fileName string
+	if s.infrastructure != setting.JobVMInfrastructure {
+		fileName = filepath.Join(os.TempDir(), "user_script.log")
+		//如果文件不存在就创建文件，避免后面使用变量出错
+		_ = util.WriteFile(fileName, []byte{}, 0700)
+	} else {
+		fileName = s.dirs.JobLogPath
+	}
 
 	needPersistentLog := true
 
@@ -130,4 +139,39 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	wg.Wait()
 
 	return cmd.Wait()
+}
+
+func (s *ShellStep) prepareScripts() (string, error) {
+	var filePath string
+	scripts := []string{}
+	if s.infrastructure != setting.JobVMInfrastructure {
+		if !s.spec.SkipPrepare {
+			scripts = prepareScriptsEnv()
+		}
+		scripts = append(scripts, s.spec.Scripts...)
+
+		userScriptFile := "user_script.sh"
+		if err := ioutil.WriteFile(filepath.Join(os.TempDir(), userScriptFile), []byte(strings.Join(scripts, "\n")), 0700); err != nil {
+			return "", fmt.Errorf("write script file error: %v", err)
+		}
+		filePath = filepath.Join(os.TempDir(), userScriptFile)
+	} else {
+		scripts = append(scripts, s.spec.Scripts...)
+
+		// add job output to script
+		if len(s.jobOutput) > 0 {
+			outputScript := []string{"set +ex"}
+			for _, output := range s.jobOutput {
+				outputScript = append(outputScript, fmt.Sprintf("echo $%s > %s", output, path.Join(s.dirs.JobOutputsDir, output)))
+			}
+			scripts = append(scripts, outputScript...)
+		}
+
+		userScriptFile := config.GetUserScriptFilePath(s.dirs.JobScriptDir)
+		if err := ioutil.WriteFile(userScriptFile, []byte(strings.Join(scripts, "\n")), 0700); err != nil {
+			return "", fmt.Errorf("write script file error: %v", err)
+		}
+		filePath = userScriptFile
+	}
+	return filePath, nil
 }

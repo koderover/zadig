@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
@@ -29,8 +31,9 @@ type ToolInstallStep struct {
 	workspace  string
 }
 
-func NewToolInstallStep(spec interface{}, workspace string, envs, secretEnvs []string) (*ToolInstallStep, error) {
-	toolInstallStep := &ToolInstallStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewToolInstallStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*ToolInstallStep, error) {
+	toolInstallStep := &ToolInstallStep{workspace: metaData.Dirs.Workspace, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return toolInstallStep, fmt.Errorf("marshal spec %+v failed", spec)

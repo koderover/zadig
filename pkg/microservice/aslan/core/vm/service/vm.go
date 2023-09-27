@@ -300,6 +300,7 @@ func RegisterAgent(args *RegisterAgentRequest, logger *zap.SugaredLogger) (*Regi
 		}
 
 		if vm.Agent == nil {
+			logger.Errorf("zadig server vm %s agent is nil in db", vm.Name)
 			return nil, fmt.Errorf("zadig server vm %s agent is nil in db", args.Token)
 		}
 		vm.Agent.AgentVersion = args.Parameters.AgentVersion
@@ -374,6 +375,7 @@ func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatRes
 
 	// set vm heartbeat time
 	if vm.Agent == nil {
+		logger.Errorf("zadig server vm %s agent is nil in db", vm.Name)
 		return nil, fmt.Errorf("zadig server vm %s agent is nil in db", args.Token)
 	}
 	vm.Agent.LastHeartbeatTime = time.Now().Unix()
@@ -381,7 +383,7 @@ func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatRes
 	err = commonrepo.NewPrivateKeyColl().Update(vm.ID.Hex(), vm)
 	if err != nil {
 		logger.Errorf("failed to update vm %s, error: %s", args.Token, err)
-		return nil, err
+		return nil, fmt.Errorf("failed to update vm %s, error: %s", args.Token, err)
 	}
 
 	if vm.Agent.NeedUpdate {
@@ -392,6 +394,9 @@ func Heartbeat(args *HeartbeatRequest, logger *zap.SugaredLogger) (*HeartbeatRes
 	resp.ScheduleWorkflow = vm.ScheduleWorkflow
 	if vm.ScheduleWorkflow && vm.Agent.Workspace != "" {
 		resp.WorkDir = vm.Agent.Workspace
+	}
+	if vm.Agent.TaskConcurrency > 0 {
+		resp.Concurrency = vm.Agent.TaskConcurrency
 	}
 
 	return resp, nil
@@ -428,7 +433,11 @@ var jobGetter = &VMJobGetterMap{
 	M:         sync.Mutex{},
 }
 
-func PollingAgentJob(token string, logger *zap.SugaredLogger) (*PollingJobResp, error) {
+func PollingAgentJob(token string, retry int, logger *zap.SugaredLogger) (*PollingJobResp, error) {
+	if retry >= 3 {
+		return nil, nil
+	}
+
 	vm, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		Token: token,
 	})
@@ -450,7 +459,7 @@ func PollingAgentJob(token string, logger *zap.SugaredLogger) (*PollingJobResp, 
 		if err == mongo.ErrNilDocument || err == mongo.ErrNoDocuments {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to find job by tags %s, error: %s", vm.Label, err)
+		return nil, fmt.Errorf("vm %s failed to find job that status is created, error: %v", vm.Name, err)
 	}
 
 	var job *vmmodel.VMJob
@@ -475,7 +484,6 @@ func PollingAgentJob(token string, logger *zap.SugaredLogger) (*PollingJobResp, 
 			logger.Errorf("failed to update job %s, error: %s", jobID, err)
 			return nil, fmt.Errorf("failed to update job %s, error: %s", jobID, err)
 		}
-		jobGetter.RemoveGetter(jobID)
 
 		resp = &PollingJobResp{
 			ID:            jobID,
@@ -489,7 +497,8 @@ func PollingAgentJob(token string, logger *zap.SugaredLogger) (*PollingJobResp, 
 			JobCtx:        job.JobCtx,
 		}
 	} else {
-		resp, err = PollingAgentJob(token, logger)
+		retry++
+		resp, err = PollingAgentJob(token, retry, logger)
 	}
 
 	return resp, err

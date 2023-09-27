@@ -345,25 +345,36 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		ImageFrom:           testingInfo.PreTest.ImageFrom,
 		Registries:          registries,
 		ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, testing.ShareStorageInfo, j.workflow.Name, taskID),
-	}
-	clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testingInfo.PreTest.ClusterID)
-	if err != nil {
-		return jobTask, fmt.Errorf("failed to find cluster: %s, error: %v", testingInfo.PreTest.ClusterID, err)
+		Infrastructure:      testingInfo.Infrastructure,
+		VMLabels:            testingInfo.VMLabels,
 	}
 
-	if clusterInfo.Cache.MediumType == "" {
-		jobTaskSpec.Properties.CacheEnable = false
-	} else {
-		jobTaskSpec.Properties.Cache = clusterInfo.Cache
+	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName,
+		testing.ProjectName, testing.Name, testType, serviceName, serviceModule, jobTaskSpec.Properties.Infrastructure, logger)...)
+
+	if jobTask.Infrastructure == setting.JobVMInfrastructure {
 		jobTaskSpec.Properties.CacheEnable = testingInfo.CacheEnable
 		jobTaskSpec.Properties.CacheDirType = testingInfo.CacheDirType
 		jobTaskSpec.Properties.CacheUserDir = testingInfo.CacheUserDir
-	}
-	jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getTestingJobVariables(testing.Repos, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, testing.ProjectName, testing.Name, testType, serviceName, serviceModule, "", logger)...)
+	} else {
+		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testingInfo.PreTest.ClusterID)
+		if err != nil {
+			return jobTask, fmt.Errorf("failed to find cluster: %s, error: %v", testingInfo.PreTest.ClusterID, err)
+		}
 
-	if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
-		jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
-		jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
+		if clusterInfo.Cache.MediumType == "" {
+			jobTaskSpec.Properties.CacheEnable = false
+		} else {
+			jobTaskSpec.Properties.Cache = clusterInfo.Cache
+			jobTaskSpec.Properties.CacheEnable = testingInfo.CacheEnable
+			jobTaskSpec.Properties.CacheDirType = testingInfo.CacheDirType
+			jobTaskSpec.Properties.CacheUserDir = testingInfo.CacheUserDir
+		}
+
+		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
+			jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
+			jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
+		}
 	}
 
 	// init tools install step
@@ -401,9 +412,11 @@ func (j *TestingJob) toJobtask(testing *commonmodels.TestModule, defaultS3 *comm
 		Name:     testing.Name + "-shell",
 		JobName:  jobTask.Name,
 		StepType: config.StepShell,
-		Spec: &step.StepShellSpec{
+	}
+	if jobTask.Infrastructure != setting.JobVMInfrastructure {
+		shellStep.Spec = &step.StepShellSpec{
 			Scripts: append(strings.Split(replaceWrapLine(testingInfo.Scripts), "\n"), outputScript(testingInfo.Outputs)...),
-		},
+		}
 	}
 	jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
 	// init debug after step

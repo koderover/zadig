@@ -872,7 +872,7 @@ type CustomField struct {
 	TaskID                 int            `bson:"task_id"                             json:"task_id"`
 	Status                 int            `bson:"status"                              json:"status"`
 	Duration               int            `bson:"duration"                            json:"duration"`
-	Executor               int            `bson:"executor"                            json:"executor"`
+	Executor               int            `bson:"job"                            json:"job"`
 	BuildServiceComponent  map[string]int `bson:"build_service_component,omitempty"   json:"build_service_component,omitempty"`
 	BuildCodeMsg           map[string]int `bson:"build_code_msg,omitempty"            json:"build_code_msg,omitempty"`
 	DeployServiceComponent map[string]int `bson:"deploy_service_component,omitempty"  json:"deploy_service_component,omitempty"`

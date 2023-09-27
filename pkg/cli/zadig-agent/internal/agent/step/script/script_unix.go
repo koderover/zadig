@@ -27,7 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 )
 
-func generateScript(spec *StepShellSpec, workspace string, jobOutput []string, logger *log.JobLogger) (string, error) {
+func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []string, logger *log.JobLogger) (string, error) {
 	if len(spec.Scripts) == 0 {
 		return "", nil
 	}
@@ -36,10 +36,10 @@ func generateScript(spec *StepShellSpec, workspace string, jobOutput []string, l
 
 	// add job output to script
 	if len(jobOutput) > 0 {
-		scripts = append(scripts, outputScript(workspace, jobOutput)...)
+		scripts = append(scripts, outputScript(dirs.JobOutputsDir, jobOutput)...)
 	}
 
-	userScriptFile := config.GetUserScriptFilePath(workspace)
+	userScriptFile := config.GetUserScriptFilePath(dirs.JobScriptDir)
 	if err := ioutil.WriteFile(userScriptFile, []byte(strings.Join(scripts, "\n")), 0700); err != nil {
 		return "", fmt.Errorf("write script file error: %v", err)
 	}
@@ -47,10 +47,10 @@ func generateScript(spec *StepShellSpec, workspace string, jobOutput []string, l
 }
 
 // generate script to save outputs variable to file
-func outputScript(workspace string, outputs []string) []string {
+func outputScript(outputsDir string, outputs []string) []string {
 	resp := []string{"set +ex"}
 	for _, output := range outputs {
-		resp = append(resp, fmt.Sprintf("echo $%s > %s", output, path.Join(workspace, types.JobOutputDir, output)))
+		resp = append(resp, fmt.Sprintf("echo $%s > %s", output, path.Join(outputsDir, output)))
 	}
 	return resp
 }

@@ -93,7 +93,7 @@ func (c *FreestyleJobCtl) Run(ctx context.Context) {
 	if c.job.Infrastructure == setting.JobVMInfrastructure {
 		var vmJobID string
 		var err error
-		if vmJobID, err = c.runVMjob(ctx); err != nil {
+		if vmJobID, err = c.runVMJob(ctx); err != nil {
 			return
 		}
 		c.vmJobWait(ctx, vmJobID)
@@ -256,7 +256,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 	return nil
 }
 
-func (c *FreestyleJobCtl) runVMjob(ctx context.Context) (string, error) {
+func (c *FreestyleJobCtl) runVMJob(ctx context.Context) (string, error) {
 	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.jobTaskSpec, c.job, c.workflowCtx, c.logger))
 	if err != nil {
 		msg := fmt.Sprintf("cannot Jobexcutor.Context data: %v", err)
@@ -428,7 +428,7 @@ func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job 
 		outputs = append(outputs, output.Name)
 	}
 
-	return &JobContext{
+	jobContext := &JobContext{
 		Name:          job.Name,
 		Envs:          envVars,
 		SecretEnvs:    secretEnvVars,
@@ -440,6 +440,16 @@ func BuildJobExcutorContext(jobTaskSpec *commonmodels.JobTaskFreestyleSpec, job 
 		Paths:         jobTaskSpec.Properties.Paths,
 		ConfigMapName: job.K8sJobName,
 	}
+
+	if job.Infrastructure == setting.JobVMInfrastructure {
+		jobContext.Cache = &JobCacheConfig{
+			CacheEnable:  jobTaskSpec.Properties.CacheEnable,
+			CacheDirType: jobTaskSpec.Properties.CacheDirType,
+			CacheUserDir: jobTaskSpec.Properties.CacheUserDir,
+		}
+	}
+
+	return jobContext
 }
 
 func (c *FreestyleJobCtl) SaveInfo(ctx context.Context) error {

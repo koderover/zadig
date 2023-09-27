@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -40,8 +42,9 @@ type ArchiveStep struct {
 	workspace  string
 }
 
-func NewArchiveStep(spec interface{}, workspace string, envs, secretEnvs []string) (*ArchiveStep, error) {
-	archiveStep := &ArchiveStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewArchiveStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*ArchiveStep, error) {
+	archiveStep := &ArchiveStep{workspace: metaData.Dirs.Workspace, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return archiveStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -73,7 +76,7 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 		}
 
 		envmaps := makeEnvMap(s.envs, s.secretEnvs)
-		
+
 		upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
 		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
 		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)

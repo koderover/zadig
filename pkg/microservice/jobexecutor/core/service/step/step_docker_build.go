@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -43,8 +45,9 @@ type DockerBuildStep struct {
 	workspace  string
 }
 
-func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs []string) (*DockerBuildStep, error) {
-	dockerBuildStep := &DockerBuildStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewDockerBuildStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*DockerBuildStep, error) {
+	dockerBuildStep := &DockerBuildStep{workspace: metaData.Dirs.Workspace, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return dockerBuildStep, fmt.Errorf("marshal spec %+v failed", spec)

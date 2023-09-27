@@ -146,7 +146,18 @@ func (j *Job) Run(ctx context.Context) error {
 		if hasFailed && !stepInfo.Onfailure {
 			continue
 		}
-		if err := step.RunStep(ctx, stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs, j.ConfigMapUpdater); err != nil {
+
+		metaData := &meta.JobMetaData{
+			Step: stepInfo,
+			Dirs: &meta.ExecutorWorkDirs{
+				Workspace: j.ActiveWorkspace,
+			},
+			Paths:      j.Ctx.Paths,
+			Envs:       j.getUserEnvs(),
+			SecretEnvs: j.Ctx.SecretEnvs,
+		}
+		// stepInfo, j.ActiveWorkspace, j.Ctx.Paths, j.getUserEnvs(), j.Ctx.SecretEnvs
+		if err := step.RunStep(ctx, metaData, j.ConfigMapUpdater, log.SugaredLogger()); err != nil {
 			hasFailed = true
 			respErr = err
 		}

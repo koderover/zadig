@@ -204,12 +204,21 @@ func getSugaredLogger() *zap.SugaredLogger {
 	return getLogger().Sugar()
 }
 
-func getSimpleLogger() *zap.SugaredLogger {
+func GetSimpleLogger() *zap.SugaredLogger {
 	if simpleLogger == nil {
 		panic("Logger is not initialized yet!")
 	}
 
 	return simpleLogger
+}
+
+func GetLoggerFile() string {
+	path, err := config.GetAgentLogPath()
+	if err != nil {
+		panic(err)
+	}
+
+	return filepath.Join(path, "zadig-agent.log")
 }
 
 func NewFileLogger(path string) *zap.Logger {
@@ -224,65 +233,65 @@ func With(fields ...zap.Field) *zap.Logger {
 }
 
 func Debug(args ...interface{}) {
-	getSimpleLogger().Debug(args...)
+	GetSimpleLogger().Debug(args...)
 }
 
 func Debugf(format string, args ...interface{}) {
-	getSimpleLogger().Debugf(format, args...)
+	GetSimpleLogger().Debugf(format, args...)
 }
 
 func Info(args ...interface{}) {
-	getSimpleLogger().Info(args...)
+	GetSimpleLogger().Info(args...)
 }
 
 func Infof(format string, args ...interface{}) {
-	getSimpleLogger().Infof(format, args...)
+	GetSimpleLogger().Infof(format, args...)
 }
 
 func Warning(args ...interface{}) {
-	getSimpleLogger().Warn(args...)
+	GetSimpleLogger().Warn(args...)
 }
 
 func Warningf(format string, args ...interface{}) {
-	getSimpleLogger().Warnf(format, args...)
+	GetSimpleLogger().Warnf(format, args...)
 }
 
 func Warn(args ...interface{}) {
-	getSimpleLogger().Warn(args...)
+	GetSimpleLogger().Warn(args...)
 }
 
 func Warnf(format string, args ...interface{}) {
-	getSimpleLogger().Warnf(format, args...)
+	GetSimpleLogger().Warnf(format, args...)
 }
 
 func Error(args ...interface{}) {
-	getSimpleLogger().Error(args...)
+	GetSimpleLogger().Error(args...)
 }
 
 func Errorf(format string, args ...interface{}) {
-	getSimpleLogger().Errorf(format, args...)
+	GetSimpleLogger().Errorf(format, args...)
 }
 
 func DPanic(args ...interface{}) {
-	getSimpleLogger().DPanic(args...)
+	GetSimpleLogger().DPanic(args...)
 }
 
 func DPanicf(format string, args ...interface{}) {
-	getSimpleLogger().DPanicf(format, args...)
+	GetSimpleLogger().DPanicf(format, args...)
 }
 
 func Panic(args ...interface{}) {
-	getSimpleLogger().Panic(args...)
+	GetSimpleLogger().Panic(args...)
 }
 
 func Panicf(format string, args ...interface{}) {
-	getSimpleLogger().Panicf(format, args...)
+	GetSimpleLogger().Panicf(format, args...)
 }
 
 func Fatal(args ...interface{}) {
-	getSimpleLogger().Fatal(args...)
+	GetSimpleLogger().Fatal(args...)
 }
 
 func Fatalf(format string, args ...interface{}) {
-	getSimpleLogger().Fatalf(format, args...)
+	GetSimpleLogger().Fatalf(format, args...)
 }

@@ -25,7 +25,7 @@ import (
 type PrivateKey struct {
 	ID               primitive.ObjectID   `bson:"_id,omitempty"          json:"id,omitempty"`
 	Name             string               `bson:"name"                   json:"name"`
-	Description      string               `bson:"description"          json:"description"`
+	Description      string               `bson:"description"            json:"description"`
 	UserName         string               `bson:"user_name"              json:"user_name"`
 	IP               string               `bson:"ip"                     json:"ip"`
 	Port             int64                `bson:"port"                   json:"port"`
@@ -41,11 +41,11 @@ type PrivateKey struct {
 	Probe            *types.Probe         `bson:"probe"                  json:"probe"`
 	ProjectName      string               `bson:"project_name,omitempty" json:"project_name"`
 	UpdateStatus     bool                 `bson:"-"                      json:"update_status"`
-	ScheduleWorkflow bool                 `bson:"schedule_workflow"    json:"schedule_workflow"`
-	Error            string               `bson:"error"                json:"error"`
-	Agent            *VMAgent             `bson:"agent"                json:"agent,omitempty"`
-	VMInfo           *VMInfo              `bson:"vm_info"              json:"vm_info,omitempty"`
-	Type             string               `bson:"type"                 json:"type"`
+	ScheduleWorkflow bool                 `bson:"schedule_workflow"      json:"schedule_workflow"`
+	Error            string               `bson:"error"                  json:"error"`
+	Agent            *VMAgent             `bson:"agent"                  json:"agent,omitempty"`
+	VMInfo           *VMInfo              `bson:"vm_info"                json:"vm_info,omitempty"`
+	Type             string               `bson:"type"                   json:"type"`
 }
 
 type VMInfo struct {
@@ -64,6 +64,9 @@ type VMAgent struct {
 	Token             string `bson:"token"                json:"-"`
 	Workspace         string `bson:"workspace"            json:"workspace"`
 	TaskConcurrency   int    `bson:"task_concurrency"     json:"task_concurrency"`
+	CacheType         string `bson:"cache_type"           json:"cache_type"`
+	CachePath         string `bson:"cache_path"           json:"cache_path"`
+	ObjectID          string `bson:"object_id"            json:"object_id"`
 	NeedUpdate        bool   `bson:"need_update"          json:"need_update"`
 	AgentVersion      string `bson:"agent_version"        json:"agent_version"`
 	ZadigVersion      string `bson:"zadig_version"        json:"zadig_version"`

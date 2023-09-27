@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
@@ -41,12 +42,12 @@ type DockerBuildStep struct {
 	spec       *step.StepDockerBuildSpec
 	envs       []string
 	secretEnvs []string
-	workspace  string
 	logger     *log.JobLogger
+	dirs       *types.AgentWorkDirs
 }
 
-func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs []string, logger *log.JobLogger) (*DockerBuildStep, error) {
-	dockerBuildStep := &DockerBuildStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, logger: logger}
+func NewDockerBuildStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*DockerBuildStep, error) {
+	dockerBuildStep := &DockerBuildStep{dirs: dirs, envs: envs, secretEnvs: secretEnvs, logger: logger}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return dockerBuildStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -102,7 +103,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 
 	s.logger.Printf("Preparing Dockerfile.\n")
 	startTimePrepareDockerfile := time.Now()
-	err := prepareDockerfile(s.spec.Source, s.spec.DockerTemplateContent)
+	err := prepareDockerfile(s.spec.Source, s.spec.DockerTemplateContent, s.dirs.Workspace)
 	if err != nil {
 		return fmt.Errorf("failed to prepare dockerfile: %s", err)
 	}
@@ -116,7 +117,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 	startTimeDockerBuild := time.Now()
 	envs := s.envs
 	for _, c := range s.dockerCommands() {
-		c.Dir = s.workspace
+		c.Dir = s.dirs.Workspace
 		c.Env = envs
 
 		fileName := s.logger.GetLogfilePath()
@@ -137,7 +138,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		go func() {
 			defer wg.Done()
 
-			helper.HandleCmdOutput(cmdStdoutReader, needPersistentLog, fileName, s.secretEnvs, s.logger)
+			helper.HandleCmdOutput(cmdStdoutReader, needPersistentLog, fileName, s.secretEnvs, log.GetSimpleLogger())
 		}()
 
 		cmdStdErrReader, err := c.StderrPipe()
@@ -149,7 +150,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		go func() {
 			defer wg.Done()
 
-			helper.HandleCmdOutput(cmdStdErrReader, needPersistentLog, fileName, s.secretEnvs, s.logger)
+			helper.HandleCmdOutput(cmdStdErrReader, needPersistentLog, fileName, s.secretEnvs, log.GetSimpleLogger())
 		}()
 
 		if err := c.Run(); err != nil {
@@ -167,7 +168,7 @@ func (s *DockerBuildStep) dockerCommands() []*exec.Cmd {
 	cmds = append(
 		cmds,
 		dockerBuildCmd(
-			s.spec.GetDockerFile(),
+			s.GetDockerFile(),
 			s.spec.ImageName,
 			s.spec.WorkDir,
 			s.spec.BuildArgs,
@@ -215,17 +216,28 @@ func dockerLogin(user, password, registry string) *exec.Cmd {
 	)
 }
 
-func prepareDockerfile(dockerfileSource, dockerfileContent string) error {
+func prepareDockerfile(dockerfileSource, dockerfileContent, workspace string) error {
 	if dockerfileSource == setting.DockerfileSourceTemplate {
 		reader := strings.NewReader(dockerfileContent)
 		readCloser := io.NopCloser(reader)
-		path := fmt.Sprintf("/%s", setting.ZadigDockerfilePath)
+		path := fmt.Sprintf("%s/%s", workspace, setting.ZadigDockerfilePath)
 		err := fs.SaveFile(readCloser, path)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (s *DockerBuildStep) GetDockerFile() string {
+	// if the source of the dockerfile is from template, we write our own dockerfile
+	if s.spec.Source == setting.DockerfileSourceTemplate {
+		return fmt.Sprintf("%s/%s", s.dirs.Workspace, setting.ZadigDockerfilePath)
+	}
+	if s.spec.DockerFile == "" {
+		return "Dockerfile"
+	}
+	return s.spec.DockerFile
 }
 
 func setProxy(ctx *step.StepDockerBuildSpec) {

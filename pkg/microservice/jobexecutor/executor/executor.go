@@ -46,7 +46,7 @@ func Execute(ctx context.Context) error {
 
 	start := time.Now()
 
-	excutor := "job-executor"
+	excutor := "job-job"
 
 	var (
 		err error

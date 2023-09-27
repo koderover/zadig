@@ -23,8 +23,10 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"go.uber.org/zap"
 )
 
 type DebugStep struct {
@@ -35,12 +37,12 @@ type DebugStep struct {
 	updater    configmap.Updater
 }
 
-func NewDebugStep(_type string, workspace string, envs, secretEnvs []string, updater configmap.Updater) (*DebugStep, error) {
+func NewDebugStep(_type string, metaData *meta.JobMetaData, updater configmap.Updater, logger *zap.SugaredLogger) (*DebugStep, error) {
 	return &DebugStep{
 		Type:       _type,
-		envs:       envs,
-		secretEnvs: secretEnvs,
-		workspace:  workspace,
+		envs:       metaData.Envs,
+		secretEnvs: metaData.SecretEnvs,
+		workspace:  metaData.Dirs.Workspace,
 		updater:    updater,
 	}, nil
 }
