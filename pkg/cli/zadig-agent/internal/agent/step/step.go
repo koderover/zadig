@@ -38,33 +38,33 @@ type Step interface {
 	Run(ctx context.Context) error
 }
 
-func RunStep(ctx context.Context, jobCtx *types.JobContext, step *types.StepTask, workspace, paths string, envs, secretEnvs []string, logger *log.JobLogger) error {
+func RunStep(ctx context.Context, jobCtx *types.JobContext, step *types.StepTask, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) error {
 	var stepInstance Step
 	var err error
 
 	switch step.StepType {
 	case "shell":
-		stepInstance, err = script.NewShellStep(jobCtx.Outputs, step.Spec, workspace, paths, envs, secretEnvs, logger)
+		stepInstance, err = script.NewShellStep(jobCtx.Outputs, step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}
 	case "git":
-		stepInstance, err = git.NewGitStep(step.Spec, workspace, envs, secretEnvs, logger)
+		stepInstance, err = git.NewGitStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}
 	case "docker_build":
-		stepInstance, err = docker.NewDockerBuildStep(step.Spec, workspace, envs, secretEnvs, logger)
+		stepInstance, err = docker.NewDockerBuildStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}
 	case "archive":
-		stepInstance, err = archive.NewArchiveStep(step.Spec, workspace, envs, secretEnvs, logger)
+		stepInstance, err = archive.NewArchiveStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}
 	case "tar_archive":
-		stepInstance, err = archive.NewTararchiveStep(step.Spec, workspace, envs, secretEnvs, logger)
+		stepInstance, err = archive.NewTararchiveStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}

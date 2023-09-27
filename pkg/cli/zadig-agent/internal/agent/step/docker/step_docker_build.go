@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
@@ -41,12 +42,12 @@ type DockerBuildStep struct {
 	spec       *step.StepDockerBuildSpec
 	envs       []string
 	secretEnvs []string
-	workspace  string
 	logger     *log.JobLogger
+	dirs       *types.AgentWorkDirs
 }
 
-func NewDockerBuildStep(spec interface{}, workspace string, envs, secretEnvs []string, logger *log.JobLogger) (*DockerBuildStep, error) {
-	dockerBuildStep := &DockerBuildStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, logger: logger}
+func NewDockerBuildStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*DockerBuildStep, error) {
+	dockerBuildStep := &DockerBuildStep{dirs: dirs, envs: envs, secretEnvs: secretEnvs, logger: logger}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return dockerBuildStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -116,7 +117,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 	startTimeDockerBuild := time.Now()
 	envs := s.envs
 	for _, c := range s.dockerCommands() {
-		c.Dir = s.workspace
+		c.Dir = s.dirs.Workspace
 		c.Env = envs
 
 		fileName := s.logger.GetLogfilePath()

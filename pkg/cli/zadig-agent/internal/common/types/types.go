@@ -114,11 +114,6 @@ type ReportJobParameters struct {
 	JobOutput []byte `json:"job_output"`
 }
 
-const (
-	JobOutputDir       = "zadig/results/"
-	JobTerminationFile = "/zadig/termination"
-)
-
 func GetJobOutputKey(key, outputName string) string {
 	return fmt.Sprintf(setting.RenderValueTemplate, strings.Join([]string{"job", key, "output", outputName}, "."))
 }
@@ -126,4 +121,13 @@ func GetJobOutputKey(key, outputName string) string {
 type ReportAgentJobResp struct {
 	JobID     string `json:"job_id"`
 	JobStatus string `json:"job_status"`
+}
+
+type AgentWorkDirs struct {
+	WorkDir       string
+	Workspace     string
+	JobLogPath    string
+	JobOutputsDir string
+	JobScriptDir  string
+	CacheDir      string
 }

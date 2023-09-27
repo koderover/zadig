@@ -27,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/reporter"
@@ -72,18 +70,14 @@ type JobExecutor struct {
 	Cancel           *bool
 	FinishedChan     chan struct{}
 	ReporterCancel   context.CancelFunc
-	Workspace        string
-	LogPath          string
-	OutputDir        string
-	CacheDir         string
-	ArtifactsDir     string
+	Dirs             *types.AgentWorkDirs
 }
 
 // BeforeExecute init execute context and command
 func (e *JobExecutor) BeforeExecute() error {
 	err := e.InitWorkDirectory()
 	if err != nil {
-		log.Info("failed to init work directory", zap.Error(err))
+		log.Info("failed to init work directory", err)
 		return err
 	}
 
@@ -92,62 +86,88 @@ func (e *JobExecutor) BeforeExecute() error {
 
 func (e *JobExecutor) InitWorkDirectory() error {
 	workDir := config.GetActiveWorkDirectory()
+	e.Dirs = &types.AgentWorkDirs{
+		WorkDir: workDir,
+	}
 
 	if e.Job != nil && e.Job.ProjectName != "" && e.Job.WorkflowName != "" && e.Job.JobName != "" {
 		// init default work directory
-
-		e.Workspace = filepath.Join(workDir, fmt.Sprintf("/%s/%s/%s/%s", e.Job.ProjectName, e.Job.WorkflowName, fmt.Sprintf("task-%d", e.Job.TaskID), e.Job.JobName))
+		e.Dirs.Workspace = filepath.Join(workDir, fmt.Sprintf("/%s/%s/%s/%s", e.Job.ProjectName, e.Job.WorkflowName, fmt.Sprintf("task-%d", e.Job.TaskID), e.Job.JobName))
 	}
 
-	// init work directory
-	if _, err := os.Stat(e.Workspace); os.IsNotExist(err) {
-		err := os.MkdirAll(e.Workspace, os.ModePerm)
+	// ------------------------------------------------- init workspace -------------------------------------------------
+	if _, err := os.Stat(e.Dirs.Workspace); os.IsNotExist(err) {
+		err := os.MkdirAll(e.Dirs.Workspace, os.ModePerm)
 		if err != nil {
-			log.Errorf("failed to create work directory, error: %s", err)
-			return err
+			return fmt.Errorf("failed to create workspace, error: %v", err)
 		}
 	}
 
+	// ------------------------------------------- init agent job log tmp dir -------------------------------------------
 	// init job log executor
-	filePath, err := config.GetJobLogFilePath(e.Workspace, e.Job.JobName)
+	logDir, err := config.GetJobLogFilePath(workDir, *e.Job)
 	if err != nil {
-		log.Errorf("failed to generate job log file path, error: %s", err)
-		return err
+		return fmt.Errorf("failed to generate job log directory, error: %v", err)
 	}
+	if _, err := os.Stat(logDir); err == nil {
+		if err := os.RemoveAll(logDir); err != nil {
+			return fmt.Errorf("failed to delete job log dir, error: %v", err)
+		}
+	}
+	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create job log tmp directory, error: %v", err)
+	}
+	filePath := filepath.Join(logDir, fmt.Sprintf("%s.log", e.Job.JobName))
+	// remove old log file if exists
+	if _, err := os.Stat(filePath); err == nil {
+		if err := os.Remove(filePath); err != nil {
+			return fmt.Errorf("failed to remove log file: %v", err)
+		}
+	}
+	// create new file
+	file, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to create log file: %v", err)
+	}
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Errorf("failed to close log file: %v", err)
+		}
+	}()
 	e.Logger = log.NewJobLogger(filePath)
-	e.LogPath = filePath
+	e.Dirs.JobLogPath = filePath
 	e.Reporter.Logger = e.Logger
 
-	// init job OutputDir
-	outputDir := filepath.Join(e.Workspace, types.JobOutputDir)
+	// --------------------------------------------- init job script tmp dir ---------------------------------------------
+	jobScriptTmpDir, err := config.GetJobScriptTmpDir(workDir, *e.Job)
+	if err != nil {
+		return fmt.Errorf("failed to generate job script tmp directory, error: %v", err)
+	}
+	if _, err := os.Stat(jobScriptTmpDir); err == nil {
+		if err := os.RemoveAll(jobScriptTmpDir); err != nil {
+			return fmt.Errorf("failed to delete job script dir, error: %v", err)
+		}
+	}
+	if err := os.MkdirAll(jobScriptTmpDir, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create job script tmp directory, error: %v", err)
+	}
+	e.Dirs.JobScriptDir = jobScriptTmpDir
+
+	// -------------------------------------------- init job output tmp dir ---------------------------------------------
+	outputDir, err := config.GetJobOutputsTmpDir(workDir, *e.Job)
+	if err != nil {
+		return fmt.Errorf("failed to generate job outputs tmp directory, error: %v", err)
+	}
 	if _, err := os.Stat(outputDir); err == nil {
 		if err := os.RemoveAll(outputDir); err != nil {
-			log.Errorf("failed to delete job output dir, error: %s", err)
-			return fmt.Errorf("failed to delete job output dir, error: %s", err)
+			return fmt.Errorf("failed to delete job output dir, error: %v", err)
 		}
 	}
 	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
-		return err
+		return fmt.Errorf("failed to create job output tmp directory, error: %v", err)
 	}
-	e.OutputDir = outputDir
-
-	// init job cache directory
-	//cacheDir := filepath.Join(e.Workspace, )
-	//if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
-	//	err = os.MkdirAll(cacheDir, os.ModePerm)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
-	//e.CacheDir = cacheDir
-
-	// init job artifacts directory
-	//artifactsDir, err := config.GetArtifactsDir(e.Workspace)
-	//if err != nil {
-	//	log.Errorf("failed to generate job artifacts directory, error: %s", err)
-	//	return err
-	//}
-	//e.ArtifactsDir = artifactsDir
+	e.Dirs.JobOutputsDir = outputDir
 
 	return nil
 }
@@ -187,7 +207,7 @@ func (e *JobExecutor) Execute() {
 
 	err = e.run()
 	if err != nil {
-		e.Logger.Errorf("failed to execute job, error: %v", err)
+		e.Logger.Errorf(fmt.Sprintf("failed to execute job, error: %v", err))
 		e.JobResult.SetError(err)
 		return
 	}
@@ -211,7 +231,7 @@ func (e *JobExecutor) run() error {
 		if hasFailed && !stepInfo.Onfailure {
 			continue
 		}
-		if err := step.RunStep(e.Ctx, e.JobCtx, stepInfo, e.Workspace, "", e.getUserEnvs(), e.JobCtx.SecretEnvs, e.Logger); err != nil {
+		if err := step.RunStep(e.Ctx, e.JobCtx, stepInfo, e.Dirs, e.getUserEnvs(), e.JobCtx.SecretEnvs, e.Logger); err != nil {
 			hasFailed = true
 			respErr = err
 		}
@@ -225,7 +245,7 @@ func (e *JobExecutor) getUserEnvs() []string {
 		"CI=true",
 		"ZADIG=true",
 		fmt.Sprintf("HOME=%s", config.Home()),
-		fmt.Sprintf("WORKSPACE=%s", e.Workspace),
+		fmt.Sprintf("WORKSPACE=%s", e.Dirs.Workspace),
 	)
 
 	//e.JobCtx.Paths = strings.Replace(e.JobCtx.Paths, "$HOME", config.Home(), -1)
@@ -247,7 +267,7 @@ func (e *JobExecutor) getUserEnvs() []string {
 
 func (e *JobExecutor) AfterExecute() error {
 	// report all job log
-	log.Infof("start to workflow %s job %s AfterExecute stage", e.Job.WorkflowName, e.Job.JobName)
+	log.Infof("start workflow %s job %s AfterExecute stage", e.Job.WorkflowName, e.Job.JobName)
 	for logStr, EOFErr, err := e.Reporter.GetJobLog(); err == nil; {
 		resp, err := e.Reporter.ReportWithData(
 			&types.JobExecuteResult{
@@ -269,13 +289,20 @@ func (e *JobExecutor) AfterExecute() error {
 			break
 		}
 	}
+
+	// delete all temp file and dir
+	err := e.deleteTempFileAndDir()
+	if err != nil {
+		log.Errorf("failed to delete temp file and dir, error: %s", err)
+	}
+
 	return nil
 }
 
 func (e *JobExecutor) getJobOutputVars() ([]*job.JobOutput, error) {
 	outputs := []*job.JobOutput{}
 	for _, outputName := range e.JobCtx.Outputs {
-		fileContents, err := ioutil.ReadFile(filepath.Join(e.OutputDir, outputName))
+		fileContents, err := ioutil.ReadFile(filepath.Join(e.Dirs.JobOutputsDir, common.JobOutputDir, outputName))
 		if os.IsNotExist(err) {
 			continue
 		} else if err != nil {
@@ -288,27 +315,30 @@ func (e *JobExecutor) getJobOutputVars() ([]*job.JobOutput, error) {
 }
 
 func (e *JobExecutor) deleteTempFileAndDir() error {
-	if err := os.RemoveAll(e.Workspace); err != nil {
+	// --------------------------------------------- delete job workspace ---------------------------------------------
+	if err := os.RemoveAll(e.Dirs.Workspace); err != nil {
 		log.Errorf("failed to delete job workspace, error: %s", err)
 		return err
 	}
-	//// delete job log file
-	//if err := os.Remove(e.LogPath); err != nil {
-	//	log.Errorf("failed to delete job log file, error: %s", err)
-	//	return err
-	//}
-	//
-	//// delete job output dir
-	//if err := os.RemoveAll(e.OutputDir); err != nil {
-	//	log.Errorf("failed to delete job output dir, error: %s", err)
-	//	return err
-	//}
-	//
-	//// delete user script file
-	//if err := os.Remove(config.GetUserScriptFilePath(e.Workspace)); err != nil {
-	//	log.Errorf("failed to delete user script file, error: %s", err)
-	//	return err
-	//}
+
+	// --------------------------------------------- delete job log file ---------------------------------------------
+	if err := os.RemoveAll(filepath.Dir(e.Dirs.JobLogPath)); err != nil {
+		log.Errorf("failed to delete job log file, error: %s", err)
+		return err
+	}
+
+	// --------------------------------------------- delete job script dir ---------------------------------------------
+	if err := os.RemoveAll(e.Dirs.JobScriptDir); err != nil {
+		log.Errorf("failed to delete user script file, error: %s", err)
+		return err
+	}
+
+	// --------------------------------------------- delete job output dir ---------------------------------------------
+	if err := os.RemoveAll(e.Dirs.JobOutputsDir); err != nil {
+		log.Errorf("failed to delete job output dir, error: %s", err)
+		return err
+	}
+
 	return nil
 }
 

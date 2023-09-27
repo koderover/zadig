@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
@@ -34,8 +35,7 @@ type ShellStep struct {
 	JobOutput  []string
 	envs       []string
 	secretEnvs []string
-	workspace  string
-	Paths      string
+	dirs       *types.AgentWorkDirs
 	Logger     *log.JobLogger
 }
 
@@ -45,8 +45,8 @@ type StepShellSpec struct {
 	SkipPrepare bool     `    json:"skip_prepare"                            yaml:"skip_prepare"`
 }
 
-func NewShellStep(jobOutput []string, spec interface{}, workspace, paths string, envs, secretEnvs []string, logger *log.JobLogger) (*ShellStep, error) {
-	shellStep := &ShellStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, JobOutput: jobOutput}
+func NewShellStep(jobOutput []string, spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*ShellStep, error) {
+	shellStep := &ShellStep{dirs: dirs, envs: envs, secretEnvs: secretEnvs, JobOutput: jobOutput}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return shellStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -66,9 +66,9 @@ func (s *ShellStep) Run(ctx context.Context) error {
 		s.Logger.Infof(fmt.Sprintf("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds()))
 	}()
 
-	userScriptFile, err := generateScript(s.spec, s.workspace, s.JobOutput, s.Logger)
+	userScriptFile, err := generateScript(s.spec, s.dirs, s.JobOutput, s.Logger)
 	cmd := exec.Command("/bin/bash", userScriptFile)
-	cmd.Dir = s.workspace
+	cmd.Dir = s.dirs.Workspace
 	cmd.Env = s.envs
 
 	fileName := s.Logger.GetLogfilePath()

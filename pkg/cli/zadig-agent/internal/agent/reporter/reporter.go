@@ -18,6 +18,7 @@ package reporter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -140,7 +141,7 @@ func (r *JobReporter) SetLog() error {
 }
 
 func (r *JobReporter) FinishedJobReport(status common.Status, err error) error {
-	r.Result.SetError(err)
+	r.Result.SetError(errors.New(errhelper.ErrHandler(err)))
 	r.Result.SetStatus(status)
 	r.Result.SetEndTime(time.Now().Unix())
 	r.Result.SetLog("")

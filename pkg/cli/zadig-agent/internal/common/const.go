@@ -88,7 +88,12 @@ const (
 
 // config const
 const (
-	Home = "HOME"
+	JobOutputDir       = "zadig/results/"
+	JobTerminationFile = "/zadig/termination"
+	Home               = "HOME"
+	JobLogTmpDir       = "/tmp/job-log/"
+	JobScriptTmpDir    = "/tmp/job-script/"
+	JobOutputsTmpDir   = "/tmp/job-outputs/"
 )
 
 const (

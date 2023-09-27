@@ -18,12 +18,10 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
-	errhelper "github.com/koderover/zadig/pkg/cli/zadig-agent/helper/error"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
@@ -139,25 +137,14 @@ func (c *AgentController) RunJob(ctx context.Context) {
 func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobTask) error {
 	var err error
 	jobCtx, cancel := context.WithCancel(ctx)
-
 	executor := NewJobExecutor(ctx, job, c.Client, cancel)
-	defer func() {
-		err = executor.deleteTempFileAndDir()
-		if err != nil {
-			log.Errorf("failed to delete temp file and dir, error: %s", err)
-		}
-	}()
 
 	// execute some init job before execute zadig job
 	err = executor.BeforeExecute()
 	if err != nil {
-		_, err = executor.Reporter.ReportWithData(
-			&types.JobExecuteResult{
-				Status:  common.StatusFailed.String(),
-				Error:   errors.New(errhelper.ErrHandler(fmt.Errorf("failed to execute BeforeExecute, error: %s", err))),
-				EndTime: time.Now().Unix(),
-				JobInfo: executor.JobResult.JobInfo,
-			})
+		log.Errorf("failed to execute BeforeExecute, error: %s", err)
+
+		err = executor.Reporter.FinishedJobReport(common.StatusFailed, fmt.Errorf("failed to execute BeforeExecute, error: %s", err))
 		if err != nil {
 			return fmt.Errorf("failed to report job status when BeforeExecute failed, error: %s", err)
 		}
