@@ -31,6 +31,7 @@ import (
 // @Tags 	environment
 // @Accept 	json
 // @Produce json
+// @Param 	name			path		string							true	"env name"
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
 // @Success 200 			{array}  	service.ListEnvServiceVersionsResponse
@@ -60,13 +61,19 @@ func ListEnvServiceVersions(c *gin.Context) {
 		}
 	}
 
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
+
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListEnvServiceVersions(ctx, projectKey, serviceName, false, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListEnvServiceVersions(ctx, projectKey, envName, serviceName, false, ctx.Logger)
 }
 
 // @Summary List Production Environment Service Versions
@@ -74,6 +81,7 @@ func ListEnvServiceVersions(c *gin.Context) {
 // @Tags 	environment
 // @Accept 	json
 // @Produce json
+// @Param 	name			path		string							true	"env name"
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
 // @Success 200 			{array}  	service.ListEnvServiceVersionsResponse
@@ -103,13 +111,19 @@ func ListProductionEnvServiceVersions(c *gin.Context) {
 		}
 	}
 
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
+
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListEnvServiceVersions(ctx, projectKey, serviceName, true, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListEnvServiceVersions(ctx, projectKey, envName, serviceName, true, ctx.Logger)
 }
 
 // @Summary Diff Environment Service Versions
@@ -117,6 +131,7 @@ func ListProductionEnvServiceVersions(c *gin.Context) {
 // @Tags 	environment
 // @Accept 	json
 // @Produce json
+// @Param 	name			path		string							true	"env name"
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	versionA		query		int								true	"version a"
@@ -148,6 +163,12 @@ func DiffEnvServiceVersions(c *gin.Context) {
 		}
 	}
 
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
+
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
@@ -165,7 +186,7 @@ func DiffEnvServiceVersions(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, serviceName, versionA, versionB, false, ctx.Logger)
+	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, serviceName, envName, versionA, versionB, false, ctx.Logger)
 }
 
 // @Summary Diff Production Environment Service Versions
@@ -173,6 +194,7 @@ func DiffEnvServiceVersions(c *gin.Context) {
 // @Tags 	service
 // @Accept 	json
 // @Produce json
+// @Param 	name			path		string							true	"env name"
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	versionA		query		int								true	"version a"
@@ -204,6 +226,12 @@ func DiffProductionEnvServiceVersions(c *gin.Context) {
 		}
 	}
 
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
+
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
@@ -221,7 +249,7 @@ func DiffProductionEnvServiceVersions(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, serviceName, versionA, versionB, true, ctx.Logger)
+	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, versionA, versionB, true, ctx.Logger)
 }
 
 // @Summary Rollback Environment Service Version
@@ -229,6 +257,7 @@ func DiffProductionEnvServiceVersions(c *gin.Context) {
 // @Tags 	service
 // @Accept 	json
 // @Produce json
+// @Param 	name			path		string							true	"env name"
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	version	 		query		int								true	"version"
@@ -259,6 +288,12 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 		}
 	}
 
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
+
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
@@ -271,7 +306,7 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, serviceName, version, false, ctx.Logger)
+	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, version, false, ctx.Logger)
 }
 
 // @Summary Rollback Production Environment Service Version
@@ -279,6 +314,7 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 // @Tags 	service
 // @Accept 	json
 // @Produce json
+// @Param 	name			path		string							true	"env name"
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	version	 		query		int								true	"version"
@@ -309,6 +345,12 @@ func RollbackProductionEnvServiceVersion(c *gin.Context) {
 		}
 	}
 
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
+
 	serviceName := c.Param("serviceName")
 	if serviceName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
@@ -321,5 +363,5 @@ func RollbackProductionEnvServiceVersion(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, serviceName, version, true, ctx.Logger)
+	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, version, true, ctx.Logger)
 }

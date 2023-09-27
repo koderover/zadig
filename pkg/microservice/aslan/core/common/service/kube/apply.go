@@ -585,7 +585,7 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Produ
 		replaceValuesMaps := make([]map[string]interface{}, 0)
 		for _, targetContainer := range productService.Containers {
 			// prepare image replace info
-			replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, GetValidMatchData(targetContainer.ImagePath))
+			replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(targetContainer.ImagePath))
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
 			}

@@ -39,7 +39,6 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
@@ -672,7 +671,7 @@ DistributeLoop:
 			}
 
 			// prepare image replace info
-			validMatchData := kube.GetValidMatchData(targetContainer.ImagePath)
+			validMatchData := commonutil.GetValidMatchData(targetContainer.ImagePath)
 
 			imageKVS := make([]*helmtool.KV, 0)
 

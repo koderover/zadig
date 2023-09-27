@@ -19,7 +19,6 @@ package jobcontroller
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -33,8 +32,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/util/rand"
 )
 
@@ -263,37 +260,6 @@ func logError(job *commonmodels.JobTask, msg string, logger *zap.SugaredLogger) 
 	logger.Error(msg)
 	job.Status = config.StatusFailed
 	job.Error = msg
-}
-
-// update product image info
-func updateProductImageByNs(envName, productName, serviceName string, targets map[string]string, logger *zap.SugaredLogger) error {
-	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: envName, Name: productName})
-
-	if err != nil {
-		logger.Errorf("find product namespace error: %v", err)
-		return err
-	}
-
-	for i, group := range prod.Services {
-		for j, service := range group {
-			if service.ServiceName == serviceName {
-				for l, container := range service.Containers {
-					if image, ok := targets[container.Name]; ok {
-						prod.Services[i][j].Containers[l].Image = image
-						prod.Services[i][j].Containers[l].ImageName = util.ExtractImageName(image)
-					}
-				}
-			}
-		}
-	}
-
-	if err := commonrepo.NewProductColl().Update(prod); err != nil {
-		errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
-		logger.Errorf(errMsg)
-		return errors.New(errMsg)
-	}
-
-	return nil
 }
 
 func getMatchedRegistries(image string, registries []*commonmodels.RegistryNamespace) []*commonmodels.RegistryNamespace {

@@ -139,6 +139,7 @@ func (c *OfflineServiceJobCtl) Run(ctx context.Context) {
 				EnvName:     c.jobTaskSpec.EnvName,
 				ServiceName: event.ServiceName,
 				Uninstall:   true,
+				UserName:    c.workflowCtx.WorkflowTaskCreatorUsername,
 			})
 			if err != nil {
 				errHandler(fmt.Sprintf("update product service deploy info error: %v", err))

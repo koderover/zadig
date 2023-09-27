@@ -44,6 +44,7 @@ type ProductServiceDeployInfo struct {
 	VariableKVs           []*commontypes.RenderVariableKV
 	Containers            []*models.Container
 	UpdateServiceRevision bool
+	UserName              string
 }
 
 func mergeContainers(currentContainer []*models.Container, newContainers ...[]*models.Container) []*models.Container {
@@ -160,6 +161,11 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		log.Infof("UpdateServiceRevision : %v, sevOnline: %v, variableYamlNil %v, serviceName: %s", deployInfo.UpdateServiceRevision, sevOnline, variableYamlNil(deployInfo.VariableYaml), deployInfo.ServiceName)
 		if deployInfo.UpdateServiceRevision || sevOnline || !variableYamlNil(deployInfo.VariableYaml) {
 			productInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(productInfo.ServiceDeployStrategy, deployInfo.ServiceName)
+		}
+
+		err = commonutil.CreateEnvServiceVersion(productInfo, productInfo.GetServiceMap()[deployInfo.ServiceName], deployInfo.UserName, log.SugaredLogger())
+		if err != nil {
+			log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 		}
 	} else {
 		// uninstall service

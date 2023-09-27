@@ -184,7 +184,7 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templa
 	replaceValuesMaps := make([]map[string]interface{}, 0)
 	for _, targetContainer := range targetContainers {
 		// prepare image replace info
-		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, GetValidMatchData(targetContainer.ImagePath))
+		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(targetContainer.ImagePath))
 		if err != nil {
 			return "", fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
 		}
@@ -229,7 +229,7 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templa
 
 // UpgradeHelmRelease upgrades helm release with some specific images
 func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.ProductService,
-	svcTemp *commonmodels.Service, images []string, timeout int) error {
+	svcTemp *commonmodels.Service, images []string, timeout int, user string) error {
 
 	chartInfoMap := product.GetChartRenderMap()
 	chartDeployInfoMap := product.GetChartDeployRenderMap()
@@ -332,6 +332,13 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 	err = InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
 	if err != nil {
 		return err
+	}
+
+	if user != "" {
+		err = commonutil.CreateEnvServiceVersion(product, productSvc, user, log.SugaredLogger())
+		if err != nil {
+			log.Errorf("failed to create helm service version, err: %v", err)
+		}
 	}
 
 	// select product info and render info from db, in case of concurrent update caused data override issue

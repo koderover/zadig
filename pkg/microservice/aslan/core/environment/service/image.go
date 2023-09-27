@@ -64,7 +64,7 @@ func updateContainerForHelmChart(serviceName, image, containerName string, produ
 		return err
 	}
 
-	err = kube.UpgradeHelmRelease(product, targetProductService, serviceObj, []string{image}, 0)
+	err = kube.UpgradeHelmRelease(product, targetProductService, serviceObj, []string{image}, 0, "")
 	if err != nil {
 		return fmt.Errorf("failed to upgrade helm release, err: %s", err.Error())
 	}

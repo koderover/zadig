@@ -1,6 +1,7 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -9,6 +10,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -142,4 +144,45 @@ func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, er
 		releaseNameMap[svcInfo.ServiceName] = util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)
 	}
 	return releaseNameMap, nil
+}
+
+// update product image info
+func UpdateProductImage(envName, productName, serviceName string, targets map[string]string, userName string, logger *zap.SugaredLogger) error {
+	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: envName, Name: productName})
+
+	if err != nil {
+		logger.Errorf("find product namespace error: %v", err)
+		return err
+	}
+
+	for i, group := range prod.Services {
+		for j, service := range group {
+			if service.ServiceName == serviceName {
+				for l, container := range service.Containers {
+					if image, ok := targets[container.Name]; ok {
+						prod.Services[i][j].Containers[l].Image = image
+						prod.Services[i][j].Containers[l].ImageName = util.ExtractImageName(image)
+					}
+				}
+			}
+		}
+	}
+
+	service := prod.GetServiceMap()[serviceName]
+	if service != nil {
+		err = CreateEnvServiceVersion(prod, service, userName, log.SugaredLogger())
+		if err != nil {
+			log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
+		}
+	} else {
+		log.Errorf("service %s not found in prod %s/%s", serviceName, prod.ProductName, prod.EnvName)
+	}
+
+	if err := commonrepo.NewProductColl().Update(prod); err != nil {
+		errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
+		logger.Errorf(errMsg)
+		return errors.New(errMsg)
+	}
+
+	return nil
 }
