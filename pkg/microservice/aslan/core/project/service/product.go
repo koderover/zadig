@@ -1098,6 +1098,7 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 		if err != nil {
 			break
 		}
+		log.Infof("----- parsed containers count: %v", len(serviceTmpl.Containers))
 
 		if len(serviceTmpl.Containers) == 0 {
 			log.Warnf("service:%s containers is empty after parse, valuesYaml %s", serviceTmpl.ServiceName, valuesYaml)
