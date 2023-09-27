@@ -998,11 +998,12 @@ func GetCustomMatchRules(productName string, log *zap.SugaredLogger) ([]*ImagePa
 	ret := make([]*ImageParseData, 0, len(rules))
 	for _, singleData := range rules {
 		ret = append(ret, &ImageParseData{
-			Repo:     singleData.Repo,
-			Image:    singleData.Image,
-			Tag:      singleData.Tag,
-			InUse:    singleData.InUse,
-			PresetId: singleData.PresetId,
+			Repo:      singleData.Repo,
+			Namespace: singleData.Namespace,
+			Image:     singleData.Image,
+			Tag:       singleData.Tag,
+			InUse:     singleData.InUse,
+			PresetId:  singleData.PresetId,
 		})
 	}
 	return ret, nil
@@ -1098,7 +1099,6 @@ func reParseServices(userName, requestID string, serviceList []*commonmodels.Ser
 		if err != nil {
 			break
 		}
-		log.Infof("----- parsed containers count: %v", len(serviceTmpl.Containers))
 
 		if len(serviceTmpl.Containers) == 0 {
 			log.Warnf("service:%s containers is empty after parse, valuesYaml %s", serviceTmpl.ServiceName, valuesYaml)
