@@ -24,6 +24,7 @@ import (
 
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 )
 
 func DeleteTestModules(productName, requestID string, log *zap.SugaredLogger) error {
@@ -36,6 +37,29 @@ func DeleteTestModules(productName, requestID string, log *zap.SugaredLogger) er
 	for _, testing := range testings {
 		if err = commonservice.DeleteTestModule(testing.Name, productName, requestID, log); err != nil {
 			errList = multierror.Append(errList, fmt.Errorf("productName %s test delete %s error: %v", productName, testing.Name, err))
+		}
+	}
+	if err := errList.ErrorOrNil(); err != nil {
+		log.Error(err)
+		return err
+	}
+	return nil
+}
+
+func DeleteScanningModules(productName string, log *zap.SugaredLogger) error {
+	scannings, _, err := commonrepo.NewScanningColl().List(&commonrepo.ScanningListOption{
+		ProjectName: "productName",
+	}, 0, 0)
+
+	if err != nil {
+		return err
+	}
+
+	errList := new(multierror.Error)
+
+	for _, scanning := range scannings {
+		if err = service.DeleteScanningModuleByID(scanning.ID.Hex(), log); err != nil {
+			errList = multierror.Append(errList, fmt.Errorf("productName %s scanning delete %s error: %v", productName, scanning.Name, err))
 		}
 	}
 	if err := errList.ErrorOrNil(); err != nil {

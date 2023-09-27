@@ -24,12 +24,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
+	internaldb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	codehost_mongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -64,9 +66,33 @@ func V1180ToV1190() error {
 		return err
 	}
 
-	log.Infof("-------- start migrate sonar intergration system identity --------")
+	log.Infof("-------- start migrate sonar integration system identity --------")
 	if err := migrateSonarIntegrationSystemIdentity(); err != nil {
 		log.Infof("migrateSonarIntegrationSystemIdentity err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate codehost integration level --------")
+	if err := migrateCodeHostIntegrationLevel(); err != nil {
+		log.Infof("migrateConfigurationManagementSystemIdentity err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate sonar scanning --------")
+	if err := migrateSonarScanningModules(); err != nil {
+		log.Infof("migrate sonar scanning err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate apollo --------")
+	if err := migrateApolloIntegration(); err != nil {
+		log.Infof("migrateApolloIntegration err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate infrastructure filed in build & build template module and general job --------")
+	if err := migrateInfrastructureField(); err != nil {
+		log.Infof("migrate infrastructure filed in build & build template module and general job err: %v", err)
 		return err
 	}
 
@@ -172,7 +198,7 @@ func migrateWorkflowTemplate() error {
 		if len(ms) >= 50 {
 			log.Infof("update %d workflowV4 template", len(ms))
 			if _, err := mongodb.NewWorkflowV4TemplateColl().BulkWrite(context.Background(), ms); err != nil {
-				return fmt.Errorf("udpate workflowV4 templates for merging custom and release workflow, error: %s", err)
+				return fmt.Errorf("update workflowV4 templates for merging custom and release workflow, error: %s", err)
 			}
 			ms = []mongo.WriteModel{}
 		}
@@ -180,7 +206,7 @@ func migrateWorkflowTemplate() error {
 	if len(ms) > 0 {
 		log.Infof("update %d workflowV4 templates", len(ms))
 		if _, err := mongodb.NewWorkflowV4TemplateColl().BulkWrite(context.Background(), ms); err != nil {
-			return fmt.Errorf("udpate workflowV4 templates for merging custom and release workflow, error: %s", err)
+			return fmt.Errorf("update workflowV4 templates for merging custom and release workflow, error: %s", err)
 		}
 	}
 
@@ -209,7 +235,7 @@ func migrateWorkflowTemplate() error {
 		if len(ms) >= 50 {
 			log.Infof("update %d workflowV4", len(ms))
 			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-				return fmt.Errorf("udpate workflowV4s for merging custom and release workflow, error: %s", err)
+				return fmt.Errorf("update workflowV4s for merging custom and release workflow, error: %s", err)
 			}
 			ms = []mongo.WriteModel{}
 		}
@@ -217,7 +243,7 @@ func migrateWorkflowTemplate() error {
 	if len(ms) > 0 {
 		log.Infof("update %d workflowV4s", len(ms))
 		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-			return fmt.Errorf("udpate workflowV4s for merging custom and release workflow, error: %s", err)
+			return fmt.Errorf("update workflowV4s for merging custom and release workflow, error: %s", err)
 		}
 	}
 	return nil
@@ -285,8 +311,8 @@ func migrateProjectManagementSystemIdentity() error {
 		for _, stage := range workflow.Stages {
 			for _, job := range stage.Jobs {
 				if job.JobType == config.JobJira {
-					spec := &commonmodels.JiraJobSpec{}
-					if err := commonmodels.IToiYaml(job.Spec, spec); err != nil {
+					spec := &models.JiraJobSpec{}
+					if err := models.IToiYaml(job.Spec, spec); err != nil {
 						return err
 					}
 
@@ -305,8 +331,8 @@ func migrateProjectManagementSystemIdentity() error {
 					job.Spec = spec
 					changed = true
 				} else if job.JobType == config.JobMeegoTransition {
-					spec := &commonmodels.MeegoTransitionJobSpec{}
-					if err := commonmodels.IToiYaml(job.Spec, spec); err != nil {
+					spec := &models.MeegoTransitionJobSpec{}
+					if err := models.IToiYaml(job.Spec, spec); err != nil {
 						return err
 					}
 
@@ -343,7 +369,7 @@ func migrateProjectManagementSystemIdentity() error {
 		if len(ms) >= 50 {
 			log.Infof("update %d workflowV4", len(ms))
 			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-				return fmt.Errorf("udpate workflowV4s for jira/meego job system identity, error: %s", err)
+				return fmt.Errorf("update workflowV4s for jira/meego job system identity, error: %s", err)
 			}
 			ms = []mongo.WriteModel{}
 		}
@@ -351,7 +377,7 @@ func migrateProjectManagementSystemIdentity() error {
 	if len(ms) > 0 {
 		log.Infof("update %d workflowV4s", len(ms))
 		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-			return fmt.Errorf("udpate workflowV4s for jira/meego job system identity, error: %s", err)
+			return fmt.Errorf("update workflowV4s for jira/meego job system identity, error: %s", err)
 		}
 	}
 
@@ -400,7 +426,7 @@ func migrateProjectManagementSystemIdentity() error {
 		if len(ms) >= 50 {
 			log.Infof("update %d workflowV4", len(ms))
 			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-				return fmt.Errorf("udpate workflowV4s for meego hook system identity, error: %s", err)
+				return fmt.Errorf("update workflowV4s for meego hook system identity, error: %s", err)
 			}
 			ms = []mongo.WriteModel{}
 		}
@@ -408,7 +434,7 @@ func migrateProjectManagementSystemIdentity() error {
 	if len(ms) > 0 {
 		log.Infof("update %d workflowV4s", len(ms))
 		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.TODO(), ms); err != nil {
-			return fmt.Errorf("udpate workflowV4s for meego hook system identity, error: %s", err)
+			return fmt.Errorf("update workflowV4s for meego hook system identity, error: %s", err)
 		}
 	}
 
@@ -442,7 +468,7 @@ func migrateConfigurationManagementSystemIdentity() error {
 func migrateSonarIntegrationSystemIdentity() error {
 	sonars, _, err := mongodb.NewSonarIntegrationColl().List(context.Background(), 0, 0)
 	if err != nil {
-		return fmt.Errorf("failed to list sonar intergration, err: %v", err)
+		return fmt.Errorf("failed to list sonar integration, err: %v", err)
 	}
 
 	count := 0
@@ -454,7 +480,232 @@ func migrateSonarIntegrationSystemIdentity() error {
 		count++
 		sonar.SystemIdentity = fmt.Sprintf("sonar-%d", count)
 		if err := mongodb.NewSonarIntegrationColl().Update(context.Background(), sonar.ID.Hex(), sonar); err != nil {
-			return fmt.Errorf("failed to update sonar intergration system identity, err: %v", err)
+			return fmt.Errorf("failed to update sonar integration system identity, err: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func migrateCodeHostIntegrationLevel() error {
+	if _, err := codehost_mongodb.NewCodehostColl().UpdateMany(context.Background(),
+		bson.M{"integration_level": bson.M{
+			"$exists": false,
+		}},
+		bson.M{"$set": bson.M{
+			"integration_level": setting.IntegrationLevelSystem,
+		}},
+	); err != nil {
+		return fmt.Errorf("failed to update code host integration level, err: %v", err)
+	}
+
+	return nil
+}
+
+func migrateSonarScanningModules() error {
+	migrationInfo, err := getMigrationInfo()
+	if err != nil {
+		return fmt.Errorf("failed to get migration info from db, err: %s", err)
+	}
+
+	// if the migration hasn't been done, do a migration
+	if !migrationInfo.SonarMigration {
+		scannings, err := internaldb.NewScanningColl().List(&internaldb.ScanningListOption{Type: "sonarQube"})
+		if err != nil {
+			return fmt.Errorf("failed to list scannings to migrate, error: %s", err)
+		}
+
+		for _, scanning := range scannings {
+			scanning.EnableScanner = true
+			scanning.AdvancedSetting.Cache = &internalmodels.ScanningCacheSetting{
+				CacheEnable: false,
+			}
+			scanning.Script = scanning.PreScript
+			err = internaldb.NewScanningColl().Update(scanning.ID, scanning)
+			if err != nil {
+				return fmt.Errorf("failed to update scannings, error: %s", err)
+			}
+		}
+		
+		err = internaldb.NewMigrationColl().UpdateMigrationStatus(migrationInfo.ID,
+			map[string]interface{}{
+				"sonar_migration": true,
+			},
+		)
+
+		if err != nil {
+			return fmt.Errorf("failed to update migration status for sonar scanning migration, error: %s", err)
+		}
+	}
+
+	return nil
+}
+
+func migrateApolloIntegration() error {
+	resp, err := mongodb.NewConfigurationManagementColl().List(context.Background(), setting.SourceFromApollo)
+	if err != nil {
+		return fmt.Errorf("failed to list apollo config, err: %v", err)
+	}
+	for _, apolloInfo := range resp {
+		apolloAuthConfig, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), apolloInfo.ID.Hex())
+		if err != nil {
+			return fmt.Errorf("failed to get apollo config, id %s, err: %v", apolloInfo.ID.Hex(), err)
+		}
+		if apolloAuthConfig.ApolloAuthConfig.User == "" {
+			apolloAuthConfig.ApolloAuthConfig.User = "zadig"
+			apolloInfo.AuthConfig = apolloAuthConfig.ApolloAuthConfig
+			if err := mongodb.NewConfigurationManagementColl().Update(context.Background(), apolloInfo.ID.Hex(), apolloInfo); err != nil {
+				return fmt.Errorf("failed to update apollo config, id %s, err: %v", apolloInfo.ID.Hex(), err)
+			}
+		}
+	}
+	return nil
+}
+
+func migrateInfrastructureField() error {
+	// change build module infrastructure field
+	cursor, err := mongodb.NewBuildColl().ListByCursor(&mongodb.BuildListOption{})
+	if err != nil {
+		return fmt.Errorf("failed to list build module cursor for infrastructure field in migrateInfrastructureField method, err: %v", err)
+	}
+
+	var ms []mongo.WriteModel
+	for cursor.Next(context.Background()) {
+		var build models.Build
+		if err := cursor.Decode(&build); err != nil {
+			return err
+		}
+
+		if build.Infrastructure == "" {
+			build.Infrastructure = setting.JobK8sInfrastructure
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", build.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"infrastructure", build.Infrastructure},
+						}},
+					}),
+			)
+		}
+
+		if len(ms) >= 50 {
+			log.Infof("update %d build", len(ms))
+			if _, err := mongodb.NewBuildColl().BulkWrite(context.Background(), ms); err != nil {
+				return fmt.Errorf("update build for infrastructure field in migrateInfrastructureField method, error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+
+	if len(ms) > 0 {
+		log.Infof("update %d build", len(ms))
+		if _, err := mongodb.NewBuildColl().BulkWrite(context.Background(), ms); err != nil {
+			return fmt.Errorf("update build for infrastructure field in migrateInfrastructureField method, error: %s", err)
+		}
+	}
+
+	// change build template module infrastructure field
+	cursor, err = mongodb.NewBuildTemplateColl().ListByCursor(&mongodb.ListBuildTemplateOption{})
+	if err != nil {
+		return fmt.Errorf("failed to list build template module cursor for infrastructure field in migrateInfrastructureField method, err: %v", err)
+	}
+
+	ms = []mongo.WriteModel{}
+	for cursor.Next(context.Background()) {
+		var buildTemplate models.BuildTemplate
+		if err := cursor.Decode(&buildTemplate); err != nil {
+			return err
+		}
+
+		if buildTemplate.Infrastructure == "" {
+			buildTemplate.Infrastructure = setting.JobK8sInfrastructure
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", buildTemplate.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"infrastructure", buildTemplate.Infrastructure},
+						}},
+					}),
+			)
+		}
+
+		if len(ms) >= 50 {
+			log.Infof("update %d build template", len(ms))
+			if _, err := mongodb.NewBuildTemplateColl().BulkWrite(context.Background(), ms); err != nil {
+				return fmt.Errorf("update build template for infrastructure field in migrateInfrastructureField method, error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+
+	if len(ms) > 0 {
+		log.Infof("update %d build template", len(ms))
+		if _, err := mongodb.NewBuildTemplateColl().BulkWrite(context.Background(), ms); err != nil {
+			return fmt.Errorf("update build template for infrastructure field in migrateInfrastructureField method, error: %s", err)
+		}
+	}
+
+	// change general job module infrastructure field
+	cursor, err = mongodb.NewWorkflowV4Coll().ListByCursor(&mongodb.ListWorkflowV4Option{
+		JobTypes: []config.JobType{
+			config.JobFreestyle,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list general job module cursor for infrastructure field in migrateInfrastructureField method, err: %v", err)
+	}
+
+	ms = []mongo.WriteModel{}
+	for cursor.Next(context.Background()) {
+		var workflow models.WorkflowV4
+		if err := cursor.Decode(&workflow); err != nil {
+			return err
+		}
+
+		changed := false
+		for _, stage := range workflow.Stages {
+			for _, job := range stage.Jobs {
+				if job.JobType == config.JobFreestyle {
+					spec := &models.FreestyleJobSpec{}
+					if err := models.IToi(job.Spec, spec); err != nil {
+						return err
+					}
+
+					if spec.Properties != nil && spec.Properties.Infrastructure == "" {
+						spec.Properties.Infrastructure = setting.JobK8sInfrastructure
+						job.Spec = spec
+						changed = true
+					}
+				}
+			}
+		}
+
+		if changed {
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", workflow.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"stages", workflow.Stages},
+						}},
+					}),
+			)
+		}
+
+		if len(ms) >= 50 {
+			log.Infof("update %d workflowV4", len(ms))
+			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.Background(), ms); err != nil {
+				return fmt.Errorf("update workflowV4 for infrastructure field in migrateInfrastructureField method, error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+	if len(ms) > 0 {
+		log.Infof("update %d workflowV4", len(ms))
+		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.Background(), ms); err != nil {
+			return fmt.Errorf("update workflowV4 for infrastructure field in migrateInfrastructureField method, error: %s", err)
 		}
 	}
 

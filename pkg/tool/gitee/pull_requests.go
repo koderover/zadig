@@ -40,7 +40,7 @@ func (c *Client) ListPullRequests(ctx context.Context, owner string, repo string
 	return prs, err
 }
 
-func (c *Client) ListCommits(ctx context.Context, owner string, repo string, number int, opts *gitee.GetV5ReposOwnerRepoPullsNumberCommitsOpts) ([]gitee.PullRequestCommits, error) {
+func (c *Client) ListCommitsForPR(ctx context.Context, owner string, repo string, number int, opts *gitee.GetV5ReposOwnerRepoPullsNumberCommitsOpts) ([]gitee.PullRequestCommits, error) {
 	cs, _, err := c.PullRequestsApi.GetV5ReposOwnerRepoPullsNumberCommits(ctx, owner, repo, int32(number), opts)
 	if err != nil {
 		return nil, err

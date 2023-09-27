@@ -162,7 +162,11 @@ func GetScanningModuleByID(id string, log *zap.SugaredLogger) (*Scanning, error)
 	}
 
 	if scanning.AdvancedSetting != nil && scanning.AdvancedSetting.StrategyID == "" {
-		cluster, err := commonrepo.NewK8SClusterColl().FindByID(scanning.AdvancedSetting.ClusterID)
+		clusterID := scanning.AdvancedSetting.ClusterID
+		if clusterID == "" {
+			clusterID = setting.LocalClusterID
+		}
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
 		if err != nil {
 			if err != mongo.ErrNoDocuments {
 				return nil, fmt.Errorf("failed to find cluster %s, error: %v", scanning.AdvancedSetting.ClusterID, err)
@@ -235,6 +239,11 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		return 0, err
 	}
 
+	clusterInfo, err := commonrepo.NewK8SClusterColl().Get(scanningInfo.AdvancedSetting.ClusterID)
+	if err != nil {
+		return 0, e.ErrConvertSubTasks.AddErr(fmt.Errorf("failed to get cluster: %s, err: %s", scanningInfo.AdvancedSetting.ClusterID, err))
+	}
+
 	repos := make([]*types.Repository, 0)
 	for _, arg := range req {
 		rep, err := systemconfig.New().GetCodeHost(arg.CodehostID)
@@ -279,24 +288,39 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		repos = append(repos, repoInfo)
 	}
 
+	// compatibility code
+	cacheEnabled := false
+	cacheDirType := types.WorkspaceCacheDir
+	userCacheDir := ""
+	if scanningInfo.AdvancedSetting.Cache != nil {
+		cacheEnabled = scanningInfo.AdvancedSetting.Cache.CacheEnable
+		cacheDirType = scanningInfo.AdvancedSetting.Cache.CacheDirType
+		userCacheDir = scanningInfo.AdvancedSetting.Cache.CacheUserDir
+	}
+
 	scanningTask := &task.Scanning{
-		TaskType:   config.TaskScanning,
-		Status:     config.StatusCreated,
-		ScanningID: scanningInfo.ID.Hex(),
-		Name:       scanningInfo.Name,
-		ImageInfo:  scanningImage,
-		ResReq:     scanningInfo.AdvancedSetting.ResReq,
-		ResReqSpec: scanningInfo.AdvancedSetting.ResReqSpec,
-		Registries: registries,
-		Parameter:  scanningInfo.Parameter,
-		Script:     scanningInfo.Script,
+		TaskType:      config.TaskScanning,
+		Status:        config.StatusCreated,
+		ScanningID:    scanningInfo.ID.Hex(),
+		Name:          scanningInfo.Name,
+		EnableScanner: scanningInfo.EnableScanner,
+		ImageInfo:     scanningImage,
+		ResReq:        scanningInfo.AdvancedSetting.ResReq,
+		ResReqSpec:    scanningInfo.AdvancedSetting.ResReqSpec,
+		Registries:    registries,
+		Parameter:     scanningInfo.Parameter,
+		Envs:          scanningInfo.Envs,
+		Script:        scanningInfo.Script,
 		// the timeout we save is measured in minute
 		Timeout:          scanningInfo.AdvancedSetting.Timeout * 60,
 		ClusterID:        scanningInfo.AdvancedSetting.ClusterID,
 		StrategyID:       scanningInfo.AdvancedSetting.StrategyID,
+		Cache:            clusterInfo.Cache,
+		CacheEnable:      cacheEnabled,
+		CacheDirType:     cacheDirType,
+		CacheUserDir:     userCacheDir,
 		Repos:            repos,
 		InstallItems:     scanningInfo.Installs,
-		PreScript:        scanningInfo.PreScript,
 		CheckQualityGate: scanningInfo.CheckQualityGate,
 	}
 

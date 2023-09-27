@@ -27,7 +27,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/webhook"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	"github.com/koderover/zadig/pkg/tool/codehub"
 	"github.com/koderover/zadig/pkg/tool/gitee"
 )
 
@@ -44,8 +43,6 @@ func ProcessWebHook(c *gin.Context) {
 		ctx.Err = processGithub(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else if gitlab.HookEventType(c.Request) != "" {
 		ctx.Err = webhook.ProcessGitlabHook(payload, c.Request, ctx.RequestID, ctx.Logger)
-	} else if codehub.HookEventType(c.Request) != "" {
-		ctx.Err = webhook.ProcessCodehubHook(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else if gitee.HookEventType(c.Request) != "" {
 		ctx.Err = webhook.ProcessGiteeHook(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else {

@@ -64,6 +64,14 @@ func CheckoutHead() *exec.Cmd {
 	)
 }
 
+func CheckoutCommit(commit string) *exec.Cmd {
+	return exec.Command(
+		"git",
+		"checkout",
+		commit,
+	)
+}
+
 // Fetch fetches changes by ref, ref can be a tag, branch or pr. --depth=1 is used to limit fetching
 // to the last commit from the tip of each remote branch history.
 // e.g. git fetch origin +refs/heads/onboarding --depth=1

@@ -39,8 +39,8 @@ import (
 
 const callback = "/api/directory/codehosts/callback"
 
-func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	if codehost.Type == setting.SourceFromCodeHub || codehost.Type == setting.SourceFromOther {
+func CreateSystemCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	if codehost.Type == setting.SourceFromOther {
 		codehost.IsReady = "2"
 	}
 	if codehost.Type == setting.SourceFromGerrit {
@@ -49,7 +49,7 @@ func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.Co
 	}
 
 	if codehost.Alias != "" {
-		if _, err := mongodb.NewCodehostColl().GetCodeHostByAlias(codehost.Alias); err == nil {
+		if _, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(codehost.Alias); err == nil {
 			return nil, fmt.Errorf("alias cannot have the same name")
 		}
 	}
@@ -62,10 +62,10 @@ func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.Co
 		return nil, err
 	}
 	codehost.ID = len(list) + 1
-	return mongodb.NewCodehostColl().AddCodeHost(codehost)
+	return mongodb.NewCodehostColl().AddSystemCodeHost(codehost)
 }
 
-func encypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
+func EncypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
 	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
 	if err != nil {
 		log.Errorf("ListCodeHost GetTextFromEncryptedKey error:%s", err)
@@ -116,24 +116,25 @@ func ListInternal(address, owner, source string, _ *zap.SugaredLogger) ([]*model
 	})
 }
 
-func List(encryptedKey, address, owner, source string, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
+func SystemList(encryptedKey, address, owner, source string, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
 	codeHosts, err := mongodb.NewCodehostColl().List(&mongodb.ListArgs{
-		Address: address,
-		Owner:   owner,
-		Source:  source,
+		IntegrationLevel: setting.IntegrationLevelSystem,
+		Address:          address,
+		Owner:            owner,
+		Source:           source,
 	})
 	if err != nil {
 		log.Errorf("ListCodeHost error:%s", err)
 		return nil, err
 	}
-	return encypteCodeHost(encryptedKey, codeHosts, log)
+	return EncypteCodeHost(encryptedKey, codeHosts, log)
 }
 
 func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
-	return mongodb.NewCodehostColl().DeleteCodeHostByID(id)
+	return mongodb.NewCodehostColl().DeleteSystemCodeHostByID(id)
 }
 
-func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+func UpdateSystemCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	if host.Type == setting.SourceFromGerrit {
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
 	}
@@ -144,16 +145,16 @@ func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHo
 		oldAlias = oldCodeHost.Alias
 	}
 	if host.Alias != "" && host.Alias != oldAlias {
-		if _, err := mongodb.NewCodehostColl().GetCodeHostByAlias(host.Alias); err == nil {
+		if _, err := mongodb.NewCodehostColl().GetSystemCodeHostByAlias(host.Alias); err == nil {
 			return nil, fmt.Errorf("alias cannot have the same name")
 		}
 	}
 
-	return mongodb.NewCodehostColl().UpdateCodeHost(host)
+	return mongodb.NewCodehostColl().UpdateSystemCodeHost(host)
 }
 
-func UpdateCodeHostByToken(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	return mongodb.NewCodehostColl().UpdateCodeHostByToken(host)
+func UpdateCodeHostToken(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	return mongodb.NewCodehostColl().UpdateCodeHostToken(host)
 }
 
 func GetCodeHost(id int, ignoreDelete bool, _ *zap.SugaredLogger) (*models.CodeHost, error) {
@@ -236,7 +237,7 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 	}
 	codehost.AccessToken = token.AccessToken
 	codehost.RefreshToken = token.RefreshToken
-	if _, err := UpdateCodeHostByToken(codehost, logger); err != nil {
+	if _, err := UpdateCodeHostToken(codehost, logger); err != nil {
 		logger.Errorf("UpdateCodeHostByToken err:%s", err)
 		return handle(redirectParsedURL, err)
 	}

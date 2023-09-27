@@ -29,7 +29,6 @@ const (
 	GitLabProvider  = "gitlab"
 	GitHubProvider  = "github"
 	GerritProvider  = "gerrit"
-	CodeHubProvider = "codehub"
 	GiteeProvider   = "gitee"
 	GiteeEEProvider = "gitee-enterprise"
 	OtherProvider   = "other"
@@ -175,7 +174,7 @@ func (c *Client) UpdateCodeHost(id int, codehost *CodeHost) error {
 		UpdatedAt:          codehost.UpdatedAt,
 	}
 
-	_, err := codehostservice.UpdateCodeHost(arg, log.SugaredLogger())
+	_, err := codehostservice.UpdateSystemCodeHost(arg, log.SugaredLogger())
 	return err
 }
 

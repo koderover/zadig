@@ -53,3 +53,29 @@ func (c *Client) GetSingleCommitOfProject(owner, repo, commitSha string) (*gitla
 
 	return nil, err
 }
+
+func (c *Client) ListCommits(owner, repo, branch string, opts *ListOptions) ([]*gitlab.Commit, error) {
+	paginationOpts := &gitlab.ListOptions{
+		Page:    1,
+		PerPage: 100,
+	}
+	if opts != nil {
+		paginationOpts.Page = opts.Page
+		paginationOpts.PerPage = opts.PerPage
+	}
+	listOpts := &gitlab.ListCommitsOptions{
+		RefName:     &branch,
+		ListOptions: *paginationOpts,
+	}
+
+	commits, err := wrap(c.Commits.ListCommits(generateProjectName(owner, repo), listOpts))
+	if err != nil {
+		return nil, err
+	}
+	cs, ok := commits.([]*gitlab.Commit)
+	if !ok || len(cs) == 0 {
+		return nil, nil
+	}
+
+	return cs, nil
+}

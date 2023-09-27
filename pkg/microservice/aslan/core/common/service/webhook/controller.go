@@ -27,7 +27,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitee"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
@@ -165,8 +164,6 @@ func removeWebhook(t *task, logger *zap.Logger) {
 			t.doneCh <- struct{}{}
 			return
 		}
-	case setting.SourceFromCodeHub:
-		cl = codehub.NewClient(t.ak, t.sk, t.region, config.ProxyHTTPSAddr(), t.enableProxy)
 	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy, t.address)
 	default:
@@ -245,9 +242,6 @@ func addWebhook(t *task, logger *zap.Logger) {
 			t.doneCh <- struct{}{}
 			return
 		}
-
-	case setting.SourceFromCodeHub:
-		cl = codehub.NewClient(t.ak, t.sk, t.region, config.ProxyHTTPSAddr(), t.enableProxy)
 	case setting.SourceFromGitee, setting.SourceFromGiteeEE:
 		cl = gitee.NewClient(t.ID, t.token, config.ProxyHTTPSAddr(), t.enableProxy, t.address)
 	default:

@@ -19,11 +19,16 @@ package service
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
+	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	jenkins "github.com/bndr/gojenkins"
+	vmservice "github.com/koderover/zadig/pkg/microservice/aslan/core/vm/service"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -31,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	vmmongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -38,6 +44,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/label"
 	"github.com/koderover/zadig/pkg/tool/kube/watcher"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const (
@@ -59,6 +66,14 @@ type GetContainerOptions struct {
 	EnvName       string
 	ProductName   string
 	ClusterID     string
+}
+
+type GetVMJobLogOptions struct {
+	Infrastructure string
+	ProjectKey     string
+	WorkflowKey    string
+	TaskID         int64
+	JobName        string
 }
 
 func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envName, productName, podName, containerName string, follow bool, tailLines int64, log *zap.SugaredLogger) {
@@ -260,6 +275,8 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 		log.Errorf("Failed to find workflow %s taskID %s: %v", options.PipelineName, options.TaskID, err)
 		return
 	}
+	var vmJobOptions *GetVMJobLogOptions
+
 	for _, stage := range task.Stages {
 		for _, job := range stage.Jobs {
 			if job.Name != options.SubTask {
@@ -284,7 +301,18 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 					log.Errorf("Failed to parse job spec: %v", err)
 					return
 				}
-				options.ClusterID = jobSpec.Properties.ClusterID
+
+				if job.Infrastructure == setting.JobVMInfrastructure {
+					vmJobOptions = &GetVMJobLogOptions{
+						Infrastructure: job.Infrastructure,
+						ProjectKey:     task.ProjectName,
+						WorkflowKey:    task.WorkflowName,
+						TaskID:         task.TaskID,
+						JobName:        job.Name,
+					}
+				} else {
+					options.ClusterID = jobSpec.Properties.ClusterID
+				}
 			case string(config.JobPlugin):
 				jobSpec := &commonmodels.JobTaskPluginSpec{}
 				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
@@ -309,8 +337,12 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 		}
 	}
 
-	selector := getWorkflowSelector(options)
-	waitAndGetLog(ctx, streamChan, selector, options, log)
+	if vmJobOptions != nil && vmJobOptions.Infrastructure == setting.JobVMInfrastructure {
+		waitVmAndGetLog(ctx, streamChan, vmJobOptions, log)
+	} else {
+		selector := getWorkflowSelector(options)
+		waitAndGetLog(ctx, streamChan, selector, options, log)
+	}
 }
 
 func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
@@ -388,6 +420,91 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 	}
 }
 
+func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *GetVMJobLogOptions, log *zap.SugaredLogger) {
+	job, err := vmmongodb.NewVMJobColl().FindByOpts(vmmongodb.VMJobFindOption{
+		ProjectName:  options.ProjectKey,
+		WorkflowName: options.WorkflowKey,
+		TaskID:       options.TaskID,
+		JobName:      options.JobName,
+	})
+	if err != nil {
+		log.Errorf("get vm job error: %v", err)
+		return
+	}
+
+	if job.LogFile == "" {
+		log.Errorf("vm job log file is empty")
+		return
+	}
+
+	out, err := os.OpenFile(job.LogFile, os.O_APPEND|os.O_CREATE|os.O_RDONLY, 0644)
+	if err != nil {
+		log.Errorf("open vm job log file error: %v", err)
+		return
+	}
+	defer func() {
+		err := out.Close()
+		if err != nil {
+			log.Errorf("Failed to close vm job log file, error: %v", err)
+		}
+	}()
+
+	buf := bufio.NewReader(out)
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Infof("Connection is closed, vm log stream stopped")
+			return
+		default:
+			if !vmservice.VMJobStatus.Exist(job.ID.Hex()) {
+				log.Infof("No more input is available, vm log stream stopped")
+				return
+			}
+			line, err := buf.ReadString('\n')
+			if err == nil || err == io.EOF {
+				if err == io.EOF {
+					time.Sleep(time.Millisecond * 500)
+					continue
+				}
+
+				if strings.ContainsRune(line, '\r') {
+					segments := strings.Split(line, "\r")
+					for _, segment := range segments {
+						segment = segment + string('\r')
+						if len(segment) > 0 {
+							streamChan <- segment
+						}
+					}
+				} else {
+					line = strings.TrimSpace(line)
+					if len(line) > 0 {
+						streamChan <- line
+					}
+				}
+			} else {
+				log.Errorf("scan vm log stream error: %v", err)
+				return
+			}
+		}
+	}
+}
+
+func WriteLogTostreamChan(logChan chan string, streamChan chan interface{}) {
+	for {
+		select {
+		case str, ok := <-logChan:
+			if !ok {
+				return
+			}
+			if len(str) > 0 {
+				streamChan <- str
+			}
+			time.Sleep(time.Second)
+		}
+	}
+}
+
 func getWorkflowSelector(options *GetContainerOptions) labels.Selector {
 	retMap := map[string]string{
 		setting.JobLabelSTypeKey: strings.Replace(options.JobType, "_", "-", -1),
@@ -400,4 +517,52 @@ func getWorkflowSelector(options *GetContainerOptions) labels.Selector {
 		}
 	}
 	return labels.Set(retMap).AsSelector()
+}
+
+func JenkinsJobLogStream(ctx context.Context, jenkinsID, jobName string, jobID int64, streamChan chan interface{}) {
+	log := log.SugaredLogger().With("func", "JenkinsJobLogStream")
+	info, err := commonrepo.NewJenkinsIntegrationColl().Get(jenkinsID)
+	if err != nil {
+		log.Errorf("Failed to get jenkins integration info, err: %s", err)
+		return
+	}
+
+	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	client := &http.Client{Transport: transport}
+	jenkinsClient, err := jenkins.CreateJenkins(client, info.URL, info.Username, info.Password).Init(context.TODO())
+
+	if err != nil {
+		log.Errorf("failed to create jenkins client for server, the error is: %s", err)
+		return
+	}
+
+	build, err := jenkinsClient.GetBuild(context.Background(), jobName, jobID)
+	if err != nil {
+		log.Errorf("failed to get build info from jenkins, error is: %s", err)
+		return
+	}
+
+	var offset int64 = 0
+	for {
+		select {
+		case <-ctx.Done():
+			log.Infof("context done, stop streaming")
+			return
+		default:
+		}
+		time.Sleep(1000 * time.Millisecond)
+		build.Poll(context.TODO())
+		consoleOutput, err := build.GetConsoleOutputFromIndex(context.TODO(), offset)
+		if err != nil {
+			log.Warnf("failed to get logs from jenkins job, error: %s", err)
+			return
+		}
+		for _, str := range strings.Split(consoleOutput.Content, "\r\n") {
+			streamChan <- str
+		}
+		offset += consoleOutput.Offset
+		if !build.IsRunning(context.TODO()) {
+			return
+		}
+	}
 }

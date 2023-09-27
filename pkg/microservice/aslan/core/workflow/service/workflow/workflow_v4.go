@@ -71,6 +71,7 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+	"github.com/koderover/zadig/pkg/tool/jenkins"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/lark"
@@ -2694,4 +2695,41 @@ func generateOPAInput(header http.Header, method string, endpoint string) *opa.I
 		},
 		ParsedPath: parsedPath,
 	}
+}
+
+type JenkinsJobParams struct {
+	Name    string           `json:"name"`
+	Default string           `json:"default"`
+	Type    config.ParamType `json:"type"`
+	Choices []string         `json:"choices"`
+}
+
+func GetJenkinsJobParams(id, jobName string) ([]*JenkinsJobParams, error) {
+	info, err := commonrepo.NewJenkinsIntegrationColl().Get(id)
+	if err != nil {
+		return nil, errors.Errorf("get jenkins integration error: %v", err)
+	}
+
+	cli := jenkins.NewClient(info.URL, info.Username, info.Password)
+	jobInfo, err := cli.GetJob(jobName)
+	if err != nil {
+		return nil, errors.Errorf("get jenkins job error: %v", err)
+	}
+
+	resp := make([]*JenkinsJobParams, 0)
+	for _, definition := range jobInfo.GetParameters() {
+		resp = append(resp, &JenkinsJobParams{
+			Name:    definition.Name,
+			Default: fmt.Sprintf("%v", definition.DefaultParameterValue.Value),
+			Type: func() config.ParamType {
+				if t, ok := jenkins.ParameterTypeMap[definition.Type]; ok {
+					return t
+				}
+				return config.ParamTypeString
+			}(),
+			Choices: definition.Choices,
+		})
+	}
+
+	return resp, nil
 }

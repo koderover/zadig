@@ -41,6 +41,8 @@ type BuildTemplate struct {
 	CacheUserDir             string             `bson:"cache_user_dir"                json:"cache_user_dir"`
 	AdvancedSettingsModified bool               `bson:"advanced_setting_modified"     json:"advanced_setting_modified"`
 	Outputs                  []*Output          `bson:"outputs"                       json:"outputs"`
+	Infrastructure           string             `bson:"infrastructure"                json:"infrastructure"`
+	VmLabels                 []string           `bson:"vm_labels"                     json:"vm_labels"`
 }
 
 func (BuildTemplate) TableName() string {

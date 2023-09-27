@@ -136,6 +136,7 @@ type Context struct {
 	ScannerFlag           bool   `yaml:"scanner_flag"`
 	ScannerType           string `yaml:"scanner_type"`
 	SonarParameter        string `yaml:"sonar_parameter"`
+	SonarEnableScanner    bool   `yaml:"sonar_enable_scanner"`
 	SonarServer           string `yaml:"sonar_server"`
 	SonarLogin            string `yaml:"sonar_login"`
 	SonarCheckQualityGate bool   `yaml:"sonar_check_quality_gate"`
@@ -292,7 +293,7 @@ type Repo struct {
 // e.g. github returns refs/pull/1/head
 // e.g. gitlab returns merge-requests/1/head
 func (r *Repo) PRRef() string {
-	if strings.ToLower(r.Source) == ProviderGitlab || strings.ToLower(r.Source) == ProviderCodehub {
+	if strings.ToLower(r.Source) == ProviderGitlab {
 		return fmt.Sprintf("merge-requests/%d/head", r.PR)
 	} else if strings.ToLower(r.Source) == ProviderGerrit {
 		return r.CheckoutRef
@@ -301,7 +302,7 @@ func (r *Repo) PRRef() string {
 }
 
 func (r *Repo) PRRefByPRID(pr int) string {
-	if strings.ToLower(r.Source) == ProviderGitlab || strings.ToLower(r.Source) == ProviderCodehub {
+	if strings.ToLower(r.Source) == ProviderGitlab {
 		return fmt.Sprintf("merge-requests/%d/head", pr)
 	} else if strings.ToLower(r.Source) == ProviderGerrit {
 		return r.CheckoutRef

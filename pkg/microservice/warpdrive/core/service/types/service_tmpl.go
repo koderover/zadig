@@ -30,7 +30,6 @@ type ServiceTmpl struct {
 	GUIConfig        *GUIConfig       `bson:"gui_config,omitempty"           json:"gui_config,omitempty"`
 	Yaml             string           `bson:"yaml,omitempty"                 json:"yaml"`
 	SrcPath          string           `bson:"src_path,omitempty"             json:"src_path,omitempty"`
-	Commit           *Commit          `bson:"commit,omitempty"               json:"commit,omitempty"`
 	KubeYamls        []string         `bson:"-"                              json:"-"`
 	Hash             string           `bson:"hash256,omitempty"              json:"hash256,omitempty"`
 	CreateTime       int64            `bson:"create_time"                    json:"create_time"`
@@ -81,12 +80,6 @@ type Spec struct {
 type Port struct {
 	Name string `bson:"-"           json:"name"`
 	Port int    `bson:"-"           json:"port"`
-}
-
-// Commit ...
-type Commit struct {
-	SHA     string `bson:"sha"              json:"sha"`
-	Message string `bson:"message"          json:"message"`
 }
 
 // ImagePathSpec paths in yaml used to parse image

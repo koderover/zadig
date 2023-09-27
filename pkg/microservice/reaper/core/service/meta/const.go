@@ -25,9 +25,6 @@ const (
 	// ProviderGerrit
 	ProviderGerrit = "gerrit"
 
-	// ProviderCodehub
-	ProviderCodehub = "codehub"
-
 	// ProviderGitee
 	ProviderGitee = "gitee"
 

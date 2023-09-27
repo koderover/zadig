@@ -213,7 +213,7 @@ func (h *TaskAckHandler) handle(pt *task.Task) error {
 }
 
 // get docker file content from codehost
-// TODO need to support codehub and gerrit
+// TODO need to support gerrit
 func getRawFileContent(codehostID int, repo, owner, branch, filePath string) ([]byte, error) {
 	ch, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {

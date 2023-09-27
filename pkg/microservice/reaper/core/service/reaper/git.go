@@ -106,8 +106,6 @@ func (r *Reaper) runGitCmds() error {
 				repo.Password = password
 				tokens = append(tokens, repo.Password)
 			}
-		} else if repo.Source == meta.ProviderCodehub {
-			tokens = append(tokens, repo.Password)
 		} else if repo.Source == meta.ProviderOther {
 			tokens = append(tokens, repo.PrivateAccessToken)
 			tokens = append(tokens, repo.SSHKey)
@@ -213,14 +211,6 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo, hostNames sets.String) []*c.C
 
 		cmds = append(cmds, &c.Command{
 			Cmd:          c.RemoteAdd(repo.RemoteName, u.String()),
-			DisableTrace: true,
-		})
-	} else if repo.Source == meta.ProviderCodehub {
-		u, _ := url.Parse(repo.Address)
-		host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
-		user := url.QueryEscape(repo.User)
-		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, host, owner, repo.Name)),
 			DisableTrace: true,
 		})
 	} else if repo.Source == meta.ProviderGitee || repo.Source == meta.ProviderGiteeEE {

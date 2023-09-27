@@ -129,6 +129,9 @@ func (s *DockerBuildStep) runDockerBuild() error {
 
 func (s *DockerBuildStep) dockerCommands() []*exec.Cmd {
 	cmds := make([]*exec.Cmd, 0)
+	if s.spec.WorkDir == "" {
+		s.spec.WorkDir = "."
+	}
 	cmds = append(
 		cmds,
 		dockerBuildCmd(

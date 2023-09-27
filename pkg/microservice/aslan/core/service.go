@@ -39,6 +39,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/ai"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	vmcommonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller"
@@ -461,6 +462,9 @@ func initDatabase() {
 
 		// db instances
 		commonrepo.NewDBInstanceColl(),
+
+		// vm job related db index
+		vmcommonrepo.NewVMJobColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

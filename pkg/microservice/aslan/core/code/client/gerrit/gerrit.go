@@ -100,3 +100,8 @@ func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 	}
 	return res, nil
 }
+
+// ListCommits for gerrit is unsupported by its api design
+func (c *Client) ListCommits(opt client.ListOpt) ([]*client.Commit, error) {
+	return make([]*client.Commit, 0), nil
+}

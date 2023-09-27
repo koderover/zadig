@@ -719,6 +719,11 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 		return err
 	}
 
+	if err = DeleteScanningModules(productName, log); err != nil {
+		log.Errorf("DeleteProductTemplate Delete productName %s scannings err: %s", productName, err)
+		return err
+	}
+
 	// delete collaboration_mode and collaboration_instance
 	if err := DeleteCollabrationMode(productName, userName, log); err != nil {
 		log.Errorf("DeleteCollabrationMode err:%s", err)

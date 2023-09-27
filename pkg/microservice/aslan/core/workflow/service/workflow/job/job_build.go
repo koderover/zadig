@@ -18,11 +18,14 @@ package job
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"strings"
 
 	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/setting"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -151,7 +154,6 @@ func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
 			return err
 		}
-		j.spec.DockerRegistryID = argsSpec.DockerRegistryID
 		newBuilds := []*commonmodels.ServiceAndBuild{}
 		for _, build := range j.spec.ServiceAndBuilds {
 			for _, argsBuild := range argsSpec.ServiceAndBuilds {
@@ -238,11 +240,13 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				"service_module": build.ServiceModule,
 				JobNameKey:       j.job.Name,
 			},
-			Key:     strings.Join([]string{j.job.Name, build.ServiceName, build.ServiceModule}, "."),
-			JobType: string(config.JobZadigBuild),
-			Spec:    jobTaskSpec,
-			Timeout: int64(buildInfo.Timeout),
-			Outputs: outputs,
+			Key:            strings.Join([]string{j.job.Name, build.ServiceName, build.ServiceModule}, "."),
+			JobType:        string(config.JobZadigBuild),
+			Spec:           jobTaskSpec,
+			Timeout:        int64(buildInfo.Timeout),
+			Outputs:        outputs,
+			Infrastructure: buildInfo.Infrastructure,
+			VMLabels:       buildInfo.VMLabels,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:             int64(buildInfo.Timeout),
@@ -269,7 +273,8 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTaskSpec.Properties.CacheDirType = buildInfo.CacheDirType
 			jobTaskSpec.Properties.CacheUserDir = buildInfo.CacheUserDir
 		}
-		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, image, registry, logger)...)
+
+		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, jobTask.Infrastructure, registry, logger)...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
 		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
@@ -315,7 +320,9 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		// init shell step
 		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
 		scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
-		scripts = append(scripts, outputScript(outputs)...)
+		if jobTask.Infrastructure != setting.JobVMInfrastructure {
+			scripts = append(scripts, outputScript(outputs)...)
+		}
 		shellStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-shell",
 			JobName:  jobTask.Name,
@@ -470,23 +477,23 @@ func replaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, image string, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
+func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, workflowDisplayName, image, infrastructure string, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
+	// basic envs
+	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)
+
+	// repo envs
 	ret = append(ret, getReposVariables(build.Repos)...)
+	// build specific envs
 	ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_HOST", Value: registry.RegAddr, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_AK", Value: registry.AccessKey, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "DOCKER_REGISTRY_SK", Value: registry.SecretKey, IsCredential: true})
 
-	ret = append(ret, &commonmodels.KeyVal{Key: "TASK_ID", Value: fmt.Sprintf("%d", taskID), IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE", Value: build.ServiceName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_NAME", Value: build.ServiceName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_MODULE", Value: build.ServiceModule, IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "PROJECT", Value: project, IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "WORKFLOW", Value: workflowName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "IMAGE", Value: image, IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "CI", Value: "true", IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "ZADIG", Value: "true", IsCredential: false})
-	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d", configbase.SystemAddress(), project, workflowName, taskID)
+	buildURL := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", configbase.SystemAddress(), project, workflowName, taskID, url.QueryEscape(workflowDisplayName))
 	ret = append(ret, &commonmodels.KeyVal{Key: "BUILD_URL", Value: buildURL, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: build.Package, IsCredential: false})
 	return ret
@@ -532,6 +539,8 @@ func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
 	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
 	moduleBuild.Outputs = buildTemplate.Outputs
+	moduleBuild.Infrastructure = buildTemplate.Infrastructure
+	moduleBuild.VMLabels = buildTemplate.VmLabels
 
 	// repos are configured by service modules
 	for _, serviceConfig := range moduleBuild.Targets {

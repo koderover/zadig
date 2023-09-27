@@ -72,7 +72,9 @@ type StageTask struct {
 }
 
 type JobTask struct {
-	Name string `bson:"name"                json:"name"`
+	ProjectKey  string `bson:"project_key"         json:"project_key"`
+	WorkflowKey string `bson:"workflow_key"        json:"workflow_key"`
+	Name        string `bson:"name"                json:"name"`
 	// jobTask unique id, unique in the workflow
 	Key        string `bson:"key"                 json:"key"`
 	K8sJobName string `bson:"k8s_job_name"        json:"k8s_job_name"`
@@ -90,6 +92,8 @@ type JobTask struct {
 	BreakpointBefore bool                     `bson:"breakpoint_before"   json:"breakpoint_before"`
 	BreakpointAfter  bool                     `bson:"breakpoint_after"    json:"breakpoint_after"`
 	ServiceModules   []*WorkflowServiceModule `bson:"service_modules"     json:"service_modules"`
+	Infrastructure   string                   `bson:"infrastructure"      json:"infrastructure"`
+	VMLabels         []string                 `bson:"vm_labels"           json:"vm_labels"`
 }
 
 type TaskJobInfo struct {
@@ -447,6 +451,19 @@ type JobTaskApolloNamespace struct {
 type ApolloKV struct {
 	Key string `bson:"key" json:"key" yaml:"key"`
 	Val string `bson:"val" json:"val" yaml:"val"`
+}
+
+type JobTaskJenkinsSpec struct {
+	ID   string                `bson:"id" json:"id" yaml:"id"`
+	Host string                `bson:"host" json:"host" yaml:"host"`
+	Job  JobTaskJenkinsJobInfo `bson:"job" json:"job" yaml:"job"`
+}
+
+type JobTaskJenkinsJobInfo struct {
+	JobName    string                 `bson:"job_name" json:"job_name" yaml:"job_name"`
+	JobID      int                    `bson:"job_id" json:"job_id" yaml:"job_id"`
+	JobOutput  string                 `bson:"job_output" json:"job_output" yaml:"job_output"`
+	Parameters []*JenkinsJobParameter `bson:"parameters" json:"parameters" yaml:"parameters"`
 }
 
 type JobTaskWorkflowTriggerSpec struct {

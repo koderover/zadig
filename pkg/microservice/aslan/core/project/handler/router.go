@@ -88,6 +88,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pms.POST("/batch", BatchCreatePMHost)
 		pms.PUT("/:id", UpdatePMHost)
 		pms.DELETE("/:id", DeletePMHost)
+		pms.GET("/:id/agent/access", GetAgentAccessCmd)
+		pms.PUT("/:id/agent/offline", OfflineVM)
+		pms.PUT("/:id/agent/recovery", RecoveryVM)
+		pms.PUT("/:id/agent/upgrade", UpgradeAgent)
 	}
 
 	variables := router.Group("variablesets")
@@ -98,6 +102,20 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		variables.PUT("/:id", UpdateVariableSet)
 		variables.DELETE("/:id", DeleteVariableSet)
 	}
+
+	integration := router.Group("integration")
+	{
+		codehost := integration.Group(":name/codehosts")
+		{
+			codehost.GET("", ListProjectCodeHost)
+			codehost.DELETE("/:id", DeleteCodeHost)
+			codehost.POST("", CreateProjectCodeHost)
+			codehost.PATCH("/:id", UpdateProjectCodeHost)
+			codehost.GET("/:id", GetProjectCodeHost)
+			codehost.GET("/available", ListAvailableCodeHost)
+		}
+	}
+
 }
 
 type OpenAPIRouter struct{}

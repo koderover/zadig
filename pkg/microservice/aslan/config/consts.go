@@ -122,6 +122,7 @@ const (
 	StatusNotRun         Status = "notRun"
 	StatusPrepare        Status = "prepare"
 	StatusReject         Status = "reject"
+	StatusDistributed    Status = "distributed"
 	StatusWaitingApprove Status = "waitforapprove"
 	StatusDebugBefore    Status = "debug_before"
 	StatusDebugAfter     Status = "debug_after"
@@ -220,6 +221,7 @@ const (
 	JobJira                 JobType = "jira"
 	JobNacos                JobType = "nacos"
 	JobApollo               JobType = "apollo"
+	JobJenkins              JobType = "jenkins"
 	JobMeegoTransition      JobType = "meego-transition"
 	JobWorkflowTrigger      JobType = "workflow-trigger"
 	JobOfflineService       JobType = "offline-service"
@@ -410,6 +412,14 @@ const (
 	ProjectTypeYaml   = "yaml"
 	ProjectTypeVM     = "vm"
 	ProjectTypeLoaded = "loaded"
+)
+
+type ParamType string
+
+const (
+	ParamTypeString = "string"
+	ParamTypeBool   = "bool"
+	ParamTypeChoice = "choice"
 )
 
 type ParamSourceType string

@@ -164,3 +164,7 @@ func (c *EEClient) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 
 	return res, nil
 }
+
+func (c *EEClient) ListCommits(opt client.ListOpt) ([]*client.Commit, error) {
+	return make([]*client.Commit, 0), nil
+}

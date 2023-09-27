@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -94,6 +95,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewMseGrayOfflineJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobGuanceyunCheck):
 		jobCtl = NewGuanceyunCheckJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobJenkins):
+		jobCtl = NewJenkinsJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}
@@ -108,6 +111,7 @@ func runJob(ctx context.Context, job *commonmodels.JobTask, workflowCtx *commonm
 	// render global variables for every job.
 	workflowCtx.GlobalContextEach(func(k, v string) bool {
 		b, _ := json.Marshal(job)
+		log.Infof("rendering job: %s, global variable: %s, value: %s", job.Name, k, v)
 		v = strings.Trim(v, "\n")
 		replacedString := strings.ReplaceAll(string(b), k, v)
 		if err := json.Unmarshal([]byte(replacedString), &job); err != nil {

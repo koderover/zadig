@@ -87,7 +87,7 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 			&apollo.ReleaseArgs{
 				ReleaseTitle:   time.Now().Format("20060102150405") + "-zadig",
 				ReleaseComment: fmt.Sprintf("工作流 %s\n详情: %s", c.workflowCtx.WorkflowDisplayName, link),
-				ReleasedBy:     "zadig",
+				ReleasedBy:     info.ApolloAuthConfig.User,
 			})
 		if err != nil {
 			fail = true

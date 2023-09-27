@@ -13,7 +13,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 var (
@@ -118,14 +117,14 @@ func UpdatePodMetrics() error {
 
 	metricsClient, err := client.GetKubeMetricsClient(config.HubServerAddress(), setting.LocalClusterID)
 	if err != nil {
-		log.Errorf("failed to get metrics client, err: %v", err)
+		fmt.Printf("failed to get metrics client, err: %v\n", err)
 		return err
 	}
 
 	podMetrices, err := metricsClient.PodMetricses(config.Namespace()).List(context.TODO(), v1.ListOptions{})
 
 	if err != nil {
-		log.Errorf("failed to get pod metrics, err: %v", err)
+		fmt.Printf("failed to get pod metrics, err: %v\n", err)
 		return err
 	}
 

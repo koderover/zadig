@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -43,12 +44,14 @@ func Stream(c *gin.Context, p producer, log *zap.SugaredLogger) {
 	}()
 
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	util.Go(
+		func() {
+			defer wg.Done()
 
-		p(ctx, streamChan)
-		close(streamChan)
-	}()
+			p(ctx, streamChan)
+			close(streamChan)
+		},
+	)
 
 	c.Stream(func(w io.Writer) bool {
 		if msg, ok := <-streamChan; ok {

@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -183,33 +182,6 @@ type CodehostFileInfo struct {
 	Size     int    `json:"size"`
 	IsDir    bool   `json:"is_dir"`
 	FullPath string `json:"full_path"`
-}
-
-// 获取codehub的目录内容接口
-func GetCodehubRepoInfo(codehostID int, repoUUID, branchName, path string, log *zap.SugaredLogger) ([]*CodehostFileInfo, error) {
-	fileInfos := make([]*CodehostFileInfo, 0)
-
-	detail, err := systemconfig.New().GetCodeHost(codehostID)
-	if err != nil {
-		log.Errorf("GetCodehubRepoInfo GetCodehostDetail err:%s", err)
-		return fileInfos, e.ErrListWorkspace.AddDesc(err.Error())
-	}
-
-	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region, config.ProxyHTTPSAddr(), detail.EnableProxy)
-	treeNodes, err := codeHubClient.FileTree(repoUUID, branchName, path)
-	if err != nil {
-		log.Errorf("Failed to list tree from codehub err:%s", err)
-		return nil, err
-	}
-	for _, treeInfo := range treeNodes {
-		fileInfos = append(fileInfos, &CodehostFileInfo{
-			Name:     treeInfo.Name,
-			Size:     0,
-			IsDir:    treeInfo.Type == "tree",
-			FullPath: treeInfo.Path,
-		})
-	}
-	return fileInfos, nil
 }
 
 func GetContents(codeHostID int, owner, repo, path, branch string, isDir bool, logger *zap.SugaredLogger) (string, error) {

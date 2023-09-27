@@ -1382,7 +1382,6 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 		setting.SourceFromGerrit,
 		setting.SourceFromGitee,
 		setting.SourceFromGiteeEE,
-		setting.SourceFromCodeHub,
 		// FIXME this is a temporary solution, remove when possible
 		setting.SourceFromGitRepo:
 		return &models.CreateFromRepo{
