@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package apollo
+package grafana
 
 import "testing"
 
 func TestName(t *testing.T) {
-	c := NewClient("http://localhost:3000", "")
+	c := NewClient("http://localhost:3000", "glsa_nSJLiIrMNia9EHfefUoRH6EGpE9viaLl_d04d5394")
+	c.ListAlert()
 }
