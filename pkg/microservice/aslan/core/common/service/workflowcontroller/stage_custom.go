@@ -63,7 +63,7 @@ func (c *CustomStageCtl) AfterRun() {
 	// set IMAGES workflow variable
 	// set after a stage has been done for build and some other type job maybe split to many job tasks in one stage
 	// after stage run, concurrent competition of workflowCtx.GlobalContext is not exist
-	
+
 	jobImages := map[string][]string{}
 	for k, v := range c.workflowCtx.GlobalContextGetAll() {
 		list := reg.FindStringSubmatch(k)

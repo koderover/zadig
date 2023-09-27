@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
@@ -220,7 +221,7 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 			c.jobTaskSpec.Events.Error(msg)
 			return errors.New(msg)
 		}
-		if err := updateProductImageByNs(c.jobTaskSpec.Env, c.workflowCtx.ProjectName, c.jobTaskSpec.Service.ServiceName, map[string]string{v.ServiceModule: v.Image}, c.logger); err != nil {
+		if err := commonutil.UpdateProductImage(c.jobTaskSpec.Env, c.workflowCtx.ProjectName, c.jobTaskSpec.Service.ServiceName, map[string]string{v.ServiceModule: v.Image}, c.workflowCtx.WorkflowTaskCreatorUsername, c.logger); err != nil {
 			msg := fmt.Sprintf("update product image service %s service module %s image %s error: %v", c.jobTaskSpec.Service.ServiceName, v.ServiceModule, v.Image, err)
 			logError(c.job, msg, c.logger)
 			c.jobTaskSpec.Events.Error(msg)

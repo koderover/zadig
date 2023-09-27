@@ -443,6 +443,7 @@ const (
 	ServiceTemplateCounterName = "service:%s&project:%s"
 	// ProductionServiceTemplateCounterName use aslan/core/common/util.GenerateServiceNextRevision() to generate service revision
 	ProductionServiceTemplateCounterName = "productionservice:%s&project:%s"
+	EnvServiceVersionCounterName         = "project:%s&env:%s&service:%s"
 	// GerritDefaultOwner
 	GerritDefaultOwner = "dafault"
 	// YamlFileSeperator ...

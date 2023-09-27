@@ -23,10 +23,11 @@ import (
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 )
 
-type EnvVersion struct {
+type EnvServiceVersion struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"             json:"id,omitempty"`
 	ProductName string             `bson:"product_name"              json:"product_name"`
 	EnvName     string             `bson:"env_name"                  json:"env_name"`
+	Namespace   string             `bson:"namespace"                 json:"namespace"`
 	Production  bool               `bson:"production"                json:"production"`
 	Revision    int64              `bson:"revision"                  json:"revision"`
 	Service     *ProductService    `bson:"service"                   json:"service"`
@@ -36,11 +37,11 @@ type EnvVersion struct {
 	YamlData      *templatemodels.CustomYaml `bson:"yaml_data,omitempty"            json:"yaml_data,omitempty"`
 	// GlobalValues for k8s projects
 	GlobalVariables []*commontypes.GlobalVariableKV `bson:"global_variables,omitempty"     json:"global_variables,omitempty"`
-	UpdateBy        string                          `bson:"update_by"                 json:"update_by"`
+	CreateBy        string                          `bson:"create_by"                 json:"create_by"`
 	CreateTime      int64                           `bson:"create_time"               json:"create_time"`
 	UpdateTime      int64                           `bson:"update_time"               json:"update_time"`
 }
 
-func (EnvVersion) TableName() string {
-	return "env_version"
+func (EnvServiceVersion) TableName() string {
+	return "env_service_version"
 }
