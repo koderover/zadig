@@ -88,3 +88,8 @@ type BuildTemplateReference struct {
 	ProjectName   string   `json:"project_name"`
 	ServiceModule []string `json:"service_module"`
 }
+
+type ScanningTemplateReference struct {
+	ScanningName string `json:"scanning_name"`
+	ProjectName  string `json:"project_name"`
+}

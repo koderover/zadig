@@ -35,6 +35,7 @@ import (
 type ScanningListOption struct {
 	ProjectName   string
 	ScanningNames []string
+	TemplateID    string
 }
 
 type ScanningColl struct {
@@ -114,9 +115,16 @@ func (c *ScanningColl) List(listOption *ScanningListOption, pageNum, pageSize in
 	}
 
 	if listOption != nil {
-		query["project_name"] = listOption.ProjectName
+		if len(listOption.ProjectName) > 0 {
+			query["project_name"] = listOption.ProjectName
+		}
+
 		if len(listOption.ScanningNames) > 0 {
 			query["name"] = bson.M{"$in": listOption.ScanningNames}
+		}
+
+		if len(listOption.TemplateID) > 0 {
+			query["template_id"] = listOption.TemplateID
 		}
 	}
 
@@ -168,4 +176,22 @@ func (c *ScanningColl) DeleteByID(idstring string) error {
 
 	_, err = c.DeleteOne(context.TODO(), query)
 	return err
+}
+
+func (c *ScanningColl) GetScanningTemplateReference(templateID string) ([]*models.Scanning, error) {
+	query := bson.M{
+		"template_id": templateID,
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*models.Scanning, 0)
+	err = cursor.All(context.TODO(), &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
