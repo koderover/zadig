@@ -236,6 +236,13 @@ const (
 	ZadigLastAppliedReplicas = "last-applied-replicas"
 )
 
+type ObservabilityType string
+
+const (
+	ObservabilityTypeGrafana   ObservabilityType = "grafana"
+	ObservabilityTypeGuanceyun ObservabilityType = "guanceyun"
+)
+
 type ApprovalType string
 
 const (

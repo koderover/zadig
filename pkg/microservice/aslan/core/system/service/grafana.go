@@ -20,10 +20,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/grafana"
 	"github.com/koderover/zadig/pkg/tool/guanceyun"
 )
 
-func ListGrafanaAlert(id, search string) ([]guanceyun.MonitorContent, error) {
+func ListGrafanaAlert(id, search string) ([]grafana.ListAlertResp, error) {
 	info, err := mongodb.NewObservabilityColl().GetByID(context.Background(), id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get observability info %s failed", id)
