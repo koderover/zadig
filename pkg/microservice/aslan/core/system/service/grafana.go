@@ -25,7 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/grafana"
 )
 
-func ListGrafanaAlert(id, search string) ([]grafana.ListAlertResp, error) {
+func ListGrafanaAlert(id string) ([]*grafana.ListAlertResp, error) {
 	info, err := mongodb.NewObservabilityColl().GetByID(context.Background(), id)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get observability info %s failed", id)
