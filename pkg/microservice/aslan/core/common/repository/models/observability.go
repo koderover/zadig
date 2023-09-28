@@ -32,7 +32,8 @@ type Observability struct {
 	// ApiKey is used for guanceyun
 	ApiKey string `json:"api_key" bson:"api_key" yaml:"api_key"`
 
-	UpdateTime int64 `json:"update_time" bson:"update_time" yaml:"update_time"`
+	GrafanaToken string `json:"grafana_token" bson:"grafana_token" yaml:"grafana_token"`
+	UpdateTime   int64  `json:"update_time" bson:"update_time" yaml:"update_time"`
 }
 
 func (Observability) TableName() string {

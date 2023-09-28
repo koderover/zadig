@@ -27,7 +27,7 @@ func ListGrafanaAlert(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	contents, err := service.ListGuanceyunMonitor(c.Param("id"), c.Query("search"))
+	contents, err := service.ListGrafanaAlert()
 	if err != nil {
 		ctx.Err = err
 		return
