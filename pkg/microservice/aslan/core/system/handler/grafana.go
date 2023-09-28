@@ -23,21 +23,26 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
+type GrafanaAlert struct {
+	Name string `json:"name"`
+	UID  string `json:"uid"`
+}
+
 func ListGrafanaAlert(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	contents, err := service.ListGrafanaAlert()
+	contents, err := service.ListGrafanaAlert(c.Param("id"))
 	if err != nil {
 		ctx.Err = err
 		return
 	}
 
-	resp := make([]GuanceyunMonitor, 0)
+	resp := make([]GrafanaAlert, 0)
 	for _, content := range contents {
-		resp = append(resp, GuanceyunMonitor{
-			CheckerName: content.JSONScript.Name,
-			CheckerID:   content.UUID,
+		resp = append(resp, GrafanaAlert{
+			Name: content.Title,
+			UID:  content.UID,
 		})
 	}
 	ctx.Resp = resp
