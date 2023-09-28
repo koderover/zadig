@@ -24,9 +24,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	vmservice "github.com/koderover/zadig/pkg/microservice/aslan/core/vm/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -45,7 +47,7 @@ func ListPMHosts(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = systemservice.ListPrivateKeys(encryptedKey, c.Query("projectName"), c.Query("keyword"), false, ctx.Logger)
+	ctx.Resp, ctx.Err = systemservice.ListPrivateKeys(encryptedKey, c.Query("projectName"), c.Query("keyword"), false, c.Query("range"), ctx.Logger)
 }
 
 func GetPMHost(c *gin.Context) {
@@ -104,7 +106,7 @@ func CreatePMHost(c *gin.Context) {
 	}
 	args.UpdateBy = ctx.UserName
 	args.ProjectName = projectKey
-	ctx.Err = systemservice.CreatePrivateKey(args, ctx.Logger)
+	ctx.Resp, ctx.Err = systemservice.CreatePrivateKey(args, ctx.Logger)
 }
 
 func BatchCreatePMHost(c *gin.Context) {
@@ -204,4 +206,144 @@ func DeletePMHost(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "项目资源-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
 	ctx.Err = systemservice.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)
+}
+
+func GetAgentAccessCmd(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	vmID := c.Param("id")
+	if vmID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid vm id")
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "接入主机", "项目资源-主机管理", vmID, "", ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = vmservice.GetAgentAccessCmd(vmID, ctx.Logger)
+}
+
+func OfflineVM(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	vmID := c.Param("id")
+	if vmID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid vm id")
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "下线主机", "项目资源-主机管理", vmID, "", ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Err = vmservice.OfflineVM(vmID, ctx.UserName, ctx.Logger)
+}
+
+func RecoveryVM(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	vmID := c.Param("id")
+	if vmID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid vm id")
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "恢复主机", "项目资源-主机管理", vmID, "", ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = vmservice.RecoveryVM(vmID, ctx.UserName, ctx.Logger)
+}
+
+func UpgradeAgent(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	vmID := c.Param("id")
+	if vmID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid vm id")
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "组件升级", "项目资源-主机管理", vmID, "", ctx.Logger)
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = vmservice.UpgradeAgent(vmID, ctx.UserName, ctx.Logger)
 }

@@ -24,20 +24,24 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 )
 
-// System level default environment variables (every workflow type will have it)
-func PrepareDefaultWorkflowTaskEnvs(projectKey, workflowName, workflowDisplayName string, taskID int64) []*commonmodels.KeyVal {
+// PrepareDefaultWorkflowTaskEnvs System level default environment variables (every workflow type will have it)
+func PrepareDefaultWorkflowTaskEnvs(projectKey, workflowName, workflowDisplayName, infrastructure string, taskID int64) []*commonmodels.KeyVal {
 	envs := make([]*commonmodels.KeyVal, 0)
 
 	envs = append(envs,
-		&commonmodels.KeyVal{Key: "WORKSPACE", Value: "/workspace"},
 		&commonmodels.KeyVal{Key: "CI", Value: "true"},
 		&commonmodels.KeyVal{Key: "ZADIG", Value: "true"},
 		&commonmodels.KeyVal{Key: "PROJECT", Value: projectKey},
 		&commonmodels.KeyVal{Key: "WORKFLOW", Value: workflowName},
 	)
+
+	if infrastructure != setting.JobVMInfrastructure {
+		envs = append(envs, &commonmodels.KeyVal{Key: "WORKSPACE", Value: "/workspace"})
+	}
 
 	url := GetLink(configbase.SystemAddress(), projectKey, workflowName, workflowDisplayName, taskID)
 

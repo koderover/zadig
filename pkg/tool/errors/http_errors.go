@@ -878,4 +878,15 @@ var (
 	ErrUpdateObservabilityIntegration = NewHTTPError(7022, "更新 观测工具 集成失败")
 	ErrDeleteObservabilityIntegration = NewHTTPError(7023, "删除 观测工具 集成失败")
 	ErrGetObservabilityIntegration    = NewHTTPError(7024, "获取 观测工具 集成详情失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// zadig vm Error Range: 7030 - 7039
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateZadigVM       = NewHTTPError(7030, "创建 zadig vm 失败")
+	ErrListZadigVM         = NewHTTPError(7031, "获取 zadig vm 列表失败")
+	ErrUpdateZadigVM       = NewHTTPError(7032, "更新 zadig vm 失败")
+	ErrDeleteZadigVM       = NewHTTPError(7033, "删除 zadig vm 失败")
+	ErrOfflineZadigVM      = NewHTTPError(7034, "下线 zadig vm 失败")
+	ErrUpgradeZadigVMAgent = NewHTTPError(7035, "升级 zadig agent 失败")
+	ErrRecoveryZadigVM     = NewHTTPError(7036, "恢复 zadig vm 失败")
 )

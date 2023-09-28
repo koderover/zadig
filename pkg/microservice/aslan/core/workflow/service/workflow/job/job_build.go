@@ -25,6 +25,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/setting"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -152,7 +154,6 @@ func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
 			return err
 		}
-		j.spec.DockerRegistryID = argsSpec.DockerRegistryID
 		newBuilds := []*commonmodels.ServiceAndBuild{}
 		for _, build := range j.spec.ServiceAndBuilds {
 			for _, argsBuild := range argsSpec.ServiceAndBuilds {
@@ -239,11 +240,13 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				"service_module": build.ServiceModule,
 				JobNameKey:       j.job.Name,
 			},
-			Key:     strings.Join([]string{j.job.Name, build.ServiceName, build.ServiceModule}, "."),
-			JobType: string(config.JobZadigBuild),
-			Spec:    jobTaskSpec,
-			Timeout: int64(buildInfo.Timeout),
-			Outputs: outputs,
+			Key:            strings.Join([]string{j.job.Name, build.ServiceName, build.ServiceModule}, "."),
+			JobType:        string(config.JobZadigBuild),
+			Spec:           jobTaskSpec,
+			Timeout:        int64(buildInfo.Timeout),
+			Outputs:        outputs,
+			Infrastructure: buildInfo.Infrastructure,
+			VMLabels:       buildInfo.VMLabels,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:             int64(buildInfo.Timeout),
@@ -270,7 +273,8 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			jobTaskSpec.Properties.CacheDirType = buildInfo.CacheDirType
 			jobTaskSpec.Properties.CacheUserDir = buildInfo.CacheUserDir
 		}
-		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, registry, logger)...)
+
+		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, jobTask.Infrastructure, registry, logger)...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
 		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
@@ -316,7 +320,9 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		// init shell step
 		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
 		scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
-		scripts = append(scripts, outputScript(outputs)...)
+		if jobTask.Infrastructure != setting.JobVMInfrastructure {
+			scripts = append(scripts, outputScript(outputs)...)
+		}
 		shellStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-shell",
 			JobName:  jobTask.Name,
@@ -471,10 +477,11 @@ func replaceWrapLine(script string) string {
 	), "\r", "\n", -1)
 }
 
-func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, workflowDisplayName, image string, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
+func getBuildJobVariables(build *commonmodels.ServiceAndBuild, taskID int64, project, workflowName, workflowDisplayName, image, infrastructure string, registry *commonmodels.RegistryNamespace, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	// basic envs
-	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, taskID)...)
+	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)
+
 	// repo envs
 	ret = append(ret, getReposVariables(build.Repos)...)
 	// build specific envs
@@ -532,6 +539,8 @@ func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 	moduleBuild.CacheUserDir = buildTemplate.CacheUserDir
 	moduleBuild.AdvancedSettingsModified = buildTemplate.AdvancedSettingsModified
 	moduleBuild.Outputs = buildTemplate.Outputs
+	moduleBuild.Infrastructure = buildTemplate.Infrastructure
+	moduleBuild.VMLabels = buildTemplate.VmLabels
 
 	// repos are configured by service modules
 	for _, serviceConfig := range moduleBuild.Targets {

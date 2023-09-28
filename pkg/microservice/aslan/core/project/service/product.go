@@ -64,11 +64,12 @@ type CustomParseDataArgs struct {
 }
 
 type ImageParseData struct {
-	Repo     string `json:"repo,omitempty"`
-	Image    string `json:"image,omitempty"`
-	Tag      string `json:"tag,omitempty"`
-	InUse    bool   `json:"inUse,omitempty"`
-	PresetId int    `json:"presetId,omitempty"`
+	Repo      string `json:"repo,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Image     string `json:"image,omitempty"`
+	Tag       string `json:"tag,omitempty"`
+	InUse     bool   `json:"inUse,omitempty"`
+	PresetId  int    `json:"presetId,omitempty"`
 }
 
 func GetProductTemplateServices(productName string, envType types.EnvType, isBaseEnv bool, baseEnvName string, log *zap.SugaredLogger) (*template.Product, error) {
@@ -959,11 +960,12 @@ func GetCustomMatchRules(productName string, log *zap.SugaredLogger) ([]*ImagePa
 	ret := make([]*ImageParseData, 0, len(rules))
 	for _, singleData := range rules {
 		ret = append(ret, &ImageParseData{
-			Repo:     singleData.Repo,
-			Image:    singleData.Image,
-			Tag:      singleData.Tag,
-			InUse:    singleData.InUse,
-			PresetId: singleData.PresetId,
+			Repo:      singleData.Repo,
+			Namespace: singleData.Namespace,
+			Image:     singleData.Image,
+			Tag:       singleData.Tag,
+			InUse:     singleData.InUse,
+			PresetId:  singleData.PresetId,
 		})
 	}
 	return ret, nil
@@ -996,11 +998,12 @@ func UpdateCustomMatchRules(productName, userName, requestID string, matchRules 
 			continue
 		}
 		imageRulesToSave = append(imageRulesToSave, &template.ImageSearchingRule{
-			Repo:     singleData.Repo,
-			Image:    singleData.Image,
-			Tag:      singleData.Tag,
-			InUse:    singleData.InUse,
-			PresetId: singleData.PresetId,
+			Repo:      singleData.Repo,
+			Namespace: singleData.Namespace,
+			Image:     singleData.Image,
+			Tag:       singleData.Tag,
+			InUse:     singleData.InUse,
+			PresetId:  singleData.PresetId,
 		})
 	}
 

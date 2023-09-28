@@ -96,6 +96,11 @@ func V1180ToV1190() error {
 	log.Infof("-------- start migrate renderset info --------")
 	if err := migrateRendersets(); err != nil {
 		log.Infof("migrateRendersets err: %v", err)
+	}
+
+	log.Infof("-------- start migrate infrastructure filed in build & build template module and general job --------")
+	if err := migrateInfrastructureField(); err != nil {
+		log.Infof("migrate infrastructure filed in build & build template module and general job err: %v", err)
 		return err
 	}
 
@@ -642,5 +647,155 @@ func migrateRendersets() error {
 			}
 		}
 	}
+	return nil
+}
+
+func migrateInfrastructureField() error {
+	// change build module infrastructure field
+	cursor, err := mongodb.NewBuildColl().ListByCursor(&mongodb.BuildListOption{})
+	if err != nil {
+		return fmt.Errorf("failed to list build module cursor for infrastructure field in migrateInfrastructureField method, err: %v", err)
+	}
+
+	var ms []mongo.WriteModel
+	for cursor.Next(context.Background()) {
+		var build models.Build
+		if err := cursor.Decode(&build); err != nil {
+			return err
+		}
+
+		if build.Infrastructure == "" {
+			build.Infrastructure = setting.JobK8sInfrastructure
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", build.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"infrastructure", build.Infrastructure},
+						}},
+					}),
+			)
+		}
+
+		if len(ms) >= 50 {
+			log.Infof("update %d build", len(ms))
+			if _, err := mongodb.NewBuildColl().BulkWrite(context.Background(), ms); err != nil {
+				return fmt.Errorf("update build for infrastructure field in migrateInfrastructureField method, error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+
+	if len(ms) > 0 {
+		log.Infof("update %d build", len(ms))
+		if _, err := mongodb.NewBuildColl().BulkWrite(context.Background(), ms); err != nil {
+			return fmt.Errorf("update build for infrastructure field in migrateInfrastructureField method, error: %s", err)
+		}
+	}
+
+	// change build template module infrastructure field
+	cursor, err = mongodb.NewBuildTemplateColl().ListByCursor(&mongodb.ListBuildTemplateOption{})
+	if err != nil {
+		return fmt.Errorf("failed to list build template module cursor for infrastructure field in migrateInfrastructureField method, err: %v", err)
+	}
+
+	ms = []mongo.WriteModel{}
+	for cursor.Next(context.Background()) {
+		var buildTemplate models.BuildTemplate
+		if err := cursor.Decode(&buildTemplate); err != nil {
+			return err
+		}
+
+		if buildTemplate.Infrastructure == "" {
+			buildTemplate.Infrastructure = setting.JobK8sInfrastructure
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", buildTemplate.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"infrastructure", buildTemplate.Infrastructure},
+						}},
+					}),
+			)
+		}
+
+		if len(ms) >= 50 {
+			log.Infof("update %d build template", len(ms))
+			if _, err := mongodb.NewBuildTemplateColl().BulkWrite(context.Background(), ms); err != nil {
+				return fmt.Errorf("update build template for infrastructure field in migrateInfrastructureField method, error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+
+	if len(ms) > 0 {
+		log.Infof("update %d build template", len(ms))
+		if _, err := mongodb.NewBuildTemplateColl().BulkWrite(context.Background(), ms); err != nil {
+			return fmt.Errorf("update build template for infrastructure field in migrateInfrastructureField method, error: %s", err)
+		}
+	}
+
+	// change general job module infrastructure field
+	cursor, err = mongodb.NewWorkflowV4Coll().ListByCursor(&mongodb.ListWorkflowV4Option{
+		JobTypes: []config.JobType{
+			config.JobFreestyle,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list general job module cursor for infrastructure field in migrateInfrastructureField method, err: %v", err)
+	}
+
+	ms = []mongo.WriteModel{}
+	for cursor.Next(context.Background()) {
+		var workflow models.WorkflowV4
+		if err := cursor.Decode(&workflow); err != nil {
+			return err
+		}
+
+		changed := false
+		for _, stage := range workflow.Stages {
+			for _, job := range stage.Jobs {
+				if job.JobType == config.JobFreestyle {
+					spec := &models.FreestyleJobSpec{}
+					if err := models.IToi(job.Spec, spec); err != nil {
+						return err
+					}
+
+					if spec.Properties != nil && spec.Properties.Infrastructure == "" {
+						spec.Properties.Infrastructure = setting.JobK8sInfrastructure
+						job.Spec = spec
+						changed = true
+					}
+				}
+			}
+		}
+
+		if changed {
+			ms = append(ms,
+				mongo.NewUpdateOneModel().
+					SetFilter(bson.D{{"_id", workflow.ID}}).
+					SetUpdate(bson.D{{"$set",
+						bson.D{
+							{"stages", workflow.Stages},
+						}},
+					}),
+			)
+		}
+
+		if len(ms) >= 50 {
+			log.Infof("update %d workflowV4", len(ms))
+			if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.Background(), ms); err != nil {
+				return fmt.Errorf("update workflowV4 for infrastructure field in migrateInfrastructureField method, error: %s", err)
+			}
+			ms = []mongo.WriteModel{}
+		}
+	}
+	if len(ms) > 0 {
+		log.Infof("update %d workflowV4", len(ms))
+		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.Background(), ms); err != nil {
+			return fmt.Errorf("update workflowV4 for infrastructure field in migrateInfrastructureField method, error: %s", err)
+		}
+	}
+
 	return nil
 }

@@ -573,9 +573,10 @@ func GetImageInfos(productName, envName, serviceNames string, log *zap.SugaredLo
 			}
 
 			imageSearchRule := &template.ImageSearchingRule{
-				Repo:  container.ImagePath.Repo,
-				Image: container.ImagePath.Image,
-				Tag:   container.ImagePath.Tag,
+				Repo:      container.ImagePath.Repo,
+				Namespace: container.ImagePath.Namespace,
+				Image:     container.ImagePath.Image,
+				Tag:       container.ImagePath.Tag,
 			}
 			pattern := imageSearchRule.GetSearchingPattern()
 			imageUrl, err := commonutil.GeneImageURI(pattern, flatMap)

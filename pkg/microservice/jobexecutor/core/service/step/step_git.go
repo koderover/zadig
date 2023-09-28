@@ -304,13 +304,6 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		}
 	}
 
-	if repo.EnableCommit {
-		cmds = append(
-			cmds,
-			&c.Command{Cmd: c.CheckoutCommit(repo.CommitID)},
-		)
-	}
-
 	if repo.SubModules {
 		cmds = append(cmds, &c.Command{Cmd: c.UpdateSubmodules()})
 	}

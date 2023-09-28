@@ -23,22 +23,51 @@ import (
 )
 
 type PrivateKey struct {
-	ID           primitive.ObjectID   `bson:"_id,omitempty"          json:"id,omitempty"`
-	Name         string               `bson:"name"                   json:"name"`
-	UserName     string               `bson:"user_name"              json:"user_name"`
-	IP           string               `bson:"ip"                     json:"ip"`
-	Port         int64                `bson:"port"                   json:"port"`
-	Status       setting.PMHostStatus `bson:"status"                 json:"status"`
-	Label        string               `bson:"label"                  json:"label"`
-	IsProd       bool                 `bson:"is_prod"                json:"is_prod"`
-	PrivateKey   string               `bson:"private_key"            json:"private_key"`
-	CreateTime   int64                `bson:"create_time"            json:"create_time"`
-	UpdateTime   int64                `bson:"update_time"            json:"update_time"`
-	UpdateBy     string               `bson:"update_by"              json:"update_by"`
-	Provider     int8                 `bson:"provider"               json:"provider"`
-	Probe        *types.Probe         `bson:"probe"                  json:"probe"`
-	ProjectName  string               `bson:"project_name,omitempty" json:"project_name"`
-	UpdateStatus bool                 `bson:"-"                      json:"update_status"`
+	ID               primitive.ObjectID   `bson:"_id,omitempty"          json:"id,omitempty"`
+	Name             string               `bson:"name"                   json:"name"`
+	Description      string               `bson:"description"          json:"description"`
+	UserName         string               `bson:"user_name"              json:"user_name"`
+	IP               string               `bson:"ip"                     json:"ip"`
+	Port             int64                `bson:"port"                   json:"port"`
+	Status           setting.PMHostStatus `bson:"status"                 json:"status"`
+	Label            string               `bson:"label"                  json:"label"`
+	IsProd           bool                 `bson:"is_prod"                json:"is_prod"`
+	IsLogin          bool                 `bson:"is_login"               json:"is_login"`
+	PrivateKey       string               `bson:"private_key"            json:"private_key"`
+	CreateTime       int64                `bson:"create_time"            json:"create_time"`
+	UpdateTime       int64                `bson:"update_time"            json:"update_time"`
+	UpdateBy         string               `bson:"update_by"              json:"update_by"`
+	Provider         int8                 `bson:"provider"               json:"provider"`
+	Probe            *types.Probe         `bson:"probe"                  json:"probe"`
+	ProjectName      string               `bson:"project_name,omitempty" json:"project_name"`
+	UpdateStatus     bool                 `bson:"-"                      json:"update_status"`
+	ScheduleWorkflow bool                 `bson:"schedule_workflow"    json:"schedule_workflow"`
+	Error            string               `bson:"error"                json:"error"`
+	Agent            *VMAgent             `bson:"agent"                json:"agent,omitempty"`
+	VMInfo           *VMInfo              `bson:"vm_info"              json:"vm_info,omitempty"`
+	Type             string               `bson:"type"                 json:"type"`
+}
+
+type VMInfo struct {
+	IP            string `bson:"ip"                   json:"ip"`
+	Platform      string `bson:"platform"             json:"platform"`
+	Architecture  string `bson:"architecture"         json:"architecture"`
+	MemeryTotal   uint64 `bson:"memery_total"         json:"memery_total"`
+	UsedMemery    uint64 `bson:"used_memery"          json:"used_memery"`
+	CpuNum        int    `bson:"cpu_num"              json:"cpu_num"`
+	DiskSpace     uint64 `bson:"disk_space"           json:"disk_space"`
+	FreeDiskSpace uint64 `bson:"free_disk_space"      json:"free_disk_space"`
+	HostName      string `bson:"host_name"            json:"host_name"`
+}
+
+type VMAgent struct {
+	Token             string `bson:"token"                json:"-"`
+	Workspace         string `bson:"workspace"            json:"workspace"`
+	TaskConcurrency   int    `bson:"task_concurrency"     json:"task_concurrency"`
+	NeedUpdate        bool   `bson:"need_update"          json:"need_update"`
+	AgentVersion      string `bson:"agent_version"        json:"agent_version"`
+	ZadigVersion      string `bson:"zadig_version"        json:"zadig_version"`
+	LastHeartbeatTime int64  `bson:"last_heartbeat_time"  json:"last_heartbeat_time"`
 }
 
 func (PrivateKey) TableName() string {

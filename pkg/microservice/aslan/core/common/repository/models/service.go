@@ -142,9 +142,10 @@ type Commit struct {
 
 // ImagePathSpec paths in yaml used to parse image
 type ImagePathSpec struct {
-	Repo  string `bson:"repo,omitempty"           json:"repo,omitempty"`
-	Image string `bson:"image,omitempty"           json:"image,omitempty"`
-	Tag   string `bson:"tag,omitempty"           json:"tag,omitempty"`
+	Repo      string `bson:"repo,omitempty"           json:"repo,omitempty"`
+	Namespace string `bson:"namespace,omitempty"      json:"namespace,omitempty"`
+	Image     string `bson:"image,omitempty"          json:"image,omitempty"`
+	Tag       string `bson:"tag,omitempty"            json:"tag,omitempty"`
 }
 
 // Container ...

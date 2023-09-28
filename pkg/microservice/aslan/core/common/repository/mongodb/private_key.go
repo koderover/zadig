@@ -74,6 +74,9 @@ func (c *PrivateKeyColl) EnsureIndex(ctx context.Context) error {
 type FindPrivateKeyOption struct {
 	ID      string
 	Address string
+	Token   string
+	Labels  []string
+	Status  string
 }
 
 func (c *PrivateKeyColl) Find(option FindPrivateKeyOption) (*models.PrivateKey, error) {
@@ -88,6 +91,15 @@ func (c *PrivateKeyColl) Find(option FindPrivateKeyOption) (*models.PrivateKey, 
 	}
 	if option.Address != "" {
 		query["ip"] = option.Address
+	}
+	if option.Token != "" {
+		query["agent.token"] = option.Token
+	}
+	if len(option.Labels) > 0 {
+		query["label"] = bson.M{"$in": option.Labels}
+	}
+	if option.Status != "" {
+		query["status"] = option.Status
 	}
 
 	err := c.FindOne(context.TODO(), query).Decode(privateKey)
@@ -131,9 +143,17 @@ func (c *PrivateKeyColl) Create(args *models.PrivateKey) error {
 	args.CreateTime = time.Now().Unix()
 	args.UpdateTime = time.Now().Unix()
 
-	_, err := c.InsertOne(context.TODO(), args)
+	result, err := c.InsertOne(context.TODO(), args)
+	if err != nil {
+		return err
+	}
+	insertedID, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return errors.New("Failed to convert inserted ID to ObjectID")
+	}
 
-	return err
+	args.ID = insertedID
+	return nil
 }
 
 func (c *PrivateKeyColl) Update(id string, args *models.PrivateKey) error {
@@ -151,21 +171,10 @@ func (c *PrivateKeyColl) Update(id string, args *models.PrivateKey) error {
 	if args.UpdateStatus {
 		change = bson.M{"$set": bson.M{
 			"status": args.Status,
+			"error":  args.Error,
 		}}
 	} else {
-		change = bson.M{"$set": bson.M{
-			"name":        args.Name,
-			"user_name":   args.UserName,
-			"ip":          args.IP,
-			"port":        args.Port,
-			"label":       args.Label,
-			"is_prod":     args.IsProd,
-			"private_key": args.PrivateKey,
-			"provider":    args.Provider,
-			"probe":       args.Probe,
-			"update_by":   args.UpdateBy,
-			"update_time": time.Now().Unix(),
-		}}
+		change = bson.M{"$set": args}
 	}
 
 	_, err = c.UpdateOne(context.TODO(), query, change)

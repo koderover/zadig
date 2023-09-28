@@ -17,22 +17,72 @@ limitations under the License.
 package models
 
 import (
-	"github.com/koderover/zadig/pkg/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type Scanning struct {
-	ID              primitive.ObjectID       `bson:"_id,omitempty"  json:"id,omitempty"`
-	ImageID         string                   `bson:"image_id"       json:"image_id"`
-	EnableScanner   bool                     `bson:"enable_scanner" json:"enable_scanner"`
-	ScannerType     string                   `bson:"scanner_type"   json:"scanner_type"`
-	PreScript       string                   `bson:"pre_script"       json:"pre_script"`
-	Script          string                   `bson:"script"           json:"script"`
-	AdvancedSetting *ScanningAdvancedSetting `bson:"advanced_setting" json:"advanced_setting"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Name        string             `bson:"name"          json:"name"`
+	ProjectName string             `bson:"project_name"  json:"project_name"`
+	Description string             `bson:"description"   json:"description"`
+	ScannerType string             `bson:"scanner_type"  json:"scanner_type"`
+	// EnableScanner indicates whether user uses sonar scanner instead of the script
+	EnableScanner bool                `bson:"enable_scanner" json:"enable_scanner"`
+	ImageID       string              `bson:"image_id"      json:"image_id"`
+	SonarID       string              `bson:"sonar_id"      json:"sonar_id"`
+	Repos         []*types.Repository `bson:"repos"         json:"repos"`
+	Installs      []*Item             `bson:"installs"      json:"installs"`
+	// Parameter is for sonarQube type only
+	Parameter string `bson:"parameter" json:"parameter"`
+	// Envs is the user defined key/values
+	Envs []*KeyVal `bson:"envs" json:"envs"`
+	// Script is for other type only
+	Script           string                   `bson:"script"                json:"script"`
+	PreScript        string                   `bson:"pre_script"       json:"pre_script"`
+	AdvancedSetting  *ScanningAdvancedSetting `bson:"advanced_setting"      json:"advanced_setting"`
+	CheckQualityGate bool                     `bson:"check_quality_gate"    json:"check_quality_gate"`
+	Outputs          []*Output                `bson:"outputs"               json:"outputs"`
+
+	CreatedAt int64  `bson:"created_at" json:"created_at"`
+	UpdatedAt int64  `bson:"updated_at" json:"updated_at"`
+	UpdatedBy string `bson:"updated_by" json:"updated_by"`
+}
+
+type Item struct {
+	Name    string `bson:"name"                   json:"name"`
+	Version string `bson:"version"                json:"version"`
 }
 
 type ScanningAdvancedSetting struct {
-	Cache *ScanningCacheSetting `bson:"cache"        json:"cache"`
+	ClusterID  string                `bson:"cluster_id"   json:"cluster_id"`
+	StrategyID string                `bson:"strategy_id"  json:"strategy_id"`
+	Timeout    int64                 `bson:"timeout"      json:"timeout"`
+	ResReq     setting.Request       `bson:"res_req"      json:"res_req"`
+	ResReqSpec setting.RequestSpec   `bson:"res_req_spec" json:"res_req_spec"`
+	HookCtl    *ScanningHookCtl      `bson:"hook_ctl"     json:"hook_ctl"`
+	NotifyCtls []*NotifyCtl          `bson:"notify_ctls"  json:"notify_ctls"`
+	Cache      *ScanningCacheSetting `bson:"cache"        json:"cache"`
+}
+
+type ScanningHookCtl struct {
+	Enabled bool            `bson:"enabled" json:"enabled"`
+	Items   []*ScanningHook `bson:"items"   json:"items"`
+}
+
+type ScanningHook struct {
+	CodehostID   int                    `bson:"codehost_id"   json:"codehost_id"`
+	Source       string                 `bson:"source"        json:"source"`
+	RepoOwner    string                 `bson:"repo_owner"    json:"repo_owner"`
+	RepoName     string                 `bson:"repo_name"     json:"repo_name"`
+	Branch       string                 `bson:"branch"        json:"branch"`
+	Events       []config.HookEventType `bson:"events"        json:"events"`
+	MatchFolders []string               `bson:"match_folders" json:"match_folders"`
+	IsRegular    bool                   `bson:"is_regular"    json:"is_regular"`
+	IsManual     bool                   `bson:"is_manual"     json:"is_manual"`
 }
 
 type ScanningCacheSetting struct {

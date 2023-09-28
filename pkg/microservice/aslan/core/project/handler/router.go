@@ -83,6 +83,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pms.POST("/batch", BatchCreatePMHost)
 		pms.PUT("/:id", UpdatePMHost)
 		pms.DELETE("/:id", DeletePMHost)
+		pms.GET("/:id/agent/access", GetAgentAccessCmd)
+		pms.PUT("/:id/agent/offline", OfflineVM)
+		pms.PUT("/:id/agent/recovery", RecoveryVM)
+		pms.PUT("/:id/agent/upgrade", UpgradeAgent)
 	}
 
 	variables := router.Group("variablesets")

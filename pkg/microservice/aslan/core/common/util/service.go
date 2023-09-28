@@ -392,9 +392,10 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 			ImageName: name,
 			Image:     imageUrl,
 			ImagePath: &commonmodels.ImagePathSpec{
-				Repo:  searchResult[setting.PathSearchComponentRepo],
-				Image: searchResult[setting.PathSearchComponentImage],
-				Tag:   searchResult[setting.PathSearchComponentTag],
+				Repo:      searchResult[setting.PathSearchComponentRepo],
+				Namespace: searchResult[setting.PathSearchComponentNamespace],
+				Image:     searchResult[setting.PathSearchComponentImage],
+				Tag:       searchResult[setting.PathSearchComponentTag],
 			},
 		})
 	}
@@ -421,18 +422,19 @@ func GetPresetRules() []*templatemodels.ImageSearchingRule {
 	ret := make([]*templatemodels.ImageSearchingRule, 0, len(presetPatterns))
 	for id, pattern := range presetPatterns {
 		ret = append(ret, &templatemodels.ImageSearchingRule{
-			Repo:     pattern[setting.PathSearchComponentRepo],
-			Image:    pattern[setting.PathSearchComponentImage],
-			Tag:      pattern[setting.PathSearchComponentTag],
-			InUse:    true,
-			PresetId: id + 1,
+			Repo:      pattern[setting.PathSearchComponentRepo],
+			Namespace: pattern[setting.PathSearchComponentNamespace],
+			Image:     pattern[setting.PathSearchComponentImage],
+			Tag:       pattern[setting.PathSearchComponentTag],
+			InUse:     true,
+			PresetId:  id + 1,
 		})
 	}
 	return ret
 }
 
 func generateUniquePath(pathData map[string]string) string {
-	keys := []string{setting.PathSearchComponentRepo, setting.PathSearchComponentImage, setting.PathSearchComponentTag}
+	keys := []string{setting.PathSearchComponentRepo, setting.PathSearchComponentNamespace, setting.PathSearchComponentImage, setting.PathSearchComponentTag}
 	values := make([]string, 0)
 	for _, key := range keys {
 		if value := pathData[key]; value != "" {
@@ -444,6 +446,7 @@ func generateUniquePath(pathData map[string]string) string {
 
 // GeneImageURI generate valid image uri, legal formats:
 // {repo}
+// {repo}/ {namespace}/{image}
 // {repo}/{image}
 // {repo}/{image}:{tag}
 // {repo}:{tag}
@@ -455,6 +458,15 @@ func GeneImageURI(pathData map[string]string, flatMap map[string]interface{}) (s
 	// if repo value is set, use as repo
 	if repo, ok := valuesMap[setting.PathSearchComponentRepo]; ok {
 		ret = fmt.Sprintf("%v", repo)
+		ret = strings.TrimSuffix(ret, "/")
+	}
+	// if namespace is set, use repo/namespace
+	if namespace, ok := valuesMap[setting.PathSearchComponentNamespace]; ok {
+		if len(ret) == 0 {
+			ret = fmt.Sprintf("%v", namespace)
+		} else {
+			ret = fmt.Sprintf("%s/%s", ret, namespace)
+		}
 		ret = strings.TrimSuffix(ret, "/")
 	}
 	// if image value is set, append to repo, if repo is not set, image values represents repo+image
