@@ -244,6 +244,13 @@ const (
 	DBInstanceTypeMariaDB DBInstanceType = "mariadb"
 )
 
+type ObservabilityType string
+
+const (
+	ObservabilityTypeGrafana   ObservabilityType = "grafana"
+	ObservabilityTypeGuanceyun ObservabilityType = "guanceyun"
+)
+
 type ApprovalType string
 
 const (
