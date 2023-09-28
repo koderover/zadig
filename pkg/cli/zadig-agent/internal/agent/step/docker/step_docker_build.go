@@ -103,7 +103,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 
 	s.logger.Printf("Preparing Dockerfile.\n")
 	startTimePrepareDockerfile := time.Now()
-	err := prepareDockerfile(s.spec.Source, s.spec.DockerTemplateContent)
+	err := prepareDockerfile(s.spec.Source, s.spec.DockerTemplateContent, s.dirs.Workspace)
 	if err != nil {
 		return fmt.Errorf("failed to prepare dockerfile: %s", err)
 	}
@@ -168,7 +168,7 @@ func (s *DockerBuildStep) dockerCommands() []*exec.Cmd {
 	cmds = append(
 		cmds,
 		dockerBuildCmd(
-			s.spec.GetDockerFile(),
+			s.GetDockerFile(),
 			s.spec.ImageName,
 			s.spec.WorkDir,
 			s.spec.BuildArgs,
@@ -216,17 +216,28 @@ func dockerLogin(user, password, registry string) *exec.Cmd {
 	)
 }
 
-func prepareDockerfile(dockerfileSource, dockerfileContent string) error {
+func prepareDockerfile(dockerfileSource, dockerfileContent, workspace string) error {
 	if dockerfileSource == setting.DockerfileSourceTemplate {
 		reader := strings.NewReader(dockerfileContent)
 		readCloser := io.NopCloser(reader)
-		path := fmt.Sprintf("/%s", setting.ZadigDockerfilePath)
+		path := fmt.Sprintf("%s/%s", workspace, setting.ZadigDockerfilePath)
 		err := fs.SaveFile(readCloser, path)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (s *DockerBuildStep) GetDockerFile() string {
+	// if the source of the dockerfile is from template, we write our own dockerfile
+	if s.spec.Source == setting.DockerfileSourceTemplate {
+		return fmt.Sprintf("%s/%s", s.dirs.Workspace, setting.ZadigDockerfilePath)
+	}
+	if s.spec.DockerFile == "" {
+		return "Dockerfile"
+	}
+	return s.spec.DockerFile
 }
 
 func setProxy(ctx *step.StepDockerBuildSpec) {

@@ -181,7 +181,8 @@ func GetJobOutputsTmpDir(workDir string, job types.ZadigJobTask) (string, error)
 		}
 	}
 
-	return filepath.Join(jobOutputsTmpDir, fmt.Sprintf("%s-%s-%d-%s", job.ProjectName, job.WorkflowName, job.TaskID, job.JobName)), nil
+	dir := filepath.Join(jobOutputsTmpDir, fmt.Sprintf("%s-%s-%d-%s", job.ProjectName, job.WorkflowName, job.TaskID, job.JobName))
+	return filepath.Join(dir, common.JobOutputDir), nil
 }
 
 func GetJobScriptTmpDir(workDir string, job types.ZadigJobTask) (string, error) {

@@ -302,7 +302,7 @@ func (e *JobExecutor) AfterExecute() error {
 func (e *JobExecutor) getJobOutputVars() ([]*job.JobOutput, error) {
 	outputs := []*job.JobOutput{}
 	for _, outputName := range e.JobCtx.Outputs {
-		fileContents, err := ioutil.ReadFile(filepath.Join(e.Dirs.JobOutputsDir, common.JobOutputDir, outputName))
+		fileContents, err := ioutil.ReadFile(filepath.Join(e.Dirs.JobOutputsDir, outputName))
 		if os.IsNotExist(err) {
 			continue
 		} else if err != nil {
@@ -334,7 +334,7 @@ func (e *JobExecutor) deleteTempFileAndDir() error {
 	}
 
 	// --------------------------------------------- delete job output dir ---------------------------------------------
-	if err := os.RemoveAll(e.Dirs.JobOutputsDir); err != nil {
+	if err := os.RemoveAll(filepath.Dir(filepath.Dir(filepath.Dir(e.Dirs.JobOutputsDir)))); err != nil {
 		log.Errorf("failed to delete job output dir, error: %s", err)
 		return err
 	}
