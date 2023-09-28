@@ -25,9 +25,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
-type ProductAuthType string
-type ProductPermission string
-
 type Product struct {
 	ID             primitive.ObjectID              `bson:"_id,omitempty"             json:"id,omitempty"`
 	ProductName    string                          `bson:"product_name"              json:"product_name"`
@@ -40,10 +37,9 @@ type Product struct {
 	EnvName        string                          `bson:"env_name"                  json:"env_name"`
 	BaseEnvName    string                          `bson:"-"                         json:"base_env_name"`
 	UpdateBy       string                          `bson:"update_by"                 json:"update_by"`
-	Auth           []*ProductAuth                  `bson:"auth"                      json:"auth"`
 	Visibility     string                          `bson:"-"                         json:"visibility"`
 	Services       [][]*ProductService             `bson:"services"                  json:"services"`
-	Render         *RenderInfo                     `bson:"render"                    json:"render"`
+	Render         *RenderInfo                     `bson:"render"                    json:"render"` // Deprecated in 1.19.0, will be removed in 1.10.0
 	Error          string                          `bson:"error"                     json:"error"`
 	ServiceRenders []*templatemodels.ServiceRender `bson:"-"                         json:"chart_infos,omitempty"`
 	IsPublic       bool                            `bson:"is_public"                 json:"isPublic"`
@@ -148,12 +144,6 @@ type RenderInfo struct {
 	Revision    int64  `bson:"revision"                 json:"revision"`
 	ProductTmpl string `bson:"product_tmpl"             json:"product_tmpl"`
 	Description string `bson:"description"              json:"description"`
-}
-
-type ProductAuth struct {
-	Type        ProductAuthType     `bson:"type"          json:"type"`
-	Name        string              `bson:"name"          json:"name"`
-	Permissions []ProductPermission `bson:"permissions"   json:"permissions"`
 }
 
 type ProductService struct {

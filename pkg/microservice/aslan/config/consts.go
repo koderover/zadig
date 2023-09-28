@@ -323,26 +323,6 @@ const (
 	NameSpaceRegexString = "[^a-z0-9.-]"
 )
 
-// ProductPermission ...
-type ProductPermission string
-
-// ProductAuthType ...
-type ProductAuthType string
-
-const (
-	// ProductReadPermission ...
-	ProductReadPermission = ProductPermission("read")
-	// ProductWritePermission ...
-	ProductWritePermission = ProductPermission("write")
-)
-
-const (
-	// ProductAuthUser ...
-	ProductAuthUser = ProductAuthType("user")
-	// ProductAuthTeam ...
-	ProductAuthTeam = ProductAuthType("team")
-)
-
 type HookEventType string
 
 const (
@@ -350,12 +330,6 @@ const (
 	HookEventPr      = HookEventType("pull_request")
 	HookEventTag     = HookEventType("tag")
 	HookEventUpdated = HookEventType("ref-updated")
-)
-
-const (
-	KeyStateNew     = "new"
-	KeyStateUnused  = "unused"
-	KeyStatePresent = "present"
 )
 
 const (

@@ -1018,8 +1018,6 @@ func buildServiceInfoInEnv(productInfo *commonmodels.Product, templateSvcs []*co
 		productTemplateSvcMap[svc.ServiceName] = svc
 	}
 
-	productInfo.EnsureRenderInfo()
-
 	svcModulesMap := make(map[string]map[string]*commonmodels.Container)
 	templateSvcMap := make(map[string]*commonmodels.Service)
 	for _, svc := range templateSvcs {

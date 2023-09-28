@@ -19,7 +19,6 @@ package types
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 )
@@ -35,7 +34,6 @@ type Product struct {
 	Enabled     bool             `bson:"enabled"                   json:"enabled"`
 	EnvName     string           `bson:"env_name"                  json:"env_name"`
 	UpdateBy    string           `bson:"update_by"                 json:"update_by"`
-	Auth        []*ProductAuth   `bson:"auth"                      json:"auth"`
 	Visibility  string           `bson:"-"                         json:"visibility"`
 	Services    [][]*Service     `bson:"services"                  json:"services"`
 	Render      *task.RenderInfo `bson:"render"                    json:"render"`
@@ -75,12 +73,6 @@ type RenderChart struct {
 	ValuesYaml     string      `json:"values_yaml,omitempty"`
 	OverrideYaml   *CustomYaml `json:"override_yaml,omitempty"`
 	OverrideValues string      `json:"override_values,omitempty"`
-}
-
-type ProductAuth struct {
-	Type        config.ProductAuthType     `bson:"type"          json:"type"`
-	Name        string                     `bson:"name"          json:"name"`
-	Permissions []config.ProductPermission `bson:"permissions"   json:"permissions"`
 }
 
 type Service struct {

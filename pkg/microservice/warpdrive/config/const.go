@@ -107,33 +107,6 @@ const (
 // CIStatus ...
 type CIStatus string
 
-// ProductPermission ...
-type ProductPermission string
-
-// ProductAuthType ...
-type ProductAuthType string
-
-const (
-	// ProductReadPermission ...
-	ProductReadPermission = ProductPermission("read")
-	// ProductWritePermission ...
-	ProductWritePermission = ProductPermission("write")
-)
-
-const (
-	// ProductAuthUser ...
-	ProductAuthUser = ProductAuthType("user")
-	// ProductAuthTeam ...
-	ProductAuthTeam = ProductAuthType("team")
-)
-
-const (
-	ImageFromKoderover = "koderover"
-	ImageFromCustom    = "custom"
-
-	APIServer = "https://api.github.com/"
-)
-
 // Distributed Locks
 const (
 	ProcessLock = "process"
