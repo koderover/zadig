@@ -2322,7 +2322,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		productTemplateName = args.ProductName
 		err                 error
 	)
-	args.EnsureRenderInfo()
 
 	var productTmpl *templatemodels.Product
 	// 查询产品模板

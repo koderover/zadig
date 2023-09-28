@@ -795,34 +795,6 @@ func findCurrentlyUsingImage(productInfo *commonmodels.Product, serviceName, con
 	return "", fmt.Errorf("failed to find image url")
 }
 
-// IsProductAuthed 查询指定产品是否授权给用户, 或者用户所在的组
-// TODO: REVERT Auth is diabled
-func IsProductAuthed(username, productOwner, productName string, perm config.ProductPermission, log *zap.SugaredLogger) bool {
-
-	//// 获取目标产品信息
-	//opt := &collection.ProductFindOptions{Name: productName, EnvName: productOwner}
-	//
-	//prod, err := s.Collections.Product.Find(opt)
-	//if err != nil {
-	//	log.Errorf("[%s][%s] error: %v", productOwner, productName, err)
-	//	return false
-	//}
-	//
-	//userTeams := make([]string, 0)
-	////userTeams, err := s.FindUserTeams(UserIDStr, log)
-	////if err != nil {
-	////	log.Errorf("FindUserTeams error: %v", err)
-	////	return false
-	////}
-	//
-	//// 如果是当前用户创建的产品或者当前用户已经被产品授权过，返回true
-	//if prod.EnvName == UserIDStr || prod.IsUserAuthed(UserIDStr, userTeams, perm) {
-	//	return true
-	//}
-
-	return true
-}
-
 // GetS3RelStorage find the default s3storage
 func GetS3RelStorage(logger *zap.SugaredLogger) (*commonmodels.S3Storage, error) {
 	return commonrepo.NewS3StorageColl().GetS3Storage()

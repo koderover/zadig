@@ -388,7 +388,6 @@ func (c *ProductColl) Update(args *models.Product) error {
 		"services":         args.Services,
 		"status":           args.Status,
 		"revision":         args.Revision,
-		"render":           args.Render,
 		"error":            args.Error,
 		"share_env":        args.ShareEnv,
 		"global_variables": args.GlobalVariables,

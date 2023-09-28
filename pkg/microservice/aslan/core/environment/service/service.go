@@ -508,7 +508,6 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		}
 	default:
 		var serviceTmpl *commonmodels.Service
-		productObj.EnsureRenderInfo()
 		var productService *commonmodels.ProductService
 
 		serviceObj, ok := productObj.GetServiceMap()[args.ServiceName]

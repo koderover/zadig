@@ -140,7 +140,6 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 	prodRev.ServiceRevisions = make([]*SvcRevision, 0)
 	prodRev.IsPublic = product.IsPublic
 
-	product.EnsureRenderInfo()
 	if product.Source == setting.SourceFromExternal {
 		return prodRev, nil
 	}
