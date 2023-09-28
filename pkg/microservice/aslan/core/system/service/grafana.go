@@ -17,11 +17,12 @@
 package service
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/grafana"
-	"github.com/koderover/zadig/pkg/tool/guanceyun"
 )
 
 func ListGrafanaAlert(id, search string) ([]grafana.ListAlertResp, error) {
@@ -30,9 +31,9 @@ func ListGrafanaAlert(id, search string) ([]grafana.ListAlertResp, error) {
 		return nil, errors.Wrapf(err, "get observability info %s failed", id)
 	}
 
-	contents, err := guanceyun.NewClient(info.Host, info.ApiKey).ListAllMonitor(search)
+	contents, err := grafana.NewClient(info.Host, info.GrafanaToken).ListAlert()
 	if err != nil {
-		return nil, errors.Wrapf(err, "list guanceyun monitor failed")
+		return nil, errors.Wrapf(err, "list grafana alert failed")
 	}
 
 	return contents, nil
