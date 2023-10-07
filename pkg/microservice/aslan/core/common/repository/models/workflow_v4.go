@@ -629,7 +629,7 @@ type IstioJobTarget struct {
 	TargetReplica      int    `bson:"target_replica,omitempty"  json:"target_replica,omitempty"  yaml:"target_replica,omitempty"`
 }
 
-type GrafanaCheckJobSpec struct {
+type GrafanaJobSpec struct {
 	ID   string `bson:"id" json:"id" yaml:"id"`
 	Name string `bson:"name" json:"name" yaml:"name"`
 	// CheckTime minute

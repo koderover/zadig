@@ -19,16 +19,16 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/tool/apollo"
+	"github.com/koderover/zadig/pkg/tool/grafana"
+	"github.com/koderover/zadig/pkg/tool/guanceyun"
 )
 
 type GrafanaJobCtl struct {
@@ -60,46 +60,122 @@ func (c *GrafanaJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
-	info, err := mongodb.NewConfigurationManagementColl().GetGrafanaByID(context.Background(), c.jobTaskSpec.GrafanaID)
+	info, err := mongodb.NewObservabilityColl().GetByID(context.Background(), c.jobTaskSpec.ID)
 	if err != nil {
-		logError(c.job, err.Error(), c.logger)
+		logError(c.job, fmt.Sprintf("get observability info error: %v", err), c.logger)
 		return
 	}
-	link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
-		config2.SystemAddress(),
-		c.workflowCtx.ProjectName,
-		c.workflowCtx.WorkflowName,
-		c.workflowCtx.TaskID,
-		url.QueryEscape(c.workflowCtx.WorkflowDisplayName))
+	link := func(checker string) string {
+		//return info.ConsoleHost + "/keyevents/monitorChart?leftActiveKey=Events&activeName=Events&query=df_monitor_checker_name" + url.QueryEscape(`:"`+checker+`"`)
+		return ""
+	}
 
-	var fail bool
-	client := apollo.NewClient(info.ServerAddress, info.Token)
-	for _, namespace := range c.jobTaskSpec.NamespaceList {
-		for _, kv := range namespace.KeyValList {
-			err := client.UpdateKeyVal(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, kv.Key, kv.Val, "zadig")
-			if err != nil {
-				fail = true
-				namespace.Error = fmt.Sprintf("update error: %v", err)
-				continue
+	client := grafana.NewClient(info.Host, info.GrafanaToken)
+	timeout := time.After(time.Duration(c.jobTaskSpec.CheckTime) * time.Minute)
+
+	checkArgs := make([]*guanceyun.SearchEventByMonitorArg, 0)
+	checkMap := make(map[string]*commonmodels.GrafanaAlert)
+	for _, alert := range c.jobTaskSpec.Alerts {
+		checkArgs = append(checkArgs, &guanceyun.SearchEventByMonitorArg{
+			CheckerName: alert.Name,
+			CheckerID:   alert.ID,
+		})
+		checkMap[alert.ID] = alert
+		alert.Status = StatusChecking
+	}
+	c.ack()
+
+	check := func() (bool, error) {
+		triggered := false
+		resp, err := client.ListAlertInstance()
+		if err != nil {
+			return false, err
+		}
+
+		for _, eventResp := range resp {
+			if eventResp.Labels.AlertRuleUID == "" {
+				return false, errors.New("alert uid not found")
+			}
+			if checker, ok := checkMap[eventResp.Labels.AlertRuleUID]; ok {
+				// checker has been triggered if url not empty, ignore it
+				if checker.Url == "" {
+					checker.Status = StatusAbnormal
+					// todo: add link
+					checker.Url = link("")
+					triggered = true
+				}
 			}
 		}
-		err := client.Release(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace,
-			&apollo.ReleaseArgs{
-				ReleaseTitle:   time.Now().Format("20060102150405") + "-zadig",
-				ReleaseComment: fmt.Sprintf("工作流 %s\n详情: %s", c.workflowCtx.WorkflowDisplayName, link),
-				ReleasedBy:     info.GrafanaAuthConfig.User,
-			})
-		if err != nil {
-			fail = true
-			namespace.Error = fmt.Sprintf("release error: %v", err)
+		return triggered, nil
+	}
+	setNoEventAlertStatusUnfinished := func() {
+		for _, alert := range c.jobTaskSpec.Alerts {
+			if alert.Url == "" {
+				alert.Status = StatusUnfinished
+			}
 		}
 	}
-	if fail {
-		logError(c.job, "some errors occurred in apollo job", c.logger)
-		return
+	isAllAlertHasEvent := func() bool {
+		for _, alert := range c.jobTaskSpec.Alerts {
+			if alert.Url == "" {
+				return false
+			}
+		}
+		return true
 	}
-	c.job.Status = config.StatusPassed
-	return
+	isNoAlertHasEvent := func() bool {
+		for _, alert := range c.jobTaskSpec.Alerts {
+			if alert.Url != "" {
+				return false
+			}
+		}
+		return true
+	}
+	for {
+		c.ack()
+		time.Sleep(time.Second * 5)
+
+		triggered, err := check()
+		if err != nil {
+			logError(c.job, fmt.Sprintf("check error: %v", err), c.logger)
+			return
+		}
+		switch c.jobTaskSpec.CheckMode {
+		case "trigger":
+			if triggered {
+				setNoEventAlertStatusUnfinished()
+				c.job.Status = config.StatusFailed
+				return
+			}
+		case "alert":
+			if isAllAlertHasEvent() {
+				c.job.Status = config.StatusFailed
+				return
+			}
+		default:
+			logError(c.job, fmt.Sprintf("invalid check mode: %s", c.jobTaskSpec.CheckMode), c.logger)
+			return
+		}
+		select {
+		case <-ctx.Done():
+			c.job.Status = config.StatusCancelled
+			return
+		case <-timeout:
+			if isNoAlertHasEvent() {
+				c.job.Status = config.StatusPassed
+			} else {
+				c.job.Status = config.StatusFailed
+			}
+			// no event triggered in check time
+			for _, alert := range c.jobTaskSpec.Alerts {
+				if alert.Url == "" {
+					alert.Status = StatusNormal
+				}
+			}
+			return
+		default:
+		}
+	}
 }
 
 func (c *GrafanaJobCtl) SaveInfo(ctx context.Context) error {
