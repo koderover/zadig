@@ -2793,7 +2793,7 @@ paths:
       summary: Upsert Env Sleep Cron
       tags:
       - environment
-  /api/aslan/environment/environments/version/{serviceName}:
+  /api/aslan/environment/environments/{name}/version/{serviceName}:
     get:
       consumes:
       - application/json
@@ -2826,7 +2826,7 @@ paths:
       summary: List Environment Service Versions
       tags:
       - environment
-  /api/aslan/environment/environments/version/{serviceName}/diff:
+  /api/aslan/environment/environments/{name}/version/{serviceName}/diff:
     get:
       consumes:
       - application/json
@@ -2867,7 +2867,7 @@ paths:
       summary: Diff Environment Service Versions
       tags:
       - environment
-  /api/aslan/environment/environments/version/{serviceName}/rollback:
+  /api/aslan/environment/environments/{name}/version/{serviceName}/rollback:
     post:
       consumes:
       - application/json
@@ -2900,7 +2900,7 @@ paths:
           description: OK
       summary: Rollback Environment Service Version
       tags:
-      - service
+      - environment
   /api/aslan/environment/init_info/{name}:
     get:
       consumes:
@@ -3502,30 +3502,7 @@ paths:
       summary: Upsert Production Env Sleep Cron
       tags:
       - environment
-  /api/aslan/environment/production/environments/{name}/workloads:
-    get:
-      consumes:
-      - application/json
-      description: List Workloads In Env
-      parameters:
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/service.ServiceResp'
-            type: array
-      summary: List Workloads In Env
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/version/{serviceName}:
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}:
     get:
       consumes:
       - application/json
@@ -3558,7 +3535,7 @@ paths:
       summary: List Production Environment Service Versions
       tags:
       - environment
-  /api/aslan/environment/production/environments/version/{serviceName}/diff:
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}/diff:
     get:
       consumes:
       - application/json
@@ -3598,8 +3575,8 @@ paths:
             $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
       summary: Diff Production Environment Service Versions
       tags:
-      - service
-  /api/aslan/environment/production/environments/version/{serviceName}/rollback:
+      - environment
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}/rollback:
     post:
       consumes:
       - application/json
@@ -3632,7 +3609,30 @@ paths:
           description: OK
       summary: Rollback Production Environment Service Version
       tags:
-      - service
+      - environment
+  /api/aslan/environment/production/environments/{name}/workloads:
+    get:
+      consumes:
+      - application/json
+      description: List Workloads In Env
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ServiceResp'
+            type: array
+      summary: List Workloads In Env
+      tags:
+      - environment
   /api/aslan/environment/production/rendersets/renderchart:
     post:
       consumes:

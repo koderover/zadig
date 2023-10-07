@@ -52,7 +52,7 @@ func (c *EnvVersionColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "product_name", Value: 1},
 				bson.E{Key: "env_name", Value: 1},
 				bson.E{Key: "production", Value: 1},
-				bson.E{Key: "service", Value: 1},
+				bson.E{Key: "service.service_name", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
 		},
@@ -61,7 +61,7 @@ func (c *EnvVersionColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "product_name", Value: 1},
 				bson.E{Key: "env_name", Value: 1},
 				bson.E{Key: "production", Value: 1},
-				bson.E{Key: "service", Value: 1},
+				bson.E{Key: "service.service_name", Value: 1},
 				bson.E{Key: "revision", Value: 1},
 			},
 			Options: options.Index().SetUnique(true),
@@ -78,15 +78,54 @@ func (c *EnvVersionColl) Find(productName, envName, serviceName string, producti
 	query := bson.M{}
 	query["env_name"] = envName
 	query["product_name"] = productName
-	query["service_name"] = serviceName
+	query["service.service_name"] = serviceName
 	query["production"] = production
 	query["revision"] = revision
 
 	err := c.FindOne(context.TODO(), query).Decode(res)
-	if err != nil && mongo.ErrNoDocuments == err {
-		return nil, nil
-	}
+	// if err != nil && mongo.ErrNoDocuments == err {
+	// 	return nil, nil
+	// }
 	return res, err
+}
+
+func (c *EnvVersionColl) GetCountAndMaxRevision(productName, envName, serviceName string, production bool) (int64, int64, error) {
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"product_name":         productName,
+				"env_name":             envName,
+				"service.service_name": serviceName,
+				"production":           production,
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id":          nil,
+				"count":        bson.M{"$sum": 1},
+				"max_revision": bson.M{"$max": "$revision"},
+			},
+		},
+	}
+
+	var result struct {
+		Count       int64 `bson:"count"`
+		MaxRevision int64 `bson:"max_revision"`
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer cursor.Close(context.TODO())
+
+	if cursor.Next(context.TODO()) {
+		if err := cursor.Decode(&result); err != nil {
+			return 0, 0, err
+		}
+	}
+
+	return result.Count, result.MaxRevision, nil
 }
 
 func (c *EnvVersionColl) ListServiceVersions(productName, envName, serviceName string, production bool) ([]*models.EnvServiceVersion, error) {
@@ -95,7 +134,7 @@ func (c *EnvVersionColl) ListServiceVersions(productName, envName, serviceName s
 
 	query["env_name"] = envName
 	query["product_name"] = productName
-	query["service_name"] = serviceName
+	query["service.service_name"] = serviceName
 	query["production"] = production
 
 	ctx := context.Background()
@@ -113,13 +152,13 @@ func (c *EnvVersionColl) ListServiceVersions(productName, envName, serviceName s
 	return ret, nil
 }
 
-func (c *EnvVersionColl) Delete(productName, envName, serviceName string, production bool, revision int64) error {
+func (c *EnvVersionColl) DeleteRevisions(productName, envName, serviceName string, production bool, revision int64) error {
 	query := bson.M{}
 	query["env_name"] = envName
 	query["product_name"] = productName
-	query["service_name"] = serviceName
+	query["service.service_name"] = serviceName
 	query["production"] = production
-	query["revision"] = revision
+	query["revision"] = bson.M{"$lt": revision}
 
 	_, err := c.DeleteOne(context.TODO(), query)
 
