@@ -16,6 +16,18 @@ func GenerateEnvServiceNextRevision(projectName, envName, serviceName string) (i
 }
 
 func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService, createBy string, log *zap.SugaredLogger) error {
+	count, maxRevision, err := mongodb.NewEnvServiceVersionColl().GetCountAndMaxRevision(env.ProductName, env.EnvName, prodSvc.ServiceName, env.Production)
+	if err != nil {
+		return fmt.Errorf("failed to count service %s/%s/%s version, error: %v", env.ProductName, env.EnvName, prodSvc.ServiceName, err)
+	}
+	if count > 20 {
+		// delete old version
+		err = mongodb.NewEnvServiceVersionColl().DeleteRevisions(env.ProductName, env.EnvName, prodSvc.ServiceName, env.Production, maxRevision-20)
+		if err != nil {
+			log.Errorf("failed to delete service %s/%s/%s version less equal than %d, error: %v", env.ProductName, env.EnvName, prodSvc.ServiceName, maxRevision-20, err)
+		}
+	}
+
 	revision, err := GenerateEnvServiceNextRevision(env.ProductName, env.EnvName, prodSvc.ServiceName)
 	if err != nil {
 		return fmt.Errorf("failed to generate service %s/%s/%s revision, error: %v", env.ProductName, env.EnvName, prodSvc.ServiceName, err)

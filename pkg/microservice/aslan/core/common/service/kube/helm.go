@@ -227,10 +227,10 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templa
 	return mergedValuesYaml, nil
 }
 
+// @todo merge with proceedHelmRelease
 // UpgradeHelmRelease upgrades helm release with some specific images
 func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.ProductService,
 	svcTemp *commonmodels.Service, images []string, timeout int, user string) error {
-
 	chartInfoMap := product.GetChartRenderMap()
 	chartDeployInfoMap := product.GetChartDeployRenderMap()
 

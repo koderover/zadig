@@ -199,165 +199,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/aslan/environment/environments/version/{serviceName}": {
-            "get": {
-                "description": "List Environment Service Versions",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "List Environment Service Versions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/environments/version/{serviceName}/diff": {
-            "get": {
-                "description": "Diff Environment Service Versions",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Diff Environment Service Versions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "version a",
-                        "name": "versionA",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "version b",
-                        "name": "versionB",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/environments/version/{serviceName}/rollback": {
-            "post": {
-                "description": "Rollback Environment Service Version",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service"
-                ],
-                "summary": "Rollback Environment Service Version",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "version",
-                        "name": "version",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
         "/api/aslan/environment/environments/{name}": {
             "delete": {
                 "description": "Delete Product",
@@ -1063,6 +904,165 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}/version/{serviceName}": {
+            "get": {
+                "description": "List Environment Service Versions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "List Environment Service Versions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/{name}/version/{serviceName}/diff": {
+            "get": {
+                "description": "Diff Environment Service Versions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Diff Environment Service Versions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version a",
+                        "name": "versionA",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version b",
+                        "name": "versionB",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/{name}/version/{serviceName}/rollback": {
+            "post": {
+                "description": "Rollback Environment Service Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Rollback Environment Service Version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version",
+                        "name": "version",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/init_info/{name}": {
             "get": {
                 "description": "Get init product",
@@ -1408,165 +1408,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "release names",
                         "name": "releaseNames",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/version/{serviceName}": {
-            "get": {
-                "description": "List Production Environment Service Versions",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "List Production Environment Service Versions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/version/{serviceName}/diff": {
-            "get": {
-                "description": "Diff Production Environment Service Versions",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service"
-                ],
-                "summary": "Diff Production Environment Service Versions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "version a",
-                        "name": "versionA",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "version b",
-                        "name": "versionB",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/version/{serviceName}/rollback": {
-            "post": {
-                "description": "Rollback Production Environment Service Version",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "service"
-                ],
-                "summary": "Rollback Production Environment Service Version",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "service name",
-                        "name": "serviceName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "version",
-                        "name": "version",
                         "in": "query",
                         "required": true
                     }
@@ -2110,6 +1951,165 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/service.EnvSleepCronArg"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/version/{serviceName}": {
+            "get": {
+                "description": "List Production Environment Service Versions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "List Production Environment Service Versions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/version/{serviceName}/diff": {
+            "get": {
+                "description": "Diff Production Environment Service Versions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Diff Production Environment Service Versions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version a",
+                        "name": "versionA",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version b",
+                        "name": "versionB",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/version/{serviceName}/rollback": {
+            "post": {
+                "description": "Rollback Production Environment Service Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Rollback Production Environment Service Version",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "version",
+                        "name": "version",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {

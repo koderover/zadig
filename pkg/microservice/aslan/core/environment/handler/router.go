@@ -211,7 +211,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		production.GET("/environments/:name/version/:serviceName", ListProductionEnvServiceVersions)
 		production.GET("/environments/:name/version/:serviceName/diff", DiffProductionEnvServiceVersions)
-		production.GET("/environments/:name/version/:serviceName/rollback", RollbackProductionEnvServiceVersion)
+		production.POST("/environments/:name/version/:serviceName/rollback", RollbackProductionEnvServiceVersion)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -287,7 +287,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.GET("/:name/version/:serviceName", ListEnvServiceVersions)
 		environments.GET("/:name/version/:serviceName/diff", DiffEnvServiceVersions)
-		environments.GET("/:name/version/:serviceName/rollback", RollbackEnvServiceVersion)
+		environments.POST("/:name/version/:serviceName/rollback", RollbackEnvServiceVersion)
 	}
 
 	// ---------------------------------------------------------------------------------------

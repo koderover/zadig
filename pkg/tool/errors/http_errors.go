@@ -174,6 +174,9 @@ var (
 	ErrCreateProjectGroup = NewHTTPError(6077, "创建项目分组失败")
 	ErrUpdateProjectGroup = NewHTTPError(6077, "更新项目分组失败")
 	ErrDeleteProjectGroup = NewHTTPError(6077, "删除项目分组失败")
+	ErrListEnvServiceVersions = NewHTTPError(6079, "列出环境服务版本失败")
+	ErrDiffEnvServiceVersions = NewHTTPError(6079, "Diff环境服务版本失败")
+	ErrRollbackEnvServiceVersion = NewHTTPError(6079, "回滚环境服务版本失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product Service APIs Range: 6080 - 6099 AND 6150 -6199

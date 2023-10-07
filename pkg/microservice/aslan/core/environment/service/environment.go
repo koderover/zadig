@@ -2776,6 +2776,7 @@ func findRenderChartFromList(svc *commonmodels.ProductService, renderCharts []*t
 	return nil
 }
 
+// @todo merge with UpgradeHelmRelease
 func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.HelmClient, filter svcUpgradeFilter, user string, log *zap.SugaredLogger) error {
 	productName, envName := productResp.ProductName, productResp.EnvName
 	handler := func(param *kube.ReleaseInstallParam, isRetry bool, log *zap.SugaredLogger) (err error) {

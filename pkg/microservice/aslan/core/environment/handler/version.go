@@ -35,7 +35,7 @@ import (
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
 // @Success 200 			{array}  	service.ListEnvServiceVersionsResponse
-// @Router /api/aslan/environment/environments/version/{serviceName} [get]
+// @Router /api/aslan/environment/environments/{name}/version/{serviceName} [get]
 func ListEnvServiceVersions(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -85,7 +85,7 @@ func ListEnvServiceVersions(c *gin.Context) {
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
 // @Success 200 			{array}  	service.ListEnvServiceVersionsResponse
-// @Router /api/aslan/environment/production/environments/version/{serviceName} [get]
+// @Router /api/aslan/environment/production/environments/{name}/version/{serviceName} [get]
 func ListProductionEnvServiceVersions(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -137,7 +137,7 @@ func ListProductionEnvServiceVersions(c *gin.Context) {
 // @Param 	versionA		query		int								true	"version a"
 // @Param 	versionB		query		int								true	"version b"
 // @Success 200 			{object}  	service.ListEnvServiceVersionsResponse
-// @Router /api/aslan/environment/environments/version/{serviceName}/diff [get]
+// @Router /api/aslan/environment/environments/{name}/version/{serviceName}/diff [get]
 func DiffEnvServiceVersions(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -186,12 +186,12 @@ func DiffEnvServiceVersions(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, serviceName, envName, versionA, versionB, false, ctx.Logger)
+	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, versionA, versionB, false, ctx.Logger)
 }
 
 // @Summary Diff Production Environment Service Versions
 // @Description Diff Production Environment Service Versions
-// @Tags 	service
+// @Tags 	environment
 // @Accept 	json
 // @Produce json
 // @Param 	name			path		string							true	"env name"
@@ -200,7 +200,7 @@ func DiffEnvServiceVersions(c *gin.Context) {
 // @Param 	versionA		query		int								true	"version a"
 // @Param 	versionB		query		int								true	"version b"
 // @Success 200 			{object}  	service.ListEnvServiceVersionsResponse
-// @Router /api/aslan/environment/production/environments/version/{serviceName}/diff [get]
+// @Router /api/aslan/environment/production/environments/{name}/version/{serviceName}/diff [get]
 func DiffProductionEnvServiceVersions(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -254,7 +254,7 @@ func DiffProductionEnvServiceVersions(c *gin.Context) {
 
 // @Summary Rollback Environment Service Version
 // @Description Rollback Environment Service Version
-// @Tags 	service
+// @Tags 	environment
 // @Accept 	json
 // @Produce json
 // @Param 	name			path		string							true	"env name"
@@ -262,7 +262,7 @@ func DiffProductionEnvServiceVersions(c *gin.Context) {
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	version	 		query		int								true	"version"
 // @Success 200
-// @Router /api/aslan/environment/environments/version/{serviceName}/rollback [post]
+// @Router /api/aslan/environment/environments/{name}/version/{serviceName}/rollback [post]
 func RollbackEnvServiceVersion(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -311,7 +311,7 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 
 // @Summary Rollback Production Environment Service Version
 // @Description Rollback Production Environment Service Version
-// @Tags 	service
+// @Tags 	environment
 // @Accept 	json
 // @Produce json
 // @Param 	name			path		string							true	"env name"
@@ -319,7 +319,7 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	version	 		query		int								true	"version"
 // @Success 200
-// @Router /api/aslan/environment/production/environments/version/{serviceName}/rollback [post]
+// @Router /api/aslan/environment/production/environments/{name}/version/{serviceName}/rollback [post]
 func RollbackProductionEnvServiceVersion(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

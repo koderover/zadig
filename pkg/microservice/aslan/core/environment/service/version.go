@@ -20,19 +20,19 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 )
 
 type ListEnvServiceVersionsResponse struct {
@@ -46,7 +46,7 @@ func ListEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 	resp := []ListEnvServiceVersionsResponse{}
 	revisions, err := mongodb.NewEnvServiceVersionColl().ListServiceVersions(projectName, envName, serviceName, isProduction)
 	if err != nil {
-		return nil, e.ErrListServiceTemplateVersions.AddErr(fmt.Errorf("failed to list service revisions, error: %v", err))
+		return nil, e.ErrListEnvServiceVersions.AddErr(fmt.Errorf("failed to list service revisions, error: %v", err))
 	}
 
 	for _, revision := range revisions {
@@ -73,49 +73,52 @@ func DiffEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 
 	revisionA, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, versionA)
 	if err != nil {
-		return resp, e.ErrDiffServiceTemplateVersions.AddErr(fmt.Errorf("failed to find %s/%s service for version A %d, isProduction %v, error: %v", projectName, serviceName, versionA, isProduction, err))
+		return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to find %s/%s/%s service for version A %d, isProduction %v, error: %v", projectName, envName, serviceName, versionA, isProduction, err))
 	}
 	resp.Type = revisionA.Service.Type
 	if revisionA.Service.Type == setting.K8SDeployType {
 		fakeEnv := &commonmodels.Product{
 			ProductName: revisionA.ProductName,
 			EnvName:     revisionA.EnvName,
-			Namespace:   revisionA.EnvName,
+			Namespace:   revisionA.Namespace,
 			Production:  revisionA.Production,
 		}
 		parsedYaml, err := kube.RenderEnvService(fakeEnv, revisionA.Service.GetServiceRender(), revisionA.Service)
 		if err != nil {
 			err = fmt.Errorf("Failed to render env Service %s, error: %v", revisionA.Service.ServiceName, err)
-			return resp, err
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(err)
 		}
 		resp.YamlA = parsedYaml
 		resp.VariableYamlA = revisionA.Service.VariableYaml
 	} else if revisionA.Service.Type == setting.HelmDeployType {
-		resp.VariableYamlB, err = GetHelmMergedValues(revisionA)
+		resp.VariableYamlA, err = commonutil.GeneHelmMergedValues(revisionA.Service, revisionA.DefaultValues, revisionA.Service.GetServiceRender())
+		if err != nil {
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to get helm merged values for %s/%s/%s service for version A %d, isProduction %v, error: %v", projectName, envName, serviceName, versionA, isProduction, err))
+		}
 	}
 
 	revisionB, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, versionB)
 	if err != nil {
-		return resp, e.ErrDiffServiceTemplateVersions.AddErr(fmt.Errorf("failed to find %s/%s service for version B %d, isProduction %v, error: %v", projectName, serviceName, versionA, isProduction, err))
+		return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to find %s/%s/%s service for version B %d, isProduction %v, error: %v", projectName, envName, serviceName, versionA, isProduction, err))
 	}
 	if revisionB.Service.Type == setting.K8SDeployType {
 		fakeEnv := &commonmodels.Product{
 			ProductName: revisionB.ProductName,
 			EnvName:     revisionB.EnvName,
-			Namespace:   revisionB.EnvName,
+			Namespace:   revisionB.Namespace,
 			Production:  revisionB.Production,
 		}
 		parsedYaml, err := kube.RenderEnvService(fakeEnv, revisionB.Service.GetServiceRender(), revisionB.Service)
 		if err != nil {
 			err = fmt.Errorf("Failed to render env Service %s, error: %v", revisionB.Service.ServiceName, err)
-			return resp, err
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(err)
 		}
 		resp.YamlB = parsedYaml
 		resp.VariableYamlB = revisionB.Service.VariableYaml
 	} else if revisionB.Service.Type == setting.HelmDeployType {
-		resp.VariableYamlB, err = GetHelmMergedValues(revisionB)
+		resp.VariableYamlB, err = commonutil.GeneHelmMergedValues(revisionB.Service, revisionB.DefaultValues, revisionB.Service.GetServiceRender())
 		if err != nil {
-			return resp, e.ErrDiffServiceTemplateVersions.AddErr(fmt.Errorf("failed to get helm merged values for %s/%s/%s service for version B %d, isProduction %v, error: %v", projectName, envName, serviceName, versionA, isProduction, err))
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to get helm merged values for %s/%s/%s service for version B %d, isProduction %v, error: %v", projectName, envName, serviceName, versionA, isProduction, err))
 		}
 	}
 
@@ -123,70 +126,98 @@ func DiffEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 }
 
 func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, version int64, isProduction bool, log *zap.SugaredLogger) error {
-	var (
-		service *models.Service
-		err     error
-	)
-	if isProduction {
-		service, err = mongodb.NewProductionServiceColl().Find(&mongodb.ServiceFindOption{
-			ProductName: projectName,
-			ServiceName: serviceName,
-			Revision:    version,
-		})
-	} else {
-		service, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
-			ProductName: projectName,
-			ServiceName: serviceName,
-			Revision:    version,
-		})
-	}
+	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, version)
 	if err != nil {
-		return fmt.Errorf("failed to find %s/%s service for version A %d, error: %v", projectName, serviceName, version, err)
+		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, version, isProduction, err))
 	}
 
-	rev, err := commonutil.GenerateServiceNextRevision(isProduction, serviceName, projectName)
+	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
+		Name:       projectName,
+		EnvName:    envName,
+		Production: &isProduction,
+	})
 	if err != nil {
-		return e.ErrRollbackServiceTemplateVersion.AddErr(fmt.Errorf("failed to generate service %s/%s revision, isProduction: %v, error: %v", projectName, serviceName, isProduction, err))
+		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find %s/%s env, isProduction %v, error: %v", projectName, envName, isProduction, err))
 	}
 
-	// helm rollback chart
-	if service.Type == setting.HelmDeployType {
-		localBase := config.LocalServicePathWithRevision(service.ProductName, service.ServiceName, fmt.Sprint(service.Revision), isProduction)
-		s3Base := config.ObjectStorageServicePath(service.ProductName, service.ServiceName, isProduction)
-		serviceNameWithRevision := config.ServiceNameWithRevision(service.ServiceName, service.Revision)
-
-		// download from s3
-		err = fsservice.DownloadAndExtractFilesFromS3(serviceNameWithRevision, localBase, s3Base, log)
+	if envSvcVersion.Service.Type == setting.K8SDeployType {
+		kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
 		if err != nil {
-			return e.ErrRollbackServiceTemplateVersion.AddErr(fmt.Errorf("failed to download and extract %s files from s3, error: %v", serviceNameWithRevision, err))
+			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
 
-		// upload it as new version
-		if err = commonservice.CopyAndUploadService(projectName, serviceName, localBase+"/"+serviceName, []string{fmt.Sprintf("%s-%d", serviceName, rev)}, isProduction); err != nil {
-			return e.ErrRollbackServiceTemplateVersion.AddErr(fmt.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName, projectName, err))
+		restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), env.ClusterID)
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
-	}
 
-	if service.Type == setting.HelmDeployType {
-		err = mongodb.NewServiceColl().UpdateStatus(service.ServiceName, service.ProductName, setting.ProductStatusDeleting)
-		log.Errorf("failed to update service %s/%s status to deleting, error: %v", service.ProductName, service.ServiceName, err)
-	}
+		istioClient, err := versionedclient.NewForConfig(restConfig)
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(err)
+		}
 
-	err = mongodb.NewServiceColl().Delete(service.ServiceName, service.Type, service.ProductName, setting.ProductStatusDeleting, rev)
-	if err != nil {
-		log.Errorf("failed to delete service %s/%s/%d, error: %v", service.ProductName, service.ServiceName, service.Revision, err)
-	}
+		cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
+		if err != nil {
+			log.Errorf("[%s][%s] error: %v", envName, env.Namespace, err)
+			return e.ErrRollbackEnvServiceVersion.AddDesc(err.Error())
 
-	service.Revision = rev
-	service.CreateBy = ctx.UserName
-	service.Status = ""
-	if isProduction {
-		err = commonrepo.NewProductionServiceColl().Create(service)
-	} else {
-		err = commonrepo.NewServiceColl().Create(service)
-	}
-	if err != nil {
-		return e.ErrRollbackServiceTemplateVersion.AddErr(fmt.Errorf("failed to create service %s/%s/%d, isProduction %v, error: %v", service.ProductName, service.ServiceName, service.Revision, isProduction, err))
+		}
+		informer, err := informer.NewInformer(env.ClusterID, env.Namespace, cls)
+		if err != nil {
+			log.Errorf("[%s][%s] error: %v", envName, env.Namespace, err)
+			return e.ErrRollbackEnvServiceVersion.AddDesc(err.Error())
+		}
+
+		fakeEnv := &commonmodels.Product{
+			ProductName: envSvcVersion.ProductName,
+			EnvName:     envSvcVersion.EnvName,
+			Namespace:   envSvcVersion.Namespace,
+			Production:  envSvcVersion.Production,
+		}
+		parsedYaml, err := kube.RenderEnvService(fakeEnv, envSvcVersion.Service.GetServiceRender(), envSvcVersion.Service)
+		if err != nil {
+			err = fmt.Errorf("Failed to render env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err)
+			return e.ErrRollbackEnvServiceVersion.AddErr(err)
+		}
+
+		preProdSvc := env.GetServiceMap()[envSvcVersion.Service.ServiceName]
+		if preProdSvc == nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service %s in env %s", envSvcVersion.Service.ServiceName, envSvcVersion.EnvName))
+		}
+		preResourceYaml, err := kube.RenderEnvService(env, preProdSvc.GetServiceRender(), preProdSvc)
+		if err != nil {
+			err = fmt.Errorf("Failed to render env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err)
+			return e.ErrRollbackEnvServiceVersion.AddErr(err)
+		}
+
+		resourceApplyParam := &kube.ResourceApplyParam{
+			ProductInfo:         env,
+			ServiceName:         envSvcVersion.Service.ServiceName,
+			CurrentResourceYaml: preResourceYaml,
+			UpdateResourceYaml:  parsedYaml,
+			Informer:            informer,
+			KubeClient:          kubeClient,
+			IstioClient:         istioClient,
+			InjectSecrets:       true,
+			Uninstall:           false,
+			AddZadigLabel:       !isProduction,
+			SharedEnvHandler:    EnsureUpdateZadigService,
+		}
+
+		_, err = kube.CreateOrPatchResource(resourceApplyParam, log)
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to create or patch resource for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
+		}
+
+		err = commonutil.CreateEnvServiceVersion(env, envSvcVersion.Service, ctx.UserName, log)
+		if err != nil {
+			log.Errorf("failed to create env service version for service %s/%s, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, err)
+		}
+	} else if envSvcVersion.Service.Type == setting.HelmDeployType || envSvcVersion.Service.Type == setting.HelmChartDeployType {
+		err = kube.UpgradeHelmRelease(env, envSvcVersion.Service, nil, nil, 0, ctx.UserName)
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to upgrade helm release for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
+		}
 	}
 
 	return nil
