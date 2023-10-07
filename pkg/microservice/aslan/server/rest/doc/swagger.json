@@ -206,6 +206,13 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "service name",
                         "name": "serviceName",
                         "in": "path",
@@ -246,6 +253,13 @@
                 ],
                 "summary": "Diff Environment Service Versions",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "service name",
@@ -299,6 +313,13 @@
                 ],
                 "summary": "Rollback Environment Service Version",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "service name",
@@ -1405,6 +1426,13 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "service name",
                         "name": "serviceName",
                         "in": "path",
@@ -1445,6 +1473,13 @@
                 ],
                 "summary": "Diff Production Environment Service Versions",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "service name",
@@ -1498,6 +1533,13 @@
                 ],
                 "summary": "Rollback Production Environment Service Version",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "service name",
@@ -4957,6 +4999,9 @@
             "type": "object",
             "properties": {
                 "image": {
+                    "type": "string"
+                },
+                "namespace": {
                     "type": "string"
                 },
                 "repo": {
