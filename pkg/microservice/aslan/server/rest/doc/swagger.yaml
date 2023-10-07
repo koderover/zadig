@@ -500,6 +500,8 @@ definitions:
     properties:
       image:
         type: string
+      namespace:
+        type: string
       repo:
         type: string
       tag:
@@ -2797,6 +2799,11 @@ paths:
       - application/json
       description: List Environment Service Versions
       parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
       - description: service name
         in: path
         name: serviceName
@@ -2825,6 +2832,11 @@ paths:
       - application/json
       description: Diff Environment Service Versions
       parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
       - description: service name
         in: path
         name: serviceName
@@ -2861,6 +2873,11 @@ paths:
       - application/json
       description: Rollback Environment Service Version
       parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
       - description: service name
         in: path
         name: serviceName
@@ -3514,6 +3531,11 @@ paths:
       - application/json
       description: List Production Environment Service Versions
       parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
       - description: service name
         in: path
         name: serviceName
@@ -3542,6 +3564,11 @@ paths:
       - application/json
       description: Diff Production Environment Service Versions
       parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
       - description: service name
         in: path
         name: serviceName
@@ -3578,6 +3605,11 @@ paths:
       - application/json
       description: Rollback Production Environment Service Version
       parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
       - description: service name
         in: path
         name: serviceName

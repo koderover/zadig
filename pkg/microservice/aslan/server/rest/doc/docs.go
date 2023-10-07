@@ -215,6 +215,13 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "service name",
                         "name": "serviceName",
                         "in": "path",
@@ -255,6 +262,13 @@ const docTemplate = `{
                 ],
                 "summary": "Diff Environment Service Versions",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "service name",
@@ -308,6 +322,13 @@ const docTemplate = `{
                 ],
                 "summary": "Rollback Environment Service Version",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "service name",
@@ -1414,6 +1435,13 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "service name",
                         "name": "serviceName",
                         "in": "path",
@@ -1454,6 +1482,13 @@ const docTemplate = `{
                 ],
                 "summary": "Diff Production Environment Service Versions",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "service name",
@@ -1507,6 +1542,13 @@ const docTemplate = `{
                 ],
                 "summary": "Rollback Production Environment Service Version",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "string",
                         "description": "service name",
@@ -4688,6 +4730,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "image": {
+                    "type": "string"
+                },
+                "namespace": {
                     "type": "string"
                 },
                 "repo": {

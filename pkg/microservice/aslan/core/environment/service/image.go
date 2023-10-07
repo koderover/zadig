@@ -28,6 +28,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -71,7 +72,7 @@ func updateContainerForHelmChart(serviceName, image, containerName string, produ
 	return nil
 }
 
-func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log *zap.SugaredLogger) error {
+func UpdateContainerImage(requestID, username string, args *UpdateContainerImageArgs, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: args.EnvName, Name: args.ProductName})
 	if err != nil {
 		return e.ErrUpdateConainterImage.AddErr(err)
@@ -144,22 +145,27 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 		default:
 			return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("不支持的资源类型: %s", args.Type))
 		}
+
 		// update image info in product.services.container
-		for _, service := range product.GetServiceMap() {
-			if service.ServiceName != args.ServiceName {
-				continue
-			}
-			for _, container := range service.Containers {
-				if container.Name == args.ContainerName {
-					container.Image = args.Image
-					break
-				}
-			}
-			break
+		prodSvc := product.GetServiceMap()[args.ServiceName]
+		if prodSvc == nil {
+			return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("服务 %s 不存在", args.ServiceName))
 		}
+		for _, container := range prodSvc.Containers {
+			if container.Name == args.ContainerName {
+				container.Image = args.Image
+				break
+			}
+		}
+
 		if err := commonrepo.NewProductColl().Update(product); err != nil {
 			log.Errorf("[%s] update product %s error: %s", namespace, args.ProductName, err.Error())
 			return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
+		}
+
+		err = commonutil.CreateEnvServiceVersion(product, prodSvc, username, log)
+		if err != nil {
+			log.Errorf("create env service version for %s/%s error: %v", product.EnvName, prodSvc.ServiceName, err)
 		}
 	}
 	return nil

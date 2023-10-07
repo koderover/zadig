@@ -244,6 +244,10 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateProduct
 	}
 
+	if err := commonutil.CreateEnvServiceVersion(exitedProd, newProductSvc, args.UpdateBy, k.log); err != nil {
+		k.log.Errorf("[%s][%s] Product.CreateEnvServiceVersion for service %s error: %v", args.EnvName, args.ProductName, args.ServiceName, err)
+	}
+
 	return nil
 }
 
