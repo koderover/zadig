@@ -1013,6 +1013,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}/version/{serviceName}/revision/{revision}": {
+            "get": {
+                "description": "Get Environment Service Version Yaml",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Environment Service Version Yaml",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "revision",
+                        "name": "revision",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GetEnvServiceVersionYamlResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments/{name}/version/{serviceName}/rollback": {
             "post": {
                 "description": "Rollback Environment Service Version",
@@ -2064,6 +2120,62 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/version/{serviceName}/revision/{revision}": {
+            "get": {
+                "description": "Get Production Environment Service Version Yaml",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Production Environment Service Version Yaml",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "revision",
+                        "name": "revision",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GetEnvServiceVersionYamlResponse"
+                            }
                         }
                     }
                 }
@@ -6321,38 +6433,17 @@ const docTemplate = `{
                 }
             }
         },
-        "service.GetBizDirServiceDetailResponse": {
+        "service.GetEnvServiceVersionYamlResponse": {
             "type": "object",
             "properties": {
-                "chart_version": {
-                    "type": "string"
-                },
-                "env_name": {
-                    "type": "string"
-                },
-                "images": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                },
-                "production": {
-                    "type": "boolean"
-                },
-                "project_name": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                },
                 "type": {
                     "type": "string"
                 },
-                "update_time": {
-                    "type": "integer"
+                "variable_yaml": {
+                    "type": "string"
+                },
+                "yaml": {
+                    "type": "string"
                 }
             }
         },

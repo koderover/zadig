@@ -126,6 +126,120 @@ func ListProductionEnvServiceVersions(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListEnvServiceVersions(ctx, projectKey, envName, serviceName, true, ctx.Logger)
 }
 
+// @Summary Get Environment Service Version Yaml
+// @Description Get Environment Service Version Yaml
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name			path		string							true	"env name"
+// @Param 	serviceName		path		string							true	"service name"
+// @Param 	revision		path		string							true	"revision"
+// @Param 	projectName		query		string							true	"project name"
+// @Success 200 			{array}  	service.GetEnvServiceVersionYamlResponse
+// @Router /api/aslan/environment/environments/{name}/version/{serviceName}/revision/{revision} [get]
+func GetEnvServiceVersionYaml(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
+
+	serviceName := c.Param("serviceName")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		return
+	}
+
+	revision, err := strconv.ParseInt(c.Param("revision"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvServiceVersionYaml(ctx, projectKey, envName, serviceName, revision, false, ctx.Logger)
+}
+
+// @Summary Get Production Environment Service Version Yaml
+// @Description Get Production Environment Service Version Yaml
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	name			path		string							true	"env name"
+// @Param 	serviceName		path		string							true	"service name"
+// @Param 	revision		path		string							true	"revision"
+// @Param 	projectName		query		string							true	"project name"
+// @Success 200 			{array}  	service.GetEnvServiceVersionYamlResponse
+// @Router /api/aslan/environment/production/environments/{name}/version/{serviceName}/revision/{revision} [get]
+func GetProductionEnvServiceVersionYaml(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	envName := c.Param("name")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty name")
+		return
+	}
+
+	serviceName := c.Param("serviceName")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		return
+	}
+
+	revision, err := strconv.ParseInt(c.Param("revision"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvServiceVersionYaml(ctx, projectKey, envName, serviceName, revision, true, ctx.Logger)
+}
+
 // @Summary Diff Environment Service Versions
 // @Description Diff Environment Service Versions
 // @Tags 	environment
