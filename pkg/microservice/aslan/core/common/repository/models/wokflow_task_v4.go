@@ -497,8 +497,7 @@ type JobTaskOfflineServiceEvent struct {
 }
 
 type JobTaskGrafanaSpec struct {
-	ID   string `bson:"id" json:"id" yaml:"id"`
-	Name string `bson:"name" json:"name" yaml:"name"`
+	ID string `bson:"id" json:"id" yaml:"id"`
 	// CheckTime minute
 	CheckTime int64           `bson:"check_time" json:"check_time" yaml:"check_time"`
 	CheckMode string          `bson:"check_mode" json:"check_mode" yaml:"check_mode"`
