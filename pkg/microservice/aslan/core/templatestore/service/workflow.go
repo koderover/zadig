@@ -209,6 +209,17 @@ func InitWorkflowTemplate() {
 			logger.Errorf("update build-in workflow template error: %v", err)
 		}
 	}
+	for _, name := range DeprecatedWorkflowTemplateName() {
+		if err := commonrepo.NewWorkflowV4TemplateColl().DeleteInternalByName(name); err != nil {
+			logger.Errorf("delete deprecated workflow template error: %v", err)
+		}
+	}
+}
+
+func DeprecatedWorkflowTemplateName() []string {
+	return []string{
+		"MySQL 数据库及业务变更",
+	}
 }
 
 func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
@@ -1209,15 +1220,15 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 
 		// data update
 		{
-			TemplateName: "MySQL 数据库及业务变更",
+			TemplateName: "SQL 数据及业务变更",
 			Description:  "支持自动化执行 SQL 数据变更以及多服务并行构建、部署过程",
 			BuildIn:      true,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name: "MySQL 变更",
+					Name: "SQL 数据变更",
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "mysql-update",
+							Name:    "sql-update",
 							JobType: config.JobSQL,
 							Spec:    commonmodels.SQLJobSpec{},
 						},
