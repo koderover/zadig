@@ -23,7 +23,6 @@ import (
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
@@ -60,6 +59,44 @@ func ListEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 	return resp, nil
 }
 
+type GetEnvServiceVersionYamlResponse struct {
+	Type         string `json:"type"`
+	Yaml         string `json:"yaml"`
+	VariableYaml string `json:"variable_yaml"`
+}
+
+func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName, serviceName string, version int64, isProduction bool, log *zap.SugaredLogger) (GetEnvServiceVersionYamlResponse, error) {
+	resp := GetEnvServiceVersionYamlResponse{}
+
+	revision, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, version)
+	if err != nil {
+		return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to find %s/%s/%s service for version A %d, isProduction %v, error: %v", projectName, envName, serviceName, version, isProduction, err))
+	}
+	resp.Type = revision.Service.Type
+	if revision.Service.Type == setting.K8SDeployType {
+		fakeEnv := &commonmodels.Product{
+			ProductName: revision.ProductName,
+			EnvName:     revision.EnvName,
+			Namespace:   revision.Namespace,
+			Production:  revision.Production,
+		}
+		parsedYaml, err := kube.RenderEnvService(fakeEnv, revision.Service.GetServiceRender(), revision.Service)
+		if err != nil {
+			err = fmt.Errorf("Failed to render env Service %s, error: %v", revision.Service.ServiceName, err)
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(err)
+		}
+		resp.Yaml = parsedYaml
+		resp.VariableYaml = revision.Service.VariableYaml
+	} else if revision.Service.Type == setting.HelmDeployType {
+		resp.VariableYaml, err = commonutil.GeneHelmMergedValues(revision.Service, revision.DefaultValues, revision.Service.GetServiceRender())
+		if err != nil {
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to get helm merged values for %s/%s/%s service for version A %d, isProduction %v, error: %v", projectName, envName, serviceName, version, isProduction, err))
+		}
+	}
+
+	return resp, nil
+}
+
 type DiffEnvServiceVersionsResponse struct {
 	Type          string `json:"type"`
 	YamlA         string `json:"yaml_a"`
@@ -71,56 +108,20 @@ type DiffEnvServiceVersionsResponse struct {
 func DiffEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, serviceName string, versionA, versionB int64, isProduction bool, log *zap.SugaredLogger) (DiffEnvServiceVersionsResponse, error) {
 	resp := DiffEnvServiceVersionsResponse{}
 
-	revisionA, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, versionA)
+	respA, err := GetEnvServiceVersionYaml(ctx, projectName, envName, serviceName, versionA, isProduction, log)
 	if err != nil {
-		return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to find %s/%s/%s service for version A %d, isProduction %v, error: %v", projectName, envName, serviceName, versionA, isProduction, err))
+		return resp, err
 	}
-	resp.Type = revisionA.Service.Type
-	if revisionA.Service.Type == setting.K8SDeployType {
-		fakeEnv := &commonmodels.Product{
-			ProductName: revisionA.ProductName,
-			EnvName:     revisionA.EnvName,
-			Namespace:   revisionA.Namespace,
-			Production:  revisionA.Production,
-		}
-		parsedYaml, err := kube.RenderEnvService(fakeEnv, revisionA.Service.GetServiceRender(), revisionA.Service)
-		if err != nil {
-			err = fmt.Errorf("Failed to render env Service %s, error: %v", revisionA.Service.ServiceName, err)
-			return resp, e.ErrDiffEnvServiceVersions.AddErr(err)
-		}
-		resp.YamlA = parsedYaml
-		resp.VariableYamlA = revisionA.Service.VariableYaml
-	} else if revisionA.Service.Type == setting.HelmDeployType {
-		resp.VariableYamlA, err = commonutil.GeneHelmMergedValues(revisionA.Service, revisionA.DefaultValues, revisionA.Service.GetServiceRender())
-		if err != nil {
-			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to get helm merged values for %s/%s/%s service for version A %d, isProduction %v, error: %v", projectName, envName, serviceName, versionA, isProduction, err))
-		}
-	}
+	resp.Type = respA.Type
+	resp.YamlA = respA.Yaml
+	resp.VariableYamlA = respA.VariableYaml
 
-	revisionB, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, versionB)
+	respB, err := GetEnvServiceVersionYaml(ctx, projectName, envName, serviceName, versionB, isProduction, log)
 	if err != nil {
-		return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to find %s/%s/%s service for version B %d, isProduction %v, error: %v", projectName, envName, serviceName, versionA, isProduction, err))
+		return resp, err
 	}
-	if revisionB.Service.Type == setting.K8SDeployType {
-		fakeEnv := &commonmodels.Product{
-			ProductName: revisionB.ProductName,
-			EnvName:     revisionB.EnvName,
-			Namespace:   revisionB.Namespace,
-			Production:  revisionB.Production,
-		}
-		parsedYaml, err := kube.RenderEnvService(fakeEnv, revisionB.Service.GetServiceRender(), revisionB.Service)
-		if err != nil {
-			err = fmt.Errorf("Failed to render env Service %s, error: %v", revisionB.Service.ServiceName, err)
-			return resp, e.ErrDiffEnvServiceVersions.AddErr(err)
-		}
-		resp.YamlB = parsedYaml
-		resp.VariableYamlB = revisionB.Service.VariableYaml
-	} else if revisionB.Service.Type == setting.HelmDeployType {
-		resp.VariableYamlB, err = commonutil.GeneHelmMergedValues(revisionB.Service, revisionB.DefaultValues, revisionB.Service.GetServiceRender())
-		if err != nil {
-			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to get helm merged values for %s/%s/%s service for version B %d, isProduction %v, error: %v", projectName, envName, serviceName, versionA, isProduction, err))
-		}
-	}
+	resp.YamlB = respB.Yaml
+	resp.VariableYamlB = respB.VariableYaml
 
 	return resp, nil
 }
@@ -221,8 +222,4 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 	}
 
 	return nil
-}
-
-func GetHelmMergedValues(envSvcVersion *models.EnvServiceVersion) (string, error) {
-	return commonutil.GeneHelmMergedValues(envSvcVersion.Service, envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender())
 }

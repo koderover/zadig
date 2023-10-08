@@ -1309,6 +1309,15 @@ definitions:
       overrideYaml:
         type: string
     type: object
+  service.GetEnvServiceVersionYamlResponse:
+    properties:
+      type:
+        type: string
+      variable_yaml:
+        type: string
+      yaml:
+        type: string
+    type: object
   service.GetGlobalVariableCandidatesRespone:
     properties:
       key_name:
@@ -2867,6 +2876,44 @@ paths:
       summary: Diff Environment Service Versions
       tags:
       - environment
+  /api/aslan/environment/environments/{name}/version/{serviceName}/revision/{revision}:
+    get:
+      consumes:
+      - application/json
+      description: Get Environment Service Version Yaml
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GetEnvServiceVersionYamlResponse'
+            type: array
+      summary: Get Environment Service Version Yaml
+      tags:
+      - environment
   /api/aslan/environment/environments/{name}/version/{serviceName}/rollback:
     post:
       consumes:
@@ -3574,6 +3621,44 @@ paths:
           schema:
             $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
       summary: Diff Production Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}/revision/{revision}:
+    get:
+      consumes:
+      - application/json
+      description: Get Production Environment Service Version Yaml
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GetEnvServiceVersionYamlResponse'
+            type: array
+      summary: Get Production Environment Service Version Yaml
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/version/{serviceName}/rollback:

@@ -1013,6 +1013,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}/version/{serviceName}/revision/{revision}": {
+            "get": {
+                "description": "Get Environment Service Version Yaml",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Environment Service Version Yaml",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "revision",
+                        "name": "revision",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GetEnvServiceVersionYamlResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments/{name}/version/{serviceName}/rollback": {
             "post": {
                 "description": "Rollback Environment Service Version",
@@ -2064,6 +2120,62 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/service.ListEnvServiceVersionsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/version/{serviceName}/revision/{revision}": {
+            "get": {
+                "description": "Get Production Environment Service Version Yaml",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Production Environment Service Version Yaml",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "revision",
+                        "name": "revision",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GetEnvServiceVersionYamlResponse"
+                            }
                         }
                     }
                 }
@@ -5908,6 +6020,20 @@ const docTemplate = `{
                     }
                 },
                 "overrideYaml": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.GetEnvServiceVersionYamlResponse": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string"
+                },
+                "variable_yaml": {
+                    "type": "string"
+                },
+                "yaml": {
                     "type": "string"
                 }
             }
