@@ -215,7 +215,17 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			log.Errorf("failed to create env service version for service %s/%s, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, err)
 		}
 	} else if envSvcVersion.Service.Type == setting.HelmDeployType || envSvcVersion.Service.Type == setting.HelmChartDeployType {
-		err = kube.UpgradeHelmRelease(env, envSvcVersion.Service, nil, nil, 0, ctx.UserName)
+		svcTmpl, err := mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
+			ProductName: envSvcVersion.ProductName,
+			ServiceName: envSvcVersion.Service.ServiceName,
+			Type:        envSvcVersion.Service.Type,
+			Revision:    envSvcVersion.Service.Revision,
+		})
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service temlate %s/%s/%d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
+		}
+
+		err = kube.UpgradeHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, 0, ctx.UserName)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to upgrade helm release for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
 		}
