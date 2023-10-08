@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/pkg/errors"
@@ -28,7 +29,6 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/grafana"
-	"github.com/koderover/zadig/pkg/tool/guanceyun"
 )
 
 type GrafanaJobCtl struct {
@@ -65,22 +65,16 @@ func (c *GrafanaJobCtl) Run(ctx context.Context) {
 		logError(c.job, fmt.Sprintf("get observability info error: %v", err), c.logger)
 		return
 	}
-	link := func(checker string) string {
-		//return info.ConsoleHost + "/keyevents/monitorChart?leftActiveKey=Events&activeName=Events&query=df_monitor_checker_name" + url.QueryEscape(`:"`+checker+`"`)
-		return ""
+	link := func(alert string) string {
+		return info.Host + "/alerting/list?search=" + url.QueryEscape(alert)
 	}
 
 	client := grafana.NewClient(info.Host, info.GrafanaToken)
 	timeout := time.After(time.Duration(c.jobTaskSpec.CheckTime) * time.Minute)
 
-	checkArgs := make([]*guanceyun.SearchEventByMonitorArg, 0)
-	checkMap := make(map[string]*commonmodels.GrafanaAlert)
+	alertMap := make(map[string]*commonmodels.GrafanaAlert)
 	for _, alert := range c.jobTaskSpec.Alerts {
-		checkArgs = append(checkArgs, &guanceyun.SearchEventByMonitorArg{
-			CheckerName: alert.Name,
-			CheckerID:   alert.ID,
-		})
-		checkMap[alert.ID] = alert
+		alertMap[alert.ID] = alert
 		alert.Status = StatusChecking
 	}
 	c.ack()
@@ -96,12 +90,11 @@ func (c *GrafanaJobCtl) Run(ctx context.Context) {
 			if eventResp.Labels.AlertRuleUID == "" {
 				return false, errors.New("alert uid not found")
 			}
-			if checker, ok := checkMap[eventResp.Labels.AlertRuleUID]; ok {
-				// checker has been triggered if url not empty, ignore it
-				if checker.Url == "" {
-					checker.Status = StatusAbnormal
-					// todo: add link
-					checker.Url = link("")
+			if alert, ok := alertMap[eventResp.Labels.AlertRuleUID]; ok {
+				// alert has been triggered if url not empty, ignore it
+				if alert.Url == "" {
+					alert.Status = StatusAbnormal
+					alert.Url = link(alert.Name)
 					triggered = true
 				}
 			}
