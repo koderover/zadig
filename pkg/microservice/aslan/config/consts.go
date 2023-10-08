@@ -221,6 +221,7 @@ const (
 	JobJira                 JobType = "jira"
 	JobNacos                JobType = "nacos"
 	JobApollo               JobType = "apollo"
+	JobSQL                  JobType = "sql"
 	JobJenkins              JobType = "jenkins"
 	JobMeegoTransition      JobType = "meego-transition"
 	JobWorkflowTrigger      JobType = "workflow-trigger"
@@ -234,6 +235,13 @@ const (
 	ZadigIstioCopySuffix     = "zadig-copy"
 	ZadigLastAppliedImage    = "last-applied-image"
 	ZadigLastAppliedReplicas = "last-applied-replicas"
+)
+
+type DBInstanceType string
+
+const (
+	DBInstanceTypeMySQL   DBInstanceType = "mysql"
+	DBInstanceTypeMariaDB DBInstanceType = "mariadb"
 )
 
 type ApprovalType string

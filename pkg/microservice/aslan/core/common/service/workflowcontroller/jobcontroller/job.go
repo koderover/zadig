@@ -97,6 +97,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewGuanceyunCheckJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobJenkins):
 		jobCtl = NewJenkinsJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobSQL):
+		jobCtl = NewSQLJobCtl(job, workflowCtx, ack, logger)
 	default:
 		jobCtl = NewFreestyleJobCtl(job, workflowCtx, ack, logger)
 	}

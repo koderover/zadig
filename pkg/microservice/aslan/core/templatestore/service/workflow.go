@@ -209,6 +209,17 @@ func InitWorkflowTemplate() {
 			logger.Errorf("update build-in workflow template error: %v", err)
 		}
 	}
+	for _, name := range DeprecatedWorkflowTemplateName() {
+		if err := commonrepo.NewWorkflowV4TemplateColl().DeleteInternalByName(name); err != nil {
+			logger.Errorf("delete deprecated workflow template error: %v", err)
+		}
+	}
+}
+
+func DeprecatedWorkflowTemplateName() []string {
+	return []string{
+		"MySQL 数据库及业务变更",
+	}
 }
 
 func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
@@ -1209,78 +1220,17 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 
 		// data update
 		{
-			TemplateName: "MySQL 数据库及业务变更",
-			Description:  "支持自动化执行 MySQL 数据变更以及多服务并行构建、部署过程",
+			TemplateName: "SQL 数据及业务变更",
+			Description:  "支持自动化执行 SQL 数据变更以及多服务并行构建、部署过程",
 			BuildIn:      true,
 			Stages: []*commonmodels.WorkflowStage{
 				{
-					Name: "MySQL 变更",
+					Name: "SQL 数据变更",
 					Jobs: []*commonmodels.Job{
 						{
-							Name:    "mysql-update",
-							JobType: config.JobPlugin,
-							Spec: commonmodels.PluginJobSpec{
-								Properties: &commonmodels.JobProperties{
-									Timeout:         10,
-									ResourceRequest: setting.MinRequest,
-								},
-								Plugin: &commonmodels.PluginTemplate{
-									Name:        "MySQL 数据库变更",
-									IsOffical:   true,
-									Description: "针对 MySQL 数据库执行 SQL 变量",
-									Version:     "v0.0.1",
-									Image:       "koderover.tencentcloudcr.com/koderover-public/mysql-runner:v0.0.1",
-									Envs: []*commonmodels.Env{
-										{
-											Name:  "MYSQL_HOST",
-											Value: "$(inputs.mysql_host)",
-										},
-										{
-											Name:  "MYSQL_PORT",
-											Value: "$(inputs.mysql_port)",
-										},
-										{
-											Name:  "USERNAME",
-											Value: "$(inputs.username)",
-										},
-										{
-											Name:  "PASSWORD",
-											Value: "$(inputs.password)",
-										},
-										{
-											Name:  "QUERY",
-											Value: "$(inputs.query)",
-										},
-									},
-									Inputs: []*commonmodels.Param{
-										{
-											Name:        "mysql_host",
-											Description: "mysql host",
-											ParamsType:  "string",
-										},
-										{
-											Name:        "mysql_port",
-											Description: "mysql port",
-											ParamsType:  "string",
-										},
-										{
-											Name:        "username",
-											Description: "mysql username",
-											ParamsType:  "string",
-										},
-										{
-											Name:        "password",
-											Description: "mysql password",
-											ParamsType:  "string",
-										},
-										{
-											Name:        "query",
-											Description: "query to be used",
-											ParamsType:  "string",
-										},
-									},
-								},
-							},
+							Name:    "sql-update",
+							JobType: config.JobSQL,
+							Spec:    commonmodels.SQLJobSpec{},
 						},
 					},
 				},

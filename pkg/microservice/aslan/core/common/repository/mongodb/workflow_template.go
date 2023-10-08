@@ -22,11 +22,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/setting"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/koderover/zadig/pkg/setting"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -98,6 +99,12 @@ func (c *WorkflowV4TemplateColl) UpsertByName(obj *models.WorkflowV4Template) er
 	change := bson.M{"$set": obj}
 	obj.UpdateTime = time.Now().Unix()
 	_, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
+	return err
+}
+
+func (c *WorkflowV4TemplateColl) DeleteInternalByName(name string) error {
+	query := bson.M{"template_name": name, "created_by": "system"}
+	_, err := c.DeleteOne(context.TODO(), query)
 	return err
 }
 

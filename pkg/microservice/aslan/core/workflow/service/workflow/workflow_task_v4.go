@@ -108,7 +108,7 @@ type JobTaskPreview struct {
 	Status           config.Status `bson:"status"         json:"status"`
 	StartTime        int64         `bson:"start_time"     json:"start_time,omitempty"`
 	EndTime          int64         `bson:"end_time"       json:"end_time,omitempty"`
-	CostSeconds      int64         `bson:"cost_seconds"   json:"cost_seconds,omitempty"`
+	CostSeconds      int64         `bson:"cost_seconds"   json:"cost_seconds"`
 	Error            string        `bson:"error"          json:"error"`
 	BreakpointBefore bool          `bson:"breakpoint_before" json:"breakpoint_before"`
 	BreakpointAfter  bool          `bson:"breakpoint_after"  json:"breakpoint_after"`

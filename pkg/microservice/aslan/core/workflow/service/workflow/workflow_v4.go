@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pingcap/tidb/parser"
+	_ "github.com/pingcap/tidb/parser/test_driver"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -2732,4 +2734,23 @@ func GetJenkinsJobParams(id, jobName string) ([]*JenkinsJobParams, error) {
 	}
 
 	return resp, nil
+}
+
+func ValidateSQL(_type config.DBInstanceType, sql string) error {
+	switch _type {
+	case config.DBInstanceTypeMySQL, config.DBInstanceTypeMariaDB:
+		return ValidateMySQL(sql)
+	default:
+		return errors.Errorf("not supported db type: %s", _type)
+	}
+}
+
+func ValidateMySQL(sql string) error {
+	p := parser.New()
+
+	_, _, err := p.Parse(sql, "", "")
+	if err != nil {
+		return errors.Errorf("parse sql statement error: %v", err)
+	}
+	return nil
 }
