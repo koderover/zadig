@@ -92,8 +92,20 @@ func CreateDBInstance(c *gin.Context) {
 }
 
 func GetDBInstance(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	id := c.Param("id")
 	if len(id) == 0 {
