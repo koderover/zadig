@@ -17,9 +17,6 @@ limitations under the License.
 package workflow
 
 import (
-	"github.com/pingcap/tidb/parser"
-	_ "github.com/pingcap/tidb/parser/test_driver"
-
 	"bytes"
 	"context"
 	"encoding/json"
@@ -31,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pingcap/tidb/parser"
+	_ "github.com/pingcap/tidb/parser/test_driver"
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
