@@ -86,7 +86,7 @@ func (c *SQLJobCtl) Run(ctx context.Context) {
 
 func (c *SQLJobCtl) ExecMySQLStatement() error {
 	info := c.dbInfo
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/", info.Username, url.QueryEscape(info.Password), info.Host, info.Port))
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8&multiStatements=true", info.Username, url.QueryEscape(info.Password), info.Host, info.Port))
 	if err != nil {
 		return errors.Errorf("connect db error: %v", err)
 	}
