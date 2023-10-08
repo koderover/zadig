@@ -77,7 +77,7 @@ type JobExecutor struct {
 func (e *JobExecutor) BeforeExecute() error {
 	err := e.InitWorkDirectory()
 	if err != nil {
-		log.Info("failed to init work directory", err)
+		log.Infof("failed to init work directory, error: %v", err)
 		return err
 	}
 
@@ -108,11 +108,6 @@ func (e *JobExecutor) InitWorkDirectory() error {
 	logDir, err := config.GetJobLogFilePath(workDir, *e.Job)
 	if err != nil {
 		return fmt.Errorf("failed to generate job log directory, error: %v", err)
-	}
-	if _, err := os.Stat(logDir); err == nil {
-		if err := os.RemoveAll(logDir); err != nil {
-			return fmt.Errorf("failed to delete job log dir, error: %v", err)
-		}
 	}
 	if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create job log tmp directory, error: %v", err)
@@ -334,7 +329,7 @@ func (e *JobExecutor) deleteTempFileAndDir() error {
 	}
 
 	// --------------------------------------------- delete job output dir ---------------------------------------------
-	if err := os.RemoveAll(filepath.Dir(filepath.Dir(filepath.Dir(e.Dirs.JobOutputsDir)))); err != nil {
+	if err := os.RemoveAll(filepath.Dir(filepath.Dir(e.Dirs.JobOutputsDir))); err != nil {
 		log.Errorf("failed to delete job output dir, error: %s", err)
 		return err
 	}

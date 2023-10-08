@@ -131,8 +131,6 @@ func uploadVMJobLog2S3(job *vmmodel.VMJob) error {
 		})
 
 		log.Infof("saveContainerLog s3 upload success, workflowName:%s jobName:%s, taskID:%d", job.WorkflowName, job.JobName, job.TaskID)
-	} else {
-		return fmt.Errorf("saveContainerLog saveFile error: %v", err)
 	}
 
 	return nil

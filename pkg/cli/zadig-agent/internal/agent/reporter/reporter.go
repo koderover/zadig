@@ -50,7 +50,7 @@ func NewJobReporter(result *types.JobExecuteResult, client *network.ZadigClient,
 }
 
 func (r *JobReporter) Start(ctx context.Context) {
-	log.Infof("start job %s reporter.", r.Result.JobInfo.JobName)
+	log.Infof("start project %s workflow %s job %s reporter.", r.Result.JobInfo.ProjectName, r.Result.JobInfo.WorkflowName, r.Result.JobInfo.JobName)
 	r.Ctx = ctx
 	ticker := time.NewTicker(time.Second)
 
@@ -58,12 +58,6 @@ func (r *JobReporter) Start(ctx context.Context) {
 		r.Seq++
 		select {
 		case <-ticker.C:
-			// get log from job log file
-			err := r.SetLog()
-			if err != nil {
-				log.Errorf("failed to set job log, error: %s", err)
-				continue
-			}
 			if err := r.Report(); err != nil {
 				log.Error(err)
 			}
@@ -88,6 +82,12 @@ func (r *JobReporter) Report() error {
 		return fmt.Errorf("reporter result is nil")
 	}
 
+	// get log from job log file
+	err := r.SetLog()
+	if err != nil {
+		log.Errorf("failed to set job log, error: %s", err)
+	}
+
 	resp, err := r.Client.ReportJob(&types.ReportJobParameters{
 		Seq:       r.Seq,
 		JobID:     r.Result.JobInfo.JobID,
@@ -96,7 +96,6 @@ func (r *JobReporter) Report() error {
 		JobLog:    r.Result.Log,
 		JobOutput: r.Result.OutputsJsonBytes,
 	})
-
 	if err != nil {
 		return fmt.Errorf("%s-%s ---------> SEQ: %d failed to report status, error: %s", r.Result.JobInfo.WorkflowName, r.Result.JobInfo.JobName, r.Seq, err)
 	}
@@ -134,7 +133,6 @@ func (r *JobReporter) SetLog() error {
 	if err != nil {
 		return fmt.Errorf("failed to get job log, error: %s", err)
 	}
-
 	r.Result.Log = logStr
 
 	return nil

@@ -127,6 +127,12 @@ type HeartbeatResponse struct {
 	AgentVersion           string `json:"agent_version"`
 	ScheduleWorkflow       bool   `json:"schedule_workflow"`
 	WorkDir                string `json:"work_dir"`
+	Concurrency            int    `json:"concurrency"`
+	CacheType              string `json:"cache_type"`
+	ServerURL              string `json:"server_url"`
+	VmName                 string `json:"vm_name"`
+	Description            string `json:"description"`
+	ZadigVersion           string `json:"zadig_version"`
 }
 
 type PollingJobArgs struct {

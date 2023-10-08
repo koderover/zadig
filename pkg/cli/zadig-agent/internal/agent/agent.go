@@ -34,7 +34,6 @@ func NewAgentController() *AgentController {
 		Client:               network.NewZadigClient(),
 		StopPollingJobChan:   make(chan struct{}, 1),
 		StopRunJobChan:       make(chan struct{}, 1),
-		Concurrency:          common.DefaultAgentConcurrency,
 		ConcurrencyBlockTime: common.DefaultAgentConcurrencyBlockTime,
 		CurrentJobNum:        0,
 	}
@@ -76,7 +75,7 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 		close(c.JobChan)
 	}()
 
-	log.Infof("start to polling job.")
+	log.Infof("start polling job.")
 	for {
 		select {
 		case <-ctx.Done():
@@ -86,7 +85,7 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 			log.Infof("stop polling job, received stop signal.")
 			return
 		default:
-			if config.GetAgentStatus() == common.AGENT_STATUS_RUNNING && config.GetScheduleWorkflow() && c.CurrentJobNum < c.Concurrency {
+			if config.GetAgentStatus() == common.AGENT_STATUS_RUNNING && config.GetScheduleWorkflow() && c.CurrentJobNum < config.GetConcurrency() {
 				job, err := c.Client.RequestJob()
 				if err != nil {
 					log.Errorf("failed to request job from zadig server, error: %s", err)
@@ -100,6 +99,9 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 
 				time.Sleep(common.DefaultAgentPollingInterval * time.Second)
 			} else {
+				if c.CurrentJobNum >= config.GetConcurrency() {
+					log.Infof("current job num %d is equal to concurrency %d, will block %d seconds to request job again.", c.CurrentJobNum, config.GetConcurrency(), c.ConcurrencyBlockTime)
+				}
 				time.Sleep(time.Duration(c.ConcurrencyBlockTime) * time.Second)
 			}
 		}
@@ -107,7 +109,7 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 }
 
 func (c *AgentController) RunJob(ctx context.Context) {
-	log.Infof("start to run job.")
+	log.Infof("start running job.")
 	for {
 		select {
 		case <-ctx.Done():
@@ -144,7 +146,7 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 	if err != nil {
 		log.Errorf("failed to execute BeforeExecute, error: %s", err)
 
-		err = executor.Reporter.FinishedJobReport(common.StatusFailed, fmt.Errorf("failed to execute BeforeExecute, error: %s", err))
+		err = executor.Reporter.FinishedJobReport(common.StatusFailed, fmt.Errorf("failed to init work directory for job, error: %s", err))
 		if err != nil {
 			return fmt.Errorf("failed to report job status when BeforeExecute failed, error: %s", err)
 		}

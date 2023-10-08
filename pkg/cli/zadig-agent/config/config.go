@@ -58,6 +58,8 @@ type AgentConfig struct {
 	VmName            string `yaml:"vm_name"`
 	Description       string `yaml:"description"`
 	Concurrency       int    `yaml:"concurrency"`
+	CacheType         string `yaml:"cache_type"`
+	CachePath         string `yaml:"cache_path"`
 	AgentVersion      string `yaml:"agent_version"`
 	ZadigVersion      string `yaml:"zadig_version"`
 	AgentPlatform     string `yaml:"agent_platform"`
@@ -338,7 +340,38 @@ func GetAgentStatus() string {
 }
 
 func GetConcurrency() int {
-	return agentConfig.Concurrency
+	if agentConfig.Concurrency > 0 {
+		return agentConfig.Concurrency
+	}
+	return common.DefaultAgentConcurrency
+}
+
+func SetConcurrency(concurrency int) {
+	if agentConfig == nil {
+		log.Panicf("agent config is nil")
+	}
+	path, err := GetAgentConfigFilePathWithCheck()
+	if err != nil {
+		log.Panicf("failed to get agent config file path: %v", err)
+	}
+
+	// update config file
+	config := &AgentConfig{}
+	yamlFile, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Panicf("failed to read agent config file: %v", err)
+	}
+
+	err = yaml.Unmarshal(yamlFile, config)
+	if err != nil {
+		log.Panicf("failed to unmarshal agent config file: %v", err)
+	}
+	config.Concurrency = concurrency
+	err = UpdateAgentConfigFile(config, path)
+	if err != nil {
+		log.Panicf("failed to update agent config file: %v", err)
+	}
+	agentConfig.Concurrency = concurrency
 }
 
 func GetWorkDirectory() string {
@@ -389,5 +422,83 @@ func UpdateAgentConfigFile(config *AgentConfig, path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to write agent config file: %v", err)
 	}
+	return nil
+}
+
+func BatchUpdateAgentConfig(config *AgentConfig) error {
+	if config == nil {
+		return nil
+	}
+
+	if agentConfig == nil {
+		log.Panicf("agent config is nil")
+	}
+
+	path, err := GetAgentConfigFilePathWithCheck()
+	if err != nil {
+		log.Panicf("failed to get agent config file path: %v", err)
+	}
+
+	// update config file
+	oldConfig := new(AgentConfig)
+	yamlFile, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Panicf("failed to read agent config file: %v", err)
+	}
+
+	err = yaml.Unmarshal(yamlFile, oldConfig)
+	if err != nil {
+		log.Panicf("failed to unmarshal agent config file: %v", err)
+	}
+
+	// if token is empty, indicate that the agent is not registered
+	if oldConfig.Token == "" {
+		oldConfig.Token = agentConfig.Token
+		oldConfig.ServerURL = agentConfig.ServerURL
+		oldConfig.AgentVersion = agentConfig.AgentVersion
+		oldConfig.InstallTime = agentConfig.InstallTime
+		oldConfig.InstallUser = agentConfig.InstallUser
+		oldConfig.WorkDirectory = agentConfig.WorkDirectory
+	}
+
+	if config.ServerURL != "" {
+		oldConfig.ServerURL = config.ServerURL
+	}
+
+	if config.VmName != "" {
+		oldConfig.VmName = config.VmName
+	}
+
+	if config.Description != "" {
+		oldConfig.Description = config.Description
+	}
+
+	oldConfig.ScheduleWorkflow = config.ScheduleWorkflow
+
+	if config.WorkDirectory != "" {
+		oldConfig.WorkDirectory = config.WorkDirectory
+	}
+
+	if config.Concurrency > 0 {
+		oldConfig.Concurrency = config.Concurrency
+	}
+
+	if config.CacheType != "" {
+		oldConfig.CacheType = config.CacheType
+	}
+
+	if config.AgentVersion != "" {
+		oldConfig.AgentVersion = config.AgentVersion
+	}
+
+	if config.ZadigVersion != "" {
+		oldConfig.ZadigVersion = config.ZadigVersion
+	}
+
+	err = UpdateAgentConfigFile(oldConfig, path)
+	if err != nil {
+		return fmt.Errorf("failed to update agent config file: %v", err)
+	}
+	agentConfig = oldConfig
 	return nil
 }

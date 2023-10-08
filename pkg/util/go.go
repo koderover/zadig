@@ -19,15 +19,12 @@ package util
 import (
 	"fmt"
 	"runtime/debug"
-
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func Go(fn func()) {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Infof("============ Go panic ============")
 				fmt.Println(err)
 				debug.PrintStack()
 			}

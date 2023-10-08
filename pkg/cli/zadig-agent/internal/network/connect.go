@@ -154,6 +154,12 @@ type HeartbeatServerResponse struct {
 	AgentVersion           string `json:"agent_version"`
 	ScheduleWorkflow       bool   `json:"schedule_workflow"`
 	WorkDir                string `json:"work_dir"`
+	Concurrency            int    `json:"concurrency"`
+	CacheType              string `json:"cache_type"`
+	ServerURL              string `json:"server_url"`
+	VmName                 string `json:"vm_name"`
+	Description            string `json:"description"`
+	ZadigVersion           string `json:"zadig_version"`
 }
 
 func Heartbeat(config *AgentConfig, parameters *HeartbeatParameters) (*HeartbeatServerResponse, error) {
@@ -162,7 +168,6 @@ func Heartbeat(config *AgentConfig, parameters *HeartbeatParameters) (*Heartbeat
 		Parameters: parameters,
 	}
 	resp := new(HeartbeatServerResponse)
-
 	body, err := httpclient.Post(GetFullURL(config.URL, heartbeatBaseUrl), httpclient.SetBody(request), httpclient.SetResult(resp))
 	if err != nil {
 		return nil, err

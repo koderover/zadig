@@ -164,7 +164,7 @@ func GetJobLogFilePath(workDir string, job types.ZadigJobTask) (string, error) {
 	if _, err := os.Stat(jobLogTmpDir); os.IsNotExist(err) {
 		err = os.MkdirAll(jobLogTmpDir, os.ModePerm)
 		if err != nil {
-			return "", fmt.Errorf("failed to create job log tmp directory: %s", err)
+			return "", fmt.Errorf("failed to create job log tmp directory: %v", err)
 		}
 	}
 
