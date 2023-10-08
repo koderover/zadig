@@ -34,6 +34,7 @@ func ListObservability(_type string, isAdmin bool) ([]*models.Observability, err
 	if !isAdmin {
 		for _, v := range resp {
 			v.ApiKey = ""
+			v.GrafanaToken = ""
 		}
 	}
 	return resp, nil
