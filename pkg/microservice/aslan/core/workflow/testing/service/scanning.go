@@ -370,7 +370,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		return 0, e.ErrFindDefaultS3Storage.AddDesc("default storage is required by distribute task")
 	}
 
-	defaultURL, err := defaultS3.GetEncryptedURL()
+	defaultURL, err := defaultS3.GetEncrypted()
 	if err != nil {
 		log.Errorf("cannot convert the s3 config to an encrypted URI, error: %s", err)
 		return 0, e.ErrS3Storage.AddErr(err)

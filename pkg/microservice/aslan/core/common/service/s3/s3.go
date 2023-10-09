@@ -42,8 +42,7 @@ func (s *S3) GetSchema() string {
 	return "https"
 }
 
-func (s *S3) GetEncryptedURL() (encrypted string, err error) {
-	//return crypto.AesEncrypt(s.GetURL())
+func (s *S3) GetEncrypted() (encrypted string, err error) {
 	b, err := json.Marshal(s)
 	if err != nil {
 		return "", err
