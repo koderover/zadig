@@ -231,26 +231,22 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templa
 // UpgradeHelmRelease upgrades helm release with some specific images
 func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.ProductService,
 	svcTemp *commonmodels.Service, images []string, timeout int, user string) error {
-	chartInfoMap := product.GetChartRenderMap()
-	chartDeployInfoMap := product.GetChartDeployRenderMap()
+	chartInfo := productSvc.GetServiceRender()
 
 	var (
 		err                      error
 		releaseName              string
 		replacedMergedValuesYaml string
-		chartInfo                *templatemodels.ServiceRender
 	)
 
 	if productSvc.FromZadig() {
 		releaseName = util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName)
-		chartInfo = chartInfoMap[productSvc.ServiceName]
 		replacedMergedValuesYaml, err = GeneMergedValues(productSvc, chartInfo, product.DefaultValues, images, false)
 		if err != nil {
 			return fmt.Errorf("failed to gene merged values, err: %s", err)
 		}
 	} else {
 		releaseName = productSvc.ReleaseName
-		chartInfo = chartDeployInfoMap[productSvc.ReleaseName]
 		svcTemp = &commonmodels.Service{
 			ServiceName: productSvc.ReleaseName,
 			ProductName: product.ProductName,
