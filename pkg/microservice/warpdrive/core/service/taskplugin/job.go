@@ -127,7 +127,7 @@ func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName st
 		}()
 		if err = saveFile(buf, tempFileName); err == nil {
 			var store *s3.S3
-			if store, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI); err != nil {
+			if store, err = s3.UnmarshalNewS3StorageFromEncrypted(pipelineTask.StorageURI); err != nil {
 				log.Errorf("failed to Create S3 endpoint from Encrypted URI: %s, the error is: %s ", pipelineTask.StorageURI, err)
 				return err
 			}

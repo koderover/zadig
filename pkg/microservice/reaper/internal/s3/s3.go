@@ -45,48 +45,21 @@ func (s *S3) GetSchema() string {
 	return "https"
 }
 
-func NewS3StorageFromURL(uri string) (*S3, error) {
+func UnmarshalNewS3Storage(str string) (*S3, error) {
 	s3 := new(S3)
-	if err := json.Unmarshal([]byte(uri), s3); err != nil {
+	if err := json.Unmarshal([]byte(str), s3); err != nil {
 		return nil, err
 	}
 	return s3, nil
-	//store, err := url.Parse(uri)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//sk, _ := store.User.Password()
-	//paths := strings.Split(strings.TrimLeft(store.Path, "/"), "/")
-	//bucket := paths[0]
-	//
-	//var subfolder string
-	//if len(paths) > 1 {
-	//	subfolder = strings.Join(paths[1:], "/")
-	//}
-	//
-	//ret := &S3{
-	//	Ak:        store.User.Username(),
-	//	Sk:        sk,
-	//	Endpoint:  store.Host,
-	//	Bucket:    bucket,
-	//	Subfolder: subfolder,
-	//	Insecure:  store.Scheme == "http",
-	//}
-	//if strings.Contains(store.Host, setting.AliyunHost) {
-	//	ret.Provider = setting.ProviderSourceAli
-	//}
-	//
-	//return ret, nil
 }
 
-func NewS3StorageFromEncryptedURI(encryptedURI, aesKey string) (*S3, error) {
-	uri, err := crypto.AesDecrypt(encryptedURI, aesKey)
+func UnmarshalNewS3StorageFromEncrypted(encrypted, aesKey string) (*S3, error) {
+	uri, err := crypto.AesDecrypt(encrypted, aesKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewS3StorageFromURL(uri)
+	return UnmarshalNewS3Storage(uri)
 }
 
 func (s *S3) GetURI() string {

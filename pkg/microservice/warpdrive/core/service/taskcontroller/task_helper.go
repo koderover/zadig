@@ -508,7 +508,7 @@ func downloadReport(taskInfo *task.Task, fileName, testName string, logger *zap.
 	var store *s3.S3
 	var err error
 
-	if store, err = s3.NewS3StorageFromEncryptedURI(taskInfo.StorageURI); err != nil {
+	if store, err = s3.UnmarshalNewS3StorageFromEncrypted(taskInfo.StorageURI); err != nil {
 		logger.Errorf("failed to create s3 storage %s", taskInfo.StorageURI)
 		return nil, err
 	}

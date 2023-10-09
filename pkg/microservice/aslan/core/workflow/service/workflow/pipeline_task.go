@@ -1135,7 +1135,7 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 			storageURL = resp.StorageURI
 		}
 	}
-	storage, err := s3.NewS3StorageFromEncryptedURI(storageURL)
+	storage, err := s3.UnmarshalNewS3StorageFromEncrypted(storageURL)
 	if err != nil {
 		log.Errorf("failed to get s3 storage %s", storageURL)
 		return nil, packageFile, fmt.Errorf("failed to get s3 storage %s", storageURL)

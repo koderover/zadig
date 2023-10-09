@@ -287,7 +287,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							deliveryArtifact.ImageTag = buildInfo.JobCtx.FileArchiveCtx.FileName
 							deliveryArtifact.Type = string(config.File)
 							deliveryArtifact.PackageFileLocation = buildInfo.JobCtx.FileArchiveCtx.FileLocation
-							if storageInfo, err := s3.NewS3StorageFromEncryptedURI(pt.StorageURI); err == nil {
+							if storageInfo, err := s3.UnmarshalNewS3StorageFromEncrypted(pt.StorageURI); err == nil {
 								deliveryArtifact.PackageStorageURI = storageInfo.Endpoint + "/" + storageInfo.Bucket
 							}
 
@@ -588,9 +588,9 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							deliveryActivity.CreatedBy = pt.TaskCreator
 							deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/multi/%s/%d", pt.ProductName, pt.PipelineName, pt.TaskID)
 							deliveryActivity.RemoteFileKey = releaseFileInfo.RemoteFileKey
-							storageInfo, _ := s3.NewS3StorageFromEncryptedURI(releaseFileInfo.DestStorageURL)
+							storageInfo, _ := s3.UnmarshalNewS3StorageFromEncrypted(releaseFileInfo.DestStorageURL)
 							deliveryActivity.DistStorageURL = storageInfo.Endpoint
-							storageInfo, _ = s3.NewS3StorageFromEncryptedURI(pt.StorageURI)
+							storageInfo, _ = s3.UnmarshalNewS3StorageFromEncrypted(pt.StorageURI)
 							deliveryActivity.SrcStorageURL = storageInfo.Endpoint
 							deliveryActivity.CreatedTime = time.Now().Unix() + 6
 							deliveryActivity.StartTime = releaseFileInfo.StartTime
