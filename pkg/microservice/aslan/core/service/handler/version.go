@@ -112,6 +112,106 @@ func ListProductionServiceVersions(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListServiceVersions(ctx, projectKey, serviceName, true, ctx.Logger)
 }
 
+// @Summary Get Service Version Yaml
+// @Description Get Service Versions Yaml
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	serviceName		path		string							true	"service name"
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	revision		path		string							true	"revision"
+// @Success 200 			{object}  	service.GetServiceVersionYamlResponse
+// @Router /api/aslan/service/version/{serviceName}/revision/{revision} [get]
+func GetServiceVersionYaml(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Service.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	serviceName := c.Param("serviceName")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		return
+	}
+
+	revision, err := strconv.ParseInt(c.Param("revision"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revison: %s", err))
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetServiceVersionYaml(ctx, projectKey, serviceName, revision, false, ctx.Logger)
+}
+
+// @Summary Get Production Service Version Yaml
+// @Description Get Production Service Versions Yaml
+// @Tags 	service
+// @Accept 	json
+// @Produce json
+// @Param 	serviceName		path		string							true	"service name"
+// @Param 	projectName		query		string							true	"project name"
+// @Param 	revision		path		string							true	"revision"
+// @Success 200 			{object}  	service.GetServiceVersionYamlResponse
+// @Router /api/aslan/service/production/version/{serviceName}/revision/{revision} [get]
+func GetProductionServiceVersionYaml(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionService.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	serviceName := c.Param("serviceName")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty serviceName")
+		return
+	}
+
+	revision, err := strconv.ParseInt(c.Param("revision"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetServiceVersionYaml(ctx, projectKey, serviceName, revision, true, ctx.Logger)
+}
+
 // @Summary Diff Service Versions
 // @Description Diff Service Versions
 // @Tags 	service
@@ -119,8 +219,8 @@ func ListProductionServiceVersions(c *gin.Context) {
 // @Produce json
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
-// @Param 	versionA		query		int								true	"version a"
-// @Param 	versionB		query		int								true	"version b"
+// @Param 	revisionA		query		int								true	"revision a"
+// @Param 	revisionB		query		int								true	"revision b"
 // @Success 200 			{object}  	service.ListServiceVersionsResponse
 // @Router /api/aslan/service/version/{serviceName}/diff [get]
 func DiffServiceVersions(c *gin.Context) {
@@ -154,18 +254,18 @@ func DiffServiceVersions(c *gin.Context) {
 		return
 	}
 
-	versionA, err := strconv.ParseInt(c.Query("versionA"), 10, 64)
+	revisionA, err := strconv.ParseInt(c.Query("revisionA"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionA: %s", err))
 		return
 	}
-	versionB, err := strconv.ParseInt(c.Query("versionB"), 10, 64)
+	revisionB, err := strconv.ParseInt(c.Query("revisionB"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionB: %s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffServiceVersions(ctx, projectKey, serviceName, versionA, versionB, false, ctx.Logger)
+	ctx.Resp, ctx.Err = service.DiffServiceVersions(ctx, projectKey, serviceName, revisionA, revisionB, false, ctx.Logger)
 }
 
 // @Summary Diff Production Service Versions
@@ -175,8 +275,8 @@ func DiffServiceVersions(c *gin.Context) {
 // @Produce json
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
-// @Param 	versionA		query		int								true	"version a"
-// @Param 	versionB		query		int								true	"version b"
+// @Param 	revisionA		query		int								true	"revision a"
+// @Param 	revisionB		query		int								true	"revision b"
 // @Success 200 			{object}  	service.ListServiceVersionsResponse
 // @Router /api/aslan/service/production/version/{serviceName}/diff [get]
 func DiffProductionServiceVersions(c *gin.Context) {
@@ -210,18 +310,18 @@ func DiffProductionServiceVersions(c *gin.Context) {
 		return
 	}
 
-	versionA, err := strconv.ParseInt(c.Query("versionA"), 10, 64)
+	revisionA, err := strconv.ParseInt(c.Query("revisionA"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionA: %s", err))
 		return
 	}
-	versionB, err := strconv.ParseInt(c.Query("versionB"), 10, 64)
+	revisionB, err := strconv.ParseInt(c.Query("revisionB"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionB: %s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffServiceVersions(ctx, projectKey, serviceName, versionA, versionB, true, ctx.Logger)
+	ctx.Resp, ctx.Err = service.DiffServiceVersions(ctx, projectKey, serviceName, revisionA, revisionB, true, ctx.Logger)
 }
 
 // @Summary Rollback Service Version
@@ -231,7 +331,7 @@ func DiffProductionServiceVersions(c *gin.Context) {
 // @Produce json
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
-// @Param 	version	 		query		int								true	"version"
+// @Param 	revision	 	query		int								true	"revision"
 // @Success 200
 // @Router /api/aslan/service/version/{serviceName}/rollback [post]
 func RollbackServiceVersion(c *gin.Context) {
@@ -265,23 +365,23 @@ func RollbackServiceVersion(c *gin.Context) {
 		return
 	}
 
-	version, err := strconv.ParseInt(c.Query("version"), 10, 64)
+	revision, err := strconv.ParseInt(c.Query("revision"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
 		return
 	}
 
-	ctx.Err = service.RollbackServiceVersion(ctx, projectKey, serviceName, version, false, ctx.Logger)
+	ctx.Err = service.RollbackServiceVersion(ctx, projectKey, serviceName, revision, false, ctx.Logger)
 }
 
 // @Summary Rollback Production Service Version
-// @Description Rollback Service Version
+// @Description Rollback Production SService Version
 // @Tags 	service
 // @Accept 	json
 // @Produce json
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
-// @Param 	version	 		query		int								true	"version"
+// @Param 	revision	 	query		int								true	"revision"
 // @Success 200
 // @Router /api/aslan/service/production/version/{serviceName}/rollback [post]
 func RollbackProductionServiceVersion(c *gin.Context) {
@@ -315,11 +415,11 @@ func RollbackProductionServiceVersion(c *gin.Context) {
 		return
 	}
 
-	version, err := strconv.ParseInt(c.Query("version"), 10, 64)
+	revision, err := strconv.ParseInt(c.Query("revision"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
 		return
 	}
 
-	ctx.Err = service.RollbackServiceVersion(ctx, projectKey, serviceName, version, true, ctx.Logger)
+	ctx.Err = service.RollbackServiceVersion(ctx, projectKey, serviceName, revision, true, ctx.Logger)
 }

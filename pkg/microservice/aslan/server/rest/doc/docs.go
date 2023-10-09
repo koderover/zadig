@@ -990,15 +990,15 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "version a",
-                        "name": "versionA",
+                        "description": "revision a",
+                        "name": "revisionA",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "integer",
-                        "description": "version b",
-                        "name": "versionB",
+                        "description": "revision b",
+                        "name": "revisionB",
                         "in": "query",
                         "required": true
                     }
@@ -1106,8 +1106,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "version",
-                        "name": "version",
+                        "description": "revision",
+                        "name": "revision",
                         "in": "query",
                         "required": true
                     }
@@ -2102,15 +2102,15 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "version a",
-                        "name": "versionA",
+                        "description": "revision a",
+                        "name": "revisionA",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "integer",
-                        "description": "version b",
-                        "name": "versionB",
+                        "description": "revision b",
+                        "name": "revisionB",
                         "in": "query",
                         "required": true
                     }
@@ -2218,8 +2218,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "version",
-                        "name": "version",
+                        "description": "revision",
+                        "name": "revision",
                         "in": "query",
                         "required": true
                     }
@@ -3003,15 +3003,15 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "version a",
-                        "name": "versionA",
+                        "description": "revision a",
+                        "name": "revisionA",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "integer",
-                        "description": "version b",
-                        "name": "versionB",
+                        "description": "revision b",
+                        "name": "revisionB",
                         "in": "query",
                         "required": true
                     }
@@ -3026,9 +3026,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/service/production/version/{serviceName}/revision/{revision}": {
+            "get": {
+                "description": "Get Production Service Versions Yaml",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Get Production Service Version Yaml",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "revision",
+                        "name": "revision",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.GetServiceVersionYamlResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/service/production/version/{serviceName}/rollback": {
             "post": {
-                "description": "Rollback Service Version",
+                "description": "Rollback Production SService Version",
                 "consumes": [
                     "application/json"
                 ],
@@ -3056,8 +3102,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "version",
-                        "name": "version",
+                        "description": "revision",
+                        "name": "revision",
                         "in": "query",
                         "required": true
                     }
@@ -3362,15 +3408,15 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "version a",
-                        "name": "versionA",
+                        "description": "revision a",
+                        "name": "revisionA",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "integer",
-                        "description": "version b",
-                        "name": "versionB",
+                        "description": "revision b",
+                        "name": "revisionB",
                         "in": "query",
                         "required": true
                     }
@@ -3380,6 +3426,52 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/service.ListServiceVersionsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/service/version/{serviceName}/revision/{revision}": {
+            "get": {
+                "description": "Get Service Versions Yaml",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service"
+                ],
+                "summary": "Get Service Version Yaml",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "revision",
+                        "name": "revision",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.GetServiceVersionYamlResponse"
                         }
                     }
                 }
@@ -3415,8 +3507,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "version",
-                        "name": "version",
+                        "description": "revision",
+                        "name": "revision",
                         "in": "query",
                         "required": true
                     }
@@ -6068,6 +6160,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "values": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.GetServiceVersionYamlResponse": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string"
+                },
+                "variable_yaml": {
+                    "type": "string"
+                },
+                "yaml": {
                     "type": "string"
                 }
             }

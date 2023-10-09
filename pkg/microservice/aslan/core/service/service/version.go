@@ -66,6 +66,47 @@ func ListServiceVersions(ctx *internalhandler.Context, projectName, serviceName 
 	return resp, nil
 }
 
+type GetServiceVersionYamlResponse struct {
+	Type         string `json:"type"`
+	Yaml         string `json:"yaml"`
+	VariableYaml string `json:"variable_yaml"`
+}
+
+func GetServiceVersionYaml(ctx *internalhandler.Context, projectName, serviceName string, revision int64, isProduction bool, log *zap.SugaredLogger) (GetServiceVersionYamlResponse, error) {
+	var (
+		svcRevisionA *models.Service
+		err          error
+		resp         GetServiceVersionYamlResponse
+	)
+
+	if isProduction {
+		svcRevisionA, err = mongodb.NewProductionServiceColl().Find(&mongodb.ServiceFindOption{
+			ProductName: projectName,
+			ServiceName: serviceName,
+			Revision:    revision,
+		})
+	} else {
+		svcRevisionA, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
+			ProductName: projectName,
+			ServiceName: serviceName,
+			Revision:    revision,
+		})
+
+	}
+	if err != nil {
+		return resp, e.ErrDiffServiceTemplateVersions.AddErr(fmt.Errorf("failed to find %s/%s service for version A %d, isProduction %v, error: %v", projectName, serviceName, revision, isProduction, err))
+	}
+	resp.Type = svcRevisionA.Type
+	if svcRevisionA.Type == setting.K8SDeployType {
+		resp.Yaml = svcRevisionA.Yaml
+		resp.VariableYaml = svcRevisionA.VariableYaml
+	} else if svcRevisionA.Type == setting.HelmDeployType {
+		resp.Yaml = svcRevisionA.HelmChart.ValuesYaml
+	}
+
+	return resp, nil
+}
+
 type DiffServiceVersionsResponse struct {
 	Type          string `json:"type"`
 	YamlA         string `json:"yaml_a"`
@@ -74,65 +115,65 @@ type DiffServiceVersionsResponse struct {
 	VariableYamlB string `json:"variable_yaml_b"`
 }
 
-func DiffServiceVersions(ctx *internalhandler.Context, projectName, serviceName string, versionA, versionB int64, isProduction bool, log *zap.SugaredLogger) (DiffServiceVersionsResponse, error) {
+func DiffServiceVersions(ctx *internalhandler.Context, projectName, serviceName string, revisionA, revisionB int64, isProduction bool, log *zap.SugaredLogger) (DiffServiceVersionsResponse, error) {
 	var (
-		revisionA, revisionB *models.Service
-		err                  error
-		resp                 DiffServiceVersionsResponse
+		svcRevisionA, svcRevisionB *models.Service
+		err                        error
+		resp                       DiffServiceVersionsResponse
 	)
 
 	if isProduction {
-		revisionA, err = mongodb.NewProductionServiceColl().Find(&mongodb.ServiceFindOption{
+		svcRevisionA, err = mongodb.NewProductionServiceColl().Find(&mongodb.ServiceFindOption{
 			ProductName: projectName,
 			ServiceName: serviceName,
-			Revision:    versionA,
+			Revision:    revisionA,
 		})
 	} else {
-		revisionA, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
+		svcRevisionA, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
 			ProductName: projectName,
 			ServiceName: serviceName,
-			Revision:    versionA,
+			Revision:    revisionA,
 		})
 
 	}
 	if err != nil {
-		return resp, e.ErrDiffServiceTemplateVersions.AddErr(fmt.Errorf("failed to find %s/%s service for version A %d, isProduction %v, error: %v", projectName, serviceName, versionA, isProduction, err))
+		return resp, e.ErrDiffServiceTemplateVersions.AddErr(fmt.Errorf("failed to find %s/%s service for version A %d, isProduction %v, error: %v", projectName, serviceName, revisionA, isProduction, err))
 	}
-	resp.Type = revisionA.Type
-	if revisionA.Type == setting.K8SDeployType {
-		resp.YamlA = revisionA.Yaml
-		resp.VariableYamlA = revisionA.VariableYaml
-	} else if revisionA.Type == setting.HelmDeployType {
-		resp.YamlA = revisionA.HelmChart.ValuesYaml
+	resp.Type = svcRevisionA.Type
+	if svcRevisionA.Type == setting.K8SDeployType {
+		resp.YamlA = svcRevisionA.Yaml
+		resp.VariableYamlA = svcRevisionA.VariableYaml
+	} else if svcRevisionA.Type == setting.HelmDeployType {
+		resp.YamlA = svcRevisionA.HelmChart.ValuesYaml
 	}
 
 	if isProduction {
-		revisionB, err = mongodb.NewProductionServiceColl().Find(&mongodb.ServiceFindOption{
+		svcRevisionB, err = mongodb.NewProductionServiceColl().Find(&mongodb.ServiceFindOption{
 			ProductName: projectName,
 			ServiceName: serviceName,
-			Revision:    versionB,
+			Revision:    revisionB,
 		})
 	} else {
-		revisionB, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
+		svcRevisionB, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
 			ProductName: projectName,
 			ServiceName: serviceName,
-			Revision:    versionB,
+			Revision:    revisionB,
 		})
 	}
 	if err != nil {
-		return resp, e.ErrDiffServiceTemplateVersions.AddErr(fmt.Errorf("failed to find %s/%s service for version B %d, isProduction %v, error: %v", projectName, serviceName, versionA, isProduction, err))
+		return resp, e.ErrDiffServiceTemplateVersions.AddErr(fmt.Errorf("failed to find %s/%s service for version B %d, isProduction %v, error: %v", projectName, serviceName, revisionA, isProduction, err))
 	}
-	if revisionA.Type == setting.K8SDeployType {
-		resp.YamlB = revisionB.Yaml
-		resp.VariableYamlB = revisionB.VariableYaml
-	} else if revisionB.Type == setting.HelmDeployType {
-		resp.YamlB = revisionB.HelmChart.ValuesYaml
+	if svcRevisionA.Type == setting.K8SDeployType {
+		resp.YamlB = svcRevisionB.Yaml
+		resp.VariableYamlB = svcRevisionB.VariableYaml
+	} else if svcRevisionB.Type == setting.HelmDeployType {
+		resp.YamlB = svcRevisionB.HelmChart.ValuesYaml
 	}
 
 	return resp, nil
 }
 
-func RollbackServiceVersion(ctx *internalhandler.Context, projectName, serviceName string, version int64, isProduction bool, log *zap.SugaredLogger) error {
+func RollbackServiceVersion(ctx *internalhandler.Context, projectName, serviceName string, revision int64, isProduction bool, log *zap.SugaredLogger) error {
 	var (
 		service *models.Service
 		err     error
@@ -141,17 +182,17 @@ func RollbackServiceVersion(ctx *internalhandler.Context, projectName, serviceNa
 		service, err = mongodb.NewProductionServiceColl().Find(&mongodb.ServiceFindOption{
 			ProductName: projectName,
 			ServiceName: serviceName,
-			Revision:    version,
+			Revision:    revision,
 		})
 	} else {
 		service, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
 			ProductName: projectName,
 			ServiceName: serviceName,
-			Revision:    version,
+			Revision:    revision,
 		})
 	}
 	if err != nil {
-		return fmt.Errorf("failed to find %s/%s service for version A %d, error: %v", projectName, serviceName, version, err)
+		return fmt.Errorf("failed to find %s/%s service for version A %d, error: %v", projectName, serviceName, revision, err)
 	}
 
 	rev, err := commonutil.GenerateServiceNextRevision(isProduction, serviceName, projectName)

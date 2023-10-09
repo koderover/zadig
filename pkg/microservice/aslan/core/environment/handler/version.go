@@ -176,7 +176,7 @@ func GetEnvServiceVersionYaml(c *gin.Context) {
 
 	revision, err := strconv.ParseInt(c.Param("revision"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
 		return
 	}
 
@@ -233,7 +233,7 @@ func GetProductionEnvServiceVersionYaml(c *gin.Context) {
 
 	revision, err := strconv.ParseInt(c.Param("revision"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
 		return
 	}
 
@@ -248,8 +248,8 @@ func GetProductionEnvServiceVersionYaml(c *gin.Context) {
 // @Param 	name			path		string							true	"env name"
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
-// @Param 	versionA		query		int								true	"version a"
-// @Param 	versionB		query		int								true	"version b"
+// @Param 	revisionA		query		int								true	"revision a"
+// @Param 	revisionB		query		int								true	"revision b"
 // @Success 200 			{object}  	service.ListEnvServiceVersionsResponse
 // @Router /api/aslan/environment/environments/{name}/version/{serviceName}/diff [get]
 func DiffEnvServiceVersions(c *gin.Context) {
@@ -289,18 +289,18 @@ func DiffEnvServiceVersions(c *gin.Context) {
 		return
 	}
 
-	versionA, err := strconv.ParseInt(c.Query("versionA"), 10, 64)
+	revisionA, err := strconv.ParseInt(c.Query("revisionA"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionA: %s", err))
 		return
 	}
-	versionB, err := strconv.ParseInt(c.Query("versionB"), 10, 64)
+	revisionB, err := strconv.ParseInt(c.Query("revisionB"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionB: %s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, versionA, versionB, false, ctx.Logger)
+	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, revisionA, revisionB, false, ctx.Logger)
 }
 
 // @Summary Diff Production Environment Service Versions
@@ -311,8 +311,8 @@ func DiffEnvServiceVersions(c *gin.Context) {
 // @Param 	name			path		string							true	"env name"
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
-// @Param 	versionA		query		int								true	"version a"
-// @Param 	versionB		query		int								true	"version b"
+// @Param 	revisionA		query		int								true	"revision a"
+// @Param 	revisionB		query		int								true	"revision b"
 // @Success 200 			{object}  	service.ListEnvServiceVersionsResponse
 // @Router /api/aslan/environment/production/environments/{name}/version/{serviceName}/diff [get]
 func DiffProductionEnvServiceVersions(c *gin.Context) {
@@ -352,18 +352,18 @@ func DiffProductionEnvServiceVersions(c *gin.Context) {
 		return
 	}
 
-	versionA, err := strconv.ParseInt(c.Query("versionA"), 10, 64)
+	revisionA, err := strconv.ParseInt(c.Query("revisionA"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionA: %s", err))
 		return
 	}
-	versionB, err := strconv.ParseInt(c.Query("versionB"), 10, 64)
+	revisionB, err := strconv.ParseInt(c.Query("revisionB"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revisionB: %s", err))
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, versionA, versionB, true, ctx.Logger)
+	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, revisionA, revisionB, true, ctx.Logger)
 }
 
 // @Summary Rollback Environment Service Version
@@ -374,7 +374,7 @@ func DiffProductionEnvServiceVersions(c *gin.Context) {
 // @Param 	name			path		string							true	"env name"
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
-// @Param 	version	 		query		int								true	"version"
+// @Param 	revision	 	query		int								true	"revision"
 // @Success 200
 // @Router /api/aslan/environment/environments/{name}/version/{serviceName}/rollback [post]
 func RollbackEnvServiceVersion(c *gin.Context) {
@@ -414,13 +414,13 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 		return
 	}
 
-	version, err := strconv.ParseInt(c.Query("version"), 10, 64)
+	revision, err := strconv.ParseInt(c.Query("revision"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revison: %s", err))
 		return
 	}
 
-	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, version, false, ctx.Logger)
+	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, false, ctx.Logger)
 }
 
 // @Summary Rollback Production Environment Service Version
@@ -431,7 +431,7 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 // @Param 	name			path		string							true	"env name"
 // @Param 	serviceName		path		string							true	"service name"
 // @Param 	projectName		query		string							true	"project name"
-// @Param 	version	 		query		int								true	"version"
+// @Param 	revision	 		query		int								true	"revision"
 // @Success 200
 // @Router /api/aslan/environment/production/environments/{name}/version/{serviceName}/rollback [post]
 func RollbackProductionEnvServiceVersion(c *gin.Context) {
@@ -471,11 +471,11 @@ func RollbackProductionEnvServiceVersion(c *gin.Context) {
 		return
 	}
 
-	version, err := strconv.ParseInt(c.Query("version"), 10, 64)
+	revision, err := strconv.ParseInt(c.Query("revision"), 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid versionA: %s", err))
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
 		return
 	}
 
-	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, version, true, ctx.Logger)
+	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, true, ctx.Logger)
 }

@@ -119,6 +119,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		version.GET("/:serviceName", ListServiceVersions)
 		version.GET("/:serviceName/diff", DiffServiceVersions)
+		version.GET("/:serviceName/revision/:revision", GetServiceVersionYaml)
 		version.POST("/:serviceName/rollback", RollbackServiceVersion)
 	}
 
@@ -126,7 +127,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		productionVersion.GET("/:serviceName", ListProductionServiceVersions)
 		productionVersion.GET("/:serviceName/diff", DiffProductionServiceVersions)
-		productionVersion.GET("/:serviceName/rollback", DiffProductionServiceVersions)
+		productionVersion.GET("/:serviceName/revision/:revision", GetProductionServiceVersionYaml)
+		productionVersion.POST("/:serviceName/rollback", RollbackProductionServiceVersion)
 	}
 }
 
