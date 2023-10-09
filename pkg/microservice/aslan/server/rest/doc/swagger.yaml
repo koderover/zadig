@@ -658,6 +658,15 @@ definitions:
       is_base:
         type: boolean
     type: object
+  models.ProjectDetail:
+    properties:
+      project_deploy_type:
+        type: string
+      project_key:
+        type: string
+      project_name:
+        type: string
+    type: object
   models.ProjectManagement:
     properties:
       id:
@@ -1477,9 +1486,9 @@ definitions:
     properties:
       group_name:
         type: string
-      project_names:
+      projects:
         items:
-          type: string
+          $ref: '#/definitions/models.ProjectDetail'
         type: array
     type: object
   service.HelmDeployStatusCheckRequest:
@@ -1842,7 +1851,7 @@ definitions:
   service.SearchBizDirByServiceProject:
     properties:
       project:
-        type: string
+        $ref: '#/definitions/models.ProjectDetail'
       services:
         items:
           type: string

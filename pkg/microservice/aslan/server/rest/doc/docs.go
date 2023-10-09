@@ -4654,6 +4654,20 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ProjectDetail": {
+            "type": "object",
+            "properties": {
+                "project_deploy_type": {
+                    "type": "string"
+                },
+                "project_key": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ProjectManagement": {
             "type": "object",
             "properties": {
@@ -5842,10 +5856,10 @@ const docTemplate = `{
                 "group_name": {
                     "type": "string"
                 },
-                "project_names": {
+                "projects": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/models.ProjectDetail"
                     }
                 }
             }
@@ -6400,7 +6414,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "project": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.ProjectDetail"
                 },
                 "services": {
                     "type": "array",

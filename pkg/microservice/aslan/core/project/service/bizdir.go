@@ -40,8 +40,8 @@ import (
 )
 
 type GroupDetail struct {
-	GroupName    string   `json:"group_name"`
-	ProjectNames []string `json:"project_names"`
+	GroupName string                        `json:"group_name"`
+	Projects  []*commonmodels.ProjectDetail `json:"projects"`
 }
 
 func GetBizDirProject() ([]GroupDetail, error) {
@@ -57,7 +57,7 @@ func GetBizDirProject() ([]GroupDetail, error) {
 			GroupName: group.Name,
 		}
 		for _, project := range group.Projects {
-			groupDetail.ProjectNames = append(groupDetail.ProjectNames, project.ProjectName)
+			groupDetail.Projects = append(groupDetail.Projects, project)
 			groupedProjectSet.Insert(project.ProjectKey)
 		}
 		resp = append(resp, groupDetail)
@@ -73,7 +73,12 @@ func GetBizDirProject() ([]GroupDetail, error) {
 	}
 	for _, project := range projects {
 		if !groupedProjectSet.Has(project.ProductName) {
-			ungrouped.ProjectNames = append(ungrouped.ProjectNames, project.ProjectName)
+			projectDetail := *&commonmodels.ProjectDetail{
+				ProjectName:       project.ProjectName,
+				ProjectKey:        project.ProductName,
+				ProjectDeployType: project.ProductFeature.DeployType,
+			}
+			ungrouped.Projects = append(ungrouped.Projects, &projectDetail)
 		}
 	}
 	resp = append(resp, ungrouped)
@@ -134,19 +139,24 @@ func SearchBizDirByProject(projectKeyword string) ([]GroupDetail, error) {
 		log.Errorf("too many projects(>=999) found by filter %s", projectKeyword)
 	}
 
-	groupProjectMap := make(map[string][]string)
+	groupProjectMap := make(map[string][]*commonmodels.ProjectDetail)
 	resp := []GroupDetail{}
 	for _, project := range projects {
+		projectDetail := &commonmodels.ProjectDetail{
+			ProjectKey:        project.Name,
+			ProjectName:       project.Alias,
+			ProjectDeployType: project.DeployType,
+		}
 		if projectGroupMap[project.Name] != "" {
-			groupProjectMap[projectGroupMap[project.Name]] = append(groupProjectMap[projectGroupMap[project.Name]], project.Name)
+			groupProjectMap[projectGroupMap[project.Name]] = append(groupProjectMap[projectGroupMap[project.Name]], projectDetail)
 		} else {
-			groupProjectMap[setting.UNGROUPED] = append(groupProjectMap[setting.UNGROUPED], project.Name)
+			groupProjectMap[setting.UNGROUPED] = append(groupProjectMap[setting.UNGROUPED], projectDetail)
 		}
 	}
 	for group, project := range groupProjectMap {
 		groupDetail := GroupDetail{
-			GroupName:    group,
-			ProjectNames: project,
+			GroupName: group,
+			Projects:  project,
 		}
 		resp = append(resp, groupDetail)
 	}
@@ -160,8 +170,8 @@ type SearchBizDirByServiceGroup struct {
 }
 
 type SearchBizDirByServiceProject struct {
-	Project  string   `json:"project"`
-	Services []string `json:"services"`
+	Project  *commonmodels.ProjectDetail `json:"project"`
+	Services []string                    `json:"services"`
 }
 
 func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, error) {
@@ -210,7 +220,11 @@ func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, e
 
 		if elem, ok := projectMap[service.ProductName]; !ok {
 			project := &SearchBizDirByServiceProject{
-				Project:  service.ProductName,
+				Project: &commonmodels.ProjectDetail{
+					ProjectKey:        templateProjectMap[service.ServiceName].ProductName,
+					ProjectName:       templateProjectMap[service.ServiceName].ProjectName,
+					ProjectDeployType: templateProjectMap[service.ServiceName].ProductFeature.DeployType,
+				},
 				Services: []string{service.ServiceName},
 			}
 			elemGroup.Projects = append(elemGroup.Projects, project)
@@ -274,7 +288,7 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 
 	for _, env := range envs {
 		prodSvc := env.GetServiceMap()[serviceName]
-		if prodSvc == nil {
+		if prodSvc == nil && !project.IsHostProduct() {
 			// not deployed in this env
 			continue
 		}
@@ -365,7 +379,7 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 				EnvName:     env.EnvName,
 				Production:  env.Production,
 				Name:        serviceName,
-				Type:        setting.PMDeployType,
+				Type:        project.ProductFeature.DeployType,
 				UpdateTime:  prodSvc.UpdateTime,
 			}
 
