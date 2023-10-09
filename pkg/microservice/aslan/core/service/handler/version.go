@@ -22,6 +22,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -371,6 +372,8 @@ func RollbackServiceVersion(c *gin.Context) {
 		return
 	}
 
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneService, "回滚", "服务", fmt.Sprintf("服务: %s, 版本: %d", serviceName, revision), "", ctx.Logger)
+
 	ctx.Err = service.RollbackServiceVersion(ctx, projectKey, serviceName, revision, false, ctx.Logger)
 }
 
@@ -420,6 +423,8 @@ func RollbackProductionServiceVersion(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid revision: %s", err))
 		return
 	}
+
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneService, "回滚", "生产服务", fmt.Sprintf("服务: %s, 版本: %d", serviceName, revision), "", ctx.Logger)
 
 	ctx.Err = service.RollbackServiceVersion(ctx, projectKey, serviceName, revision, true, ctx.Logger)
 }
