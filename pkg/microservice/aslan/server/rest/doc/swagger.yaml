@@ -1455,6 +1455,15 @@ definitions:
       values:
         type: string
     type: object
+  service.GetServiceVersionYamlResponse:
+    properties:
+      type:
+        type: string
+      variable_yaml:
+        type: string
+      yaml:
+        type: string
+    type: object
   service.GetSvcRenderArg:
     properties:
       is_helm_chart_deploy:
@@ -3000,14 +3009,14 @@ paths:
         name: projectName
         required: true
         type: string
-      - description: version a
+      - description: revision a
         in: query
-        name: versionA
+        name: revisionA
         required: true
         type: integer
-      - description: version b
+      - description: revision b
         in: query
-        name: versionB
+        name: revisionB
         required: true
         type: integer
       produces:
@@ -3079,9 +3088,9 @@ paths:
         name: projectName
         required: true
         type: string
-      - description: version
+      - description: revision
         in: query
-        name: version
+        name: revision
         required: true
         type: integer
       produces:
@@ -3747,14 +3756,14 @@ paths:
         name: projectName
         required: true
         type: string
-      - description: version a
+      - description: revision a
         in: query
-        name: versionA
+        name: revisionA
         required: true
         type: integer
-      - description: version b
+      - description: revision b
         in: query
-        name: versionB
+        name: revisionB
         required: true
         type: integer
       produces:
@@ -3826,9 +3835,9 @@ paths:
         name: projectName
         required: true
         type: string
-      - description: version
+      - description: revision
         in: query
-        name: version
+        name: revision
         required: true
         type: integer
       produces:
@@ -4463,14 +4472,14 @@ paths:
         name: projectName
         required: true
         type: string
-      - description: version a
+      - description: revision a
         in: query
-        name: versionA
+        name: revisionA
         required: true
         type: integer
-      - description: version b
+      - description: revision b
         in: query
-        name: versionB
+        name: revisionB
         required: true
         type: integer
       produces:
@@ -4483,11 +4492,11 @@ paths:
       summary: Diff Production Service Versions
       tags:
       - service
-  /api/aslan/service/production/version/{serviceName}/rollback:
-    post:
+  /api/aslan/service/production/version/{serviceName}/revision/{revision}:
+    get:
       consumes:
       - application/json
-      description: Rollback Service Version
+      description: Get Production Service Versions Yaml
       parameters:
       - description: service name
         in: path
@@ -4499,9 +4508,40 @@ paths:
         name: projectName
         required: true
         type: string
-      - description: version
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetServiceVersionYamlResponse'
+      summary: Get Production Service Version Yaml
+      tags:
+      - service
+  /api/aslan/service/production/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Production SService Version
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
         in: query
-        name: version
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: query
+        name: revision
         required: true
         type: integer
       produces:
@@ -4701,14 +4741,14 @@ paths:
         name: projectName
         required: true
         type: string
-      - description: version a
+      - description: revision a
         in: query
-        name: versionA
+        name: revisionA
         required: true
         type: integer
-      - description: version b
+      - description: revision b
         in: query
-        name: versionB
+        name: revisionB
         required: true
         type: integer
       produces:
@@ -4719,6 +4759,37 @@ paths:
           schema:
             $ref: '#/definitions/service.ListServiceVersionsResponse'
       summary: Diff Service Versions
+      tags:
+      - service
+  /api/aslan/service/version/{serviceName}/revision/{revision}:
+    get:
+      consumes:
+      - application/json
+      description: Get Service Versions Yaml
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetServiceVersionYamlResponse'
+      summary: Get Service Version Yaml
       tags:
       - service
   /api/aslan/service/version/{serviceName}/rollback:
@@ -4737,9 +4808,9 @@ paths:
         name: projectName
         required: true
         type: string
-      - description: version
+      - description: revision
         in: query
-        name: version
+        name: revision
         required: true
         type: integer
       produces:

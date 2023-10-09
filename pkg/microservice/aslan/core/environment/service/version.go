@@ -65,32 +65,32 @@ type GetEnvServiceVersionYamlResponse struct {
 	VariableYaml string `json:"variable_yaml"`
 }
 
-func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName, serviceName string, version int64, isProduction bool, log *zap.SugaredLogger) (GetEnvServiceVersionYamlResponse, error) {
+func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isProduction bool, log *zap.SugaredLogger) (GetEnvServiceVersionYamlResponse, error) {
 	resp := GetEnvServiceVersionYamlResponse{}
 
-	revision, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, version)
+	envSvcRevision, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, revision)
 	if err != nil {
-		return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to find %s/%s/%s service for version A %d, isProduction %v, error: %v", projectName, envName, serviceName, version, isProduction, err))
+		return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to find %s/%s/%s service for revision %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
 	}
-	resp.Type = revision.Service.Type
-	if revision.Service.Type == setting.K8SDeployType {
+	resp.Type = envSvcRevision.Service.Type
+	if envSvcRevision.Service.Type == setting.K8SDeployType {
 		fakeEnv := &commonmodels.Product{
-			ProductName: revision.ProductName,
-			EnvName:     revision.EnvName,
-			Namespace:   revision.Namespace,
-			Production:  revision.Production,
+			ProductName: envSvcRevision.ProductName,
+			EnvName:     envSvcRevision.EnvName,
+			Namespace:   envSvcRevision.Namespace,
+			Production:  envSvcRevision.Production,
 		}
-		parsedYaml, err := kube.RenderEnvService(fakeEnv, revision.Service.GetServiceRender(), revision.Service)
+		parsedYaml, err := kube.RenderEnvService(fakeEnv, envSvcRevision.Service.GetServiceRender(), envSvcRevision.Service)
 		if err != nil {
-			err = fmt.Errorf("Failed to render env Service %s, error: %v", revision.Service.ServiceName, err)
+			err = fmt.Errorf("Failed to render env Service %s, error: %v", envSvcRevision.Service.ServiceName, err)
 			return resp, e.ErrDiffEnvServiceVersions.AddErr(err)
 		}
 		resp.Yaml = parsedYaml
-		resp.VariableYaml = revision.Service.VariableYaml
-	} else if revision.Service.Type == setting.HelmDeployType {
-		resp.VariableYaml, err = commonutil.GeneHelmMergedValues(revision.Service, revision.DefaultValues, revision.Service.GetServiceRender())
+		resp.VariableYaml = envSvcRevision.Service.VariableYaml
+	} else if envSvcRevision.Service.Type == setting.HelmDeployType || envSvcRevision.Service.Type == setting.HelmChartDeployType {
+		resp.VariableYaml, err = commonutil.GeneHelmMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, envSvcRevision.Service.GetServiceRender())
 		if err != nil {
-			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to get helm merged values for %s/%s/%s service for version A %d, isProduction %v, error: %v", projectName, envName, serviceName, version, isProduction, err))
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to get helm merged values for %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
 		}
 	}
 
@@ -105,10 +105,10 @@ type DiffEnvServiceVersionsResponse struct {
 	VariableYamlB string `json:"variable_yaml_b"`
 }
 
-func DiffEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, serviceName string, versionA, versionB int64, isProduction bool, log *zap.SugaredLogger) (DiffEnvServiceVersionsResponse, error) {
+func DiffEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, serviceName string, revisionA, revisionB int64, isProduction bool, log *zap.SugaredLogger) (DiffEnvServiceVersionsResponse, error) {
 	resp := DiffEnvServiceVersionsResponse{}
 
-	respA, err := GetEnvServiceVersionYaml(ctx, projectName, envName, serviceName, versionA, isProduction, log)
+	respA, err := GetEnvServiceVersionYaml(ctx, projectName, envName, serviceName, revisionA, isProduction, log)
 	if err != nil {
 		return resp, err
 	}
@@ -116,7 +116,7 @@ func DiffEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 	resp.YamlA = respA.Yaml
 	resp.VariableYamlA = respA.VariableYaml
 
-	respB, err := GetEnvServiceVersionYaml(ctx, projectName, envName, serviceName, versionB, isProduction, log)
+	respB, err := GetEnvServiceVersionYaml(ctx, projectName, envName, serviceName, revisionB, isProduction, log)
 	if err != nil {
 		return resp, err
 	}
@@ -126,10 +126,10 @@ func DiffEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 	return resp, nil
 }
 
-func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, version int64, isProduction bool, log *zap.SugaredLogger) error {
-	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, version)
+func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isProduction bool, log *zap.SugaredLogger) error {
+	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, revision)
 	if err != nil {
-		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, version, isProduction, err))
+		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find %s/%s/%s service for revision %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
 	}
 
 	env, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{
