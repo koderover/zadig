@@ -601,6 +601,39 @@ func generateDefaultSystemActions() *SystemActions {
 			Edit:   false,
 			Delete: false,
 		},
+		BusinessDirectory: &BusinessDirectoryActions{
+			View: false,
+		},
+		ClusterManagement: &ClusterManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+		VMManagement: &VMManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+		RegistryManagement: &RegistryManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+		S3StorageManagement: &S3StorageManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+		HelmRepoManagement: &HelmRepoManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
 	}
 }
 

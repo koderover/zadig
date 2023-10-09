@@ -58,6 +58,11 @@ func ListRegistries(c *gin.Context) {
 				ctx.UnAuthorized = true
 				return
 			}
+		} else {
+			if !ctx.Resources.SystemActions.RegistryManagement.View {
+				ctx.UnAuthorized = true
+				return
+			}
 		}
 	}
 
@@ -87,8 +92,22 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 }
 
 func GetRegistryNamespace(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.RegistryManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	reg, _, err := commonservice.FindRegistryById(c.Param("id"), false, ctx.Logger)
 	if err != nil {
@@ -115,8 +134,22 @@ func GetRegistryNamespace(c *gin.Context) {
 }
 
 func ListRegistryNamespaces(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.RegistryManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {

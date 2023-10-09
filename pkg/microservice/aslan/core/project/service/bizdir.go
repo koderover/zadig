@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -170,6 +171,16 @@ func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, e
 		return nil, e.ErrSearchBizDirByService.AddErr(fmt.Errorf("failed to list project groups, error: %v", err))
 	}
 
+	projects, err := templaterepo.NewProductColl().List()
+	if err != nil {
+		return nil, e.ErrSearchBizDirByService.AddErr(fmt.Errorf("failed to list template projects, error: %v", err))
+	}
+
+	templateProjectMap := make(map[string]*template.Product)
+	for _, project := range projects {
+		templateProjectMap[project.ProductName] = project
+	}
+
 	projectGroupMap := make(map[string]string)
 	for _, group := range groups {
 		for _, project := range group.Projects {
@@ -180,6 +191,11 @@ func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, e
 	groupMap := make(map[string]*SearchBizDirByServiceGroup)
 	projectMap := make(map[string]*SearchBizDirByServiceProject)
 	addToRespMap := func(service *commonmodels.Service) {
+		if _, ok := templateProjectMap[service.ProductName]; !ok {
+			log.Warnf("project %s not found for service %s", service.ProductName, service.ServiceName)
+			return
+		}
+
 		groupName, ok := projectGroupMap[service.ProductName]
 		if !ok {
 			groupName = setting.UNGROUPED
