@@ -17,13 +17,11 @@ limitations under the License.
 package s3
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
-	"net/url"
 	"path/filepath"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
@@ -68,44 +66,49 @@ func (s *S3) GetURL() string {
 }
 
 func NewS3StorageFromURL(uri string) (*S3, error) {
-	store, err := url.Parse(uri)
-	if err != nil {
+	s3 := new(S3)
+	if err := json.Unmarshal([]byte(uri), s3); err != nil {
 		return nil, err
 	}
-
-	sk, _ := store.User.Password()
-	paths := strings.Split(strings.TrimLeft(store.Path, "/"), "/")
-	bucket := paths[0]
-
-	var subfolder string
-	if len(paths) > 1 {
-		subfolder = strings.Join(paths[1:], "/")
-	}
-
-	ret := &S3{
-		&Storage{
-			Ak:        store.User.Username(),
-			Sk:        sk,
-			Endpoint:  store.Host,
-			Bucket:    bucket,
-			Subfolder: subfolder,
-			Insecure:  store.Scheme == "http",
-		},
-	}
-	if strings.Contains(store.Host, setting.AliyunHost) {
-		ret.Provider = setting.ProviderSourceAli
-	}
-	if strings.Contains(store.Host, setting.AWSHost) {
-		// aws endpoint looks like <bucket>.s3.<region>.amazonaws.com
-		segmentation := strings.Split(store.Host, ".")
-		if len(segmentation) < 3 {
-			return nil, errors.New("cannot find region for aws s3")
-		}
-		// we get the third part of the endpoint
-		ret.Region = segmentation[2]
-	}
-
-	return ret, nil
+	return s3, nil
+	//store, err := url.Parse(uri)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//sk, _ := store.User.Password()
+	//paths := strings.Split(strings.TrimLeft(store.Path, "/"), "/")
+	//bucket := paths[0]
+	//
+	//var subfolder string
+	//if len(paths) > 1 {
+	//	subfolder = strings.Join(paths[1:], "/")
+	//}
+	//
+	//ret := &S3{
+	//	&Storage{
+	//		Ak:        store.User.Username(),
+	//		Sk:        sk,
+	//		Endpoint:  store.Host,
+	//		Bucket:    bucket,
+	//		Subfolder: subfolder,
+	//		Insecure:  store.Scheme == "http",
+	//	},
+	//}
+	//if strings.Contains(store.Host, setting.AliyunHost) {
+	//	ret.Provider = setting.ProviderSourceAli
+	//}
+	//if strings.Contains(store.Host, setting.AWSHost) {
+	//	// aws endpoint looks like <bucket>.s3.<region>.amazonaws.com
+	//	segmentation := strings.Split(store.Host, ".")
+	//	if len(segmentation) < 3 {
+	//		return nil, errors.New("cannot find region for aws s3")
+	//	}
+	//	// we get the third part of the endpoint
+	//	ret.Region = segmentation[2]
+	//}
+	//
+	//return ret, nil
 }
 
 func NewS3StorageFromEncryptedURI(encryptedURI string) (*S3, error) {
