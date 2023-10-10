@@ -411,11 +411,17 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	for _, name := range workflowList {
 		wg.Add(1)
 		go func(workflowName string) {
+			logger.Infof("go func cost %s", time.Since(t))
+			t2 := time.Now()
+			defer func() {
+				logger.Infof("ListWorkflowV4 db all cost: %v", time.Since(t2))
+			}()
 			defer wg.Done()
 			resp, _, err2 := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{
 				WorkflowName: workflowName,
 				Limit:        10,
 			})
+			logger.Infof("ListWorkflowV4 db cost: %v workflowName: %s", time.Since(t2), workflowName)
 			if err2 != nil {
 				err = err2
 				return

@@ -22,13 +22,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type ListWorkflowTaskV4Option struct {
@@ -125,10 +127,12 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.Work
 		}
 		query["create_time"] = bson.M{comparison: opt.CreateTime}
 	}
+	t := time.Now()
 	count, err := c.CountDocuments(context.TODO(), query)
 	if err != nil {
 		return nil, 0, err
 	}
+	log.Infof("count cost: %v", time.Since(t))
 
 	findOption := options.Find()
 	if opt.Limit > 0 {
@@ -145,6 +149,7 @@ func (c *WorkflowTaskv4Coll) List(opt *ListWorkflowTaskV4Option) ([]*models.Work
 	if err != nil {
 		return nil, 0, err
 	}
+	log.Infof("find cost: %v", time.Since(t))
 	return resp, count, nil
 }
 
