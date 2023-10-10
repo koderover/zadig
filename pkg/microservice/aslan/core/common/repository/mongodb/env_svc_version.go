@@ -61,7 +61,26 @@ func (c *EnvVersionColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "product_name", Value: 1},
 				bson.E{Key: "env_name", Value: 1},
 				bson.E{Key: "production", Value: 1},
+				bson.E{Key: "service.release_name", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "product_name", Value: 1},
+				bson.E{Key: "env_name", Value: 1},
+				bson.E{Key: "production", Value: 1},
 				bson.E{Key: "service.service_name", Value: 1},
+				bson.E{Key: "revision", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "product_name", Value: 1},
+				bson.E{Key: "env_name", Value: 1},
+				bson.E{Key: "production", Value: 1},
+				bson.E{Key: "service.release_name", Value: 1},
 				bson.E{Key: "revision", Value: 1},
 			},
 			Options: options.Index().SetUnique(true),
@@ -73,31 +92,39 @@ func (c *EnvVersionColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *EnvVersionColl) Find(productName, envName, serviceName string, production bool, revision int64) (*models.EnvServiceVersion, error) {
+func (c *EnvVersionColl) Find(productName, envName, serviceName string, isHelmChart, production bool, revision int64) (*models.EnvServiceVersion, error) {
 	res := &models.EnvServiceVersion{}
 	query := bson.M{}
 	query["env_name"] = envName
 	query["product_name"] = productName
-	query["service.service_name"] = serviceName
-	query["production"] = production
+	query["producton"] = production
 	query["revision"] = revision
 
+	if isHelmChart {
+		query["service.release_name"] = serviceName
+	} else {
+		query["service.service_name"] = serviceName
+	}
+
 	err := c.FindOne(context.TODO(), query).Decode(res)
-	// if err != nil && mongo.ErrNoDocuments == err {
-	// 	return nil, nil
-	// }
 	return res, err
 }
 
-func (c *EnvVersionColl) GetCountAndMaxRevision(productName, envName, serviceName string, production bool) (int64, int64, error) {
+func (c *EnvVersionColl) GetCountAndMaxRevision(productName, envName, serviceName string, isHelmChart, production bool) (int64, int64, error) {
+	match := bson.M{
+		"product_name":         productName,
+		"env_name":             envName,
+		"service.service_name": serviceName,
+		"production":           production,
+	}
+	if isHelmChart {
+		delete(match, "service.service_name")
+		match["service.release_name"] = serviceName
+	}
+
 	pipeline := []bson.M{
 		{
-			"$match": bson.M{
-				"product_name":         productName,
-				"env_name":             envName,
-				"service.service_name": serviceName,
-				"production":           production,
-			},
+			"$match": match,
 		},
 		{
 			"$group": bson.M{
@@ -128,14 +155,19 @@ func (c *EnvVersionColl) GetCountAndMaxRevision(productName, envName, serviceNam
 	return result.Count, result.MaxRevision, nil
 }
 
-func (c *EnvVersionColl) ListServiceVersions(productName, envName, serviceName string, production bool) ([]*models.EnvServiceVersion, error) {
+func (c *EnvVersionColl) ListServiceVersions(productName, envName, serviceName string, isHelmChart, production bool) ([]*models.EnvServiceVersion, error) {
 	var ret []*models.EnvServiceVersion
 	query := bson.M{}
 
 	query["env_name"] = envName
 	query["product_name"] = productName
-	query["service.service_name"] = serviceName
 	query["production"] = production
+
+	if isHelmChart {
+		query["service.release_name"] = serviceName
+	} else {
+		query["service.service_name"] = serviceName
+	}
 
 	ctx := context.Background()
 
@@ -152,13 +184,18 @@ func (c *EnvVersionColl) ListServiceVersions(productName, envName, serviceName s
 	return ret, nil
 }
 
-func (c *EnvVersionColl) DeleteRevisions(productName, envName, serviceName string, production bool, revision int64) error {
+func (c *EnvVersionColl) DeleteRevisions(productName, envName, serviceName string, isHelmChart, production bool, revision int64) error {
 	query := bson.M{}
 	query["env_name"] = envName
 	query["product_name"] = productName
-	query["service.service_name"] = serviceName
 	query["production"] = production
 	query["revision"] = bson.M{"$lt": revision}
+
+	if isHelmChart {
+		query["service.release_name"] = serviceName
+	} else {
+		query["service.service_name"] = serviceName
+	}
 
 	_, err := c.DeleteOne(context.TODO(), query)
 
