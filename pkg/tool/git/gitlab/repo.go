@@ -154,8 +154,8 @@ func (c *Client) GetYAMLContents(owner, repo, path, branch string, isDir, split 
 		if tn.Type != "blob" {
 			continue
 		}
+		wg.Add(1)
 		go func(tn *gitlab.TreeNode) {
-			wg.Add(1)
 			defer wg.Done()
 			log.Infof("---- start load data from %s", tn.Path)
 			r, err := c.GetYAMLContents(owner, repo, tn.Path, branch, false, split)
