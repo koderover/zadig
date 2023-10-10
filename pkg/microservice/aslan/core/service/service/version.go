@@ -144,7 +144,7 @@ func DiffServiceVersions(ctx *internalhandler.Context, projectName, serviceName 
 		resp.YamlA = svcRevisionA.Yaml
 		resp.VariableYamlA = svcRevisionA.VariableYaml
 	} else if svcRevisionA.Type == setting.HelmDeployType {
-		resp.YamlA = svcRevisionA.HelmChart.ValuesYaml
+		resp.VariableYamlA = svcRevisionA.HelmChart.ValuesYaml
 	}
 
 	if isProduction {
@@ -167,7 +167,7 @@ func DiffServiceVersions(ctx *internalhandler.Context, projectName, serviceName 
 		resp.YamlB = svcRevisionB.Yaml
 		resp.VariableYamlB = svcRevisionB.VariableYaml
 	} else if svcRevisionB.Type == setting.HelmDeployType {
-		resp.YamlB = svcRevisionB.HelmChart.ValuesYaml
+		resp.VariableYamlB = svcRevisionB.HelmChart.ValuesYaml
 	}
 
 	return resp, nil

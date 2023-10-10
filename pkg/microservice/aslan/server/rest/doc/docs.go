@@ -927,7 +927,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "service name",
+                        "description": "service name or release name when isHelmChart is true",
                         "name": "serviceName",
                         "in": "path",
                         "required": true
@@ -936,6 +936,13 @@ const docTemplate = `{
                         "type": "string",
                         "description": "project name",
                         "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is helm chart type",
+                        "name": "isHelmChart",
                         "in": "query",
                         "required": true
                     }
@@ -976,7 +983,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "service name",
+                        "description": "service name or release name when isHelmChart is true",
                         "name": "serviceName",
                         "in": "path",
                         "required": true
@@ -999,6 +1006,20 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "revision b",
                         "name": "revisionB",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is helm chart type",
+                        "name": "isHelmChart",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "release name",
+                        "name": "releaseName",
                         "in": "query",
                         "required": true
                     }
@@ -1036,7 +1057,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "service name",
+                        "description": "service name or release name when isHelmChart is true",
                         "name": "serviceName",
                         "in": "path",
                         "required": true
@@ -1052,6 +1073,20 @@ const docTemplate = `{
                         "type": "string",
                         "description": "project name",
                         "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is helm chart type",
+                        "name": "isHelmChart",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "release name",
+                        "name": "releaseName",
                         "in": "query",
                         "required": true
                     }
@@ -1092,7 +1127,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "service name",
+                        "description": "service name or release name when isHelmChart is true",
                         "name": "serviceName",
                         "in": "path",
                         "required": true
@@ -1108,6 +1143,13 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "revision",
                         "name": "revision",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is helm chart type",
+                        "name": "isHelmChart",
                         "in": "query",
                         "required": true
                     }
@@ -2039,7 +2081,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "service name",
+                        "description": "service name or release name when isHelmChart is true",
                         "name": "serviceName",
                         "in": "path",
                         "required": true
@@ -2048,6 +2090,20 @@ const docTemplate = `{
                         "type": "string",
                         "description": "project name",
                         "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is helm chart type",
+                        "name": "isHelmChart",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "release name",
+                        "name": "releaseName",
                         "in": "query",
                         "required": true
                     }
@@ -2088,7 +2144,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "service name",
+                        "description": "service name or release name when isHelmChart is true",
                         "name": "serviceName",
                         "in": "path",
                         "required": true
@@ -2111,6 +2167,20 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "revision b",
                         "name": "revisionB",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is helm chart type",
+                        "name": "isHelmChart",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "release name",
+                        "name": "releaseName",
                         "in": "query",
                         "required": true
                     }
@@ -2148,7 +2218,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "service name",
+                        "description": "service name or release name when isHelmChart is true",
                         "name": "serviceName",
                         "in": "path",
                         "required": true
@@ -2164,6 +2234,20 @@ const docTemplate = `{
                         "type": "string",
                         "description": "project name",
                         "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is helm chart type",
+                        "name": "isHelmChart",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "release name",
+                        "name": "releaseName",
                         "in": "query",
                         "required": true
                     }
@@ -2204,7 +2288,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "service name",
+                        "description": "service name or release name when isHelmChart is true",
                         "name": "serviceName",
                         "in": "path",
                         "required": true
@@ -2220,6 +2304,13 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "revision",
                         "name": "revision",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is helm chart type",
+                        "name": "isHelmChart",
                         "in": "query",
                         "required": true
                     }

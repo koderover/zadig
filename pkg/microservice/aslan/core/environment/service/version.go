@@ -20,18 +20,23 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/helmclient"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 type ListEnvServiceVersionsResponse struct {
@@ -41,16 +46,20 @@ type ListEnvServiceVersionsResponse struct {
 	CreateBy    string `json:"create_by"`
 }
 
-func ListEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, serviceName string, isProduction bool, log *zap.SugaredLogger) ([]ListEnvServiceVersionsResponse, error) {
+func ListEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, serviceName string, isHelmChart, isProduction bool, log *zap.SugaredLogger) ([]ListEnvServiceVersionsResponse, error) {
 	resp := []ListEnvServiceVersionsResponse{}
-	revisions, err := mongodb.NewEnvServiceVersionColl().ListServiceVersions(projectName, envName, serviceName, isProduction)
+	revisions, err := mongodb.NewEnvServiceVersionColl().ListServiceVersions(projectName, envName, serviceName, isHelmChart, isProduction)
 	if err != nil {
 		return nil, e.ErrListEnvServiceVersions.AddErr(fmt.Errorf("failed to list service revisions, error: %v", err))
 	}
 
 	for _, revision := range revisions {
+		name := revision.Service.ServiceName
+		if isHelmChart {
+			name = revision.Service.ReleaseName
+		}
 		resp = append(resp, ListEnvServiceVersionsResponse{
-			ServiceName: revision.Service.ServiceName,
+			ServiceName: name,
 			Revision:    revision.Revision,
 			CreateTime:  revision.CreateTime,
 			CreateBy:    revision.CreateBy,
@@ -65,10 +74,10 @@ type GetEnvServiceVersionYamlResponse struct {
 	VariableYaml string `json:"variable_yaml"`
 }
 
-func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isProduction bool, log *zap.SugaredLogger) (GetEnvServiceVersionYamlResponse, error) {
+func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, log *zap.SugaredLogger) (GetEnvServiceVersionYamlResponse, error) {
 	resp := GetEnvServiceVersionYamlResponse{}
 
-	envSvcRevision, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, revision)
+	envSvcRevision, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isHelmChart, isProduction, revision)
 	if err != nil {
 		return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to find %s/%s/%s service for revision %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
 	}
@@ -105,10 +114,10 @@ type DiffEnvServiceVersionsResponse struct {
 	VariableYamlB string `json:"variable_yaml_b"`
 }
 
-func DiffEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, serviceName string, revisionA, revisionB int64, isProduction bool, log *zap.SugaredLogger) (DiffEnvServiceVersionsResponse, error) {
+func DiffEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, serviceName string, revisionA, revisionB int64, isHelmChart, isProduction bool, log *zap.SugaredLogger) (DiffEnvServiceVersionsResponse, error) {
 	resp := DiffEnvServiceVersionsResponse{}
 
-	respA, err := GetEnvServiceVersionYaml(ctx, projectName, envName, serviceName, revisionA, isProduction, log)
+	respA, err := GetEnvServiceVersionYaml(ctx, projectName, envName, serviceName, revisionA, isHelmChart, isProduction, log)
 	if err != nil {
 		return resp, err
 	}
@@ -116,7 +125,7 @@ func DiffEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 	resp.YamlA = respA.Yaml
 	resp.VariableYamlA = respA.VariableYaml
 
-	respB, err := GetEnvServiceVersionYaml(ctx, projectName, envName, serviceName, revisionB, isProduction, log)
+	respB, err := GetEnvServiceVersionYaml(ctx, projectName, envName, serviceName, revisionB, isHelmChart, isProduction, log)
 	if err != nil {
 		return resp, err
 	}
@@ -126,8 +135,8 @@ func DiffEnvServiceVersions(ctx *internalhandler.Context, projectName, envName, 
 	return resp, nil
 }
 
-func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isProduction bool, log *zap.SugaredLogger) error {
-	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isProduction, revision)
+func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envName, serviceName string, revision int64, isHelmChart, isProduction bool, log *zap.SugaredLogger) error {
+	envSvcVersion, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isHelmChart, isProduction, revision)
 	if err != nil {
 		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find %s/%s/%s service for revision %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
 	}
@@ -223,6 +232,89 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		})
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service temlate %s/%s/%d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
+		}
+
+		if env.DefaultValues != "" {
+			mergedValues, err := helmtool.MergeOverrideValues("", envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, nil)
+			if err != nil {
+				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge service %s's override yaml %s and values %s, err: %s", envSvcVersion.Service.ServiceName, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, err))
+			}
+
+			mergedValuesFlatMap, err := converter.YamlToFlatMap([]byte(mergedValues))
+			if err != nil {
+				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert mergedSvcValues to flatMap, err: %s", err))
+			}
+			defaultValuesFlatMap, err := converter.YamlToFlatMap([]byte(env.DefaultValues))
+			if err != nil {
+				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert defaultValues to flatMap, err: %s", err))
+			}
+
+			needToAddValuesFlatMap := make(map[string]interface{})
+			for defaultKey, defaultValue := range defaultValuesFlatMap {
+				if _, ok := mergedValuesFlatMap[defaultKey]; !ok {
+					needToAddValuesFlatMap[defaultKey] = defaultValue
+				}
+			}
+
+			if envSvcVersion.Service.Type == setting.HelmDeployType {
+				svcTmplValuesFlatMap, err := converter.YamlToFlatMap([]byte(svcTmpl.HelmChart.ValuesYaml))
+				if err != nil {
+					return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert template service %s's values yaml to flatMap, err: %v", svcTmpl.ServiceName, err))
+				}
+				for key, value := range needToAddValuesFlatMap {
+					if v, ok := svcTmplValuesFlatMap[key]; !ok {
+						mergedValuesFlatMap[key] = v
+					} else {
+						mergedValuesFlatMap[key] = value
+					}
+				}
+			} else if envSvcVersion.Service.Type == setting.HelmChartDeployType {
+				chartRepoName := envSvcVersion.Service.GetServiceRender().ChartRepo
+				chartName := envSvcVersion.Service.GetServiceRender().ChartName
+				chartVersion := envSvcVersion.Service.GetServiceRender().ChartVersion
+				chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: chartRepoName})
+				if err != nil {
+					return fmt.Errorf("failed to query chart-repo info, productName: %s, repoName: %s", env.ProductName, chartRepoName)
+				}
+
+				hClient, err := helmclient.NewClient()
+				if err != nil {
+					return err
+				}
+
+				valuesYaml, err := hClient.GetChartValues(commonutil.GeneHelmRepo(chartRepo), env.ProductName, serviceName, chartRepoName, chartName, chartVersion)
+				if err != nil {
+					return fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", chartRepoName, chartName, chartVersion, err)
+				}
+				valuesYamlFlatMap, err := converter.YamlToFlatMap([]byte(valuesYaml))
+				if err != nil {
+					return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert mergedSvcValues to flatMap, err: %s", err))
+				}
+
+				for key, value := range needToAddValuesFlatMap {
+					if v, ok := valuesYamlFlatMap[key]; !ok {
+						mergedValuesFlatMap[key] = v
+					} else {
+						mergedValuesFlatMap[key] = value
+					}
+				}
+			}
+
+			mergedValuesByte, err := yaml.Marshal(mergedValuesFlatMap)
+			if err != nil {
+				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to mashal mergedValuesFlatMap, err: %s", err))
+			}
+
+			envSvcVersion.Service.GetServiceRender().OverrideYaml.YamlContent = string(mergedValuesByte)
+			envSvcVersion.Service.GetServiceRender().OverrideValues = ""
+		} else {
+			mergedValues, err := helmtool.MergeOverrideValues("", envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, nil)
+			if err != nil {
+				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge service %s's override yaml %s and values %s, err: %s", envSvcVersion.Service.ServiceName, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, err))
+			}
+
+			envSvcVersion.Service.GetServiceRender().OverrideYaml.YamlContent = mergedValues
+			envSvcVersion.Service.GetServiceRender().OverrideValues = ""
 		}
 
 		err = kube.UpgradeHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, 0, ctx.UserName)

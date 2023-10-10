@@ -2966,7 +2966,7 @@ paths:
         name: name
         required: true
         type: string
-      - description: service name
+      - description: service name or release name when isHelmChart is true
         in: path
         name: serviceName
         required: true
@@ -2976,6 +2976,11 @@ paths:
         name: projectName
         required: true
         type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2999,7 +3004,7 @@ paths:
         name: name
         required: true
         type: string
-      - description: service name
+      - description: service name or release name when isHelmChart is true
         in: path
         name: serviceName
         required: true
@@ -3019,6 +3024,16 @@ paths:
         name: revisionB
         required: true
         type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -3040,7 +3055,7 @@ paths:
         name: name
         required: true
         type: string
-      - description: service name
+      - description: service name or release name when isHelmChart is true
         in: path
         name: serviceName
         required: true
@@ -3053,6 +3068,16 @@ paths:
       - description: project name
         in: query
         name: projectName
+        required: true
+        type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
         required: true
         type: string
       produces:
@@ -3078,7 +3103,7 @@ paths:
         name: name
         required: true
         type: string
-      - description: service name
+      - description: service name or release name when isHelmChart is true
         in: path
         name: serviceName
         required: true
@@ -3093,6 +3118,11 @@ paths:
         name: revision
         required: true
         type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
       produces:
       - application/json
       responses:
@@ -3713,7 +3743,7 @@ paths:
         name: name
         required: true
         type: string
-      - description: service name
+      - description: service name or release name when isHelmChart is true
         in: path
         name: serviceName
         required: true
@@ -3721,6 +3751,16 @@ paths:
       - description: project name
         in: query
         name: projectName
+        required: true
+        type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
         required: true
         type: string
       produces:
@@ -3746,7 +3786,7 @@ paths:
         name: name
         required: true
         type: string
-      - description: service name
+      - description: service name or release name when isHelmChart is true
         in: path
         name: serviceName
         required: true
@@ -3766,6 +3806,16 @@ paths:
         name: revisionB
         required: true
         type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -3787,7 +3837,7 @@ paths:
         name: name
         required: true
         type: string
-      - description: service name
+      - description: service name or release name when isHelmChart is true
         in: path
         name: serviceName
         required: true
@@ -3800,6 +3850,16 @@ paths:
       - description: project name
         in: query
         name: projectName
+        required: true
+        type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
         required: true
         type: string
       produces:
@@ -3825,7 +3885,7 @@ paths:
         name: name
         required: true
         type: string
-      - description: service name
+      - description: service name or release name when isHelmChart is true
         in: path
         name: serviceName
         required: true
@@ -3840,6 +3900,11 @@ paths:
         name: revision
         required: true
         type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
       produces:
       - application/json
       responses:

@@ -33,8 +33,9 @@ import (
 // @Accept 	json
 // @Produce json
 // @Param 	name			path		string							true	"env name"
-// @Param 	serviceName		path		string							true	"service name"
+// @Param 	serviceName		path		string							true	"service name or release name when isHelmChart is true"
 // @Param 	projectName		query		string							true	"project name"
+// @Param 	isHelmChart		query		bool							true	"is helm chart type"
 // @Success 200 			{array}  	service.ListEnvServiceVersionsResponse
 // @Router /api/aslan/environment/environments/{name}/version/{serviceName} [get]
 func ListEnvServiceVersions(c *gin.Context) {
@@ -74,7 +75,13 @@ func ListEnvServiceVersions(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListEnvServiceVersions(ctx, projectKey, envName, serviceName, false, ctx.Logger)
+	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListEnvServiceVersions(ctx, projectKey, envName, serviceName, isHelmChart, false, ctx.Logger)
 }
 
 // @Summary List Production Environment Service Versions
@@ -83,8 +90,10 @@ func ListEnvServiceVersions(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	name			path		string							true	"env name"
-// @Param 	serviceName		path		string							true	"service name"
+// @Param 	serviceName		path		string							true	"service name or release name when isHelmChart is true"
 // @Param 	projectName		query		string							true	"project name"
+// @Param 	isHelmChart		query		bool							true	"is helm chart type"
+// @Param 	releaseName		query		string							true	"release name"
 // @Success 200 			{array}  	service.ListEnvServiceVersionsResponse
 // @Router /api/aslan/environment/production/environments/{name}/version/{serviceName} [get]
 func ListProductionEnvServiceVersions(c *gin.Context) {
@@ -124,7 +133,13 @@ func ListProductionEnvServiceVersions(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListEnvServiceVersions(ctx, projectKey, envName, serviceName, true, ctx.Logger)
+	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListEnvServiceVersions(ctx, projectKey, envName, serviceName, isHelmChart, true, ctx.Logger)
 }
 
 // @Summary Get Environment Service Version Yaml
@@ -133,9 +148,11 @@ func ListProductionEnvServiceVersions(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	name			path		string							true	"env name"
-// @Param 	serviceName		path		string							true	"service name"
+// @Param 	serviceName		path		string							true	"service name or release name when isHelmChart is true"
 // @Param 	revision		path		string							true	"revision"
 // @Param 	projectName		query		string							true	"project name"
+// @Param 	isHelmChart		query		bool							true	"is helm chart type"
+// @Param 	releaseName		query		string							true	"release name"
 // @Success 200 			{array}  	service.GetEnvServiceVersionYamlResponse
 // @Router /api/aslan/environment/environments/{name}/version/{serviceName}/revision/{revision} [get]
 func GetEnvServiceVersionYaml(c *gin.Context) {
@@ -181,7 +198,13 @@ func GetEnvServiceVersionYaml(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEnvServiceVersionYaml(ctx, projectKey, envName, serviceName, revision, false, ctx.Logger)
+	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvServiceVersionYaml(ctx, projectKey, envName, serviceName, revision, isHelmChart, false, ctx.Logger)
 }
 
 // @Summary Get Production Environment Service Version Yaml
@@ -190,9 +213,11 @@ func GetEnvServiceVersionYaml(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	name			path		string							true	"env name"
-// @Param 	serviceName		path		string							true	"service name"
+// @Param 	serviceName		path		string							true	"service name or release name when isHelmChart is true"
 // @Param 	revision		path		string							true	"revision"
 // @Param 	projectName		query		string							true	"project name"
+// @Param 	isHelmChart		query		bool							true	"is helm chart type"
+// @Param 	releaseName		query		string							true	"release name"
 // @Success 200 			{array}  	service.GetEnvServiceVersionYamlResponse
 // @Router /api/aslan/environment/production/environments/{name}/version/{serviceName}/revision/{revision} [get]
 func GetProductionEnvServiceVersionYaml(c *gin.Context) {
@@ -238,7 +263,13 @@ func GetProductionEnvServiceVersionYaml(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetEnvServiceVersionYaml(ctx, projectKey, envName, serviceName, revision, true, ctx.Logger)
+	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetEnvServiceVersionYaml(ctx, projectKey, envName, serviceName, revision, isHelmChart, true, ctx.Logger)
 }
 
 // @Summary Diff Environment Service Versions
@@ -247,10 +278,12 @@ func GetProductionEnvServiceVersionYaml(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	name			path		string							true	"env name"
-// @Param 	serviceName		path		string							true	"service name"
+// @Param 	serviceName		path		string							true	"service name or release name when isHelmChart is true"
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	revisionA		query		int								true	"revision a"
 // @Param 	revisionB		query		int								true	"revision b"
+// @Param 	isHelmChart		query		bool							true	"is helm chart type"
+// @Param 	releaseName		query		string							true	"release name"
 // @Success 200 			{object}  	service.ListEnvServiceVersionsResponse
 // @Router /api/aslan/environment/environments/{name}/version/{serviceName}/diff [get]
 func DiffEnvServiceVersions(c *gin.Context) {
@@ -301,7 +334,13 @@ func DiffEnvServiceVersions(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, revisionA, revisionB, false, ctx.Logger)
+	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, revisionA, revisionB, isHelmChart, false, ctx.Logger)
 }
 
 // @Summary Diff Production Environment Service Versions
@@ -310,10 +349,12 @@ func DiffEnvServiceVersions(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	name			path		string							true	"env name"
-// @Param 	serviceName		path		string							true	"service name"
+// @Param 	serviceName		path		string							true	"service name or release name when isHelmChart is true"
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	revisionA		query		int								true	"revision a"
 // @Param 	revisionB		query		int								true	"revision b"
+// @Param 	isHelmChart		query		bool							true	"is helm chart type"
+// @Param 	releaseName		query		string							true	"release name"
 // @Success 200 			{object}  	service.ListEnvServiceVersionsResponse
 // @Router /api/aslan/environment/production/environments/{name}/version/{serviceName}/diff [get]
 func DiffProductionEnvServiceVersions(c *gin.Context) {
@@ -364,7 +405,13 @@ func DiffProductionEnvServiceVersions(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, revisionA, revisionB, true, ctx.Logger)
+	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.DiffEnvServiceVersions(ctx, projectKey, envName, serviceName, revisionA, revisionB, isHelmChart, true, ctx.Logger)
 }
 
 // @Summary Rollback Environment Service Version
@@ -373,9 +420,10 @@ func DiffProductionEnvServiceVersions(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	name			path		string							true	"env name"
-// @Param 	serviceName		path		string							true	"service name"
+// @Param 	serviceName		path		string							true	"service name or release name when isHelmChart is true"
 // @Param 	projectName		query		string							true	"project name"
 // @Param 	revision	 	query		int								true	"revision"
+// @Param 	isHelmChart		query		bool							true	"is helm chart type"
 // @Success 200
 // @Router /api/aslan/environment/environments/{name}/version/{serviceName}/rollback [post]
 func RollbackEnvServiceVersion(c *gin.Context) {
@@ -421,9 +469,15 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 		return
 	}
 
+	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		return
+	}
+
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "回滚", "环境-服务", fmt.Sprintf("环境: %s, 服务: %s, 版本: %d", envName, serviceName, revision), "", ctx.Logger, envName)
 
-	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, false, ctx.Logger)
+	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, false, ctx.Logger)
 }
 
 // @Summary Rollback Production Environment Service Version
@@ -432,9 +486,10 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	name			path		string							true	"env name"
-// @Param 	serviceName		path		string							true	"service name"
+// @Param 	serviceName		path		string							true	"service name or release name when isHelmChart is true"
 // @Param 	projectName		query		string							true	"project name"
-// @Param 	revision	 		query		int								true	"revision"
+// @Param 	revision	 	query		int								true	"revision"
+// @Param 	isHelmChart		query		bool							true	"is helm chart type"
 // @Success 200
 // @Router /api/aslan/environment/production/environments/{name}/version/{serviceName}/rollback [post]
 func RollbackProductionEnvServiceVersion(c *gin.Context) {
@@ -480,7 +535,13 @@ func RollbackProductionEnvServiceVersion(c *gin.Context) {
 		return
 	}
 
+	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		return
+	}
+
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "回滚", "生产环境-服务", fmt.Sprintf("环境: %s, 服务: %s, 版本: %d", envName, serviceName, revision), "", ctx.Logger, envName)
 
-	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, true, ctx.Logger)
+	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, true, ctx.Logger)
 }
