@@ -3784,6 +3784,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/system/helm/project": {
+            "get": {
+                "description": "List Helm Repos By Project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List Helm Repos By Project",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.HelmRepo"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/system/llm/integration": {
             "get": {
                 "description": "List llm integrations",
@@ -6616,6 +6651,41 @@ const docTemplate = `{
                 }
             }
         },
+        "service.GetBizDirServiceDetailResponse": {
+            "type": "object",
+            "properties": {
+                "chart_version": {
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "update_time": {
+                    "type": "integer"
+                }
+            }
+        },
         "service.GetEnvServiceVersionYamlResponse": {
             "type": "object",
             "properties": {
@@ -7373,6 +7443,12 @@ const docTemplate = `{
         "service.ServiceOption": {
             "type": "object",
             "properties": {
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.SvcResources"
+                    }
+                },
                 "service": {
                     "$ref": "#/definitions/models.Service"
                 },
@@ -7497,6 +7573,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "service_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.SvcResources": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }

@@ -1424,6 +1424,29 @@ definitions:
       overrideYaml:
         type: string
     type: object
+  service.GetBizDirServiceDetailResponse:
+    properties:
+      chart_version:
+        type: string
+      env_name:
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      production:
+        type: boolean
+      project_name:
+        type: string
+      status:
+        type: string
+      type:
+        type: string
+      update_time:
+        type: integer
+    type: object
   service.GetEnvServiceVersionYamlResponse:
     properties:
       type:
@@ -1916,6 +1939,10 @@ definitions:
     type: object
   service.ServiceOption:
     properties:
+      resources:
+        items:
+          $ref: '#/definitions/service.SvcResources'
+        type: array
       service:
         $ref: '#/definitions/models.Service'
       service_module:
@@ -2001,6 +2028,13 @@ definitions:
       release_name:
         type: string
       service_name:
+        type: string
+    type: object
+  service.SvcResources:
+    properties:
+      kind:
+        type: string
+      name:
         type: string
     type: object
   service.SvcResp:
@@ -4886,6 +4920,29 @@ paths:
       summary: Rollback Service Version
       tags:
       - service
+  /api/aslan/system/helm/project:
+    get:
+      consumes:
+      - application/json
+      description: List Helm Repos By Project
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.HelmRepo'
+            type: array
+      summary: List Helm Repos By Project
+      tags:
+      - system
   /api/aslan/system/llm/integration:
     get:
       consumes:
