@@ -34,6 +34,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/util/rand"
 )
@@ -287,10 +289,31 @@ func updateProductImageByNs(envName, productName, serviceName string, targets ma
 		}
 	}
 
-	if err := commonrepo.NewProductColl().Update(prod); err != nil {
-		errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
-		logger.Errorf(errMsg)
-		return errors.New(errMsg)
+	templateProject, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return fmt.Errorf("find template project %s error: %v", productName, err)
+	}
+
+	if templateProject.IsHostProduct() {
+		tmplSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: serviceName,
+			ProductName: productName,
+		}, prod.Production)
+		if err != nil {
+			return fmt.Errorf("find template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
+		}
+
+		tmplSvc.DeployTime = time.Now().Unix()
+		err = repository.Update(tmplSvc, prod.Production)
+		if err != nil {
+			return fmt.Errorf("update template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
+		}
+	} else {
+		if err := commonrepo.NewProductColl().Update(prod); err != nil {
+			errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
+			logger.Errorf(errMsg)
+			return errors.New(errMsg)
+		}
 	}
 
 	return nil

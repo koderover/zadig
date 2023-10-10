@@ -149,6 +149,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 			if service.ServiceName != args.ServiceName {
 				continue
 			}
+			service.UpdateTime = time.Now().Unix()
 			for _, container := range service.Containers {
 				if container.Name == args.ContainerName {
 					container.Image = args.Image

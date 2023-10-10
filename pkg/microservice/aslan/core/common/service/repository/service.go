@@ -82,3 +82,11 @@ func UpdateStatus(serviceName, productName, status string, production bool) erro
 		return mongodb.NewProductionServiceColl().UpdateStatus(serviceName, productName, status)
 	}
 }
+
+func Update(service *models.Service, production bool) error {
+	if !production {
+		return mongodb.NewServiceColl().Update(service)
+	} else {
+		return mongodb.NewProductionServiceColl().Update(service)
+	}
+}

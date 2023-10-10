@@ -76,6 +76,7 @@ type Service struct {
 	HealthChecks       []*PmHealthCheck                 `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
 	WorkloadType       string                           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"` // WorkloadType is set in host projects
 	EnvName            string                           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
+	DeployTime         int64                            `bson:"deploy_time,omitempty"          json:"deploy_time,omitempty"`
 	TemplateID         string                           `bson:"template_id,omitempty"          json:"template_id,omitempty"`
 	AutoSync           bool                             `bson:"auto_sync"                      json:"auto_sync"`
 	Production         bool                             `bson:"-"                              json:"-"` // check current service data is production service

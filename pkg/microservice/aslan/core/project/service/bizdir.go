@@ -326,6 +326,38 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 			detail.Images = serviceStatus.Images
 
 			resp = append(resp, detail)
+		} else if project.IsHostProduct() {
+			cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
+			if err != nil {
+				return resp, e.ErrGetBizDirServiceDetail.AddDesc(err.Error())
+			}
+			informer, err := informer.NewInformer(env.ClusterID, env.Namespace, cls)
+			if err != nil {
+				return resp, e.ErrGetBizDirServiceDetail.AddDesc(err.Error())
+			}
+
+			detail := GetBizDirServiceDetailResponse{
+				ProjectName: env.ProductName,
+				EnvName:     env.EnvName,
+				Production:  env.Production,
+				Name:        serviceName,
+				Type:        setting.K8SDeployType,
+			}
+			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: serviceName,
+				ProductName: projectName,
+			}, env.Production)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get service template for productName: %s, serviceName: %s, error: %v",
+					prodSvc.ProductName, prodSvc.ServiceName, err)
+			}
+			detail.UpdateTime = serviceTmpl.DeployTime
+
+			serviceStatus := commonservice.QueryPodsStatus(env, serviceTmpl, serviceTmpl.ServiceName, cls, informer, log.SugaredLogger())
+			detail.Status = serviceStatus.PodStatus
+			detail.Images = serviceStatus.Images
+
+			resp = append(resp, detail)
 		} else if project.IsHelmProduct() {
 			restConfig, err := kube.GetRESTConfig(env.ClusterID)
 			if err != nil {
@@ -373,7 +405,7 @@ func GetBizDirServiceDetail(projectName, serviceName string) ([]GetBizDirService
 			detail.UpdateTime = releases[0].Info.LastDeployed.Unix()
 
 			resp = append(resp, detail)
-		} else if project.IsHostProduct() {
+		} else if project.IsCVMProduct() {
 			detail := GetBizDirServiceDetailResponse{
 				ProjectName: env.ProductName,
 				EnvName:     env.EnvName,

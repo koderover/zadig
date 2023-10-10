@@ -4902,6 +4902,9 @@ const docTemplate = `{
                 "create_time": {
                     "type": "integer"
                 },
+                "deploy_time": {
+                    "type": "integer"
+                },
                 "description": {
                     "type": "string"
                 },

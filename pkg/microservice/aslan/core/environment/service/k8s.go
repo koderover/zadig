@@ -217,6 +217,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	for _, group := range exitedProd.Services {
 		for i, service := range group {
 			if service.ServiceName == args.ServiceName && service.Type == args.ServiceType {
+				newProductSvc.UpdateTime = time.Now().Unix()
 				group[i] = newProductSvc
 			}
 		}
