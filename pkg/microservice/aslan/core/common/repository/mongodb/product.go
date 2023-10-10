@@ -30,6 +30,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
@@ -368,17 +369,30 @@ func (c *ProductColl) Delete(owner, productName string) error {
 	return err
 }
 
+func (c *ProductColl) UpdateGlobalVariable(args *models.Product) error {
+	query := bson.M{"env_name": args.EnvName, "product_name": args.ProductName}
+	changePayload := bson.M{
+		"update_time":      time.Now().Unix(),
+		"global_variables": args.GlobalVariables,
+	}
+	change := bson.M{"$set": changePayload}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 // Update  Cannot update owner & product name
 func (c *ProductColl) Update(args *models.Product) error {
 	query := bson.M{"env_name": args.EnvName, "product_name": args.ProductName}
 	changePayload := bson.M{
-		"update_time": time.Now().Unix(),
-		"services":    args.Services,
-		"status":      args.Status,
-		"revision":    args.Revision,
-		"render":      args.Render,
-		"error":       args.Error,
-		"share_env":   args.ShareEnv,
+		"update_time":      time.Now().Unix(),
+		"services":         args.Services,
+		"status":           args.Status,
+		"revision":         args.Revision,
+		"error":            args.Error,
+		"share_env":        args.ShareEnv,
+		"global_variables": args.GlobalVariables,
+		"default_values":   args.DefaultValues,
+		"yaml_data":        args.YamlData,
 	}
 	if len(args.Source) > 0 {
 		changePayload["source"] = args.Source
@@ -426,6 +440,22 @@ func (c *ProductColl) UpdateGroup(envName, productName string, groupIndex int, g
 	return err
 }
 
+func (c *ProductColl) UpdateDeployStrategyAndGlobalVariable(envName, productName string, deployStrategy map[string]string, globalVariables []*types.GlobalVariableKV) error {
+	query := bson.M{
+		"env_name":     envName,
+		"product_name": productName,
+	}
+	change := bson.M{
+		"update_time":             time.Now().Unix(),
+		"global_variables":        globalVariables,
+		"service_deploy_strategy": deployStrategy,
+	}
+
+	_, err := c.UpdateOne(context.TODO(), query, bson.M{"$set": change})
+
+	return err
+}
+
 func (c *ProductColl) UpdateDeployStrategy(envName, productName string, deployStrategy map[string]string) error {
 	query := bson.M{
 		"env_name":     envName,
@@ -438,6 +468,18 @@ func (c *ProductColl) UpdateDeployStrategy(envName, productName string, deploySt
 
 	_, err := c.UpdateOne(context.TODO(), query, bson.M{"$set": change})
 
+	return err
+}
+
+func (c *ProductColl) UpdateProductVariables(product *models.Product) error {
+	query := bson.M{"env_name": product.EnvName, "product_name": product.ProductName}
+
+	change := bson.M{"$set": bson.M{
+		"default_values":   product.DefaultValues,
+		"yaml_data":        product.YamlData,
+		"global_variables": product.GlobalVariables,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
 

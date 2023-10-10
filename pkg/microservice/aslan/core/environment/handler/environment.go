@@ -1807,42 +1807,6 @@ func GetProductInfo(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetProductInfo(ctx.UserName, envName, projectKey, ctx.Logger)
 }
 
-func GetHelmChartVersions(c *gin.Context) {
-	ctx, err := internalhandler.NewContextWithAuthorization(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if err != nil {
-
-		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-		ctx.UnAuthorized = true
-		return
-	}
-
-	envName := c.Param("name")
-	projectKey := c.Query("projectName")
-
-	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Env.View {
-			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionView)
-			if err != nil || !permitted {
-				ctx.UnAuthorized = true
-				return
-			}
-		}
-	}
-
-	ctx.Resp, ctx.Err = service.GetHelmChartVersions(projectKey, envName, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to get helmVersions %s %s: %v", envName, projectKey, ctx.Err)
-	}
-}
-
 func GetEstimatedRenderCharts(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

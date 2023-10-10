@@ -242,19 +242,8 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 	ret := make([]*commonservice.Workload, 0)
 	envName, productName, namespace := env.EnvName, env.ProductName, env.Namespace
 
-	renderSetFindOpt := &commonrepo.RenderSetFindOption{
-		Name:        env.Render.Name,
-		Revision:    env.Render.Revision,
-		ProductTmpl: env.ProductName,
-		EnvName:     envName,
-	}
-	rs, err := commonrepo.NewRenderSetColl().Find(renderSetFindOpt)
-	if err != nil {
-		log.Errorf("find renderset[%s] error: %v", env.Render.Name, err)
-		return nil, e.ErrGetService.AddDesc(fmt.Sprintf("未找到变量集: %s", env.Render.Name))
-	}
-
-	parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, rs)
+	svcRender := env.GetSvcRender(svcTmpl.ServiceName)
+	parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productName, svcTmpl.ServiceName, svcRender)
 	if err != nil {
 		log.Errorf("failed to render service yaml, err: %s", err)
 		return nil, err
@@ -307,7 +296,7 @@ func GetServiceWorkloads(svcTmpl *commonmodels.Service, env *commonmodels.Produc
 	return ret, nil
 }
 
-func GetZadigReleaseServiceImpl(releaseType, serviceName string, workLoadType string, env *commonmodels.Product, kubeClient client.Client, clientset *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *commonservice.SvcResp, err error) {
+func GetZadigReleaseServiceImpl(releaseType, serviceName string, _ string, env *commonmodels.Product, kubeClient client.Client, _ *kubernetes.Clientset, inf informers.SharedInformerFactory, log *zap.SugaredLogger) (ret *commonservice.SvcResp, err error) {
 	envName, productName := env.EnvName, env.ProductName
 	ret = &commonservice.SvcResp{
 		ServiceName: serviceName,
@@ -519,9 +508,6 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		}
 	default:
 		var serviceTmpl *commonmodels.Service
-		var newRender *commonmodels.RenderSet
-		productObj.EnsureRenderInfo()
-		oldRenderInfo := productObj.Render
 		var productService *commonmodels.ProductService
 
 		serviceObj, ok := productObj.GetServiceMap()[args.ServiceName]
@@ -538,28 +524,15 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 			Type:        setting.K8SDeployType,
 		}, productObj.Production)
 
-		opt := &commonrepo.RenderSetFindOption{
-			Name:        oldRenderInfo.Name,
-			Revision:    oldRenderInfo.Revision,
-			ProductTmpl: productObj.ProductName,
-			EnvName:     productObj.EnvName,
-		}
-		newRender, err = commonrepo.NewRenderSetColl().Find(opt)
-		if err != nil {
-			log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
-			err = e.ErrRestartService.AddErr(err)
-			return
-		}
-
 		// for services deployed by zadig, service will be applied when restarting
 		if commonutil.ServiceDeployed(serviceTmpl.ServiceName, productObj.ServiceDeployStrategy) {
 			_, err = upsertService(
 				productObj,
 				productService,
 				productService,
-				newRender, oldRenderInfo, !productObj.Production, inf, kubeClient, istioClient, log)
+				!productObj.Production, inf, kubeClient, istioClient, log)
 		} else {
-			err = restartRelatedWorkloads(productObj, productService, newRender, kubeClient, log)
+			err = restartRelatedWorkloads(productObj, productService, kubeClient, log)
 		}
 		log.Infof("restart resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
 

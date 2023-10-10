@@ -330,19 +330,7 @@ func fillServiceVariableAttribute(variablesFromUser []*commontypes.RenderVariabl
 				}})
 		}
 	} else {
-		render, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: env.Render.Name})
-		if err != nil {
-			msg := fmt.Errorf("failed to find render set, project:%s, env:%s", projectName, env.EnvName).Error()
-			logger.Errorf(msg)
-			return nil, e.ErrUpdateEnv.AddDesc(msg)
-		}
-		for _, envService := range render.ServiceVariables {
-			if envService.ServiceName == serviceName {
-				if envService.OverrideYaml != nil {
-					currentVariables = envService.OverrideYaml.RenderVariableKVs
-				}
-			}
-		}
+		currentVariables = env.GetSvcRender(serviceName).OverrideYaml.RenderVariableKVs
 	}
 
 	for _, vbFromUser := range variablesFromUser {
@@ -418,19 +406,7 @@ func OpenAPIUpdateGlobalVariables(args *OpenAPIEnvGlobalVariables, userName, req
 		}
 	}
 
-	opt := &commonrepo.RenderSetFindOption{
-		Name:        product.Render.Name,
-		EnvName:     envName,
-		ProductTmpl: product.Render.ProductTmpl,
-		Revision:    product.Render.Revision,
-	}
-	productRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		logger.Errorf("query renderset fail when updating helm product:%s render charts, err %s", projectName, err.Error())
-		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for environment: %s", envName))
-	}
-
-	err = UpdateProductGlobalVariablesWithRender(product, productRenderset, userName, requestID, args.GlobalVariables, logger)
+	err = UpdateProductGlobalVariablesWithRender(product, nil, userName, requestID, args.GlobalVariables, logger)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}

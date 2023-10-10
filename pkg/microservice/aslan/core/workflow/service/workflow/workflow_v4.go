@@ -2094,23 +2094,12 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 	}
 
 	if isHelmChartDeploy {
-		renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-			Name:        prod.Render.Name,
-			ProductTmpl: prod.Render.ProductTmpl,
-			Revision:    prod.Render.Revision,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to find render set name: %s, revision: %s, err: %s", prod.Render.Name, prod.Render.ProductTmpl, err)
-		}
-
 		currentYaml := ""
-		for _, chartInfo := range renderSet.ChartInfos {
-			if chartInfo.IsHelmChartDeploy && chartInfo.ReleaseName == serviceName {
-				currentYaml, err = helmtool.MergeOverrideValues("", "", chartInfo.GetOverrideYaml(), chartInfo.OverrideValues, nil)
-				if err != nil {
-					return nil, fmt.Errorf("failed to merge override values, err: %s", err)
-				}
-				break
+		chartInfo := prod.GetChartDeployRenderMap()[serviceName]
+		if chartInfo != nil {
+			currentYaml, err = helmtool.MergeOverrideValues("", "", chartInfo.GetOverrideYaml(), chartInfo.OverrideValues, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to merge override values, err: %s", err)
 			}
 		}
 		return &GetHelmValuesDifferenceResp{
@@ -2146,7 +2135,7 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		return 0
 	}()
 
-	renderSet, productService, _, err := kube.PrepareHelmServiceData(param)
+	productService, _, err := kube.PrepareHelmServiceData(param)
 	if err != nil {
 		log.Errorf("prepare helm service data error: %v", err)
 		return nil, err
@@ -2176,19 +2165,11 @@ func CompareHelmServiceYamlInEnv(serviceName, variableYaml, envName, projectName
 		param.Images = images
 	}
 
-	chartInfo, ok := renderSet.GetChartRenderMap()[param.ServiceName]
-	if !ok {
-		log.Errorf("failed to find chart info in render")
-		return nil, err
-	}
-	if chartInfo.OverrideYaml == nil {
-		chartInfo.OverrideYaml = &template.CustomYaml{}
-	}
-
+	chartInfo := productService.GetServiceRender()
 	param.VariableYaml = variableYaml
 	chartInfo.OverrideYaml.YamlContent = variableYaml
 
-	yamlContent, err := kube.GeneMergedValues(productService, renderSet, param.Images, true)
+	yamlContent, err := kube.GeneMergedValues(productService, productService.GetServiceRender(), prod.DefaultValues, param.Images, true)
 	if err != nil {
 		log.Errorf("failed to generate merged values.yaml, err: %s", err)
 		return nil, err

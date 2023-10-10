@@ -50,15 +50,7 @@ func (j *HelmChartDeployJob) SetPreset() error {
 	if err != nil {
 		return fmt.Errorf("env %s not exists", j.spec.Env)
 	}
-	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:        product.Render.Name,
-		ProductTmpl: product.ProductName,
-		Revision:    product.Render.Revision,
-	})
-	if err != nil {
-		return fmt.Errorf("render set %s/%v not found", product.Render.Name, product.Render.Revision)
-	}
-	renderChartMap := renderset.GetChartDeployRenderMap()
+	renderChartMap := product.GetChartDeployRenderMap()
 
 	deploys := []*commonmodels.DeployHelmChart{}
 	productChartServiceMap := product.GetChartServiceMap()

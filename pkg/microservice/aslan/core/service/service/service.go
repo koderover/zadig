@@ -306,7 +306,6 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
 	}); err != nil {
-		// no need to create renderset since renderset is not necessary in host projects
 		if err := service.CreateProduct(userName, requestID, &commonmodels.Product{
 			ProductName: args.ProductName,
 			Source:      setting.SourceFromExternal,

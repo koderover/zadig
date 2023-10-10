@@ -34,7 +34,6 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -703,15 +702,6 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	if err != nil {
 		return fmt.Errorf("CreateEnvAndTaskByPR Product Find err:%v", err)
 	}
-	baseRenderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:        baseProduct.Render.Name,
-		Revision:    baseProduct.Render.Revision,
-		ProductTmpl: baseProduct.ProductName,
-		IsDefault:   false,
-	})
-	if err != nil {
-		return fmt.Errorf("CreateEnvAndTaskByPR renderset Find err:%v", err)
-	}
 
 	mutex.Lock()
 	defer func() {
@@ -725,19 +715,6 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	baseProduct.EnvName = envName
 
 	// set renderset info
-	baseRenderset.Revision = 0
-	baseRenderset.EnvName = envName
-	baseRenderset.Name = baseProduct.Namespace
-	err = render.CreateRenderSet(baseRenderset, log)
-	if err != nil {
-		return fmt.Errorf("CreateEnvAndTaskByPR renderset create err:%v", err)
-	}
-	baseProduct.Render = &commonmodels.RenderInfo{
-		Name:        baseRenderset.Name,
-		Revision:    baseRenderset.Revision,
-		ProductTmpl: baseRenderset.ProductTmpl,
-	}
-
 	err = environmentservice.CreateProduct(setting.SystemUser, requestID, baseProduct, log)
 	if err != nil {
 		return fmt.Errorf("CreateEnvAndTaskByPR CreateProduct err:%v", err)

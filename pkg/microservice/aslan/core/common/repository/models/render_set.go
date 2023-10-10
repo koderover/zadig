@@ -31,10 +31,10 @@ type RenderSet struct {
 	// 可以为空，空时为产品模板默认的渲染集，非空时为环境的渲染集
 	EnvName     string `bson:"env_name,omitempty"             json:"env_name,omitempty"`
 	ProductTmpl string `bson:"product_tmpl"                   json:"product_tmpl"`
-	Team        string `bson:"team,omitempty"                 json:"team,omitempty"`
-	UpdateTime  int64  `bson:"update_time"                    json:"update_time"`
-	UpdateBy    string `bson:"update_by"                      json:"update_by"`
-	IsDefault   bool   `bson:"is_default"                     json:"is_default"`
+	//Team        string `bson:"team,omitempty"                 json:"team,omitempty"`
+	UpdateTime int64  `bson:"update_time"                    json:"update_time"`
+	UpdateBy   string `bson:"update_by"                      json:"update_by"`
+	IsDefault  bool   `bson:"is_default"                     json:"is_default"`
 	// yaml content, used as 'global variables' for helm projects, DEPRECATED for k8s since 1.18.0
 	DefaultValues string `bson:"default_values,omitempty"       json:"default_values,omitempty"`
 	// current only used for k8s

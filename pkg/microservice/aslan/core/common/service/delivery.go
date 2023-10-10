@@ -374,15 +374,6 @@ func getProductEnvInfo(pipelineTask *taskmodels.Task, log *zap.SugaredLogger) (*
 		product.Namespace = productInfo.Namespace
 	}
 
-	//if pipelineTask.Render != nil {
-	//	if renderSet, err := GetRenderSet(product.Namespace, pipelineTask.Render.Revision, false, product.EnvName, log); err == nil {
-	//		product.Vars = renderSet.KVs
-	//	} else {
-	//		log.Warnf("GetProductEnvInfo GetRenderSet namespace:%s pipelineTask.Render.Revision:%d err:%v", product.GetNamespace(), pipelineTask.Render.Revision, err)
-	//	}
-	//}
-
-	//返回中的ProductName即产品模板的名称
 	product.Render = pipelineTask.Render
 	product.Services = pipelineTask.Services
 
@@ -452,18 +443,6 @@ func updateServiceImage(serviceName, image, containerName string, product *commo
 
 func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commonmodels.Container, serviceName, deployType string, log *zap.SugaredLogger) (string, error) {
 	if deployType == setting.K8SDeployType {
-		opt := &commonrepo.RenderSetFindOption{
-			Name:        productInfo.Render.Name,
-			Revision:    productInfo.Render.Revision,
-			EnvName:     productInfo.EnvName,
-			ProductTmpl: productInfo.ProductName,
-		}
-		newRender, err := commonrepo.NewRenderSetColl().Find(opt)
-		if err != nil {
-			log.Errorf("[%s][P:%s]renderset Find error: %v", productInfo.EnvName, productInfo.ProductName, err)
-			return "", fmt.Errorf("get pure yaml %s error: %v", serviceName, err)
-		}
-
 		serviceInfo := productInfo.GetServiceMap()[serviceName]
 		if serviceInfo == nil {
 			return "", fmt.Errorf("service %s not found", serviceName)
@@ -480,7 +459,7 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 			return "", fmt.Errorf("service template %s error: %v", serviceName, err)
 		}
 
-		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, newRender)
+		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, serviceInfo.GetServiceRender())
 		if err != nil {
 			log.Errorf("RenderServiceYaml failed, err: %s", err)
 			return "", err
