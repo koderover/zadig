@@ -309,6 +309,8 @@ const (
 	PublishType = "publish"
 
 	FunctionTestType = "function"
+
+	AllProjects = "<all_projects>"
 )
 
 const (

@@ -94,7 +94,6 @@ func CreatePrivateKey(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -114,8 +113,10 @@ func CreatePrivateKey(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.VMManagement.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
@@ -132,7 +133,6 @@ func UpdatePrivateKey(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -151,8 +151,10 @@ func UpdatePrivateKey(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.VMManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
@@ -169,7 +171,6 @@ func DeletePrivateKey(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -179,8 +180,10 @@ func DeletePrivateKey(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.VMManagement.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)
@@ -203,7 +206,6 @@ func BatchCreatePrivateKey(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -223,8 +225,10 @@ func BatchCreatePrivateKey(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.VMManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if err := c.ShouldBindJSON(&args); err != nil {

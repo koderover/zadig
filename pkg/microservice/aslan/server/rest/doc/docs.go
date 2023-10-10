@@ -2053,6 +2053,179 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/project/bizdir": {
+            "get": {
+                "description": "Get Bussiness Directory",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Get Bussiness Directory",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GroupDetail"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/project/bizdir/search/project": {
+            "get": {
+                "description": "Bussiness Directory Search By Project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Bussiness Directory Search By Project",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GroupDetail"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/project/bizdir/search/service": {
+            "get": {
+                "description": "Bussiness Directory Search By Service",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Bussiness Directory Search By Service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.SearchBizDirByServiceGroup"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/project/bizdir/service/detail": {
+            "get": {
+                "description": "Get Bussiness Directory Searvice Detail",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Get Bussiness Directory Searvice Detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.GetBizDirServiceDetailResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/project/bizdir/services": {
+            "get": {
+                "description": "Get Bussiness Directory Project Services",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "project"
+                ],
+                "summary": "Get Bussiness Directory Project Services",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/project/integration/{name}/codehosts": {
             "get": {
                 "description": "List Project CodeHost",
@@ -2722,6 +2895,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/system/helm/project": {
+            "get": {
+                "description": "List Helm Repos By Project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List Helm Repos By Project",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.HelmRepo"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/system/llm/integration": {
             "get": {
                 "description": "List llm integrations",
@@ -3088,6 +3296,76 @@ const docTemplate = `{
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/service.JiraProjectsResp"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/registry/project": {
+            "get": {
+                "description": "List Registries",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List Registries",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.RegistryNamespace"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/system/s3storage/project": {
+            "get": {
+                "description": "List S3 Storage By Project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List S3 Storage By Project",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.S3Storage"
                             }
                         }
                     }
@@ -4132,6 +4410,41 @@ const docTemplate = `{
                 }
             }
         },
+        "models.HelmRepo": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "repo_name": {
+                    "type": "string"
+                },
+                "update_by": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ImagePathSpec": {
             "type": "object",
             "properties": {
@@ -4313,6 +4626,9 @@ const docTemplate = `{
                 "updatable": {
                     "type": "boolean"
                 },
+                "update_time": {
+                    "type": "integer"
+                },
                 "variable_kvs": {
                     "type": "array",
                     "items": {
@@ -4335,6 +4651,20 @@ const docTemplate = `{
                 },
                 "is_base": {
                     "type": "boolean"
+                }
+            }
+        },
+        "models.ProjectDetail": {
+            "type": "object",
+            "properties": {
+                "project_deploy_type": {
+                    "type": "string"
+                },
+                "project_key": {
+                    "type": "string"
+                },
+                "project_name": {
+                    "type": "string"
                 }
             }
         },
@@ -4380,6 +4710,70 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RegistryAdvancedSetting": {
+            "type": "object",
+            "properties": {
+                "enable_tls": {
+                    "description": "New field since v1.11 to support self-signed TLS certificate",
+                    "type": "boolean"
+                },
+                "modified": {
+                    "description": "indicator to make sure if the advanced has been modified\nThis is solely a field for frontend display and not used anywhere else in the backend system\nTODO: whether this field should exist needs a discussion",
+                    "type": "boolean"
+                },
+                "tls_cert": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.RegistryNamespace": {
+            "type": "object",
+            "properties": {
+                "access_key": {
+                    "type": "string"
+                },
+                "advanced_setting": {
+                    "$ref": "#/definitions/models.RegistryAdvancedSetting"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "namespace": {
+                    "description": "Namespace is NOT a required field, this could be empty when the registry is AWS ECR or so.\nuse with CAUTION !!!!",
+                    "type": "string"
+                },
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "reg_addr": {
+                    "type": "string"
+                },
+                "reg_provider": {
+                    "type": "string"
+                },
+                "reg_type": {
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "secret_key": {
+                    "type": "string"
+                },
+                "update_by": {
+                    "type": "string"
+                },
+                "update_time": {
                     "type": "integer"
                 }
             }
@@ -4430,6 +4824,53 @@ const docTemplate = `{
                 "ResourceTypeNetworkPolicy"
             ]
         },
+        "models.S3Storage": {
+            "type": "object",
+            "properties": {
+                "ak": {
+                    "type": "string"
+                },
+                "bucket": {
+                    "type": "string"
+                },
+                "endpoint": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "insecure": {
+                    "type": "boolean"
+                },
+                "is_default": {
+                    "type": "boolean"
+                },
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "provider": {
+                    "type": "integer"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "sk": {
+                    "type": "string"
+                },
+                "subfolder": {
+                    "type": "string"
+                },
+                "update_time": {
+                    "type": "integer"
+                },
+                "updated_by": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Service": {
             "type": "object",
             "properties": {
@@ -4459,6 +4900,9 @@ const docTemplate = `{
                 },
                 "create_from": {},
                 "create_time": {
+                    "type": "integer"
+                },
+                "deploy_time": {
                     "type": "integer"
                 },
                 "description": {
@@ -4815,6 +5259,12 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "pods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/resource.Pod"
+                    }
                 },
                 "schedule": {
                     "type": "string"
@@ -5301,6 +5751,41 @@ const docTemplate = `{
                 }
             }
         },
+        "service.GetBizDirServiceDetailResponse": {
+            "type": "object",
+            "properties": {
+                "chart_version": {
+                    "type": "string"
+                },
+                "env_name": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "project_name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "update_time": {
+                    "type": "integer"
+                }
+            }
+        },
         "service.GetGlobalVariableCandidatesRespone": {
             "type": "object",
             "properties": {
@@ -5365,6 +5850,20 @@ const docTemplate = `{
                 },
                 "url": {
                     "type": "string"
+                }
+            }
+        },
+        "service.GroupDetail": {
+            "type": "object",
+            "properties": {
+                "group_name": {
+                    "type": "string"
+                },
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ProjectDetail"
+                    }
                 }
             }
         },
@@ -5829,6 +6328,9 @@ const docTemplate = `{
                 "updatable": {
                     "type": "boolean"
                 },
+                "update_time": {
+                    "type": "integer"
+                },
                 "variable_kvs": {
                     "type": "array",
                     "items": {
@@ -5894,6 +6396,34 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                }
+            }
+        },
+        "service.SearchBizDirByServiceGroup": {
+            "type": "object",
+            "properties": {
+                "group_name": {
+                    "type": "string"
+                },
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.SearchBizDirByServiceProject"
+                    }
+                }
+            }
+        },
+        "service.SearchBizDirByServiceProject": {
+            "type": "object",
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/models.ProjectDetail"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

@@ -60,22 +60,13 @@ type K8sService struct {
 	log *zap.SugaredLogger
 }
 
-type ZadigServiceStatusResp struct {
-	ServiceName string
-	PodStatus   string
-	Ready       string
-	Ingress     []*resource.Ingress
-	Images      []string
-	Workloads   []*commonservice.Workload
-}
-
 // queryServiceStatus query service status
 // If service has pods, service status = pod status (if pod is not running or succeed or failed, service status = unstable)
 // If service doesn't have pods, service status = success (all objects created) or failed (fail to create some objects).
 // 正常：StatusRunning or StatusSucceed
 // 错误：StatusError or StatusFailed
-func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory) *ZadigServiceStatusResp {
-	return queryPodsStatus(productInfo, serviceTmpl, serviceTmpl.ServiceName, clientset, informer, k.log)
+func (k *K8sService) queryServiceStatus(serviceTmpl *commonmodels.Service, productInfo *commonmodels.Product, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory) *commonservice.ZadigServiceStatusResp {
+	return commonservice.QueryPodsStatus(productInfo, serviceTmpl, serviceTmpl.ServiceName, clientset, informer, k.log)
 }
 
 // queryWorkloadStatus query workload status
@@ -226,6 +217,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	for _, group := range exitedProd.Services {
 		for i, service := range group {
 			if service.ServiceName == args.ServiceName && service.Type == args.ServiceType {
+				newProductSvc.UpdateTime = time.Now().Unix()
 				group[i] = newProductSvc
 			}
 		}
@@ -403,6 +395,91 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ServiceName < resp[j].ServiceName })
 
 	return resp
+}
+
+func (k *K8sService) GetGroupService(service *commonmodels.ProductService, string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) *commonservice.ServiceResp {
+	envName := productInfo.EnvName
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("failed to init client set, err: %s", err)
+		return nil
+	}
+
+	hostInfos := make([]resource.HostInfo, 0)
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", productInfo.ClusterID, err)
+		return nil
+	}
+	if kubeclient.VersionLessThan122(version) {
+		ingresses, err := getter.ListExtensionsV1Beta1Ingresses(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+			}
+		} else {
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
+		}
+	} else {
+		ingresses, err := getter.ListNetworkingV1Ingress(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.GetIngressHostInfo(ingress)...)
+			}
+		} else {
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
+		}
+	}
+
+	// get all services
+	k8sServices, err := getter.ListServicesWithCache(nil, informer)
+	if err != nil {
+		log.Errorf("[%s][%s] list service error: %s", envName, productInfo.Namespace, err)
+		return nil
+	}
+
+	gp := &commonservice.ServiceResp{
+		ServiceName:    service.ServiceName,
+		Type:           service.Type,
+		EnvName:        envName,
+		DeployStrategy: service.DeployStrategy,
+		Updatable:      service.Updatable,
+	}
+	serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ServiceName: service.ServiceName,
+		Revision:    service.Revision,
+		ProductName: service.ProductName,
+	}, productInfo.Production)
+
+	if err != nil {
+		gp.Status = setting.PodFailed
+		return gp
+	}
+
+	gp.ProductName = service.ProductName
+	// 查询group下所有pods信息
+	if informer != nil {
+		statusResp := k.queryServiceStatus(serviceTmpl, productInfo, cls, informer)
+		gp.Status, gp.Ready, gp.Images = statusResp.PodStatus, statusResp.Ready, statusResp.Images
+		// 如果产品正在创建中，且service status为ERROR（POD还没创建出来），则判断为Pending，尚未开始创建
+		if productInfo.Status == setting.ProductStatusCreating && gp.Status == setting.PodError {
+			gp.Status = setting.PodPending
+		}
+
+		hostInfo := make([]resource.HostInfo, 0)
+		for _, workload := range statusResp.Workloads {
+			hostInfo = append(hostInfo, commonservice.FindServiceFromIngress(hostInfos, workload, k8sServices)...)
+		}
+		gp.Ingress = &commonservice.IngressInfo{
+			HostInfo: hostInfo,
+		}
+
+	} else {
+		gp.Status = setting.ClusterUnknown
+	}
+
+	return gp
 }
 
 func fetchWorkloadImages(productService *commonmodels.ProductService, product *commonmodels.Product, kubeClient client.Client) ([]*commonmodels.Container, error) {

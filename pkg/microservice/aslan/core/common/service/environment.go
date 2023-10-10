@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -37,6 +38,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -915,4 +917,107 @@ func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClien
 		}
 	}
 	return "", fmt.Errorf("failed to get annotation from resource %s, type %s", resName, resType)
+}
+
+type ZadigServiceStatusResp struct {
+	ServiceName string
+	PodStatus   string
+	Ready       string
+	Ingress     []*resource.Ingress
+	Images      []string
+	Workloads   []*Workload
+}
+
+func QueryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodels.Service, serviceName string, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *ZadigServiceStatusResp {
+	resp := &ZadigServiceStatusResp{
+		ServiceName: serviceName,
+		PodStatus:   setting.PodError,
+		Ready:       setting.PodNotReady,
+		Ingress:     nil,
+		Images:      []string{},
+	}
+
+	svcResp, err := GetServiceImpl(serviceTmpl.ServiceName, serviceTmpl, "", productInfo, clientset, informer, log)
+	if err != nil {
+		return resp
+	}
+
+	resp.Ingress = svcResp.Ingress
+	resp.Workloads = svcResp.Workloads
+	if len(serviceTmpl.Containers) == 0 {
+		resp.PodStatus = setting.PodSucceeded
+		resp.Ready = setting.PodReady
+		return resp
+	}
+
+	suspendCronJobCount := 0
+	for _, cronJob := range svcResp.CronJobs {
+		if cronJob.Suspend {
+			suspendCronJobCount++
+		}
+	}
+
+	pods := make([]*resource.Pod, 0)
+	for _, svc := range svcResp.Scales {
+		pods = append(pods, svc.Pods...)
+	}
+
+	if len(pods) == 0 && len(svcResp.CronJobs) == 0 {
+		imageSet := sets.String{}
+		for _, workload := range svcResp.Workloads {
+			imageSet.Insert(workload.Images...)
+		}
+
+		resp.Images = imageSet.List()
+		resp.PodStatus, resp.Ready = setting.PodNonStarted, setting.PodNotReady
+		return resp
+	}
+
+	imageSet := sets.String{}
+	for _, pod := range pods {
+		for _, container := range pod.Containers {
+			imageSet.Insert(container.Image)
+		}
+	}
+
+	for _, cronJob := range svcResp.CronJobs {
+		for _, image := range cronJob.Images {
+			imageSet.Insert(image.Image)
+		}
+	}
+
+	resp.Images = imageSet.List()
+
+	ready := setting.PodReady
+
+	if len(svcResp.Workloads) == 0 && len(svcResp.CronJobs) > 0 {
+		if len(svcResp.CronJobs) == suspendCronJobCount {
+			resp.PodStatus = setting.ServiceStatusAllSuspended
+		} else if suspendCronJobCount == 0 {
+			resp.PodStatus = setting.ServiceStatusNoSuspended
+		} else {
+			resp.PodStatus = setting.ServiceStatusPartSuspended
+		}
+		return resp
+	}
+
+	succeededPods := 0
+	for _, pod := range pods {
+		if pod.Succeed {
+			succeededPods++
+			continue
+		}
+		if !pod.Ready {
+			resp.PodStatus, resp.Ready = setting.PodUnstable, setting.PodNotReady
+			return resp
+		}
+	}
+
+	if len(pods) == succeededPods {
+		resp.PodStatus, resp.Ready = string(corev1.PodSucceeded), setting.JobReady
+		return resp
+	}
+
+	resp.PodStatus, resp.Ready = setting.PodRunning, ready
+	return resp
 }

@@ -46,17 +46,49 @@ func ListHelmRepos(c *gin.Context) {
 		return
 	}
 
-	// TODO: Authorization leak
-	// comment: since currently there are multiple functionalities that wish to used this API without authorization,
-	// we temporarily disabled the permission checks for this API.
-
-	// authorization checks
-	//if !ctx.Resources.IsSystemAdmin {
-	//	ctx.UnAuthorized = true
-	//	return
-	//}
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.HelmRepoManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Resp, ctx.Err = commonservice.ListHelmRepos(encryptedKey, ctx.Logger)
+}
+
+// @Summary List Helm Repos By Project
+// @Description List Helm Repos By Project
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Success 200 		{array} 	commonmodels.HelmRepo
+// @Router /api/aslan/system/helm/project [get]
+func ListHelmReposByProject(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if len(projectKey) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = commonservice.ListHelmReposByProject(projectKey, ctx.Logger)
 }
 
 func ListHelmReposPublic(c *gin.Context) {
@@ -71,7 +103,6 @@ func CreateHelmRepo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -85,8 +116,10 @@ func CreateHelmRepo(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.HelmRepoManagement.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	args.UpdateBy = ctx.UserName
@@ -117,8 +150,10 @@ func UpdateHelmRepo(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.HelmRepoManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	args.UpdateBy = ctx.UserName
@@ -130,7 +165,6 @@ func DeleteHelmRepo(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -138,8 +172,10 @@ func DeleteHelmRepo(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.HelmRepoManagement.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = service.DeleteHelmRepo(c.Param("id"), ctx.Logger)

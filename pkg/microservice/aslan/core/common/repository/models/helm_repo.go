@@ -26,6 +26,7 @@ type HelmRepo struct {
 	URL       string             `bson:"url"                   json:"url"`
 	Username  string             `bson:"username"              json:"username"`
 	Password  string             `bson:"password"              json:"password"`
+	Projects  []string           `bson:"projects"              json:"projects"`
 	UpdateBy  string             `bson:"update_by"             json:"update_by"`
 	CreatedAt int64              `bson:"created_at"            json:"created_at"`
 	UpdatedAt int64              `bson:"updated_at"            json:"updated_at"`

@@ -889,4 +889,11 @@ var (
 	ErrOfflineZadigVM      = NewHTTPError(7034, "下线 zadig vm 失败")
 	ErrUpgradeZadigVMAgent = NewHTTPError(7035, "升级 zadig agent 失败")
 	ErrRecoveryZadigVM     = NewHTTPError(7036, "恢复 zadig vm 失败")
+	// Business Directory Error Range: 7040 - 7049
+	//-----------------------------------------------------------------------------------------------
+	ErrGetBizDirProject        = NewHTTPError(7040, "获取业务目录项目失败")
+	ErrGetBizDirProjectService = NewHTTPError(7041, "获取业务目录服务失败")
+	ErrGetBizDirServiceDetail  = NewHTTPError(7042, "获取业务目录服务详情失败")
+	ErrSearchBizDirByProject   = NewHTTPError(7043, "根据项目搜索业务目录失败")
+	ErrSearchBizDirByService   = NewHTTPError(7044, "根据服务搜索业务目录失败")
 )

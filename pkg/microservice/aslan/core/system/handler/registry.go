@@ -32,11 +32,41 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+// @Summary List Registries
+// @Description List Registries
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Success 200 		{array} 	commonmodels.RegistryNamespace
+// @Router /api/aslan/system/registry/project [get]
 func ListRegistries(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListRegistries(ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName != "" {
+			if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.SystemActions.RegistryManagement.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ListRegistriesByProject(projectName, ctx.Logger)
 }
 
 func GetDefaultRegistryNamespace(c *gin.Context) {
@@ -62,8 +92,22 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 }
 
 func GetRegistryNamespace(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.RegistryManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	reg, _, err := commonservice.FindRegistryById(c.Param("id"), false, ctx.Logger)
 	if err != nil {
@@ -90,8 +134,22 @@ func GetRegistryNamespace(c *gin.Context) {
 }
 
 func ListRegistryNamespaces(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.RegistryManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
@@ -106,7 +164,6 @@ func CreateRegistryNamespace(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -125,8 +182,10 @@ func CreateRegistryNamespace(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.RegistryManagement.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if err := c.BindJSON(args); err != nil {
@@ -147,7 +206,6 @@ func UpdateRegistryNamespace(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -166,8 +224,10 @@ func UpdateRegistryNamespace(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.RegistryManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if err := c.BindJSON(args); err != nil {
@@ -188,7 +248,6 @@ func DeleteRegistryNamespace(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -198,8 +257,10 @@ func DeleteRegistryNamespace(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.RegistryManagement.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = service.DeleteRegistryNamespace(c.Param("id"), ctx.Logger)

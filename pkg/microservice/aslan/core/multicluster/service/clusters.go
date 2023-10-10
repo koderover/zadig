@@ -139,9 +139,27 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 
 	existClusterID := sets.NewString()
 	if projectName != "" {
-		projectClusterRelations, _ := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
+		projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
 			ProjectName: projectName,
 		})
+		if err != nil {
+			err = fmt.Errorf("Failed to list projectClusterRelation for %s, err: %w", projectName, err)
+			logger.Error(err)
+			return nil, err
+		}
+		for _, projectClusterRelation := range projectClusterRelations {
+			existClusterID.Insert(projectClusterRelation.ClusterID)
+		}
+
+		projectClusterRelations, err = commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
+			ProjectName: setting.AllProjects,
+		})
+		if err != nil {
+			err = fmt.Errorf("Failed to list projectClusterRelation for all projects, err: %w", err)
+			logger.Error(err)
+			return nil, err
+		}
+
 		for _, projectClusterRelation := range projectClusterRelations {
 			existClusterID.Insert(projectClusterRelation.ClusterID)
 		}

@@ -29,6 +29,7 @@ type S3Storage struct {
 	Subfolder   string             `bson:"subfolder"      json:"subfolder"`
 	Insecure    bool               `bson:"insecure"       json:"insecure"`
 	IsDefault   bool               `bson:"is_default"     json:"is_default"`
+	Projects    []string           `bson:"projects"       json:"projects"`
 	EncryptedSk string             `bson:"encryptedSk"    json:"-"`
 	UpdatedBy   string             `bson:"updated_by"     json:"updated_by"`
 	UpdateTime  int64              `bson:"update_time"    json:"update_time"`

@@ -56,7 +56,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	registry := router.Group("registry")
 	{
-		registry.GET("", ListRegistries)
+		registry.GET("/project", ListRegistries)
 		// 获取默认的镜像仓库配置，用于kodespace CLI调用
 		registry.GET("/namespaces/default", GetDefaultRegistryNamespace)
 		registry.GET("/namespaces/specific/:id", GetRegistryNamespace)
@@ -78,6 +78,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		s3storage.PUT("/:id", UpdateS3Storage)
 		s3storage.DELETE("/:id", DeleteS3Storage)
 		s3storage.POST("/:id/releases/search", ListTars)
+		s3storage.GET("/project", ListS3StorageByProject)
 	}
 
 	//系统清理缓存
@@ -145,6 +146,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	integration := router.Group("helm")
 	{
 		integration.GET("", ListHelmRepos)
+		integration.GET("project", ListHelmReposByProject)
 		integration.GET("/public", ListHelmReposPublic)
 		integration.POST("", CreateHelmRepo)
 		integration.PUT("/:id", UpdateHelmRepo)

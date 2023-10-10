@@ -36,11 +36,13 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowstat"
 	"github.com/koderover/zadig/pkg/setting"
@@ -805,10 +807,31 @@ func (h *TaskAckHandler) updateProductImageByNs(namespace, productName, serviceN
 		}
 	}
 
-	if err := h.productColl.Update(prod); err != nil {
-		errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
-		h.log.Errorf(errMsg)
-		return errors.New(errMsg)
+	templateProject, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return fmt.Errorf("find template project %s error: %v", productName, err)
+	}
+
+	if templateProject.IsHostProduct() {
+		tmplSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: serviceName,
+			ProductName: productName,
+		}, prod.Production)
+		if err != nil {
+			return fmt.Errorf("find template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
+		}
+
+		tmplSvc.DeployTime = time.Now().Unix()
+		err = repository.Update(tmplSvc, prod.Production)
+		if err != nil {
+			return fmt.Errorf("update template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
+		}
+	} else {
+		if err := commonrepo.NewProductColl().Update(prod); err != nil {
+			errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
+			h.log.Errorf(errMsg)
+			return errors.New(errMsg)
+		}
 	}
 
 	return nil

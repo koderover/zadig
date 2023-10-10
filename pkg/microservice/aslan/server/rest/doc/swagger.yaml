@@ -496,6 +496,29 @@ definitions:
       version:
         type: string
     type: object
+  models.HelmRepo:
+    properties:
+      created_at:
+        type: integer
+      id:
+        type: string
+      password:
+        type: string
+      projects:
+        items:
+          type: string
+        type: array
+      repo_name:
+        type: string
+      update_by:
+        type: string
+      updated_at:
+        type: integer
+      url:
+        type: string
+      username:
+        type: string
+    type: object
   models.ImagePathSpec:
     properties:
       image:
@@ -617,6 +640,8 @@ definitions:
         type: string
       updatable:
         type: boolean
+      update_time:
+        type: integer
       variable_kvs:
         items:
           $ref: '#/definitions/types.RenderVariableKV'
@@ -632,6 +657,15 @@ definitions:
         type: boolean
       is_base:
         type: boolean
+    type: object
+  models.ProjectDetail:
+    properties:
+      project_deploy_type:
+        type: string
+      project_key:
+        type: string
+      project_name:
+        type: string
     type: object
   models.ProjectManagement:
     properties:
@@ -662,6 +696,54 @@ definitions:
       type:
         type: string
       updated_at:
+        type: integer
+    type: object
+  models.RegistryAdvancedSetting:
+    properties:
+      enable_tls:
+        description: New field since v1.11 to support self-signed TLS certificate
+        type: boolean
+      modified:
+        description: |-
+          indicator to make sure if the advanced has been modified
+          This is solely a field for frontend display and not used anywhere else in the backend system
+          TODO: whether this field should exist needs a discussion
+        type: boolean
+      tls_cert:
+        type: string
+    type: object
+  models.RegistryNamespace:
+    properties:
+      access_key:
+        type: string
+      advanced_setting:
+        $ref: '#/definitions/models.RegistryAdvancedSetting'
+      id:
+        type: string
+      is_default:
+        type: boolean
+      namespace:
+        description: |-
+          Namespace is NOT a required field, this could be empty when the registry is AWS ECR or so.
+          use with CAUTION !!!!
+        type: string
+      projects:
+        items:
+          type: string
+        type: array
+      reg_addr:
+        type: string
+      reg_provider:
+        type: string
+      reg_type:
+        type: string
+      region:
+        type: string
+      secret_key:
+        type: string
+      update_by:
+        type: string
+      update_time:
         type: integer
     type: object
   models.RenderInfo:
@@ -701,6 +783,37 @@ definitions:
     - ResourceTypeHPA
     - ResourceTypePDB
     - ResourceTypeNetworkPolicy
+  models.S3Storage:
+    properties:
+      ak:
+        type: string
+      bucket:
+        type: string
+      endpoint:
+        type: string
+      id:
+        type: string
+      insecure:
+        type: boolean
+      is_default:
+        type: boolean
+      projects:
+        items:
+          type: string
+        type: array
+      provider:
+        type: integer
+      region:
+        type: string
+      sk:
+        type: string
+      subfolder:
+        type: string
+      update_time:
+        type: integer
+      updated_by:
+        type: string
+    type: object
   models.Service:
     properties:
       auto_sync:
@@ -721,6 +834,8 @@ definitions:
         type: string
       create_from: {}
       create_time:
+        type: integer
+      deploy_time:
         type: integer
       description:
         type: string
@@ -978,6 +1093,10 @@ definitions:
         type: string
       name:
         type: string
+      pods:
+        items:
+          $ref: '#/definitions/resource.Pod'
+        type: array
       schedule:
         type: string
       suspend:
@@ -1299,6 +1418,29 @@ definitions:
       overrideYaml:
         type: string
     type: object
+  service.GetBizDirServiceDetailResponse:
+    properties:
+      chart_version:
+        type: string
+      env_name:
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      production:
+        type: boolean
+      project_name:
+        type: string
+      status:
+        type: string
+      type:
+        type: string
+      update_time:
+        type: integer
+    type: object
   service.GetGlobalVariableCandidatesRespone:
     properties:
       key_name:
@@ -1341,6 +1483,15 @@ definitions:
         type: string
       url:
         type: string
+    type: object
+  service.GroupDetail:
+    properties:
+      group_name:
+        type: string
+      projects:
+        items:
+          $ref: '#/definitions/models.ProjectDetail'
+        type: array
     type: object
   service.HelmDeployStatusCheckRequest:
     properties:
@@ -1644,6 +1795,8 @@ definitions:
         type: string
       updatable:
         type: boolean
+      update_time:
+        type: integer
       variable_kvs:
         items:
           $ref: '#/definitions/types.RenderVariableKV'
@@ -1687,6 +1840,24 @@ definitions:
         $ref: '#/definitions/service.DeployStatus'
       type:
         type: string
+    type: object
+  service.SearchBizDirByServiceGroup:
+    properties:
+      group_name:
+        type: string
+      projects:
+        items:
+          $ref: '#/definitions/service.SearchBizDirByServiceProject'
+        type: array
+    type: object
+  service.SearchBizDirByServiceProject:
+    properties:
+      project:
+        $ref: '#/definitions/models.ProjectDetail'
+      services:
+        items:
+          type: string
+        type: array
     type: object
   service.ServiceDefinition:
     properties:
@@ -3526,6 +3697,120 @@ paths:
       summary: '[DONT USE]  ZadigDeployJobSpec'
       tags:
       - placeholder
+  /api/aslan/project/bizdir:
+    get:
+      consumes:
+      - application/json
+      description: Get Bussiness Directory
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GroupDetail'
+            type: array
+      summary: Get Bussiness Directory
+      tags:
+      - project
+  /api/aslan/project/bizdir/search/project:
+    get:
+      consumes:
+      - application/json
+      description: Bussiness Directory Search By Project
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GroupDetail'
+            type: array
+      summary: Bussiness Directory Search By Project
+      tags:
+      - project
+  /api/aslan/project/bizdir/search/service:
+    get:
+      consumes:
+      - application/json
+      description: Bussiness Directory Search By Service
+      parameters:
+      - description: service name
+        in: query
+        name: serviceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.SearchBizDirByServiceGroup'
+            type: array
+      summary: Bussiness Directory Search By Service
+      tags:
+      - project
+  /api/aslan/project/bizdir/service/detail:
+    get:
+      consumes:
+      - application/json
+      description: Get Bussiness Directory Searvice Detail
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: service name
+        in: query
+        name: serviceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GetBizDirServiceDetailResponse'
+            type: array
+      summary: Get Bussiness Directory Searvice Detail
+      tags:
+      - project
+  /api/aslan/project/bizdir/services:
+    get:
+      consumes:
+      - application/json
+      description: Get Bussiness Directory Project Services
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      summary: Get Bussiness Directory Project Services
+      tags:
+      - project
   /api/aslan/project/integration/{name}/codehosts:
     get:
       consumes:
@@ -3969,6 +4254,29 @@ paths:
       summary: Reload service from yaml template
       tags:
       - service
+  /api/aslan/system/helm/project:
+    get:
+      consumes:
+      - application/json
+      description: List Helm Repos By Project
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.HelmRepo'
+            type: array
+      summary: List Helm Repos By Project
+      tags:
+      - system
   /api/aslan/system/llm/integration:
     get:
       consumes:
@@ -4214,6 +4522,52 @@ paths:
               $ref: '#/definitions/models.ProjectManagement'
             type: array
       summary: List Project Management For Project
+      tags:
+      - system
+  /api/aslan/system/registry/project:
+    get:
+      consumes:
+      - application/json
+      description: List Registries
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.RegistryNamespace'
+            type: array
+      summary: List Registries
+      tags:
+      - system
+  /api/aslan/system/s3storage/project:
+    get:
+      consumes:
+      - application/json
+      description: List S3 Storage By Project
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.S3Storage'
+            type: array
+      summary: List S3 Storage By Project
       tags:
       - system
   /api/aslan/system/webhook/config:
