@@ -87,7 +87,7 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
-		helper.HandleCmdOutput(cmdStdoutReader, needPersistentLog, fileName, s.secretEnvs, s.Logger)
+		helper.HandleCmdOutput(cmdStdoutReader, needPersistentLog, fileName, s.secretEnvs, log.GetSimpleLogger())
 	}()
 
 	cmdStdErrReader, err := cmd.StderrPipe()
@@ -99,7 +99,7 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 
-		helper.HandleCmdOutput(cmdStdErrReader, needPersistentLog, fileName, s.secretEnvs, s.Logger)
+		helper.HandleCmdOutput(cmdStdErrReader, needPersistentLog, fileName, s.secretEnvs, log.GetSimpleLogger())
 	}()
 
 	if err := cmd.Start(); err != nil {

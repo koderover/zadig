@@ -70,8 +70,8 @@ const (
 	ZadigContextDir            = "/zadig/"
 	ZadigLogFile               = ZadigContextDir + "zadig.log"
 	ZadigLifeCycleFile         = ZadigContextDir + "lifecycle"
-	ExecutorResourceVolumeName = "executor-resource"
-	ExecutorVolumePath         = "/executor"
+	ExecutorResourceVolumeName = "job-resource"
+	ExecutorVolumePath         = "/job"
 	JobExecutorFile            = ExecutorVolumePath + "/jobexecutor"
 	defaultSecretEmail         = "bot@koderover.com"
 	registrySecretSuffix       = "-registry-secret"
@@ -445,7 +445,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 					InitContainers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							Name:            "executor-resource-init",
+							Name:            "job-resource-init",
 							Image:           config.ExecutorImage(),
 							VolumeMounts: []corev1.VolumeMount{
 								{

@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -47,59 +45,6 @@ type Step struct {
 	StepType  string      `json:"type"`
 	Onfailure bool        `json:"on_failure"`
 	Spec      interface{} `json:"spec"`
-}
-
-type JobContext struct {
-	Name string `yaml:"name"`
-	// Workspace 容器工作目录 [必填]
-	Workspace string `yaml:"workspace"`
-	Proxy     *Proxy `yaml:"proxy"`
-	// Envs 用户注入环境变量, 包括安装脚本环境变量 [optional]
-	Envs EnvVar `yaml:"envs"`
-	// SecretEnvs 用户注入敏感信息环境变量, value不能在stdout stderr中输出 [optional]
-	SecretEnvs EnvVar `yaml:"secret_envs"`
-	// WorkflowName
-	WorkflowName string `yaml:"workflow_name"`
-	// TaskID
-	TaskID int64 `yaml:"task_id"`
-	// Paths 执行脚本Path
-	Paths string `yaml:"paths"`
-	// ConfigMapName save the name of the configmap in which the jobContext resides
-	ConfigMapName string `yaml:"config_map_name"`
-
-	Steps   []*StepTask `yaml:"steps"`
-	Outputs []string    `yaml:"outputs"`
-}
-
-func (j *JobContext) Decode(job string) error {
-	if err := yaml.Unmarshal([]byte(job), j); err != nil {
-		return err
-	}
-	return nil
-}
-
-type StepTask struct {
-	Name      string `bson:"name"           json:"name"         yaml:"name"`
-	JobName   string `bson:"job_name"       json:"job_name"     yaml:"job_name"`
-	Error     string `bson:"error"          json:"error"        yaml:"error"`
-	StepType  string `bson:"type"           json:"type"         yaml:"type"`
-	Onfailure bool   `bson:"on_failure"     json:"on_failure"   yaml:"on_failure"`
-	// step input params,differ form steps
-	Spec interface{} `bson:"spec"           json:"spec"   yaml:"spec"`
-	// step output results,like testing results,differ form steps
-	Result interface{} `bson:"result"         json:"result"  yaml:"result"`
-}
-
-// Proxy 代理配置信息
-type Proxy struct {
-	Type                   string `yaml:"type"`
-	Address                string `yaml:"address"`
-	Port                   int    `yaml:"port"`
-	NeedPassword           bool   `yaml:"need_password"`
-	Username               string `yaml:"username"`
-	Password               string `yaml:"password"`
-	EnableRepoProxy        bool   `yaml:"enable_repo_proxy"`
-	EnableApplicationProxy bool   `yaml:"enable_application_proxy"`
 }
 
 type EnvVar []string

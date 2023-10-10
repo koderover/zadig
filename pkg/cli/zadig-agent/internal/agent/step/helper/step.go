@@ -23,9 +23,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
 	util "github.com/koderover/zadig/pkg/cli/zadig-agent/util/file"
+	"go.uber.org/zap"
 )
 
 const (
@@ -119,7 +119,7 @@ func MaskSecretEnvs(message string, secretEnvs []string) string {
 	return out
 }
 
-func HandleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string, secretEnvs []string, logger *log.JobLogger) {
+func HandleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string, secretEnvs []string, logger *zap.SugaredLogger) {
 	reader := bufio.NewReader(pipe)
 
 	for {

@@ -25,6 +25,8 @@ import (
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/git"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/script"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 )
 
 type StepInfos struct {
@@ -38,7 +40,7 @@ type Step interface {
 	Run(ctx context.Context) error
 }
 
-func RunStep(ctx context.Context, jobCtx *types.JobContext, step *types.StepTask, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) error {
+func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.StepTask, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) error {
 	var stepInstance Step
 	var err error
 

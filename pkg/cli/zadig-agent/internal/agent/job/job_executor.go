@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package agent
+package job
 
 import (
 	"context"
@@ -34,11 +34,12 @@ import (
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
+	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	"github.com/koderover/zadig/pkg/types/job"
 )
 
 func NewJobExecutor(ctx context.Context, job *types.ZadigJobTask, client *network.ZadigClient, reporterCancel context.CancelFunc) *JobExecutor {
-	result := types.NetJobExecuteResult(&types.JobInfo{JobID: job.ID, JobName: job.JobName})
+	result := types.NetJobExecuteResult(&types.JobInfo{ProjectName: job.ProjectName, WorkflowName: job.WorkflowName, JobID: job.ID, JobName: job.JobName})
 	result.SetStatus(common.StatusPrepare)
 
 	cancel := new(bool)
@@ -59,7 +60,7 @@ type JobExecutor struct {
 	Wg               *sync.WaitGroup
 	Cmd              *common.Command
 	Job              *types.ZadigJobTask
-	JobCtx           *types.JobContext
+	JobCtx           *jobctl.JobContext
 	Client           *network.ZadigClient
 	Logger           *log.JobLogger
 	Writer           *io.Writer
@@ -75,11 +76,48 @@ type JobExecutor struct {
 
 // BeforeExecute init execute context and command
 func (e *JobExecutor) BeforeExecute() error {
-	err := e.InitWorkDirectory()
+	err := e.initJobContext()
 	if err != nil {
-		log.Infof("failed to init work directory, error: %v", err)
+		log.Errorf("failed to init job context, error: %v", err)
 		return err
 	}
+
+	err = e.InitWorkDirectory()
+	if err != nil {
+		log.Errorf("failed to init work directory, error: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (e *JobExecutor) initJobContext() error {
+	if e.Job.ProjectName == "" {
+		return fmt.Errorf("project name is empty")
+	}
+	if e.Job.WorkflowName == "" {
+		return fmt.Errorf("workflow name is empty")
+	}
+	if e.Job.TaskID == 0 {
+		return fmt.Errorf("workflow task id is empty")
+	}
+	if e.Job.JobName == "" {
+		return fmt.Errorf("job name is empty")
+	}
+
+	if e.Job.JobCtx == "" {
+		return fmt.Errorf("job context is empty")
+	}
+
+	jobCtx := new(jobctl.JobContext)
+	if err := jobCtx.Decode(e.Job.JobCtx); err != nil {
+		return fmt.Errorf("decode job context error: %v", err)
+	}
+
+	if jobCtx == nil {
+		return fmt.Errorf("job context is nil")
+	}
+	e.JobCtx = jobCtx
 
 	return nil
 }
@@ -95,6 +133,13 @@ func (e *JobExecutor) InitWorkDirectory() error {
 		e.Dirs.Workspace = filepath.Join(workDir, fmt.Sprintf("/%s/%s/%s/%s", e.Job.ProjectName, e.Job.WorkflowName, fmt.Sprintf("task-%d", e.Job.TaskID), e.Job.JobName))
 	}
 
+	// ------------------------------------------------- init cache dir -------------------------------------------------
+	cacheDir, err := config.GetCacheDir(workDir)
+	if err != nil {
+		return fmt.Errorf("failed to generate cache directory, error: %v", err)
+	}
+	e.Dirs.CacheDir = cacheDir
+
 	// ------------------------------------------------- init workspace -------------------------------------------------
 	if _, err := os.Stat(e.Dirs.Workspace); os.IsNotExist(err) {
 		err := os.MkdirAll(e.Dirs.Workspace, os.ModePerm)
@@ -103,8 +148,13 @@ func (e *JobExecutor) InitWorkDirectory() error {
 		}
 	}
 
+	// check the job whether job use cache and init workspace by cache
+	if e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable {
+		ReadCache(*e.Job, filepath.Dir(e.Dirs.Workspace), e.Dirs.CacheDir, log.GetSimpleLogger())
+	}
+
 	// ------------------------------------------- init agent job log tmp dir -------------------------------------------
-	// init job log executor
+	// init job log job
 	logDir, err := config.GetJobLogFilePath(workDir, *e.Job)
 	if err != nil {
 		return fmt.Errorf("failed to generate job log directory, error: %v", err)
@@ -211,13 +261,6 @@ func (e *JobExecutor) Execute() {
 func (e *JobExecutor) run() error {
 	hasFailed := false
 	var respErr error
-	if e.Job.JobCtx == "" {
-		return fmt.Errorf("job context is empty")
-	}
-	e.JobCtx = new(types.JobContext)
-	if err := e.JobCtx.Decode(e.Job.JobCtx); err != nil {
-		return fmt.Errorf("decode job context error: %v", err)
-	}
 
 	for _, stepInfo := range e.JobCtx.Steps {
 		if e.CheckZadigCancel() {
@@ -261,8 +304,32 @@ func (e *JobExecutor) getUserEnvs() []string {
 }
 
 func (e *JobExecutor) AfterExecute() error {
-	// report all job log
-	log.Infof("start workflow %s job %s AfterExecute stage", e.Job.WorkflowName, e.Job.JobName)
+	log.Infof("start project %s workflow %s job %s AfterExecute stage", e.Job.ProjectName, e.Job.WorkflowName, e.Job.JobName)
+
+	// -------------------------------------------------- save job cache ------------------------------------------------
+	if e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable {
+		src := e.Dirs.Workspace
+		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
+			srcs := strings.Split(e.JobCtx.Cache.CacheUserDir, "/")
+			src = strings.Join(srcs[1:], "/")
+			src = filepath.Join(e.Dirs.Workspace, src)
+		}
+
+		if _, err := os.Stat(src); os.IsNotExist(err) {
+			log.Errorf("user custom cache path %s does not exist in workspace %s", e.JobCtx.Cache.CacheUserDir, e.Dirs.Workspace)
+			return fmt.Errorf("user custom cache path %s does not exist in workspace %s", e.JobCtx.Cache.CacheUserDir, e.Dirs.Workspace)
+		}
+
+		var cachePath string
+		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
+			cachePath = filepath.Join(e.Dirs.CacheDir, e.Job.ProjectName, e.Job.WorkflowName, e.Job.JobName)
+		} else {
+			cachePath = filepath.Join(e.Dirs.CacheDir, e.Job.ProjectName, e.Job.WorkflowName)
+		}
+		WriteCache(*e.Job, src, cachePath, log.GetSimpleLogger())
+	}
+
+	// ------------------------------------------------ report all job log ----------------------------------------------
 	for logStr, EOFErr, err := e.Reporter.GetJobLog(); err == nil; {
 		resp, err := e.Reporter.ReportWithData(
 			&types.JobExecuteResult{
@@ -285,7 +352,7 @@ func (e *JobExecutor) AfterExecute() error {
 		}
 	}
 
-	// delete all temp file and dir
+	// -------------------------------------------- delete all temp file and dir ----------------------------------------
 	err := e.deleteTempFileAndDir()
 	if err != nil {
 		log.Errorf("failed to delete temp file and dir, error: %s", err)

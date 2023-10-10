@@ -88,16 +88,21 @@ const (
 
 // config const
 const (
-	JobOutputDir       = "zadig/results/"
-	JobTerminationFile = "/zadig/termination"
-	Home               = "HOME"
-	JobLogTmpDir       = "/tmp/job-log/"
-	JobScriptTmpDir    = "/tmp/job-script/"
-	JobOutputsTmpDir   = "/tmp/job-outputs/"
+	JobOutputDir     = "zadig/results/"
+	Home             = "HOME"
+	JobLogTmpDir     = "/tmp/job-log/"
+	JobScriptTmpDir  = "/tmp/job-script/"
+	JobOutputsTmpDir = "/tmp/job-outputs/"
+	JobCacheTmpDir   = "/tmp/caches"
 )
 
 const (
 	// MaxContainerTerminationMessageLength is the upper bound any one container may write to
 	// its termination message path. Contents above this length will cause a failure.
 	MaxContainerTerminationMessageLength = 1024 * 4
+)
+
+const (
+	CacheDirWorkspaceType  = "workspace"
+	CacheDirUserDefineType = "user_defined"
 )

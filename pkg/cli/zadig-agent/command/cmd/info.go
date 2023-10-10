@@ -56,9 +56,14 @@ func infoPreRun() error {
 }
 
 func infoRun() error {
+	configFilePath, err := agentconfig.GetAgentConfigFilePath()
+	if err != nil {
+		return fmt.Errorf("failed to get agent config file path: %v", err)
+	}
+
 	agentConfig, err := agentconfig.GetAgentConfig()
 	if err != nil {
-		return fmt.Errorf("failed to get agent config: %v", err)
+		return fmt.Errorf("failed to get agent config from local disk path:%s: error:%v.\nThis indicates that you need to follow the prompts in the integration module of the Zadig server", configFilePath, err)
 	}
 
 	osParams, err := osutil.GetPlatformParameters()
@@ -66,24 +71,25 @@ func infoRun() error {
 		return fmt.Errorf("failed to get platform parameters: %v", err)
 	}
 
-	configFilePath, err := agentconfig.GetAgentConfigFilePath()
-	if err != nil {
-		return fmt.Errorf("failed to get agent config file path: %v", err)
-	}
-
 	agentLogFilePath, err := agentconfig.GetAgentLogFilePath()
 	if err != nil {
 		return fmt.Errorf("failed to get agent log file path: %v", err)
 	}
 
+	cacheDirectory, err := agentconfig.GetCacheDir(agentConfig.WorkDirectory)
+	if err != nil {
+		return fmt.Errorf("failed to get agent cache directory: %v", err)
+	}
+
 	// print vm name
-	fmt.Printf("vm info              %-40s\n", fmt.Sprintf("name=%s description=%s", agentConfig.VmName, agentConfig.Description))
-	fmt.Printf("agent info           %-40s\n", fmt.Sprintf("version=%s status=%s install_time=%s install_user=%s", agentConfig.AgentVersion, agentConfig.Status, time.Unix(agentConfig.InstallTime, 0).Format("2006-01-02 15:04:05"), agentConfig.InstallUser))
-	fmt.Printf("zadig info           %-40s\n", fmt.Sprintf("url=%s", agentConfig.ServerURL))
-	fmt.Printf("platform info        %-40s\n", fmt.Sprintf("platform=%s architecture=%s ip=%s", osParams.OS, osParams.Arch, osParams.IP))
-	fmt.Printf("agent config file    %-40s\n", fmt.Sprintf("path=%s", configFilePath))
-	fmt.Printf("agent log file       %-40s\n", fmt.Sprintf("path=%s", filepath.Join(agentLogFilePath, "zadig-agent.log")))
-	fmt.Printf("agent work directory %-40s\n", fmt.Sprintf("path=%s", agentConfig.WorkDirectory))
+	fmt.Printf("vm info              	%-60s\n", fmt.Sprintf("name=%s description=%s", agentConfig.VmName, agentConfig.Description))
+	fmt.Printf("agent info           	%-60s\n", fmt.Sprintf("version=%s status=%s install_time=%s install_user=%s", agentConfig.AgentVersion, agentConfig.Status, time.Unix(agentConfig.InstallTime, 0).Format("2006-01-02 15:04:05"), agentConfig.InstallUser))
+	fmt.Printf("zadig info           	%-60s\n", fmt.Sprintf("url=%s", agentConfig.ServerURL))
+	fmt.Printf("platform info        	%-60s\n", fmt.Sprintf("platform=%s architecture=%s ip=%s", osParams.OS, osParams.Arch, osParams.IP))
+	fmt.Printf("agent config file    	%-60s\n", fmt.Sprintf("path=%s", configFilePath))
+	fmt.Printf("agent log file       	%-60s\n", fmt.Sprintf("path=%s", filepath.Join(agentLogFilePath, "zadig-agent.log")))
+	fmt.Printf("agent cache directory	%-60s\n", fmt.Sprintf("path=%s", cacheDirectory))
+	fmt.Printf("agent work directory 	%-60s\n", fmt.Sprintf("path=%s", agentConfig.WorkDirectory))
 
 	return nil
 }

@@ -138,7 +138,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		go func() {
 			defer wg.Done()
 
-			helper.HandleCmdOutput(cmdStdoutReader, needPersistentLog, fileName, s.secretEnvs, s.logger)
+			helper.HandleCmdOutput(cmdStdoutReader, needPersistentLog, fileName, s.secretEnvs, log.GetSimpleLogger())
 		}()
 
 		cmdStdErrReader, err := c.StderrPipe()
@@ -150,7 +150,7 @@ func (s *DockerBuildStep) runDockerBuild() error {
 		go func() {
 			defer wg.Done()
 
-			helper.HandleCmdOutput(cmdStdErrReader, needPersistentLog, fileName, s.secretEnvs, s.logger)
+			helper.HandleCmdOutput(cmdStdErrReader, needPersistentLog, fileName, s.secretEnvs, log.GetSimpleLogger())
 		}()
 
 		if err := c.Run(); err != nil {

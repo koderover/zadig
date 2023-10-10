@@ -71,8 +71,8 @@ const (
 	DindServer              = "dind"
 	KoderoverAgentNamespace = "koderover-agent"
 
-	executorVolumeName = "executor-resource"
-	executorVolumePath = "/executor"
+	executorVolumeName = "job-resource"
+	executorVolumePath = "/job"
 
 	defaultRetryCount    = 3
 	defaultRetryInterval = time.Second * 3
@@ -505,7 +505,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 					InitContainers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullIfNotPresent,
-							Name:            "executor-resource-init",
+							Name:            "job-resource-init",
 							Image:           config.ExecutorImage(),
 							VolumeMounts: []corev1.VolumeMount{
 								{

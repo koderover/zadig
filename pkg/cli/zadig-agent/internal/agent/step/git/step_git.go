@@ -98,7 +98,7 @@ func (s *GitStep) runGitCmds() error {
 		go func() {
 			defer wg.Done()
 
-			helper.HandleCmdOutput(cmdOutReader, needPersistentLog, s.Logger.GetLogfilePath(), s.secretEnvs, s.Logger)
+			helper.HandleCmdOutput(cmdOutReader, needPersistentLog, s.Logger.GetLogfilePath(), s.secretEnvs, log.GetSimpleLogger())
 		}()
 
 		cmdErrReader, err := c.Cmd.StderrPipe()
@@ -109,7 +109,7 @@ func (s *GitStep) runGitCmds() error {
 		go func() {
 			defer wg.Done()
 
-			helper.HandleCmdOutput(cmdErrReader, needPersistentLog, s.Logger.GetLogfilePath(), s.secretEnvs, s.Logger)
+			helper.HandleCmdOutput(cmdErrReader, needPersistentLog, s.Logger.GetLogfilePath(), s.secretEnvs, log.GetSimpleLogger())
 		}()
 
 		c.Cmd.Env = s.envs

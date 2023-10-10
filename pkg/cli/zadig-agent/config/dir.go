@@ -34,8 +34,6 @@ import (
 const (
 	LocalConfig      = ".zadig-agent/agent_config.yaml"
 	LocalLogFilePath = ".zadig-agent/log"
-	JobLogFilePath   = "/log"
-	JobCacheDir      = "/.cache"
 	JobArtifactsDir  = "/artifacts"
 )
 
@@ -196,4 +194,16 @@ func GetJobScriptTmpDir(workDir string, job types.ZadigJobTask) (string, error) 
 
 	jobScriptDir := filepath.Join(jobScriptTmpDir, fmt.Sprintf("%s-%s-%d-%s", job.ProjectName, job.WorkflowName, job.TaskID, job.JobName))
 	return jobScriptDir, nil
+}
+
+func GetCacheDir(workDir string) (string, error) {
+	cacheDir := filepath.Join(workDir, common.JobCacheTmpDir)
+	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+		err := os.MkdirAll(cacheDir, os.ModePerm)
+		if err != nil {
+			return "", fmt.Errorf("failed to create cache directory: %v", err)
+		}
+	}
+
+	return cacheDir, nil
 }

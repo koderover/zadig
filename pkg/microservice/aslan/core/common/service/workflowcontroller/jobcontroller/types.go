@@ -18,6 +18,8 @@ package jobcontroller
 
 import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/types"
+	"gopkg.in/yaml.v2"
 )
 
 type JobContext struct {
@@ -40,6 +42,21 @@ type JobContext struct {
 
 	Steps   []*commonmodels.StepTask `yaml:"steps"`
 	Outputs []string                 `yaml:"outputs"`
+	// used to vm job
+	Cache *JobCacheConfig `yaml:"cache"`
+}
+
+func (j *JobContext) Decode(job string) error {
+	if err := yaml.Unmarshal([]byte(job), j); err != nil {
+		return err
+	}
+	return nil
+}
+
+type JobCacheConfig struct {
+	CacheEnable  bool               `json:"cache_enable"`
+	CacheDirType types.CacheDirType `json:"cache_dir_type"`
+	CacheUserDir string             `json:"cache_user_dir"`
 }
 
 type EnvVar []string
