@@ -846,6 +846,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 					Bucket:   storageInfo.Bucket,
 					Insecure: storageInfo.Insecure,
 					Provider: storageInfo.Provider,
+					Region:   storageInfo.Region,
 				}
 				testTask.JobCtx.UploadInfo = testModule.PostTest.ObjectStorageUpload.UploadDetail
 			}
