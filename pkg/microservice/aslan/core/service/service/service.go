@@ -189,11 +189,9 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			continue
 		}
 		if resKind == nil {
-			log.Infof("resKind is nil, raw data: %s", string(yamlData))
 			continue
 		}
-		log.Infof("the reskind data is %v", *resKind)
-		serviceOption.Resources = append(serviceOption.Resources, &SvcResources{Kind: resKind.Kind})
+		serviceOption.Resources = append(serviceOption.Resources, &SvcResources{Kind: resKind.Kind, Name: resKind.Metadata.Name})
 	}
 
 	return serviceOption, nil
