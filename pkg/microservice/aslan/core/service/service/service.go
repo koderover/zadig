@@ -188,6 +188,10 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			log.Errorf("unmarshal ResourceKind error: %v", err)
 			continue
 		}
+		if resKind == nil {
+			log.Infof("resKind is nil, raw data: %s", string(yamlData))
+			continue
+		}
 		log.Infof("the reskind data is %v", *resKind)
 		serviceOption.Resources = append(serviceOption.Resources, &SvcResources{Kind: resKind.Kind})
 	}
