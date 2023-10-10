@@ -79,7 +79,7 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 
 	envSvcRevision, err := mongodb.NewEnvServiceVersionColl().Find(projectName, envName, serviceName, isHelmChart, isProduction, revision)
 	if err != nil {
-		return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to find %s/%s/%s service for revision %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
+		return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to find %s/%s/%s service for revision %d, isHelmChart %v isProduction %v, error: %v", projectName, envName, serviceName, revision, isHelmChart, isProduction, err))
 	}
 	resp.Type = envSvcRevision.Service.Type
 	if envSvcRevision.Service.Type == setting.K8SDeployType {

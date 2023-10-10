@@ -97,7 +97,7 @@ func (c *EnvVersionColl) Find(productName, envName, serviceName string, isHelmCh
 	query := bson.M{}
 	query["env_name"] = envName
 	query["product_name"] = productName
-	query["producton"] = production
+	query["production"] = production
 	query["revision"] = revision
 
 	if isHelmChart {

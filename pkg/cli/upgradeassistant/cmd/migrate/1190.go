@@ -18,7 +18,6 @@ package migrate
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
