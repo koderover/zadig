@@ -66,7 +66,7 @@ func initMysql() {
 		config.MysqlUserDB(),
 	)
 	if err != nil {
-		log.Panicf("Failed to open database %s", config.MysqlUserDB())
+		log.Panicf("Failed to open database %s, err: %v", config.MysqlUserDB(), err)
 	}
 
 	repository.DB = gormtool.DB(config.MysqlUserDB())
