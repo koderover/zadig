@@ -180,6 +180,9 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	if err != nil {
 		log.Errorf("failed to render k8s svc yaml: %s/%s, err: %s", args.ProductName, args.ServiceName, err)
 	}
+	renderedYaml = config.ServiceNameAlias.ReplaceAllLiteralString(renderedYaml, args.ServiceName)
+	renderedYaml = config.ProductNameAlias.ReplaceAllLiteralString(renderedYaml, args.ProductName)
+
 	renderedYaml = util.ReplaceWrapLine(renderedYaml)
 	yamlDataArray := util.SplitYaml(renderedYaml)
 	for _, yamlData := range yamlDataArray {
