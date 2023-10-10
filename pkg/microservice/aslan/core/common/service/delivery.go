@@ -162,7 +162,7 @@ func GetSubTaskContent(deliveryVersion *commonmodels.DeliveryVersion, pipelineTa
 					deliveryPackage := new(commonmodels.DeliveryPackage)
 					deliveryPackage.PackageFileLocation = buildInfo.JobCtx.FileArchiveCtx.FileLocation
 					deliveryPackage.PackageFileName = buildInfo.JobCtx.FileArchiveCtx.FileName
-					storageInfo, _ := s3service.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI)
+					storageInfo, _ := s3service.UnmarshalNewS3StorageFromEncrypted(pipelineTask.StorageURI)
 					deliveryPackage.PackageStorageURI = storageInfo.Endpoint
 					deliveryBuild.PackageInfo = deliveryPackage
 				}
@@ -341,9 +341,9 @@ func GetSubTaskContent(deliveryVersion *commonmodels.DeliveryVersion, pipelineTa
 				}
 				deliveryDistributeFile.PackageFile = releaseFileInfo.PackageFile
 				deliveryDistributeFile.RemoteFileKey = releaseFileInfo.RemoteFileKey
-				storageInfo, _ := s3service.NewS3StorageFromEncryptedURI(releaseFileInfo.DestStorageURL)
+				storageInfo, _ := s3service.UnmarshalNewS3StorageFromEncrypted(releaseFileInfo.DestStorageURL)
 				deliveryDistributeFile.DestStorageURL = storageInfo.Endpoint
-				storageInfo, _ = s3service.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI)
+				storageInfo, _ = s3service.UnmarshalNewS3StorageFromEncrypted(pipelineTask.StorageURI)
 				deliveryDistributeFile.SrcStorageURL = storageInfo.Endpoint
 				deliveryDistributeFile.StartTime = releaseFileInfo.StartTime
 				deliveryDistributeFile.EndTime = releaseFileInfo.EndTime

@@ -1304,7 +1304,7 @@ func getDefaultAndDestS3StoreURL(workflow *commonmodels.Workflow, log *zap.Sugar
 			S3Storage: distributeS3Store,
 		}
 
-		destURL, err = defaultS3.GetEncryptedURL()
+		destURL, err = defaultS3.GetEncrypted()
 		if err != nil {
 			return
 		}
@@ -1316,7 +1316,7 @@ func getDefaultAndDestS3StoreURL(workflow *commonmodels.Workflow, log *zap.Sugar
 		return
 	}
 
-	defaultURL, err = defaultS3.GetEncryptedURL()
+	defaultURL, err = defaultS3.GetEncrypted()
 	if err != nil {
 		err = e.ErrS3Storage.AddErr(err)
 		return
@@ -1719,6 +1719,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 						Bucket:   storageInfo.Bucket,
 						Insecure: storageInfo.Insecure,
 						Provider: storageInfo.Provider,
+						Region:   storageInfo.Region,
 					}
 					testTask.JobCtx.UploadInfo = testModule.PostTest.ObjectStorageUpload.UploadDetail
 				}
@@ -2319,6 +2320,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				Bucket:   storageInfo.Bucket,
 				Insecure: storageInfo.Insecure,
 				Provider: storageInfo.Provider,
+				Region:   storageInfo.Region,
 			}
 			build.JobCtx.UploadInfo = module.PostBuild.ObjectStorageUpload.UploadDetail
 		}
@@ -2800,7 +2802,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						S3Storage: storage,
 					}
 
-					task.DestStorageURL, err = defaultS3.GetEncryptedURL()
+					task.DestStorageURL, err = defaultS3.GetEncrypted()
 					if err != nil {
 						return err
 					}

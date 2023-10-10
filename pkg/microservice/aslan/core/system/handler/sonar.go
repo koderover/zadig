@@ -118,17 +118,17 @@ func ListSonarIntegration(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
+	// TODO: Authorization leak
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
-	}
+	//if !ctx.Resources.IsSystemAdmin {
+	//	ctx.UnAuthorized = true
+	//	return
+	//}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {

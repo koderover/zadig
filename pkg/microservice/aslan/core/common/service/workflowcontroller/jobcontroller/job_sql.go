@@ -18,34 +18,35 @@ package jobcontroller
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/url"
-	"time"
 
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/tool/apollo"
 )
 
-type ApolloJobCtl struct {
+type SQLJobCtl struct {
 	job         *commonmodels.JobTask
 	workflowCtx *commonmodels.WorkflowTaskCtx
 	logger      *zap.SugaredLogger
-	jobTaskSpec *commonmodels.JobTaskApolloSpec
+	jobTaskSpec *commonmodels.JobTaskSQLSpec
 	ack         func()
+	dbInfo      *commonmodels.DBInstance
 }
 
-func NewApolloJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *ApolloJobCtl {
-	jobTaskSpec := &commonmodels.JobTaskApolloSpec{}
+func NewSQLJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTaskCtx, ack func(), logger *zap.SugaredLogger) *SQLJobCtl {
+	jobTaskSpec := &commonmodels.JobTaskSQLSpec{}
 	if err := commonmodels.IToi(job.Spec, jobTaskSpec); err != nil {
 		logger.Error(err)
 	}
 	job.Spec = jobTaskSpec
-	return &ApolloJobCtl{
+	return &SQLJobCtl{
 		job:         job,
 		workflowCtx: workflowCtx,
 		logger:      logger,
@@ -54,55 +55,51 @@ func NewApolloJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.Workfl
 	}
 }
 
-func (c *ApolloJobCtl) Clean(ctx context.Context) {}
+func (c *SQLJobCtl) Clean(ctx context.Context) {}
 
-func (c *ApolloJobCtl) Run(ctx context.Context) {
+func (c *SQLJobCtl) Run(ctx context.Context) {
 	c.job.Status = config.StatusRunning
 	c.ack()
 
-	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), c.jobTaskSpec.ApolloID)
+	info, err := mongodb.NewDBInstanceColl().Find(&mongodb.DBInstanceCollFindOption{Id: c.jobTaskSpec.ID})
 	if err != nil {
 		logError(c.job, err.Error(), c.logger)
 		return
 	}
-	link := fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s",
-		config2.SystemAddress(),
-		c.workflowCtx.ProjectName,
-		c.workflowCtx.WorkflowName,
-		c.workflowCtx.TaskID,
-		url.QueryEscape(c.workflowCtx.WorkflowDisplayName))
+	c.dbInfo = info
 
-	var fail bool
-	client := apollo.NewClient(info.ServerAddress, info.Token)
-	for _, namespace := range c.jobTaskSpec.NamespaceList {
-		for _, kv := range namespace.KeyValList {
-			err := client.UpdateKeyVal(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, kv.Key, kv.Val, info.ApolloAuthConfig.User)
-			if err != nil {
-				fail = true
-				namespace.Error = fmt.Sprintf("update error: %v", err)
-				continue
-			}
+	switch info.Type {
+	case config.DBInstanceTypeMySQL, config.DBInstanceTypeMariaDB:
+		if err := c.ExecMySQLStatement(); err != nil {
+			logError(c.job, err.Error(), c.logger)
+			return
 		}
-		err := client.Release(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace,
-			&apollo.ReleaseArgs{
-				ReleaseTitle:   time.Now().Format("20060102150405") + "-zadig",
-				ReleaseComment: fmt.Sprintf("工作流 %s\n详情: %s", c.workflowCtx.WorkflowDisplayName, link),
-				ReleasedBy:     info.ApolloAuthConfig.User,
-			})
-		if err != nil {
-			fail = true
-			namespace.Error = fmt.Sprintf("release error: %v", err)
-		}
-	}
-	if fail {
-		logError(c.job, "some errors occurred in apollo job", c.logger)
+	default:
+		logError(c.job, "invalid db type", c.logger)
 		return
 	}
+
 	c.job.Status = config.StatusPassed
 	return
 }
 
-func (c *ApolloJobCtl) SaveInfo(ctx context.Context) error {
+func (c *SQLJobCtl) ExecMySQLStatement() error {
+	info := c.dbInfo
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8&multiStatements=true", info.Username, url.QueryEscape(info.Password), info.Host, info.Port))
+	if err != nil {
+		return errors.Errorf("connect db error: %v", err)
+	}
+	defer db.Close()
+
+	// 插入示例
+	_, err = db.Exec(c.jobTaskSpec.SQL)
+	if err != nil {
+		return errors.Errorf("exec SQL error: %v", err)
+	}
+	return nil
+}
+
+func (c *SQLJobCtl) SaveInfo(ctx context.Context) error {
 	return mongodb.NewJobInfoColl().Create(context.TODO(), &commonmodels.JobInfo{
 		Type:                c.job.JobType,
 		WorkflowName:        c.workflowCtx.WorkflowName,

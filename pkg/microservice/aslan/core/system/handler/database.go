@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -42,14 +43,26 @@ func ListDBInstance(c *gin.Context) {
 		return
 	}
 
-	// TODO: Authorization leak
 	// authorization checks
-	//if !ctx.Resources.IsSystemAdmin {
-	//	ctx.UnAuthorized = true
-	//	return
-	//}
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	ctx.Resp, ctx.Err = commonservice.ListDBInstances(encryptedKey, ctx.Logger)
+}
+
+func ListDBInstanceInfo(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = commonservice.ListDBInstancesInfo(ctx.Logger)
 }
 
 func CreateDBInstance(c *gin.Context) {
@@ -79,8 +92,20 @@ func CreateDBInstance(c *gin.Context) {
 }
 
 func GetDBInstance(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	id := c.Param("id")
 	if len(id) == 0 {
@@ -115,13 +140,12 @@ func UpdateDBInstance(c *gin.Context) {
 
 	args := new(commonmodels.DBInstance)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid db json args")
 		return
 	}
 	args.UpdateBy = ctx.UserName
-	args.ID = id
 
-	ctx.Err = commonservice.UpdateDBInstance(args, ctx.Logger)
+	ctx.Err = commonservice.UpdateDBInstance(id, args, ctx.Logger)
 }
 
 func DeleteDBInstance(c *gin.Context) {
@@ -147,4 +171,29 @@ func DeleteDBInstance(c *gin.Context) {
 	}
 
 	ctx.Err = commonservice.DeleteDBInstance(id)
+}
+
+func ValidateDBInstance(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(commonmodels.DBInstance)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid helmRepo json args")
+		return
+	}
+
+	ctx.Err = commonservice.ValidateDBInstance(args)
 }

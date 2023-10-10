@@ -931,7 +931,7 @@ func (p *ReleaseImagePlugin) downloadService(productName, serviceName, storageUR
 		return tarFilePath, nil
 	}
 
-	s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
+	s3Storage, err := s3.UnmarshalNewS3StorageFromEncrypted(storageURI)
 	if err != nil {
 		return "", err
 	}

@@ -226,7 +226,7 @@ func (c *WorkspaceAchiever) Achieve(target string) ([]string, error) {
 	//	return err
 	//}
 
-	if store, err := s3.NewS3StorageFromEncryptedURI(c.StorageURI, c.aesKey); err == nil {
+	if store, err := s3.UnmarshalNewS3StorageFromEncrypted(c.StorageURI, c.aesKey); err == nil {
 		forcedPathStyle := true
 		if store.Provider == setting.ProviderSourceAli {
 			forcedPathStyle = false

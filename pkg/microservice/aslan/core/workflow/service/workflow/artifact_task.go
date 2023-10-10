@@ -61,7 +61,7 @@ func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskC
 		return 0, err
 	}
 
-	defaultURL, err := defaultS3.GetEncryptedURL()
+	defaultURL, err := defaultS3.GetEncrypted()
 	if err != nil {
 		err = e.ErrS3Storage.AddErr(err)
 		return 0, err

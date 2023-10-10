@@ -136,7 +136,7 @@ func (p *Distribute2S3TaskPlugin) Run(ctx context.Context, pipelineTask *task.Ta
 		}
 
 		var srcStorage *s3.S3
-		srcStorage, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI)
+		srcStorage, err = s3.UnmarshalNewS3StorageFromEncrypted(pipelineTask.StorageURI)
 		if err != nil {
 			p.Log.Errorf("failed to init source s3 client")
 			return
@@ -181,7 +181,7 @@ func (p *Distribute2S3TaskPlugin) Run(ctx context.Context, pipelineTask *task.Ta
 	}
 
 	var destStorage *s3.S3
-	destStorage, err = s3.NewS3StorageFromEncryptedURI(p.Task.DestStorageURL)
+	destStorage, err = s3.UnmarshalNewS3StorageFromEncrypted(p.Task.DestStorageURL)
 	if err != nil {
 		p.Log.Errorf("failed to init destination s3 client %v", err)
 		return

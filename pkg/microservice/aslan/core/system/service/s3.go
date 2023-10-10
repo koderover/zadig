@@ -134,9 +134,9 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 	defaultS3 = s3.S3{
 		S3Storage: store,
 	}
-	defaultURL, err = defaultS3.GetEncryptedURL()
+	defaultURL, err = defaultS3.GetEncrypted()
 	if err != nil {
-		logger.Errorf("defaultS3 GetEncryptedURL err:%s", err)
+		logger.Errorf("defaultS3 GetEncrypted err:%s", err)
 		return nil, err
 	}
 

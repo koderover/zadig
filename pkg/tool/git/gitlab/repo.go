@@ -19,6 +19,7 @@ package gitlab
 import (
 	"encoding/base64"
 	"strings"
+	"sync"
 
 	"github.com/27149chen/afero"
 	"github.com/xanzy/go-gitlab"
@@ -143,19 +144,30 @@ func (c *Client) GetYAMLContents(owner, repo, path, branch string, isDir, split 
 		return nil, err
 	}
 
+	loadMutex := &sync.Mutex{}
+	var loadErr error = nil
+	wg := sync.WaitGroup{}
+
 	for _, tn := range treeNodes {
 		if tn.Type != "blob" {
 			continue
 		}
-		r, err := c.GetYAMLContents(owner, repo, tn.Path, branch, false, split)
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, r...)
+		wg.Add(1)
+		go func(tn *gitlab.TreeNode) {
+			defer wg.Done()
+			r, err := c.GetYAMLContents(owner, repo, tn.Path, branch, false, split)
+			loadMutex.Lock()
+			defer loadMutex.Unlock()
+			if err != nil {
+				loadErr = err
+				return
+			}
+			res = append(res, r...)
+		}(tn)
 	}
+	wg.Wait()
 
-	return res, nil
+	return res, loadErr
 }
 
 // GetTreeContents recursively gets all file contents under the given path, and writes to an in-memory file system.
