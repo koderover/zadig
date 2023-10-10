@@ -137,6 +137,16 @@ type EnvServices struct {
 	Services    []*EnvService `json:"services"`
 }
 
+type SvcResources struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
+type TemplateSvcResp struct {
+	*commonmodels.Service
+	Resources []*SvcResources `json:"resources"`
+}
+
 var (
 	imageParseRegex = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
 )
@@ -364,6 +374,42 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 	return resp, nil
 }
 
+func GetServiceTemplateWithStructure(serviceName, serviceType, productName, excludeStatus string, revision int64, log *zap.SugaredLogger) (*TemplateSvcResp, error) {
+	svcTemplate, err := GetServiceTemplate(serviceName, serviceType, productName, excludeStatus, revision, log)
+	resp := &TemplateSvcResp{
+		Resources: []*SvcResources{},
+		Service:   svcTemplate,
+	}
+	if err != nil {
+		return resp, err
+	}
+
+	if resp.Type == setting.K8SDeployType {
+		resp.Resources = make([]*SvcResources, 0)
+		renderedYaml, err := commonutil.RenderK8sSvcYamlStrict(resp.Yaml, resp.ProductName, resp.ServiceName, resp.VariableYaml)
+		if err != nil {
+			log.Errorf("failed to render k8s svc yaml: %s/%s, err: %s", resp.ProductName, resp.ServiceName, err)
+		}
+		renderedYaml = config.ServiceNameAlias.ReplaceAllLiteralString(renderedYaml, resp.ServiceName)
+		renderedYaml = config.ProductNameAlias.ReplaceAllLiteralString(renderedYaml, resp.ProductName)
+
+		renderedYaml = util.ReplaceWrapLine(renderedYaml)
+		yamlDataArray := util.SplitYaml(renderedYaml)
+		for _, yamlData := range yamlDataArray {
+			resKind := new(types.KubeResourceKind)
+			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
+				log.Errorf("unmarshal ResourceKind error: %v", err)
+				continue
+			}
+			if resKind == nil {
+				continue
+			}
+			resp.Resources = append(resp.Resources, &SvcResources{Kind: resKind.Kind, Name: resKind.Metadata.Name})
+		}
+	}
+	return resp, nil
+}
+
 func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus string, revision int64, log *zap.SugaredLogger) (*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
@@ -374,7 +420,6 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 	if excludeStatus != "" {
 		opt.ExcludeStatus = excludeStatus
 	}
-
 	resp, err := commonrepo.NewServiceColl().Find(opt)
 	if err != nil {
 		err = func() error {
