@@ -1719,6 +1719,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 						Bucket:   storageInfo.Bucket,
 						Insecure: storageInfo.Insecure,
 						Provider: storageInfo.Provider,
+						Region:   storageInfo.Region,
 					}
 					testTask.JobCtx.UploadInfo = testModule.PostTest.ObjectStorageUpload.UploadDetail
 				}
@@ -2319,6 +2320,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				Bucket:   storageInfo.Bucket,
 				Insecure: storageInfo.Insecure,
 				Provider: storageInfo.Provider,
+				Region:   storageInfo.Region,
 			}
 			build.JobCtx.UploadInfo = module.PostBuild.ObjectStorageUpload.UploadDetail
 		}

@@ -244,6 +244,7 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 			Bucket:   b.JobCtx.UploadStorageInfo.Bucket,
 			Insecure: b.JobCtx.UploadStorageInfo.Insecure,
 			Provider: b.JobCtx.UploadStorageInfo.Provider,
+			Region:   b.JobCtx.UploadStorageInfo.Region,
 		}
 	}
 
