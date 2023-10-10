@@ -21,8 +21,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	"github.com/27149chen/afero"
 	"github.com/xanzy/go-gitlab"
 
@@ -157,7 +155,6 @@ func (c *Client) GetYAMLContents(owner, repo, path, branch string, isDir, split 
 		wg.Add(1)
 		go func(tn *gitlab.TreeNode) {
 			defer wg.Done()
-			log.Infof("---- start load data from %s", tn.Path)
 			r, err := c.GetYAMLContents(owner, repo, tn.Path, branch, false, split)
 			loadMutex.Lock()
 			defer loadMutex.Unlock()
@@ -166,12 +163,9 @@ func (c *Client) GetYAMLContents(owner, repo, path, branch string, isDir, split 
 				return
 			}
 			res = append(res, r...)
-			log.Infof("---- finished load data from %s", tn.Path)
 		}(tn)
 	}
 	wg.Wait()
-
-	log.Infof("load files in dir %s, total %d", path, len(res))
 
 	return res, loadErr
 }
