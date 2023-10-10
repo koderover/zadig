@@ -188,7 +188,8 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			log.Errorf("unmarshal ResourceKind error: %v", err)
 			continue
 		}
-		serviceOption.Resources = append(serviceOption.Resources, &SvcResources{Kind: resKind.Kind, Name: resKind.Metadata.Name})
+		log.Infof("the reskind data is %v", *resKind)
+		serviceOption.Resources = append(serviceOption.Resources, &SvcResources{Kind: resKind.Kind})
 	}
 
 	return serviceOption, nil
