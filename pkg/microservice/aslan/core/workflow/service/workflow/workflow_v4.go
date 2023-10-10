@@ -337,6 +337,7 @@ func DeleteWorkflowV4(name string, logger *zap.SugaredLogger) error {
 }
 
 func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []string, policyFound bool, logger *zap.SugaredLogger) ([]*Workflow, error) {
+	logger.Infof("ListWorkflowV4 len(names): %d, len(v4Names): %d policyFound: %v viewName: %s", len(names), len(v4Names), policyFound, viewName)
 	resp := make([]*Workflow, 0)
 	var err error
 	ignoreWorkflow := false
@@ -349,6 +350,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			ignoreWorkflowV4 = true
 		}
 	} else {
+		t := time.Now()
 		names, v4Names, err = filterWorkflowNamesByView(projectName, viewName, names, v4Names, policyFound)
 		if err != nil {
 			logger.Errorf("filterWorkflowNames error: %s", err)
@@ -360,9 +362,11 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 		if len(v4Names) == 0 {
 			ignoreWorkflowV4 = true
 		}
+		logger.Infof("filterWorkflowNamesByView cost: %v len(names): %d, len(v4Names): %d", time.Since(t), len(names), len(v4Names))
 	}
 	workflowV4List := []*commonmodels.WorkflowV4{}
 	if !ignoreWorkflowV4 {
+		t := time.Now()
 		workflowV4List, _, err = commonrepo.NewWorkflowV4Coll().List(&commonrepo.ListWorkflowV4Option{
 			ProjectName: projectName,
 			Names:       v4Names,
@@ -371,16 +375,19 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			logger.Errorf("Failed to list workflow v4, the error is: %s", err)
 			return resp, err
 		}
+		logger.Infof("ListWorkflowV4 list workflow v4 cost: %v len(workflowV4List): %d", time.Since(t), len(workflowV4List))
 	}
 
 	workflow := []*Workflow{}
 
 	// distribute center only surpport custom workflow.
 	if !ignoreWorkflow && projectName != setting.EnterpriseProject {
+		t := time.Now()
 		workflow, err = ListWorkflows([]string{projectName}, userID, names, logger)
 		if err != nil {
 			return resp, err
 		}
+		logger.Infof("ListWorkflowV4 list workflow cost: %v len(workflow): %d", time.Since(t), len(workflow))
 	}
 
 	workflowList := []string{}
@@ -388,16 +395,19 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 		workflowList = append(workflowList, wV4.Name)
 	}
 	resp = append(resp, workflow...)
+	t := time.Now()
 	workflowCMMap, err := collaboration.GetWorkflowCMMap([]string{projectName}, logger)
 	if err != nil {
 		return nil, err
 	}
+	logger.Infof("ListWorkflowV4 GetWorkflowCMMap cost: %v", time.Since(t))
 
 	var (
 		wg    sync.WaitGroup
 		mu    sync.Mutex
 		tasks []*models.WorkflowTask
 	)
+	t = time.Now()
 	for _, name := range workflowList {
 		wg.Add(1)
 		go func(workflowName string) {
@@ -419,17 +429,23 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 	if err != nil {
 		return resp, err
 	}
+	logger.Infof("ListWorkflowV4 ListWorkflowTaskV4s cost: %v", time.Since(t))
 
+	t = time.Now()
 	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowTypeV4)})
 	if err != nil {
 		return resp, errors.Errorf("failed to get custom workflow favorite data, err: %v", err)
 	}
+	log.Infof("ListWorkflowV4 ListFavoriteColl cost: %v", time.Since(t))
 	favoriteSet := sets.NewString()
 	for _, f := range favorites {
 		favoriteSet.Insert(f.Name)
 	}
+	t = time.Now()
 	workflowStatMap := getWorkflowStatMap(workflowList, config.WorkflowTypeV4)
+	log.Infof("ListWorkflowV4 getWorkflowStatMap cost: %v", time.Since(t))
 
+	t = time.Now()
 	for _, workflowModel := range workflowV4List {
 		stages := []string{}
 		for _, stage := range workflowModel.Stages {
@@ -444,6 +460,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 				baseRefs = append(baseRefs, cm)
 			}
 		}
+		log.Infof("len(baseRefs): %d", len(baseRefs))
 		workflow := &Workflow{
 			Name:          workflowModel.Name,
 			DisplayName:   workflowModel.DisplayName,
@@ -468,6 +485,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 
 		resp = append(resp, workflow)
 	}
+	log.Infof("ListWorkflowV4 last cost: %v", time.Since(t))
 	return resp, nil
 }
 

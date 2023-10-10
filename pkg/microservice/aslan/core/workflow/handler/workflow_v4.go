@@ -21,10 +21,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/types"
 	"gopkg.in/yaml.v3"
+
+	"github.com/koderover/zadig/pkg/types"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -182,16 +184,20 @@ func LintWorkflowV4(c *gin.Context) {
 }
 
 func ListWorkflowV4(c *gin.Context) {
+	log := log.SugaredLogger().With("module", "workflow.ListWorkflowV4", "time", time.Now().Unix())
+	t := time.Now()
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
 	if err != nil {
 		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
-
+	log.Infof("NewContextWithAuthorization cost %s", time.Since(t).String())
+	defer func() {
+		log.Infof("ListWorkflowV4 cost %s", time.Since(t).String())
+	}()
 	args := &listWorkflowV4Query{}
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = err
@@ -206,15 +212,18 @@ func ListWorkflowV4(c *gin.Context) {
 		enableFilter = false
 		authorizedWorkflow = make([]string, 0)
 		authorizedWorkflowV4 = make([]string, 0)
+		log.Infof("admin user, disabling filter")
 		ctx.Logger.Infof("user is admin, disabling filter")
 	} else if projectAuth, ok := ctx.Resources.ProjectAuthInfo[args.Project]; ok {
 		if projectAuth.IsProjectAdmin || projectAuth.Workflow.View {
 			enableFilter = false
 			authorizedWorkflow = make([]string, 0)
 			authorizedWorkflowV4 = make([]string, 0)
+			log.Infof("user is project admin or has workflow view authorization, disabling filter")
 			ctx.Logger.Infof("user is project admin or has workflow view authorization, disabling filter")
 		} else {
 			var err error
+			t2 := time.Now()
 			authorizedWorkflow, authorizedWorkflowV4, enableFilter, err = internalhandler.ListAuthorizedWorkflows(ctx.UserID, args.Project)
 			if err != nil {
 				ctx.Logger.Errorf("failed to list authorized workflow resource, error: %s", err)
@@ -225,6 +234,7 @@ func ListWorkflowV4(c *gin.Context) {
 				}
 				return
 			}
+			log.Infof("ListAuthorizedWorkflows cost %s", time.Since(t2).String())
 		}
 	} else {
 		// if a user does not have a role in a project, it must also not have a collaboration mode
@@ -237,7 +247,7 @@ func ListWorkflowV4(c *gin.Context) {
 		return
 	}
 
-	workflowList, err := workflow.ListWorkflowV4(args.Project, args.ViewName, ctx.UserID, authorizedWorkflow, authorizedWorkflowV4, enableFilter, ctx.Logger)
+	workflowList, err := workflow.ListWorkflowV4(args.Project, args.ViewName, ctx.UserID, authorizedWorkflow, authorizedWorkflowV4, enableFilter, log)
 	resp := listWorkflowV4Resp{
 		WorkflowList: workflowList,
 		Total:        int64(len(workflowList)),
