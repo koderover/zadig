@@ -178,7 +178,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 
 	var defaultStorageURI string
 	if defaultS3, err := s3.FindDefaultS3(); err == nil {
-		defaultStorageURI, err = defaultS3.GetEncryptedURL()
+		defaultStorageURI, err = defaultS3.GetEncrypted()
 		if err != nil {
 			return nil, e.ErrS3Storage.AddErr(err)
 		}
@@ -846,6 +846,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 					Bucket:   storageInfo.Bucket,
 					Insecure: storageInfo.Insecure,
 					Provider: storageInfo.Provider,
+					Region:   storageInfo.Region,
 				}
 				testTask.JobCtx.UploadInfo = testModule.PostTest.ObjectStorageUpload.UploadDetail
 			}
@@ -1135,7 +1136,7 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 			storageURL = resp.StorageURI
 		}
 	}
-	storage, err := s3.NewS3StorageFromEncryptedURI(storageURL)
+	storage, err := s3.UnmarshalNewS3StorageFromEncrypted(storageURL)
 	if err != nil {
 		log.Errorf("failed to get s3 storage %s", storageURL)
 		return nil, packageFile, fmt.Errorf("failed to get s3 storage %s", storageURL)

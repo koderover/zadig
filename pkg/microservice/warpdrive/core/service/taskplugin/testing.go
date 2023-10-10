@@ -360,7 +360,7 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 		p.Task.JobCtx.TestType = setting.FunctionTest
 	}
 
-	store, err := s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI)
+	store, err := s3.UnmarshalNewS3StorageFromEncrypted(pipelineTask.StorageURI)
 	if err != nil {
 		return
 	}

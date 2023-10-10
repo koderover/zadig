@@ -163,7 +163,7 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error) {
 	var err error
 	var store *s3.S3
-	if store, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI); err != nil {
+	if store, err = s3.UnmarshalNewS3StorageFromEncrypted(pipelineTask.StorageURI); err != nil {
 		log.Errorf("Archive failed to create s3 storage %s", pipelineTask.StorageURI)
 		return "", err
 	}

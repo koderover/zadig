@@ -341,7 +341,7 @@ func GetHTMLTestReport(pipelineName, pipelineType, taskIDStr, testName string, l
 		return "", e.ErrGetTestReport.AddErr(err)
 	}
 
-	store, err := s3.NewS3StorageFromEncryptedURI(task.StorageURI)
+	store, err := s3.UnmarshalNewS3StorageFromEncrypted(task.StorageURI)
 	if err != nil {
 		log.Errorf("parse storageURI failed, err: %s", err)
 		return "", e.ErrGetTestReport.AddErr(err)

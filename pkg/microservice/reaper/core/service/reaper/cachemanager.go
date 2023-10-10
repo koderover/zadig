@@ -182,7 +182,7 @@ func (gcm *TarCacheManager) Unarchive(source, dest string) error {
 func (gcm *TarCacheManager) getS3Storage() (*s3.S3, error) {
 	var err error
 	var store *s3.S3
-	if store, err = s3.NewS3StorageFromEncryptedURI(gcm.StorageURI, gcm.aesKey); err != nil {
+	if store, err = s3.UnmarshalNewS3StorageFromEncrypted(gcm.StorageURI, gcm.aesKey); err != nil {
 		log.Errorf("Archive failed to create s3 storage %s", gcm.StorageURI)
 		return nil, err
 	}

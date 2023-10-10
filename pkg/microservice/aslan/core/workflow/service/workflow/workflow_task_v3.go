@@ -97,7 +97,7 @@ func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID str
 
 	var defaultStorageURI string
 	if defaultS3, err := s3.FindDefaultS3(); err == nil {
-		defaultStorageURI, err = defaultS3.GetEncryptedURL()
+		defaultStorageURI, err = defaultS3.GetEncrypted()
 		if err != nil {
 			return nil, e.ErrS3Storage.AddErr(err)
 		}
