@@ -28,6 +28,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/tool/cache"
 	"golang.org/x/oauth2"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -167,6 +168,10 @@ func Callback(c *gin.Context) {
 	if err != nil {
 		ctx.Err = err
 		return
+	}
+	err = cache.NewRedisCache().Write(claims.UID, userToken, time.Duration(config.TokenExpiresAt())*time.Minute)
+	if err != nil {
+		log.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
 	}
 	v := url.Values{}
 	v.Add("token", userToken)

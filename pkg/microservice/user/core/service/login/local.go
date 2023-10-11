@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
+	zadigCache "github.com/koderover/zadig/pkg/tool/cache"
 )
 
 type LoginArgs struct {
@@ -173,6 +174,11 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 	if err != nil {
 		logger.Errorf("LocalLogin user:%s create token error, error msg:%s", args.Account, err.Error())
 		return nil, 0, err
+	}
+
+	err = zadigCache.NewRedisCache().Write(user.UID, token, time.Duration(config.TokenExpiresAt())*time.Minute)
+	if err != nil {
+		logger.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
 	}
 
 	return &User{

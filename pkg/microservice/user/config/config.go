@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -59,6 +60,10 @@ func MysqlDexDB() string {
 
 func TokenExpiresAt() int {
 	return viper.GetInt(setting.ENVTokenExpiresAt)
+}
+
+func DecisionLogPath() string {
+	return fmt.Sprintf("/var/log/%s/decision.log", setting.ProductName)
 }
 
 func AdminPassword() string {

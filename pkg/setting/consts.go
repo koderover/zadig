@@ -111,15 +111,16 @@ const (
 	TestMode    = "test"
 
 	// user
-	ENVIssuerURL      = "ISSUER_URL"
-	ENVClientID       = "CLIENT_ID"
-	ENVClientSecret   = "CLIENT_SECRET"
-	ENVRedirectURI    = "REDIRECT_URI"
-	ENVSecretKey      = "SECRET_KEY"
-	ENVMysqlUserDB    = "MYSQL_USER_DB"
-	ENVScopes         = "SCOPES"
-	ENVTokenExpiresAt = "TOKEN_EXPIRES_AT"
-	ENVUserPort       = "USER_PORT"
+	ENVIssuerURL       = "ISSUER_URL"
+	ENVClientID        = "CLIENT_ID"
+	ENVClientSecret    = "CLIENT_SECRET"
+	ENVRedirectURI     = "REDIRECT_URI"
+	ENVSecretKey       = "SECRET_KEY"
+	ENVMysqlUserDB     = "MYSQL_USER_DB"
+	ENVScopes          = "SCOPES"
+	ENVTokenExpiresAt  = "TOKEN_EXPIRES_AT"
+	ENVUserPort        = "USER_PORT"
+	ENVDecisionLogPath = "DECISION_LOG_PATH"
 
 	// config
 	ENVMysqlDexDB = "MYSQL_DEX_DB"
