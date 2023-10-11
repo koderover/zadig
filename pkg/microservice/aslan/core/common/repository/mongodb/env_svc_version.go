@@ -189,7 +189,7 @@ func (c *EnvVersionColl) DeleteRevisions(productName, envName, serviceName strin
 	query["env_name"] = envName
 	query["product_name"] = productName
 	query["production"] = production
-	query["revision"] = bson.M{"$lt": revision}
+	query["revision"] = bson.M{"$lte": revision}
 
 	if isHelmChart {
 		query["service.release_name"] = serviceName
@@ -197,7 +197,7 @@ func (c *EnvVersionColl) DeleteRevisions(productName, envName, serviceName strin
 		query["service.service_name"] = serviceName
 	}
 
-	_, err := c.DeleteOne(context.TODO(), query)
+	_, err := c.DeleteMany(context.TODO(), query)
 
 	return err
 }

@@ -101,7 +101,7 @@ func GetServiceVersionYaml(ctx *internalhandler.Context, projectName, serviceNam
 		resp.Yaml = svcRevisionA.Yaml
 		resp.VariableYaml = svcRevisionA.VariableYaml
 	} else if svcRevisionA.Type == setting.HelmDeployType {
-		resp.Yaml = svcRevisionA.HelmChart.ValuesYaml
+		resp.VariableYaml = svcRevisionA.HelmChart.ValuesYaml
 	}
 
 	return resp, nil

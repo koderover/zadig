@@ -96,11 +96,35 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		}
 		resp.Yaml = parsedYaml
 		resp.VariableYaml = envSvcRevision.Service.VariableYaml
-	} else if envSvcRevision.Service.Type == setting.HelmDeployType || envSvcRevision.Service.Type == setting.HelmChartDeployType {
+	} else if envSvcRevision.Service.Type == setting.HelmDeployType {
 		resp.VariableYaml, err = commonutil.GeneHelmMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, envSvcRevision.Service.GetServiceRender())
 		if err != nil {
 			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to get helm merged values for %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
 		}
+	} else if envSvcRevision.Service.Type == setting.HelmChartDeployType {
+		chartRepoName := envSvcRevision.Service.GetServiceRender().ChartRepo
+		chartName := envSvcRevision.Service.GetServiceRender().ChartName
+		chartVersion := envSvcRevision.Service.GetServiceRender().ChartVersion
+		chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: chartRepoName})
+		if err != nil {
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to query chart-repo info, repoName: %s", chartRepoName))
+		}
+
+		client, err := helmtool.NewClient()
+		if err != nil {
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to new helm client, err %s", err))
+		}
+
+		valuesYaml, err := client.GetChartValues(commonutil.GeneHelmRepo(chartRepo), projectName, serviceName, chartRepoName, chartName, chartVersion)
+		if err != nil {
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", chartRepoName, chartName, chartVersion, err))
+		}
+
+		mergedValues, err := helmtool.MergeOverrideValues(valuesYaml, envSvcRevision.DefaultValues, envSvcRevision.Service.GetServiceRender().GetOverrideYaml(), envSvcRevision.Service.GetServiceRender().OverrideValues, nil)
+		if err != nil {
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to merge override values, err %s", err))
+		}
+		resp.VariableYaml = mergedValues
 	}
 
 	return resp, nil
@@ -224,14 +248,17 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			log.Errorf("failed to create env service version for service %s/%s, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, err)
 		}
 	} else if envSvcVersion.Service.Type == setting.HelmDeployType || envSvcVersion.Service.Type == setting.HelmChartDeployType {
-		svcTmpl, err := mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
-			ProductName: envSvcVersion.ProductName,
-			ServiceName: envSvcVersion.Service.ServiceName,
-			Type:        envSvcVersion.Service.Type,
-			Revision:    envSvcVersion.Service.Revision,
-		})
-		if err != nil {
-			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service temlate %s/%s/%d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
+		var svcTmpl *commonmodels.Service
+		if envSvcVersion.Service.Type == setting.HelmDeployType {
+			svcTmpl, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
+				ProductName: envSvcVersion.ProductName,
+				ServiceName: envSvcVersion.Service.ServiceName,
+				Type:        envSvcVersion.Service.Type,
+				Revision:    envSvcVersion.Service.Revision,
+			})
+			if err != nil {
+				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service temlate %s/%s/%d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
+			}
 		}
 
 		if env.DefaultValues != "" {
@@ -249,6 +276,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert defaultValues to flatMap, err: %s", err))
 			}
 
+			// in current env's defaultValues, but not in service's mergedValues, add it to needToAddValues
 			needToAddValuesFlatMap := make(map[string]interface{})
 			for defaultKey, defaultValue := range defaultValuesFlatMap {
 				if _, ok := mergedValuesFlatMap[defaultKey]; !ok {
@@ -263,9 +291,11 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				}
 				for key, value := range needToAddValuesFlatMap {
 					if v, ok := svcTmplValuesFlatMap[key]; !ok {
-						mergedValuesFlatMap[key] = v
-					} else {
+						// in needToAddValues, but not in service's chart values, add it to mergedValues and set value from needToAddValues
 						mergedValuesFlatMap[key] = value
+					} else {
+						// in needToAddValues, and in service's chart values, add it to mergedValues and set value from template serivce values
+						mergedValuesFlatMap[key] = v
 					}
 				}
 			} else if envSvcVersion.Service.Type == setting.HelmChartDeployType {
@@ -293,9 +323,11 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 
 				for key, value := range needToAddValuesFlatMap {
 					if v, ok := valuesYamlFlatMap[key]; !ok {
-						mergedValuesFlatMap[key] = v
-					} else {
+						// in needToAddValues, but not in service's chart values, add it to mergedValues and set value from needToAddValues
 						mergedValuesFlatMap[key] = value
+					} else {
+						// in needToAddValues, and in service's chart values, add it to mergedValues and set value from chart values
+						mergedValuesFlatMap[key] = v
 					}
 				}
 			}
