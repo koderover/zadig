@@ -23,10 +23,12 @@ import (
 	"io"
 
 	"github.com/gin-gonic/gin"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -278,13 +280,31 @@ type ListImagesOption struct {
 }
 
 func ListImages(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	//判断当前registryId是否为空
 	registryID := c.Query("registryId")
 	var registryInfo *commonmodels.RegistryNamespace
-	var err error
 	if registryID != "" {
 		registryInfo, _, err = commonservice.FindRegistryById(registryID, false, ctx.Logger)
 	} else {
@@ -293,6 +313,12 @@ func ListImages(c *gin.Context) {
 	if err != nil {
 		ctx.Logger.Errorf("can't find candidate registry err :%v", err)
 		ctx.Resp = make([]*service.RepoImgResp, 0)
+		return
+	}
+
+	authProjectSet := sets.NewString(registryInfo.Projects...)
+	if !authProjectSet.Has(setting.AllProjects) && !authProjectSet.Has(projectName) {
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("project %s is not in the registry %s/%s's project list", projectName, registryInfo.RegAddr, registryInfo.Namespace))
 		return
 	}
 
