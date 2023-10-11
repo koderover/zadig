@@ -128,7 +128,7 @@ func GetServiceTemplate(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	ctx.Resp, ctx.Err = commonservice.GetServiceTemplate(c.Param("name"), c.Param("type"), projectName, setting.ProductStatusDeleting, revision, ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.GetServiceTemplateWithStructure(c.Param("name"), c.Param("type"), projectName, setting.ProductStatusDeleting, revision, ctx.Logger)
 }
 
 func GetServiceTemplateOption(c *gin.Context) {

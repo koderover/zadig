@@ -59,11 +59,6 @@ import (
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
-type SvcResources struct {
-	Kind string `json:"kind"`
-	Name string `json:"name"`
-}
-
 type ServiceOption struct {
 	ServiceModules     []*ServiceModule                 `json:"service_module"`
 	SystemVariable     []*Variable                      `json:"system_variable"`
@@ -71,7 +66,6 @@ type ServiceOption struct {
 	ServiceVariableKVs []*commontypes.ServiceVariableKV `json:"service_variable_kvs"`
 	Yaml               string                           `json:"yaml"`
 	Service            *commonmodels.Service            `json:"service,omitempty"`
-	Resources          []*SvcResources                  `json:"resources"`
 }
 
 type ServiceModule struct {
@@ -173,28 +167,6 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub ||
 		args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromGitee {
 		serviceOption.Yaml = args.Yaml
-	}
-
-	serviceOption.Resources = make([]*SvcResources, 0)
-	renderedYaml, err := commonutil.RenderK8sSvcYamlStrict(args.Yaml, args.ProductName, args.ServiceName, args.VariableYaml)
-	if err != nil {
-		log.Errorf("failed to render k8s svc yaml: %s/%s, err: %s", args.ProductName, args.ServiceName, err)
-	}
-	renderedYaml = config.ServiceNameAlias.ReplaceAllLiteralString(renderedYaml, args.ServiceName)
-	renderedYaml = config.ProductNameAlias.ReplaceAllLiteralString(renderedYaml, args.ProductName)
-
-	renderedYaml = util.ReplaceWrapLine(renderedYaml)
-	yamlDataArray := util.SplitYaml(renderedYaml)
-	for _, yamlData := range yamlDataArray {
-		resKind := new(types.KubeResourceKind)
-		if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-			log.Errorf("unmarshal ResourceKind error: %v", err)
-			continue
-		}
-		if resKind == nil {
-			continue
-		}
-		serviceOption.Resources = append(serviceOption.Resources, &SvcResources{Kind: resKind.Kind, Name: resKind.Metadata.Name})
 	}
 
 	return serviceOption, nil
