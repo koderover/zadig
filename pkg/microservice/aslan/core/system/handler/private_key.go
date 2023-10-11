@@ -225,7 +225,7 @@ func BatchCreatePrivateKey(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.VMManagement.Edit {
+		if !ctx.Resources.SystemActions.VMManagement.Create {
 			ctx.UnAuthorized = true
 			return
 		}
