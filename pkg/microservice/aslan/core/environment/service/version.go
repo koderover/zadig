@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -95,7 +96,7 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 			return resp, e.ErrDiffEnvServiceVersions.AddErr(err)
 		}
 		resp.Yaml = parsedYaml
-		resp.VariableYaml = envSvcRevision.Service.VariableYaml
+		resp.VariableYaml = envSvcRevision.Service.Render.GetOverrideYaml()
 	} else if envSvcRevision.Service.Type == setting.HelmDeployType {
 		resp.VariableYaml, err = commonutil.GeneHelmMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, envSvcRevision.Service.GetServiceRender())
 		if err != nil {
@@ -246,6 +247,43 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		err = commonutil.CreateEnvServiceVersion(env, envSvcVersion.Service, ctx.UserName, log)
 		if err != nil {
 			log.Errorf("failed to create env service version for service %s/%s, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, err)
+		}
+
+		groupIndex := -1
+		svcIndex := -1
+		for i, group := range env.Services {
+			for j, svc := range group {
+				if svc.ServiceName == envSvcVersion.Service.ServiceName {
+					svcIndex = j
+					groupIndex = i
+
+					for _, kv := range envSvcVersion.Service.GetServiceRender().OverrideYaml.RenderVariableKVs {
+						kv.UseGlobalVariable = false
+					}
+					break
+				}
+			}
+		}
+		if groupIndex < 0 || svcIndex < 0 {
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
+		}
+
+		env.Services[groupIndex][svcIndex] = envSvcVersion.Service
+		err = commonrepo.NewProductColl().UpdateGroup(envName, projectName, groupIndex, env.Services[groupIndex])
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
+		}
+
+		for _, globalKV := range env.GlobalVariables {
+			relatedServiceSet := sets.NewString(globalKV.RelatedServices...)
+			if relatedServiceSet.Has(serviceName) {
+				relatedServiceSet.Delete(serviceName)
+			}
+			globalKV.RelatedServices = relatedServiceSet.List()
+		}
+		err = commonrepo.NewProductColl().UpdateGlobalVariable(env)
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update global variables in env %s/%s, isProudction %v", envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
 		}
 	} else if envSvcVersion.Service.Type == setting.HelmDeployType || envSvcVersion.Service.Type == setting.HelmChartDeployType {
 		var svcTmpl *commonmodels.Service
