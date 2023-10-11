@@ -22,13 +22,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type ListWorkflowTaskV4Option struct {
@@ -78,6 +79,7 @@ func (c *WorkflowTaskv4Coll) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "workflow_name", Value: 1},
 				bson.E{Key: "is_archived", Value: 1},
 				bson.E{Key: "is_deleted", Value: 1},
+				bson.E{Key: "create_time", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
 		},
