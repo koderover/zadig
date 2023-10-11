@@ -80,6 +80,7 @@ func (c *WorkflowTaskv4Coll) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "workflow_name", Value: 1},
 				bson.E{Key: "is_archived", Value: 1},
 				bson.E{Key: "is_deleted", Value: 1},
+				bson.E{Key: "create_time", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
 		},
