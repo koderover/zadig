@@ -26,11 +26,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/helper"
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util/fs"
@@ -206,14 +206,21 @@ func dockerPush(fullImage string) *exec.Cmd {
 	return exec.Command("sh", args...)
 }
 
+// mac sudo echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" "$CI_REGISTRY" --password-stdin
+//func dockerLogin(user, password, registry string) *exec.Cmd {
+//	return exec.Command(
+//		dockerExe,
+//		"login",
+//		"-u", user,
+//		"-p", password,
+//		registry,
+//	)
+//}
+
 func dockerLogin(user, password, registry string) *exec.Cmd {
-	return exec.Command(
-		dockerExe,
-		"login",
-		"-u", user,
-		"-p", password,
-		registry,
-	)
+	cmd := exec.Command("docker", "login", "-u", user, registry, "--password-stdin")
+	cmd.Stdin = strings.NewReader(password)
+	return cmd
 }
 
 func prepareDockerfile(dockerfileSource, dockerfileContent, workspace string) error {

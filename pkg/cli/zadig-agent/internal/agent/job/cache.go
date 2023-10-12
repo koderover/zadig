@@ -24,10 +24,11 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/helper"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
-	"go.uber.org/zap"
 )
 
 var cache = &cacheLock{
@@ -95,10 +96,6 @@ func WriteCache(job types.ZadigJobTask, src string, cachePath string, logger *za
 		}
 	}
 
-	if err := os.MkdirAll(cachePath, os.ModePerm); err != nil {
-		log.Errorf("failed to create job cache dir %s, error: %v", cachePath, err)
-	}
-
 	err := copyCmd(src, cachePath, logger)
 	if err != nil {
 		log.Errorf("failed to copy cache directory %s to %s, error: %v", src, cachePath, err)
@@ -106,7 +103,7 @@ func WriteCache(job types.ZadigJobTask, src string, cachePath string, logger *za
 }
 
 func copyCmd(src, dest string, logger *zap.SugaredLogger) error {
-	cmd := exec.Command("cp", "-r", src, dest)
+	cmd := exec.Command("cp", "-f", "-r", src, dest)
 	var wg sync.WaitGroup
 
 	cmdStdoutReader, err := cmd.StdoutPipe()

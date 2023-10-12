@@ -23,10 +23,10 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/spf13/viper"
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	fileutil "github.com/koderover/zadig/pkg/cli/zadig-agent/util/file"
 	osutil "github.com/koderover/zadig/pkg/cli/zadig-agent/util/os"
 )

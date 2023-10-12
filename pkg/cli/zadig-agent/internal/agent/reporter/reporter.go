@@ -62,7 +62,7 @@ func (r *JobReporter) Start(ctx context.Context) {
 				log.Error(err)
 			}
 		case <-ctx.Done():
-			log.Infof("stop job reporter, received context cancel signal from job job.")
+			log.Infof("stop job reporter, received context cancel signal from job executor.")
 			return
 		}
 	}
@@ -97,7 +97,7 @@ func (r *JobReporter) Report() error {
 		JobOutput: r.Result.OutputsJsonBytes,
 	})
 	if err != nil {
-		return fmt.Errorf("%s-%s ---------> SEQ: %d failed to report status, error: %s", r.Result.JobInfo.WorkflowName, r.Result.JobInfo.JobName, r.Seq, err)
+		return fmt.Errorf("%s-%s SEQ: %d failed to report status, error: %s", r.Result.JobInfo.WorkflowName, r.Result.JobInfo.JobName, r.Seq, err)
 	}
 
 	if resp.JobID == r.Result.JobInfo.JobID && (resp.JobStatus == common.StatusTimeout.String() || resp.JobStatus == common.StatusCancelled.String()) {

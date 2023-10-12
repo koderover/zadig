@@ -473,7 +473,7 @@ func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *
 				return
 			}
 
-			//time.Sleep(500 * time.Millisecond)
+			time.Sleep(500 * time.Millisecond)
 		}
 	}
 }

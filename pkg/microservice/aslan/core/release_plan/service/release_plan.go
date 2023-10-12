@@ -248,7 +248,7 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 		UserName:      c.UserName,
 	}, args)
 	if err != nil {
-		return errors.Wrap(err, "new release job job")
+		return errors.Wrap(err, "new release job executor")
 	}
 	if err = executor.Execute(plan); err != nil {
 		return errors.Wrap(err, "execute")

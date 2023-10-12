@@ -17,9 +17,10 @@ limitations under the License.
 package jobcontroller
 
 import (
+	"gopkg.in/yaml.v2"
+	
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/types"
-	"gopkg.in/yaml.v2"
 )
 
 type JobContext struct {

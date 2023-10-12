@@ -34,6 +34,6 @@ func main() {
 	}()
 
 	if err := command.Execute(); err != nil {
-		log.Fatalf("Failed to run zadig-agent cmd job, error: %s", err)
+		log.Fatalf("Failed to run zadig-agent cmd executor, error: %s", err)
 	}
 }

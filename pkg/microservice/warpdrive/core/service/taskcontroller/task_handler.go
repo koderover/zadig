@@ -360,7 +360,7 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 // 兼容支持1.0和2.0的数据结构
 // 支持根据RunParallel参数指定的并发或串行执行
 func (h *ExecHandler) execute(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, xl *zap.SugaredLogger) {
-	xl.Info("start pipeline task job...")
+	xl.Info("start pipeline task executor...")
 	// 如果是pipeline 1.0， 先将subtasks进行transform，转化为stages结构
 	if pipelineTask.Type == config.SingleType || pipelineTask.Type == "" || pipelineTask.Type == config.WorkflowTypeV3 {
 		err := transformToStages(pipelineTask, xl)

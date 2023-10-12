@@ -310,9 +310,7 @@ func (e *JobExecutor) AfterExecute() error {
 	if e.JobCtx.Cache != nil && e.JobCtx.Cache.CacheEnable {
 		src := e.Dirs.Workspace
 		if e.JobCtx.Cache.CacheDirType == common.CacheDirUserDefineType && e.JobCtx.Cache.CacheUserDir != "" {
-			srcs := strings.Split(e.JobCtx.Cache.CacheUserDir, "/")
-			src = strings.Join(srcs[1:], "/")
-			src = filepath.Join(e.Dirs.Workspace, src)
+			src = filepath.Join(e.Dirs.Workspace, e.JobCtx.Cache.CacheUserDir)
 		}
 
 		if _, err := os.Stat(src); os.IsNotExist(err) {

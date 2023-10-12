@@ -23,7 +23,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	executor2 "github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/job"
+	jobexecutor "github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/job"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
@@ -140,7 +140,7 @@ func (c *AgentController) RunJob(ctx context.Context) {
 func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobTask) error {
 	var err error
 	jobCtx, cancel := context.WithCancel(ctx)
-	executor := executor2.NewJobExecutor(ctx, job, c.Client, cancel)
+	executor := jobexecutor.NewJobExecutor(ctx, job, c.Client, cancel)
 
 	// execute some init job before execute zadig job
 	err = executor.BeforeExecute()

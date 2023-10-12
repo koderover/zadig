@@ -862,7 +862,3 @@ const (
 	JobK8sInfrastructure = "kubernetes"
 	JobVMInfrastructure  = "vm"
 )
-
-const (
-// zadig-agent version
-)
