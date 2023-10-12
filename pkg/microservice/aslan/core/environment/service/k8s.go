@@ -644,6 +644,11 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 				lock.Unlock()
 			}
 
+			err = commonutil.CreateEnvServiceVersion(product, svc, username, k.log)
+			if err != nil {
+				log.Errorf("failed to create env service version for service %s/%s, error: %v", product.EnvName, svc.ServiceName, err)
+			}
+
 			//  concurrent array append
 			lock.Lock()
 			resources = append(resources, items...)

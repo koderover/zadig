@@ -328,6 +328,7 @@ func GetValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
 	return ret
 }
 
+// @note can be deprecated or not?
 func GeneHelmMergedValues(productSvc *commonmodels.ProductService, defaultValues string, renderChart *templatemodels.ServiceRender) (string, error) {
 	imageKVS := make([]*helmtool.KV, 0)
 	if productSvc != nil {

@@ -98,9 +98,14 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		resp.Yaml = parsedYaml
 		resp.VariableYaml = envSvcRevision.Service.Render.GetOverrideYaml()
 	} else if envSvcRevision.Service.Type == setting.HelmDeployType {
-		resp.VariableYaml, err = commonutil.GeneHelmMergedValues(envSvcRevision.Service, envSvcRevision.DefaultValues, envSvcRevision.Service.GetServiceRender())
+		// containers := kube.CalculateContainer(productSvc, curUsedSvc, latestSvc.Containers, productInfo)
+		// for _, container := range containers {
+		// 	images = append(images, container.Image)
+		// }
+
+		resp.VariableYaml, err = kube.GeneMergedValues(envSvcRevision.Service, envSvcRevision.Service.GetServiceRender(), envSvcRevision.DefaultValues, nil, true)
 		if err != nil {
-			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to get helm merged values for %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
+			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to merged values for %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
 		}
 	} else if envSvcRevision.Service.Type == setting.HelmChartDeployType {
 		chartRepoName := envSvcRevision.Service.GetServiceRender().ChartRepo
