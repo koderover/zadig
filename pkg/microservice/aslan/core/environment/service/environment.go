@@ -473,11 +473,11 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						service.Error = errUpsertService.Error()
 					} else {
 						service.Error = ""
+					}
 
-						err = commonutil.CreateEnvServiceVersion(updateProd, service, user, log)
-						if err != nil {
-							log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
-						}
+					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, log)
+					if err != nil {
+						log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 					}
 
 				}(prodServiceGroup[svcIndex])
