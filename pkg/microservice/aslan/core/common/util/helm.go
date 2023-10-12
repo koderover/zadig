@@ -329,6 +329,7 @@ func GetValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
 }
 
 // @note can be deprecated or not?
+// may duplicate with kube.GeneMergedValues
 func GeneHelmMergedValues(productSvc *commonmodels.ProductService, defaultValues string, renderChart *templatemodels.ServiceRender) (string, error) {
 	imageKVS := make([]*helmtool.KV, 0)
 	if productSvc != nil {

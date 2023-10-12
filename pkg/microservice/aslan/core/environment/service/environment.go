@@ -918,27 +918,22 @@ func genImageFromYaml(c *commonmodels.Container, valuesYaml, defaultValues, over
 	return image, nil
 }
 
-func prepareEstimateDataForEnvCreation(productName, serviceName string, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.Service, *commonmodels.RenderSet, error) {
+func prepareEstimateDataForEnvCreation(productName, serviceName string, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.Service, error) {
 	if isHelmChartDeploy {
 		prodSvc := &commonmodels.ProductService{
 			ServiceName: serviceName,
 			ReleaseName: serviceName,
 			ProductName: productName,
 			Type:        setting.HelmChartDeployType,
-		}
-
-		renderSet := &commonmodels.RenderSet{
-			ChartInfos: []*templatemodels.ServiceRender{
-				{
-					ServiceName:       serviceName,
-					ReleaseName:       serviceName,
-					IsHelmChartDeploy: true,
-					OverrideYaml:      &templatemodels.CustomYaml{},
-				},
+			Render: &templatemodels.ServiceRender{
+				ServiceName:       serviceName,
+				ReleaseName:       serviceName,
+				IsHelmChartDeploy: true,
+				OverrideYaml:      &templatemodels.CustomYaml{},
 			},
 		}
 
-		return prodSvc, nil, renderSet, nil
+		return prodSvc, nil, nil
 	} else {
 		templateService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ServiceName: serviceName,
@@ -947,7 +942,7 @@ func prepareEstimateDataForEnvCreation(productName, serviceName string, producti
 		}, production)
 		if err != nil {
 			log.Errorf("failed to query service, name %s, err %s", serviceName, err)
-			return nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceName)
+			return nil, nil, fmt.Errorf("failed to query service, name %s", serviceName)
 		}
 
 		prodSvc := &commonmodels.ProductService{
@@ -956,31 +951,26 @@ func prepareEstimateDataForEnvCreation(productName, serviceName string, producti
 			Revision:     templateService.Revision,
 			Containers:   templateService.Containers,
 			VariableYaml: templateService.VariableYaml,
-		}
-
-		renderSet := &commonmodels.RenderSet{
-			ChartInfos: []*templatemodels.ServiceRender{
-				{
-					ServiceName:  serviceName,
-					OverrideYaml: &templatemodels.CustomYaml{},
-					ValuesYaml:   templateService.HelmChart.ValuesYaml,
-				},
+			Render: &templatemodels.ServiceRender{
+				ServiceName:  serviceName,
+				OverrideYaml: &templatemodels.CustomYaml{},
+				ValuesYaml:   templateService.HelmChart.ValuesYaml,
 			},
 		}
 
-		return prodSvc, templateService, renderSet, nil
+		return prodSvc, templateService, nil
 	}
 }
 
 func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene string, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (
-	*commonmodels.ProductService, *commonmodels.Service, *commonmodels.Product, *commonmodels.RenderSet, error) {
+	*commonmodels.ProductService, *commonmodels.Service, *commonmodels.Product, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       productName,
 		EnvName:    envName,
 		Production: util.GetBoolPointer(production),
 	})
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to query product info, name %s", envName)
+		return nil, nil, nil, fmt.Errorf("failed to query product info, name %s", envName)
 	}
 
 	var prodSvc *commonmodels.ProductService
@@ -1007,7 +997,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 		prodSvc = productInfo.GetServiceMap()[serviceOrReleaseName]
 		if scene == usageScenarioUpdateRenderSet {
 			if prodSvc == nil {
-				return nil, nil, nil, nil, fmt.Errorf("can't find service in env: %s, name %s", productInfo.EnvName, serviceOrReleaseName)
+				return nil, nil, nil, fmt.Errorf("can't find service in env: %s, name %s", productInfo.EnvName, serviceOrReleaseName)
 			}
 			targetSvcTmplRevision = prodSvc.Revision
 		}
@@ -1020,7 +1010,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 		}, production)
 		if err != nil {
 			log.Errorf("failed to query service, name %s, err %s", serviceOrReleaseName, err)
-			return nil, nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceOrReleaseName)
+			return nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceOrReleaseName)
 		}
 
 		if prodSvc == nil {
@@ -1042,7 +1032,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 		prodSvc.Render.ChartVersion = templateService.HelmChart.Version
 	}
 
-	return prodSvc, templateService, productInfo, nil, nil
+	return prodSvc, templateService, productInfo, nil
 }
 
 func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log *zap.SugaredLogger) (map[string][]string, error) {
@@ -1079,19 +1069,18 @@ func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log 
 
 func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, format string, arg *EstimateValuesArg, isHelmChartDeploy bool, log *zap.SugaredLogger) (interface{}, error) {
 	var (
-		productSvc *commonmodels.ProductService
-		latestSvc  *commonmodels.Service
-		//renderSet   *commonmodels.RenderSet
+		productSvc  *commonmodels.ProductService
+		latestSvc   *commonmodels.Service
 		productInfo *commonmodels.Product
 		err         error
 	)
 
 	switch scene {
 	case usageScenarioCreateEnv:
-		productSvc, latestSvc, _, err = prepareEstimateDataForEnvCreation(productName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
-		//renderSet.DefaultValues = arg.DefaultValues
+		productInfo = &commonmodels.Product{}
+		productSvc, latestSvc, err = prepareEstimateDataForEnvCreation(productName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
 	default:
-		productSvc, latestSvc, productInfo, _, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene, arg.Production, isHelmChartDeploy, log)
+		productSvc, latestSvc, productInfo, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene, arg.Production, isHelmChartDeploy, log)
 	}
 
 	if err != nil {
