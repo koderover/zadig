@@ -90,3 +90,11 @@ func Update(service *models.Service, production bool) error {
 		return mongodb.NewProductionServiceColl().Update(service)
 	}
 }
+
+func Create(service *models.Service, production bool) error {
+	if !production {
+		return mongodb.NewServiceColl().Create(service)
+	} else {
+		return mongodb.NewProductionServiceColl().Create(service)
+	}
+}

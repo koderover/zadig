@@ -448,19 +448,6 @@ type CreateK8SEnvServiceVersionRequest struct {
 	Image           string `json:"image"`
 }
 
-func (p *DeployTaskPlugin) CreateK8SEnvServiceVersion(ctx context.Context, productName, envName, serviceName string, body CreateK8SEnvServiceVersionRequest) (*types.ServiceTmpl, error) {
-	url := fmt.Sprintf("/api/environment/%s/version/%s", envName, serviceName)
-
-	s := &types.ServiceTmpl{}
-	_, err := p.httpClient.Post(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
-		"projectName": productName,
-	}))
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
 func getRenderedManifests(ctx context.Context, httpClient *httpclient.Client, envName, productName string, serviceName string) ([]string, error) {
 	url := "/api/environment/export/service"
 	prod := make([]string, 0)

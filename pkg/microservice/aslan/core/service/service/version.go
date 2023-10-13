@@ -27,6 +27,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -73,35 +74,22 @@ type GetServiceVersionYamlResponse struct {
 }
 
 func GetServiceVersionYaml(ctx *internalhandler.Context, projectName, serviceName string, revision int64, isProduction bool, log *zap.SugaredLogger) (GetServiceVersionYamlResponse, error) {
-	var (
-		svcRevisionA *models.Service
-		err          error
-		resp         GetServiceVersionYamlResponse
-	)
+	resp := GetServiceVersionYamlResponse{}
 
-	if isProduction {
-		svcRevisionA, err = mongodb.NewProductionServiceColl().Find(&mongodb.ServiceFindOption{
-			ProductName: projectName,
-			ServiceName: serviceName,
-			Revision:    revision,
-		})
-	} else {
-		svcRevisionA, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
-			ProductName: projectName,
-			ServiceName: serviceName,
-			Revision:    revision,
-		})
-
-	}
+	svcRevision, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName: projectName,
+		ServiceName: serviceName,
+		Revision:    revision,
+	}, isProduction)
 	if err != nil {
 		return resp, e.ErrDiffServiceTemplateVersions.AddErr(fmt.Errorf("failed to find %s/%s service for version A %d, isProduction %v, error: %v", projectName, serviceName, revision, isProduction, err))
 	}
-	resp.Type = svcRevisionA.Type
-	if svcRevisionA.Type == setting.K8SDeployType {
-		resp.Yaml = svcRevisionA.Yaml
-		resp.VariableYaml = svcRevisionA.VariableYaml
-	} else if svcRevisionA.Type == setting.HelmDeployType {
-		resp.VariableYaml = svcRevisionA.HelmChart.ValuesYaml
+	resp.Type = svcRevision.Type
+	if svcRevision.Type == setting.K8SDeployType {
+		resp.Yaml = svcRevision.Yaml
+		resp.VariableYaml = svcRevision.VariableYaml
+	} else if svcRevision.Type == setting.HelmDeployType {
+		resp.VariableYaml = svcRevision.HelmChart.ValuesYaml
 	}
 
 	return resp, nil
@@ -116,26 +104,13 @@ type DiffServiceVersionsResponse struct {
 }
 
 func DiffServiceVersions(ctx *internalhandler.Context, projectName, serviceName string, revisionA, revisionB int64, isProduction bool, log *zap.SugaredLogger) (DiffServiceVersionsResponse, error) {
-	var (
-		svcRevisionA, svcRevisionB *models.Service
-		err                        error
-		resp                       DiffServiceVersionsResponse
-	)
+	resp := DiffServiceVersionsResponse{}
 
-	if isProduction {
-		svcRevisionA, err = mongodb.NewProductionServiceColl().Find(&mongodb.ServiceFindOption{
-			ProductName: projectName,
-			ServiceName: serviceName,
-			Revision:    revisionA,
-		})
-	} else {
-		svcRevisionA, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
-			ProductName: projectName,
-			ServiceName: serviceName,
-			Revision:    revisionA,
-		})
-
-	}
+	svcRevisionA, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName: projectName,
+		ServiceName: serviceName,
+		Revision:    revisionA,
+	}, isProduction)
 	if err != nil {
 		return resp, e.ErrDiffServiceTemplateVersions.AddErr(fmt.Errorf("failed to find %s/%s service for version A %d, isProduction %v, error: %v", projectName, serviceName, revisionA, isProduction, err))
 	}
@@ -147,19 +122,11 @@ func DiffServiceVersions(ctx *internalhandler.Context, projectName, serviceName 
 		resp.VariableYamlA = svcRevisionA.HelmChart.ValuesYaml
 	}
 
-	if isProduction {
-		svcRevisionB, err = mongodb.NewProductionServiceColl().Find(&mongodb.ServiceFindOption{
-			ProductName: projectName,
-			ServiceName: serviceName,
-			Revision:    revisionB,
-		})
-	} else {
-		svcRevisionB, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
-			ProductName: projectName,
-			ServiceName: serviceName,
-			Revision:    revisionB,
-		})
-	}
+	svcRevisionB, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName: projectName,
+		ServiceName: serviceName,
+		Revision:    revisionB,
+	}, isProduction)
 	if err != nil {
 		return resp, e.ErrDiffServiceTemplateVersions.AddErr(fmt.Errorf("failed to find %s/%s service for version B %d, isProduction %v, error: %v", projectName, serviceName, revisionA, isProduction, err))
 	}
@@ -174,23 +141,11 @@ func DiffServiceVersions(ctx *internalhandler.Context, projectName, serviceName 
 }
 
 func RollbackServiceVersion(ctx *internalhandler.Context, projectName, serviceName string, revision int64, isProduction bool, log *zap.SugaredLogger) error {
-	var (
-		service *models.Service
-		err     error
-	)
-	if isProduction {
-		service, err = mongodb.NewProductionServiceColl().Find(&mongodb.ServiceFindOption{
-			ProductName: projectName,
-			ServiceName: serviceName,
-			Revision:    revision,
-		})
-	} else {
-		service, err = mongodb.NewServiceColl().Find(&mongodb.ServiceFindOption{
-			ProductName: projectName,
-			ServiceName: serviceName,
-			Revision:    revision,
-		})
-	}
+	service, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+		ProductName: projectName,
+		ServiceName: serviceName,
+		Revision:    revision,
+	}, isProduction)
 	if err != nil {
 		return fmt.Errorf("failed to find %s/%s service for version A %d, error: %v", projectName, serviceName, revision, err)
 	}
@@ -216,9 +171,7 @@ func RollbackServiceVersion(ctx *internalhandler.Context, projectName, serviceNa
 		if err = commonservice.CopyAndUploadService(projectName, serviceName, localBase+"/"+serviceName, []string{fmt.Sprintf("%s-%d", serviceName, rev)}, isProduction); err != nil {
 			return e.ErrRollbackServiceTemplateVersion.AddErr(fmt.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName, projectName, err))
 		}
-	}
 
-	if service.Type == setting.HelmDeployType {
 		err = mongodb.NewServiceColl().UpdateStatus(service.ServiceName, service.ProductName, setting.ProductStatusDeleting)
 		log.Errorf("failed to update service %s/%s status to deleting, error: %v", service.ProductName, service.ServiceName, err)
 	}
@@ -231,11 +184,7 @@ func RollbackServiceVersion(ctx *internalhandler.Context, projectName, serviceNa
 	service.Revision = rev
 	service.CreateBy = ctx.UserName
 	service.Status = ""
-	if isProduction {
-		err = commonrepo.NewProductionServiceColl().Create(service)
-	} else {
-		err = commonrepo.NewServiceColl().Create(service)
-	}
+	err = repository.Create(service, isProduction)
 	if err != nil {
 		return e.ErrRollbackServiceTemplateVersion.AddErr(fmt.Errorf("failed to create service %s/%s/%d, isProduction %v, error: %v", service.ProductName, service.ServiceName, service.Revision, isProduction, err))
 	}
