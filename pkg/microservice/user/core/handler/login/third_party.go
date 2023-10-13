@@ -28,7 +28,6 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/cache"
 	"golang.org/x/oauth2"
 
@@ -164,25 +163,21 @@ func Callback(c *gin.Context) {
 		return
 	}
 
-	systemSettings, err := commonrepo.NewSystemSettingColl().Get()
+	systemSettings, err := aslan.New(configbase.AslanServiceAddress()).GetSystemSecurityAndPrivacySettings()
 	if err != nil {
 		log.Errorf("failed to get system security settings, error: %s", err)
 		ctx.Err = fmt.Errorf("failed to get system security settings, error: %s", err)
 		return
 	}
-	var expirationDuration int64 = 24
-	if systemSettings.Security != nil {
-		expirationDuration = systemSettings.Security.TokenExpirationTime
-	}
 
 	claims.UID = user.UID
-	claims.StandardClaims.ExpiresAt = time.Now().Add(time.Duration(expirationDuration) * time.Hour).Unix()
+	claims.StandardClaims.ExpiresAt = time.Now().Add(time.Duration(systemSettings.TokenExpirationTime) * time.Hour).Unix()
 	userToken, err := login.CreateToken(claims)
 	if err != nil {
 		ctx.Err = err
 		return
 	}
-	err = cache.NewRedisCache(config.RedisUserTokenDB()).Write(claims.UID, userToken, time.Duration(expirationDuration)*time.Hour)
+	err = cache.NewRedisCache(config.RedisUserTokenDB()).Write(claims.UID, userToken, time.Duration(systemSettings.TokenExpirationTime)*time.Hour)
 	if err != nil {
 		log.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
 	}

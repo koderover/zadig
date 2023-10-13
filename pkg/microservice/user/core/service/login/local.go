@@ -21,16 +21,17 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/mojocn/base64Captcha"
 	"github.com/patrickmn/go-cache"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/user/config"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	zadigCache "github.com/koderover/zadig/pkg/tool/cache"
 )
@@ -158,14 +159,10 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		return nil, 0, err
 	}
 
-	systemSettings, err := commonrepo.NewSystemSettingColl().Get()
+	systemSettings, err := aslan.New(configbase.AslanServiceAddress()).GetSystemSecurityAndPrivacySettings()
 	if err != nil {
 		logger.Errorf("failed to get system security settings, error: %s", err)
 		return nil, 0, fmt.Errorf("failed to get system security settings, error: %s", err)
-	}
-	var expirationDuration int64 = 24
-	if systemSettings.Security != nil {
-		expirationDuration = systemSettings.Security.TokenExpirationTime
 	}
 
 	token, err := CreateToken(&Claims{
@@ -175,7 +172,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		PreferredUsername: user.Account,
 		StandardClaims: jwt.StandardClaims{
 			Audience:  setting.ProductName,
-			ExpiresAt: time.Now().Add(time.Duration(expirationDuration) * time.Hour).Unix(),
+			ExpiresAt: time.Now().Add(time.Duration(systemSettings.TokenExpirationTime) * time.Hour).Unix(),
 		},
 		FederatedClaims: FederatedClaims{
 			ConnectorId: user.IdentityType,
@@ -187,7 +184,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		return nil, 0, err
 	}
 
-	err = zadigCache.NewRedisCache(config.RedisUserTokenDB()).Write(user.UID, token, time.Duration(expirationDuration)*time.Hour)
+	err = zadigCache.NewRedisCache(config.RedisUserTokenDB()).Write(user.UID, token, time.Duration(systemSettings.TokenExpirationTime)*time.Hour)
 	if err != nil {
 		logger.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
 	}
