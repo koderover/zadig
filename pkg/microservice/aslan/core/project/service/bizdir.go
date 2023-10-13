@@ -221,9 +221,9 @@ func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, e
 		if elem, ok := projectMap[service.ProductName]; !ok {
 			project := &SearchBizDirByServiceProject{
 				Project: &commonmodels.ProjectDetail{
-					ProjectKey:        templateProjectMap[service.ServiceName].ProductName,
-					ProjectName:       templateProjectMap[service.ServiceName].ProjectName,
-					ProjectDeployType: templateProjectMap[service.ServiceName].ProductFeature.DeployType,
+					ProjectKey:        templateProjectMap[service.ProductName].ProductName,
+					ProjectName:       templateProjectMap[service.ProductName].ProjectName,
+					ProjectDeployType: templateProjectMap[service.ProductName].ProductFeature.DeployType,
 				},
 				Services: []string{service.ServiceName},
 			}
