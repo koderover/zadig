@@ -435,6 +435,7 @@ func initDatabase() {
 		commonrepo.NewLLMIntegrationColl(),
 		commonrepo.NewReleasePlanColl(),
 		commonrepo.NewReleasePlanLogColl(),
+		commonrepo.NewEnvServiceVersionColl(),
 
 		// msg queue
 		commonrepo.NewMsgQueueCommonColl(),

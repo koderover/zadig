@@ -441,6 +441,13 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 	return s, nil
 }
 
+type CreateK8SEnvServiceVersionRequest struct {
+	ServiceName     string `json:"service_name"`
+	ServiceRevision int64  `json:"service_revision"`
+	ContainerName   string `json:"container_name"`
+	Image           string `json:"image"`
+}
+
 func getRenderedManifests(ctx context.Context, httpClient *httpclient.Client, envName, productName string, serviceName string) ([]string, error) {
 	url := "/api/environment/export/service"
 	prod := make([]string, 0)

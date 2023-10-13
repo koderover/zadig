@@ -90,7 +90,6 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	return md5.Sum(jsonBytes)
 }
 
-// @todo job spec
 type WorkflowStage struct {
 	Name     string    `bson:"name"          yaml:"name"         json:"name"`
 	Parallel bool      `bson:"parallel"      yaml:"parallel"     json:"parallel"`

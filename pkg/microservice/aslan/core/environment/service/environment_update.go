@@ -434,7 +434,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	go func() {
 		productErrMsg := ""
-		err = updateProductImpl(updateRevisionSvc, deployStrategy, exitedProd, updateProd, filter, log)
+		err = updateProductImpl(updateRevisionSvc, deployStrategy, exitedProd, updateProd, filter, user, log)
 		if err != nil {
 			productErrMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
@@ -496,7 +496,7 @@ func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, 
 
 	go func() {
 		productErrMsg := ""
-		err = updateProductImpl(serviceNames, nil, exitedProd, updateProd, nil, log)
+		err = updateProductImpl(serviceNames, nil, exitedProd, updateProd, nil, user, log)
 		if err != nil {
 			productErrMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)

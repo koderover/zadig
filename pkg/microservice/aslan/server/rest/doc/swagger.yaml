@@ -523,6 +523,8 @@ definitions:
     properties:
       image:
         type: string
+      namespace:
+        type: string
       repo:
         type: string
       tag:
@@ -632,6 +634,10 @@ definitions:
         type: string
       release_name:
         type: string
+      render:
+        allOf:
+        - $ref: '#/definitions/template.ServiceRender'
+        description: New since 1.9.0 used to replace service renders in render_set
       revision:
         type: integer
       service_name:
@@ -1441,6 +1447,15 @@ definitions:
       update_time:
         type: integer
     type: object
+  service.GetEnvServiceVersionYamlResponse:
+    properties:
+      type:
+        type: string
+      variable_yaml:
+        type: string
+      yaml:
+        type: string
+    type: object
   service.GetGlobalVariableCandidatesRespone:
     properties:
       key_name:
@@ -1461,6 +1476,15 @@ definitions:
       status:
         type: string
       values:
+        type: string
+    type: object
+  service.GetServiceVersionYamlResponse:
+    properties:
+      type:
+        type: string
+      variable_yaml:
+        type: string
+      yaml:
         type: string
     type: object
   service.GetSvcRenderArg:
@@ -1593,6 +1617,17 @@ definitions:
         type: string
       value: {}
     type: object
+  service.ListEnvServiceVersionsResponse:
+    properties:
+      create_by:
+        type: string
+      create_time:
+        type: integer
+      revision:
+        type: integer
+      service_name:
+        type: string
+    type: object
   service.ListPodsInfoRespone:
     properties:
       create_time:
@@ -1606,6 +1641,17 @@ definitions:
       ready:
         type: string
       status:
+        type: string
+    type: object
+  service.ListServiceVersionsResponse:
+    properties:
+      create_by:
+        type: string
+      create_time:
+        type: integer
+      revision:
+        type: integer
+      service_name:
         type: string
     type: object
   service.LoadServiceFromYamlTemplateReq:
@@ -1787,6 +1833,10 @@ definitions:
         type: string
       release_name:
         type: string
+      render:
+        allOf:
+        - $ref: '#/definitions/template.ServiceRender'
+        description: New since 1.9.0 used to replace service renders in render_set
       revision:
         type: integer
       service_name:
@@ -1889,6 +1939,10 @@ definitions:
     type: object
   service.ServiceOption:
     properties:
+      resources:
+        items:
+          $ref: '#/definitions/service.SvcResources'
+        type: array
       service:
         $ref: '#/definitions/models.Service'
       service_module:
@@ -1974,6 +2028,13 @@ definitions:
       release_name:
         type: string
       service_name:
+        type: string
+    type: object
+  service.SvcResources:
+    properties:
+      kind:
+        type: string
+      name:
         type: string
     type: object
   service.SvcResp:
@@ -2487,7 +2548,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Run Enviroment Analysis
+      description: Run environment Analysis
       parameters:
       - description: env name
         in: path
@@ -2506,7 +2567,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvAnalysisRespone'
-      summary: Run Enviroment Analysis
+      summary: Run environment Analysis
       tags:
       - environment
   /api/aslan/environment/environments/{name}/analysis/cron:
@@ -2587,7 +2648,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvConfigsArgs'
-      summary: Get enviroment configs
+      summary: Get environment configs
       tags:
       - environment
     put:
@@ -2616,7 +2677,7 @@ paths:
       responses:
         "200":
           description: OK
-      summary: Update enviroment configs
+      summary: Update environment configs
       tags:
       - environment
   /api/aslan/environment/environments/{name}/globalVariableCandidates:
@@ -2928,6 +2989,182 @@ paths:
       summary: Upsert Env Sleep Cron
       tags:
       - environment
+  /api/aslan/environment/environments/{name}/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Environment Service Versions
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+            type: array
+      summary: List Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Environment Service Versions
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision a
+        in: query
+        name: revisionA
+        required: true
+        type: integer
+      - description: revision b
+        in: query
+        name: revisionB
+        required: true
+        type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+      summary: Diff Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/version/{serviceName}/revision/{revision}:
+    get:
+      consumes:
+      - application/json
+      description: Get Environment Service Version Yaml
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GetEnvServiceVersionYamlResponse'
+            type: array
+      summary: Get Environment Service Version Yaml
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Environment Service Version
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: query
+        name: revision
+        required: true
+        type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Environment Service Version
+      tags:
+      - environment
   /api/aslan/environment/init_info/{name}:
     get:
       consumes:
@@ -3196,7 +3433,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Run Production Enviroment Analysis
+      description: Run Production environment Analysis
       parameters:
       - description: env name
         in: path
@@ -3215,7 +3452,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvAnalysisRespone'
-      summary: Run Production Enviroment Analysis
+      summary: Run Production environment Analysis
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/analysis/cron:
@@ -3296,7 +3533,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvConfigsArgs'
-      summary: Get production enviroment configs
+      summary: Get production environment configs
       tags:
       - environment
     put:
@@ -3325,7 +3562,7 @@ paths:
       responses:
         "200":
           description: OK
-      summary: Update production enviroment configs
+      summary: Update production environment configs
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/estimated-values:
@@ -3527,6 +3764,187 @@ paths:
         "200":
           description: OK
       summary: Upsert Production Env Sleep Cron
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Production Environment Service Versions
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+            type: array
+      summary: List Production Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Production Environment Service Versions
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision a
+        in: query
+        name: revisionA
+        required: true
+        type: integer
+      - description: revision b
+        in: query
+        name: revisionB
+        required: true
+        type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+      summary: Diff Production Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}/revision/{revision}:
+    get:
+      consumes:
+      - application/json
+      description: Get Production Environment Service Version Yaml
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GetEnvServiceVersionYamlResponse'
+            type: array
+      summary: Get Production Environment Service Version Yaml
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Production Environment Service Version
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: query
+        name: revision
+        required: true
+        type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Production Environment Service Version
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/workloads:
@@ -4109,6 +4527,130 @@ paths:
       summary: Update production_global variables
       tags:
       - project
+  /api/aslan/service/production/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Production Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListServiceVersionsResponse'
+            type: array
+      summary: List Production Service Versions
+      tags:
+      - service
+  /api/aslan/service/production/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Production Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision a
+        in: query
+        name: revisionA
+        required: true
+        type: integer
+      - description: revision b
+        in: query
+        name: revisionB
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListServiceVersionsResponse'
+      summary: Diff Production Service Versions
+      tags:
+      - service
+  /api/aslan/service/production/version/{serviceName}/revision/{revision}:
+    get:
+      consumes:
+      - application/json
+      description: Get Production Service Versions Yaml
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetServiceVersionYamlResponse'
+      summary: Get Production Service Version Yaml
+      tags:
+      - service
+  /api/aslan/service/production/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Production SService Version
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: query
+        name: revision
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Production Service Version
+      tags:
+      - service
   /api/aslan/service/services:
     post:
       consumes:
@@ -4252,6 +4794,130 @@ paths:
         "200":
           description: OK
       summary: Reload service from yaml template
+      tags:
+      - service
+  /api/aslan/service/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListServiceVersionsResponse'
+            type: array
+      summary: List Service Versions
+      tags:
+      - service
+  /api/aslan/service/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision a
+        in: query
+        name: revisionA
+        required: true
+        type: integer
+      - description: revision b
+        in: query
+        name: revisionB
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListServiceVersionsResponse'
+      summary: Diff Service Versions
+      tags:
+      - service
+  /api/aslan/service/version/{serviceName}/revision/{revision}:
+    get:
+      consumes:
+      - application/json
+      description: Get Service Versions Yaml
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetServiceVersionYamlResponse'
+      summary: Get Service Version Yaml
+      tags:
+      - service
+  /api/aslan/service/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Service Version
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: query
+        name: revision
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Service Version
       tags:
       - service
   /api/aslan/system/helm/project:
