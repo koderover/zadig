@@ -540,6 +540,9 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	jobTaskMap := make(map[string]*commonmodels.JobTask)
 	for _, stage := range task.WorkflowArgs.Stages {
 		for _, job := range stage.Jobs {
+			if job.Skipped {
+				continue
+			}
 			jobCtl, err := jobctl.InitJobCtl(job, task.WorkflowArgs)
 			if err != nil {
 				return errors.Errorf("init jobCtl %s error: %s", job.Name, err)
