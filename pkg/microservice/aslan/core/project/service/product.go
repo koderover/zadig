@@ -1443,7 +1443,7 @@ func GetProjectGroupRelation(name string, logger *zap.SugaredLogger) (resp *Proj
 			resp.Projects = append(resp.Projects, &ProjectGroupRelation{
 				ProjectKey:  project.Name,
 				ProjectName: project.Alias,
-				DeployType:  project.DeployType,
+				DeployType:  project.ProductFeature.GetDeployType(),
 				Enabled:     false,
 			})
 		}

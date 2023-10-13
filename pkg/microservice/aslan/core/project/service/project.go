@@ -172,14 +172,7 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 		}
 
 		info := nameMap[name]
-		var deployType string
-		if info.CreateEnvType == "external" {
-			deployType = "external"
-		} else if info.BasicFacility == "cloud_host" {
-			deployType = "cloud_host"
-		} else {
-			deployType = info.DeployType
-		}
+		deployType := info.ProductFeature.GetDeployType()
 		representation = append(representation, &ProjectDetailedRepresentation{
 			ProjectBriefRepresentation: &ProjectBriefRepresentation{
 				ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},

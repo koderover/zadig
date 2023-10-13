@@ -76,7 +76,7 @@ func GetBizDirProject() ([]GroupDetail, error) {
 			projectDetail := *&commonmodels.ProjectDetail{
 				ProjectName:       project.ProjectName,
 				ProjectKey:        project.ProductName,
-				ProjectDeployType: project.ProductFeature.DeployType,
+				ProjectDeployType: project.ProductFeature.GetDeployType(),
 			}
 			ungrouped.Projects = append(ungrouped.Projects, &projectDetail)
 		}
@@ -145,7 +145,7 @@ func SearchBizDirByProject(projectKeyword string) ([]GroupDetail, error) {
 		projectDetail := &commonmodels.ProjectDetail{
 			ProjectKey:        project.Name,
 			ProjectName:       project.Alias,
-			ProjectDeployType: project.DeployType,
+			ProjectDeployType: project.ProductFeature.GetDeployType(),
 		}
 		if projectGroupMap[project.Name] != "" {
 			groupProjectMap[projectGroupMap[project.Name]] = append(groupProjectMap[projectGroupMap[project.Name]], projectDetail)
@@ -221,9 +221,9 @@ func SearchBizDirByService(serviceName string) ([]*SearchBizDirByServiceGroup, e
 		if elem, ok := projectMap[service.ProductName]; !ok {
 			project := &SearchBizDirByServiceProject{
 				Project: &commonmodels.ProjectDetail{
-					ProjectKey:        templateProjectMap[service.ServiceName].ProductName,
-					ProjectName:       templateProjectMap[service.ServiceName].ProjectName,
-					ProjectDeployType: templateProjectMap[service.ServiceName].ProductFeature.DeployType,
+					ProjectKey:        templateProjectMap[service.ProductName].ProductName,
+					ProjectName:       templateProjectMap[service.ProductName].ProjectName,
+					ProjectDeployType: templateProjectMap[service.ProductName].ProductFeature.DeployType,
 				},
 				Services: []string{service.ServiceName},
 			}
