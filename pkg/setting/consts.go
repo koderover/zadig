@@ -852,14 +852,14 @@ const (
 	LinuxArm64 = "linux_arm64"
 	MacOSAmd64 = "darwin_amd64"
 	MacOSArm64 = "darwin_arm64"
+
+	// vm cache type
+	VmCache     = "vm"
+	ObjectCache = "object"
 )
 
 const (
 	// zadig build infrastructure
 	JobK8sInfrastructure = "kubernetes"
 	JobVMInfrastructure  = "vm"
-)
-
-const (
-// zadig-agent version
 )

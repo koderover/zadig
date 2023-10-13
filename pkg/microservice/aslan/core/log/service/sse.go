@@ -458,50 +458,47 @@ func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *
 			return
 		default:
 			if !vmservice.VMJobStatus.Exist(job.ID.Hex()) {
-				log.Infof("No more input is available, vm log stream stopped")
+				err := ReadFromFileAndWriteToStreamChan(buf, streamChan)
+				if err != nil && err != io.EOF {
+					log.Errorf("scan vm log stream error: %v", err)
+					return
+				}
+				log.Infof("vm job log stream stopped")
 				return
 			}
-			line, err := buf.ReadString('\n')
-			if err == nil || err == io.EOF {
-				if err == io.EOF {
-					time.Sleep(time.Millisecond * 500)
-					continue
-				}
 
-				if strings.ContainsRune(line, '\r') {
-					segments := strings.Split(line, "\r")
-					for _, segment := range segments {
-						segment = segment + string('\r')
-						if len(segment) > 0 {
-							streamChan <- segment
-						}
-					}
-				} else {
-					line = strings.TrimSpace(line)
-					if len(line) > 0 {
-						streamChan <- line
-					}
-				}
-			} else {
+			err := ReadFromFileAndWriteToStreamChan(buf, streamChan)
+			if err != nil && err != io.EOF {
 				log.Errorf("scan vm log stream error: %v", err)
 				return
 			}
+
+			time.Sleep(500 * time.Millisecond)
 		}
 	}
 }
 
-func WriteLogTostreamChan(logChan chan string, streamChan chan interface{}) {
+func ReadFromFileAndWriteToStreamChan(buf *bufio.Reader, streamChan chan interface{}) error {
 	for {
-		select {
-		case str, ok := <-logChan:
-			if !ok {
-				return
+		line, err := buf.ReadString('\n')
+		if err == nil {
+			if strings.ContainsRune(line, '\r') {
+				segments := strings.Split(line, "\r")
+				for _, segment := range segments {
+					segment = segment + string('\r')
+					if len(segment) > 0 {
+						streamChan <- segment
+					}
+				}
+			} else {
+				line = strings.TrimSpace(line)
+				if len(line) > 0 {
+					streamChan <- line
+				}
 			}
-			if len(str) > 0 {
-				streamChan <- str
-			}
-			time.Sleep(time.Second)
+			continue
 		}
+		return err
 	}
 }
 
