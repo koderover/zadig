@@ -221,3 +221,8 @@ type OpenAPICluster struct {
 	Status       string `json:"status"`
 	Type         string `json:"type"`
 }
+
+type SecurityAndPrivacySettings struct {
+	TokenExpirationTime int64 `json:"token_expiration_time"`
+	ImprovementPlan     bool  `json:"improvement_plan"`
+}

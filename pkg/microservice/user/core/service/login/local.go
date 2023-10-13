@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/mojocn/base64Captcha"
 	"github.com/patrickmn/go-cache"
@@ -157,6 +158,16 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		return nil, 0, err
 	}
 
+	systemSettings, err := commonrepo.NewSystemSettingColl().Get()
+	if err != nil {
+		logger.Errorf("failed to get system security settings, error: %s", err)
+		return nil, 0, fmt.Errorf("failed to get system security settings, error: %s", err)
+	}
+	var expirationDuration int64 = 24
+	if systemSettings.Security != nil {
+		expirationDuration = systemSettings.Security.TokenExpirationTime
+	}
+
 	token, err := CreateToken(&Claims{
 		Name:              user.Name,
 		UID:               user.UID,
@@ -164,7 +175,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		PreferredUsername: user.Account,
 		StandardClaims: jwt.StandardClaims{
 			Audience:  setting.ProductName,
-			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
+			ExpiresAt: time.Now().Add(time.Duration(expirationDuration) * time.Hour).Unix(),
 		},
 		FederatedClaims: FederatedClaims{
 			ConnectorId: user.IdentityType,
@@ -176,7 +187,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		return nil, 0, err
 	}
 
-	err = zadigCache.NewRedisCache().Write(user.UID, token, time.Duration(config.TokenExpiresAt())*time.Minute)
+	err = zadigCache.NewRedisCache(config.RedisUserTokenDB()).Write(user.UID, token, time.Duration(expirationDuration)*time.Hour)
 	if err != nil {
 		logger.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
 	}
@@ -200,6 +211,12 @@ func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error)
 	}
 
 	logger.Infof("user Info: %v", userInfo)
+
+	err = zadigCache.NewRedisCache(config.RedisUserTokenDB()).Delete(userID)
+	if err != nil {
+		logger.Errorf("failed to void token, error: %s", err)
+		return false, "", fmt.Errorf("failed to void token, error: %s", err)
+	}
 
 	if userInfo.IdentityType != config.OauthIdentityType {
 		return false, "", nil

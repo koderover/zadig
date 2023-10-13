@@ -47,84 +47,91 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 
 	resp := &ext_authz_v3.CheckResponse{}
 
-	if !permission.IsPublicURL(requestPath, method) && headers["authorization"] == "" {
-		resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
-		resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
-			Status: &typev3.HttpStatus{Code: http.StatusForbidden},
-		}}
-		logger.Info("Request Denied",
-			zap.String("path", requestPath),
-			zap.String("method", method),
-			zap.String("body", body),
-			zap.String("reason", "missing authorization header"),
-		)
+	isPublicRequest := permission.IsPublicURL(requestPath, method)
+
+	if !isPublicRequest {
+		// if no token is provided, respond with 401 un
+		if headers["authorization"] == "" {
+			resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
+			resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
+				Status: &typev3.HttpStatus{Code: http.StatusUnauthorized},
+			}}
+			logger.Info("Request Denied",
+				zap.String("path", requestPath),
+				zap.String("method", method),
+				zap.String("body", body),
+				zap.String("reason", "missing authorization header"),
+			)
+		} else {
+			// otherwise check if the token is valid
+			authorizationHeader := headers["authorization"]
+			segs := strings.Split(authorizationHeader, " ")
+			if len(segs) != 2 {
+				resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
+				resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
+					Status: &typev3.HttpStatus{Code: http.StatusUnauthorized},
+				}}
+				logger.Info("Request Denied",
+					zap.String("path", requestPath),
+					zap.String("method", method),
+					zap.String("body", body),
+					zap.String("reason", "invalid token: token is malformed"),
+				)
+				return resp, nil
+			}
+
+			// validate the token.
+			claims, isValid, err := permission.ValidateToken(segs[1])
+			if err != nil || !isValid {
+				resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
+				resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
+					Status: &typev3.HttpStatus{Code: http.StatusUnauthorized},
+				}}
+				logger.Info("Request Denied",
+					zap.String("path", requestPath),
+					zap.String("method", method),
+					zap.String("body", body),
+					zap.String("reason", "invalid token: token validation failed"),
+					zap.String("error", err.Error()),
+				)
+				return resp, nil
+			}
+
+			// if the expiration time is so huge that it is not possible, it is a constant api token, we don't check for the redis.
+			if claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
+				// check if the given token is removed from the cache
+				token, err := cache.NewRedisCache(config.RedisUserTokenDB()).GetString(claims.UID)
+				if err != nil {
+					resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
+					resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
+						Status: &typev3.HttpStatus{Code: http.StatusUnauthorized},
+					}}
+					errReason := fmt.Sprintf("cache check failed, error: %s", err)
+					logger.Info("Request Denied",
+						zap.String("path", requestPath),
+						zap.String("method", method),
+						zap.String("body", body),
+						zap.String("reason", errReason),
+					)
+					return resp, nil
+				}
+
+				if token != segs[1] {
+					resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
+					resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
+						Status: &typev3.HttpStatus{Code: http.StatusUnauthorized},
+					}}
+					logger.Info("Request Denied",
+						zap.String("path", requestPath),
+						zap.String("method", method),
+						zap.String("body", body),
+						zap.String("reason", "token mismatch"),
+					)
+					return resp, nil
+				}
+			}
+		}
 	} else {
-		authorizationHeader := headers["authorization"]
-		segs := strings.Split(authorizationHeader, " ")
-		if len(segs) != 2 {
-			resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
-			resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
-				Status: &typev3.HttpStatus{Code: http.StatusForbidden},
-			}}
-			logger.Info("Request Denied",
-				zap.String("path", requestPath),
-				zap.String("method", method),
-				zap.String("body", body),
-				zap.String("reason", "invalid token"),
-			)
-			return resp, nil
-		}
-
-		// validate the token.
-		claims, isValid, err := permission.ValidateToken(segs[1])
-		if err != nil || !isValid {
-			resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
-			resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
-				Status: &typev3.HttpStatus{Code: http.StatusForbidden},
-			}}
-			logger.Info("Request Denied",
-				zap.String("path", requestPath),
-				zap.String("method", method),
-				zap.String("body", body),
-				zap.String("reason", "invalid token"),
-			)
-			return resp, nil
-		}
-
-		// if the expiration time is so huge that it is not possible, it is a constant api token, we don't check for the redis.
-		if claims.ExpiresAt-time.Now().Unix() < 8760*60*60 {
-			// check if the given token is removed from the cache
-			token, err := cache.NewRedisCache().GetString(claims.UID)
-			if err != nil {
-				resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
-				resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
-					Status: &typev3.HttpStatus{Code: http.StatusForbidden},
-				}}
-				errReason := fmt.Sprintf("cache check failed, error: %s", err)
-				logger.Info("Request Denied",
-					zap.String("path", requestPath),
-					zap.String("method", method),
-					zap.String("body", body),
-					zap.String("reason", errReason),
-				)
-				return resp, nil
-			}
-
-			if token != segs[1] {
-				resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
-				resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
-					Status: &typev3.HttpStatus{Code: http.StatusForbidden},
-				}}
-				logger.Info("Request Denied",
-					zap.String("path", requestPath),
-					zap.String("method", method),
-					zap.String("body", body),
-					zap.String("reason", "token mismatch"),
-				)
-				return resp, nil
-			}
-		}
-
 		resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
 		resp.HttpResponse = &ext_authz_v3.CheckResponse_OkResponse{OkResponse: &ext_authz_v3.OkHttpResponse{}}
 		logger.Info("Request Allowed",

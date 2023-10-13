@@ -18,9 +18,12 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+
+	"github.com/koderover/zadig/pkg/microservice/user/config"
 )
 
 type RedisCache struct {
@@ -29,12 +32,21 @@ type RedisCache struct {
 
 var redisClient *redis.Client
 
-func NewRedisCache() *RedisCache {
+// NewRedisCache callers has to make sure the caller has the settings for redis in their env variables.
+func NewRedisCache(db int) *RedisCache {
 	if redisClient == nil {
-		redisClient = redis.NewClient(&redis.Options{
-			Addr: "localhost:6379",
-			DB:   0,
-		})
+		redisConfig := &redis.Options{
+			Addr: fmt.Sprintf("%s:%d", config.RedisHost(), config.RedisPort()),
+			DB:   db,
+		}
+
+		if config.RedisUserName() != "" {
+			redisConfig.Username = config.RedisUserName()
+		}
+		if config.RedisPassword() != "" {
+			redisConfig.Password = config.RedisPassword()
+		}
+		redisClient = redis.NewClient(redisConfig)
 	}
 	return &RedisCache{redisClient: redisClient}
 }
@@ -59,4 +71,8 @@ func (c *RedisCache) Exists(key string) (bool, error) {
 
 func (c *RedisCache) GetString(key string) (string, error) {
 	return c.redisClient.Get(context.TODO(), key).Result()
+}
+
+func (c *RedisCache) Delete(key string) error {
+	return c.redisClient.Del(context.TODO(), key).Err()
 }

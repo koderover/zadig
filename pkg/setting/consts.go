@@ -34,6 +34,11 @@ const (
 	ENVMysqlPassword           = "MYSQL_PASSWORD"
 	ENVMysqlHost               = "MYSQL_HOST"
 	ENVMysqlUserDb             = "MYSQL_USER_DB"
+	ENVRedisHost               = "REDIS_HOST"
+	ENVRedisPort               = "REDIS_PORT"
+	ENVRedisUserName           = "REDIS_USERNAME"
+	ENVRedisPassword           = "REDIS_PASSWORD"
+	ENVRedisUserTokenDB        = "REDIS_USER_TOKEN_DB"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"

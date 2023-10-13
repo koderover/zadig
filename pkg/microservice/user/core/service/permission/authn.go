@@ -73,6 +73,10 @@ func IsPublicURL(reqPath, method string) bool {
 		return true
 	}
 
+	if realPath == "/api/plutus/organization" && method == http.MethodGet {
+		return true
+	}
+
 	if realPath == "/api/plutus/version/new/check" && method == http.MethodGet {
 		return true
 	}
@@ -252,7 +256,7 @@ func ValidateToken(tokenString string) (*login.Claims, bool, error) {
 	secretKey := config.SecretKey()
 
 	token, err := jwt.ParseWithClaims(tokenString, &login.Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return secretKey, nil
+		return []byte(secretKey), nil
 	})
 
 	if err != nil {
