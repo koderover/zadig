@@ -123,9 +123,4 @@ func (*Router) Inject(router *gin.RouterGroup) {
 			internalPolicyApis.POST("setProjectVisibility", permission.SetProjectVisibility)
 		}
 	}
-
-	bundles := router.Group("bundles")
-	{
-		bundles.GET("/:name", permission.DownloadBundle)
-	}
 }

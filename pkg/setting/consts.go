@@ -34,6 +34,11 @@ const (
 	ENVMysqlPassword           = "MYSQL_PASSWORD"
 	ENVMysqlHost               = "MYSQL_HOST"
 	ENVMysqlUserDb             = "MYSQL_USER_DB"
+	ENVRedisHost               = "REDIS_HOST"
+	ENVRedisPort               = "REDIS_PORT"
+	ENVRedisUserName           = "REDIS_USERNAME"
+	ENVRedisPassword           = "REDIS_PASSWORD"
+	ENVRedisUserTokenDB        = "REDIS_USER_TOKEN_DB"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"
@@ -111,15 +116,16 @@ const (
 	TestMode    = "test"
 
 	// user
-	ENVIssuerURL      = "ISSUER_URL"
-	ENVClientID       = "CLIENT_ID"
-	ENVClientSecret   = "CLIENT_SECRET"
-	ENVRedirectURI    = "REDIRECT_URI"
-	ENVSecretKey      = "SECRET_KEY"
-	ENVMysqlUserDB    = "MYSQL_USER_DB"
-	ENVScopes         = "SCOPES"
-	ENVTokenExpiresAt = "TOKEN_EXPIRES_AT"
-	ENVUserPort       = "USER_PORT"
+	ENVIssuerURL       = "ISSUER_URL"
+	ENVClientID        = "CLIENT_ID"
+	ENVClientSecret    = "CLIENT_SECRET"
+	ENVRedirectURI     = "REDIRECT_URI"
+	ENVSecretKey       = "SECRET_KEY"
+	ENVMysqlUserDB     = "MYSQL_USER_DB"
+	ENVScopes          = "SCOPES"
+	ENVTokenExpiresAt  = "TOKEN_EXPIRES_AT"
+	ENVUserPort        = "USER_PORT"
+	ENVDecisionLogPath = "DECISION_LOG_PATH"
 
 	// config
 	ENVMysqlDexDB = "MYSQL_DEX_DB"
