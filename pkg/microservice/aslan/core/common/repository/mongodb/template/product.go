@@ -28,21 +28,20 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type ProjectInfo struct {
-	Name          string `bson:"product_name"`
-	Alias         string `bson:"project_name"`
-	Desc          string `bson:"description"`
-	UpdatedAt     int64  `bson:"update_time"`
-	UpdatedBy     string `bson:"update_by"`
-	OnboardStatus int    `bson:"onboarding_status"`
-	Public        bool   `bson:"public"`
-	DeployType    string `bson:"deploy_type"`
-	CreateEnvType string `bson:"create_env_type"`
-	BasicFacility string `bson:"basic_facility"`
+	Name           string                         `bson:"product_name"`
+	Alias          string                         `bson:"project_name"`
+	Desc           string                         `bson:"description"`
+	UpdatedAt      int64                          `bson:"update_time"`
+	UpdatedBy      string                         `bson:"update_by"`
+	OnboardStatus  int                            `bson:"onboarding_status"`
+	Public         bool                           `bson:"public"`
+	ProductFeature *templatemodels.ProductFeature `bson:"product_feature"`
 }
 
 type ProductColl struct {
@@ -173,9 +172,10 @@ func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*Pr
 		"update_by":         "$update_by",
 		"onboarding_status": "$onboarding_status",
 		"public":            "$public",
-		"deploy_type":       "$product_feature.deploy_type",
-		"create_env_type":   "$product_feature.create_env_type",
-		"basic_facility":    "$product_feature.basic_facility",
+		"product_feature":   "$product_feature",
+		// "deploy_type":       "$product_feature.deploy_type",
+		// "create_env_type":   "$product_feature.create_env_type",
+		// "basic_facility":    "$product_feature.basic_facility",
 	}
 	pipeline := []bson.M{
 		{

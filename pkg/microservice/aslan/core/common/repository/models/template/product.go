@@ -167,6 +167,18 @@ type ProductFeature struct {
 	CreateEnvType string `bson:"create_env_type"           json:"create_env_type"`
 }
 
+func (p *ProductFeature) GetDeployType() string {
+	var deployType string
+	if p.CreateEnvType == "external" {
+		deployType = "external"
+	} else if p.BasicFacility == "cloud_host" {
+		deployType = "cloud_host"
+	} else {
+		deployType = p.DeployType
+	}
+	return deployType
+}
+
 type ForkProject struct {
 	EnvName      string           `json:"env_name"`
 	WorkflowName string           `json:"workflow_name"`
