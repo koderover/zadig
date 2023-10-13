@@ -96,7 +96,7 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 		}
 	}
 
-	chartInfo, ok := productInfo.GetChartRenderMap()[deploy.ReleaseName]
+	chartInfo, ok := productInfo.GetChartDeployRenderMap()[deploy.ReleaseName]
 	if !ok {
 		chartInfo = &template.ServiceRender{
 			ReleaseName:       deploy.ReleaseName,

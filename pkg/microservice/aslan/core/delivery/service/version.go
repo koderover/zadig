@@ -811,13 +811,10 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 // validate chartInfo, make sure service is in environment
 // prepare data set for chart delivery
 func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productInfo *commonmodels.Product) (map[string]*DeliveryChartData, error) {
-	chartMap := make(map[string]*template.ServiceRender)
-	for _, rChart := range productInfo.GetChartRenderMap() {
-		chartMap[rChart.ServiceName] = rChart
-	}
-
-	chartDataMap := make(map[string]*DeliveryChartData)
 	serviceMap := productInfo.GetServiceMap()
+	chartMap := productInfo.GetChartRenderMap()
+	chartDataMap := make(map[string]*DeliveryChartData)
+
 	for _, chartData := range chartDatas {
 		if productService, ok := serviceMap[chartData.ServiceName]; ok {
 			serviceObj, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{

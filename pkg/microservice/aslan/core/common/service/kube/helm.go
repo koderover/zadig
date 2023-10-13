@@ -248,7 +248,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 	} else {
 		releaseName = productSvc.ReleaseName
 		svcTemp = &commonmodels.Service{
-			ServiceName: productSvc.ReleaseName,
+			ServiceName: releaseName,
 			ProductName: product.ProductName,
 			HelmChart: &commonmodels.HelmChart{
 				Name:    chartInfo.ChartName,
