@@ -48,7 +48,6 @@ func Start(_ context.Context) {
 		Development: configbase.Mode() != setting.ReleaseMode,
 	})
 
-	permissionservice.GenerateOPABundle()
 	initDatabase()
 }
 
