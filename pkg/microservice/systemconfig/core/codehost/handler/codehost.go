@@ -176,5 +176,5 @@ func UpdateSystemCodeHost(c *gin.Context) {
 		return
 	}
 	req.ID = id
-	ctx.Resp, ctx.Err = service.UpdateSystemCodeHost(req, ctx.Logger)
+	ctx.Resp, ctx.Err = service.UpdateCodeHost(req, ctx.Logger)
 }

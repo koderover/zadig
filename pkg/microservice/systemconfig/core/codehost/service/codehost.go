@@ -134,7 +134,7 @@ func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
 	return mongodb.NewCodehostColl().DeleteSystemCodeHostByID(id)
 }
 
-func UpdateSystemCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	if host.Type == setting.SourceFromGerrit {
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
 	}
@@ -150,7 +150,7 @@ func UpdateSystemCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.
 		}
 	}
 
-	return mongodb.NewCodehostColl().UpdateSystemCodeHost(host)
+	return mongodb.NewCodehostColl().UpdateCodeHost(host)
 }
 
 func UpdateCodeHostToken(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {

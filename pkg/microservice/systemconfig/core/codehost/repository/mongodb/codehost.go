@@ -261,10 +261,9 @@ func (c *CodehostColl) deleteCodeHost(query bson.M) error {
 	return nil
 }
 
-func (c *CodehostColl) UpdateSystemCodeHost(host *models.CodeHost) (*models.CodeHost, error) {
+func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, error) {
 	query := bson.M{
 		"id":                host.ID,
-		"integration_level": setting.IntegrationLevelSystem,
 		"deleted_at":        0,
 	}
 
