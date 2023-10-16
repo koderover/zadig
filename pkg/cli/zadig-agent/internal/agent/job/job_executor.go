@@ -328,24 +328,32 @@ func (e *JobExecutor) AfterExecute() error {
 	}
 
 	// ------------------------------------------------ report all job log ----------------------------------------------
-	for logStr, EOFErr, err := e.Reporter.GetJobLog(); err == nil; {
-		resp, err := e.Reporter.ReportWithData(
-			&types.JobExecuteResult{
-				JobInfo: e.JobResult.JobInfo,
-				Status:  e.JobResult.Status,
-				Log:     logStr,
-				Error:   e.JobResult.Error,
-			})
-		if err != nil {
-			log.Errorf("report workflow %s job %s log error: %v", e.Job.WorkflowName, e.Job.JobName, err)
-			return nil
-		}
-		if resp != nil && (resp.JobStatus == common.StatusCancelled.String() || resp.JobStatus == common.StatusTimeout.String()) {
-			*e.Cancel = true
-			return nil
+	for {
+		logStr, EOFErr, err := e.Reporter.GetJobLog()
+		if err == nil {
+			if EOFErr {
+				break
+			}
+
+			resp, err := e.Reporter.ReportWithData(
+				&types.JobExecuteResult{
+					JobInfo: e.JobResult.JobInfo,
+					Status:  e.JobResult.Status,
+					Log:     logStr,
+					Error:   e.JobResult.Error,
+				})
+			if err != nil {
+				log.Errorf("report workflow %s job %s log error: %v", e.Job.WorkflowName, e.Job.JobName, err)
+				return nil
+			}
+			if resp != nil && (resp.JobStatus == common.StatusCancelled.String() || resp.JobStatus == common.StatusTimeout.String()) {
+				*e.Cancel = true
+				return nil
+			}
 		}
 
-		if EOFErr {
+		if err != nil {
+			log.Errorf("failed to get job log, error: %s", err)
 			break
 		}
 	}

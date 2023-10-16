@@ -35,23 +35,13 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
-func ListPrivateKeys(encryptedKey, projectName, keyword string, systemOnly bool, vmRange string, log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
+func ListPrivateKeys(encryptedKey, projectName, keyword string, systemOnly bool, log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error) {
 	var resp []*commonmodels.PrivateKey
 	var err error
-	vms, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{ProjectName: projectName, SystemOnly: systemOnly})
+	privateKeys, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{ProjectName: projectName, SystemOnly: systemOnly})
 	if err != nil {
 		log.Errorf("PrivateKey.List error: %s", err)
 		return resp, e.ErrListPrivateKeys
-	}
-
-	privateKeys := make([]*commonmodels.PrivateKey, 0)
-	for _, vm := range vms {
-		if vmRange == "" && vm.Agent == nil {
-			privateKeys = append(privateKeys, vm)
-		}
-		if vmRange == "all" {
-			privateKeys = append(privateKeys, vm)
-		}
 	}
 
 	if keyword == "" {
