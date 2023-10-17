@@ -46,7 +46,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	kubeutil "github.com/koderover/zadig/pkg/tool/kube/util"
@@ -68,23 +67,6 @@ type ReleaseInstallParam struct {
 	Timeout        int
 	DryRun         bool
 	Production     bool
-}
-
-func GetValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
-	ret := make(map[string]string)
-	if spec.Repo != "" {
-		ret[setting.PathSearchComponentRepo] = spec.Repo
-	}
-	if spec.Namespace != "" {
-		ret[setting.PathSearchComponentNamespace] = spec.Namespace
-	}
-	if spec.Image != "" {
-		ret[setting.PathSearchComponentImage] = spec.Image
-	}
-	if spec.Tag != "" {
-		ret[setting.PathSearchComponentTag] = spec.Tag
-	}
-	return ret
 }
 
 func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry bool, helmClient *helmtool.HelmClient) error {

@@ -319,6 +319,9 @@ func GetValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
 	if spec.Repo != "" {
 		ret[setting.PathSearchComponentRepo] = spec.Repo
 	}
+	if spec.Namespace != "" {
+		ret[setting.PathSearchComponentNamespace] = spec.Namespace
+	}
 	if spec.Image != "" {
 		ret[setting.PathSearchComponentImage] = spec.Image
 	}
