@@ -7443,12 +7443,6 @@ const docTemplate = `{
         "service.ServiceOption": {
             "type": "object",
             "properties": {
-                "resources": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/service.SvcResources"
-                    }
-                },
                 "service": {
                     "$ref": "#/definitions/models.Service"
                 },
@@ -7573,17 +7567,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "service_name": {
-                    "type": "string"
-                }
-            }
-        },
-        "service.SvcResources": {
-            "type": "object",
-            "properties": {
-                "kind": {
-                    "type": "string"
-                },
-                "name": {
                     "type": "string"
                 }
             }

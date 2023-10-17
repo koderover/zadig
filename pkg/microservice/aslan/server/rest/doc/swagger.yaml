@@ -1939,10 +1939,6 @@ definitions:
     type: object
   service.ServiceOption:
     properties:
-      resources:
-        items:
-          $ref: '#/definitions/service.SvcResources'
-        type: array
       service:
         $ref: '#/definitions/models.Service'
       service_module:
@@ -2028,13 +2024,6 @@ definitions:
       release_name:
         type: string
       service_name:
-        type: string
-    type: object
-  service.SvcResources:
-    properties:
-      kind:
-        type: string
-      name:
         type: string
     type: object
   service.SvcResp:

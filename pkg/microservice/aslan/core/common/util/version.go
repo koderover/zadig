@@ -6,7 +6,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -20,12 +22,26 @@ func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService
 	isHelmChart := !prodSvc.FromZadig()
 	if isHelmChart {
 		name = prodSvc.ReleaseName
+	} else if prodSvc.Type == setting.HelmDeployType {
+		tmplSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: prodSvc.ServiceName,
+			Revision:    prodSvc.Revision,
+			ProductName: prodSvc.ProductName,
+		}, env.Production)
+		if err != nil {
+			return fmt.Errorf("failed to get template service %s/%s/%s revision %d, isProduction %v, error: %v", env.ProductName, env.EnvName, prodSvc.ServiceName, prodSvc.Revision, env.Production, err)
+		}
+
+		releaseName := util.GeneReleaseName(tmplSvc.GetReleaseNaming(), env.ProductName, env.Namespace, env.EnvName, tmplSvc.ServiceName)
+		prodSvc.ReleaseName = releaseName
+		log.Debugf("prodSvc: %+v", prodSvc)
 	}
 
 	revision, err := GenerateEnvServiceNextRevision(env.ProductName, env.EnvName, name, isHelmChart)
 	if err != nil {
 		return fmt.Errorf("failed to generate service %s/%s/%s revision, error: %v", env.ProductName, env.EnvName, name, err)
 	}
+
 	version := &models.EnvServiceVersion{
 		ProductName:     env.ProductName,
 		EnvName:         env.EnvName,
