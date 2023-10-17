@@ -224,7 +224,6 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					args.RepoNamespace = item.MainRepo.GetRepoNamespace()
 					args.RepoName = item.MainRepo.RepoName
 					args.Branch = item.MainRepo.Branch
-					log.Infof("-------- branch name is %v", args.Branch)
 
 					// 3. create task with args
 					if resp, err := testingservice.CreateTestTask(args, log); err != nil {
