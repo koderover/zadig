@@ -173,9 +173,6 @@ func (c *ProductColl) PageListProjectByFilter(opt ProductListByFilterOpt) ([]*Pr
 		"onboarding_status": "$onboarding_status",
 		"public":            "$public",
 		"product_feature":   "$product_feature",
-		// "deploy_type":       "$product_feature.deploy_type",
-		// "create_env_type":   "$product_feature.create_env_type",
-		// "basic_facility":    "$product_feature.basic_facility",
 	}
 	pipeline := []bson.M{
 		{
@@ -246,9 +243,7 @@ func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error
 		"update_by":         "$update_by",
 		"onboarding_status": "$onboarding_status",
 		"public":            "$public",
-		"deploy_type":       "$product_feature.deploy_type",
-		"create_env_type":   "$product_feature.create_env_type",
-		"basic_facility":    "$product_feature.basic_facility",
+		"product_feature":   "$product_feature",
 	})
 }
 
