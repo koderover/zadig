@@ -34,7 +34,8 @@ type JobReporter struct {
 	Ctx       context.Context
 	Client    *network.ZadigClient
 	Logger    *log.JobLogger
-	Offset    uint
+	Offset    int64
+	CurLogNum int64
 	Log       string
 	JobCancel *bool
 	Result    *types.JobExecuteResult
@@ -69,11 +70,12 @@ func (r *JobReporter) Start(ctx context.Context) {
 }
 
 func (r *JobReporter) GetJobLog() (string, bool, error) {
-	buffer, newOffset, EOFErr, err := r.Logger.ReadByRowNum(r.Offset, common.DefaultJobLogReadNum)
+	buffer, newOffset, num, EOFErr, err := r.Logger.ReadByRowNum(r.Offset, r.CurLogNum, common.DefaultJobLogReadNum)
 	if err != nil {
 		return "", EOFErr, err
 	}
 	r.Offset = newOffset
+	r.CurLogNum = num
 	return string(buffer), EOFErr, nil
 }
 
@@ -99,6 +101,7 @@ func (r *JobReporter) Report() error {
 	if err != nil {
 		return fmt.Errorf("%s-%s SEQ: %d failed to report status, error: %s", r.Result.JobInfo.WorkflowName, r.Result.JobInfo.JobName, r.Seq, err)
 	}
+	r.Result.Log = ""
 
 	if resp.JobID == r.Result.JobInfo.JobID && (resp.JobStatus == common.StatusTimeout.String() || resp.JobStatus == common.StatusCancelled.String()) {
 		*r.JobCancel = true

@@ -130,7 +130,7 @@ func (e *JobExecutor) InitWorkDirectory() error {
 
 	if e.Job != nil && e.Job.ProjectName != "" && e.Job.WorkflowName != "" && e.Job.JobName != "" {
 		// init default work directory
-		e.Dirs.Workspace = filepath.Join(workDir, fmt.Sprintf("/%s/%s/%s/%s", e.Job.ProjectName, e.Job.WorkflowName, fmt.Sprintf("task-%d", e.Job.TaskID), e.Job.JobName))
+		e.Dirs.Workspace = filepath.Join(workDir, fmt.Sprintf("/%s/%s/%s/%s", e.Job.ProjectName, e.Job.WorkflowName, fmt.Sprintf("%d", e.Job.TaskID), e.Job.JobName))
 	}
 
 	// ------------------------------------------------- init cache dir -------------------------------------------------
@@ -328,24 +328,32 @@ func (e *JobExecutor) AfterExecute() error {
 	}
 
 	// ------------------------------------------------ report all job log ----------------------------------------------
-	for logStr, EOFErr, err := e.Reporter.GetJobLog(); err == nil; {
-		resp, err := e.Reporter.ReportWithData(
-			&types.JobExecuteResult{
-				JobInfo: e.JobResult.JobInfo,
-				Status:  e.JobResult.Status,
-				Log:     logStr,
-				Error:   e.JobResult.Error,
-			})
-		if err != nil {
-			log.Errorf("report workflow %s job %s log error: %v", e.Job.WorkflowName, e.Job.JobName, err)
-			return nil
-		}
-		if resp != nil && (resp.JobStatus == common.StatusCancelled.String() || resp.JobStatus == common.StatusTimeout.String()) {
-			*e.Cancel = true
-			return nil
-		}
+	for {
+		logStr, EOFErr, err := e.Reporter.GetJobLog()
+		if err == nil {
+			resp, err := e.Reporter.ReportWithData(
+				&types.JobExecuteResult{
+					JobInfo: e.JobResult.JobInfo,
+					Status:  e.JobResult.Status,
+					Log:     logStr,
+					Error:   e.JobResult.Error,
+				})
+			if err != nil {
+				log.Errorf("report workflow %s job %s log error: %v", e.Job.WorkflowName, e.Job.JobName, err)
+				return nil
+			}
 
-		if EOFErr {
+			if resp != nil && (resp.JobStatus == common.StatusCancelled.String() || resp.JobStatus == common.StatusTimeout.String()) {
+				*e.Cancel = true
+				return nil
+			}
+
+			if EOFErr {
+				log.Infof("report workflow %s job %s log finished", e.Job.WorkflowName, e.Job.JobName)
+				break
+			}
+		} else {
+			log.Errorf("failed to get job log, error: %s", err)
 			break
 		}
 	}

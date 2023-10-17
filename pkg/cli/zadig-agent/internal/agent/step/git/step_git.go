@@ -141,7 +141,9 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 
 	if _, err := os.Stat(workDir); os.IsNotExist(err) {
 		err = os.MkdirAll(workDir, 0777)
-		s.Logger.Errorf("Failed to create dir %s: %s", workDir, err)
+		if err != nil {
+			s.Logger.Errorf("Failed to create dir %s: %v", workDir, err)
+		}
 	}
 
 	// 预防非正常退出导致git被锁住
