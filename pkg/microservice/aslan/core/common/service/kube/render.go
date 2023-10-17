@@ -513,8 +513,7 @@ func GenerateRenderedYaml(option *GeneSvcYamlOption) (string, int, []*WorkloadRe
 		svcContainersInProduct = CalculateContainer(curProductSvc, prodSvcTemplate, latestSvcTemplate.Containers, productInfo)
 	}
 
-	renderVariableKVs := []*commontypes.RenderVariableKV{}
-	renderVariableKVs = serviceRender.OverrideYaml.RenderVariableKVs
+	renderVariableKVs := serviceRender.OverrideYaml.RenderVariableKVs
 
 	// merge service template, renderset and option variables
 	templVariableKV := commontypes.ServiceToRenderVariableKVs(latestSvcTemplate.ServiceVariableKVs)
