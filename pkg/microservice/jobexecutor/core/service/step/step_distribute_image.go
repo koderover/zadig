@@ -27,6 +27,7 @@ import (
 	"github.com/regclient/regclient"
 	"github.com/regclient/regclient/config"
 	"github.com/regclient/regclient/types/ref"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -58,7 +59,9 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 		return errors.New("image registry infos are missing")
 	}
 	hostsOpt := regclient.WithConfigHosts([]config.Host{getDockerHost(s.spec.SourceRegistry), getDockerHost(s.spec.TargetRegistry)})
-	client := regclient.New(hostsOpt)
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+	client := regclient.New(hostsOpt, regclient.WithLog(logger))
 
 	errList := new(multierror.Error)
 	wg := sync.WaitGroup{}
