@@ -21,6 +21,7 @@ import (
 
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type Product struct {
@@ -168,6 +169,10 @@ type ProductFeature struct {
 }
 
 func (p *ProductFeature) GetDeployType() string {
+	if p == nil {
+		log.Errorf("product feature is nil")
+		return setting.K8SDeployType
+	}
 	var deployType string
 	if p.CreateEnvType == "external" {
 		deployType = "external"
