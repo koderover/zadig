@@ -171,47 +171,50 @@ func readFileToString(filePath string) (string, error) {
 }
 
 // ReadByRowNum TODO: 需要优化，按行读取io过多效率低
-func (l *JobLogger) ReadByRowNum(offset, num uint) ([]byte, uint, bool, error) {
+func (l *JobLogger) ReadByRowNum(offset, curNum, num int64) ([]byte, int64, int64, bool, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	var EOFErr bool
 
 	file, err := os.OpenFile(l.logPath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
-	defer file.Close()
-
 	if err != nil {
 		Panicf("failed to open log file: %s", err)
+	}
+	defer file.Close()
+
+	// Seek to the beginning of the file
+	_, err = file.Seek(offset, 0)
+	if err != nil {
+		return nil, 0, 0, false, fmt.Errorf("failed to seek to the beginning of the file: %v", err)
 	}
 
 	// Create a buffered reader
 	reader := bufio.NewReader(file)
 
 	// Counter to track the current line number
-	lineCount := uint(0)
+	lineCount := int64(0)
 
 	// Buffer to store the read lines
 	var resultBuffer bytes.Buffer
 
 	// Read the file line by line until reaching the specified line count or end of file
-	for lineCount < offset+num {
+	for lineCount < curNum+num {
 		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				EOFErr = true
-				break // End of file
+		if err == nil || err == io.EOF {
+			// If the current line number is within the specified range, append the line data to the result buffer
+			if lineCount >= curNum {
+				resultBuffer.WriteString(line)
+				offset += int64(len(line))
 			}
-			return nil, 0, EOFErr, fmt.Errorf("failed to read log line: %v", err)
-		}
+			lineCount++
 
-		// If the current line number is within the specified range, append the line data to the result buffer
-		if lineCount >= offset {
-			resultBuffer.WriteString(line)
+			if err == io.EOF {
+				return resultBuffer.Bytes(), offset, lineCount, true, nil
+			}
+		} else {
+			return resultBuffer.Bytes(), offset, lineCount, false, fmt.Errorf("failed to read log line: %v", err)
 		}
-
-		lineCount++
 	}
-
-	return resultBuffer.Bytes(), lineCount, EOFErr, nil
+	return resultBuffer.Bytes(), offset, lineCount, false, nil
 }
 
 func (l *JobLogger) GetLogfilePath() string {
