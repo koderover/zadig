@@ -92,6 +92,11 @@ func (c *controller) Init(ctx context.Context) error {
 						log.Errorf("convert interface to struct error: %v", err)
 						return
 					}
+					b1, _ := json.MarshalIndent(resp[0].Task.Services, "", "  ")
+					b2, _ := json.MarshalIndent(pipelineTask.Services, "", "  ")
+					log.Infof("b1: %s", string(b1))
+					log.Infof("b2: %s", string(b2))
+
 					log.Infof("receiving pipeline task %s:%d message", pipelineTask.PipelineName, pipelineTask.TaskID)
 					h := &ExecHandler{
 						AckID: 0,
