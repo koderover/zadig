@@ -339,6 +339,10 @@ RoleLoop:
 					verb = "get_test_detail"
 				}
 
+				if verb == "run_test" && role.Namespace == "*" {
+					continue
+				}
+
 				if _, ok := actionIDMap[verb]; !ok {
 					action, err := orm.GetActionByVerb(verb, repository.DB)
 					if err != nil {
