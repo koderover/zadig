@@ -53,17 +53,9 @@ func (c *EnvVersionColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "env_name", Value: 1},
 				bson.E{Key: "production", Value: 1},
 				bson.E{Key: "service.service_name", Value: 1},
-			},
-			Options: options.Index().SetUnique(false),
-		},
-		{
-			Keys: bson.D{
-				bson.E{Key: "product_name", Value: 1},
-				bson.E{Key: "env_name", Value: 1},
-				bson.E{Key: "production", Value: 1},
 				bson.E{Key: "service.release_name", Value: 1},
 			},
-			Options: options.Index().SetUnique(false),
+			Options: options.Index().SetUnique(false).SetName("idx_service"),
 		},
 		{
 			Keys: bson.D{
@@ -71,19 +63,10 @@ func (c *EnvVersionColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "env_name", Value: 1},
 				bson.E{Key: "production", Value: 1},
 				bson.E{Key: "service.service_name", Value: 1},
-				bson.E{Key: "revision", Value: 1},
-			},
-			Options: options.Index().SetUnique(true),
-		},
-		{
-			Keys: bson.D{
-				bson.E{Key: "product_name", Value: 1},
-				bson.E{Key: "env_name", Value: 1},
-				bson.E{Key: "production", Value: 1},
 				bson.E{Key: "service.release_name", Value: 1},
 				bson.E{Key: "revision", Value: 1},
 			},
-			Options: options.Index().SetUnique(true),
+			Options: options.Index().SetUnique(true).SetName("idx_service_revision"),
 		},
 	}
 

@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -34,10 +33,8 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/helmclient"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
-	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 type ListEnvServiceVersionsResponse struct {
@@ -98,11 +95,6 @@ func GetEnvServiceVersionYaml(ctx *internalhandler.Context, projectName, envName
 		resp.Yaml = parsedYaml
 		resp.VariableYaml = envSvcRevision.Service.Render.GetOverrideYaml()
 	} else if envSvcRevision.Service.Type == setting.HelmDeployType {
-		// containers := kube.CalculateContainer(productSvc, curUsedSvc, latestSvc.Containers, productInfo)
-		// for _, container := range containers {
-		// 	images = append(images, container.Image)
-		// }
-
 		resp.VariableYaml, err = kube.GeneMergedValues(envSvcRevision.Service, envSvcRevision.Service.GetServiceRender(), envSvcRevision.DefaultValues, nil, true)
 		if err != nil {
 			return resp, e.ErrDiffEnvServiceVersions.AddErr(fmt.Errorf("failed to merged values for %s/%s/%s service for version %d, isProduction %v, error: %v", projectName, envName, serviceName, revision, isProduction, err))
@@ -304,93 +296,93 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			}
 		}
 
-		if env.DefaultValues != "" {
-			mergedValues, err := helmtool.MergeOverrideValues("", envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, nil)
-			if err != nil {
-				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge service %s's override yaml %s and values %s, err: %s", envSvcVersion.Service.ServiceName, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, err))
-			}
+		// if env.DefaultValues != "" {
+		// 	mergedValues, err := helmtool.MergeOverrideValues("", envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, nil)
+		// 	if err != nil {
+		// 		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge service %s's override yaml %s and values %s, err: %s", envSvcVersion.Service.ServiceName, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, err))
+		// 	}
 
-			mergedValuesFlatMap, err := converter.YamlToFlatMap([]byte(mergedValues))
-			if err != nil {
-				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert mergedSvcValues to flatMap, err: %s", err))
-			}
-			defaultValuesFlatMap, err := converter.YamlToFlatMap([]byte(env.DefaultValues))
-			if err != nil {
-				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert defaultValues to flatMap, err: %s", err))
-			}
+		// 	mergedValuesFlatMap, err := converter.YamlToFlatMap([]byte(mergedValues))
+		// 	if err != nil {
+		// 		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert mergedSvcValues to flatMap, err: %s", err))
+		// 	}
+		// 	defaultValuesFlatMap, err := converter.YamlToFlatMap([]byte(env.DefaultValues))
+		// 	if err != nil {
+		// 		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert defaultValues to flatMap, err: %s", err))
+		// 	}
 
-			// in current env's defaultValues, but not in service's mergedValues, add it to needToAddValues
-			needToAddValuesFlatMap := make(map[string]interface{})
-			for defaultKey, defaultValue := range defaultValuesFlatMap {
-				if _, ok := mergedValuesFlatMap[defaultKey]; !ok {
-					needToAddValuesFlatMap[defaultKey] = defaultValue
-				}
-			}
+		// 	// in current env's defaultValues, but not in service's mergedValues, add it to needToAddValues
+		// 	needToAddValuesFlatMap := make(map[string]interface{})
+		// 	for defaultKey, defaultValue := range defaultValuesFlatMap {
+		// 		if _, ok := mergedValuesFlatMap[defaultKey]; !ok {
+		// 			needToAddValuesFlatMap[defaultKey] = defaultValue
+		// 		}
+		// 	}
 
-			if envSvcVersion.Service.Type == setting.HelmDeployType {
-				svcTmplValuesFlatMap, err := converter.YamlToFlatMap([]byte(svcTmpl.HelmChart.ValuesYaml))
-				if err != nil {
-					return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert template service %s's values yaml to flatMap, err: %v", svcTmpl.ServiceName, err))
-				}
-				for key, value := range needToAddValuesFlatMap {
-					if v, ok := svcTmplValuesFlatMap[key]; !ok {
-						// in needToAddValues, but not in service's chart values, add it to mergedValues and set value from needToAddValues
-						mergedValuesFlatMap[key] = value
-					} else {
-						// in needToAddValues, and in service's chart values, add it to mergedValues and set value from template serivce values
-						mergedValuesFlatMap[key] = v
-					}
-				}
-			} else if envSvcVersion.Service.Type == setting.HelmChartDeployType {
-				chartRepoName := envSvcVersion.Service.GetServiceRender().ChartRepo
-				chartName := envSvcVersion.Service.GetServiceRender().ChartName
-				chartVersion := envSvcVersion.Service.GetServiceRender().ChartVersion
-				chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: chartRepoName})
-				if err != nil {
-					return fmt.Errorf("failed to query chart-repo info, productName: %s, repoName: %s", env.ProductName, chartRepoName)
-				}
+		// 	if envSvcVersion.Service.Type == setting.HelmDeployType {
+		// 		svcTmplValuesFlatMap, err := converter.YamlToFlatMap([]byte(svcTmpl.HelmChart.ValuesYaml))
+		// 		if err != nil {
+		// 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert template service %s's values yaml to flatMap, err: %v", svcTmpl.ServiceName, err))
+		// 		}
+		// 		for key, value := range needToAddValuesFlatMap {
+		// 			if v, ok := svcTmplValuesFlatMap[key]; !ok {
+		// 				// in needToAddValues, but not in service's chart values, add it to mergedValues and set value from needToAddValues
+		// 				mergedValuesFlatMap[key] = value
+		// 			} else {
+		// 				// in needToAddValues, and in service's chart values, add it to mergedValues and set value from template serivce values
+		// 				mergedValuesFlatMap[key] = v
+		// 			}
+		// 		}
+		// 	} else if envSvcVersion.Service.Type == setting.HelmChartDeployType {
+		// 		chartRepoName := envSvcVersion.Service.GetServiceRender().ChartRepo
+		// 		chartName := envSvcVersion.Service.GetServiceRender().ChartName
+		// 		chartVersion := envSvcVersion.Service.GetServiceRender().ChartVersion
+		// 		chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: chartRepoName})
+		// 		if err != nil {
+		// 			return fmt.Errorf("failed to query chart-repo info, productName: %s, repoName: %s", env.ProductName, chartRepoName)
+		// 		}
 
-				hClient, err := helmclient.NewClient()
-				if err != nil {
-					return err
-				}
+		// 		hClient, err := helmclient.NewClient()
+		// 		if err != nil {
+		// 			return err
+		// 		}
 
-				valuesYaml, err := hClient.GetChartValues(commonutil.GeneHelmRepo(chartRepo), env.ProductName, serviceName, chartRepoName, chartName, chartVersion)
-				if err != nil {
-					return fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", chartRepoName, chartName, chartVersion, err)
-				}
-				valuesYamlFlatMap, err := converter.YamlToFlatMap([]byte(valuesYaml))
-				if err != nil {
-					return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert mergedSvcValues to flatMap, err: %s", err))
-				}
+		// 		valuesYaml, err := hClient.GetChartValues(commonutil.GeneHelmRepo(chartRepo), env.ProductName, serviceName, chartRepoName, chartName, chartVersion)
+		// 		if err != nil {
+		// 			return fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", chartRepoName, chartName, chartVersion, err)
+		// 		}
+		// 		valuesYamlFlatMap, err := converter.YamlToFlatMap([]byte(valuesYaml))
+		// 		if err != nil {
+		// 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to convert mergedSvcValues to flatMap, err: %s", err))
+		// 		}
 
-				for key, value := range needToAddValuesFlatMap {
-					if v, ok := valuesYamlFlatMap[key]; !ok {
-						// in needToAddValues, but not in service's chart values, add it to mergedValues and set value from needToAddValues
-						mergedValuesFlatMap[key] = value
-					} else {
-						// in needToAddValues, and in service's chart values, add it to mergedValues and set value from chart values
-						mergedValuesFlatMap[key] = v
-					}
-				}
-			}
+		// 		for key, value := range needToAddValuesFlatMap {
+		// 			if v, ok := valuesYamlFlatMap[key]; !ok {
+		// 				// in needToAddValues, but not in service's chart values, add it to mergedValues and set value from needToAddValues
+		// 				mergedValuesFlatMap[key] = value
+		// 			} else {
+		// 				// in needToAddValues, and in service's chart values, add it to mergedValues and set value from chart values
+		// 				mergedValuesFlatMap[key] = v
+		// 			}
+		// 		}
+		// 	}
 
-			mergedValuesByte, err := yaml.Marshal(mergedValuesFlatMap)
-			if err != nil {
-				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to mashal mergedValuesFlatMap, err: %s", err))
-			}
+		// 	mergedValuesByte, err := yaml.Marshal(mergedValuesFlatMap)
+		// 	if err != nil {
+		// 		return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to mashal mergedValuesFlatMap, err: %s", err))
+		// 	}
 
-			envSvcVersion.Service.GetServiceRender().OverrideYaml.YamlContent = string(mergedValuesByte)
-			envSvcVersion.Service.GetServiceRender().OverrideValues = ""
-		} else {
-			mergedValues, err := helmtool.MergeOverrideValues("", envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, nil)
-			if err != nil {
-				return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge service %s's override yaml %s and values %s, err: %s", envSvcVersion.Service.ServiceName, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, err))
-			}
-
-			envSvcVersion.Service.GetServiceRender().OverrideYaml.YamlContent = mergedValues
-			envSvcVersion.Service.GetServiceRender().OverrideValues = ""
+		// 	envSvcVersion.Service.GetServiceRender().OverrideYaml.YamlContent = string(mergedValuesByte)
+		// 	envSvcVersion.Service.GetServiceRender().OverrideValues = ""
+		// } else {
+		mergedValues, err := helmtool.MergeOverrideValues("", envSvcVersion.DefaultValues, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, nil)
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to merge service %s's override yaml %s and values %s, err: %s", envSvcVersion.Service.ServiceName, envSvcVersion.Service.GetServiceRender().GetOverrideYaml(), envSvcVersion.Service.GetServiceRender().OverrideValues, err))
 		}
+
+		envSvcVersion.Service.GetServiceRender().OverrideYaml.YamlContent = mergedValues
+		envSvcVersion.Service.GetServiceRender().OverrideValues = ""
+		// }
 
 		err = kube.UpgradeHelmRelease(env, envSvcVersion.Service, svcTmpl, nil, 0, ctx.UserName)
 		if err != nil {
