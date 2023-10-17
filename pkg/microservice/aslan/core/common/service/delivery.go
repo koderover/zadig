@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -459,7 +460,8 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 			return "", fmt.Errorf("service template %s error: %v", serviceName, err)
 		}
 
-		log.Debugf("svcTmpl.Yaml: %s\nproductName: %s\nserviceName: %s\nserviceInfo: %v\n", svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, serviceInfo.GetServiceRender())
+		b, _ := json.MarshalIndent(serviceInfo.GetServiceRender(), "", "  ")
+		log.Debugf("svcTmpl.Yaml: %s\nproductName: %s\nserviceName: %s\nserviceInfo: %v\n", svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, string(b))
 		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, serviceInfo.GetServiceRender())
 		if err != nil {
 			log.Errorf("RenderServiceYaml failed, err: %s", err)
