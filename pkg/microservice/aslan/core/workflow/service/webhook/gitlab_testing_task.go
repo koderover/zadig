@@ -169,7 +169,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					mErr = multierror.Append(mErr, err)
 				} else if matches {
 					log.Infof("event match hook %v of %s", item.MainRepo, testing.Name)
-					var mergeRequestID, commitID, branch, ref, eventType string
+					var mergeRequestID, commitID, ref, eventType string
 					var prID int
 					autoCancelOpt := &AutoCancelOpt{
 						TaskType: config.TestType,
@@ -181,7 +181,6 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 						eventType = EventTypePR
 						mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
 						commitID = ev.ObjectAttributes.LastCommit.ID
-						branch = ev.ObjectAttributes.TargetBranch
 						prID = ev.ObjectAttributes.IID
 						autoCancelOpt.MergeRequestID = mergeRequestID
 						autoCancelOpt.CommitID = commitID
