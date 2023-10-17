@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
 	"github.com/koderover/zadig/pkg/setting"
@@ -291,14 +292,14 @@ type ArtifactPackageTaskArgs struct {
 }
 
 type ProductService struct {
-	ServiceName string           `bson:"service_name"               json:"service_name"`
-	ProductName string           `bson:"product_name"               json:"product_name"`
-	Type        string           `bson:"type"                       json:"type"`
-	Revision    int64            `bson:"revision"                   json:"revision"`
-	Containers  []*Container     `bson:"containers"                 json:"containers,omitempty"`
-	Configs     []*ServiceConfig `bson:"configs,omitempty"          json:"configs,omitempty"`
-	Render      *RenderInfo      `bson:"render,omitempty"           json:"render,omitempty"` // 记录每个服务render信息 便于更新单个服务
-	EnvConfigs  []*EnvConfig     `bson:"-"                          json:"env_configs,omitempty"`
+	ServiceName string                        `bson:"service_name"               json:"service_name"`
+	ProductName string                        `bson:"product_name"               json:"product_name"`
+	Type        string                        `bson:"type"                       json:"type"`
+	Revision    int64                         `bson:"revision"                   json:"revision"`
+	Containers  []*Container                  `bson:"containers"                 json:"containers,omitempty"`
+	Configs     []*ServiceConfig              `bson:"configs,omitempty"          json:"configs,omitempty"`
+	Render      *templatemodels.ServiceRender `bson:"render,omitempty"           json:"render,omitempty"` // 记录每个服务render信息 便于更新单个服务
+	EnvConfigs  []*EnvConfig                  `bson:"-"                          json:"env_configs,omitempty"`
 }
 
 type Container struct {
