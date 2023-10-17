@@ -234,6 +234,7 @@ type TestTaskArgs struct {
 	RepoNamespace  string `bson:"repo_namespace"   json:"repo_namespace"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
 	Ref            string `bson:"ref" json:"ref"`
+	Branch         string `bson:"branch" json:"branch"`
 	EventType      string `bson:"event_type" json:"event_type"`
 }
 
