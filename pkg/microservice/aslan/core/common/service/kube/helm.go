@@ -306,15 +306,15 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 		return err
 	}
 
+	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, log.SugaredLogger())
+	if err != nil {
+		log.Errorf("failed to create helm service version, err: %v", err)
+	}
+
 	// when replace image, should not wait
 	err = InstallOrUpgradeHelmChartWithValues(param, false, helmClient)
 	if err != nil {
 		return err
-	}
-
-	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, log.SugaredLogger())
-	if err != nil {
-		log.Errorf("failed to create helm service version, err: %v", err)
 	}
 
 	// select product info and render info from db, in case of concurrent update caused data override issue

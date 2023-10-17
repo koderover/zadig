@@ -274,6 +274,11 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		}
 	}
 
+	// err := commonutil.CreateEnvServiceVersion(env, env.GetServiceMap()[c.jobTaskSpec.ServiceName], c.workflowCtx.WorkflowTaskCreatorUsername, log.SugaredLogger())
+	// if err != nil {
+	// 	log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
+	// }
+
 	unstructuredList, err := kube.CreateOrPatchResource(&kube.ResourceApplyParam{
 		ServiceName:         c.jobTaskSpec.ServiceName,
 		CurrentResourceYaml: currentYaml,

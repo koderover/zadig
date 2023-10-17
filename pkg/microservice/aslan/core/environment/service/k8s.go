@@ -200,6 +200,10 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	if previewResult.Current.Yaml == previewResult.Latest.Yaml {
 		k.log.Infof("[%s][P:%s] Service yaml is not changed", args.EnvName, args.ProductName)
 	} else {
+		if err := commonutil.CreateEnvServiceVersion(exitedProd, newProductSvc, args.UpdateBy, k.log); err != nil {
+			k.log.Errorf("[%s][%s] Product.CreateEnvServiceVersion for service %s error: %v", args.EnvName, args.ProductName, args.ServiceName, err)
+		}
+
 		_, err = upsertService(
 			exitedProd,
 			newProductSvc,
@@ -234,10 +238,6 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	if err := commonrepo.NewProductColl().UpdateGlobalVariable(exitedProd); err != nil {
 		k.log.Errorf("[%s][%s] Product.UpdateGlobalVariable error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrUpdateProduct
-	}
-
-	if err := commonutil.CreateEnvServiceVersion(exitedProd, newProductSvc, args.UpdateBy, k.log); err != nil {
-		k.log.Errorf("[%s][%s] Product.CreateEnvServiceVersion for service %s error: %v", args.EnvName, args.ProductName, args.ServiceName, err)
 	}
 
 	return nil
@@ -631,6 +631,12 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
+
+			err = commonutil.CreateEnvServiceVersion(product, svc, username, k.log)
+			if err != nil {
+				log.Errorf("failed to create env service version for service %s/%s, error: %v", product.EnvName, svc.ServiceName, err)
+			}
+
 			items, err := upsertService(prod, svc, svc, !prod.Production, informer, kubeClient, istioClient, k.log)
 			if err != nil {
 				lock.Lock()
@@ -642,11 +648,6 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 				}
 				svc.Error = err.Error()
 				lock.Unlock()
-			}
-
-			err = commonutil.CreateEnvServiceVersion(product, svc, username, k.log)
-			if err != nil {
-				log.Errorf("failed to create env service version for service %s/%s, error: %v", product.EnvName, svc.ServiceName, err)
 			}
 
 			//  concurrent array append

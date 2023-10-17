@@ -115,6 +115,16 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 		commonservice.LogProductStats(namespace, setting.UpdateContainerImageEvent, args.ProductName, requestID, eventStart, log)
 	}()
 
+	prodSvc := product.GetServiceMap()[args.ServiceName]
+	if prodSvc == nil {
+		return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("服务 %s 不存在", args.ServiceName))
+	}
+
+	err = commonutil.CreateEnvServiceVersion(product, prodSvc, username, log)
+	if err != nil {
+		log.Errorf("create env service version for %s/%s error: %v", product.EnvName, prodSvc.ServiceName, err)
+	}
+
 	// update service in helm way
 	if product.Source == setting.HelmDeployType {
 		serviceName, err := commonservice.GetHelmServiceName(product, args.Type, args.Name, kubeClient, version)
@@ -147,10 +157,6 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 		}
 
 		// update image info in product.services.container
-		prodSvc := product.GetServiceMap()[args.ServiceName]
-		if prodSvc == nil {
-			return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("服务 %s 不存在", args.ServiceName))
-		}
 		prodSvc.UpdateTime = time.Now().Unix()
 		for _, container := range prodSvc.Containers {
 			if container.Name == args.ContainerName {
@@ -162,11 +168,6 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 		if err := commonrepo.NewProductColl().Update(product); err != nil {
 			log.Errorf("[%s] update product %s error: %s", namespace, args.ProductName, err.Error())
 			return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
-		}
-
-		err = commonutil.CreateEnvServiceVersion(product, prodSvc, username, log)
-		if err != nil {
-			log.Errorf("create env service version for %s/%s error: %v", product.EnvName, prodSvc.ServiceName, err)
 		}
 	}
 	return nil

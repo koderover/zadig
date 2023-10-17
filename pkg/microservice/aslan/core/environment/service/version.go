@@ -222,6 +222,11 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
 
+		err = commonutil.CreateEnvServiceVersion(env, envSvcVersion.Service, ctx.UserName, log)
+		if err != nil {
+			log.Errorf("failed to create env service version for service %s/%s, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, err)
+		}
+
 		resourceApplyParam := &kube.ResourceApplyParam{
 			ProductInfo:         env,
 			ServiceName:         envSvcVersion.Service.ServiceName,
@@ -239,11 +244,6 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		_, err = kube.CreateOrPatchResource(resourceApplyParam, log)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to create or patch resource for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
-		}
-
-		err = commonutil.CreateEnvServiceVersion(env, envSvcVersion.Service, ctx.UserName, log)
-		if err != nil {
-			log.Errorf("failed to create env service version for service %s/%s, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, err)
 		}
 
 		groupIndex := -1

@@ -464,6 +464,11 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						return
 					}
 
+					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, log)
+					if err != nil {
+						log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
+					}
+
 					_, errUpsertService := upsertService(
 						updateProd,
 						service,
@@ -474,12 +479,6 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 					} else {
 						service.Error = ""
 					}
-
-					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, log)
-					if err != nil {
-						log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
-					}
-
 				}(prodServiceGroup[svcIndex])
 			}
 		}
@@ -2770,11 +2769,6 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 				if err != nil {
 					param.ProdService.Error = err.Error()
 				} else {
-					err = commonutil.CreateEnvServiceVersion(productResp, param.ProdService, user, log)
-					if err != nil {
-						log.Errorf("failed to create service version, err: %v", err)
-					}
-
 					param.ProdService.Error = ""
 				}
 			}
@@ -2800,6 +2794,11 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 			if err != nil {
 				return fmt.Errorf("failed to download chart, chartName: %s, chartRepo: %+v, err: %s", param.RenderChart.ChartName, chartRepo.RepoName, err)
 			}
+		}
+
+		err = commonutil.CreateEnvServiceVersion(productResp, param.ProdService, user, log)
+		if err != nil {
+			log.Errorf("failed to create service version, err: %v", err)
 		}
 
 		errInstall := kube.InstallOrUpgradeHelmChartWithValues(param, isRetry, helmClient)
