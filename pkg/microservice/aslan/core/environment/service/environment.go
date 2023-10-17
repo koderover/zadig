@@ -2443,10 +2443,12 @@ func buildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 		replaceValuesMaps := make([]map[string]interface{}, 0)
 		for _, targetContainer := range targetContainers {
 			// prepare image replace info
+			log.Infof("------------ image path: %s, container name: %s", targetContainer.ImagePath, targetContainer.Name)
 			replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, kube.GetValidMatchData(targetContainer.ImagePath))
 			if err != nil {
 				return nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, productSvc.ServiceName, err.Error())
 			}
+			log.Infof("--------- replace values map is %v", replaceValuesMap)
 			replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
 		}
 
@@ -2849,6 +2851,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 			if !commonutil.ChartDeployed(chartInfo, productResp.ServiceDeployStrategy) {
 				continue
 			}
+
 			param, err := buildInstallParam(productResp.DefaultValues, productResp, chartInfo, prodSvc)
 			if err != nil {
 				log.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", prodSvc.ServiceName, productResp.Namespace, err)
