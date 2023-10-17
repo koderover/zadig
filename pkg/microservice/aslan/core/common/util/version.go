@@ -34,7 +34,6 @@ func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService
 
 		releaseName := util.GeneReleaseName(tmplSvc.GetReleaseNaming(), env.ProductName, env.Namespace, env.EnvName, tmplSvc.ServiceName)
 		prodSvc.ReleaseName = releaseName
-		log.Debugf("prodSvc: %+v", prodSvc)
 	}
 
 	revision, err := GenerateEnvServiceNextRevision(env.ProductName, env.EnvName, name, isHelmChart)
@@ -59,7 +58,7 @@ func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService
 		return fmt.Errorf("failed to create service %s/%s/%s version %d, error: %v", env.ProductName, env.EnvName, name, revision, err)
 	}
 
-	log.Infof("Create environment service version for %s/%s/%s revision %d", env.ProductName, env.EnvName, name, revision)
+	log.Infof("Create environment service version for %s/%s/%s revision %d, isHelmChart %v", env.ProductName, env.EnvName, name, revision, isHelmChart)
 
 	if revision > 20 {
 		// delete old version
