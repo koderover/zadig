@@ -459,6 +459,7 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 			return "", fmt.Errorf("service template %s error: %v", serviceName, err)
 		}
 
+		log.Debugf("svcTmpl.Yaml: %s\nproductName: %s\nserviceName: %s\nserviceInfo: %v\n", svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, serviceInfo.GetServiceRender())
 		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, serviceInfo.GetServiceRender())
 		if err != nil {
 			log.Errorf("RenderServiceYaml failed, err: %s", err)
