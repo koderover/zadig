@@ -109,6 +109,10 @@ var (
 	ErrValidateServiceUpdate = NewHTTPError(6057, "更新服务配置失败")
 	// ErrChartDryRun
 	ErrHelmDryRunFailed = NewHTTPError(6058, "helm chart --dry-run 失败，服务保存不成功")
+	ErrListServiceTemplateVersions = NewHTTPError(6059, "列出服务模版版本失败")
+	// FIXME: run out of error code
+	ErrDiffServiceTemplateVersions = NewHTTPError(6040, "Diff服务模版版本失败")
+	ErrRollbackServiceTemplateVersion = NewHTTPError(6041, "回滚服务模版版本失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product APIs Range: 6060 - 6079
@@ -170,6 +174,9 @@ var (
 	ErrCreateProjectGroup = NewHTTPError(6077, "创建项目分组失败")
 	ErrUpdateProjectGroup = NewHTTPError(6077, "更新项目分组失败")
 	ErrDeleteProjectGroup = NewHTTPError(6077, "删除项目分组失败")
+	ErrListEnvServiceVersions = NewHTTPError(6079, "列出环境服务版本失败")
+	ErrDiffEnvServiceVersions = NewHTTPError(6079, "Diff环境服务版本失败")
+	ErrRollbackEnvServiceVersion = NewHTTPError(6079, "回滚环境服务版本失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product Service APIs Range: 6080 - 6099 AND 6150 -6199

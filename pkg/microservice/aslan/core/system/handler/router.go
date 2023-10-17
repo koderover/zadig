@@ -89,6 +89,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		cleanCache.POST("/cron", SetCron)
 	}
 
+	// security and privacy settings
+	security := router.Group("security")
+	{
+		security.POST("", CreateOrUpdateSecuritySettings)
+		security.GET("", GetSecuritySettings)
+	}
+
 	// ---------------------------------------------------------------------------------------
 	// jenkins集成接口以及jobs和buildWithParameters接口
 	// ---------------------------------------------------------------------------------------

@@ -122,11 +122,22 @@ type HeartbeatRequest struct {
 }
 
 type HeartbeatResponse struct {
-	NeedOffline            bool   `json:"need_offline"`
-	NeedUpdateAgentVersion bool   `json:"need_update_agent_version"`
-	AgentVersion           string `json:"agent_version"`
-	ScheduleWorkflow       bool   `json:"schedule_workflow"`
-	WorkDir                string `json:"work_dir"`
+	NeedOffline            bool         `json:"need_offline"`
+	NeedUpdateAgentVersion bool         `json:"need_update_agent_version"`
+	AgentVersion           string       `json:"agent_version"`
+	ScheduleWorkflow       bool         `json:"schedule_workflow"`
+	WorkDir                string       `json:"work_dir"`
+	Concurrency            int          `json:"concurrency"`
+	CacheType              string       `json:"cache_type"`
+	CachePath              string       `json:"cache_path"`
+	Object                 ObjectConfig `json:"object"`
+	ServerURL              string       `json:"server_url"`
+	VmName                 string       `json:"vm_name"`
+	Description            string       `json:"description"`
+	ZadigVersion           string       `json:"zadig_version"`
+}
+
+type ObjectConfig struct {
 }
 
 type PollingJobArgs struct {

@@ -184,7 +184,7 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templa
 	replaceValuesMaps := make([]map[string]interface{}, 0)
 	for _, targetContainer := range targetContainers {
 		// prepare image replace info
-		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, GetValidMatchData(targetContainer.ImagePath))
+		replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(targetContainer.ImagePath))
 		if err != nil {
 			return "", fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, serviceName, err.Error())
 		}
@@ -227,32 +227,28 @@ func GeneMergedValues(productSvc *commonmodels.ProductService, svcRender *templa
 	return mergedValuesYaml, nil
 }
 
+// @todo merge with proceedHelmRelease
 // UpgradeHelmRelease upgrades helm release with some specific images
 func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.ProductService,
-	svcTemp *commonmodels.Service, images []string, timeout int) error {
-
-	chartInfoMap := product.GetChartRenderMap()
-	chartDeployInfoMap := product.GetChartDeployRenderMap()
+	svcTemp *commonmodels.Service, images []string, timeout int, user string) error {
+	chartInfo := productSvc.GetServiceRender()
 
 	var (
 		err                      error
 		releaseName              string
 		replacedMergedValuesYaml string
-		chartInfo                *templatemodels.ServiceRender
 	)
 
 	if productSvc.FromZadig() {
 		releaseName = util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName)
-		chartInfo = chartInfoMap[productSvc.ServiceName]
 		replacedMergedValuesYaml, err = GeneMergedValues(productSvc, chartInfo, product.DefaultValues, images, false)
 		if err != nil {
 			return fmt.Errorf("failed to gene merged values, err: %s", err)
 		}
 	} else {
 		releaseName = productSvc.ReleaseName
-		chartInfo = chartDeployInfoMap[productSvc.ReleaseName]
 		svcTemp = &commonmodels.Service{
-			ServiceName: productSvc.ReleaseName,
+			ServiceName: releaseName,
 			ProductName: product.ProductName,
 			HelmChart: &commonmodels.HelmChart{
 				Name:    chartInfo.ChartName,
@@ -334,6 +330,11 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 		return err
 	}
 
+	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, log.SugaredLogger())
+	if err != nil {
+		log.Errorf("failed to create helm service version, err: %v", err)
+	}
+
 	// select product info and render info from db, in case of concurrent update caused data override issue
 	// those code can be optimized if MongoDB version are newer than 4.0
 	newProductInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: product.ProductName, EnvName: product.EnvName})
@@ -344,13 +345,10 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 	productSvcMap := newProductInfo.GetServiceMap()
 	productChartSvcMap := newProductInfo.GetChartServiceMap()
 	if productSvc.FromZadig() {
-		productSvcMap[productSvc.ServiceName] = product.GetServiceMap()[productSvc.ServiceName]
+		productSvcMap[productSvc.ServiceName] = productSvc
 		productSvcMap[productSvc.ServiceName].UpdateTime = time.Now().Unix()
 	} else {
-		productChartSvcMap[productSvc.ReleaseName] = product.GetChartServiceMap()[productSvc.ReleaseName]
-		if productChartSvcMap[productSvc.ReleaseName] == nil {
-			productChartSvcMap[productSvc.ReleaseName] = productSvc
-		}
+		productChartSvcMap[productSvc.ReleaseName] = productSvc
 		productChartSvcMap[productSvc.ReleaseName].UpdateTime = time.Now().Unix()
 	}
 

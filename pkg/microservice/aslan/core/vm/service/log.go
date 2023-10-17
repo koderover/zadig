@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -35,28 +36,31 @@ import (
 )
 
 var VMJobStatus = VMJobStatusMap{
-	StatusMap: make(map[string]struct{}),
+	StatusMap: sync.Map{},
 }
 
 type VMJobStatusMap struct {
-	StatusMap map[string]struct{}
+	StatusMap sync.Map
 }
 
 func (v *VMJobStatusMap) Exist(key string) bool {
-	_, ok := v.StatusMap[key]
+	_, ok := v.StatusMap.Load(key)
 	return ok
 }
 
 func (v *VMJobStatusMap) Set(key string) {
-	v.StatusMap[key] = struct{}{}
+	v.StatusMap.Store(key, struct{}{})
 }
 
 func (v *VMJobStatusMap) Delete(key string) {
-	time.Sleep(2 * time.Second)
-	delete(v.StatusMap, key)
+	v.StatusMap.Delete(key)
 }
 
 func savaVMJobLog(job *vmmodel.VMJob, log string, logger *zap.SugaredLogger) (err error) {
+	if !VMJobStatus.Exist(job.ID.Hex()) && job.Status == string(config.StatusRunning) {
+		VMJobStatus.Set(job.ID.Hex())
+	}
+
 	var file string
 	if job != nil && job.LogFile == "" && log != "" {
 		file, err = util.CreateFileInCurrentDir(job.ID.Hex())
@@ -73,14 +77,12 @@ func savaVMJobLog(job *vmmodel.VMJob, log string, logger *zap.SugaredLogger) (er
 		if err != nil {
 			return fmt.Errorf("failed to write log to file, error: %s", err)
 		}
-
-		if !VMJobStatus.Exist(job.ID.Hex()) {
-			VMJobStatus.Set(job.ID.Hex())
-		}
 	}
 
 	// after the task execution ends, synchronize the logs in the file to s3
 	if job.Status == string(config.StatusCancelled) || job.Status == string(config.StatusTimeout) || job.Status == string(config.StatusFailed) || job.Status == string(config.StatusPassed) {
+		VMJobStatus.Delete(job.ID.Hex())
+
 		if err = uploadVMJobLog2S3(job); err != nil {
 			logger.Errorf("failed to upload job log to s3, project:%s workflow:%s taskID%d error: %s", job.ProjectName, job.WorkflowName, job.TaskID, err)
 			return fmt.Errorf("failed to upload job log to s3, project:%s workflow:%s taskID%d error: %s", job.ProjectName, job.WorkflowName, job.TaskID, err)
@@ -121,7 +123,7 @@ func uploadVMJobLog2S3(job *vmmodel.VMJob) error {
 
 		// remove the log file later
 		util.Go(func() {
-			VMJobStatus.Delete(job.ID.Hex())
+			time.Sleep(5 * time.Second)
 			err = os.Remove(job.LogFile)
 			if err != nil {
 				log.Errorf("Failed to remove vm job log file, error: %v", err)
@@ -129,8 +131,6 @@ func uploadVMJobLog2S3(job *vmmodel.VMJob) error {
 		})
 
 		log.Infof("saveContainerLog s3 upload success, workflowName:%s jobName:%s, taskID:%d", job.WorkflowName, job.JobName, job.TaskID)
-	} else {
-		return fmt.Errorf("saveContainerLog saveFile error: %v", err)
 	}
 
 	return nil

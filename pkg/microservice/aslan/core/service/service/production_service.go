@@ -75,7 +75,7 @@ func ListProductionServices(productName string, log *zap.SugaredLogger) (*servic
 	return resp, nil
 }
 
-func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLogger) (*commonmodels.Service, error) {
+func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLogger) (*commonservice.TemplateSvcResp, error) {
 	serviceObject, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
 		ProductName: productName,
@@ -86,7 +86,11 @@ func GetProductionK8sService(serviceName, productName string, log *zap.SugaredLo
 		log.Errorf("Failed to list services by %+v, err: %s", serviceName, err)
 		return nil, e.ErrGetTemplate.AddDesc(err.Error())
 	}
-	return serviceObject, nil
+	resp := &commonservice.TemplateSvcResp{
+		Service:   serviceObject,
+		Resources: commonservice.GeneSvcStructure(serviceObject),
+	}
+	return resp, nil
 }
 
 func GetProductionK8sServiceOption(serviceName, productName string, log *zap.SugaredLogger) (*ServiceOption, error) {

@@ -325,7 +325,7 @@ func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, req
 
 // TODO need optimize
 // cvm and k8s yaml projects should not be handled together
-func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, filter svcUpgradeFilter, log *zap.SugaredLogger) (err error) {
+func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]string, existedProd, updateProd *commonmodels.Product, filter svcUpgradeFilter, user string, log *zap.SugaredLogger) (err error) {
 	productName := existedProd.ProductName
 	envName := existedProd.EnvName
 	namespace := existedProd.Namespace
@@ -463,6 +463,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						service.Containers = containers
 						return
 					}
+
 					_, errUpsertService := upsertService(
 						updateProd,
 						service,
@@ -473,6 +474,12 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 					} else {
 						service.Error = ""
 					}
+
+					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, log)
+					if err != nil {
+						log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
+					}
+
 				}(prodServiceGroup[svcIndex])
 			}
 		}
@@ -911,27 +918,22 @@ func genImageFromYaml(c *commonmodels.Container, valuesYaml, defaultValues, over
 	return image, nil
 }
 
-func prepareEstimateDataForEnvCreation(productName, serviceName string, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.Service, *commonmodels.RenderSet, error) {
+func prepareEstimateDataForEnvCreation(productName, serviceName string, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (*commonmodels.ProductService, *commonmodels.Service, error) {
 	if isHelmChartDeploy {
 		prodSvc := &commonmodels.ProductService{
 			ServiceName: serviceName,
 			ReleaseName: serviceName,
 			ProductName: productName,
 			Type:        setting.HelmChartDeployType,
-		}
-
-		renderSet := &commonmodels.RenderSet{
-			ChartInfos: []*templatemodels.ServiceRender{
-				{
-					ServiceName:       serviceName,
-					ReleaseName:       serviceName,
-					IsHelmChartDeploy: true,
-					OverrideYaml:      &templatemodels.CustomYaml{},
-				},
+			Render: &templatemodels.ServiceRender{
+				ServiceName:       serviceName,
+				ReleaseName:       serviceName,
+				IsHelmChartDeploy: true,
+				OverrideYaml:      &templatemodels.CustomYaml{},
 			},
 		}
 
-		return prodSvc, nil, renderSet, nil
+		return prodSvc, nil, nil
 	} else {
 		templateService, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ServiceName: serviceName,
@@ -940,7 +942,7 @@ func prepareEstimateDataForEnvCreation(productName, serviceName string, producti
 		}, production)
 		if err != nil {
 			log.Errorf("failed to query service, name %s, err %s", serviceName, err)
-			return nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceName)
+			return nil, nil, fmt.Errorf("failed to query service, name %s", serviceName)
 		}
 
 		prodSvc := &commonmodels.ProductService{
@@ -949,31 +951,26 @@ func prepareEstimateDataForEnvCreation(productName, serviceName string, producti
 			Revision:     templateService.Revision,
 			Containers:   templateService.Containers,
 			VariableYaml: templateService.VariableYaml,
-		}
-
-		renderSet := &commonmodels.RenderSet{
-			ChartInfos: []*templatemodels.ServiceRender{
-				{
-					ServiceName:  serviceName,
-					OverrideYaml: &templatemodels.CustomYaml{},
-					ValuesYaml:   templateService.HelmChart.ValuesYaml,
-				},
+			Render: &templatemodels.ServiceRender{
+				ServiceName:  serviceName,
+				OverrideYaml: &templatemodels.CustomYaml{},
+				ValuesYaml:   templateService.HelmChart.ValuesYaml,
 			},
 		}
 
-		return prodSvc, templateService, renderSet, nil
+		return prodSvc, templateService, nil
 	}
 }
 
 func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene string, production bool, isHelmChartDeploy bool, log *zap.SugaredLogger) (
-	*commonmodels.ProductService, *commonmodels.Service, *commonmodels.Product, *commonmodels.RenderSet, error) {
+	*commonmodels.ProductService, *commonmodels.Service, *commonmodels.Product, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:       productName,
 		EnvName:    envName,
 		Production: util.GetBoolPointer(production),
 	})
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to query product info, name %s", envName)
+		return nil, nil, nil, fmt.Errorf("failed to query product info, name %s", envName)
 	}
 
 	var prodSvc *commonmodels.ProductService
@@ -1000,7 +997,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 		prodSvc = productInfo.GetServiceMap()[serviceOrReleaseName]
 		if scene == usageScenarioUpdateRenderSet {
 			if prodSvc == nil {
-				return nil, nil, nil, nil, fmt.Errorf("can't find service in env: %s, name %s", productInfo.EnvName, serviceOrReleaseName)
+				return nil, nil, nil, fmt.Errorf("can't find service in env: %s, name %s", productInfo.EnvName, serviceOrReleaseName)
 			}
 			targetSvcTmplRevision = prodSvc.Revision
 		}
@@ -1013,7 +1010,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 		}, production)
 		if err != nil {
 			log.Errorf("failed to query service, name %s, err %s", serviceOrReleaseName, err)
-			return nil, nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceOrReleaseName)
+			return nil, nil, nil, fmt.Errorf("failed to query service, name %s", serviceOrReleaseName)
 		}
 
 		if prodSvc == nil {
@@ -1035,7 +1032,7 @@ func prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName,
 		prodSvc.Render.ChartVersion = templateService.HelmChart.Version
 	}
 
-	return prodSvc, templateService, productInfo, nil, nil
+	return prodSvc, templateService, productInfo, nil
 }
 
 func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log *zap.SugaredLogger) (map[string][]string, error) {
@@ -1072,19 +1069,18 @@ func GetAffectedServices(productName, envName string, arg *K8sRendersetArg, log 
 
 func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, format string, arg *EstimateValuesArg, isHelmChartDeploy bool, log *zap.SugaredLogger) (interface{}, error) {
 	var (
-		productSvc *commonmodels.ProductService
-		latestSvc  *commonmodels.Service
-		//renderSet   *commonmodels.RenderSet
+		productSvc  *commonmodels.ProductService
+		latestSvc   *commonmodels.Service
 		productInfo *commonmodels.Product
 		err         error
 	)
 
 	switch scene {
 	case usageScenarioCreateEnv:
-		productSvc, latestSvc, _, err = prepareEstimateDataForEnvCreation(productName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
-		//renderSet.DefaultValues = arg.DefaultValues
+		productInfo = &commonmodels.Product{}
+		productSvc, latestSvc, err = prepareEstimateDataForEnvCreation(productName, serviceOrReleaseName, arg.Production, isHelmChartDeploy, log)
 	default:
-		productSvc, latestSvc, productInfo, _, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene, arg.Production, isHelmChartDeploy, log)
+		productSvc, latestSvc, productInfo, err = prepareEstimateDataForEnvUpdate(productName, envName, serviceOrReleaseName, scene, arg.Production, isHelmChartDeploy, log)
 	}
 
 	if err != nil {
@@ -1544,7 +1540,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 	}
 
 	go func() {
-		err := proceedHelmRelease(productResp, helmClient, nil, log)
+		err := proceedHelmRelease(productResp, helmClient, nil, userName, log)
 		if err != nil {
 			log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 			// 发送更新产品失败消息给用户
@@ -2265,7 +2261,6 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 		newService.Containers = nil
 	}
 
-	//parsedYaml, err := kube.RenderEnvService(env, renderSet.GetServiceRenderMap()[newService.ServiceName], newService)
 	parsedYaml, err := kube.RenderEnvService(env, newService.GetServiceRender(), newService)
 	if err != nil {
 		log.Errorf("Failed to render newService %s, error: %v", newService.ServiceName, err)
@@ -2335,10 +2330,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	var serviceCount int
 	for _, group := range args.Services {
 		serviceCount = serviceCount + len(group)
-	}
-	if serviceCount == 0 && !args.Production {
-		log.Errorf("[%s][P:%s] not service found", envName, args.ProductName)
-		return e.ErrCreateEnv.AddDesc(e.FindProductServiceErrMsg)
 	}
 	args.Revision = productTmpl.Revision
 
@@ -2437,35 +2428,11 @@ func buildInstallParam(defaultValues string, productInfo *commonmodels.Product, 
 		ret.ReleaseName = renderChart.ReleaseName
 	}
 
-	imageKVS := make([]*helmtool.KV, 0)
-	if productSvc != nil {
-		targetContainers := productSvc.Containers
-		replaceValuesMaps := make([]map[string]interface{}, 0)
-		for _, targetContainer := range targetContainers {
-			// prepare image replace info
-			log.Infof("------------ image path: %s, container name: %s", targetContainer.ImagePath, targetContainer.Name)
-			replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, kube.GetValidMatchData(targetContainer.ImagePath))
-			if err != nil {
-				return nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, productSvc.ServiceName, err.Error())
-			}
-			log.Infof("--------- replace values map is %v", replaceValuesMap)
-			replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
-		}
-
-		for _, imageSecs := range replaceValuesMaps {
-			for key, value := range imageSecs {
-				imageKVS = append(imageKVS, &helmtool.KV{
-					Key:   key,
-					Value: value,
-				})
-			}
-		}
-	}
-
-	mergedValues, err := helmtool.MergeOverrideValues("", defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, imageKVS)
+	mergedValues, err := commonutil.GeneHelmMergedValues(productSvc, defaultValues, renderChart)
 	if err != nil {
-		return nil, fmt.Errorf("failed to merge override yaml %s and values %s, err: %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
+		return ret, err
 	}
+
 	ret.MergedValues = mergedValues
 	ret.Production = productInfo.Production
 	return ret, nil
@@ -2494,7 +2461,7 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 		}
 	}()
 
-	err = proceedHelmRelease(args, helmClient, nil, log)
+	err = proceedHelmRelease(args, helmClient, nil, user, log)
 	if err != nil {
 		log.Errorf("error occurred when installing services in env: %s/%s, err: %s ", args.ProductName, envName, err)
 		errList = multierror.Append(errList, err)
@@ -2609,7 +2576,7 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 		return err
 	}
 
-	err = proceedHelmRelease(productResp, helmClient, filter, log)
+	err = proceedHelmRelease(productResp, helmClient, filter, username, log)
 	if err != nil {
 		log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 		return err
@@ -2680,7 +2647,7 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 		return err
 	}
 
-	err = proceedHelmRelease(productResp, helmClient, filter, log)
+	err = proceedHelmRelease(productResp, helmClient, filter, username, log)
 	if err != nil {
 		log.Errorf("error occurred when upgrading services in env: %s/%s, err: %s ", productName, envName, err)
 		return err
@@ -2794,7 +2761,8 @@ func findRenderChartFromList(svc *commonmodels.ProductService, renderCharts []*t
 	return nil
 }
 
-func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.HelmClient, filter svcUpgradeFilter, log *zap.SugaredLogger) error {
+// @todo merge with UpgradeHelmRelease
+func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.HelmClient, filter svcUpgradeFilter, user string, log *zap.SugaredLogger) error {
 	productName, envName := productResp.ProductName, productResp.EnvName
 	handler := func(param *kube.ReleaseInstallParam, isRetry bool, log *zap.SugaredLogger) (err error) {
 		defer func() {
@@ -2802,6 +2770,11 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 				if err != nil {
 					param.ProdService.Error = err.Error()
 				} else {
+					err = commonutil.CreateEnvServiceVersion(productResp, param.ProdService, user, log)
+					if err != nil {
+						log.Errorf("failed to create service version, err: %v", err)
+					}
+
 					param.ProdService.Error = ""
 				}
 			}

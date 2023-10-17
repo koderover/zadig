@@ -26,6 +26,7 @@ import (
 	"github.com/gin-gonic/gin/binding"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	vmservice "github.com/koderover/zadig/pkg/microservice/aslan/core/vm/service"
@@ -201,8 +202,34 @@ func UpdatePMHost(c *gin.Context) {
 
 // TODO: add authorization to this
 func DeletePMHost(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if err != nil {
+
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	host, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
+		ID: c.Param("id"),
+	})
+	if err != nil {
+		ctx.Err = e.ErrDeletePrivateKey.AddErr(fmt.Errorf("find pm host from db error: %v", err))
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[host.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[host.ProjectName].IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "项目资源-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
 	ctx.Err = systemservice.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)

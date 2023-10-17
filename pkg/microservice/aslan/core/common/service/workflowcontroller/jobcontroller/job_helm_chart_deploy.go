@@ -96,7 +96,7 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 		}
 	}
 
-	chartInfo, ok := productInfo.GetChartRenderMap()[deploy.ReleaseName]
+	chartInfo, ok := productInfo.GetChartDeployRenderMap()[deploy.ReleaseName]
 	if !ok {
 		chartInfo = &template.ServiceRender{
 			ReleaseName:       deploy.ReleaseName,
@@ -122,7 +122,7 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 
 	done := make(chan bool)
 	go func(chan bool) {
-		if err = kube.UpgradeHelmRelease(productInfo, productChartService, nil, nil, timeOut); err != nil {
+		if err = kube.UpgradeHelmRelease(productInfo, productChartService, nil, nil, timeOut, c.workflowCtx.WorkflowTaskCreatorUsername); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to upgrade helm chart %s/%s",

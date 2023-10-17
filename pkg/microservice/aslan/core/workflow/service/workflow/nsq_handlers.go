@@ -36,15 +36,14 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowstat"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
@@ -184,29 +183,29 @@ func (h *TaskAckHandler) handle(pt *task.Task) error {
 				h.log.Errorf("ArchiveHistoryPipelineTask error: %v", err)
 			}
 		}()
-	}
 
-	// 更新数据库 product
-	var deploys []*task.Deploy
+		// 更新数据库 product
+		var deploys []*task.Deploy
 
-	for _, stage := range pt.Stages {
-		tasks := make([]map[string]interface{}, 0)
-		for _, v := range stage.SubTasks {
-			tasks = append(tasks, v)
+		for _, stage := range pt.Stages {
+			tasks := make([]map[string]interface{}, 0)
+			for _, v := range stage.SubTasks {
+				tasks = append(tasks, v)
+			}
+
+			deployList, _ := h.getDeployTasks(tasks)
+			deploys = append(deploys, deployList...)
 		}
 
-		deployList, _ := h.getDeployTasks(tasks)
-		deploys = append(deploys, deployList...)
-	}
-
-	for _, deploy := range deploys {
-		if deploy.Enabled && !pt.ResetImage {
-			containerName := strings.TrimSuffix(deploy.ContainerName, "_"+deploy.ServiceName)
-			if err := h.updateProductImageByNs(deploy.Namespace, deploy.ProductName, deploy.ServiceName, containerName, deploy.Image, deploy.EnvName); err != nil {
-				h.log.Errorf("updateProductImage %v error: %v", deploy, err)
-				continue
-			} else {
-				h.log.Infof("succeed to update container image %v", deploy)
+		for _, deploy := range deploys {
+			if deploy.Enabled && !pt.ResetImage {
+				containerName := strings.TrimSuffix(deploy.ContainerName, "_"+deploy.ServiceName)
+				if err := commonutil.UpdateProductImage(deploy.EnvName, deploy.ProductName, deploy.ServiceName, map[string]string{containerName: deploy.Image}, pt.TaskCreator, h.log); err != nil {
+					h.log.Errorf("updateProductImage %+v error: %v", deploy, err)
+					continue
+				} else {
+					h.log.Infof("succeed to update container image %+v", deploy)
+				}
 			}
 		}
 	}
@@ -778,63 +777,6 @@ func (h *TaskAckHandler) getDeployTasks(subTasks []map[string]interface{}) ([]*t
 	}
 
 	return deploys, nil
-}
-
-// 更新subtasks中的所有容器部署任务对应服务的镜像
-func (h *TaskAckHandler) updateProductImageByNs(namespace, productName, serviceName, containerName, imageName, envName string) error {
-	opt := &commonrepo.ProductFindOptions{
-		Name:      productName,
-		Namespace: namespace,
-		EnvName:   envName,
-	}
-
-	prod, err := h.productColl.Find(opt)
-
-	if err != nil {
-		h.log.Errorf("find product namespace error: %v", err)
-		return err
-	}
-
-	for i, group := range prod.Services {
-		for j, service := range group {
-			if service.ServiceName == serviceName {
-				for l, container := range service.Containers {
-					if container.Name == containerName {
-						prod.Services[i][j].Containers[l].Image = imageName
-					}
-				}
-			}
-		}
-	}
-
-	templateProject, err := templaterepo.NewProductColl().Find(productName)
-	if err != nil {
-		return fmt.Errorf("find template project %s error: %v", productName, err)
-	}
-
-	if templateProject.IsHostProduct() {
-		tmplSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
-			ServiceName: serviceName,
-			ProductName: productName,
-		}, prod.Production)
-		if err != nil {
-			return fmt.Errorf("find template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
-		}
-
-		tmplSvc.DeployTime = time.Now().Unix()
-		err = repository.Update(tmplSvc, prod.Production)
-		if err != nil {
-			return fmt.Errorf("update template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
-		}
-	} else {
-		if err := commonrepo.NewProductColl().Update(prod); err != nil {
-			errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
-			h.log.Errorf(errMsg)
-			return errors.New(errMsg)
-		}
-	}
-
-	return nil
 }
 
 // TaskNotificationHandler ...

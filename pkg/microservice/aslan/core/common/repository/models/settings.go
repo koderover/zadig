@@ -24,6 +24,8 @@ type SystemSetting struct {
 	BuildConcurrency    int64              `bson:"build_concurrency" json:"build_concurrency"`
 	DefaultLogin        string             `bson:"default_login" json:"default_login"`
 	Theme               *Theme             `bson:"theme" json:"theme"`
+	Security            *SecuritySettings  `bson:"security" json:"security"`
+	Privacy             *PrivacySettings   `bson:"privacy"  json:"privacy"`
 	UpdateTime          int64              `bson:"update_time" json:"update_time"`
 }
 
@@ -57,6 +59,14 @@ type CustomTheme struct {
 	ProjectNameColor         string `bson:"project_name_color" json:"project_name_color"`
 	TableCellBackgroundColor string `bson:"table_cell_background_color" json:"table_cell_background_color"`
 	LinkColor                string `bson:"link_color" json:"link_color"`
+}
+
+type SecuritySettings struct {
+	TokenExpirationTime int64 `json:"token_expiration_time" bson:"token_expiration_time"`
+}
+
+type PrivacySettings struct {
+	ImprovementPlan bool `json:"improvement_plan" bson:"improvement_plan"`
 }
 
 func (SystemSetting) TableName() string {

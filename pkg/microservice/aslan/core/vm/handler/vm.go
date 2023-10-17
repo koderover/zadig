@@ -187,7 +187,7 @@ func PollingAgentJob(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.PollingAgentJob(token, ctx.Logger)
+	ctx.Resp, ctx.Err = service.PollingAgentJob(token, 0, ctx.Logger)
 }
 
 func ReportAgentJob(c *gin.Context) {

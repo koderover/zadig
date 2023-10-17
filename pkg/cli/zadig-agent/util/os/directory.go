@@ -18,7 +18,9 @@ package os
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 )
 
 func GetCurrentDirectory() (string, error) {
@@ -43,4 +45,56 @@ func GetUserHomeDir() (string, error) {
 	}
 
 	return homeDir, nil
+}
+
+func CopyDir(src, dst string) error {
+	// get source directory info
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			// if it is a subdirectory, copy the subdirectory by recursion
+			if err := CopyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			// if it is a file, copy the file
+			if err := CopyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func CopyFile(src, dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create directory %s, error: %v", filepath.Dir(dst), err)
+	}
+
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open file %s, error: %v", src, err)
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create file %s, error: %v", dst, err)
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		return fmt.Errorf("failed to copy file %s to %s, error: %v", src, dst, err)
+	}
+
+	return nil
 }

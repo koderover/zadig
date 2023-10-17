@@ -80,6 +80,26 @@ func (c *SystemSettingColl) UpdateConcurrencySetting(workflowConcurrency, buildC
 	return err
 }
 
+func (c *SystemSettingColl) UpdateSecuritySetting(tokenExpirationTime int64) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	change := bson.M{"$set": bson.M{
+		"security.token_expiration_time": tokenExpirationTime,
+	}}
+	query := bson.M{"_id": id}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *SystemSettingColl) UpdatePrivacySetting(improvementPlan bool) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	change := bson.M{"$set": bson.M{
+		"privacy.improvement_plan": improvementPlan,
+	}}
+	query := bson.M{"_id": id}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *SystemSettingColl) InitSystemSettings() error {
 	_, err := c.Get()
 	// if we didn't find anything
@@ -117,6 +137,8 @@ func (c *SystemSettingColl) InitSystemSettings() error {
 					LinkColor:                "#0066ff",
 				},
 			},
+			Privacy:  &models.PrivacySettings{ImprovementPlan: true},
+			Security: &models.SecuritySettings{TokenExpirationTime: 24},
 		})
 	}
 	return nil

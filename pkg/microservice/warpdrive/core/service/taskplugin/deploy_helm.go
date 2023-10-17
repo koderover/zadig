@@ -34,7 +34,6 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
@@ -237,7 +236,7 @@ func (p *HelmDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task,
 
 	for _, targetContainer := range targetContainers {
 		// prepare image replace info
-		replaceValuesMap, errAssignData := commonutil.AssignImageData(targetContainer.Image, kube.GetValidMatchData(targetContainer.ImagePath))
+		replaceValuesMap, errAssignData := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(targetContainer.ImagePath))
 		if err != nil {
 			err = errors.WithMessagef(
 				errAssignData,

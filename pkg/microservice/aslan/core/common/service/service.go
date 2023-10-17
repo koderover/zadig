@@ -383,31 +383,36 @@ func GetServiceTemplateWithStructure(serviceName, serviceType, productName, excl
 	if err != nil {
 		return resp, err
 	}
-
-	if resp.Type == setting.K8SDeployType {
-		resp.Resources = make([]*SvcResources, 0)
-		renderedYaml, err := commonutil.RenderK8sSvcYamlStrict(resp.Yaml, resp.ProductName, resp.ServiceName, resp.VariableYaml)
-		if err != nil {
-			log.Errorf("failed to render k8s svc yaml: %s/%s, err: %s", resp.ProductName, resp.ServiceName, err)
-		}
-		renderedYaml = config.ServiceNameAlias.ReplaceAllLiteralString(renderedYaml, resp.ServiceName)
-		renderedYaml = config.ProductNameAlias.ReplaceAllLiteralString(renderedYaml, resp.ProductName)
-
-		renderedYaml = util.ReplaceWrapLine(renderedYaml)
-		yamlDataArray := util.SplitYaml(renderedYaml)
-		for _, yamlData := range yamlDataArray {
-			resKind := new(types.KubeResourceKind)
-			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-				log.Errorf("unmarshal ResourceKind error: %v", err)
-				continue
-			}
-			if resKind == nil {
-				continue
-			}
-			resp.Resources = append(resp.Resources, &SvcResources{Kind: resKind.Kind, Name: resKind.Metadata.Name})
-		}
-	}
+	resp.Resources = GeneSvcStructure(svcTemplate)
 	return resp, nil
+}
+
+func GeneSvcStructure(svcTemplate *models.Service) []*SvcResources {
+	if svcTemplate.Type != setting.K8SDeployType {
+		return nil
+	}
+	resources := make([]*SvcResources, 0)
+	renderedYaml, err := commonutil.RenderK8sSvcYamlStrict(svcTemplate.Yaml, svcTemplate.ProductName, svcTemplate.ServiceName, svcTemplate.VariableYaml)
+	if err != nil {
+		log.Errorf("failed to render k8s svc yaml: %s/%s, err: %s", svcTemplate.ProductName, svcTemplate.ServiceName, err)
+	}
+	renderedYaml = config.ServiceNameAlias.ReplaceAllLiteralString(renderedYaml, svcTemplate.ServiceName)
+	renderedYaml = config.ProductNameAlias.ReplaceAllLiteralString(renderedYaml, svcTemplate.ProductName)
+
+	renderedYaml = util.ReplaceWrapLine(renderedYaml)
+	yamlDataArray := util.SplitYaml(renderedYaml)
+	for _, yamlData := range yamlDataArray {
+		resKind := new(types.KubeResourceKind)
+		if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
+			log.Errorf("unmarshal ResourceKind error: %v", err)
+			continue
+		}
+		if resKind == nil {
+			continue
+		}
+		resources = append(resources, &SvcResources{Kind: resKind.Kind, Name: resKind.Metadata.Name})
+	}
+	return resources
 }
 
 func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus string, revision int64, log *zap.SugaredLogger) (*commonmodels.Service, error) {
