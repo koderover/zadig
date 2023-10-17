@@ -16,6 +16,7 @@ func GenerateEnvServiceNextRevision(projectName, envName, serviceName string, is
 }
 
 func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService, createBy string, log *zap.SugaredLogger) error {
+	log.Debugf("product service: %+v", prodSvc)
 	name := prodSvc.ServiceName
 	isHelmChart := !prodSvc.FromZadig()
 	if isHelmChart {
