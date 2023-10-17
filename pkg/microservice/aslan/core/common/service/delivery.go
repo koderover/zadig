@@ -447,28 +447,8 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 		if serviceInfo == nil {
 			return "", fmt.Errorf("service %s not found", serviceName)
 		}
-		// 获取服务模板
-		serviceFindOption := &commonrepo.ServiceFindOption{
-			ServiceName: serviceName,
-			ProductName: serviceInfo.ProductName,
-			Type:        setting.K8SDeployType,
-			Revision:    serviceInfo.Revision,
-		}
-		svcTmpl, err := commonrepo.NewServiceColl().Find(serviceFindOption)
-		if err != nil {
-			return "", fmt.Errorf("service template %s error: %v", serviceName, err)
-		}
 
-		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, serviceInfo.GetServiceRender())
-		if err != nil {
-			log.Errorf("RenderServiceYaml failed, err: %s", err)
-			return "", err
-		}
-		// 渲染系统变量键值
-		parsedYaml = kube.ParseSysKeys(productInfo.Namespace, productInfo.EnvName, productInfo.ProductName, serviceName, parsedYaml)
-		// 替换服务模板容器镜像为用户指定镜像
-		parsedYaml, _, err = kube.ReplaceWorkloadImages(parsedYaml, containers)
-		return parsedYaml, err
+		return kube.RenderEnvService(productInfo, serviceInfo.GetServiceRender(), serviceInfo)
 	}
 	return "", nil
 }
