@@ -196,6 +196,8 @@ func (h *ExecHandler) SendAck() {
 		xl.Errorf("convert PipelineTask to Task error: %v", err)
 		return
 	}
+	b, _ := json.MarshalIndent(t.Services, "", "  ")
+	log.Infof("[1017] %s", string(b))
 	err = mongodb.NewMsgQueuePipelineTaskColl().Create(&msg_queue.MsgQueuePipelineTask{
 		Task:      t,
 		QueueType: setting.TopicAck,
