@@ -319,6 +319,9 @@ func GetValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
 	if spec.Repo != "" {
 		ret[setting.PathSearchComponentRepo] = spec.Repo
 	}
+	if spec.Namespace != "" {
+		ret[setting.PathSearchComponentNamespace] = spec.Namespace
+	}
 	if spec.Image != "" {
 		ret[setting.PathSearchComponentImage] = spec.Image
 	}
@@ -336,7 +339,6 @@ func GeneHelmMergedValues(productSvc *commonmodels.ProductService, defaultValues
 		targetContainers := productSvc.Containers
 		replaceValuesMaps := make([]map[string]interface{}, 0)
 		for _, targetContainer := range targetContainers {
-
 			replaceValuesMap, err := AssignImageData(targetContainer.Image, GetValidMatchData(targetContainer.ImagePath))
 			if err != nil {
 				return "", fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, productSvc.ServiceName, err.Error())
