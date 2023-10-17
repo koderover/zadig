@@ -49,7 +49,7 @@ var systemResourceActionAliasMap = map[string]string{
 	"VMManagement":        "主机管理",
 	"RegistryManagement":  "镜像仓库",
 	"S3StorageManagement": "对象存储",
-	"HelmRepoManagement":  "Chart仓库",
+	"HelmRepoManagement":  "Chart 仓库",
 }
 
 var systemResourceSequence = []string{
