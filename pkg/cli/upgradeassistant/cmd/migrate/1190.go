@@ -737,9 +737,6 @@ func migrateRendersets() error {
 				return errors.Wrapf(err, "failed to find render info for product: %s/%s, render info: %s/%d", env.ProductName, curRender.EnvName, env.Render.Name, env.Render.Revision)
 			}
 
-			if len(curRender.DefaultValues) == 0 && len(curRender.GlobalVariables) == 0 && len(env.GetServiceMap()) == 0 {
-				continue
-			}
 			log.Infof("migrating render set for product: %s/%s", project.ProductName, env.EnvName)
 
 			env.DefaultValues = curRender.DefaultValues
