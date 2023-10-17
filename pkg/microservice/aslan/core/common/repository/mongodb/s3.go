@@ -263,6 +263,7 @@ func (c *S3StorageColl) InitData() error {
 		Endpoint:  minioEndpoint,
 		Bucket:    config.S3StorageBucket(),
 		IsDefault: setDefault,
+		Projects:  []string{setting.AllProjects},
 		Insecure:  true,
 		Provider:  0,
 	}
