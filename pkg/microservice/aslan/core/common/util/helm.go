@@ -339,13 +339,10 @@ func GeneHelmMergedValues(productSvc *commonmodels.ProductService, defaultValues
 		targetContainers := productSvc.Containers
 		replaceValuesMaps := make([]map[string]interface{}, 0)
 		for _, targetContainer := range targetContainers {
-
-			log.Infof("------------ image path: %s, container name: %s", targetContainer.ImagePath, targetContainer.Name)
 			replaceValuesMap, err := AssignImageData(targetContainer.Image, GetValidMatchData(targetContainer.ImagePath))
 			if err != nil {
 				return "", fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, productSvc.ServiceName, err.Error())
 			}
-			log.Infof("--------- replace values map is %+v", replaceValuesMap)
 			replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
 		}
 
