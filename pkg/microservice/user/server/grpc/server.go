@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -49,23 +50,11 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 
 	isPublicRequest := permission.IsPublicURL(requestPath, method)
 
+	userToken := ""
+
 	if !isPublicRequest {
-		// if no token is provided, respond with 401 un
-		if headers["authorization"] == "" {
-			resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
-			resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
-				Status: &typev3.HttpStatus{Code: http.StatusUnauthorized},
-			}}
-			logger.Info("Request Denied",
-				zap.String("path", requestPath),
-				zap.String("method", method),
-				zap.String("body", body),
-				zap.String("reason", "missing authorization header"),
-			)
-		} else {
-			// otherwise check if the token is valid
-			authorizationHeader := headers["authorization"]
-			segs := strings.Split(authorizationHeader, " ")
+		if headers["authorization"] != "" {
+			segs := strings.Split(headers["authorization"], " ")
 			if len(segs) != 2 {
 				resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
 				resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
@@ -79,9 +68,45 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 				)
 				return resp, nil
 			}
+			userToken = segs[1]
+		}
 
+		// token in query has higher priority than auth header
+		res, err := url.Parse(requestPath)
+		if err != nil {
+			resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
+			resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
+				Status: &typev3.HttpStatus{Code: http.StatusUnauthorized},
+			}}
+			logger.Info("Request Denied",
+				zap.String("path", requestPath),
+				zap.String("method", method),
+				zap.String("body", body),
+				zap.String("reason", "request url is malformed"),
+				zap.String("error", err.Error()),
+			)
+			return resp, nil
+		}
+		if res.Query().Get("token") != "" {
+			userToken = res.Query().Get("token")
+		}
+
+		// if no token is provided, respond with 401 unauthorized
+		if userToken == "" {
+			resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
+			resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
+				Status: &typev3.HttpStatus{Code: http.StatusUnauthorized},
+			}}
+			logger.Info("Request Denied",
+				zap.String("path", requestPath),
+				zap.String("method", method),
+				zap.String("body", body),
+				zap.String("reason", "missing authorization header"),
+			)
+			return resp, nil
+		} else {
 			// validate the token.
-			claims, isValid, err := permission.ValidateToken(segs[1])
+			claims, isValid, err := permission.ValidateToken(userToken)
 			if err != nil || !isValid {
 				resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
 				resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
@@ -116,7 +141,7 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 					return resp, nil
 				}
 
-				if token != segs[1] {
+				if token != userToken {
 					resp.Status = &rpc_status.Status{Code: int32(code.Code_UNAUTHENTICATED)}
 					resp.HttpResponse = &ext_authz_v3.CheckResponse_DeniedResponse{DeniedResponse: &ext_authz_v3.DeniedHttpResponse{
 						Status: &typev3.HttpStatus{Code: http.StatusUnauthorized},
@@ -131,15 +156,15 @@ func (s *AuthServer) Check(ctx context.Context, request *ext_authz_v3.CheckReque
 				}
 			}
 		}
-	} else {
-		resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
-		resp.HttpResponse = &ext_authz_v3.CheckResponse_OkResponse{OkResponse: &ext_authz_v3.OkHttpResponse{}}
-		logger.Info("Request Allowed",
-			zap.String("path", requestPath),
-			zap.String("method", method),
-			zap.String("body", body),
-		)
 	}
+	resp.Status = &rpc_status.Status{Code: int32(code.Code_OK)}
+	resp.HttpResponse = &ext_authz_v3.CheckResponse_OkResponse{OkResponse: &ext_authz_v3.OkHttpResponse{}}
+	logger.Info("Request Allowed",
+		zap.String("path", requestPath),
+		zap.String("method", method),
+		zap.String("body", body),
+		zap.String("token", userToken),
+	)
 
 	return resp, nil
 }

@@ -57,7 +57,15 @@ func IsPublicURL(reqPath, method string) bool {
 		return true
 	}
 
+	if realPath == "/api/v1/reset" && method == http.MethodPost {
+		return true
+	}
+
 	if realPath == "/api/aslan/system/initialization/status" && method == http.MethodGet {
+		return true
+	}
+
+	if realPath == "/api/aslan/system/registry" && method == http.MethodGet {
 		return true
 	}
 
