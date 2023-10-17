@@ -84,15 +84,22 @@ func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *
 	}
 	// since only one sonar system can be integrated, use that as the sonarID
 	if req.ScannerType == "sonarQube" {
-		sonarInfo, total, err := mongodb.NewSonarIntegrationColl().List(context.TODO(), 1, 20)
+		sonarInfo, _, err := mongodb.NewSonarIntegrationColl().List(context.TODO(), 1, 20)
 		if err != nil {
 			log.Errorf("failed to list sonar integration, err is: %s", err)
 			return nil, fmt.Errorf("didn't find the sonar integration to fill in")
 		}
-		if total != 1 {
-			return nil, fmt.Errorf("there are more than 1 sonar integration in this system, which we didn't allow.")
+		for _, item := range sonarInfo {
+			if item.SystemIdentity == req.SonarSystem {
+				ret.SonarID = item.ID.Hex()
+			}
 		}
-		ret.SonarID = sonarInfo[0].ID.Hex()
+		if ret.SonarID == "" {
+			return nil, fmt.Errorf("didn't find the sonar integration of given name")
+		}
+
+		ret.EnableScanner = true
+		ret.Script = req.PrelaunchScript
 	}
 
 	// find the correct image info to fill in

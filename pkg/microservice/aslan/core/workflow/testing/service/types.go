@@ -55,8 +55,10 @@ type OpenAPICreateScanningReq struct {
 	ScannerType string                    `json:"scanner_type"`
 	ImageName   string                    `json:"image_name"`
 	RepoInfo    []*types.OpenAPIRepoInput `json:"repo_info"`
+	SonarSystem string                    `json:"sonar_system"`
 	// FIMXE: currently only one sonar system is required, so we just fill in the default sonar ID.
 	Addons            []*commonmodels.Item          `json:"addons"`
+	PrelaunchScript   string                        `json:"prelaunch_script"`
 	SonarParameter    string                        `json:"sonar_parameter"`
 	Script            string                        `json:"script"`
 	EnableQualityGate bool                          `json:"enable_quality_gate"`
