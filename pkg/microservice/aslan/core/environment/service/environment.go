@@ -2928,6 +2928,15 @@ func PreviewHelmProductGlobalVariables(productName, envName, globalVariable stri
 		return ret, nil
 	}
 
+	// current default keys
+	variableKvs, err = commontypes.YamlToServiceVariableKV(product.DefaultValues, nil)
+	if err != nil {
+		return ret, fmt.Errorf("failed to parse current global variable, err: %v", err)
+	}
+	for _, kv := range variableKvs {
+		globalKeySet.Insert(kv.Key)
+	}
+
 	for _, chartInfo := range product.GetAllSvcRenders() {
 		svcRevision := int64(0)
 		if chartInfo.DeployedFromZadig() {
