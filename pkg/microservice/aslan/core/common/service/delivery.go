@@ -375,6 +375,9 @@ func getProductEnvInfo(pipelineTask *taskmodels.Task, log *zap.SugaredLogger) (*
 		product.Namespace = productInfo.Namespace
 	}
 
+	b, _ := json.MarshalIndent(pipelineTask, "", "  ")
+	log.Infof("[1017] pipelineTask: %s\n", string(b))
+
 	product.Render = pipelineTask.Render
 	product.Services = pipelineTask.Services
 
