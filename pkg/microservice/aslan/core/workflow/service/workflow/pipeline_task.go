@@ -742,6 +742,9 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 						if pr != 0 {
 							testArg.Builds[i].PRs = []int{pr}
 						}
+						if args.Branch != "" {
+							testArg.Builds[i].Branch = args.Branch
+						}
 					}
 				}
 
