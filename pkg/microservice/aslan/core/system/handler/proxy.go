@@ -62,12 +62,12 @@ func ListProxies(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
+	// TODO: Authroization leaks
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		ctx.UnAuthorized = true
