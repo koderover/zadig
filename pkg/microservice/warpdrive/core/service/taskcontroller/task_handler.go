@@ -197,7 +197,9 @@ func (h *ExecHandler) SendAck() {
 		return
 	}
 	b, _ := json.MarshalIndent(t.Services, "", "  ")
+	b2, _ := json.MarshalIndent(pipelineTask.Services, "", "  ")
 	log.Infof("[1017] %s", string(b))
+	log.Infof("[1017-2] %s", string(b2))
 	err = mongodb.NewMsgQueuePipelineTaskColl().Create(&msg_queue.MsgQueuePipelineTask{
 		Task:      t,
 		QueueType: setting.TopicAck,
