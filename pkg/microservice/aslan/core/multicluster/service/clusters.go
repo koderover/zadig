@@ -491,7 +491,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		}
 
 		// Delete all projects associated with clusterID
-		err := commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: id})
+		err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: id})
 		if err != nil {
 			logger.Errorf("Failed to delete projectClusterRelation err:%s", err)
 		}
