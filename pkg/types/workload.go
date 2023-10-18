@@ -29,6 +29,7 @@ type DindPod struct {
 	ClusterID   string
 	ClusterName string
 	Pod         *corev1.Pod
+	Err         error
 }
 
 const DindStatefulSetName = "dind"
