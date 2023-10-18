@@ -24,7 +24,6 @@ const LocalConfig = "local.env"
 const (
 	// common
 	ENVSystemAddress           = "ADDRESS"
-	ENVEnterprise              = "ENTERPRISE"
 	ENVMode                    = "MODE"
 	ENVMongoDBConnectionString = "MONGODB_CONNECTION_STRING"
 	ENVAslanDBName             = "ASLAN_DB"
@@ -130,11 +129,6 @@ const (
 	// config
 	ENVMysqlDexDB = "MYSQL_DEX_DB"
 	FeatureFlag   = "feature-gates"
-
-	// initconfig
-	ENVAdminEmail    = "ADMIN_EMAIL"
-	ENVAdminPassword = "ADMIN_PASSWORD"
-	PresetAccount    = "admin"
 )
 
 // k8s concepts

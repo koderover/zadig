@@ -85,15 +85,3 @@ func RedisPassword() string {
 func RedisUserTokenDB() int {
 	return viper.GetInt(setting.ENVRedisUserTokenDB)
 }
-
-func AdminPassword() string {
-	return viper.GetString(setting.ENVAdminPassword)
-}
-
-func AdminEmail() string {
-	return viper.GetString(setting.ENVAdminEmail)
-}
-
-func SystemAddress() string {
-	return viper.GetString(setting.ENVSystemAddress)
-}
