@@ -187,8 +187,8 @@ func (l *JobLogger) ReadByRowNum(offset, curNum, num int64) ([]byte, int64, int6
 		return nil, 0, 0, false, fmt.Errorf("failed to seek to the beginning of the file: %v", err)
 	}
 
-	// Create a buffered reader
-	reader := bufio.NewReader(file)
+	// Create a scanner
+	scanner := bufio.NewScanner(file)
 
 	// Counter to track the current line number
 	lineCount := int64(0)
@@ -197,24 +197,25 @@ func (l *JobLogger) ReadByRowNum(offset, curNum, num int64) ([]byte, int64, int6
 	var resultBuffer bytes.Buffer
 
 	// Read the file line by line until reaching the specified line count or end of file
-	for lineCount < curNum+num {
-		line, err := reader.ReadString('\n')
-		if err == nil || err == io.EOF {
-			// If the current line number is within the specified range, append the line data to the result buffer
-			if lineCount >= curNum {
-				resultBuffer.WriteString(line)
-				offset += int64(len(line))
-			}
-			lineCount++
+	for scanner.Scan() {
+		line := scanner.Text()
+		resultBuffer.WriteString(line)
+		resultBuffer.WriteString("\n") // Add back the newline character
 
-			if err == io.EOF {
-				return resultBuffer.Bytes(), offset, lineCount, true, nil
-			}
-		} else {
-			return resultBuffer.Bytes(), offset, lineCount, false, fmt.Errorf("failed to read log line: %v", err)
+		offset += int64(len(line) + 1) // Include the length of the newline character
+
+		lineCount++
+
+		if lineCount >= num {
+			return resultBuffer.Bytes(), offset, lineCount, false, nil
 		}
 	}
-	return resultBuffer.Bytes(), offset, lineCount, false, nil
+
+	if scanner.Err() != nil {
+		return resultBuffer.Bytes(), offset, lineCount, false, fmt.Errorf("failed to read log line: %v", scanner.Err())
+	}
+
+	return resultBuffer.Bytes(), offset, lineCount, true, nil
 }
 
 func (l *JobLogger) GetLogfilePath() string {
@@ -229,4 +230,8 @@ func (l *JobLogger) Close() {
 	if err != nil {
 		Errorf("failed to sync job logger, error: %s", err)
 	}
+}
+
+func (l *JobLogger) GetZapLogger() *zap.SugaredLogger {
+	return l.logger
 }

@@ -30,11 +30,13 @@ import (
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/reporter"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
 	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/step"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types/job"
 )
 
@@ -269,7 +271,29 @@ func (e *JobExecutor) run() error {
 		if hasFailed && !stepInfo.Onfailure {
 			continue
 		}
-		if err := step.RunStep(e.Ctx, e.JobCtx, stepInfo, e.Dirs, e.getUserEnvs(), e.JobCtx.SecretEnvs, e.Logger); err != nil {
+
+		s := &meta.Step{
+			Name:      stepInfo.Name,
+			StepType:  string(stepInfo.StepType),
+			Onfailure: stepInfo.Onfailure,
+			Spec:      stepInfo.Spec,
+		}
+		metaData := &meta.JobMetaData{
+			Step: s,
+			Dirs: &meta.ExecutorWorkDirs{
+				Workspace:     e.Dirs.Workspace,
+				CacheDir:      e.Dirs.CacheDir,
+				WorkDir:       e.Dirs.WorkDir,
+				JobLogPath:    e.Dirs.JobLogPath,
+				JobScriptDir:  e.Dirs.JobScriptDir,
+				JobOutputsDir: e.Dirs.JobOutputsDir,
+			},
+			Paths:          e.JobCtx.Paths,
+			Envs:           e.getUserEnvs(),
+			SecretEnvs:     e.JobCtx.SecretEnvs,
+			Infrastructure: setting.JobVMInfrastructure,
+		}
+		if err := step.RunStep(e.Ctx, metaData, nil, e.Logger.GetZapLogger()); err != nil {
 			hasFailed = true
 			respErr = err
 		}
@@ -358,11 +382,14 @@ func (e *JobExecutor) AfterExecute() error {
 		}
 	}
 
+	fmt.Printf("start to sleep")
+	time.Sleep(200 * time.Second)
+
 	// -------------------------------------------- delete all temp file and dir ----------------------------------------
-	err := e.deleteTempFileAndDir()
-	if err != nil {
-		log.Errorf("failed to delete temp file and dir, error: %s", err)
-	}
+	//err := e.deleteTempFileAndDir()
+	//if err != nil {
+	//	log.Errorf("failed to delete temp file and dir, error: %s", err)
+	//}
 
 	return nil
 }

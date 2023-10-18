@@ -17,7 +17,6 @@ limitations under the License.
 package step
 
 import (
-	"bufio"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -27,27 +26,33 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"github.com/koderover/zadig/pkg/setting"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
 	c "github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/cmd"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
 )
 
 type GitStep struct {
-	spec       *step.StepGitSpec
-	envs       []string
-	secretEnvs []string
-	workspace  string
+	spec           *step.StepGitSpec
+	envs           []string
+	secretEnvs     []string
+	dirs           *meta.ExecutorWorkDirs
+	logger         *zap.SugaredLogger
+	infrastructure string
 }
 
-func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (*GitStep, error) {
-	gitStep := &GitStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewGitStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*GitStep, error) {
+	gitStep := &GitStep{dirs: metaData.Dirs, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs, logger: logger, infrastructure: metaData.Infrastructure}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return gitStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -60,9 +65,9 @@ func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string) (
 
 func (s *GitStep) Run(ctx context.Context) error {
 	start := time.Now()
-	log.Infof("Start git clone.")
+	s.logger.Infof("Start git clone.")
 	defer func() {
-		log.Infof("Git clone ended. Duration: %.2f seconds.", time.Since(start).Seconds())
+		s.logger.Infof("Git clone ended. Duration: %.2f seconds.", time.Since(start).Seconds())
 	}()
 	return s.runGitCmds()
 }
@@ -73,48 +78,52 @@ func (s *GitStep) RunGitGc(folder string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	// cmd.Env = envs
-	cmd.Dir = path.Join(s.workspace, folder)
+	cmd.Dir = path.Join(s.dirs.Workspace, folder)
 	return cmd.Run()
 }
 
 func (s *GitStep) runGitCmds() error {
-	if err := os.MkdirAll(path.Join(config.Home(), "/.ssh"), os.ModePerm); err != nil {
-		return fmt.Errorf("create ssh folder error: %v", err)
-	}
 	envs := s.envs
-	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
-	if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && s.spec.Proxy.Type == "http" {
-		noProxy := ""
-		proxyFlag := false
-		for _, repo := range s.spec.Repos {
-			if repo.EnableProxy {
-				if !proxyFlag {
-					envs = append(envs, fmt.Sprintf("http_proxy=%s", s.spec.Proxy.GetProxyURL()))
-					envs = append(envs, fmt.Sprintf("https_proxy=%s", s.spec.Proxy.GetProxyURL()))
-					proxyFlag = true
-				}
-			} else {
-				uri, err := url.Parse(repo.Address)
-				if err == nil {
-					if noProxy != "" {
-						noProxy += ","
-					}
-					noProxy += uri.Host
-				}
-			}
-		}
-		envs = append(envs, fmt.Sprintf("no_proxy=%s", noProxy))
-	}
-
 	// 获取git代码
 	cmds := make([]*c.Command, 0)
 
-	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("user.email", "ci@koderover.com"), DisableTrace: true})
-	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("user.name", "koderover"), DisableTrace: true})
+	if s.infrastructure != setting.JobVMInfrastructure {
+		if err := os.MkdirAll(path.Join(config.Home(), "/.ssh"), os.ModePerm); err != nil {
+			return fmt.Errorf("create ssh folder error: %v", err)
+		}
 
-	// https://stackoverflow.com/questions/24952683/git-push-error-rpc-failed-result-56-http-code-200-fatal-the-remote-end-hun/36843260
-	//cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "524288000"), DisableTrace: true})
-	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "2097152000"), DisableTrace: true})
+		// 如果存在github代码库，则设置代理，同时保证非github库不走代理
+		if s.spec.Proxy != nil && s.spec.Proxy.EnableRepoProxy && s.spec.Proxy.Type == "http" {
+			noProxy := ""
+			proxyFlag := false
+			for _, repo := range s.spec.Repos {
+				if repo.EnableProxy {
+					if !proxyFlag {
+						envs = append(envs, fmt.Sprintf("http_proxy=%s", s.spec.Proxy.GetProxyURL()))
+						envs = append(envs, fmt.Sprintf("https_proxy=%s", s.spec.Proxy.GetProxyURL()))
+						proxyFlag = true
+					}
+				} else {
+					uri, err := url.Parse(repo.Address)
+					if err == nil {
+						if noProxy != "" {
+							noProxy += ","
+						}
+						noProxy += uri.Host
+					}
+				}
+			}
+			envs = append(envs, fmt.Sprintf("no_proxy=%s", noProxy))
+		}
+
+		cmds = append(cmds, &c.Command{Cmd: c.SetConfig("user.email", "ci@koderover.com"), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.SetConfig("user.name", "koderover"), DisableTrace: true})
+
+		// https://stackoverflow.com/questions/24952683/git-push-error-rpc-failed-result-56-http-code-200-fatal-the-remote-end-hun/36843260
+		//cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "524288000"), DisableTrace: true})
+		cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "2097152000"), DisableTrace: true})
+	}
+
 	var tokens []string
 	var hostNames = sets.NewString()
 	for _, repo := range s.spec.Repos {
@@ -142,41 +151,34 @@ func (s *GitStep) runGitCmds() error {
 		tokens = append(tokens, repo.OauthToken)
 		cmds = append(cmds, s.buildGitCommands(repo, hostNames)...)
 	}
-	// write ssh key
-	if len(hostNames.List()) > 0 {
-		if err := writeSSHConfigFile(hostNames, s.spec.Proxy); err != nil {
-			return err
+
+	if s.infrastructure != setting.JobVMInfrastructure {
+		// write ssh key
+		if len(hostNames.List()) > 0 {
+			if err := writeSSHConfigFile(hostNames, s.spec.Proxy); err != nil {
+				return err
+			}
 		}
 	}
 
 	for _, c := range cmds {
-		cmdOutReader, err := c.Cmd.StdoutPipe()
-		if err != nil {
-			return err
+		var fileName string
+		needPersistentLog := false
+		if s.infrastructure == setting.JobVMInfrastructure {
+			needPersistentLog = true
+			fileName = s.dirs.JobLogPath
 		}
 
-		outScanner := bufio.NewScanner(cmdOutReader)
-		go func() {
-			for outScanner.Scan() {
-				fmt.Printf("%s\n", maskSecret(tokens, outScanner.Text()))
-			}
-		}()
-
-		cmdErrReader, err := c.Cmd.StderrPipe()
+		wg := &sync.WaitGroup{}
+		err := SetCmdStdout(c.Cmd, fileName, s.infrastructure, s.secretEnvs, needPersistentLog, wg)
 		if err != nil {
+			s.logger.Errorf("set cmd stdout error: %v", err)
 			return err
 		}
-
-		errScanner := bufio.NewScanner(cmdErrReader)
-		go func() {
-			for errScanner.Scan() {
-				fmt.Printf("%s\n", maskSecret(tokens, errScanner.Text()))
-			}
-		}()
 
 		c.Cmd.Env = envs
 		if !c.DisableTrace {
-			fmt.Printf("%s\n", strings.Join(c.Cmd.Args, " "))
+			Print(s.logger, fmt.Sprintf("%s\n", strings.Join(c.Cmd.Args, " ")), s.infrastructure, fileName)
 		}
 		if err := c.Cmd.Run(); err != nil {
 			if c.IgnoreError {
@@ -184,6 +186,7 @@ func (s *GitStep) runGitCmds() error {
 			}
 			return err
 		}
+		wg.Wait()
 	}
 	return nil
 }
@@ -196,9 +199,9 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		return cmds
 	}
 
-	workDir := filepath.Join(s.workspace, repo.RepoName)
+	workDir := filepath.Join(s.dirs.Workspace, repo.RepoName)
 	if len(repo.CheckoutPath) != 0 {
-		workDir = filepath.Join(s.workspace, repo.CheckoutPath)
+		workDir = filepath.Join(s.dirs.Workspace, repo.CheckoutPath)
 	}
 
 	if _, err := os.Stat(workDir); os.IsNotExist(err) {
@@ -208,11 +211,11 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 	// 预防非正常退出导致git被锁住
 	indexLockPath := path.Join(workDir, "/.git/index.lock")
 	if err := os.RemoveAll(indexLockPath); err != nil {
-		log.Errorf("Failed to remove %s: %s", indexLockPath, err)
+		s.logger.Errorf("Failed to remove %s: %s", indexLockPath, err)
 	}
 	shallowLockPath := path.Join(workDir, "/.git/shallow.lock")
 	if err := os.RemoveAll(shallowLockPath); err != nil {
-		log.Errorf("Failed to remove %s: %s", shallowLockPath, err)
+		s.logger.Errorf("Failed to remove %s: %s", shallowLockPath, err)
 	}
 
 	if isDirEmpty(filepath.Join(workDir, ".git")) {
@@ -249,7 +252,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 			host := getHost(repo.Address)
 			if !hostNames.Has(host) {
 				if err := writeSSHFile(repo.SSHKey, host); err != nil {
-					log.Errorf("failed to write ssh file %s: %s", repo.SSHKey, err)
+					s.logger.Errorf("failed to write ssh file %s: %s", repo.SSHKey, err)
 				}
 				hostNames.Insert(host)
 			}
@@ -265,7 +268,7 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		} else if repo.AuthType == types.PrivateAccessTokenAuthType {
 			u, err := url.Parse(repo.Address)
 			if err != nil {
-				log.Errorf("failed to parse url,err:%s", err)
+				s.logger.Errorf("failed to parse url,err:%s", err)
 			} else {
 				host := strings.TrimSuffix(strings.Join([]string{u.Host, u.Path}, "/"), "/")
 				cmds = append(cmds, &c.Command{

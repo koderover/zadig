@@ -18,6 +18,7 @@ package step
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/koderover/zadig/pkg/setting"
 )
@@ -34,6 +35,8 @@ type StepDockerBuildSpec struct {
 	Proxy                 *Proxy          `bson:"proxy"                               json:"proxy"                                  yaml:"proxy"`
 	IgnoreCache           bool            `bson:"ignore_cache"                        json:"ignore_cache"                           yaml:"ignore_cache"`
 	DockerRegistry        *DockerRegistry `bson:"docker_registry"                     json:"docker_registry"                        yaml:"docker_registry"`
+	Infrastructure        string
+	Workspace             string
 }
 
 type DockerRegistry struct {
@@ -47,7 +50,11 @@ type DockerRegistry struct {
 func (s *StepDockerBuildSpec) GetDockerFile() string {
 	// if the source of the dockerfile is from template, we write our own dockerfile
 	if s.Source == setting.DockerfileSourceTemplate {
-		return fmt.Sprintf("/%s", setting.ZadigDockerfilePath)
+		if s.Infrastructure == setting.JobVMInfrastructure {
+			return filepath.Join(s.Workspace, setting.ZadigDockerfilePath)
+		} else {
+			return fmt.Sprintf("/%s", setting.ZadigDockerfilePath)
+		}
 	}
 	if s.DockerFile == "" {
 		return "Dockerfile"

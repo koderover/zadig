@@ -23,25 +23,30 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types/step"
 	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 type TarArchiveStep struct {
-	spec       *step.StepTarArchiveSpec
-	envs       []string
-	secretEnvs []string
-	workspace  string
+	spec           *step.StepTarArchiveSpec
+	envs           []string
+	secretEnvs     []string
+	dirs           *meta.ExecutorWorkDirs
+	logger         *zap.SugaredLogger
+	infrastructure string
 }
 
-func NewTararchiveStep(spec interface{}, workspace string, envs, secretEnvs []string) (*TarArchiveStep, error) {
-	tarArchiveStep := &TarArchiveStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewTararchiveStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*TarArchiveStep, error) {
+	tarArchiveStep := &TarArchiveStep{dirs: metaData.Dirs, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs, infrastructure: metaData.Infrastructure, logger: logger}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return tarArchiveStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -56,7 +61,7 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	if len(s.spec.ResultDirs) == 0 {
 		return nil
 	}
-	log.Infof("Start tar archive %s.", s.spec.FileName)
+	s.logger.Infof("Start tar archive %s.", s.spec.FileName)
 	forcedPathStyle := true
 	if s.spec.S3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
@@ -77,10 +82,10 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 		artifactPath = replaceEnvWithValue(artifactPath, envMap)
 		artifactPath = strings.TrimPrefix(artifactPath, "/")
 
-		artifactPath := filepath.Join(s.workspace, artifactPath)
+		artifactPath := filepath.Join(s.dirs.Workspace, artifactPath)
 		isDir, err := fs.IsDir(artifactPath)
 		if err != nil || !isDir {
-			log.Errorf("artifactPath is not exist  %s err: %s", artifactPath, err)
+			s.logger.Errorf("artifactPath is not exist  %s err: %s", artifactPath, err)
 			continue
 		}
 		cmdAndArtifactFullPaths = append(cmdAndArtifactFullPaths, artifactPath)
@@ -92,21 +97,36 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 
 	temp, err := os.Create(tarName)
 	if err != nil {
-		log.Errorf("failed to create %s err: %s", tarName, err)
+		s.logger.Errorf("failed to create %s err: %s", tarName, err)
 		return err
 	}
 	_ = temp.Close()
 	cmd := exec.Command("tar", cmdAndArtifactFullPaths...)
-	cmd.Stderr = os.Stderr
-	if err = cmd.Run(); err != nil {
-		log.Errorf("failed to compress %s err:%s", tarName, err)
+	// cmd.Stderr = os.Stderr
+	needPersistentLog := false
+	var fileName string
+	if s.infrastructure == setting.JobVMInfrastructure {
+		fileName = s.dirs.JobLogPath
+		needPersistentLog = true
+	}
+
+	wg := &sync.WaitGroup{}
+	err = SetCmdStdout(cmd, fileName, s.infrastructure, s.secretEnvs, needPersistentLog, wg)
+	if err != nil {
+		s.logger.Errorf("set cmd stdout error: %v", err)
 		return err
 	}
+
+	if err = cmd.Run(); err != nil {
+		s.logger.Errorf("failed to compress %s err:%s", tarName, err)
+		return err
+	}
+	wg.Wait()
 
 	objectKey := filepath.Join(s.spec.S3DestDir, s.spec.FileName)
 	if err := client.Upload(s.spec.S3Storage.Bucket, tarName, objectKey); err != nil {
 		return err
 	}
-	log.Infof("Finish archive %s.", s.spec.FileName)
+	s.logger.Infof("Finish archive %s.", s.spec.FileName)
 	return nil
 }

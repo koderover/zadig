@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -38,8 +40,9 @@ type SonarCheckStep struct {
 	workspace  string
 }
 
-func NewSonarCheckStep(spec interface{}, workspace string, envs, secretEnvs []string) (*SonarCheckStep, error) {
-	sonarCheckStep := &SonarCheckStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewSonarCheckStep(metaData *meta.JobMetaData, logger *zap.SugaredLogger) (*SonarCheckStep, error) {
+	sonarCheckStep := &SonarCheckStep{workspace: metaData.Dirs.Workspace, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return sonarCheckStep, fmt.Errorf("marshal spec %+v failed", spec)

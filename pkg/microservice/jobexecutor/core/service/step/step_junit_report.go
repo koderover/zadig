@@ -28,8 +28,10 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
+	executormeta "github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -49,8 +51,9 @@ type JunitReportStep struct {
 	workspace  string
 }
 
-func NewJunitReportStep(spec interface{}, workspace string, envs, secretEnvs []string) (*JunitReportStep, error) {
-	junitReportStep := &JunitReportStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs}
+func NewJunitReportStep(metaData *executormeta.JobMetaData, logger *zap.SugaredLogger) (*JunitReportStep, error) {
+	junitReportStep := &JunitReportStep{workspace: metaData.Dirs.Workspace, envs: metaData.Envs, secretEnvs: metaData.SecretEnvs}
+	spec := metaData.Step.Spec
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return junitReportStep, fmt.Errorf("marshal spec %+v failed", spec)
