@@ -38,18 +38,19 @@ type Action struct {
 }
 
 var systemResourceActionAliasMap = map[string]string{
-	"Project":             "项目",
-	"Template":            "模板库",
-	"ReleasePlan":         "发布计划",
-	"QualityCenter":       "质量中心",
-	"ArtifactManagement":  "制品管理",
-	"BusinessDirectory":   "业务目录",
-	"DataCenter":          "数据视图",
-	"ClusterManagement":   "集群管理",
-	"VMManagement":        "主机管理",
-	"RegistryManagement":  "镜像仓库",
-	"S3StorageManagement": "对象存储",
-	"HelmRepoManagement":  "Chart 仓库",
+	"Project":              "项目",
+	"Template":             "模板库",
+	"ReleasePlan":          "发布计划",
+	"QualityCenter":        "质量中心",
+	"ArtifactManagement":   "制品管理",
+	"BusinessDirectory":    "业务目录",
+	"DataCenter":           "数据视图",
+	"ClusterManagement":    "集群管理",
+	"VMManagement":         "主机管理",
+	"RegistryManagement":   "镜像仓库",
+	"S3StorageManagement":  "对象存储",
+	"HelmRepoManagement":   "Chart 仓库",
+	"DBInstanceManagement": "数据库",
 }
 
 var systemResourceSequence = []string{
@@ -65,6 +66,7 @@ var systemResourceSequence = []string{
 	"RegistryManagement",
 	"S3StorageManagement",
 	"HelmRepoManagement",
+	"DBInstanceManagement",
 }
 
 var projectResourceAliasMap = map[string]string{

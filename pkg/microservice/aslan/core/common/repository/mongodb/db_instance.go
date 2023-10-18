@@ -25,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -119,6 +120,7 @@ func (c *DBInstanceColl) Update(id string, args *models.DBInstance) error {
 		"name":       args.Name,
 		"host":       args.Host,
 		"port":       args.Port,
+		"projects":   args.Projects,
 		"username":   args.Username,
 		"password":   args.Password,
 		"update_by":  args.UpdateBy,
@@ -139,4 +141,28 @@ func (c *DBInstanceColl) Delete(id string) error {
 	_, err = c.DeleteOne(context.TODO(), query)
 
 	return err
+}
+
+func (c *DBInstanceColl) ListByProject(projectName string) ([]*models.DBInstance, error) {
+	resp := make([]*models.DBInstance, 0)
+	query := bson.M{
+		"projects": bson.M{
+			"$elemMatch": bson.M{
+				"$in": bson.A{projectName, setting.AllProjects},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }

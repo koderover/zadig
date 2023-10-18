@@ -26,6 +26,7 @@ type DBInstance struct {
 	ID        primitive.ObjectID    `bson:"_id,omitempty"         json:"id,omitempty"`
 	Type      config.DBInstanceType `bson:"type"                  json:"type"`
 	Name      string                `bson:"name"                  json:"name"`
+	Projects  []string              `bson:"projects"              json:"projects"`
 	Host      string                `bson:"host"                  json:"host"`
 	Port      string                `bson:"port"                  json:"port"`
 	Username  string                `bson:"username"              json:"username"`

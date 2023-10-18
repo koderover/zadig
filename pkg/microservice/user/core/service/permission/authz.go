@@ -634,6 +634,12 @@ func generateDefaultSystemActions() *SystemActions {
 			Edit:   false,
 			Delete: false,
 		},
+		DBInstanceManagement: &DBInstanceManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
 	}
 }
 
@@ -808,5 +814,13 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.HelmRepoManagement.Edit = true
 	case VerbDeleteHelmRepoManagement:
 		systemActions.HelmRepoManagement.Delete = true
+	case VerbGetDBInstanceManagement:
+		systemActions.DBInstanceManagement.View = true
+	case VerbCreateDBInstanceManagement:
+		systemActions.DBInstanceManagement.Create = true
+	case VerbEditDBInstanceManagement:
+		systemActions.DBInstanceManagement.Edit = true
+	case VerbDeleteDBInstanceManagement:
+		systemActions.DBInstanceManagement.Delete = true
 	}
 }

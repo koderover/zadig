@@ -397,6 +397,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		dbs.POST("", CreateDBInstance)
 		dbs.GET("", ListDBInstanceInfo)
+		dbs.GET("/project", ListDBInstancesInfoByProject)
 		dbs.GET("/detail", ListDBInstance)
 		dbs.GET("/:id", GetDBInstance)
 		dbs.PUT("/:id", UpdateDBInstance)
