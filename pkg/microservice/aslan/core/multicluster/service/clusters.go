@@ -26,6 +26,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -429,7 +430,11 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		advancedConfig.Tolerations = args.AdvancedConfig.Tolerations
 
 		// compatible with open source version
-		if !configbase.Enterprise() {
+		licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+		if err != nil {
+			return nil, fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		}
+		if licenseStatus.Type == plutusvendor.ZadigSystemTypeBasic {
 			var strategyID string
 			if len(args.AdvancedConfig.ScheduleStrategy) > 0 {
 				strategyID = args.AdvancedConfig.ScheduleStrategy[0].StrategyID
