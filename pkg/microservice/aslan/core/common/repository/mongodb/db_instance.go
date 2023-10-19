@@ -23,7 +23,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
@@ -127,9 +126,6 @@ func (c *DBInstanceColl) Update(id string, args *models.DBInstance) error {
 		"update_by":  args.UpdateBy,
 		"updated_at": time.Now().Unix(),
 	}}
-
-	log.Debugf("query :%v", query)
-	log.Debugf("change :%v", change)
 
 	_, err = c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
 	return err

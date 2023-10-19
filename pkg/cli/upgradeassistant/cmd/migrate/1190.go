@@ -928,27 +928,23 @@ func migrateInfrastructureField() error {
 
 func migrateDBIstanceProject() error {
 	var actions []*usermodels.Action
-	log.Debugf("1")
 	err := repository.DB.Where("action = ?", "get_dbinstance_management").Find(&actions).Error
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return fmt.Errorf("failed to get action equal get_dbinstance_management, err: %v", err)
 	}
-	if len(actions) != 0 {
-		return nil
-	}
-	log.Debugf("2")
-	actions = []*usermodels.Action{
-		{Name: "查看", Action: "get_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-		{Name: "新建", Action: "create_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-		{Name: "编辑", Action: "edit_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-		{Name: "删除", Action: "delete_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-	}
+	if len(actions) == 0 {
+		actions = []*usermodels.Action{
+			{Name: "查看", Action: "get_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
+			{Name: "新建", Action: "create_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
+			{Name: "编辑", Action: "edit_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
+			{Name: "删除", Action: "delete_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
+		}
 
-	err = repository.DB.Create(actions).Error
-	if err != nil {
-		return fmt.Errorf("failed to create actions, err: %v", err)
+		err = repository.DB.Create(actions).Error
+		if err != nil {
+			return fmt.Errorf("failed to create actions, err: %v", err)
+		}
 	}
-	log.Debugf("3")
 
 	var dbInstances []*models.DBInstance
 	query := bson.M{
@@ -962,15 +958,12 @@ func migrateDBIstanceProject() error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("4")
 	for _, dbInstance := range dbInstances {
 		dbInstance.Projects = append(dbInstance.Projects, setting.AllProjects)
-		log.Debugf("dbInstance: %v", dbInstance)
 		if err := mongodb.NewDBInstanceColl().Update(dbInstance.ID.Hex(), dbInstance); err != nil {
 			return fmt.Errorf("failed to update db instance %s for migrateDBIstanceProject, err: %v", dbInstance.ID.Hex(), err)
 		}
 	}
-	log.Debugf("5")
 
 	return nil
 }
