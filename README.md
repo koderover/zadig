@@ -36,7 +36,7 @@
 
 Zadig is an open-source, distributed, cloud-native CD (Continuous Delivery) product designed for developers. Zadig not only provides high-availability CI/CD capabilities, but also provides cloud-native operating environments, supports developers' local debugging, parallel build and deployment of microservices, integration testing, etc. .
 
-Zadig is non-invasive, it does not exclude any of your existing development process. Instead it can easily integrate with Github/Gitlab, Jenkins and many other cloud vendors in a seamingless way. We strive for the 10x optimal developer experience with the lowest maintenance cost possible.
+Zadig is non-invasive, it does not exclude any of your existing development process. Instead it can easily integrate with Github/Gitlab, Jenkins and many other cloud vendors in a seamless way. We strive for the 10x optimal developer experience with the lowest maintenance cost possible.
 
 > Our vision is: Developer + Zadig = Business success
 
