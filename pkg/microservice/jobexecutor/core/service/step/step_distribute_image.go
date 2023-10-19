@@ -17,17 +17,15 @@ limitations under the License.
 package step
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"strings"
+	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/regclient/regclient"
-	"github.com/regclient/regclient/config"
-	"github.com/regclient/regclient/types/ref"
-	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -58,59 +56,95 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 	if s.spec.SourceRegistry == nil || s.spec.TargetRegistry == nil {
 		return errors.New("image registry infos are missing")
 	}
-	hostsOpt := regclient.WithConfigHosts([]config.Host{getDockerHost(s.spec.SourceRegistry), getDockerHost(s.spec.TargetRegistry)})
-	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
-	client := regclient.New(hostsOpt, regclient.WithLog(logger))
 
-	errList := new(multierror.Error)
+	if err := s.loginSourceRegistry(); err != nil {
+		return err
+	}
+
 	wg := sync.WaitGroup{}
+	errList := new(multierror.Error)
 	for _, target := range s.spec.DistributeTarget {
 		wg.Add(1)
 		go func(target *step.DistributeTaskTarget) {
 			defer wg.Done()
-			if err := copyImage(target, client); err != nil {
-				errList = multierror.Append(errList, err)
+			pullCmd := dockerPullCmd(target.SourceImage)
+			out := bytes.Buffer{}
+			pullCmd.Stdout = &out
+			pullCmd.Stderr = &out
+			if err := pullCmd.Run(); err != nil {
+				errMsg := fmt.Sprintf("failed to pull image: %s %s", err, out.String())
+				errList = multierror.Append(errList, errors.New(errMsg))
+				return
 			}
+			log.Infof("pull source image [%s] succeed", target.SourceImage)
+
+			tagCmd := dockerTagCmd(target.SourceImage, target.TargetImage)
+			out = bytes.Buffer{}
+			tagCmd.Stdout = &out
+			tagCmd.Stderr = &out
+			if err := tagCmd.Run(); err != nil {
+				errMsg := fmt.Sprintf("failed to tag image: %s %s", err, out.String())
+				errList = multierror.Append(errList, errors.New(errMsg))
+				return
+			}
+			log.Infof("tag image [%s] to [%s] succeed", target.SourceImage, target.TargetImage)
 		}(target)
 	}
 	wg.Wait()
 	if err := errList.ErrorOrNil(); err != nil {
-		return fmt.Errorf("copy images error: %v", err)
+		return fmt.Errorf("prepare source images error: %v", err)
 	}
+	log.Infof("Finish prepare source images.")
+
+	for _, target := range s.spec.DistributeTarget {
+		wg.Add(1)
+		go func(target *step.DistributeTaskTarget) {
+			defer wg.Done()
+			pushCmd := dockerPush(target.TargetImage)
+			out := bytes.Buffer{}
+			pushCmd.Stdout = &out
+			pushCmd.Stderr = &out
+			if err := pushCmd.Run(); err != nil {
+				errMsg := fmt.Sprintf("failed to push image: %s %s", err, out.String())
+				errList = multierror.Append(errList, errors.New(errMsg))
+				return
+			}
+			log.Infof("push image [%s] succeed", target.TargetImage)
+		}(target)
+	}
+	wg.Wait()
+	if err := errList.ErrorOrNil(); err != nil {
+		return fmt.Errorf("push target images error: %v", err)
+	}
+
 	log.Info("Finish distribute images.")
 	return nil
 }
 
-func copyImage(target *step.DistributeTaskTarget, client *regclient.RegClient) error {
-	sourceRef, err := ref.New(target.SourceImage)
-	if err != nil {
-		errMsg := fmt.Sprintf("parse source image: %s error: %v", target.SourceImage, err)
-		return errors.New(errMsg)
+func (s *DistributeImageStep) loginSourceRegistry() error {
+	fmt.Println("Logining Docker Source Registry.")
+	startTimeDockerLogin := time.Now()
+	loginCmd := dockerLogin(s.spec.SourceRegistry.AccessKey, s.spec.SourceRegistry.SecretKey, s.spec.SourceRegistry.RegAddr)
+	var out bytes.Buffer
+	loginCmd.Stdout = &out
+	loginCmd.Stderr = &out
+	if err := loginCmd.Run(); err != nil {
+		return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
 	}
-	targetRef, err := ref.New(target.TargetImage)
-	if err != nil {
-		errMsg := fmt.Sprintf("parse target image: %s error: %v", target.TargetImage, err)
-		return errors.New(errMsg)
-	}
-	if err := client.ImageCopy(context.Background(), sourceRef, targetRef); err != nil {
-		errMsg := fmt.Sprintf("copy image failed: %v", err)
-		return errors.New(errMsg)
-	}
-	log.Infof("copy image from [%s] to [%s] succeed", target.SourceImage, target.TargetImage)
+	fmt.Printf("Login ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerLogin).Seconds())
 	return nil
 }
 
-func getDockerHost(reg *step.RegistryNamespace) config.Host {
-	host := config.HostNewName(reg.RegAddr)
-	host.User = reg.AccessKey
-	host.Pass = reg.SecretKey
-	host.RegCert = reg.TLSCert
-	if !reg.TLSEnabled {
-		host.TLS = config.TLSInsecure
-	}
-	if strings.HasPrefix(reg.RegAddr, "http://") {
-		host.TLS = config.TLSDisabled
-	}
-	return *host
+func dockerPullCmd(fullImage string) *exec.Cmd {
+	args := []string{"-c"}
+	dockerPushCommand := "docker pull " + fullImage
+	args = append(args, dockerPushCommand)
+	return exec.Command("sh", args...)
+}
+
+func dockerTagCmd(sourceImage, targetImage string) *exec.Cmd {
+	args := []string{"-c"}
+	dockerPushCommand := fmt.Sprintf("docker tag %s %s", sourceImage, targetImage)
+	args = append(args, dockerPushCommand)
+	return exec.Command("sh", args...)
 }
