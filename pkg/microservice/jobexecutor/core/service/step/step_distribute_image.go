@@ -61,8 +61,15 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 		return err
 	}
 
-	wg := sync.WaitGroup{}
 	errList := new(multierror.Error)
+	errLock := sync.Mutex{}
+	appendError := func(err error) {
+		errLock.Lock()
+		defer errLock.Unlock()
+		errList = multierror.Append(errList, err)
+	}
+
+	wg := sync.WaitGroup{}
 	for _, target := range s.spec.DistributeTarget {
 		wg.Add(1)
 		go func(target *step.DistributeTaskTarget) {
@@ -73,7 +80,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 			pullCmd.Stderr = &out
 			if err := pullCmd.Run(); err != nil {
 				errMsg := fmt.Sprintf("failed to pull image: %s %s", err, out.String())
-				errList = multierror.Append(errList, errors.New(errMsg))
+				appendError(errors.New(errMsg))
 				return
 			}
 			log.Infof("pull source image [%s] succeed", target.SourceImage)
@@ -84,7 +91,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 			tagCmd.Stderr = &out
 			if err := tagCmd.Run(); err != nil {
 				errMsg := fmt.Sprintf("failed to tag image: %s %s", err, out.String())
-				errList = multierror.Append(errList, errors.New(errMsg))
+				appendError(errors.New(errMsg))
 				return
 			}
 			log.Infof("tag image [%s] to [%s] succeed", target.SourceImage, target.TargetImage)
@@ -109,7 +116,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 			pushCmd.Stderr = &out
 			if err := pushCmd.Run(); err != nil {
 				errMsg := fmt.Sprintf("failed to push image: %s %s", err, out.String())
-				errList = multierror.Append(errList, errors.New(errMsg))
+				appendError(errors.New(errMsg))
 				return
 			}
 			log.Infof("push image [%s] succeed", target.TargetImage)
