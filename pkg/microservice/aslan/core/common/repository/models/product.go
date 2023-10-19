@@ -39,7 +39,7 @@ type Product struct {
 	UpdateBy       string                          `bson:"update_by"                 json:"update_by"`
 	Visibility     string                          `bson:"-"                         json:"visibility"`
 	Services       [][]*ProductService             `bson:"services"                  json:"services"`
-	Render         *RenderInfo                     `bson:"render"                    json:"render"` // Deprecated in 1.19.0, will be removed in 1.10.0
+	Render         *RenderInfo                     `bson:"-"                         json:"render"` // Deprecated in 1.19.0, will be removed in 1.20.0
 	Error          string                          `bson:"error"                     json:"error"`
 	ServiceRenders []*templatemodels.ServiceRender `bson:"-"                         json:"chart_infos,omitempty"`
 	IsPublic       bool                            `bson:"is_public"                 json:"isPublic"`
