@@ -132,7 +132,13 @@ const (
 	VerbCreateHelmRepoManagement = "create_helmrepo_management"
 	VerbEditHelmRepoManagement   = "edit_helmrepo_management"
 	VerbDeleteHelmRepoManagement = "delete_helmrepo_management"
-	VerbGetBusinessDirectory     = "get_business_directory"
+	// business directory
+	VerbGetBusinessDirectory = "get_business_directory"
+	// dbinstance management
+	VerbGetDBInstanceManagement    = "get_dbinstance_management"
+	VerbCreateDBInstanceManagement = "create_dbinstance_management"
+	VerbEditDBInstanceManagement   = "edit_dbinstance_management"
+	VerbDeleteDBInstanceManagement = "delete_dbinstance_management"
 )
 
 type AuthorizedResources struct {
@@ -155,19 +161,20 @@ type ProjectActions struct {
 }
 
 type SystemActions struct {
-	Project             *SystemProjectActions       `json:"project"`
-	Template            *TemplateActions            `json:"template"`
-	TestCenter          *TestCenterActions          `json:"test_center"`
-	ReleaseCenter       *ReleaseCenterActions       `json:"release_center"`
-	DeliveryCenter      *DeliveryCenterActions      `json:"delivery_center"`
-	DataCenter          *DataCenterActions          `json:"data_center"`
-	ReleasePlan         *ReleasePlanActions         `json:"release_plan"`
-	BusinessDirectory   *BusinessDirectoryActions   `json:"business_directory"`
-	ClusterManagement   *ClusterManagementActions   `json:"cluster_management"`
-	VMManagement        *VMManagementActions        `json:"vm_management"`
-	RegistryManagement  *RegistryManagementActions  `json:"registry_management"`
-	S3StorageManagement *S3StorageManagementActions `json:"s3storage_management"`
-	HelmRepoManagement  *HelmRepoManagementActions  `json:"helmrepo_management"`
+	Project              *SystemProjectActions        `json:"project"`
+	Template             *TemplateActions             `json:"template"`
+	TestCenter           *TestCenterActions           `json:"test_center"`
+	ReleaseCenter        *ReleaseCenterActions        `json:"release_center"`
+	DeliveryCenter       *DeliveryCenterActions       `json:"delivery_center"`
+	DataCenter           *DataCenterActions           `json:"data_center"`
+	ReleasePlan          *ReleasePlanActions          `json:"release_plan"`
+	BusinessDirectory    *BusinessDirectoryActions    `json:"business_directory"`
+	ClusterManagement    *ClusterManagementActions    `json:"cluster_management"`
+	VMManagement         *VMManagementActions         `json:"vm_management"`
+	RegistryManagement   *RegistryManagementActions   `json:"registry_management"`
+	S3StorageManagement  *S3StorageManagementActions  `json:"s3storage_management"`
+	HelmRepoManagement   *HelmRepoManagementActions   `json:"helmrepo_management"`
+	DBInstanceManagement *DBInstanceManagementActions `json:"dbinstance_management"`
 }
 
 type WorkflowActions struct {
@@ -317,6 +324,13 @@ type S3StorageManagementActions struct {
 }
 
 type HelmRepoManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type DBInstanceManagementActions struct {
 	Create bool
 	View   bool
 	Edit   bool

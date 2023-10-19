@@ -62,6 +62,17 @@ func ListDBInstancesInfo(log *zap.SugaredLogger) ([]*commonmodels.DBInstance, er
 	return resp, nil
 }
 
+func ListDBInstancesInfoByProject(projectName string, log *zap.SugaredLogger) ([]*commonmodels.DBInstance, error) {
+	resp, err := commonrepo.NewDBInstanceColl().ListByProject(projectName)
+	if err != nil {
+		return nil, err
+	}
+	for _, db := range resp {
+		db.Password = ""
+	}
+	return resp, nil
+}
+
 func CreateDBInstance(args *commonmodels.DBInstance, log *zap.SugaredLogger) error {
 	if args == nil {
 		return errors.New("nil DBInstance")

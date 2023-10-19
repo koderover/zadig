@@ -3784,6 +3784,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/system/dbinstance/project": {
+            "get": {
+                "description": "List DB Instances Info By Project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "List DB Instances Info By Project",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.DBInstance"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/system/helm/project": {
             "get": {
                 "description": "List Helm Repos By Project",
@@ -4582,6 +4617,17 @@ const docTemplate = `{
                 "CommonEnvCfgTypePvc"
             ]
         },
+        "config.DBInstanceType": {
+            "type": "string",
+            "enum": [
+                "mysql",
+                "mariadb"
+            ],
+            "x-enum-varnames": [
+                "DBInstanceTypeMySQL",
+                "DBInstanceTypeMariaDB"
+            ]
+        },
         "config.DeployContent": {
             "type": "string",
             "enum": [
@@ -5166,6 +5212,47 @@ const docTemplate = `{
                     }
                 },
                 "yaml_data": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DBInstance": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "integer"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "string"
+                },
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "$ref": "#/definitions/config.DBInstanceType"
+                },
+                "update_by": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "integer"
+                },
+                "username": {
                     "type": "string"
                 }
             }

@@ -45,8 +45,10 @@ func ListDBInstance(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.DBInstanceManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Resp, ctx.Err = commonservice.ListDBInstances(encryptedKey, ctx.Logger)
@@ -62,7 +64,49 @@ func ListDBInstanceInfo(c *gin.Context) {
 		return
 	}
 
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.DBInstanceManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	ctx.Resp, ctx.Err = commonservice.ListDBInstancesInfo(ctx.Logger)
+}
+
+// @Summary List DB Instances Info By Project
+// @Description List DB Instances Info By Project
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Success 200 		{array} 	commonmodels.DBInstance
+// @Router /api/aslan/system/dbinstance/project [get]
+func ListDBInstancesInfoByProject(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	if len(projectKey) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = commonservice.ListDBInstancesInfoByProject(projectKey, ctx.Logger)
 }
 
 func CreateDBInstance(c *gin.Context) {
@@ -77,8 +121,10 @@ func CreateDBInstance(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.DBInstanceManagement.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	args := new(commonmodels.DBInstance)
@@ -103,8 +149,10 @@ func GetDBInstance(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.DBInstanceManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	id := c.Param("id")
@@ -128,8 +176,10 @@ func UpdateDBInstance(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.DBInstanceManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	id := c.Param("id")
@@ -160,8 +210,10 @@ func DeleteDBInstance(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.DBInstanceManagement.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	id := c.Param("id")
@@ -185,8 +237,10 @@ func ValidateDBInstance(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.DBInstanceManagement.View && !ctx.Resources.SystemActions.DBInstanceManagement.Edit && !ctx.Resources.SystemActions.DBInstanceManagement.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	args := new(commonmodels.DBInstance)
