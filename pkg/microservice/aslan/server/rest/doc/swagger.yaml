@@ -19,6 +19,14 @@ definitions:
     - CommonEnvCfgTypeConfigMap
     - CommonEnvCfgTypeSecret
     - CommonEnvCfgTypePvc
+  config.DBInstanceType:
+    enum:
+    - mysql
+    - mariadb
+    type: string
+    x-enum-varnames:
+    - DBInstanceTypeMySQL
+    - DBInstanceTypeMariaDB
   config.DeployContent:
     enum:
     - image
@@ -407,6 +415,33 @@ definitions:
           type: string
         type: array
       yaml_data:
+        type: string
+    type: object
+  models.DBInstance:
+    properties:
+      created_at:
+        type: integer
+      host:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      port:
+        type: string
+      projects:
+        items:
+          type: string
+        type: array
+      type:
+        $ref: '#/definitions/config.DBInstanceType'
+      update_by:
+        type: string
+      updated_at:
+        type: integer
+      username:
         type: string
     type: object
   models.DeplopyVariableConfig:
@@ -4909,6 +4944,29 @@ paths:
       summary: Rollback Service Version
       tags:
       - service
+  /api/aslan/system/dbinstance/project:
+    get:
+      consumes:
+      - application/json
+      description: List DB Instances Info By Project
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.DBInstance'
+            type: array
+      summary: List DB Instances Info By Project
+      tags:
+      - system
   /api/aslan/system/helm/project:
     get:
       consumes:

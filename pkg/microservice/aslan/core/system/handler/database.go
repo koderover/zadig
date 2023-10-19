@@ -237,7 +237,7 @@ func ValidateDBInstance(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		if !ctx.Resources.SystemActions.DBInstanceManagement.Edit && !ctx.Resources.SystemActions.DBInstanceManagement.Create {
+		if !ctx.Resources.SystemActions.DBInstanceManagement.View && !ctx.Resources.SystemActions.DBInstanceManagement.Edit && !ctx.Resources.SystemActions.DBInstanceManagement.Create {
 			ctx.UnAuthorized = true
 			return
 		}
