@@ -96,6 +96,9 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 	}
 	log.Infof("Finish prepare source images.")
 
+	if err := s.loginTargetRegistry(); err != nil {
+		return err
+	}
 	for _, target := range s.spec.DistributeTarget {
 		wg.Add(1)
 		go func(target *step.DistributeTaskTarget) {
@@ -125,6 +128,20 @@ func (s *DistributeImageStep) loginSourceRegistry() error {
 	fmt.Println("Logining Docker Source Registry.")
 	startTimeDockerLogin := time.Now()
 	loginCmd := dockerLogin(s.spec.SourceRegistry.AccessKey, s.spec.SourceRegistry.SecretKey, s.spec.SourceRegistry.RegAddr)
+	var out bytes.Buffer
+	loginCmd.Stdout = &out
+	loginCmd.Stderr = &out
+	if err := loginCmd.Run(); err != nil {
+		return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
+	}
+	fmt.Printf("Login ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerLogin).Seconds())
+	return nil
+}
+
+func (s *DistributeImageStep) loginTargetRegistry() error {
+	fmt.Println("Logining Docker Target Registry.")
+	startTimeDockerLogin := time.Now()
+	loginCmd := dockerLogin(s.spec.TargetRegistry.AccessKey, s.spec.TargetRegistry.SecretKey, s.spec.TargetRegistry.RegAddr)
 	var out bytes.Buffer
 	loginCmd.Stdout = &out
 	loginCmd.Stderr = &out
