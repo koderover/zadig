@@ -125,7 +125,7 @@ func (s *DistributeImageStep) Run(ctx context.Context) error {
 }
 
 func (s *DistributeImageStep) loginSourceRegistry() error {
-	fmt.Println("Logining Docker Source Registry.")
+	log.Info("Logining Docker Source Registry.")
 	startTimeDockerLogin := time.Now()
 	loginCmd := dockerLogin(s.spec.SourceRegistry.AccessKey, s.spec.SourceRegistry.SecretKey, s.spec.SourceRegistry.RegAddr)
 	var out bytes.Buffer
@@ -134,12 +134,12 @@ func (s *DistributeImageStep) loginSourceRegistry() error {
 	if err := loginCmd.Run(); err != nil {
 		return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
 	}
-	fmt.Printf("Login ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerLogin).Seconds())
+	log.Infof("Login ended. Duration: %.2f seconds.", time.Since(startTimeDockerLogin).Seconds())
 	return nil
 }
 
 func (s *DistributeImageStep) loginTargetRegistry() error {
-	fmt.Println("Logining Docker Target Registry.")
+	log.Info("Logining Docker Target Registry.")
 	startTimeDockerLogin := time.Now()
 	loginCmd := dockerLogin(s.spec.TargetRegistry.AccessKey, s.spec.TargetRegistry.SecretKey, s.spec.TargetRegistry.RegAddr)
 	var out bytes.Buffer
@@ -148,7 +148,7 @@ func (s *DistributeImageStep) loginTargetRegistry() error {
 	if err := loginCmd.Run(); err != nil {
 		return fmt.Errorf("failed to login docker registry: %s %s", err, out.String())
 	}
-	fmt.Printf("Login ended. Duration: %.2f seconds.\n", time.Since(startTimeDockerLogin).Seconds())
+	log.Infof("Login ended. Duration: %.2f seconds.", time.Since(startTimeDockerLogin).Seconds())
 	return nil
 }
 
