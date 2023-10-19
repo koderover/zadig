@@ -109,12 +109,6 @@ func V1180ToV1190() error {
 		return err
 	}
 
-	log.Infof("-------- start migrate db instance project --------")
-	if err := migrateDBIstanceProject(); err != nil {
-		log.Infof("migrateDBIstanceProject err: %v", err)
-		return err
-	}
-
 	log.Infof("-------- start migrate renderset info --------")
 	if err := migrateRendersets(); err != nil {
 		log.Infof("migrateRendersets err: %v", err)
@@ -920,48 +914,6 @@ func migrateInfrastructureField() error {
 		log.Infof("update %d workflowV4", len(ms))
 		if _, err := mongodb.NewWorkflowV4Coll().BulkWrite(context.Background(), ms); err != nil {
 			return fmt.Errorf("update workflowV4 for infrastructure field in migrateInfrastructureField method, error: %s", err)
-		}
-	}
-
-	return nil
-}
-
-func migrateDBIstanceProject() error {
-	var actions []*usermodels.Action
-	err := repository.DB.Where("action = ?", "get_dbinstance_management").Find(&actions).Error
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("failed to get action equal get_dbinstance_management, err: %v", err)
-	}
-	if len(actions) == 0 {
-		actions = []*usermodels.Action{
-			{Name: "查看", Action: "get_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-			{Name: "新建", Action: "create_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-			{Name: "编辑", Action: "edit_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-			{Name: "删除", Action: "delete_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-		}
-
-		err = repository.DB.Create(actions).Error
-		if err != nil {
-			return fmt.Errorf("failed to create actions, err: %v", err)
-		}
-	}
-
-	var dbInstances []*models.DBInstance
-	query := bson.M{
-		"projects": bson.M{"$exists": false},
-	}
-	cursor, err := mongodb.NewDBInstanceColl().Collection.Find(context.TODO(), query)
-	if err != nil {
-		return err
-	}
-	err = cursor.All(context.TODO(), &dbInstances)
-	if err != nil {
-		return err
-	}
-	for _, dbInstance := range dbInstances {
-		dbInstance.Projects = append(dbInstance.Projects, setting.AllProjects)
-		if err := mongodb.NewDBInstanceColl().Update(dbInstance.ID.Hex(), dbInstance); err != nil {
-			return fmt.Errorf("failed to update db instance %s for migrateDBIstanceProject, err: %v", dbInstance.ID.Hex(), err)
 		}
 	}
 
