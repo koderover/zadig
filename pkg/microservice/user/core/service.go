@@ -25,6 +25,8 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/mongo"
+
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
@@ -37,7 +39,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/types"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func Start(_ context.Context) {

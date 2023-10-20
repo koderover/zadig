@@ -67,21 +67,25 @@ func CheckSignature(ifLoggedIn bool, logger *zap.SugaredLogger) error {
 		return err
 	}
 	vendorClient := plutusvendor.New()
-	err = vendorClient.Health()
-	if err == nil {
-		res, checkErr := vendorClient.CheckSignature(userNum)
-		if checkErr != nil {
-			return checkErr
-		}
-		if res.Code == 6694 {
-			if ifLoggedIn {
-				return nil
-			} else {
-				return fmt.Errorf("系统使用用户数量已达授权人数上限，请联系系统管理员")
-			}
 
+	err = vendorClient.Health()
+	if err != nil {
+		return err
+	}
+
+	res, checkErr := vendorClient.CheckSignature(userNum)
+	if checkErr != nil {
+		return checkErr
+	}
+
+	if res.Code == 6694 {
+		if ifLoggedIn {
+			return nil
+		} else {
+			return fmt.Errorf("系统使用用户数量已达授权人数上限，请联系系统管理员")
 		}
 	}
+
 	return nil
 }
 

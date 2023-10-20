@@ -33,15 +33,23 @@ func (c *Client) CheckSignature(userNum int64) (*CheckSignatrueResp, error) {
 	return res, err
 }
 
+const (
+	ZadigSystemTypeBasic        = "basic"
+	ZadigSystemTypeProfessional = "professional"
+)
+
 type ZadigXLicenseStatus struct {
-	Status           string `json:"status"`
-	SystemID         string `json:"system_id"`
-	UserLimit        int64  `json:"user_limit"`
-	UserCount        int64  `json:"user_count"`
-	License          string `json:"license"`
-	ExpireAt         int64  `json:"expire_at"`
-	AvailableVersion string `json:"available_version"`
-	CurrentVersion   string `json:"current_version"`
+	Type             string   `json:"type"`
+	Status           string   `json:"status"`
+	SystemID         string   `json:"system_id"`
+	UserLimit        int64    `json:"user_limit"`
+	UserCount        int64    `json:"user_count"`
+	License          string   `json:"license"`
+	ExpireAt         int64    `json:"expire_at"`
+	AvailableVersion string   `json:"available_version"`
+	CurrentVersion   string   `json:"current_version"`
+	Features         []string `json:"features"`
+	ImprovementPlan  bool     `json:"improvement_plan"`
 }
 
 func (c *Client) CheckZadigXLicenseStatus() (*ZadigXLicenseStatus, error) {
