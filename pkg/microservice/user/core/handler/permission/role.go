@@ -97,7 +97,7 @@ func CreateRole(c *gin.Context) {
 			actionSet.Has(permission.VerbConfigProductionEnv) || actionSet.Has(permission.VerbEditProductionEnv) ||
 			actionSet.Has(permission.VerbDeleteProductionEnv) || actionSet.Has(permission.VerbDebugProductionEnvPod) ||
 			actionSet.Has(permission.VerbGetDelivery) || actionSet.Has(permission.VerbCreateDelivery) || actionSet.Has(permission.VerbDeleteDelivery) {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("test")
+			ctx.Err = e.ErrLicenseInvalid
 			return
 		}
 	}
@@ -171,7 +171,7 @@ func UpdateRole(c *gin.Context) {
 			actionSet.Has(permission.VerbConfigProductionEnv) || actionSet.Has(permission.VerbEditProductionEnv) ||
 			actionSet.Has(permission.VerbDeleteProductionEnv) || actionSet.Has(permission.VerbDebugProductionEnvPod) ||
 			actionSet.Has(permission.VerbGetDelivery) || actionSet.Has(permission.VerbCreateDelivery) || actionSet.Has(permission.VerbDeleteDelivery) {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("test1")
+			ctx.Err = e.ErrLicenseInvalid
 			return
 		}
 	}
