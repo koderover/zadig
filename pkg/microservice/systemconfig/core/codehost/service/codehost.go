@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/aslan"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
@@ -66,6 +67,11 @@ func CreateSystemCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*mod
 }
 
 func EncypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap.SugaredLogger) ([]*models.CodeHost, error) {
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate zadig license status, error: %s", err)
+	}
+
 	aesKey, err := aslan.New(config.AslanServiceAddress()).GetTextFromEncryptedKey(encryptedKey)
 	if err != nil {
 		log.Errorf("ListCodeHost GetTextFromEncryptedKey error:%s", err)
@@ -73,6 +79,12 @@ func EncypteCodeHost(encryptedKey string, codeHosts []*models.CodeHost, log *zap
 	}
 	var result []*models.CodeHost
 	for _, codeHost := range codeHosts {
+		if codeHost.Type == setting.SourceFromGiteeEE {
+			if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+				continue
+			}
+		}
+
 		if len(codeHost.Password) > 0 {
 			codeHost.Password, err = crypto.AesEncryptByKey(codeHost.Password, aesKey.PlainText)
 			if err != nil {

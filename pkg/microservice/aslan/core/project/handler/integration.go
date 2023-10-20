@@ -23,6 +23,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -65,12 +67,25 @@ func CreateProjectCodeHost(c *gin.Context) {
 		}
 	}
 
-	rep := new(models.CodeHost)
-	if err := c.ShouldBindJSON(rep); err != nil {
+	req := new(models.CodeHost)
+	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.CreateProjectCodeHost(projectKey, rep, ctx.Logger)
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if req.Type == setting.SourceFromGiteeEE {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.CreateProjectCodeHost(projectKey, req, ctx.Logger)
 }
 
 // @Summary List Project CodeHost
@@ -215,6 +230,19 @@ func UpdateProjectCodeHost(c *gin.Context) {
 		return
 	}
 	req.ID = id
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if req.Type == setting.SourceFromGiteeEE {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
 	ctx.Resp, ctx.Err = service.UpdateProjectSystemCodeHost(projectKey, req, ctx.Logger)
 }
 
