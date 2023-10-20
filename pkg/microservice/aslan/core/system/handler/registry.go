@@ -25,10 +25,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -81,6 +83,20 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 		return
 	}
 
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if reg.RegType == config.RegistryProviderACREnterprise ||
+		reg.RegType == config.RegistryProviderTCREnterprise ||
+		reg.RegType == config.RegistryProviderJFrog {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
 	// FIXME: a new feature in 1.11 added a tls certificate field for registry, but it is not added in this API temporarily
 	//        since it is for Kodespace ONLY
 	ctx.Resp = &Registry{
@@ -115,6 +131,20 @@ func GetRegistryNamespace(c *gin.Context) {
 	if err != nil {
 		ctx.Err = err
 		return
+	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if reg.RegType == config.RegistryProviderACREnterprise ||
+		reg.RegType == config.RegistryProviderTCREnterprise ||
+		reg.RegType == config.RegistryProviderJFrog {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
 	}
 
 	resp := &Registry{
@@ -200,6 +230,20 @@ func CreateRegistryNamespace(c *gin.Context) {
 		return
 	}
 
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if args.RegType == config.RegistryProviderACREnterprise ||
+		args.RegType == config.RegistryProviderTCREnterprise ||
+		args.RegType == config.RegistryProviderJFrog {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
 	ctx.Err = service.CreateRegistryNamespace(ctx.UserName, args, ctx.Logger)
 }
 
@@ -240,6 +284,20 @@ func UpdateRegistryNamespace(c *gin.Context) {
 	if err := args.Validate(); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if args.RegType == config.RegistryProviderACREnterprise ||
+		args.RegType == config.RegistryProviderTCREnterprise ||
+		args.RegType == config.RegistryProviderJFrog {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
 	}
 
 	ctx.Err = service.UpdateRegistryNamespace(ctx.UserName, c.Param("id"), args, ctx.Logger)
@@ -316,6 +374,20 @@ func ListImages(c *gin.Context) {
 		return
 	}
 
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if registryInfo.RegType == config.RegistryProviderACREnterprise ||
+		registryInfo.RegType == config.RegistryProviderTCREnterprise ||
+		registryInfo.RegType == config.RegistryProviderJFrog {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
 	authProjectSet := sets.NewString(registryInfo.Projects...)
 	if !authProjectSet.Has(setting.AllProjects) && !authProjectSet.Has(projectName) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("project %s is not in the registry %s/%s's project list", projectName, registryInfo.RegAddr, registryInfo.Namespace))
@@ -341,6 +413,20 @@ func ListRepoImages(c *gin.Context) {
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if registryInfo.RegType == config.RegistryProviderACREnterprise ||
+		registryInfo.RegType == config.RegistryProviderTCREnterprise ||
+		registryInfo.RegType == config.RegistryProviderJFrog {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
 	}
 
 	name := c.Param("name")

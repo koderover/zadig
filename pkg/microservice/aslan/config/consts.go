@@ -415,13 +415,16 @@ const (
 type RegistryProvider string
 
 const (
-	RegistryProviderACR       = "acr"
-	RegistryProviderSWR       = "swr"
-	RegistryProviderTCR       = "tcr"
-	RegistryProviderHarbor    = "harbor"
-	RegistryProviderDockerhub = "dockerhub"
-	RegistryProviderECR       = "ecr"
-	RegistryProviderNative    = "native"
+	RegistryProviderACR           = "acr"
+	RegistryProviderACREnterprise = "acr-enterprise"
+	RegistryProviderSWR           = "swr"
+	RegistryProviderTCR           = "tcr"
+	RegistryProviderTCREnterprise = "tcr-enterprise"
+	RegistryProviderHarbor        = "harbor"
+	RegistryProviderDockerhub     = "dockerhub"
+	RegistryProviderECR           = "ecr"
+	RegistryProviderJFrog         = "jfrog"
+	RegistryProviderNative        = "native"
 )
 
 const (
