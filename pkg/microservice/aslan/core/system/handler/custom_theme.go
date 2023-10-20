@@ -22,8 +22,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
-	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -32,16 +32,6 @@ import (
 func GetThemeInfos(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
-	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
-		return
-	}
-	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-		ctx.Err = e.ErrLicenseInvalid
-		return
-	}
 
 	ctx.Resp, ctx.Err = service.GetThemeInfos(ctx.Logger)
 }
@@ -80,13 +70,8 @@ func UpdateThemeInfo(c *gin.Context) {
 		return
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
-	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
-		return
-	}
-	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-		ctx.Err = e.ErrLicenseInvalid
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
 		return
 	}
 

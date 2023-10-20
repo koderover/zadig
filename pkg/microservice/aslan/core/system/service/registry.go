@@ -34,7 +34,6 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	registrytool "github.com/koderover/zadig/pkg/tool/registries"
@@ -79,20 +78,7 @@ func ListRegistriesByProject(projectName string, log *zap.SugaredLogger) ([]*com
 		return registryNamespaces, fmt.Errorf("RegistryNamespace.List error: %v", err)
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate zadig license status, error: %s", err)
-	}
-
 	for _, registryNamespace := range registryNamespaces {
-		if registryNamespace.RegType == config.RegistryProviderACREnterprise ||
-			registryNamespace.RegType == config.RegistryProviderTCREnterprise ||
-			registryNamespace.RegType == config.RegistryProviderJFrog {
-			if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-				continue
-			}
-		}
-
 		registryNamespace.AccessKey = ""
 		registryNamespace.SecretKey = ""
 		registryNamespace.Projects = nil
@@ -232,19 +218,7 @@ func ListAllRepos(log *zap.SugaredLogger) ([]*RepoInfo, error) {
 		return nil, fmt.Errorf("RegistryNamespace.List error: %v", err)
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate zadig license status, error: %s", err)
-	}
-
 	for _, rn := range resp {
-		if rn.RegType == config.RegistryProviderACREnterprise ||
-			rn.RegType == config.RegistryProviderTCREnterprise ||
-			rn.RegType == config.RegistryProviderJFrog {
-			if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-				continue
-			}
-		}
 		repoInfo := new(RepoInfo)
 		repoInfo.RegProvider = rn.RegProvider
 		repoInfo.RegType = rn.RegType

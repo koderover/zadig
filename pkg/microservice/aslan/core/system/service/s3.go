@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,10 +30,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	"github.com/koderover/zadig/pkg/tool/errors"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
@@ -104,17 +101,7 @@ func ListS3StorageByProject(projectName string, logger *zap.SugaredLogger) ([]*c
 		stores = make([]*commonmodels.S3Storage, 0)
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate zadig license status, error: %s", err)
-	}
-
 	for _, store := range stores {
-		if store.Provider == config.S3StorageProviderAmazonS3 {
-			if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-				continue
-			}
-		}
 		store.Sk = ""
 		store.Ak = ""
 		store.Projects = nil
@@ -158,17 +145,6 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 		logger.Errorf("can't find store by id:%s err:%s", id, err)
 		return nil, err
 	}
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
-	if err != nil {
-		return nil, fmt.Errorf("failed to validate zadig license status, error: %s", err)
-	}
-
-	if store.Provider == config.S3StorageProviderAmazonS3 {
-		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-			return nil, e.ErrLicenseInvalid
-		}
-	}
-
 	defaultS3 = s3.S3{
 		S3Storage: store,
 	}
