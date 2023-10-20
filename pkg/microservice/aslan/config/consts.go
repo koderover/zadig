@@ -427,6 +427,12 @@ const (
 	RegistryProviderNative        = "native"
 )
 
+type S3StorageProvider int
+
+const (
+	S3StorageProviderAmazonS3 = 5
+)
+
 const (
 	TestJobJunitReportStepName   = "junit-report-step"
 	TestJobHTMLReportStepName    = "html-report-step"
