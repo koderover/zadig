@@ -101,6 +101,28 @@ type ScheduleStrategy struct {
 	Default      bool     `json:"default"`
 }
 
+func (args *K8SCluster) Validate() error {
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
+	}
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		if args.Provider == config.ClusterProviderTKEServerless {
+			return e.ErrLicenseInvalid
+		}
+		for _, scheduleStrategy := range args.AdvancedConfig.ScheduleStrategy {
+			if scheduleStrategy.Strategy == setting.RequiredSchedule || scheduleStrategy.Tolerations != "" {
+				return e.ErrLicenseInvalid
+			}
+		}
+		if args.DindCfg.Replicas != 1 || args.DindCfg.Resources.Limits.CPU != 4000 || args.DindCfg.Resources.Limits.Memory != 8192 {
+			return e.ErrLicenseInvalid
+		}
+
+	}
+	return nil
+}
+
 func (s *ScheduleStrategy) Validate() error {
 	if s.Strategy == "" {
 		return fmt.Errorf("strategy is empty")

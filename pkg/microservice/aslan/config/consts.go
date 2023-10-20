@@ -433,6 +433,18 @@ const (
 	S3StorageProviderAmazonS3 = 5
 )
 
+type ClusterProvider int
+
+const (
+	ClusterProviderTKEServerless = 5
+)
+
+type VMProvider int
+
+const (
+	VMProviderAmazon = 4
+)
+
 const (
 	TestJobJunitReportStepName   = "junit-report-step"
 	TestJobHTMLReportStepName    = "html-report-step"
