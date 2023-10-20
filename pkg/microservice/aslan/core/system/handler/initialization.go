@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -34,13 +33,12 @@ func GetSystemInitializationStatus(c *gin.Context) {
 }
 
 type InitializeUserReq struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Company  string `json:"company"`
-	Email    string `json:"email"`
-	Phone    int64  `json:"phone"`
-	Reason   string `json:"reason"`
-	Address  string `json:"address"`
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	Company         string `json:"company"`
+	Email           string `json:"email"`
+	Phone           int64  `json:"phone"`
+	ImprovementPlan bool   `json:"improvement_plan"`
 }
 
 func (req *InitializeUserReq) Validate() error {
@@ -52,22 +50,12 @@ func (req *InitializeUserReq) Validate() error {
 		return fmt.Errorf("password cannot be empty")
 	}
 
-	if !config.Enterprise() {
-		if len(req.Company) == 0 {
-			return fmt.Errorf("company cannot be empty")
-		}
+	if len(req.Company) == 0 {
+		return fmt.Errorf("company cannot be empty")
+	}
 
-		if len(req.Email) == 0 {
-			return fmt.Errorf("email cannot be empty")
-		}
-
-		if len(req.Reason) > 500 {
-			return fmt.Errorf("reason is too long")
-		}
-
-		if len(req.Address) > 100 {
-			return fmt.Errorf("address is too long")
-		}
+	if len(req.Email) == 0 {
+		return fmt.Errorf("email cannot be empty")
 	}
 
 	return nil
@@ -88,5 +76,5 @@ func InitializeUser(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.InitializeUser(req.Username, req.Password, req.Company, req.Email, req.Phone, req.Reason, req.Address, ctx.Logger)
+	ctx.Err = service.InitializeUser(req.Username, req.Password, req.Company, req.Email, req.Phone, req.ImprovementPlan, ctx.Logger)
 }
