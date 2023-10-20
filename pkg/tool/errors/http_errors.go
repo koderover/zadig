@@ -33,6 +33,11 @@ var (
 	ErrInternalError = NewHTTPError(500, "Internal Error")
 
 	//-----------------------------------------------------------------------------------------------
+	// License APIs Range: 1000 - 1010
+	//-----------------------------------------------------------------------------------------------
+	ErrLicenseInvalid = NewHTTPError(1000, "用户许可证不可用，请检查许可证后重试")
+
+	//-----------------------------------------------------------------------------------------------
 	// User APIs Range: 6000 - 6019
 	//-----------------------------------------------------------------------------------------------
 
@@ -108,10 +113,10 @@ var (
 	// ErrValidateServiceUpdate
 	ErrValidateServiceUpdate = NewHTTPError(6057, "更新服务配置失败")
 	// ErrChartDryRun
-	ErrHelmDryRunFailed = NewHTTPError(6058, "helm chart --dry-run 失败，服务保存不成功")
+	ErrHelmDryRunFailed            = NewHTTPError(6058, "helm chart --dry-run 失败，服务保存不成功")
 	ErrListServiceTemplateVersions = NewHTTPError(6059, "列出服务模版版本失败")
 	// FIXME: run out of error code
-	ErrDiffServiceTemplateVersions = NewHTTPError(6040, "Diff服务模版版本失败")
+	ErrDiffServiceTemplateVersions    = NewHTTPError(6040, "Diff服务模版版本失败")
 	ErrRollbackServiceTemplateVersion = NewHTTPError(6041, "回滚服务模版版本失败")
 
 	//-----------------------------------------------------------------------------------------------
@@ -170,12 +175,12 @@ var (
 	// TODO: max error code reached, sharing error code with update env
 	ErrUpdateEnvConfigs = NewHTTPError(6076, "更新环境配置失败")
 	// TODO: max error code reached, sharing error code with update env
-	ErrEnvSleep           = NewHTTPError(6076, "环境睡眠失败")
-	ErrCreateProjectGroup = NewHTTPError(6077, "创建项目分组失败")
-	ErrUpdateProjectGroup = NewHTTPError(6077, "更新项目分组失败")
-	ErrDeleteProjectGroup = NewHTTPError(6077, "删除项目分组失败")
-	ErrListEnvServiceVersions = NewHTTPError(6079, "列出环境服务版本失败")
-	ErrDiffEnvServiceVersions = NewHTTPError(6079, "Diff环境服务版本失败")
+	ErrEnvSleep                  = NewHTTPError(6076, "环境睡眠失败")
+	ErrCreateProjectGroup        = NewHTTPError(6077, "创建项目分组失败")
+	ErrUpdateProjectGroup        = NewHTTPError(6077, "更新项目分组失败")
+	ErrDeleteProjectGroup        = NewHTTPError(6077, "删除项目分组失败")
+	ErrListEnvServiceVersions    = NewHTTPError(6079, "列出环境服务版本失败")
+	ErrDiffEnvServiceVersions    = NewHTTPError(6079, "Diff环境服务版本失败")
 	ErrRollbackEnvServiceVersion = NewHTTPError(6079, "回滚环境服务版本失败")
 
 	//-----------------------------------------------------------------------------------------------
