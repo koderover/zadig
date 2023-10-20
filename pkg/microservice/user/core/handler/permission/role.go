@@ -86,7 +86,7 @@ func CreateRole(c *gin.Context) {
 		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 		return
 	}
-	if licenseStatus.Type == plutusvendor.ZadigSystemTypeBasic {
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 		actionSet := sets.NewString(args.Actions...)
 		if actionSet.Has(permission.VerbCreateReleasePlan) || actionSet.Has(permission.VerbDeleteReleasePlan) ||
 			actionSet.Has(permission.VerbEditReleasePlan) || actionSet.Has(permission.VerbGetReleasePlan) ||
@@ -160,7 +160,7 @@ func UpdateRole(c *gin.Context) {
 		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 		return
 	}
-	if licenseStatus.Type == plutusvendor.ZadigSystemTypeBasic {
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 		actionSet := sets.NewString(args.Actions...)
 		if actionSet.Has(permission.VerbCreateReleasePlan) || actionSet.Has(permission.VerbDeleteReleasePlan) ||
 			actionSet.Has(permission.VerbEditReleasePlan) || actionSet.Has(permission.VerbGetReleasePlan) ||

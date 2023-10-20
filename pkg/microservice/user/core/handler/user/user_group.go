@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -58,6 +59,16 @@ func CreateUserGroup(c *gin.Context) {
 		return
 	}
 
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		ctx.Err = e.ErrLicenseInvalid
+		return
+	}
+
 	ctx.Err = user.CreateUserGroup(req.Name, req.Description, req.UIDs, ctx.Logger)
 }
 
@@ -81,6 +92,16 @@ func ListUserGroups(c *gin.Context) {
 	err := c.BindQuery(&query)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		ctx.Err = e.ErrLicenseInvalid
 		return
 	}
 
@@ -117,6 +138,16 @@ func GetUserGroup(c *gin.Context) {
 	}
 
 	groupID := c.Param("id")
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		ctx.Err = e.ErrLicenseInvalid
+		return
+	}
 
 	ctx.Resp, ctx.Err = user.GetUserGroup(groupID, ctx.Logger)
 }
@@ -172,6 +203,16 @@ func DeleteUserGroup(c *gin.Context) {
 
 	groupID := c.Param("id")
 
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		ctx.Err = e.ErrLicenseInvalid
+		return
+	}
+
 	ctx.Err = user.DeleteUserGroup(groupID, ctx.Logger)
 }
 
@@ -206,6 +247,16 @@ func BulkAddUserToUserGroup(c *gin.Context) {
 		return
 	}
 
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		ctx.Err = e.ErrLicenseInvalid
+		return
+	}
+
 	ctx.Err = user.BulkAddUserToUserGroup(groupID, req.UIDs, ctx.Logger)
 }
 
@@ -233,6 +284,16 @@ func BulkRemoveUserFromUserGroup(c *gin.Context) {
 	err = c.BindJSON(&req)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		ctx.Err = e.ErrLicenseInvalid
 		return
 	}
 
