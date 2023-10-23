@@ -22,6 +22,8 @@ import (
 	"math"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -152,6 +154,11 @@ func (j *CanaryDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) 
 
 func (j *CanaryDeployJob) LintJob() error {
 	j.spec = &commonmodels.CanaryDeployJobSpec{}
+
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		return e.ErrLicenseInvalid
+	}
+
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
