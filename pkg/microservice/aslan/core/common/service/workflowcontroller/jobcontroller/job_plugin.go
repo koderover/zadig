@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -124,6 +126,8 @@ func (c *PluginJobCtl) run(ctx context.Context) error {
 		logError(c.job, msg, c.logger)
 		return err
 	}
+
+	log.Infof("-------- job info created is: %v", *job)
 
 	job.Namespace = c.jobTaskSpec.Properties.Namespace
 
