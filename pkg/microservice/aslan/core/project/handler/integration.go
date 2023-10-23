@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
@@ -65,6 +66,13 @@ func CreateProjectCodeHost(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	req := new(models.CodeHost)
@@ -171,6 +179,13 @@ func DeleteCodeHost(c *gin.Context) {
 		}
 	}
 
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	idParam := c.Param("id")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
@@ -203,6 +218,13 @@ func UpdateProjectCodeHost(c *gin.Context) {
 	projectKey := c.Param("name")
 	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
