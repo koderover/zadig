@@ -37,7 +37,9 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	aslanUtil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	serializer2 "github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
@@ -326,6 +328,9 @@ func (j *BlueGreenDeployV2Job) ToJobs(taskID int64) ([]*commonmodels.JobTask, er
 
 func (j *BlueGreenDeployV2Job) LintJob() error {
 	j.spec = &commonmodels.BlueGreenDeployV2JobSpec{}
+	if err := aslanUtil.CheckZadigXLicenseStatus(); err != nil {
+		return e.ErrLicenseInvalid
+	}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}

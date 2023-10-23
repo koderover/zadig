@@ -19,7 +19,9 @@ package job
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type K8sPacthJob struct {
@@ -85,6 +87,10 @@ func (j *K8sPacthJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func (j *K8sPacthJob) LintJob() error {
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		return e.ErrLicenseInvalid
+	}
+
 	return nil
 }
 

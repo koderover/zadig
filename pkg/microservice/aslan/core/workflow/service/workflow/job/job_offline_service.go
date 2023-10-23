@@ -19,6 +19,8 @@ package job
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type OfflineServiceJob struct {
@@ -85,6 +87,10 @@ func (j *OfflineServiceJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 }
 
 func (j *OfflineServiceJob) LintJob() error {
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		return e.ErrLicenseInvalid
+	}
+
 	j.spec = &commonmodels.OfflineServiceJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
