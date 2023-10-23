@@ -108,13 +108,9 @@ func CreateProductTemplate(c *gin.Context) {
 		return
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	err = util.CheckZadigXLicenseStatus()
 	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
-		return
-	}
-	if args.AutoDeploy.Enable == true {
-		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		if args.AutoDeploy != nil && args.AutoDeploy.Enable {
 			ctx.Err = e.ErrLicenseInvalid
 			return
 		}
