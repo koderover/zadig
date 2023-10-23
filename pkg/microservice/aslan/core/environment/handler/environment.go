@@ -2881,6 +2881,12 @@ func EnvSleep(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", false, ctx.Logger)
 }
 
@@ -2954,6 +2960,12 @@ func ProductionEnvSleep(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", true, ctx.Logger)
 }
 
@@ -3016,6 +3028,12 @@ func GetEnvSleepCron(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, boolptr.False(), ctx.Logger)
 }
 
@@ -3075,6 +3093,12 @@ func GetProductionEnvSleepCron(c *gin.Context) {
 
 	if !permitted {
 		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -3155,6 +3179,12 @@ func UpsertEnvSleepCron(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.UpsertEnvSleepCron(projectName, envName, boolptr.False(), arg, ctx.Logger)
 }
 
@@ -3229,6 +3259,12 @@ func UpsertProductionEnvSleepCron(c *gin.Context) {
 
 	if !permitted {
 		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
