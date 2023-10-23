@@ -24,6 +24,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -258,7 +259,11 @@ func RestartProductionService(c *gin.Context) {
 				return
 			}
 		}
+	}
 
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	args := &service.SvcOptArgs{
@@ -317,6 +322,11 @@ func BatchPreviewServices(c *gin.Context) {
 	for _, arg := range args {
 		arg.ProductName = c.Query("projectName")
 		arg.EnvName = c.Param("name")
+	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Resp, ctx.Err = service.BatchPreviewService(args, ctx.Logger)
@@ -418,6 +428,11 @@ func UpdateProductionService(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	svcRev := new(service.SvcRevision)
@@ -524,19 +539,6 @@ func RestartProductionWorkload(c *gin.Context) {
 		Type:        workloadType,
 		Name:        workloadName,
 	}
-
-	internalhandler.InsertDetailedOperationLog(
-		c, ctx.UserName,
-		projectKey,
-		setting.OperationSceneEnv,
-		"重启",
-		"环境-服务",
-		fmt.Sprintf(
-			"环境名称:%s,服务名称:%s,%s:%s", args.EnvName, args.ServiceName, args.Type, args.Name,
-		),
-		"", ctx.Logger, args.EnvName,
-	)
-
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -552,6 +554,23 @@ func RestartProductionWorkload(c *gin.Context) {
 			}
 		}
 	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(
+		c, ctx.UserName,
+		projectKey,
+		setting.OperationSceneEnv,
+		"重启",
+		"环境-服务",
+		fmt.Sprintf(
+			"环境名称:%s,服务名称:%s,%s:%s", args.EnvName, args.ServiceName, args.Type, args.Name,
+		),
+		"", ctx.Logger, args.EnvName,
+	)
 
 	ctx.Err = service.RestartScale(args, ctx.Logger)
 }
@@ -576,14 +595,6 @@ func ScaleNewService(c *gin.Context) {
 	resourceType := c.Query("type")
 	name := c.Query("name")
 
-	internalhandler.InsertDetailedOperationLog(
-		c, ctx.UserName,
-		projectKey, setting.OperationSceneEnv,
-		"伸缩",
-		"环境-服务",
-		fmt.Sprintf("环境名称:%s,%s:%s", envName, resourceType, name),
-		"", ctx.Logger, envName)
-
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -599,6 +610,19 @@ func ScaleNewService(c *gin.Context) {
 			}
 		}
 	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	internalhandler.InsertDetailedOperationLog(
+		c, ctx.UserName,
+		projectKey, setting.OperationSceneEnv,
+		"伸缩",
+		"环境-服务",
+		fmt.Sprintf("环境名称:%s,%s:%s", envName, resourceType, name),
+		"", ctx.Logger, envName)
 
 	number, err := strconv.Atoi(c.Query("number"))
 	if err != nil {

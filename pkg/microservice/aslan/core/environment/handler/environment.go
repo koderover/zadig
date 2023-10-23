@@ -260,6 +260,12 @@ func UpdateMultiProductionProducts(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	updateMultiEnvWrapper(c, request, true, ctx)
 }
 
@@ -469,6 +475,12 @@ func CreateProductionProduct(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Infof("CreateProduct failed to get request data, err: %s", err)
@@ -672,6 +684,11 @@ func UpdateProductionProductRegistry(c *gin.Context) {
 		}
 	}
 
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.UpdateProductRegistry(envName, projectKey, args.RegistryID, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, args.RegistryID, ctx.Err)
@@ -855,6 +872,12 @@ func ProductionEstimatedValues(c *gin.Context) {
 	}
 	arg.Production = true
 
+	err := commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"),
 		arg, isHelmChartDeploy == "true", ctx.Logger)
 }
@@ -1026,6 +1049,20 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+
+	if arg.ValuesData.AutoSync {
+		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
 	arg.DeployType = setting.HelmDeployType
 	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
@@ -1077,6 +1114,19 @@ func UpdateProductionHelmProductDefaultValues(c *gin.Context) {
 		return
 	}
 	arg.DeployType = setting.HelmDeployType
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if arg.ValuesData.AutoSync {
+		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
 	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
 
@@ -1357,6 +1407,11 @@ func UpdateProductionEnvK8sProductGlobalVariables(c *gin.Context) {
 		return
 	}
 
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.UpdateProductGlobalVariables(projectKey, envName, ctx.UserName, ctx.RequestID, arg.CurrentRevision, arg.GlobalVariables, ctx.Logger)
 }
 
@@ -1476,6 +1531,11 @@ func UpdateProductionEnvHelmProductCharts(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	err = c.BindJSON(arg)
@@ -1820,6 +1880,11 @@ func GetProductionEnv(c *gin.Context) {
 		}
 	}
 
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
 }
 
@@ -2028,6 +2093,11 @@ func DeleteProductionProduct(c *gin.Context) {
 		}
 	}
 
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.DeleteProductionProduct(ctx.UserName, envName, projectKey, ctx.RequestID, ctx.Logger)
 }
 
@@ -2143,6 +2213,12 @@ func DeleteProductionProductServices(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "删除", "环境的服务", fmt.Sprintf("%s:[%s]", envName, strings.Join(args.ServiceNames, ",")), "", ctx.Logger, envName)
 	ctx.Err = service.DeleteProductServices(ctx.UserName, ctx.RequestID, envName, projectKey, args.ServiceNames, true, ctx.Logger)
 }
@@ -2186,6 +2262,11 @@ func DeleteProductionHelmReleases(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = service.DeleteProductHelmReleases(ctx.UserName, ctx.RequestID, envName, projectKey, releaseNameArr, true, ctx.Logger)
@@ -2551,6 +2632,11 @@ func UpdateProductionEnvConfigs(c *gin.Context) {
 		return
 	}
 
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.UpdateProductionEnvConfigs(projectName, envName, arg, ctx.Logger)
 }
 
@@ -2604,6 +2690,11 @@ func RunProductionAnalysis(c *gin.Context) {
 	envName := c.Param("name")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("name can not be null!")
+		return
+	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -2718,6 +2809,11 @@ func UpsertProductionEnvAnalysisCron(c *gin.Context) {
 	err = c.BindJSON(arg)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -2854,6 +2950,12 @@ func EnvSleep(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", false, ctx.Logger)
 }
 
@@ -2927,6 +3029,12 @@ func ProductionEnvSleep(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.EnvSleep(projectName, envName, action == "enable", true, ctx.Logger)
 }
 
@@ -2989,6 +3097,12 @@ func GetEnvSleepCron(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.GetEnvSleepCron(projectName, envName, boolptr.False(), ctx.Logger)
 }
 
@@ -3048,6 +3162,12 @@ func GetProductionEnvSleepCron(c *gin.Context) {
 
 	if !permitted {
 		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -3128,6 +3248,12 @@ func UpsertEnvSleepCron(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.UpsertEnvSleepCron(projectName, envName, boolptr.False(), arg, ctx.Logger)
 }
 
@@ -3202,6 +3328,12 @@ func UpsertProductionEnvSleepCron(c *gin.Context) {
 
 	if !permitted {
 		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
