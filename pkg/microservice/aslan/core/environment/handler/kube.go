@@ -85,6 +85,11 @@ func DeletePod(c *gin.Context) {
 	envName := c.Query("envName")
 	productName := c.Query("projectName")
 
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv,
 		"重启", "环境-服务实例", fmt.Sprintf("环境名称:%s,pod名称:%s",
 			c.Query("envName"), c.Param("podName")), "", ctx.Logger, envName)
@@ -125,6 +130,11 @@ func DownloadFileFromPod(c *gin.Context) {
 	}
 	if len(filePath) == 0 {
 		ctx.Err = e.ErrInvalidParam.AddDesc("file path can't be nil")
+		return
+	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
 		return
 	}
 
