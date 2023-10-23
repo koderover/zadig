@@ -36,8 +36,10 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -1512,8 +1514,22 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
 	var envNames []string
 	for _, arg := range args {
+		for _, service := range arg.Services {
+			if service.DeployStrategy == setting.ServiceDeployStrategyImport {
+				if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+					ctx.Err = e.ErrLicenseInvalid
+					return
+				}
+			}
+		}
 		envNames = append(envNames, arg.EnvName)
 	}
 
@@ -1665,6 +1681,20 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 	if ctx.UnAuthorized {
 		ctx.Err = fmt.Errorf("not all input envs are allowed, allowed envs are %v", envAuthorization.EditEnvList)
 		return
+	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	for _, chartValue := range args.ChartValues {
+		if chartValue.DeployStrategy == setting.ServiceDeployStrategyImport {
+			if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
+				ctx.Err = e.ErrLicenseInvalid
+				return
+			}
+		}
 	}
 
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmChartEnv(

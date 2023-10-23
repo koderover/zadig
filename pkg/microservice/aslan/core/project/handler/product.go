@@ -30,6 +30,7 @@ import (
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	projectservice "github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -106,6 +107,19 @@ func CreateProductTemplate(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
 		return
 	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if args.AutoDeploy.Enable == true {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
 	args.UpdateBy = ctx.UserName
 	ctx.Err = projectservice.CreateProductTemplate(args, ctx.Logger)
 }
@@ -147,6 +161,18 @@ func UpdateProductTemplate(c *gin.Context) {
 		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
 			!ctx.Resources.ProjectAuthInfo[args.ProductName].Service.Edit {
 			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if args.AutoDeploy.Enable == true {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
 			return
 		}
 	}

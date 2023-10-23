@@ -25,6 +25,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	svcservice "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -57,6 +58,12 @@ func ListProductionServices(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.ListProductionServices(projectKey, ctx.Logger)
 }
 
@@ -84,6 +91,12 @@ func GetProductionK8sService(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Resp, ctx.Err = service.GetProductionK8sService(c.Param("name"), projectKey, ctx.Logger)
@@ -155,6 +168,12 @@ func CreateK8sProductionService(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	args.CreateBy = ctx.UserName
 	ctx.Resp, ctx.Err = service.CreateK8sProductionService(c.Query("projectName"), args, ctx.Logger)
 }
@@ -193,6 +212,12 @@ func UpdateK8sProductionServiceVariables(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = svcservice.UpdateProductionServiceVariables(args)
@@ -264,6 +289,12 @@ func CreateHelmProductionService(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectKey, args, false, ctx.Logger)
