@@ -23,6 +23,8 @@ import (
 	"path"
 	"strings"
 
+	aslanUtil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -604,6 +606,24 @@ func mergeRepos(templateRepos []*types.Repository, customRepos []*types.Reposito
 }
 
 func (j *BuildJob) LintJob() error {
+	j.spec = &commonmodels.ZadigBuildJobSpec{}
+	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
+		return err
+	}
+
+	if err := aslanUtil.CheckZadigXLicenseStatus(); err != nil {
+		for _, item := range j.spec.ServiceAndBuilds {
+			buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: item.BuildName})
+			if err != nil {
+				log.Errorf("found build %s failed, err: %s", item.BuildName, err)
+				return e.ErrLicenseInvalid.AddDesc("校验工作流失败")
+			}
+			if buildInfo.Infrastructure == "vm" {
+				return e.ErrLicenseInvalid.AddDesc("使用主机构建是专业版功能")
+			}
+		}
+	}
+
 	return nil
 }
 
