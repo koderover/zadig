@@ -25,10 +25,10 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	projectservice "github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -755,7 +755,6 @@ func CreateProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -767,6 +766,13 @@ func CreateProjectGroup(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	args := new(projectservice.ProjectGroupArgs)
@@ -796,7 +802,6 @@ func UpdateProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -808,6 +813,13 @@ func UpdateProjectGroup(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	args := new(projectservice.ProjectGroupArgs)
@@ -837,7 +849,6 @@ func DeleteProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -849,6 +860,13 @@ func DeleteProjectGroup(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	groupName := c.Query("groupName")
@@ -880,9 +898,15 @@ func GetPresetProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
+		return
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
