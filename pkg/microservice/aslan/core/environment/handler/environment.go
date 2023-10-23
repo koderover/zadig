@@ -1880,11 +1880,6 @@ func GetProductionEnv(c *gin.Context) {
 		}
 	}
 
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
 	ctx.Resp, ctx.Err = service.GetProduct(ctx.UserName, envName, projectKey, ctx.Logger)
 }
 
