@@ -202,6 +202,8 @@ func CreateProductionCommonEnvCfg(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, c.Query("projectName"), setting.OperationSceneEnv, "新建", "环境配置", fmt.Sprintf("%s:%s", args.EnvName, args.CommonEnvCfgType), string(data), ctx.Logger, c.Param("name"))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
