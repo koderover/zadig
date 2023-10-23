@@ -116,6 +116,11 @@ func CreateCluster(c *gin.Context) {
 
 	args.CreatedAt = time.Now().Unix()
 	args.CreatedBy = ctx.UserName
+	err = args.Validate()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
 
 	ctx.Resp, ctx.Err = service.CreateCluster(args, ctx.Logger)
 }
@@ -148,6 +153,12 @@ func UpdateCluster(c *gin.Context) {
 	if err := args.Clean(); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		log.Errorf("Failed to clean args: %s", err)
+		return
+	}
+
+	err = args.Validate()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 

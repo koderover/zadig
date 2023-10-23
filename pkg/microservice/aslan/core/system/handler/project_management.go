@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/jira"
@@ -87,7 +88,6 @@ func CreateProjectManagement(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -104,6 +104,19 @@ func CreateProjectManagement(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if req.MeegoHost != "" {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
 	ctx.Err = service.CreateProjectManagement(req, ctx.Logger)
 }
 
@@ -112,7 +125,6 @@ func UpdateProjectManagement(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -129,6 +141,19 @@ func UpdateProjectManagement(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if req.MeegoHost != "" {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
 	ctx.Err = service.UpdateProjectManagement(c.Param("id"), req, ctx.Logger)
 }
 

@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -55,6 +56,11 @@ func CreateUserGroup(c *gin.Context) {
 	err = c.BindJSON(req)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -148,6 +154,11 @@ func UpdateUserGroupInfo(c *gin.Context) {
 		return
 	}
 
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = user.UpdateUserGroupInfo(groupID, req.Name, req.Description, ctx.Logger)
 }
 
@@ -206,6 +217,11 @@ func BulkAddUserToUserGroup(c *gin.Context) {
 		return
 	}
 
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = user.BulkAddUserToUserGroup(groupID, req.UIDs, ctx.Logger)
 }
 
@@ -233,6 +249,11 @@ func BulkRemoveUserFromUserGroup(c *gin.Context) {
 	err = c.BindJSON(&req)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
 		return
 	}
 

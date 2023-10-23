@@ -100,6 +100,7 @@ func ListS3StorageByProject(projectName string, logger *zap.SugaredLogger) ([]*c
 	if err == nil && len(stores) == 0 {
 		stores = make([]*commonmodels.S3Storage, 0)
 	}
+
 	for _, store := range stores {
 		store.Sk = ""
 		store.Ak = ""
