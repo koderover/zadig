@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -49,6 +50,12 @@ func CreateLLMIntegration(c *gin.Context) {
 	args := new(CreateLLMIntegrationRequest)
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid create llm Integration json args")
+		return
+	}
+
+	err := commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -140,6 +147,12 @@ func UpdateLLMIntegration(c *gin.Context) {
 	args := new(CreateLLMIntegrationRequest)
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid update llm integration json args")
+		return
+	}
+
+	err := commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 

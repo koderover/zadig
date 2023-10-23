@@ -25,10 +25,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -79,6 +81,20 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 	if err != nil {
 		ctx.Err = err
 		return
+	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if reg.RegType == config.RegistryProviderACREnterprise ||
+		reg.RegType == config.RegistryProviderTCREnterprise ||
+		reg.RegType == config.RegistryProviderJFrog {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
 	}
 
 	// FIXME: a new feature in 1.11 added a tls certificate field for registry, but it is not added in this API temporarily
@@ -199,6 +215,10 @@ func CreateRegistryNamespace(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+	if err := args.LicenseValidate(); err != nil {
+		ctx.Err = err
+		return
+	}
 
 	ctx.Err = service.CreateRegistryNamespace(ctx.UserName, args, ctx.Logger)
 }
@@ -239,6 +259,10 @@ func UpdateRegistryNamespace(c *gin.Context) {
 
 	if err := args.Validate(); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if err := args.LicenseValidate(); err != nil {
+		ctx.Err = err
 		return
 	}
 

@@ -26,6 +26,7 @@ import (
 	"github.com/gin-gonic/gin/binding"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -125,6 +126,12 @@ func CreatePrivateKey(c *gin.Context) {
 	}
 	args.UpdateBy = ctx.UserName
 
+	err = args.Validate()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.CreatePrivateKey(args, ctx.Logger)
 }
 
@@ -162,6 +169,12 @@ func UpdatePrivateKey(c *gin.Context) {
 		return
 	}
 	args.UpdateBy = ctx.UserName
+
+	err = args.Validate()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
 
 	ctx.Err = service.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
 }
@@ -233,6 +246,12 @@ func BatchCreatePrivateKey(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 

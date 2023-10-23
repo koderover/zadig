@@ -415,13 +415,34 @@ const (
 type RegistryProvider string
 
 const (
-	RegistryProviderACR       = "acr"
-	RegistryProviderSWR       = "swr"
-	RegistryProviderTCR       = "tcr"
-	RegistryProviderHarbor    = "harbor"
-	RegistryProviderDockerhub = "dockerhub"
-	RegistryProviderECR       = "ecr"
-	RegistryProviderNative    = "native"
+	RegistryProviderACR           = "acr"
+	RegistryProviderACREnterprise = "acr-enterprise"
+	RegistryProviderSWR           = "swr"
+	RegistryProviderTCR           = "tcr"
+	RegistryProviderTCREnterprise = "tcr-enterprise"
+	RegistryProviderHarbor        = "harbor"
+	RegistryProviderDockerhub     = "dockerhub"
+	RegistryProviderECR           = "ecr"
+	RegistryProviderJFrog         = "jfrog"
+	RegistryProviderNative        = "native"
+)
+
+type S3StorageProvider int
+
+const (
+	S3StorageProviderAmazonS3 = 5
+)
+
+type ClusterProvider int
+
+const (
+	ClusterProviderTKEServerless = 5
+)
+
+type VMProvider int
+
+const (
+	VMProviderAmazon = 4
 )
 
 const (

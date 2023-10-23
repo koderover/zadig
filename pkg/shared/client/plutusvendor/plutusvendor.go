@@ -36,6 +36,7 @@ func (c *Client) CheckSignature(userNum int64) (*CheckSignatrueResp, error) {
 const (
 	ZadigSystemTypeBasic        = "basic"
 	ZadigSystemTypeProfessional = "professional"
+	ZadigXLicenseStatusNormal   = "normal"
 )
 
 type ZadigXLicenseStatus struct {
