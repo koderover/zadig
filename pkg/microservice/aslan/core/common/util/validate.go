@@ -61,8 +61,15 @@ func CheckZadigXLicenseStatus() error {
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
-	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+	if !ValidateZadigXLicenseStatus(licenseStatus) {
 		return e.ErrLicenseInvalid
 	}
 	return nil
+}
+
+func ValidateZadigXLicenseStatus(licenseStatus *plutusvendor.ZadigXLicenseStatus) bool {
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		return false
+	}
+	return true
 }
