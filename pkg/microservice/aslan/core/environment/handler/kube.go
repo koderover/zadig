@@ -358,12 +358,6 @@ func GetResourceDeployStatus(c *gin.Context) {
 		return
 	}
 
-	err = commonutil.CheckZadigXLicenseStatus()
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-
 	ctx.Resp, ctx.Err = service.GetResourceDeployStatus(c.Query("projectName"), request, ctx.Logger)
 }
 
@@ -375,12 +369,6 @@ func GetReleaseDeployStatus(c *gin.Context) {
 	err := c.BindJSON(request)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
-		return
-	}
-
-	err = commonutil.CheckZadigXLicenseStatus()
-	if err != nil {
-		ctx.Err = err
 		return
 	}
 
