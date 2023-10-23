@@ -191,6 +191,13 @@ func TransferProject(c *gin.Context) {
 		}
 	}
 
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = projectservice.TransferHostProject(ctx.UserName, productName, ctx.Logger)
 }
 
