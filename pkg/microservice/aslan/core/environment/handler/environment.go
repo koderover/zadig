@@ -1026,6 +1026,20 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+
+	if arg.ValuesData.AutoSync {
+		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
 	arg.DeployType = setting.HelmDeployType
 	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
@@ -1077,6 +1091,19 @@ func UpdateProductionHelmProductDefaultValues(c *gin.Context) {
 		return
 	}
 	arg.DeployType = setting.HelmDeployType
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if arg.ValuesData.AutoSync {
+		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
+			ctx.Err = e.ErrLicenseInvalid
+			return
+		}
+	}
+
 	ctx.Err = service.UpdateProductDefaultValues(projectKey, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
 
