@@ -22,6 +22,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service/ai"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -36,6 +37,12 @@ func CreateStatDashboardConfig(c *gin.Context) {
 	args := new(service.StatDashboardConfig)
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	err := commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -67,12 +74,24 @@ func UpdateStatDashboardConfig(c *gin.Context) {
 		return
 	}
 
+	err := commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.UpdateStatDashboardConfig(c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteStatDashboardConfig(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	err := commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
 
 	ctx.Err = service.DeleteStatDashboardConfig(c.Param("id"), ctx.Logger)
 }
@@ -96,6 +115,12 @@ func GetStatsDashboard(c *gin.Context) {
 		return
 	}
 
+	err := commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	resp, err := service.GetStatsDashboard(args.StartTime, args.EndTime, nil, ctx.Logger)
 
 	ctx.Resp = getStatDashboardResp{resp}
@@ -109,6 +134,12 @@ func GetStatsDashboardGeneralData(c *gin.Context) {
 	args := new(getStatDashboardReq)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	err := commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 

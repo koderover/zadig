@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/release_plan/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -54,6 +55,12 @@ func ListReleasePlans(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.ListReleasePlans(opt.PageNum, opt.PageSize)
 }
 
@@ -73,6 +80,12 @@ func GetReleasePlan(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.GetReleasePlan(c.Param("id"))
 }
 
@@ -89,6 +102,12 @@ func GetReleasePlanLogs(c *gin.Context) {
 
 	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.View {
 		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -116,6 +135,13 @@ func CreateReleasePlan(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.CreateReleasePlan(ctx, req)
 }
 
@@ -135,6 +161,12 @@ func UpdateReleasePlan(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	req := new(service.UpdateReleasePlanArgs)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -148,7 +180,6 @@ func DeleteReleasePlan(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -159,6 +190,12 @@ func DeleteReleasePlan(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.DeleteReleasePlan(c, ctx.UserName, c.Param("id"))
 }
 
@@ -166,9 +203,14 @@ func ExecuteReleaseJob(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
@@ -193,6 +235,12 @@ func UpdateReleaseJobStatus(c *gin.Context) {
 		return
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	// only release plan manager can execute release job
 	// so no need to check authorization there
 	ctx.Err = service.UpdateReleasePlanStatus(ctx, c.Param("id"), c.Param("status"))
@@ -202,9 +250,14 @@ func ApproveReleasePlan(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
+		return
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 
