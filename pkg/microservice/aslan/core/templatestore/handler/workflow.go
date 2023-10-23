@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -117,6 +118,11 @@ func CreateWorkflowTemplate(c *gin.Context) {
 		}
 	}
 
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	args := new(commonmodels.WorkflowV4Template)
 
 	if err := c.ShouldBindYAML(&args); err != nil {
@@ -144,6 +150,11 @@ func UpdateWorkflowTemplate(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	args := new(commonmodels.WorkflowV4Template)
