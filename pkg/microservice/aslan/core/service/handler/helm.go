@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	svcservice "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -81,6 +82,12 @@ func ListHelmProductionServices(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Resp, ctx.Err = svcservice.ListHelmServices(projectKey, true, ctx.Logger)
@@ -391,6 +398,12 @@ func UpdateHelmProductionService(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	args.Production = true
