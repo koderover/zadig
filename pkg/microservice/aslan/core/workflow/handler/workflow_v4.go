@@ -23,6 +23,7 @@ import (
 	"io"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -555,7 +556,6 @@ func CreateJiraHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -592,6 +592,13 @@ func CreateJiraHookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = workflow.CreateJiraHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
 }
 
@@ -612,7 +619,6 @@ func UpdateJiraHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -649,6 +655,13 @@ func UpdateJiraHookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = workflow.UpdateJiraHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
 }
 
@@ -657,7 +670,6 @@ func DeleteJiraHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -697,7 +709,6 @@ func CreateMeegoHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -734,6 +745,13 @@ func CreateMeegoHookForWorkflowV4(c *gin.Context) {
 		}
 	}
 
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = workflow.CreateMeegoHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
 }
 
@@ -754,7 +772,6 @@ func UpdateMeegoHookForWorkflowV4(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -789,6 +806,13 @@ func UpdateMeegoHookForWorkflowV4(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = workflow.UpdateMeegoHookForWorkflowV4(c.Param("workflowName"), jira, ctx.Logger)
