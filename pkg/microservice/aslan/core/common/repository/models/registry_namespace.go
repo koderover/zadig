@@ -79,9 +79,10 @@ func (args *RegistryNamespace) LicenseValidate() error {
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
-	if args.RegType == config.RegistryProviderACREnterprise ||
-		args.RegType == config.RegistryProviderTCREnterprise ||
-		args.RegType == config.RegistryProviderJFrog {
+	if args.RegProvider == config.RegistryProviderACREnterprise ||
+		args.RegProvider == config.RegistryProviderTCREnterprise ||
+		args.RegProvider == config.RegistryProviderECR ||
+		args.RegProvider == config.RegistryProviderJFrog {
 		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 			return e.ErrLicenseInvalid
 		}
