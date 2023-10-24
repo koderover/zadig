@@ -11,6 +11,9 @@
 ![GitHub release (latest SemVer including pre-releases)](https://img.shields.io/github/v/release/koderover/zadig?include_prereleases)
 [!["Join us on Slack"](https://img.shields.io/badge/join-us%20on%20slack-gray.svg?longCache=true&logo=slack&colorB=brightgreen)](https://join.slack.com/t/zadig-workspace/shared_invite/zt-qedvct1t-mQUf2eyTRkoVCc_RWKKgxw)
 
+[![官方网站](<https://img.shields.io/badge/官方网站-rgb(24,24,24)?style=for-the-badge>)](https://www.koderover.com/?utm_source=github&utm_medium=zadig_readme)
+[![在线试用](<https://img.shields.io/badge/在线试用-rgb(255,41,104)?style=for-the-badge>)](https://www.koderover.com/trial/?utm_source=github&utm_medium=zadig_readme)
+
 </span>
 
 <div align="left">
