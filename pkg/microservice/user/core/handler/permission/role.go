@@ -165,8 +165,8 @@ func UpdateRole(c *gin.Context) {
 		if actionSet.Has(permission.VerbCreateReleasePlan) || actionSet.Has(permission.VerbDeleteReleasePlan) ||
 			actionSet.Has(permission.VerbEditReleasePlan) || actionSet.Has(permission.VerbGetReleasePlan) ||
 			actionSet.Has(permission.VerbEditDataCenterInsightConfig) ||
-			actionSet.Has(permission.VerbGetProductionService) || actionSet.Has(permission.VerbGetProductionService) ||
-			actionSet.Has(permission.VerbGetProductionService) || actionSet.Has(permission.VerbGetProductionService) ||
+			actionSet.Has(permission.VerbGetProductionService) || actionSet.Has(permission.VerbCreateProductionService) ||
+			actionSet.Has(permission.VerbEditProductionService) || actionSet.Has(permission.VerbDeleteProductionService) ||
 			actionSet.Has(permission.VerbGetProductionEnv) || actionSet.Has(permission.VerbCreateProductionEnv) ||
 			actionSet.Has(permission.VerbConfigProductionEnv) || actionSet.Has(permission.VerbEditProductionEnv) ||
 			actionSet.Has(permission.VerbDeleteProductionEnv) || actionSet.Has(permission.VerbDebugProductionEnvPod) ||
