@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"github.com/pkg/errors"
 
 	"go.uber.org/zap"
@@ -163,6 +165,8 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 	dockerhosts := dockerhost.NewDockerHosts(hubServerAddr, c.logger)
 	c.jobTaskSpec.Properties.DockerHost = dockerhosts.GetBestHost(dockerhost.ClusterID(c.jobTaskSpec.Properties.ClusterID), "")
 
+	log.Infof("+++++ the data is %v", c.jobTaskSpec.Properties.DockerHost)
+
 	// not local cluster
 	var (
 		replaceDindServer = "." + DindServer
@@ -183,6 +187,8 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 			dockerHost = strings.Replace(c.jobTaskSpec.Properties.DockerHost, replaceDindServer, replaceDindServer+"."+config.Namespace(), 1)
 		}
 	}
+
+	log.Infof("----- dockerHost after modify is %v", dockerHost)
 
 	c.jobTaskSpec.Properties.DockerHost = dockerHost
 
