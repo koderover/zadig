@@ -111,8 +111,10 @@ func CreateScanningModule(c *gin.Context) {
 	}
 
 	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
+		if args.CheckQualityGate == true || len(args.AdvancedSetting.NotifyCtls) != 0 {
+			ctx.Err = err
+			return
+		}
 	}
 
 	ctx.Err = service.CreateScanningModule(ctx.UserName, args, ctx.Logger)
@@ -161,8 +163,10 @@ func UpdateScanningModule(c *gin.Context) {
 	}
 
 	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
+		if args.CheckQualityGate == true || len(args.AdvancedSetting.NotifyCtls) != 0 {
+			ctx.Err = err
+			return
+		}
 	}
 
 	ctx.Err = service.UpdateScanningModule(id, ctx.UserName, args, ctx.Logger)
@@ -228,11 +232,6 @@ func ListScanningModule(c *gin.Context) {
 		return
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
 	resp, _, err := service.ListScanningModule(projectKey, ctx.Logger)
 	ctx.Resp = resp
 	ctx.Err = err
@@ -272,11 +271,6 @@ func GetScanningModule(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-	}
-
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
 	}
 
 	ctx.Resp = resp
@@ -360,11 +354,6 @@ func CreateScanningTask(c *gin.Context) {
 		}
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
 	resp, err := service.CreateScanningTask(scanningID, req, "", ctx.UserName, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
@@ -403,11 +392,6 @@ func ListScanningTask(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
-	}
-
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
 	}
 
 	// Query Verification
@@ -450,11 +434,6 @@ func GetScanningTask(c *gin.Context) {
 	taskIDStr := c.Param("scan_id")
 	if taskIDStr == "" {
 		ctx.Err = fmt.Errorf("scan_id must be provided")
-		return
-	}
-
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
 		return
 	}
 
@@ -507,11 +486,6 @@ func CancelScanningTask(c *gin.Context) {
 		}
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
 	ctx.Err = service.CancelScanningTask(ctx.UserName, scanningID, taskID, config.ScanningType, ctx.RequestID, ctx.Logger)
 }
 
@@ -551,11 +525,6 @@ func GetScanningTaskSSE(c *gin.Context) {
 	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("invalid task id: %s", err))
-		return
-	}
-
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
 		return
 	}
 

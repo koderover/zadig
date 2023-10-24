@@ -32,7 +32,6 @@ func GetWorkflowTemplateByID(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		internalhandler.JSONResponse(c, ctx)
@@ -55,6 +54,11 @@ func GetWorkflowTemplateByID(c *gin.Context) {
 		}
 	}
 
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	resp, err := templateservice.GetWorkflowTemplateByID(c.Param("id"), ctx.Logger)
 	if err != nil {
 		c.JSON(e.ErrorMessage(err))
@@ -69,7 +73,6 @@ func ListWorkflowTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -89,6 +92,11 @@ func ListWorkflowTemplate(c *gin.Context) {
 				return
 			}
 		}
+	}
+
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	excludeBuildIn := false
