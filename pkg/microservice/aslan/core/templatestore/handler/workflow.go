@@ -94,11 +94,6 @@ func ListWorkflowTemplate(c *gin.Context) {
 		}
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
 	excludeBuildIn := false
 	if c.Query("excludeBuildIn") == "true" {
 		excludeBuildIn = true
