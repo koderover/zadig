@@ -300,7 +300,6 @@ echo $result > %s
 	for _, env := range jobTaskSpec.Plugin.Envs {
 		envs = append(envs, corev1.EnvVar{Name: env.Name, Value: env.Value})
 	}
-	log.Infof("job task env is %+v", jobTaskSpec.Plugin.Envs)
 
 	clusterID := jobTaskSpec.Properties.ClusterID
 	if clusterID == "" {

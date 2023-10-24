@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	"github.com/pkg/errors"
 
 	"go.uber.org/zap"
@@ -163,9 +161,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 	// decide which docker host to use.
 	// TODO: do not use code in warpdrive moudule, should move to a public place
 	dockerhosts := dockerhost.NewDockerHosts(hubServerAddr, c.logger)
-	c.jobTaskSpec.Properties.DockerHost = dockerhosts.GetBestHost(dockerhost.ClusterID(c.jobTaskSpec.Properties.ClusterID), fmt.Sprintf("%v", c.job.StartTime))
-
-	log.Infof("+++++ the data is %v", c.jobTaskSpec.Properties.DockerHost)
+	c.jobTaskSpec.Properties.DockerHost = dockerhosts.GetBestHost(dockerhost.ClusterID(c.jobTaskSpec.Properties.ClusterID), c.job.Key)
 
 	// not local cluster
 	var (
@@ -187,8 +183,6 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 			dockerHost = strings.Replace(c.jobTaskSpec.Properties.DockerHost, replaceDindServer, replaceDindServer+"."+config.Namespace(), 1)
 		}
 	}
-
-	log.Infof("----- dockerHost after modify is %v", dockerHost)
 
 	c.jobTaskSpec.Properties.DockerHost = dockerHost
 
