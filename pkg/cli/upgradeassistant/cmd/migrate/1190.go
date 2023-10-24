@@ -112,6 +112,7 @@ func V1180ToV1190() error {
 	log.Infof("-------- start migrate renderset info --------")
 	if err := migrateRendersets(); err != nil {
 		log.Infof("migrateRendersets err: %v", err)
+		return err
 	}
 
 	log.Infof("-------- start migrate infrastructure filed in build & build template module and general job --------")
