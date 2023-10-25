@@ -37,9 +37,10 @@
 
 ## What is Zadig
 
-Zadig is an open-source, distributed, cloud-native CD (Continuous Delivery) product designed for developers. Zadig not only provides high-availability CI/CD capabilities, but also provides cloud-native operating environments, supports developers' local debugging, parallel build and deployment of microservices, integration testing, etc. .
+Zadig is a self-service, cloud-native DevOps platform based on Kubernetes developed by KodeRover. Zadig is available in Basic and Professional editions, and offers flexible and scalable workflow support, multiple release policy orchestration, and one-click security auditing. The platform also supports customized enterprise XOps agile performance dashboards, deep integration with multiple enterprise platforms, and rapid batch access through project templating to achieve one-click governance of thousands of services.
 
-Zadig is non-invasive, it does not exclude any of your existing development process. Instead it can easily integrate with Github/Gitlab, Jenkins and many other cloud vendors in a seamless way. We strive for the 10x optimal developer experience with the lowest maintenance cost possible.
+Its main goal is to help enterprises realize the digital transformation of production and research, enable engineers to become innovation engines, and provide support for the unlimited value links of the digital economy.
+
 
 > Our vision is: Developer + Zadig = Business success
 
@@ -69,6 +70,26 @@ The Highlighted Features:
   Zadig can easily and non-intrusively embed existing testing automation frameworks, and achieve continuous building, testing and deployment via GitHub/GitLab Webhook.
 
   It also integrates with productivity bots to provide instant quality report, which effectively applies shift-left testing best practices.
+  </details>
+
+<details>
+  <summary><b>Powerful Template Library</b></summary>
+  Shared K8s YAML templates, Helm Chart templates, build templates, etc., across projects to achieve unified configuration management. Based on a set of templates, hundreds of microservices can be created, and with minimal configuration by development engineers, self-service usage is enabled, significantly reducing the burden of operations and maintenance management.
+  </details>
+
+<details>
+  <summary><b>Secure and Reliable Release Management</b></summary>
+  Customized workflows that integrate engineer, process, and internal and external system compliance approvals, supporting flexible orchestration of deployment strategies such as blue-green deployment, canary release, phased gray release, and Istio release. Presenting the state of the production environment from a multi-cluster, multi-project perspective, it achieves transparency and reliability in the release process.
+  </details>
+
+<details>
+ <summary><b>Stable and Efficient Customer Delivery</b></summary>
+  Simplify the implementation process for vendors to customer versions, customer private clouds, public clouds, and offline environments, as well as product license management. The supplier management plane collaborates with the customer console to complete the implementation, update, and maintenance process for customer environments, enhancing the quality of external services provided by the enterprise.
+ </details>
+
+<details>
+  <summary><b>Objective and Accurate Performance Insights</b></summary>
+  Comprehensive understanding of the system's operational status, including data overviews on clusters, projects, environments, workflows, and key process pass rates. It provides objective performance metrics data for various aspects like builds, tests, and deployments at the project level, enabling precise analysis of development efficiency bottlenecks and promoting steady improvement.
   </details>
 
 <details>

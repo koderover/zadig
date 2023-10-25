@@ -1,6 +1,6 @@
 <p><a href="https://github.com/koderover/zadig-doc" target="_blank" rel="noopener noreferrer"><img height="50" src="https://docs.koderover.com/zadig/img/zadig.png" alt="Zadig logo"></a></p>
 
-<h3 align="left">开源分布式持续交付产品</h3>
+<h3 align="left">面向开发者自助式云原生 DevOps 平台</h3>
 
 <span align="left">
 
@@ -36,7 +36,7 @@
 
 ## Zadig 介绍
 
-Zadig 是 KodeRover 公司基于 Kubernetes 自主设计、研发的开源分布式持续交付 (Continuous Delivery) 产品，具备灵活易用的高并发工作流、面向开发者的云原生环境、高效协同的测试管理、强大免运维的模板库、客观精确的效能洞察以及云原生 IDE 插件等重要特性，为工程师提供统一的协作平面。Zadig 内置了 K8s YAML、Helm Chart、主机等复杂场景最佳实践，适用大规模微服务、高频高质量交付等场景。我们的目标是通过云原生技术的运用和工程产品赋能，打造极致、高效、愉悦的开发者工作体验，让工程师成为企业创新的核心引擎。
+Zadig 是由 KodeRover 公司基于 Kubernetes 研发的自助式云原生 DevOps 平台。Zadig 分为基础版和专业版，提供灵活可扩展的工作流支持、多种发布策略编排以及一键安全审核等特性。该平台还支持定制的企业级 XOps 敏捷效能看板，深度集成多种企业级平台，并通过项目模板化批量快速接入，实现数千个服务的一键纳管治理。其主要目标是帮助企业实现产研的数字化转型，使工程师成为创新引擎，并为数字经济的无限价值链接提供支持。
 
 
 我们的愿景：`工程师 + Zadig = 商业上的成功`
@@ -64,17 +64,27 @@ Zadig 是 KodeRover 公司基于 Kubernetes 自主设计、研发的开源分布
   便捷对接 Jmeter、Pytest 等主流测试框架，跨项目管理和沉淀 UI、API、E2E 测试用例资产。通过工作流，向开发者提供前置测试验证能力。通过持续测试和质量分析，充分释放测试价值。
   </details>
 
-  <details>
+<details>
   <summary><b>强大免运维的模板库</b></summary>
   跨项目共享 K8s YAML 模板、Helm Chart 模板、构建模板等，实现配置的统一化管理。基于一套模板可创建数百微服务，开发工程师少量配置可自助使用，大幅降低运维管理负担。
   </details>
 
-  <details>
+<details>
+  <summary><b>安全可靠的发布管理</b></summary>
+  自定义工作流打通人、流程、内外部系统合规审批，支持灵活编排蓝绿、金丝雀、分批次灰度、Istio 等发布策略。通过多集群、多项目视角呈现生产环境的状态，实现发布过程的透明可靠。
+  </details>
+
+<details>
+ <summary><b>稳定高效的客户交付</b></summary>
+  简化供应商对客户版本、客户私有云、公有云、离线环境的产品实施过程以及产品许可证的管理。供应商管理平面联动客户控制台完成对客户环境实施、更新、维护过程，提升企业对外服务质量。
+ </details>
+
+<details>
   <summary><b>客观精确的效能洞察</b></summary>
   全面了解系统运行状态，包括集群、项目、环境、工作流，关键过程通过率等数据概览。提供项目维度的构建、测试、部署等客观的效能度量数据，精准分析研发效能短板，促进稳步提升。
   </details>
 
-  <details>
+<details>
   <summary><b>云原生 IDE 插件</b></summary>
   开发者无需平台切换，在 VScode IDE 中即可获得 Zadig 产品核心能力。编写代码后，无需打包镜像，即可一键热部署到自测环境，快速完成自测、联调和集成验证，开发效率倍增。
   </details>
