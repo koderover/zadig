@@ -723,6 +723,17 @@ func GetUserCount(logger *zap.SugaredLogger) (*types.UserStatistics, error) {
 	}, nil
 }
 
+func CheckDuplicateUser(username string, logger *zap.SugaredLogger) error {
+	user, err := orm.GetUser(username, "system", repository.DB)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return nil
+	}
+	return fmt.Errorf("user is duplicated")
+}
+
 const (
 	UppercaseValidator = `[A-Z]+`
 	LowercaseValidator = `[a-z]+`
