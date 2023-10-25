@@ -51,6 +51,8 @@ type ZadigXLicenseStatus struct {
 	CurrentVersion   string   `json:"current_version"`
 	Features         []string `json:"features"`
 	ImprovementPlan  bool     `json:"improvement_plan"`
+	CreatedAt        int64    `json:"created_time"`
+	UpdatedAt        int64    `json:"updated_time"`
 }
 
 func (c *Client) CheckZadigXLicenseStatus() (*ZadigXLicenseStatus, error) {

@@ -62,13 +62,18 @@ type CheckSignatureRes struct {
 }
 
 func CheckSignature(ifLoggedIn bool, logger *zap.SugaredLogger) error {
-	userNum, err := orm.CountActiveUser(repository.DB)
+	vendorClient := plutusvendor.New()
+	err := vendorClient.Health()
 	if err != nil {
 		return err
 	}
-	vendorClient := plutusvendor.New()
 
-	err = vendorClient.Health()
+	status, checkErr := vendorClient.CheckZadigXLicenseStatus()
+	if checkErr != nil {
+		return checkErr
+	}
+
+	userNum, err := orm.CountActiveUser(status.UpdatedAt, repository.DB)
 	if err != nil {
 		return err
 	}
