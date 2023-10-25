@@ -60,7 +60,7 @@ func InitializeUser(username, password, company, email string, phone int64, impr
 	}
 
 	if userCountInfo.TotalUser > 0 {
-		return nil
+		return fmt.Errorf("there are already user in the system, initialization failed")
 	}
 
 	userInfo, err := user.New().CreateUser(&user.CreateUserArgs{
