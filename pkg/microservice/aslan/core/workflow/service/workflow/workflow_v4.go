@@ -920,13 +920,13 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 }
 
 func lintApprovals(approval *commonmodels.Approval) error {
+	if approval == nil {
+		return nil
+	}
 	if err := util.CheckZadigXLicenseStatus(); err != nil {
 		if approval.Type == config.LarkApproval || approval.Type == config.DingTalkApproval {
 			return e.ErrLicenseInvalid.AddDesc("飞书和钉钉审批是专业版功能")
 		}
-	}
-	if approval == nil {
-		return nil
 	}
 	if !approval.Enabled {
 		return nil
