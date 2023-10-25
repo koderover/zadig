@@ -1120,7 +1120,7 @@ func UpdateProductionHelmProductDefaultValues(c *gin.Context) {
 		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
 		return
 	}
-	if arg.ValuesData.AutoSync {
+	if arg.ValuesData != nil && arg.ValuesData.AutoSync {
 		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
 			ctx.Err = e.ErrLicenseInvalid
 			return
