@@ -54,11 +54,6 @@ func GetWorkflowTemplateByID(c *gin.Context) {
 		}
 	}
 
-	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
-		return
-	}
-
 	resp, err := templateservice.GetWorkflowTemplateByID(c.Param("id"), ctx.Logger)
 	if err != nil {
 		c.JSON(e.ErrorMessage(err))
