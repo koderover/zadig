@@ -90,7 +90,7 @@ func (j *MseGrayOfflineJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 
 func (j *MseGrayOfflineJob) LintJob() error {
 	if err := util.CheckZadigXLicenseStatus(); err != nil {
-		return e.ErrLicenseInvalid
+		return e.ErrLicenseInvalid.AddDesc("")
 	}
 
 	j.spec = &commonmodels.MseGrayOfflineJobSpec{}

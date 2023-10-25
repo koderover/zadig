@@ -159,7 +159,7 @@ func (j *GrayReleaseJob) LintJob() error {
 	j.spec = &commonmodels.GrayReleaseJobSpec{}
 
 	if err := util.CheckZadigXLicenseStatus(); err != nil {
-		return e.ErrLicenseInvalid
+		return e.ErrLicenseInvalid.AddDesc("")
 	}
 
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {

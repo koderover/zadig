@@ -149,8 +149,8 @@ func (j *IstioRollBackJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error)
 
 func (j *IstioRollBackJob) LintJob() error {
 	if err := util.CheckZadigXLicenseStatus(); err != nil {
-		return e.ErrLicenseInvalid
+		return e.ErrLicenseInvalid.AddDesc("")
 	}
-	
+
 	return nil
 }

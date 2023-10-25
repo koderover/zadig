@@ -108,23 +108,23 @@ func (args *K8SCluster) Validate() error {
 	}
 	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 		if args.Provider == config.ClusterProviderTKEServerless || args.Provider == config.ClusterProviderAmazonEKS || args.Production {
-			return e.ErrLicenseInvalid
+			return e.ErrLicenseInvalid.AddDesc("")
 		}
 		if args.AdvancedConfig != nil {
 			for _, scheduleStrategy := range args.AdvancedConfig.ScheduleStrategy {
 				if scheduleStrategy.Strategy == setting.RequiredSchedule || scheduleStrategy.Tolerations != "" {
-					return e.ErrLicenseInvalid
+					return e.ErrLicenseInvalid.AddDesc("")
 				}
 			}
 		}
 		if args.DindCfg != nil {
 			if args.DindCfg.Replicas != 1 {
-				return e.ErrLicenseInvalid
+				return e.ErrLicenseInvalid.AddDesc("")
 			}
 			if args.DindCfg.Resources != nil {
 				if args.DindCfg.Resources.Limits != nil {
 					if args.DindCfg.Resources.Limits.CPU != 4000 || args.DindCfg.Resources.Limits.Memory != 8192 {
-						return e.ErrLicenseInvalid
+						return e.ErrLicenseInvalid.AddDesc("")
 					}
 				}
 			}

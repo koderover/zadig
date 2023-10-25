@@ -98,7 +98,7 @@ func (j *GuanceyunCheckJob) LintJob() error {
 	j.spec = &commonmodels.GuanceyunCheckJobSpec{}
 
 	if err := util.CheckZadigXLicenseStatus(); err != nil {
-		return e.ErrLicenseInvalid
+		return e.ErrLicenseInvalid.AddDesc("")
 	}
 
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {

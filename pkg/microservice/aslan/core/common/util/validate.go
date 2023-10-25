@@ -62,7 +62,7 @@ func CheckZadigXLicenseStatus() error {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
 	if !ValidateZadigXLicenseStatus(licenseStatus) {
-		return e.ErrLicenseInvalid
+		return e.ErrLicenseInvalid.AddDesc("")
 	}
 	return nil
 }

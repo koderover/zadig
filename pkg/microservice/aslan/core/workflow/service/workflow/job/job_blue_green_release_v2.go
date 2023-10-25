@@ -114,7 +114,7 @@ func (j *BlueGreenReleaseV2Job) LintJob() error {
 	j.spec = &commonmodels.BlueGreenReleaseV2JobSpec{}
 
 	if err := util.CheckZadigXLicenseStatus(); err != nil {
-		return e.ErrLicenseInvalid
+		return e.ErrLicenseInvalid.AddDesc("")
 	}
 
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
