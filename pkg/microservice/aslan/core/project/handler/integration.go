@@ -74,7 +74,7 @@ func CreateProjectCodeHost(c *gin.Context) {
 	}
 
 	if err != nil {
-		ctx.Err = e.ErrLicenseInvalid
+		ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 		return
 	}
 
@@ -240,7 +240,7 @@ func UpdateProjectCodeHost(c *gin.Context) {
 
 	err = commonutil.CheckZadigXLicenseStatus()
 	if err != nil {
-		ctx.Err = e.ErrLicenseInvalid
+		ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 		return
 	}
 

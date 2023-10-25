@@ -95,7 +95,7 @@ func (j *MeegoTransitionJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 
 func (j *MeegoTransitionJob) LintJob() error {
 	if err := util.CheckZadigXLicenseStatus(); err != nil {
-		return e.ErrLicenseInvalid
+		return e.ErrLicenseInvalid.AddDesc("")
 	}
 
 	return nil

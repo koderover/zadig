@@ -135,7 +135,7 @@ func CreateS3Storage(c *gin.Context) {
 	}
 	if args.Provider == config.S3StorageProviderAmazonS3 {
 		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-			ctx.Err = e.ErrLicenseInvalid
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
@@ -214,7 +214,7 @@ func UpdateS3Storage(c *gin.Context) {
 	}
 	if args.Provider == config.S3StorageProviderAmazonS3 {
 		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-			ctx.Err = e.ErrLicenseInvalid
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}

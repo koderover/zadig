@@ -89,7 +89,7 @@ func (args *PrivateKey) Validate() error {
 	}
 	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 		if args.Provider == config.VMProviderAmazon || args.ScheduleWorkflow {
-			return e.ErrLicenseInvalid
+			return e.ErrLicenseInvalid.AddDesc("")
 		}
 	}
 	return nil

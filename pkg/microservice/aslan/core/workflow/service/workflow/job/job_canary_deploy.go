@@ -156,7 +156,7 @@ func (j *CanaryDeployJob) LintJob() error {
 	j.spec = &commonmodels.CanaryDeployJobSpec{}
 
 	if err := util.CheckZadigXLicenseStatus(); err != nil {
-		return e.ErrLicenseInvalid
+		return e.ErrLicenseInvalid.AddDesc("")
 	}
 
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
