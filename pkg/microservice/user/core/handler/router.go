@@ -40,6 +40,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		users.GET("/:uid/setting", user.GetUserSetting)
 		users.POST("/search", user.ListUsers)
 		users.GET("/count", user.CountSystemUsers)
+		users.GET("/check/duplicate", user.CheckDuplicateUser)
 	}
 
 	usergroups := router.Group("user-group")

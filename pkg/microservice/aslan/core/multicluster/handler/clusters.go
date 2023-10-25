@@ -49,10 +49,11 @@ func ListClusters(c *gin.Context) {
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "" {
-			if !ctx.Resources.SystemActions.ClusterManagement.View {
-				ctx.UnAuthorized = true
-				return
-			}
+			// TODO: Authorization leak
+			//if !ctx.Resources.SystemActions.ClusterManagement.View {
+			//	ctx.UnAuthorized = true
+			//	return
+			//}
 		} else {
 			if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
 				ctx.UnAuthorized = true
