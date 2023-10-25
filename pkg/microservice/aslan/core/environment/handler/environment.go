@@ -1058,7 +1058,7 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 
 	if arg.ValuesData.AutoSync {
 		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
-			ctx.Err = e.ErrLicenseInvalid
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
@@ -1122,7 +1122,7 @@ func UpdateProductionHelmProductDefaultValues(c *gin.Context) {
 	}
 	if arg.ValuesData != nil && arg.ValuesData.AutoSync {
 		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
-			ctx.Err = e.ErrLicenseInvalid
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
@@ -1592,7 +1592,7 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 		for _, service := range arg.Services {
 			if service.DeployStrategy == setting.ServiceDeployStrategyImport {
 				if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-					ctx.Err = e.ErrLicenseInvalid
+					ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 					return
 				}
 			}
@@ -1758,7 +1758,7 @@ func updateMultiHelmChartEnv(c *gin.Context, request *service.UpdateEnvRequest, 
 	for _, chartValue := range args.ChartValues {
 		if chartValue.DeployStrategy == setting.ServiceDeployStrategyImport {
 			if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
-				ctx.Err = e.ErrLicenseInvalid
+				ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 				return
 			}
 		}

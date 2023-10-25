@@ -88,7 +88,7 @@ func (j *OfflineServiceJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 
 func (j *OfflineServiceJob) LintJob() error {
 	if err := util.CheckZadigXLicenseStatus(); err != nil {
-		return e.ErrLicenseInvalid
+		return e.ErrLicenseInvalid.AddDesc("")
 	}
 
 	j.spec = &commonmodels.OfflineServiceJobSpec{}

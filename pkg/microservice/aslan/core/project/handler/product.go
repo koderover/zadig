@@ -111,7 +111,7 @@ func CreateProductTemplate(c *gin.Context) {
 	err = util.CheckZadigXLicenseStatus()
 	if err != nil {
 		if args.AutoDeploy != nil && args.AutoDeploy.Enable {
-			ctx.Err = e.ErrLicenseInvalid
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
@@ -164,7 +164,7 @@ func UpdateProductTemplate(c *gin.Context) {
 	err = commonutil.CheckZadigXLicenseStatus()
 	if err != nil {
 		if args.AutoDeploy.Enable == true {
-			ctx.Err = e.ErrLicenseInvalid
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
@@ -267,7 +267,7 @@ func UpdateProject(c *gin.Context) {
 	err = commonutil.CheckZadigXLicenseStatus()
 	if err != nil {
 		if args.AutoDeploy.Enable == true {
-			ctx.Err = e.ErrLicenseInvalid
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
