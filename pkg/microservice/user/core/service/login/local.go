@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	zadigCache "github.com/koderover/zadig/pkg/tool/cache"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type LoginArgs struct {
@@ -82,6 +83,11 @@ func CheckSignature(lastLoginTime int64, logger *zap.SugaredLogger) error {
 	if checkErr != nil {
 		return checkErr
 	}
+
+	log.Debugf("userNum: %+v", userNum)
+	log.Debugf("res: %+v", res)
+	log.Debugf("status: %+v", status)
+	log.Debugf("lastLoginTime: %+v", lastLoginTime)
 
 	if res.Code == 6694 {
 		if lastLoginTime > status.UpdatedAt {
