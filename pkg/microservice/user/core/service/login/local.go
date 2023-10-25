@@ -61,7 +61,7 @@ type CheckSignatureRes struct {
 	Type        string                 `json:"type"`
 }
 
-func CheckSignature(ifLoggedIn bool, logger *zap.SugaredLogger) error {
+func CheckSignature(lastLoginTime int64, logger *zap.SugaredLogger) error {
 	vendorClient := plutusvendor.New()
 	err := vendorClient.Health()
 	if err != nil {
@@ -84,7 +84,7 @@ func CheckSignature(ifLoggedIn bool, logger *zap.SugaredLogger) error {
 	}
 
 	if res.Code == 6694 {
-		if ifLoggedIn {
+		if lastLoginTime > status.UpdatedAt {
 			return nil
 		} else {
 			return fmt.Errorf("系统使用用户数量已达授权人数上限，请联系系统管理员")
@@ -156,7 +156,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		return nil, 0, fmt.Errorf("check password error, error msg:%s", err)
 	}
 
-	err = CheckSignature(userLogin.LastLoginTime > 0, logger)
+	err = CheckSignature(userLogin.LastLoginTime, logger)
 	if err != nil {
 		return nil, 0, err
 	}
