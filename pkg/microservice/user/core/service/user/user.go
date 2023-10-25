@@ -41,6 +41,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/mail"
@@ -693,7 +694,18 @@ func GetUserCount(logger *zap.SugaredLogger) (*types.UserStatistics, error) {
 		return nil, err
 	}
 
-	totalActiveUser, err := orm.CountActiveUser(repository.DB)
+	vendorClient := plutusvendor.New()
+	err = vendorClient.Health()
+	if err != nil {
+		return nil, err
+	}
+
+	status, checkErr := vendorClient.CheckZadigXLicenseStatus()
+	if checkErr != nil {
+		return nil, checkErr
+	}
+
+	totalActiveUser, err := orm.CountActiveUser(status.UpdatedAt, repository.DB)
 	if err != nil {
 		logger.Errorf("Failed to count user by type from db, the error is: %s", err.Error())
 		return nil, err
