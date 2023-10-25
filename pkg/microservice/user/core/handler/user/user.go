@@ -60,6 +60,15 @@ func CountSystemUsers(c *gin.Context) {
 	ctx.Resp, ctx.Err = user.GetUserCount(ctx.Logger)
 }
 
+func CheckDuplicateUser(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	username := c.Query("username")
+
+	ctx.Err = user.CheckDuplicateUser(username, ctx.Logger)
+}
+
 func GetUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
