@@ -436,6 +436,7 @@ const (
 type ClusterProvider int
 
 const (
+	ClusterProviderAmazonEKS     = 4
 	ClusterProviderTKEServerless = 5
 )
 

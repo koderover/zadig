@@ -107,7 +107,7 @@ func (args *K8SCluster) Validate() error {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
 	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-		if args.Provider == config.ClusterProviderTKEServerless || args.Production {
+		if args.Provider == config.ClusterProviderTKEServerless || args.Provider == config.ClusterProviderAmazonEKS || args.Production {
 			return e.ErrLicenseInvalid
 		}
 		if args.AdvancedConfig != nil {
