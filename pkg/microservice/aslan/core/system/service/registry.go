@@ -77,6 +77,7 @@ func ListRegistriesByProject(projectName string, log *zap.SugaredLogger) ([]*com
 		log.Errorf("RegistryNamespace.List error: %v", err)
 		return registryNamespaces, fmt.Errorf("RegistryNamespace.List error: %v", err)
 	}
+
 	for _, registryNamespace := range registryNamespaces {
 		registryNamespace.AccessKey = ""
 		registryNamespace.SecretKey = ""
@@ -216,6 +217,7 @@ func ListAllRepos(log *zap.SugaredLogger) ([]*RepoInfo, error) {
 		log.Errorf("RegistryNamespace.List error: %v", err)
 		return nil, fmt.Errorf("RegistryNamespace.List error: %v", err)
 	}
+
 	for _, rn := range resp {
 		repoInfo := new(RepoInfo)
 		repoInfo.RegProvider = rn.RegProvider

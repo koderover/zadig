@@ -21,25 +21,19 @@ import (
 	"strconv"
 	"time"
 
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
 type SystemInitializationStatus struct {
-	Initialized   bool   `json:"initialized"`
-	IsEnterprise  bool   `json:"is_enterprise"`
-	LicenseStatus string `json:"license_status"`
-	SystemID      string `json:"system_id"`
+	Initialized bool `json:"initialized"`
 }
 
 func GetSystemInitializationStatus(logger *zap.SugaredLogger) (*SystemInitializationStatus, error) {
-	// first check if the system is enterprise version
-	isEnterprise := config.Enterprise()
-
 	// then check if the user has been initialized
 	userCountInfo, err := user.New().CountUsers()
 	if err != nil {
@@ -47,9 +41,7 @@ func GetSystemInitializationStatus(logger *zap.SugaredLogger) (*SystemInitializa
 		return nil, fmt.Errorf("failed to check if the user is initialized, error: %s", err)
 	}
 
-	resp := &SystemInitializationStatus{
-		IsEnterprise: isEnterprise,
-	}
+	resp := &SystemInitializationStatus{}
 
 	if userCountInfo.TotalUser > 0 {
 		resp.Initialized = true
@@ -57,21 +49,10 @@ func GetSystemInitializationStatus(logger *zap.SugaredLogger) (*SystemInitializa
 		resp.Initialized = false
 	}
 
-	// if it is an enterprise system, check about the license information
-	if isEnterprise {
-		licenseInfo, err := plutusvendor.New().CheckZadigXLicenseStatus()
-		if err != nil {
-			logger.Errorf("failed to get enterprise license info, error: %s", err)
-			return nil, fmt.Errorf("failed to check enterprise license info, error: %s", err)
-		}
-		resp.LicenseStatus = licenseInfo.Status
-		resp.SystemID = licenseInfo.SystemID
-	}
-
 	return resp, nil
 }
 
-func InitializeUser(username, password, company, email string, phone int64, reason, address string, logger *zap.SugaredLogger) error {
+func InitializeUser(username, password, company, email string, phone int64, improvementPlan bool, logger *zap.SugaredLogger) error {
 	userCountInfo, err := user.New().CountUsers()
 	if err != nil {
 		logger.Errorf("failed to get user count, error: %s", err)
@@ -79,7 +60,7 @@ func InitializeUser(username, password, company, email string, phone int64, reas
 	}
 
 	if userCountInfo.TotalUser > 0 {
-		return nil
+		return fmt.Errorf("there are already user in the system, initialization failed")
 	}
 
 	userInfo, err := user.New().CreateUser(&user.CreateUserArgs{
@@ -95,15 +76,19 @@ func InitializeUser(username, password, company, email string, phone int64, reas
 		return fmt.Errorf("user initialization error: failed to create user, err: %s", err)
 	}
 
-	if !config.Enterprise() {
+	err = commonrepo.NewSystemSettingColl().UpdatePrivacySetting(improvementPlan)
+	if err != nil {
+		logger.Errorf("failed to update privacy settings, error: %s", err)
+		return fmt.Errorf("privacy setting initialization error: %s", err)
+	}
+
+	if improvementPlan {
 		initializeInfo := &InitializeInfo{
 			CreatedAt: time.Now().Unix(),
 			Username:  username,
 			Phone:     phone,
 			Email:     email,
 			Company:   company,
-			Reason:    reason,
-			Address:   address,
 			Domain:    config.SystemAddress(),
 		}
 

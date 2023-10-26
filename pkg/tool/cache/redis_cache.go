@@ -76,3 +76,7 @@ func (c *RedisCache) GetString(key string) (string, error) {
 func (c *RedisCache) Delete(key string) error {
 	return c.redisClient.Del(context.TODO(), key).Err()
 }
+
+func (c *RedisCache) FlushDBAsync() error {
+	return c.redisClient.FlushDBAsync(context.TODO()).Err()
+}

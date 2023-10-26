@@ -28,6 +28,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -107,6 +108,11 @@ func DeleteProductionCommonEnvCfg(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = service.DeleteCommonEnvCfg(envName, projectKey, objectName, config.CommonEnvCfgType(commonEnvCfgType), ctx.Logger)
@@ -222,6 +228,12 @@ func CreateProductionCommonEnvCfg(c *gin.Context) {
 	}
 	args.EnvName = envName
 	args.ProductName = projectKey
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	ctx.Err = service.CreateCommonEnvCfg(args, ctx.UserName, ctx.Logger)
 }
 
@@ -343,6 +355,11 @@ func UpdateProductionCommonEnvCfg(c *gin.Context) {
 			ctx.Err = e.ErrInvalidParam.AddErr(err)
 			return
 		}
+	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = service.UpdateCommonEnvCfg(args, ctx.UserName, isRollBack, ctx.Logger)

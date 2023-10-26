@@ -25,10 +25,11 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	projectservice "github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -106,6 +107,15 @@ func CreateProductTemplate(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
 		return
 	}
+
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		if args.AutoDeploy != nil && args.AutoDeploy.Enable {
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+			return
+		}
+	}
+
 	args.UpdateBy = ctx.UserName
 	ctx.Err = projectservice.CreateProductTemplate(args, ctx.Logger)
 }
@@ -151,6 +161,14 @@ func UpdateProductTemplate(c *gin.Context) {
 		}
 	}
 
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		if args.AutoDeploy.Enable == true {
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+			return
+		}
+	}
+
 	args.UpdateBy = ctx.UserName
 	ctx.Err = projectservice.UpdateProductTemplate(c.Param("name"), args, ctx.Logger)
 }
@@ -189,6 +207,13 @@ func TransferProject(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = projectservice.TransferHostProject(ctx.UserName, productName, ctx.Logger)
@@ -235,6 +260,14 @@ func UpdateProject(c *gin.Context) {
 		}
 		if !ctx.Resources.ProjectAuthInfo[productName].IsProjectAdmin {
 			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		if args.AutoDeploy.Enable == true {
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
 	}
@@ -755,7 +788,6 @@ func CreateProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -767,6 +799,13 @@ func CreateProjectGroup(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	args := new(projectservice.ProjectGroupArgs)
@@ -796,7 +835,6 @@ func UpdateProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -808,6 +846,13 @@ func UpdateProjectGroup(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	args := new(projectservice.ProjectGroupArgs)
@@ -837,7 +882,6 @@ func DeleteProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -849,6 +893,13 @@ func DeleteProjectGroup(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	groupName := c.Query("groupName")
@@ -880,9 +931,15 @@ func GetPresetProjectGroup(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
+		return
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
 		return
 	}
 

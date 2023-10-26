@@ -24,7 +24,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/tool/apollo"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -124,6 +126,9 @@ func (j *ApolloJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 func (j *ApolloJob) LintJob() error {
 	j.spec = &commonmodels.ApolloJobSpec{}
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}

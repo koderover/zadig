@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -31,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	aslanUtil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -490,6 +492,17 @@ func (j *DeployJob) LintJob() error {
 	j.spec = &commonmodels.ZadigDeployJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
+	}
+	if err := aslanUtil.CheckZadigXLicenseStatus(); err != nil {
+		if j.spec.Production {
+			return e.ErrLicenseInvalid.AddDesc("生产环境功能需要专业版才能使用")
+		}
+
+		for _, item := range j.spec.DeployContents {
+			if item == config.DeployVars || item == config.DeployConfig {
+				return e.ErrLicenseInvalid.AddDesc("基础版仅能部署镜像")
+			}
+		}
 	}
 	if j.spec.Source != config.SourceFromJob {
 		return nil

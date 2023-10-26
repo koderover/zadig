@@ -21,6 +21,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -65,12 +67,18 @@ func CreateProjectCodeHost(c *gin.Context) {
 		}
 	}
 
-	rep := new(models.CodeHost)
-	if err := c.ShouldBindJSON(rep); err != nil {
+	req := new(models.CodeHost)
+	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.CreateProjectCodeHost(projectKey, rep, ctx.Logger)
+
+	if err != nil {
+		ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.CreateProjectCodeHost(projectKey, req, ctx.Logger)
 }
 
 // @Summary List Project CodeHost
@@ -156,6 +164,13 @@ func DeleteCodeHost(c *gin.Context) {
 		}
 	}
 
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	idParam := c.Param("id")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
@@ -191,6 +206,13 @@ func UpdateProjectCodeHost(c *gin.Context) {
 		return
 	}
 
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
 		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
@@ -215,6 +237,13 @@ func UpdateProjectCodeHost(c *gin.Context) {
 		return
 	}
 	req.ID = id
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+		return
+	}
+
 	ctx.Resp, ctx.Err = service.UpdateProjectSystemCodeHost(projectKey, req, ctx.Logger)
 }
 

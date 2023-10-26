@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	deliveryservice "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -132,6 +133,12 @@ func ListDeliveryVersion(c *gin.Context) {
 	}
 	if len(args.Verbosity) == 0 {
 		args.Verbosity = deliveryservice.VerbosityDetailed
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Resp, ctx.Err = deliveryservice.ListDeliveryVersion(args, ctx.Logger)
@@ -279,6 +286,12 @@ func DeleteDeliveryVersion(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = err
+		return
 	}
 
 	//params validate

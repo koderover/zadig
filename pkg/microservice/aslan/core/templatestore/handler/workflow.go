@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -31,7 +32,6 @@ func GetWorkflowTemplateByID(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		internalhandler.JSONResponse(c, ctx)
@@ -68,7 +68,6 @@ func ListWorkflowTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -103,7 +102,6 @@ func CreateWorkflowTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -115,6 +113,11 @@ func CreateWorkflowTemplate(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	args := new(commonmodels.WorkflowV4Template)
@@ -144,6 +147,11 @@ func UpdateWorkflowTemplate(c *gin.Context) {
 			ctx.UnAuthorized = true
 			return
 		}
+	}
+
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	args := new(commonmodels.WorkflowV4Template)

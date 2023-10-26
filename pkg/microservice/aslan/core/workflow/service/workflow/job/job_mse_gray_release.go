@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	v1 "k8s.io/api/apps/v1"
@@ -159,6 +161,10 @@ func (j *MseGrayReleaseJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 }
 
 func (j *MseGrayReleaseJob) LintJob() error {
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
+
 	j.spec = &commonmodels.MseGrayReleaseJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err

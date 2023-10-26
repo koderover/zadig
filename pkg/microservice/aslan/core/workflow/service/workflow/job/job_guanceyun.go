@@ -17,6 +17,8 @@
 package job
 
 import (
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -94,6 +96,11 @@ func (j *GuanceyunCheckJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error
 
 func (j *GuanceyunCheckJob) LintJob() error {
 	j.spec = &commonmodels.GuanceyunCheckJobSpec{}
+
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
+
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err
 	}

@@ -28,6 +28,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/pingcap/tidb/parser"
 	_ "github.com/pingcap/tidb/parser/test_driver"
 	"github.com/pkg/errors"
@@ -867,6 +868,12 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 		}
 	}
 
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		if workflow.ConcurrencyLimit != -1 && workflow.ConcurrencyLimit != 1 {
+			return e.ErrLicenseInvalid.AddDesc("标准版工作流并发只支持开关，不支持数量")
+		}
+	}
+
 	if project.ProductFeature != nil {
 		if project.ProductFeature.DeployType != setting.K8SDeployType && project.ProductFeature.DeployType != setting.HelmDeployType {
 			logger.Error("common workflow only support k8s and helm project")
@@ -915,6 +922,11 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 func lintApprovals(approval *commonmodels.Approval) error {
 	if approval == nil {
 		return nil
+	}
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		if approval.Type == config.LarkApproval || approval.Type == config.DingTalkApproval {
+			return e.ErrLicenseInvalid.AddDesc("飞书和钉钉审批是专业版功能")
+		}
 	}
 	if !approval.Enabled {
 		return nil

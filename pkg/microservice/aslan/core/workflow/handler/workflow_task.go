@@ -27,11 +27,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/jinzhu/copier"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
@@ -128,7 +128,6 @@ func CreateArtifactWorkflowTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -166,6 +165,15 @@ func CreateArtifactWorkflowTask(c *gin.Context) {
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
+	}
+
+	// license checks
+	err = util.CheckZadigXLicenseStatus()
+	if err != nil {
+		if args.VersionArgs != nil && args.VersionArgs.Enabled {
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("只有专业版才能创建版本，请检查")
+			return
+		}
 	}
 
 	if args.WorkflowTaskCreator != setting.CronTaskCreator && args.WorkflowTaskCreator != setting.WebhookTaskCreator {

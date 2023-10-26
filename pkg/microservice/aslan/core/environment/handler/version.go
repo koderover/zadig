@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -475,6 +476,11 @@ func RollbackEnvServiceVersion(c *gin.Context) {
 		return
 	}
 
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectKey, setting.OperationSceneEnv, "回滚", "环境-服务", fmt.Sprintf("环境: %s, 服务: %s, 版本: %d", envName, serviceName, revision), "", ctx.Logger, envName)
 
 	ctx.Err = service.RollbackEnvServiceVersion(ctx, projectKey, envName, serviceName, revision, isHelmChart, false, ctx.Logger)
@@ -538,6 +544,11 @@ func RollbackProductionEnvServiceVersion(c *gin.Context) {
 	isHelmChart, err := strconv.ParseBool(c.Query("isHelmChart"))
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(fmt.Errorf("invalid isHelmChart: %s", err))
+		return
+	}
+
+	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
+		ctx.Err = err
 		return
 	}
 

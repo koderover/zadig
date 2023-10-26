@@ -21,7 +21,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -173,6 +175,9 @@ func getGrayRollbackInfoFromAnnotations(annotations map[string]string) (*grayRol
 }
 
 func (j *GrayRollbackJob) LintJob() error {
-	// TODO
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
+
 	return nil
 }

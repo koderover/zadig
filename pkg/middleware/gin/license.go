@@ -17,11 +17,7 @@ limitations under the License.
 package gin
 
 import (
-	"strings"
-
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 )
 
 const (
@@ -45,73 +41,72 @@ const (
 	ZadigXLicenseStatusInvalidSystem   = "invalid_system"
 )
 
+// TODO: the way we process the license need to be changed after
 func ProcessLicense() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// if not enterprise we skip
-		if !config.Enterprise() {
-			c.Next()
-			return
-		}
-		// otherwise we check the path of the request
-		if c.Request.URL.Path == "/api/v1/login" ||
-			c.Request.URL.Path == "/api/health" ||
-			c.Request.URL.Path == "/api/metrics" ||
-			c.Request.URL.Path == "/api/v1/users/search" ||
-			c.Request.URL.Path == "/api/v1/users" ||
-			c.Request.URL.Path == "/api/system/concurrency/workflow" ||
-			c.Request.URL.Path == "/api/workflow/plugin/enterprise" ||
-			c.Request.URL.Path == "/api/cluster/clusters" ||
-			c.Request.URL.Path == "/api/system/initialization/user" ||
-			strings.HasPrefix(c.Request.URL.Path, "/api/v1/bundles") ||
-			strings.HasPrefix(c.Request.URL.Path, "/api/v1/callback") ||
-			strings.HasPrefix(c.Request.URL.Path, "/api/callback") ||
-			strings.HasPrefix(c.Request.URL.Path, "/api/v1/system-rolebindings") ||
-			strings.HasPrefix(c.Request.URL.Path, "/api/cluster/clusters") {
-			c.Next()
-			return
-		}
-		// for the rest of the apis we need to check if the license works
-		client := plutusvendor.New()
-		resp, err := client.CheckZadigXLicenseStatus()
-		if err != nil {
-			// if there are some unknown errors we return a
-			c.AbortWithStatusJSON(403, gin.H{
-				"code":        ErrorCodeUnknown,
-				"description": err.Error(),
-				"message":     ErrorUnknown,
-			})
-			return
-		}
-
-		switch resp.Status {
-		case ZadigXLicenseStatusUninitialized:
-			c.AbortWithStatusJSON(403, gin.H{
-				"code":        ErrorCodeLicenseMissing,
-				"description": "",
-				"message":     ErrorLicenseMissing,
-			})
-			return
-		case ZadigXLicenseStatusExpired:
-			c.AbortWithStatusJSON(403, gin.H{
-				"code":        ErrorCodeLicenseExpired,
-				"description": "",
-				"message":     ErrorLicenseExpired,
-			})
-			return
-		case ZadigXLicenseStatusVersionMismatch:
-			c.AbortWithStatusJSON(403, gin.H{
-				"code":        ErrorCodeLicenseInvalidVersion,
-				"description": "",
-				"message":     ErrorLicenseInvalidVersion,
-			})
-		case ZadigXLicenseStatusInvalidSystem:
-			c.AbortWithStatusJSON(403, gin.H{
-				"code":        ErrorCodeLicenseInvalidSystemID,
-				"description": "",
-				"message":     ErrorLicenseInvalidSystemID,
-			})
-		case ZadigXLicenseStatusNormal:
-			c.Next()
-		}
+		c.Next()
+		return
+		//// otherwise we check the path of the request
+		//if c.Request.URL.Path == "/api/v1/login" ||
+		//	c.Request.URL.Path == "/api/health" ||
+		//	c.Request.URL.Path == "/api/metrics" ||
+		//	c.Request.URL.Path == "/api/v1/users/search" ||
+		//	c.Request.URL.Path == "/api/v1/users" ||
+		//	c.Request.URL.Path == "/api/system/concurrency/workflow" ||
+		//	c.Request.URL.Path == "/api/workflow/plugin/enterprise" ||
+		//	c.Request.URL.Path == "/api/cluster/clusters" ||
+		//	c.Request.URL.Path == "/api/system/initialization/user" ||
+		//	strings.HasPrefix(c.Request.URL.Path, "/api/v1/bundles") ||
+		//	strings.HasPrefix(c.Request.URL.Path, "/api/v1/callback") ||
+		//	strings.HasPrefix(c.Request.URL.Path, "/api/callback") ||
+		//	strings.HasPrefix(c.Request.URL.Path, "/api/v1/system-rolebindings") ||
+		//	strings.HasPrefix(c.Request.URL.Path, "/api/cluster/clusters") {
+		//	c.Next()
+		//	return
+		//}
+		//// for the rest of the apis we need to check if the license works
+		//client := plutusvendor.New()
+		//resp, err := client.CheckZadigXLicenseStatus()
+		//if err != nil {
+		//	// if there are some unknown errors we return a
+		//	c.AbortWithStatusJSON(403, gin.H{
+		//		"code":        ErrorCodeUnknown,
+		//		"description": err.Error(),
+		//		"message":     ErrorUnknown,
+		//	})
+		//	return
+		//}
+		//
+		//switch resp.Status {
+		//case ZadigXLicenseStatusUninitialized:
+		//	c.AbortWithStatusJSON(403, gin.H{
+		//		"code":        ErrorCodeLicenseMissing,
+		//		"description": "",
+		//		"message":     ErrorLicenseMissing,
+		//	})
+		//	return
+		//case ZadigXLicenseStatusExpired:
+		//	c.AbortWithStatusJSON(403, gin.H{
+		//		"code":        ErrorCodeLicenseExpired,
+		//		"description": "",
+		//		"message":     ErrorLicenseExpired,
+		//	})
+		//	return
+		//case ZadigXLicenseStatusVersionMismatch:
+		//	c.AbortWithStatusJSON(403, gin.H{
+		//		"code":        ErrorCodeLicenseInvalidVersion,
+		//		"description": "",
+		//		"message":     ErrorLicenseInvalidVersion,
+		//	})
+		//case ZadigXLicenseStatusInvalidSystem:
+		//	c.AbortWithStatusJSON(403, gin.H{
+		//		"code":        ErrorCodeLicenseInvalidSystemID,
+		//		"description": "",
+		//		"message":     ErrorLicenseInvalidSystemID,
+		//	})
+		//case ZadigXLicenseStatusNormal:
+		//	c.Next()
+		//}
 	}
 }

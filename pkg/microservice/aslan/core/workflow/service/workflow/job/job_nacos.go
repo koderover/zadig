@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -170,6 +172,10 @@ func (j *NacosJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 }
 
 func (j *NacosJob) LintJob() error {
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
+
 	j.spec = &commonmodels.NacosJobSpec{}
 	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
 		return err

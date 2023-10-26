@@ -65,7 +65,6 @@ require (
 	github.com/pkoukk/tiktoken-go v0.1.1-0.20230418101013-cae809389480
 	github.com/prometheus/client_golang v1.15.1
 	github.com/redis/go-redis/v9 v9.2.1
-	github.com/regclient/regclient v0.5.3
 	github.com/rfyiamcool/cronlib v1.2.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/samber/lo v1.37.0

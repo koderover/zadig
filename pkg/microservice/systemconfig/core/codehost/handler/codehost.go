@@ -23,8 +23,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -44,12 +46,21 @@ func CreateSystemCodeHost(c *gin.Context) {
 		return
 	}
 
-	rep := new(models.CodeHost)
-	if err := c.ShouldBindJSON(rep); err != nil {
+	req := new(models.CodeHost)
+	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.CreateSystemCodeHost(rep, ctx.Logger)
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		if req.Type == setting.SourceFromGiteeEE {
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.CreateSystemCodeHost(req, ctx.Logger)
 }
 
 func ListSystemCodeHost(c *gin.Context) {
@@ -176,5 +187,14 @@ func UpdateSystemCodeHost(c *gin.Context) {
 		return
 	}
 	req.ID = id
+
+	err = commonutil.CheckZadigXLicenseStatus()
+	if err != nil {
+		if req.Type == setting.SourceFromGiteeEE {
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+			return
+		}
+	}
+
 	ctx.Resp, ctx.Err = service.UpdateCodeHost(req, ctx.Logger)
 }

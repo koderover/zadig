@@ -23,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func checkGpuResourceParam(gpuLimit string) error {
@@ -52,4 +54,22 @@ func CheckDefineResourceParam(req setting.Request, reqSpec setting.RequestSpec) 
 	//	return fmt.Errorf("Parameter res_req_spc.memory_limit must be greater than 1Mi")
 	//}
 	return nil
+}
+
+func CheckZadigXLicenseStatus() error {
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
+	}
+	if !ValidateZadigXLicenseStatus(licenseStatus) {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
+	return nil
+}
+
+func ValidateZadigXLicenseStatus(licenseStatus *plutusvendor.ZadigXLicenseStatus) bool {
+	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		return false
+	}
+	return true
 }

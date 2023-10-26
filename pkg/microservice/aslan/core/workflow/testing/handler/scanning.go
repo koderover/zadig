@@ -33,6 +33,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -109,6 +110,13 @@ func CreateScanningModule(c *gin.Context) {
 		}
 	}
 
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		if args.CheckQualityGate == true || len(args.AdvancedSetting.NotifyCtls) != 0 {
+			ctx.Err = err
+			return
+		}
+	}
+
 	ctx.Err = service.CreateScanningModule(ctx.UserName, args, ctx.Logger)
 }
 
@@ -152,6 +160,13 @@ func UpdateScanningModule(c *gin.Context) {
 	if id == "" {
 		ctx.Err = MissingIDError
 		return
+	}
+
+	if err = commonutil.CheckZadigXLicenseStatus(); err != nil {
+		if args.CheckQualityGate == true || len(args.AdvancedSetting.NotifyCtls) != 0 {
+			ctx.Err = err
+			return
+		}
 	}
 
 	ctx.Err = service.UpdateScanningModule(id, ctx.UserName, args, ctx.Logger)

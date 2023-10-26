@@ -41,6 +41,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/mail"
@@ -643,11 +644,7 @@ func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.Su
 		logger.Errorf("UpdateLoginInfo get user:%s login error, error msg:%s", user.UID, err.Error())
 		return nil, err
 	}
-	ifLoggedIn := false
-	if userLogin != nil && userLogin.LastLoginTime > 0 {
-		ifLoggedIn = true
-	}
-	err = login.CheckSignature(ifLoggedIn, logger)
+	err = login.CheckSignature(userLogin.LastLoginTime, logger)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("UpdateLoginInfo check signature fail, user:%s, error msg:%s", user.UID, err.Error())
@@ -693,7 +690,18 @@ func GetUserCount(logger *zap.SugaredLogger) (*types.UserStatistics, error) {
 		return nil, err
 	}
 
-	totalActiveUser, err := orm.CountActiveUser(repository.DB)
+	vendorClient := plutusvendor.New()
+	err = vendorClient.Health()
+	if err != nil {
+		return nil, err
+	}
+
+	status, checkErr := vendorClient.CheckZadigXLicenseStatus()
+	if checkErr != nil {
+		return nil, checkErr
+	}
+
+	totalActiveUser, err := orm.CountActiveUser(status.UpdatedAt, repository.DB)
 	if err != nil {
 		logger.Errorf("Failed to count user by type from db, the error is: %s", err.Error())
 		return nil, err
@@ -709,6 +717,17 @@ func GetUserCount(logger *zap.SugaredLogger) (*types.UserStatistics, error) {
 		ActiveUser: totalActiveUser,
 		TotalUser:  totalUser,
 	}, nil
+}
+
+func CheckDuplicateUser(username string, logger *zap.SugaredLogger) error {
+	user, err := orm.GetUser(username, "system", repository.DB)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return nil
+	}
+	return fmt.Errorf("user is duplicated")
 }
 
 const (

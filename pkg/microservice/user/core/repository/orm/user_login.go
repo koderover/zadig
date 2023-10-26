@@ -82,9 +82,9 @@ func UpdateUserLogin(uid string, userLogin *models.UserLogin, db *gorm.DB) error
 	return nil
 }
 
-func CountActiveUser(db *gorm.DB) (int64, error) {
+func CountActiveUser(signatureUpdatedAt int64, db *gorm.DB) (int64, error) {
 	var count int64
-	err := db.Model(&models.UserLogin{}).Select("count(*)").Where("last_login_time > 0").Find(&count).Error
+	err := db.Model(&models.UserLogin{}).Select("count(*)").Where("last_login_time > ?", signatureUpdatedAt).Find(&count).Error
 	if err != nil {
 		return 0, err
 	}

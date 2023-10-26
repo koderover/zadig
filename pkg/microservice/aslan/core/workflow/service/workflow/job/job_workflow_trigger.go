@@ -19,6 +19,8 @@ package job
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -245,6 +247,10 @@ func (j *WorkflowTriggerJob) getSourceJobTargets(jobName string, m map[commonmod
 }
 
 func (j *WorkflowTriggerJob) LintJob() error {
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
+
 	j.spec = &commonmodels.WorkflowTriggerJobSpec{}
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err

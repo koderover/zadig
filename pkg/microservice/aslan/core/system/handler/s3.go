@@ -24,9 +24,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -126,6 +128,18 @@ func CreateS3Storage(c *gin.Context) {
 		return
 	}
 
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if args.Provider == config.S3StorageProviderAmazonS3 {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+			return
+		}
+	}
+
 	storage := &s3.S3{
 		S3Storage: args,
 	}
@@ -191,6 +205,18 @@ func UpdateS3Storage(c *gin.Context) {
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
+	}
+
+	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+		return
+	}
+	if args.Provider == config.S3StorageProviderAmazonS3 {
+		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+			return
+		}
 	}
 
 	storage := &s3.S3{
