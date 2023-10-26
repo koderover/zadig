@@ -870,7 +870,7 @@ func LintWorkflowV4(workflow *commonmodels.WorkflowV4, logger *zap.SugaredLogger
 
 	if err := util.CheckZadigXLicenseStatus(); err != nil {
 		if workflow.ConcurrencyLimit != -1 && workflow.ConcurrencyLimit != 1 {
-			return e.ErrLicenseInvalid.AddDesc("标准版工作流并发只支持开关，不支持数量")
+			return e.ErrLicenseInvalid.AddDesc("基础版工作流并发只支持开关，不支持数量")
 		}
 	}
 
