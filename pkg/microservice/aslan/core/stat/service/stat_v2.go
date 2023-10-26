@@ -23,6 +23,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -164,90 +165,101 @@ func GetStatsDashboard(startTime, endTime int64, projectList []string, logger *z
 		}
 	}
 
-	for _, project := range projects {
-		facts := make([]*StatDashboardItem, 0)
+	wg := sync.WaitGroup{}
+	respLock := sync.Mutex{}
 
-		for _, config := range configs {
-			cfg := &StatDashboardConfig{
-				ID:       config.ItemKey,
-				Type:     config.Type,
-				Name:     config.Name,
-				Source:   config.Source,
-				Function: config.Function,
-				Weight:   config.Weight,
-			}
-			if config.APIConfig != nil {
-				cfg.APIConfig = &APIConfig{
-					ExternalSystemId: config.APIConfig.ExternalSystemId,
-					ApiPath:          config.APIConfig.ApiPath,
-					Queries:          config.APIConfig.Queries,
+	for _, project := range projects {
+		wg.Add(1)
+		go func(project *templaterepo.ProjectInfo) {
+			defer wg.Done()
+			facts := make([]*StatDashboardItem, 0)
+			for _, config := range configs {
+				cfg := &StatDashboardConfig{
+					ID:       config.ItemKey,
+					Type:     config.Type,
+					Name:     config.Name,
+					Source:   config.Source,
+					Function: config.Function,
+					Weight:   config.Weight,
 				}
-			}
-			calculator, err := CreateCalculatorFromConfig(cfg)
-			if err != nil {
-				logger.Errorf("failed to create calculator for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
-				// if for some reason we failed to create the calculator, we append a fact with value 0, and error along with it
-				facts = append(facts, &StatDashboardItem{
-					Type:  config.Type,
-					ID:    config.ItemKey,
-					Data:  0,
-					Score: 0,
-					Error: err.Error(),
-				})
-				continue
-			}
-			fact, exists, err := calculator.GetFact(startTime, endTime, project.Name)
-			if err != nil {
-				logger.Errorf("failed to get fact for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
-				// if for some reason we failed to get the fact, we append a fact with value 0, and error along with it
-				facts = append(facts, &StatDashboardItem{
+				if config.APIConfig != nil {
+					cfg.APIConfig = &APIConfig{
+						ExternalSystemId: config.APIConfig.ExternalSystemId,
+						ApiPath:          config.APIConfig.ApiPath,
+						Queries:          config.APIConfig.Queries,
+					}
+				}
+				calculator, err := CreateCalculatorFromConfig(cfg)
+				if err != nil {
+					logger.Errorf("failed to create calculator for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
+					// if for some reason we failed to create the calculator, we append a fact with value 0, and error along with it
+					facts = append(facts, &StatDashboardItem{
+						Type:  config.Type,
+						ID:    config.ItemKey,
+						Data:  0,
+						Score: 0,
+						Error: err.Error(),
+					})
+					continue
+				}
+				fact, exists, err := calculator.GetFact(startTime, endTime, project.Name)
+				if err != nil {
+					logger.Errorf("failed to get fact for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
+					// if for some reason we failed to get the fact, we append a fact with value 0, and error along with it
+					facts = append(facts, &StatDashboardItem{
+						Type:     config.Type,
+						ID:       config.ItemKey,
+						Data:     0,
+						Score:    0,
+						Error:    err.Error(),
+						HasValue: exists,
+					})
+					continue
+				}
+				// we round the fact to 2 decimal places
+				fact = math.Round(fact*100) / 100
+				// otherwise we calculate the score and append the fact
+				score, err := calculator.GetWeightedScore(fact)
+				if err != nil {
+					logger.Errorf("failed to calculate score for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
+					score = 0
+				}
+				if !exists {
+					score = 0
+				}
+
+				item := &StatDashboardItem{
 					Type:     config.Type,
 					ID:       config.ItemKey,
-					Data:     0,
-					Score:    0,
-					Error:    err.Error(),
+					Data:     fact,
+					Score:    math.Round(score*100) / 100,
 					HasValue: exists,
-				})
-				continue
-			}
-			// we round the fact to 2 decimal places
-			fact = math.Round(fact*100) / 100
-			// otherwise we calculate the score and append the fact
-			score, err := calculator.GetWeightedScore(fact)
-			if err != nil {
-				logger.Errorf("failed to calculate score for project: %s, fact key: %s, error: %s", project.Name, config.ItemKey, err)
-				score = 0
-			}
-			if !exists {
-				score = 0
+				}
+				if err != nil {
+					item.Error = err.Error()
+				}
+				facts = append(facts, item)
 			}
 
-			item := &StatDashboardItem{
-				Type:     config.Type,
-				ID:       config.ItemKey,
-				Data:     fact,
-				Score:    math.Round(score*100) / 100,
-				HasValue: exists,
+			// once all configured facts are calculated, we calculate the total score
+			totalScore := 0.0
+			for _, fact := range facts {
+				totalScore += fact.Score
 			}
-			if err != nil {
-				item.Error = err.Error()
-			}
-			facts = append(facts, item)
-		}
 
-		// once all configured facts are calculated, we calculate the total score
-		totalScore := 0.0
-		for _, fact := range facts {
-			totalScore += fact.Score
-		}
-
-		resp = append(resp, &StatDashboardByProject{
-			ProjectKey:  project.Name,
-			ProjectName: project.Alias,
-			Score:       math.Round(totalScore*100) / 100,
-			Facts:       facts,
-		})
+			respLock.Lock()
+			defer respLock.Unlock()
+			resp = append(resp, &StatDashboardByProject{
+				ProjectKey:  project.Name,
+				ProjectName: project.Alias,
+				Score:       math.Round(totalScore*100) / 100,
+				Facts:       facts,
+			})
+		}(project)
 	}
+
+	wg.Wait()
+
 	return resp, nil
 }
 
