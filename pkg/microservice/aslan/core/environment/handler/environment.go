@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -1001,13 +1000,6 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	if err != nil {
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
-		return
-	}
-
-	// license checks
-	err = util.CheckZadigXLicenseStatus()
-	if err != nil {
-		ctx.Err = err
 		return
 	}
 
