@@ -611,6 +611,66 @@ func ScaleNewService(c *gin.Context) {
 		}
 	}
 
+	internalhandler.InsertDetailedOperationLog(
+		c, ctx.UserName,
+		projectKey, setting.OperationSceneEnv,
+		"伸缩",
+		"环境-服务",
+		fmt.Sprintf("环境名称:%s,%s:%s", envName, resourceType, name),
+		"", ctx.Logger, envName)
+
+	number, err := strconv.Atoi(c.Query("number"))
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid number format")
+		return
+	}
+
+	ctx.Err = service.Scale(&service.ScaleArgs{
+		Type:        resourceType,
+		ProductName: projectKey,
+		EnvName:     envName,
+		ServiceName: serviceName,
+		Name:        name,
+		Number:      number,
+	}, ctx.Logger)
+}
+
+func ScaleNewProductionService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(service.ScaleArgs)
+	args.Type = setting.Deployment
+
+	projectKey := c.Query("projectName")
+	serviceName := c.Param("serviceName")
+	envName := c.Param("name")
+	resourceType := c.Query("type")
+	name := c.Query("name")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.ManagePods {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.ProductionEnvActionManagePod)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
 	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
 		ctx.Err = err
 		return
