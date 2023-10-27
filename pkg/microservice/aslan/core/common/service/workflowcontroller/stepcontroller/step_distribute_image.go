@@ -25,6 +25,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/job"
 	"github.com/koderover/zadig/pkg/types/step"
 )
@@ -55,14 +56,18 @@ func (s *distributeImageCtl) PreRun(ctx context.Context) error {
 		if target.SourceImage == "" {
 			return fmt.Errorf("source image is empty")
 		}
+		log.Debugf("1 sourceImage: %s, targetImage: %s", target.SourceImage, target.TargetImage)
 		sourceImageName := strings.Split(target.SourceImage, ":")[0]
 		if idx := strings.LastIndex(sourceImageName, "/"); idx != -1 {
 			sourceImageName = sourceImageName[idx+1:]
 		}
+		log.Debugf("2 sourceImage: %s, targetImage: %s", target.SourceImage, target.TargetImage)
 		target.TargetImage = getImage(sourceImageName, target.TargetTag, s.distributeImageSpec.TargetRegistry)
 		if !target.UpdateTag {
 			target.TargetImage = getImage(sourceImageName, getImageTag(target.SourceImage), s.distributeImageSpec.TargetRegistry)
+			log.Debugf("3 sourceImage: %s, targetImage: %s", target.SourceImage, target.TargetImage)
 		}
+		log.Debugf("4 sourceImage: %s, targetImage: %s", target.SourceImage, target.TargetImage)
 	}
 	s.step.Spec = s.distributeImageSpec
 	return nil
