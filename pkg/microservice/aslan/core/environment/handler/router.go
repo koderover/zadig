@@ -189,7 +189,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.POST("/environments/:name/services/:serviceName/restartNew", RestartProductionWorkload)
 
 		// k8s resources operations
-		production.POST("/environments/:name/services/:serviceName/scaleNew", ScaleNewService)
+		production.POST("/environments/:name/services/:serviceName/scaleNew", ScaleNewProductionService)
 		production.POST("/image/deployment/:envName", UpdateProductionDeploymentContainerImage)
 
 		production.GET("/rendersets/variables", GetProductionServiceVariables)
