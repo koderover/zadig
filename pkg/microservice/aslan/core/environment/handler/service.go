@@ -307,7 +307,7 @@ func PreviewService(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.PreviewService(args, ctx.Logger)
 }
 
-func BatchPreviewServices(c *gin.Context) {
+func ProductionBatchPreviewServices(c *gin.Context) {
 	// TODO: add authorization probably
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -327,6 +327,26 @@ func BatchPreviewServices(c *gin.Context) {
 	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
 		ctx.Err = err
 		return
+	}
+
+	ctx.Resp, ctx.Err = service.BatchPreviewService(args, ctx.Logger)
+}
+
+func BatchPreviewServices(c *gin.Context) {
+	// TODO: add authorization probably
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := make([]*service.PreviewServiceArgs, 0)
+	if err := c.BindJSON(&args); err != nil {
+		ctx.Logger.Errorf("faield to bind args, err: %s", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	for _, arg := range args {
+		arg.ProductName = c.Query("projectName")
+		arg.EnvName = c.Param("name")
 	}
 
 	ctx.Resp, ctx.Err = service.BatchPreviewService(args, ctx.Logger)

@@ -161,7 +161,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/services/:serviceName", GetProductionService)
 		production.GET("/environments/:name/services/:serviceName/variables", GetProductionVariables)
 		production.GET("/environments/:name/services/:serviceName/yaml", ExportProductionServiceYaml)
-		production.POST("/environments/:name/services/preview/batch", BatchPreviewServices)
+		production.POST("/environments/:name/services/preview/batch", ProductionBatchPreviewServices)
 
 		production.DELETE("/environments/:name", DeleteProductionProduct)
 
