@@ -695,21 +695,21 @@ func migrateRendersets() error {
 				continue
 			}
 
-			if len(env.DefaultValues) > 0 || len(env.GlobalVariables) > 0 {
-				continue
-			}
-			svcRenderSet := false
-			for _, svcGroup := range env.Services {
-				for _, svc := range svcGroup {
-					if svc.Render != nil && len(svc.Render.ServiceName) > 0 {
-						svcRenderSet = true
-						break
-					}
-				}
-			}
-			if svcRenderSet {
-				continue
-			}
+			//if len(env.DefaultValues) > 0 || len(env.GlobalVariables) > 0 {
+			//	continue
+			//}
+			//svcRenderSet := false
+			//for _, svcGroup := range env.Services {
+			//	for _, svc := range svcGroup {
+			//		if svc.Render != nil && len(svc.Render.ServiceName) > 0 {
+			//			svcRenderSet = true
+			//			break
+			//		}
+			//	}
+			//}
+			//if svcRenderSet {
+			//	continue
+			//}
 
 			curRender, err := mongodb.NewRenderSetColl().Find(&mongodb.RenderSetFindOption{ProductTmpl: project.ProductName, EnvName: env.EnvName, Name: env.Render.Name, Revision: env.Render.Revision})
 			if err != nil {
@@ -718,9 +718,11 @@ func migrateRendersets() error {
 
 			log.Infof("migrating render set for product: %s/%s", project.ProductName, env.EnvName)
 
-			env.DefaultValues = curRender.DefaultValues
-			env.YamlData = curRender.YamlData
-			env.GlobalVariables = curRender.GlobalVariables
+			if len(env.DefaultValues) == 0 && env.YamlData == nil && len(env.GlobalVariables) == 0 {
+				env.DefaultValues = curRender.DefaultValues
+				env.YamlData = curRender.YamlData
+				env.GlobalVariables = curRender.GlobalVariables
+			}
 
 			for _, svcGroup := range env.Services {
 				for _, svc := range svcGroup {
@@ -731,10 +733,15 @@ func migrateRendersets() error {
 							svc.Render = curRender.GetChartDeployRenderMap()[svc.ReleaseName]
 						}
 					} else {
+						if svc.Render != nil && svc.Render.OverrideYaml != nil && len(svc.Render.OverrideYaml.RenderVariableKVs) > 0 {
+							continue
+						}
 						svc.Render = curRender.GetServiceRenderMap()[svc.ServiceName]
 					}
 					// ensure render is set, technically this should not happen
 					if svc.Render == nil {
+						log.Infof("migrateRendersets failed to find service render for product: %s/%s, service: %s, render info: %v/%v", env.ProductName, env.EnvName, svc.ServiceName, curRender.Name, curRender.Revision)
+						time.Sleep(time.Second * 1)
 						svc.Render = svc.GetServiceRender()
 					}
 				}
@@ -746,6 +753,7 @@ func migrateRendersets() error {
 			}
 		}
 	}
+	time.Sleep(time.Second * 30)
 	return nil
 }
 
