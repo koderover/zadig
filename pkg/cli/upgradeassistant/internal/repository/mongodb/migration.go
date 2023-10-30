@@ -2,7 +2,6 @@ package mongodb
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -51,18 +50,11 @@ func (c *MigrationColl) UpdateMigrationStatus(id primitive.ObjectID, kvs map[str
 	return err
 }
 
-func (c *MigrationColl) InitializeMigrationInfo() (*models.Migration, error) {
+func (c *MigrationColl) InitializeMigrationInfo() error {
 	resp := &models.Migration{
 		SonarMigration: false,
 	}
-	res, err := c.InsertOne(context.TODO(), resp, options.InsertOne())
-	if err != nil {
-		return nil, err
-	}
-	if id, ok := res.InsertedID.(primitive.ObjectID); !ok {
-		return nil, fmt.Errorf("invalid inserted id: %+v", res.InsertedID)
-	} else {
-		res.InsertedID = id
-	}
-	return resp, nil
+	_, err := c.InsertOne(context.TODO(), resp, options.InsertOne())
+
+	return err
 }

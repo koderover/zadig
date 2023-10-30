@@ -115,7 +115,6 @@ type DeliveryChartData struct {
 	ServiceObj     *commonmodels.Service
 	ProductService *commonmodels.ProductService
 	RenderChart    *template.ServiceRender
-	RenderSet      *commonmodels.RenderSet
 	ValuesInEnv    map[string]interface{}
 }
 
@@ -633,9 +632,10 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 	imagePathSpecs := make([]map[string]string, 0)
 	for _, container := range serviceObj.Containers {
 		imageSearchRule := &template.ImageSearchingRule{
-			Repo:  container.ImagePath.Repo,
-			Image: container.ImagePath.Image,
-			Tag:   container.ImagePath.Tag,
+			Repo:      container.ImagePath.Repo,
+			Namespace: container.ImagePath.Namespace,
+			Image:     container.ImagePath.Image,
+			Tag:       container.ImagePath.Tag,
 		}
 		pattern := imageSearchRule.GetSearchingPattern()
 		imagePathSpecs = append(imagePathSpecs, pattern)
@@ -811,23 +811,10 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 // validate chartInfo, make sure service is in environment
 // prepare data set for chart delivery
 func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productInfo *commonmodels.Product) (map[string]*DeliveryChartData, error) {
-
-	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Revision:    productInfo.Render.Revision,
-		Name:        productInfo.Render.Name,
-		EnvName:     productInfo.EnvName,
-		ProductTmpl: productInfo.ProductName,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to find renderSet: %s, revision: %d", productInfo.Render.Name, productInfo.Render.Revision)
-	}
-	chartMap := make(map[string]*template.ServiceRender)
-	for _, rChart := range renderSet.ChartInfos {
-		chartMap[rChart.ServiceName] = rChart
-	}
-
-	chartDataMap := make(map[string]*DeliveryChartData)
 	serviceMap := productInfo.GetServiceMap()
+	chartMap := productInfo.GetChartRenderMap()
+	chartDataMap := make(map[string]*DeliveryChartData)
+
 	for _, chartData := range chartDatas {
 		if productService, ok := serviceMap[chartData.ServiceName]; ok {
 			serviceObj, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -848,7 +835,6 @@ func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productI
 				RenderChart:    renderChart,
 				ServiceObj:     serviceObj,
 				ProductService: productService,
-				RenderSet:      renderSet,
 			}
 		} else {
 			return nil, fmt.Errorf("service %s not found in environment", chartData.ServiceName)

@@ -601,6 +601,45 @@ func generateDefaultSystemActions() *SystemActions {
 			Edit:   false,
 			Delete: false,
 		},
+		BusinessDirectory: &BusinessDirectoryActions{
+			View: false,
+		},
+		ClusterManagement: &ClusterManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+		VMManagement: &VMManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+		RegistryManagement: &RegistryManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+		S3StorageManagement: &S3StorageManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+		HelmRepoManagement: &HelmRepoManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
+		DBInstanceManagement: &DBInstanceManagementActions{
+			Create: false,
+			View:   false,
+			Edit:   false,
+			Delete: false,
+		},
 	}
 }
 
@@ -733,5 +772,55 @@ func modifySystemAction(systemActions *SystemActions, verb string) {
 		systemActions.ReleasePlan.Delete = true
 	case VerbGetReleasePlan:
 		systemActions.ReleasePlan.View = true
+	case VerbGetBusinessDirectory:
+		systemActions.BusinessDirectory.View = true
+	case VerbGetClusterManagement:
+		systemActions.ClusterManagement.View = true
+	case VerbCreateClusterManagement:
+		systemActions.ClusterManagement.Create = true
+	case VerbEditClusterManagement:
+		systemActions.ClusterManagement.Edit = true
+	case VerbDeleteClusterManagement:
+		systemActions.ClusterManagement.Delete = true
+	case VerbGetVMManagement:
+		systemActions.VMManagement.View = true
+	case VerbCreateVMManagement:
+		systemActions.VMManagement.Create = true
+	case VerbEditVMManagement:
+		systemActions.VMManagement.Edit = true
+	case VerbDeleteVMManagement:
+		systemActions.VMManagement.Delete = true
+	case VerbGetRegistryManagement:
+		systemActions.RegistryManagement.View = true
+	case VerbCreateRegistryManagement:
+		systemActions.RegistryManagement.Create = true
+	case VerbEditRegistryManagement:
+		systemActions.RegistryManagement.Edit = true
+	case VerbDeleteRegistryManagement:
+		systemActions.RegistryManagement.Delete = true
+	case VerbGetS3StorageManagement:
+		systemActions.S3StorageManagement.View = true
+	case VerbCreateS3StorageManagement:
+		systemActions.S3StorageManagement.Create = true
+	case VerbEditS3StorageManagement:
+		systemActions.S3StorageManagement.Edit = true
+	case VerbDeleteS3StorageManagement:
+		systemActions.S3StorageManagement.Delete = true
+	case VerbGetHelmRepoManagement:
+		systemActions.HelmRepoManagement.View = true
+	case VerbCreateHelmRepoManagement:
+		systemActions.HelmRepoManagement.Create = true
+	case VerbEditHelmRepoManagement:
+		systemActions.HelmRepoManagement.Edit = true
+	case VerbDeleteHelmRepoManagement:
+		systemActions.HelmRepoManagement.Delete = true
+	case VerbGetDBInstanceManagement:
+		systemActions.DBInstanceManagement.View = true
+	case VerbCreateDBInstanceManagement:
+		systemActions.DBInstanceManagement.Create = true
+	case VerbEditDBInstanceManagement:
+		systemActions.DBInstanceManagement.Edit = true
+	case VerbDeleteDBInstanceManagement:
+		systemActions.DBInstanceManagement.Delete = true
 	}
 }

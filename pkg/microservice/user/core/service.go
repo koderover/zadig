@@ -48,7 +48,6 @@ func Start(_ context.Context) {
 		Development: configbase.Mode() != setting.ReleaseMode,
 	})
 
-	permissionservice.GenerateOPABundle()
 	initDatabase()
 }
 
@@ -338,6 +337,10 @@ RoleLoop:
 				// special case for double get_test in quality center and projected testing
 				if verb == "get_test" && role.Namespace == "*" {
 					verb = "get_test_detail"
+				}
+
+				if verb == "run_test" && role.Namespace == "*" {
+					continue
 				}
 
 				if _, ok := actionIDMap[verb]; !ok {

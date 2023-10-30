@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -37,6 +38,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -173,26 +175,15 @@ func GetK8sProductionSvcRenderArgs(productName, envName, serviceName string, log
 		return nil, errors.Wrapf(err, fmt.Errorf("failed to find production service : %s/%s/%s", productName, envName, serviceName).Error())
 	}
 
-	// svc render in renderchart
-	opt := &commonrepo.RenderSetFindOption{
-		ProductTmpl: productName,
-		EnvName:     envName,
-		Name:        productInfo.Render.Name,
-		Revision:    productInfo.Render.Revision,
-	}
-	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Errorf("failed to find render set : %s/%s", productName, envName).Error())
-	}
-
-	svcRender := rendersetObj.GetServiceRenderMap()[serviceName]
+	svcRender := prodSvc.GetServiceRender()
 
 	ret := make([]*K8sSvcRenderArg, 0)
 	rArg := &K8sSvcRenderArg{
 		ServiceName:  serviceName,
 		VariableYaml: prodTemplateSvc.VariableYaml,
 	}
-	if svcRender != nil && svcRender.OverrideYaml != nil {
+	//if svcRender != nil && svcRender.OverrideYaml != nil {
+	if len(svcRender.OverrideYaml.RenderVariableKVs) > 0 {
 		prodTemplateSvc.ServiceVars = setting.ServiceVarWildCard
 		rArg.VariableKVs, rArg.VariableYaml, err = latestVariables(svcRender.OverrideYaml.RenderVariableKVs, prodTemplateSvc)
 		if err != nil {
@@ -220,7 +211,6 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 		productInfo = nil
 	}
 
-	serviceVarsMap := make(map[string][]string)
 	svcRenders := make(map[string]*templatemodels.ServiceRender)
 
 	// product template svcs
@@ -234,44 +224,27 @@ func GetK8sSvcRenderArgs(productName, envName, serviceName string, production bo
 			ServiceName:  svc.ServiceName,
 			OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
 		}
-		serviceVarsMap[svc.ServiceName] = svc.ServiceVars
 		templateSvcMap[svc.ServiceName] = svc
 	}
+
+	rendersetObj := &models.RenderSet{}
 
 	// svc used in products
 	productSvcMap := make(map[string]*models.ProductService)
 	if productInfo != nil {
+		rendersetObj.GlobalVariables = productInfo.GlobalVariables
+		rendersetObj.DefaultValues = productInfo.DefaultValues
+		rendersetObj.YamlData = productInfo.YamlData
+		rendersetObj.ServiceVariables = productInfo.GetAllSvcRenders()
+
 		svcs, err := commonutil.GetProductUsedTemplateSvcs(productInfo)
 		if err != nil {
 			return nil, nil, err
 		}
 		for _, svc := range svcs {
-			svcRenders[svc.ServiceName] = &templatemodels.ServiceRender{
-				ServiceName:  svc.ServiceName,
-				OverrideYaml: &templatemodels.CustomYaml{YamlContent: svc.VariableYaml},
-			}
-			serviceVarsMap[svc.ServiceName] = svc.ServiceVars
+			svcRenders[svc.ServiceName] = productInfo.GetSvcRender(svc.ServiceName)
 		}
 		productSvcMap = productInfo.GetServiceMap()
-	}
-
-	var rendersetObj *models.RenderSet
-	if productInfo != nil {
-		// svc render in renderchart
-		opt := &commonrepo.RenderSetFindOption{
-			ProductTmpl: productName,
-			EnvName:     envName,
-			Name:        productInfo.Render.Name,
-			Revision:    productInfo.Render.Revision,
-		}
-		rendersetObj, err = commonrepo.NewRenderSetColl().Find(opt)
-		if err == nil {
-			for _, svcRender := range rendersetObj.ServiceVariables {
-				if _, ok := svcRenders[svcRender.ServiceName]; ok {
-					svcRenders[svcRender.ServiceName] = svcRender
-				}
-			}
-		}
 	}
 
 	validSvcs := sets.NewString(strings.Split(serviceName, ",")...)
@@ -370,8 +343,6 @@ type GetSvcRenderArg struct {
 }
 
 func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRenderArg, log *zap.SugaredLogger) ([]*HelmSvcRenderArg, *models.RenderSet, error) {
-	renderSetName := GetProductEnvNamespace(envName, productName, "")
-	renderRevision := int64(0)
 	ret := make([]*HelmSvcRenderArg, 0)
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
@@ -382,23 +353,14 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 		return nil, nil, nil
 	}
 
-	if err != nil && err != mongo.ErrNoDocuments {
-		return nil, nil, err
-	}
-
-	renderSetName = productInfo.Render.Name
-	renderRevision = productInfo.Render.Revision
-
-	opt := &commonrepo.RenderSetFindOption{
-		ProductTmpl: productName,
-		EnvName:     envName,
-		Name:        renderSetName,
-		Revision:    renderRevision,
-	}
-	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	rendersetObj := &models.RenderSet{}
+	rendersetObj.DefaultValues = productInfo.DefaultValues
+	rendersetObj.YamlData = productInfo.YamlData
+	rendersetObj.ChartInfos = productInfo.GetAllSvcRenders()
 
 	svcChartRenderArgSet := sets.NewString()
 	svcRenderArgSet := sets.NewString()
@@ -411,9 +373,9 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 	}
 	matchedRenderChartModels := make([]*templatemodels.ServiceRender, 0)
 	if len(getSvcRendersArgs) == 0 {
-		matchedRenderChartModels = rendersetObj.ChartInfos
+		matchedRenderChartModels = productInfo.GetAllSvcRenders()
 	} else {
-		for _, singleChart := range rendersetObj.ChartInfos {
+		for _, singleChart := range productInfo.GetAllSvcRenders() {
 			if singleChart.IsHelmChartDeploy {
 				if svcChartRenderArgSet.Has(singleChart.ReleaseName) {
 					matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
@@ -430,7 +392,7 @@ func GetSvcRenderArgs(productName, envName string, getSvcRendersArgs []*GetSvcRe
 		rcaObj := &HelmSvcRenderArg{}
 		rcaObj.LoadFromRenderChartModel(singleChart)
 		rcaObj.EnvName = envName
-		err = FillGitNamespace(rendersetObj.YamlData)
+		err = FillGitNamespace(productInfo.YamlData)
 		if err != nil {
 			// Note, since user can always reselect the git info, error should not block normal logic
 			log.Warnf("failed to fill git namespace data, err: %s", err)
@@ -955,4 +917,107 @@ func GetHelmServiceName(prod *models.Product, resType, resName string, kubeClien
 		}
 	}
 	return "", fmt.Errorf("failed to get annotation from resource %s, type %s", resName, resType)
+}
+
+type ZadigServiceStatusResp struct {
+	ServiceName string
+	PodStatus   string
+	Ready       string
+	Ingress     []*resource.Ingress
+	Images      []string
+	Workloads   []*Workload
+}
+
+func QueryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodels.Service, serviceName string, clientset *kubernetes.Clientset, informer informers.SharedInformerFactory, log *zap.SugaredLogger) *ZadigServiceStatusResp {
+	resp := &ZadigServiceStatusResp{
+		ServiceName: serviceName,
+		PodStatus:   setting.PodError,
+		Ready:       setting.PodNotReady,
+		Ingress:     nil,
+		Images:      []string{},
+	}
+
+	svcResp, err := GetServiceImpl(serviceTmpl.ServiceName, serviceTmpl, "", productInfo, clientset, informer, log)
+	if err != nil {
+		return resp
+	}
+
+	resp.Ingress = svcResp.Ingress
+	resp.Workloads = svcResp.Workloads
+	if len(serviceTmpl.Containers) == 0 {
+		resp.PodStatus = setting.PodSucceeded
+		resp.Ready = setting.PodReady
+		return resp
+	}
+
+	suspendCronJobCount := 0
+	for _, cronJob := range svcResp.CronJobs {
+		if cronJob.Suspend {
+			suspendCronJobCount++
+		}
+	}
+
+	pods := make([]*resource.Pod, 0)
+	for _, svc := range svcResp.Scales {
+		pods = append(pods, svc.Pods...)
+	}
+
+	if len(pods) == 0 && len(svcResp.CronJobs) == 0 {
+		imageSet := sets.String{}
+		for _, workload := range svcResp.Workloads {
+			imageSet.Insert(workload.Images...)
+		}
+
+		resp.Images = imageSet.List()
+		resp.PodStatus, resp.Ready = setting.PodNonStarted, setting.PodNotReady
+		return resp
+	}
+
+	imageSet := sets.String{}
+	for _, pod := range pods {
+		for _, container := range pod.Containers {
+			imageSet.Insert(container.Image)
+		}
+	}
+
+	for _, cronJob := range svcResp.CronJobs {
+		for _, image := range cronJob.Images {
+			imageSet.Insert(image.Image)
+		}
+	}
+
+	resp.Images = imageSet.List()
+
+	ready := setting.PodReady
+
+	if len(svcResp.Workloads) == 0 && len(svcResp.CronJobs) > 0 {
+		if len(svcResp.CronJobs) == suspendCronJobCount {
+			resp.PodStatus = setting.ServiceStatusAllSuspended
+		} else if suspendCronJobCount == 0 {
+			resp.PodStatus = setting.ServiceStatusNoSuspended
+		} else {
+			resp.PodStatus = setting.ServiceStatusPartSuspended
+		}
+		return resp
+	}
+
+	succeededPods := 0
+	for _, pod := range pods {
+		if pod.Succeed {
+			succeededPods++
+			continue
+		}
+		if !pod.Ready {
+			resp.PodStatus, resp.Ready = setting.PodUnstable, setting.PodNotReady
+			return resp
+		}
+	}
+
+	if len(pods) == succeededPods {
+		resp.PodStatus, resp.Ready = string(corev1.PodSucceeded), setting.JobReady
+		return resp
+	}
+
+	resp.PodStatus, resp.Ready = setting.PodRunning, ready
+	return resp
 }

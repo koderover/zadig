@@ -35,7 +35,7 @@ func InitAgent() {
 		log.Panicf("failed to init agent config")
 	}
 
-	log.Infof("agent to verify agent, this action is executed every time the agent starts.")
+	log.Infof("start to verify agent, this action is executed every time the agent starts.")
 	err := verifyAgent()
 	if err != nil {
 		if err == errhelper.ErrVerrifyAgentFailedWithNoConfig {
@@ -72,7 +72,7 @@ func verifyAgent() error {
 		panic(fmt.Errorf("failed to convert platform parameters to register agent parameters: %v", err))
 	}
 
-	log.Infof("agent to verify agent to zadig-server. url:%s", agentconfig.GetServerURL())
+	log.Infof("start to verify agent to zadig-server. url:%s", agentconfig.GetServerURL())
 	config := &network.AgentConfig{
 		Token: agentconfig.GetAgentToken(),
 		URL:   agentconfig.GetServerURL(),

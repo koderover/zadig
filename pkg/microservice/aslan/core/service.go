@@ -397,7 +397,6 @@ func initDatabase() {
 		commonrepo.NewProxyColl(),
 		commonrepo.NewQueueColl(),
 		commonrepo.NewRegistryNamespaceColl(),
-		commonrepo.NewRenderSetColl(),
 		commonrepo.NewS3StorageColl(),
 		commonrepo.NewServiceColl(),
 		commonrepo.NewProductionServiceColl(),
@@ -436,6 +435,7 @@ func initDatabase() {
 		commonrepo.NewLLMIntegrationColl(),
 		commonrepo.NewReleasePlanColl(),
 		commonrepo.NewReleasePlanLogColl(),
+		commonrepo.NewEnvServiceVersionColl(),
 
 		// msg queue
 		commonrepo.NewMsgQueueCommonColl(),

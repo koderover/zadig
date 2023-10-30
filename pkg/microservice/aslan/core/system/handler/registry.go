@@ -23,20 +23,52 @@ import (
 	"io"
 
 	"github.com/gin-gonic/gin"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+// @Summary List Registries
+// @Description List Registries
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Success 200 		{array} 	commonmodels.RegistryNamespace
+// @Router /api/aslan/system/registry/project [get]
 func ListRegistries(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListRegistries(ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if !ctx.Resources.IsSystemAdmin {
+		if projectName != "" {
+			if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+				ctx.UnAuthorized = true
+				return
+			}
+		} else {
+			if !ctx.Resources.SystemActions.RegistryManagement.View {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ListRegistriesByProject(projectName, ctx.Logger)
 }
 
 func GetDefaultRegistryNamespace(c *gin.Context) {
@@ -62,8 +94,22 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 }
 
 func GetRegistryNamespace(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.RegistryManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	reg, _, err := commonservice.FindRegistryById(c.Param("id"), false, ctx.Logger)
 	if err != nil {
@@ -90,8 +136,22 @@ func GetRegistryNamespace(c *gin.Context) {
 }
 
 func ListRegistryNamespaces(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.RegistryManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
@@ -106,7 +166,6 @@ func CreateRegistryNamespace(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -125,8 +184,10 @@ func CreateRegistryNamespace(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.RegistryManagement.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if err := c.BindJSON(args); err != nil {
@@ -147,7 +208,6 @@ func UpdateRegistryNamespace(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -166,8 +226,10 @@ func UpdateRegistryNamespace(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.RegistryManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if err := c.BindJSON(args); err != nil {
@@ -188,7 +250,6 @@ func DeleteRegistryNamespace(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -198,8 +259,10 @@ func DeleteRegistryNamespace(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.RegistryManagement.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = service.DeleteRegistryNamespace(c.Param("id"), ctx.Logger)
@@ -217,13 +280,31 @@ type ListImagesOption struct {
 }
 
 func ListImages(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty")
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	//判断当前registryId是否为空
 	registryID := c.Query("registryId")
 	var registryInfo *commonmodels.RegistryNamespace
-	var err error
 	if registryID != "" {
 		registryInfo, _, err = commonservice.FindRegistryById(registryID, false, ctx.Logger)
 	} else {
@@ -232,6 +313,12 @@ func ListImages(c *gin.Context) {
 	if err != nil {
 		ctx.Logger.Errorf("can't find candidate registry err :%v", err)
 		ctx.Resp = make([]*service.RepoImgResp, 0)
+		return
+	}
+
+	authProjectSet := sets.NewString(registryInfo.Projects...)
+	if !authProjectSet.Has(setting.AllProjects) && !authProjectSet.Has(projectName) {
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("project %s is not in the registry %s/%s's project list", projectName, registryInfo.RegAddr, registryInfo.Namespace))
 		return
 	}
 

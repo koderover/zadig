@@ -23,8 +23,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/setting"
 	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/setting"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -153,7 +154,6 @@ func (j *BuildJob) MergeArgs(args *commonmodels.Job) error {
 		if err := commonmodels.IToi(args.Spec, argsSpec); err != nil {
 			return err
 		}
-		j.spec.DockerRegistryID = argsSpec.DockerRegistryID
 		newBuilds := []*commonmodels.ServiceAndBuild{}
 		for _, build := range j.spec.ServiceAndBuilds {
 			for _, argsBuild := range argsSpec.ServiceAndBuilds {
@@ -260,26 +260,33 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Registries:          registries,
 			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, build.ShareStorageInfo, j.workflow.Name, taskID),
 		}
-		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(buildInfo.PreBuild.ClusterID)
-		if err != nil {
-			return resp, fmt.Errorf("find cluster: %s error: %v", buildInfo.PreBuild.ClusterID, err)
-		}
-
-		if clusterInfo.Cache.MediumType == "" {
-			jobTaskSpec.Properties.CacheEnable = false
-		} else {
-			jobTaskSpec.Properties.Cache = clusterInfo.Cache
-			jobTaskSpec.Properties.CacheEnable = buildInfo.CacheEnable
-			jobTaskSpec.Properties.CacheDirType = buildInfo.CacheDirType
-			jobTaskSpec.Properties.CacheUserDir = buildInfo.CacheUserDir
-		}
 
 		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getBuildJobVariables(build, taskID, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, image, jobTask.Infrastructure, registry, logger)...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
-		if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
-			jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
-			jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
+		if jobTask.Infrastructure == setting.JobVMInfrastructure {
+			jobTaskSpec.Properties.CacheEnable = buildInfo.CacheEnable
+			jobTaskSpec.Properties.CacheDirType = buildInfo.CacheDirType
+			jobTaskSpec.Properties.CacheUserDir = buildInfo.CacheUserDir
+		} else {
+			clusterInfo, err := commonrepo.NewK8SClusterColl().Get(buildInfo.PreBuild.ClusterID)
+			if err != nil {
+				return resp, fmt.Errorf("find cluster: %s error: %v", buildInfo.PreBuild.ClusterID, err)
+			}
+
+			if clusterInfo.Cache.MediumType == "" {
+				jobTaskSpec.Properties.CacheEnable = false
+			} else {
+				jobTaskSpec.Properties.Cache = clusterInfo.Cache
+				jobTaskSpec.Properties.CacheEnable = buildInfo.CacheEnable
+				jobTaskSpec.Properties.CacheDirType = buildInfo.CacheDirType
+				jobTaskSpec.Properties.CacheUserDir = buildInfo.CacheUserDir
+			}
+
+			if jobTaskSpec.Properties.CacheEnable && jobTaskSpec.Properties.Cache.MediumType == types.NFSMedium {
+				jobTaskSpec.Properties.CacheUserDir = renderEnv(jobTaskSpec.Properties.CacheUserDir, jobTaskSpec.Properties.Envs)
+				jobTaskSpec.Properties.Cache.NFSProperties.Subpath = renderEnv(jobTaskSpec.Properties.Cache.NFSProperties.Subpath, jobTaskSpec.Properties.Envs)
+			}
 		}
 
 		// for other job refer current latest image.

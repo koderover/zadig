@@ -524,12 +524,12 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	return res, nil
 }
 
-func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.RenderSet, *commonmodels.ProductService, *commonmodels.Service, error) {
+func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.ProductService, *commonmodels.Service, error) {
 	productInfo := applyParam.ProductInfo
 	productService := applyParam.ProductInfo.GetServiceMap()[applyParam.ServiceName]
 	if productService == nil {
 		if !applyParam.UpdateServiceRevision {
-			return nil, nil, nil, fmt.Errorf("first time online service %s needs to check the update service configuration", applyParam.ServiceName)
+			return nil, nil, fmt.Errorf("first time online service %s needs to check the update service configuration", applyParam.ServiceName)
 		}
 
 		productService = &commonmodels.ProductService{
@@ -555,21 +555,10 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Rende
 
 	svcTemplate, err := repository.QueryTemplateService(svcFindOption, productInfo.Production)
 	if err != nil {
-		return nil, nil, nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, svcFindOption.Revision, productInfo.ProductName)
+		return nil, nil, errors.Wrapf(err, "failed to find service %s/%d in product %s", applyParam.ServiceName, svcFindOption.Revision, productInfo.ProductName)
 	}
 
-	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		ProductTmpl: productInfo.ProductName,
-		Name:        productInfo.Render.Name,
-		EnvName:     productInfo.EnvName,
-		Revision:    productInfo.Render.Revision,
-	})
-	if err != nil {
-		err = fmt.Errorf("failed to find redset name %s revision %d", productInfo.Namespace, productInfo.Render.Revision)
-		return nil, nil, nil, err
-	}
-
-	targetChart := renderSet.GetChartRenderMap()[applyParam.ServiceName]
+	targetChart := productInfo.GetChartRenderMap()[applyParam.ServiceName]
 	if targetChart == nil {
 		targetChart = &template.ServiceRender{
 			ServiceName:  applyParam.ServiceName,
@@ -577,7 +566,7 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Rende
 			ChartVersion: svcTemplate.HelmChart.Version,
 			OverrideYaml: &template.CustomYaml{},
 		}
-		renderSet.ChartInfos = append(renderSet.ChartInfos, targetChart)
+		productService.Render = targetChart
 	}
 
 	if applyParam.UpdateServiceRevision && productService.Revision != svcTemplate.Revision {
@@ -596,9 +585,9 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Rende
 		replaceValuesMaps := make([]map[string]interface{}, 0)
 		for _, targetContainer := range productService.Containers {
 			// prepare image replace info
-			replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, GetValidMatchData(targetContainer.ImagePath))
+			replaceValuesMap, err := commonutil.AssignImageData(targetContainer.Image, commonutil.GetValidMatchData(targetContainer.ImagePath))
 			if err != nil {
-				return nil, nil, nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
+				return nil, nil, fmt.Errorf("failed to pase image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
 			}
 			replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
 		}
@@ -606,18 +595,18 @@ func PrepareHelmServiceData(applyParam *ResourceApplyParam) (*commonmodels.Rende
 		// replace image into service's values.yaml
 		replacedValuesYaml, err := commonutil.ReplaceImage(svcTemplate.HelmChart.ValuesYaml, replaceValuesMaps...)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to replace image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
+			return nil, nil, fmt.Errorf("failed to replace image uri %s/%s, err %s", productInfo.ProductName, applyParam.ServiceName, err.Error())
 
 		}
 		if replacedValuesYaml == "" {
-			return nil, nil, nil, fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", productInfo.ProductName, applyParam.ServiceName)
+			return nil, nil, fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", productInfo.ProductName, applyParam.ServiceName)
 		}
 		targetChart.ValuesYaml = replacedValuesYaml
 	}
 
 	productService.Revision = svcTemplate.Revision
 
-	return renderSet, productService, svcTemplate, nil
+	return productService, svcTemplate, nil
 }
 
 // RemoveHelmResource create or patch helm services

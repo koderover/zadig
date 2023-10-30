@@ -30,10 +30,12 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
@@ -234,6 +236,23 @@ func AssignImageData(imageUrl string, matchData map[string]string) (map[string]i
 
 	resolvedImageUrl := resolveImageUrl(imageUrl)
 
+	// image url assigned into repo/namespace/image+tag
+	if len(matchData) == 4 {
+		// build namespace data
+		namespace := strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+		repoUrlStrs := strings.Split(namespace, "/")
+		if len(repoUrlStrs) > 1 {
+			resolvedImageUrl[setting.PathSearchComponentNamespace] = strings.Join(repoUrlStrs[1:], "/")
+			resolvedImageUrl[setting.PathSearchComponentRepo] = repoUrlStrs[0]
+		}
+
+		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+		ret[matchData[setting.PathSearchComponentNamespace]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentNamespace], "/")
+		ret[matchData[setting.PathSearchComponentImage]] = resolvedImageUrl[setting.PathSearchComponentImage]
+		ret[matchData[setting.PathSearchComponentTag]] = resolvedImageUrl[setting.PathSearchComponentTag]
+		return ret, nil
+	}
+
 	// image url assigned into repo/image+tag
 	if len(matchData) == 3 {
 		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
@@ -293,4 +312,53 @@ func GeneHelmRepo(chartRepo *commonmodels.HelmRepo) *repo.Entry {
 		Username: chartRepo.Username,
 		Password: chartRepo.Password,
 	}
+}
+
+func GetValidMatchData(spec *commonmodels.ImagePathSpec) map[string]string {
+	ret := make(map[string]string)
+	if spec.Repo != "" {
+		ret[setting.PathSearchComponentRepo] = spec.Repo
+	}
+	if spec.Namespace != "" {
+		ret[setting.PathSearchComponentNamespace] = spec.Namespace
+	}
+	if spec.Image != "" {
+		ret[setting.PathSearchComponentImage] = spec.Image
+	}
+	if spec.Tag != "" {
+		ret[setting.PathSearchComponentTag] = spec.Tag
+	}
+	return ret
+}
+
+// @note can be deprecated or not?
+// may duplicate with kube.GeneMergedValues
+func GeneHelmMergedValues(productSvc *commonmodels.ProductService, defaultValues string, renderChart *templatemodels.ServiceRender) (string, error) {
+	imageKVS := make([]*helmtool.KV, 0)
+	if productSvc != nil {
+		targetContainers := productSvc.Containers
+		replaceValuesMaps := make([]map[string]interface{}, 0)
+		for _, targetContainer := range targetContainers {
+			replaceValuesMap, err := AssignImageData(targetContainer.Image, GetValidMatchData(targetContainer.ImagePath))
+			if err != nil {
+				return "", fmt.Errorf("failed to pase image uri %s/%s, err %s", productSvc.ProductName, productSvc.ServiceName, err.Error())
+			}
+			replaceValuesMaps = append(replaceValuesMaps, replaceValuesMap)
+		}
+
+		for _, imageSecs := range replaceValuesMaps {
+			for key, value := range imageSecs {
+				imageKVS = append(imageKVS, &helmtool.KV{
+					Key:   key,
+					Value: value,
+				})
+			}
+		}
+	}
+
+	mergedValues, err := helmtool.MergeOverrideValues("", defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues, imageKVS)
+	if err != nil {
+		return "", fmt.Errorf("failed to merge override yaml %s and values %s, err: %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues, err)
+	}
+	return mergedValues, nil
 }

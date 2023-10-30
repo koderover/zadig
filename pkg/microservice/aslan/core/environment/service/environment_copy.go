@@ -28,7 +28,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
@@ -132,15 +131,6 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 		return err
 	}
 
-	renderSetMap := make(map[string]*commonmodels.RenderSet)
-	for _, product := range products {
-		renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: product.Render.Name, Revision: product.Render.Revision, IsDefault: false})
-		if err != nil {
-			return fmt.Errorf("failed to find renderset of base product %s/%s, err: %s", product.ProductName, product.EnvName, err)
-		}
-		renderSetMap[renderset.EnvName] = renderset
-	}
-
 	productMap := make(map[string]*commonmodels.Product)
 	for _, product := range products {
 		productMap[product.EnvName] = product
@@ -157,41 +147,26 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 			newProduct.Namespace = projectName + "-env-" + newProduct.EnvName
 			util.Clear(&newProduct.ID)
 			newProduct.BaseName = item.BaseName
+			newProduct.GlobalVariables = item.GlobalVariables
+			newProduct.DefaultValues = item.DefaultValues
 
-			baseRenderset := renderSetMap[item.OldName]
-
-			// we need create render set info here
-			newRenderset := *baseRenderset
-			newRenderset.Name = newProduct.Namespace
-			newRenderset.Revision = 0
-			newRenderset.EnvName = newProduct.EnvName
-			newRenderset.DefaultValues = item.DefaultValues
-			newRenderset.GlobalVariables = item.GlobalVariables
 			svcVariableKVMap := make(map[string][]*commontypes.RenderVariableKV)
 			for _, sv := range item.Services {
 				svcVariableKVMap[sv.ServiceName] = sv.VariableKVs
 			}
-			for _, sv := range newRenderset.ServiceVariables {
-				if variableKVs, ok := svcVariableKVMap[sv.ServiceName]; ok {
+
+			for _, svc := range newProduct.GetServiceMap() {
+				if variableKVs, ok := svcVariableKVMap[svc.ServiceName]; ok {
 					yamlContent, err := commontypes.RenderVariableKVToYaml(variableKVs)
 					if err != nil {
 						return fmt.Errorf("failed to convert variable kvs to yaml, err: %w", err)
 					}
-					sv.OverrideYaml = &templatemodels.CustomYaml{
+					svc.GetServiceRender().OverrideYaml = &templatemodels.CustomYaml{
 						YamlContent:       yamlContent,
 						RenderVariableKVs: variableKVs,
 					}
 				}
 			}
-
-			err = render.CreateRenderSet(&newRenderset, log)
-			if err != nil {
-				return err
-			}
-
-			newProduct.Render.Name = newProduct.Namespace
-			newProduct.Render.Revision = newRenderset.Revision
-			newProduct.Render.ProductTmpl = newProduct.ProductName
 
 			err = CreateProduct(user, requestID, &newProduct, log)
 			if err != nil {
@@ -298,7 +273,6 @@ func CopyHelmProduct(productName, userName, requestID string, args []*CreateSing
 }
 
 func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo *commonmodels.Product, requestID, userName string, arg *CreateSingleProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
-	sourceRendersetName := productInfo.Namespace
 	productInfo.ID = primitive.NilObjectID
 	productInfo.Revision = 1
 	productInfo.EnvName = arg.EnvName
@@ -309,16 +283,8 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 	productInfo.EnvConfigs = arg.EnvConfigs
 
 	// merge chart infos, use chart info in product to override charts in template_project
-	sourceRenderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:        sourceRendersetName,
-		EnvName:     arg.BaseName,
-		ProductTmpl: arg.ProductName,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to find source renderset: %s, err: %s", productInfo.Namespace, err)
-	}
 	sourceChartMap := make(map[string]*templatemodels.ServiceRender)
-	for _, singleChart := range sourceRenderSet.ChartInfos {
+	for _, singleChart := range productInfo.GetAllSvcRenders() {
 		sourceChartMap[singleChart.ServiceName] = singleChart
 	}
 	templateCharts := templateProduct.ChartInfos
@@ -332,7 +298,7 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 	}
 
 	// fill services and chart infos of product
-	err = prepareHelmProductCreation(templateProduct, productInfo, arg, serviceTmplMap, log)
+	err := prepareHelmProductCreation(templateProduct, productInfo, arg, serviceTmplMap, log)
 	if err != nil {
 		return err
 	}

@@ -19,7 +19,7 @@ package aslan
 import "github.com/koderover/zadig/pkg/tool/httpclient"
 
 func (c *Client) ListRegistries() ([]*RegistryInfo, error) {
-	url := "/system/registry"
+	url := "/system/registry/project"
 	res := make([]*RegistryInfo, 0)
 
 	_, err := c.Get(url, httpclient.SetResult(&res))

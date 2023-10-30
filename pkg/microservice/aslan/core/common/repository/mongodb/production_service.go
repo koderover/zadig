@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -64,6 +65,7 @@ func (c *ProductionServiceColl) GetCollectionName() string {
 }
 
 func (c *ProductionServiceColl) Create(args *models.Service) error {
+	args.CreateTime = time.Now().Unix()
 	_, err := c.InsertOne(context.Background(), args)
 	return err
 }
@@ -239,6 +241,81 @@ func (c *ProductionServiceColl) ListMaxRevisionsByProject(productName, serviceTy
 		pre["type"] = serviceType
 	}
 	return c.listMaxRevisions(pre, nil)
+}
+
+func (c *ProductionServiceColl) SearchMaxRevisionsByService(serviceName string) ([]*models.Service, error) {
+	pre := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+	pre["service_name"] = bson.M{"$regex": fmt.Sprintf(".*%s.*", serviceName), "$options": "i"}
+	return c.listMaxRevisions(pre, nil)
+}
+
+func (c *ProductionServiceColl) Update(args *models.Service) error {
+	// avoid panic issue
+	if args == nil {
+		return errors.New("nil ServiceTmplObject")
+	}
+	args.ProductName = strings.TrimSpace(args.ProductName)
+	args.ServiceName = strings.TrimSpace(args.ServiceName)
+
+	query := bson.M{"product_name": args.ProductName, "service_name": args.ServiceName, "revision": args.Revision}
+
+	changeMap := bson.M{
+		"create_by":   args.CreateBy,
+		"create_time": time.Now().Unix(),
+	}
+	//非容器部署服务在探活过程中会更新health_check相关的参数，其他的情况只会更新服务共享属性
+	if len(args.EnvStatuses) > 0 {
+		changeMap["env_statuses"] = args.EnvStatuses
+	}
+	change := bson.M{"$set": changeMap}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+// ListServiceAllRevisionsAndStatus will list all revision include deleting status
+func (c *ProductionServiceColl) ListServiceAllRevisionsAndStatus(serviceName, productName string) ([]*models.Service, error) {
+	resp := make([]*models.Service, 0)
+	query := bson.M{}
+	query["product_name"] = productName
+	query["service_name"] = serviceName
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp) == 0 {
+		return nil, mongo.ErrNoDocuments
+	}
+	return resp, err
+}
+
+func (c *ProductionServiceColl) ListServiceAllRevisions(productName, serviceName string) ([]*models.Service, error) {
+	resp := make([]*models.Service, 0)
+	query := bson.M{}
+	query["product_name"] = productName
+	query["service_name"] = serviceName
+	query["status"] = bson.M{"$ne": setting.ProductStatusDeleting}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp) == 0 {
+		return nil, mongo.ErrNoDocuments
+	}
+	return resp, err
 }
 
 func (c *ProductionServiceColl) UpdateServiceVariables(args *models.Service) error {

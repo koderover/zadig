@@ -1304,7 +1304,7 @@ func getDefaultAndDestS3StoreURL(workflow *commonmodels.Workflow, log *zap.Sugar
 			S3Storage: distributeS3Store,
 		}
 
-		destURL, err = defaultS3.GetEncryptedURL()
+		destURL, err = defaultS3.GetEncrypted()
 		if err != nil {
 			return
 		}
@@ -1316,7 +1316,7 @@ func getDefaultAndDestS3StoreURL(workflow *commonmodels.Workflow, log *zap.Sugar
 		return
 	}
 
-	defaultURL, err = defaultS3.GetEncryptedURL()
+	defaultURL, err = defaultS3.GetEncrypted()
 	if err != nil {
 		err = e.ErrS3Storage.AddErr(err)
 		return
@@ -1719,6 +1719,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 						Bucket:   storageInfo.Bucket,
 						Insecure: storageInfo.Insecure,
 						Provider: storageInfo.Provider,
+						Region:   storageInfo.Region,
 					}
 					testTask.JobCtx.UploadInfo = testModule.PostTest.ObjectStorageUpload.UploadDetail
 				}
@@ -2319,6 +2320,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				Bucket:   storageInfo.Bucket,
 				Insecure: storageInfo.Insecure,
 				Provider: storageInfo.Provider,
+				Region:   storageInfo.Region,
 			}
 			build.JobCtx.UploadInfo = module.PostBuild.ObjectStorageUpload.UploadDetail
 		}
@@ -2762,17 +2764,6 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					containerName = strings.TrimSuffix(containerName, "_"+t.ServiceName)
 				}
 
-				// Task creator can be webhook trigger or cronjob trigger or validated user
-				// Validated user includes both that user is granted write permission or user is the owner of this product
-				if taskOpt.Task.TaskCreator == setting.WebhookTaskCreator ||
-					taskOpt.Task.TaskCreator == setting.CronTaskCreator ||
-					IsProductAuthed(taskOpt.Task.TaskCreator, t.Namespace, taskOpt.Task.ProductName, config.ProductWritePermission, log) {
-					log.Infof("Validating permission passed. product:%s, owner:%s, task executed by: %s", taskOpt.Task.ProductName, t.Namespace, taskOpt.Task.TaskCreator)
-				} else {
-					log.Errorf("permission denied. product:%s, owner:%s, task executed by: %s", taskOpt.Task.ProductName, t.Namespace, taskOpt.Task.TaskCreator)
-					return errors.New(e.ProductAccessDeniedErrMsg)
-				}
-
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
 					return err
@@ -2811,7 +2802,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						S3Storage: storage,
 					}
 
-					task.DestStorageURL, err = defaultS3.GetEncryptedURL()
+					task.DestStorageURL, err = defaultS3.GetEncrypted()
 					if err != nil {
 						return err
 					}

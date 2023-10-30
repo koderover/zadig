@@ -20,6 +20,7 @@ import (
 	"errors"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
@@ -161,7 +162,7 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 	return resp
 }
 
-func (p *PMService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, inf informers.SharedInformerFactory, kubeClient client.Client) error {
+func (p *PMService) createGroup(username string, product *commonmodels.Product, group []*commonmodels.ProductService, inf informers.SharedInformerFactory, kubeClient client.Client) error {
 	envName, productName := product.EnvName, product.ProductName
 	p.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
 
@@ -236,10 +237,12 @@ func (p *PMService) createGroup(username string, product *commonmodels.Product, 
 		// 更新环境
 		if latestRevision > productService.Revision {
 			// 更新产品服务
-			for _, serviceGroup := range prod.Services {
+			for i, serviceGroup := range prod.Services {
 				for j, service := range serviceGroup {
 					if service.ServiceName == productService.ServiceName && service.Type == setting.PMDeployType {
-						serviceGroup[j].Revision = latestRevision
+						prod.Services[i][j].Revision = latestRevision
+						productService.Revision = latestRevision
+						prod.Services[i][j].UpdateTime = time.Now().Unix()
 					}
 				}
 			}

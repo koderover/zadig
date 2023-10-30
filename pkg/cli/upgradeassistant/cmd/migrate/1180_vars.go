@@ -26,6 +26,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	uamodel "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
+	uamongo "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -457,8 +459,14 @@ func migrateTestProductVariables() error {
 			}
 			product.Render.Name = renderInfo.Name
 			product.Render.Revision = renderInfo.Revision
+			uaRenderInfo := &uamodel.RenderInfo{
+				Name:        product.Render.Name,
+				Revision:    product.Render.Revision,
+				ProductTmpl: product.Render.ProductTmpl,
+				Description: product.Render.Description,
+			}
 
-			err = mongodb.NewProductColl().UpdateRender(product.EnvName, product.ProductName, product.Render)
+			err = uamongo.NewProductColl().UpdateRender(product.EnvName, product.ProductName, uaRenderInfo)
 			if err != nil {
 				return errors.Wrapf(err, "failed to update product info: %s/%s", product.ProductName, product.EnvName)
 			}
@@ -620,7 +628,13 @@ func migrateProductionProductVariables() error {
 			product.Render.Name = renderInfo.Name
 			product.Render.Revision = renderInfo.Revision
 
-			err = mongodb.NewProductColl().UpdateRender(product.EnvName, product.ProductName, product.Render)
+			uaRenderInfo := &uamodel.RenderInfo{
+				Name:        product.Render.Name,
+				Revision:    product.Render.Revision,
+				ProductTmpl: product.Render.ProductTmpl,
+				Description: product.Render.Description,
+			}
+			err = uamongo.NewProductColl().UpdateRender(product.EnvName, product.ProductName, uaRenderInfo)
 			if err != nil {
 				return errors.Wrapf(err, "failed to update product info: %s/%s", product.ProductName, product.EnvName)
 			}

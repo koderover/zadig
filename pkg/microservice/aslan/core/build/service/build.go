@@ -117,6 +117,16 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 
 	resp := make([]*BuildResp, 0)
 	for _, build := range currentProductBuilds {
+		if build.TemplateID != "" {
+			buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+				ID: build.TemplateID,
+			})
+			// if template not found, envs are empty, but do not block user.
+			if err != nil {
+				log.Errorf("build job: %s, template not found", build.Name)
+			}
+			build.Infrastructure = buildTemplate.Infrastructure
+		}
 		b := &BuildResp{
 			ID:             build.ID.Hex(),
 			Name:           build.Name,

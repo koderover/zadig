@@ -174,7 +174,7 @@ func (c *Client) UpdateCodeHost(id int, codehost *CodeHost) error {
 		UpdatedAt:          codehost.UpdatedAt,
 	}
 
-	_, err := codehostservice.UpdateSystemCodeHost(arg, log.SugaredLogger())
+	_, err := codehostservice.UpdateCodeHost(arg, log.SugaredLogger())
 	return err
 }
 

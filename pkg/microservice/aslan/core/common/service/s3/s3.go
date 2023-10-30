@@ -17,13 +17,12 @@ limitations under the License.
 package s3
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"path/filepath"
 	"strings"
 
-	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -43,8 +42,12 @@ func (s *S3) GetSchema() string {
 	return "https"
 }
 
-func (s *S3) GetEncryptedURL() (encrypted string, err error) {
-	return crypto.AesEncrypt(s.GetURL())
+func (s *S3) GetEncrypted() (encrypted string, err error) {
+	b, err := json.Marshal(s)
+	if err != nil {
+		return "", err
+	}
+	return crypto.AesEncrypt(string(b))
 }
 
 func (s *S3) GetURL() string {
@@ -56,45 +59,21 @@ func (s *S3) GetURL() string {
 	)
 }
 
-func NewS3StorageFromURL(uri string) (*S3, error) {
-	store, err := url.Parse(uri)
-	if err != nil {
+func UnmarshalNewS3Storage(str string) (*S3, error) {
+	s3 := new(S3)
+	if err := json.Unmarshal([]byte(str), s3); err != nil {
 		return nil, err
 	}
-
-	sk, _ := store.User.Password()
-	paths := strings.Split(strings.TrimLeft(store.Path, "/"), "/")
-	bucket := paths[0]
-
-	var subfolder string
-	if len(paths) > 1 {
-		subfolder = strings.Join(paths[1:], "/")
-	}
-
-	ret := &S3{
-		&models.S3Storage{
-			Ak:        store.User.Username(),
-			Sk:        sk,
-			Endpoint:  store.Host,
-			Bucket:    bucket,
-			Subfolder: subfolder,
-			Insecure:  store.Scheme == "http",
-		},
-	}
-	if strings.Contains(store.Host, config2.MinioServiceName()) {
-		ret.Provider = setting.ProviderSourceSystemDefault
-	}
-
-	return ret, nil
+	return s3, nil
 }
 
-func NewS3StorageFromEncryptedURI(encryptedURI string) (*S3, error) {
-	uri, err := crypto.AesDecrypt(encryptedURI)
+func UnmarshalNewS3StorageFromEncrypted(encrypted string) (*S3, error) {
+	uri, err := crypto.AesDecrypt(encrypted)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewS3StorageFromURL(uri)
+	return UnmarshalNewS3Storage(uri)
 }
 
 func (s *S3) GetURI() string {

@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	httpclient "github.com/koderover/zadig/pkg/cli/zadig-agent/util/client"
 )
 
@@ -47,8 +47,8 @@ func NewZadigClient() *ZadigClient {
 	}
 }
 
-func (c *ZadigClient) RequestJob() (*common.ZadigJobTask, error) {
-	resp := new(common.ZadigJobTask)
+func (c *ZadigClient) RequestJob() (*types.ZadigJobTask, error) {
+	resp := new(types.ZadigJobTask)
 
 	body, err := httpclient.Get(GetFullURL(c.AgentConfig.URL, RequestJobBaseUrl), httpclient.SetQueryParam("token", c.AgentConfig.Token), httpclient.SetResult(resp))
 	if err != nil {
@@ -76,7 +76,7 @@ type ReportJobRequest struct {
 	Seq       int    `json:"seq"`
 }
 
-func (c *ZadigClient) ReportJob(parameters *common.ReportJobParameters) (*common.ReportAgentJobResp, error) {
+func (c *ZadigClient) ReportJob(parameters *types.ReportJobParameters) (*types.ReportAgentJobResp, error) {
 	request := &ReportJobRequest{
 		Token: c.AgentConfig.Token,
 	}
@@ -88,7 +88,7 @@ func (c *ZadigClient) ReportJob(parameters *common.ReportJobParameters) (*common
 		request.JobOutput = parameters.JobOutput
 		request.Seq = parameters.Seq
 	}
-	resp := new(common.ReportAgentJobResp)
+	resp := new(types.ReportAgentJobResp)
 
 	body, err := httpclient.Post(GetFullURL(c.AgentConfig.URL, ReportJobBaseUrl), httpclient.SetBody(request), httpclient.SetResult(resp))
 	if err != nil {

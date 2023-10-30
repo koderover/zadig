@@ -95,6 +95,19 @@ func ListS3Storage(encryptedKey string, logger *zap.SugaredLogger) ([]*commonmod
 	return stores, err
 }
 
+func ListS3StorageByProject(projectName string, logger *zap.SugaredLogger) ([]*commonmodels.S3Storage, error) {
+	stores, err := commonrepo.NewS3StorageColl().FindByProject(projectName)
+	if err == nil && len(stores) == 0 {
+		stores = make([]*commonmodels.S3Storage, 0)
+	}
+	for _, store := range stores {
+		store.Sk = ""
+		store.Ak = ""
+		store.Projects = nil
+	}
+	return stores, err
+}
+
 func DeleteS3Storage(deleteBy string, id string, logger *zap.SugaredLogger) error {
 	err := commonrepo.NewS3StorageColl().Delete(id)
 	if err != nil {
@@ -134,9 +147,9 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 	defaultS3 = s3.S3{
 		S3Storage: store,
 	}
-	defaultURL, err = defaultS3.GetEncryptedURL()
+	defaultURL, err = defaultS3.GetEncrypted()
 	if err != nil {
-		logger.Errorf("defaultS3 GetEncryptedURL err:%s", err)
+		logger.Errorf("defaultS3 GetEncrypted err:%s", err)
 		return nil, err
 	}
 

@@ -28,6 +28,22 @@ import (
 // EnvUpdateInterval TODO interval will be set on product in future
 const EnvUpdateInterval = 30
 
+func needCreateProdSchedule(env *service.ProductResp) bool {
+	if env.YamlData != nil {
+		if env.YamlData.Source == setting.SourceFromGitRepo || env.YamlData.Source == setting.SourceFromVariableSet {
+			return true
+		}
+	}
+	for _, svcGroup := range env.Services {
+		for _, svc := range svcGroup {
+			if svc.GetServiceRender().OverrideYaml != nil && svc.GetServiceRender().OverrideYaml.Source == setting.SourceFromGitRepo {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func needCreateSchedule(rendersetObj *service.ProductRenderset) bool {
 	if rendersetObj.YamlData != nil {
 		if rendersetObj.YamlData.Source == setting.SourceFromGitRepo || rendersetObj.YamlData.Source == setting.SourceFromVariableSet {
@@ -60,21 +76,11 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 			log.Errorf("failed to get env data, productName:%s envName:%s err:%v", env.ProductName, env.EnvName, err)
 			continue
 		}
-		if envObj.Render == nil {
-			log.Errorf("render info of product: %s:%s is nil", env.ProductName, env.EnvName)
-			continue
-		}
-
-		rendersetObj, err := c.AslanCli.GetRenderset(envObj.Render.Name, envObj.Render.Revision, log)
-		if err != nil {
-			log.Errorf("failed to get renderset data: %s, err:%s", envObj.Render.Name, err)
-			continue
-		}
 
 		envKey := buildEnvNameKey(env)
 		if lastEnvData, ok := c.lastEnvSchedulerData[envKey]; ok {
 			// render not changed, no need to update scheduler
-			if lastEnvData.Render.Revision == rendersetObj.Revision {
+			if lastEnvData.UpdateTime == envObj.UpdateTime {
 				continue
 			}
 		}
@@ -87,7 +93,7 @@ func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 			delete(c.Schedulers, envKey)
 		}
 
-		if !needCreateSchedule(rendersetObj) {
+		if !needCreateProdSchedule(envObj) {
 			continue
 		}
 

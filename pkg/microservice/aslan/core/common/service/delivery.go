@@ -162,7 +162,7 @@ func GetSubTaskContent(deliveryVersion *commonmodels.DeliveryVersion, pipelineTa
 					deliveryPackage := new(commonmodels.DeliveryPackage)
 					deliveryPackage.PackageFileLocation = buildInfo.JobCtx.FileArchiveCtx.FileLocation
 					deliveryPackage.PackageFileName = buildInfo.JobCtx.FileArchiveCtx.FileName
-					storageInfo, _ := s3service.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI)
+					storageInfo, _ := s3service.UnmarshalNewS3StorageFromEncrypted(pipelineTask.StorageURI)
 					deliveryPackage.PackageStorageURI = storageInfo.Endpoint
 					deliveryBuild.PackageInfo = deliveryPackage
 				}
@@ -341,9 +341,9 @@ func GetSubTaskContent(deliveryVersion *commonmodels.DeliveryVersion, pipelineTa
 				}
 				deliveryDistributeFile.PackageFile = releaseFileInfo.PackageFile
 				deliveryDistributeFile.RemoteFileKey = releaseFileInfo.RemoteFileKey
-				storageInfo, _ := s3service.NewS3StorageFromEncryptedURI(releaseFileInfo.DestStorageURL)
+				storageInfo, _ := s3service.UnmarshalNewS3StorageFromEncrypted(releaseFileInfo.DestStorageURL)
 				deliveryDistributeFile.DestStorageURL = storageInfo.Endpoint
-				storageInfo, _ = s3service.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI)
+				storageInfo, _ = s3service.UnmarshalNewS3StorageFromEncrypted(pipelineTask.StorageURI)
 				deliveryDistributeFile.SrcStorageURL = storageInfo.Endpoint
 				deliveryDistributeFile.StartTime = releaseFileInfo.StartTime
 				deliveryDistributeFile.EndTime = releaseFileInfo.EndTime
@@ -374,15 +374,6 @@ func getProductEnvInfo(pipelineTask *taskmodels.Task, log *zap.SugaredLogger) (*
 		product.Namespace = productInfo.Namespace
 	}
 
-	//if pipelineTask.Render != nil {
-	//	if renderSet, err := GetRenderSet(product.Namespace, pipelineTask.Render.Revision, false, product.EnvName, log); err == nil {
-	//		product.Vars = renderSet.KVs
-	//	} else {
-	//		log.Warnf("GetProductEnvInfo GetRenderSet namespace:%s pipelineTask.Render.Revision:%d err:%v", product.GetNamespace(), pipelineTask.Render.Revision, err)
-	//	}
-	//}
-
-	//返回中的ProductName即产品模板的名称
 	product.Render = pipelineTask.Render
 	product.Services = pipelineTask.Services
 
@@ -452,44 +443,12 @@ func updateServiceImage(serviceName, image, containerName string, product *commo
 
 func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commonmodels.Container, serviceName, deployType string, log *zap.SugaredLogger) (string, error) {
 	if deployType == setting.K8SDeployType {
-		opt := &commonrepo.RenderSetFindOption{
-			Name:        productInfo.Render.Name,
-			Revision:    productInfo.Render.Revision,
-			EnvName:     productInfo.EnvName,
-			ProductTmpl: productInfo.ProductName,
-		}
-		newRender, err := commonrepo.NewRenderSetColl().Find(opt)
-		if err != nil {
-			log.Errorf("[%s][P:%s]renderset Find error: %v", productInfo.EnvName, productInfo.ProductName, err)
-			return "", fmt.Errorf("get pure yaml %s error: %v", serviceName, err)
-		}
-
 		serviceInfo := productInfo.GetServiceMap()[serviceName]
 		if serviceInfo == nil {
 			return "", fmt.Errorf("service %s not found", serviceName)
 		}
-		// 获取服务模板
-		serviceFindOption := &commonrepo.ServiceFindOption{
-			ServiceName: serviceName,
-			ProductName: serviceInfo.ProductName,
-			Type:        setting.K8SDeployType,
-			Revision:    serviceInfo.Revision,
-		}
-		svcTmpl, err := commonrepo.NewServiceColl().Find(serviceFindOption)
-		if err != nil {
-			return "", fmt.Errorf("service template %s error: %v", serviceName, err)
-		}
 
-		parsedYaml, err := kube.RenderServiceYaml(svcTmpl.Yaml, productInfo.ProductName, svcTmpl.ServiceName, newRender)
-		if err != nil {
-			log.Errorf("RenderServiceYaml failed, err: %s", err)
-			return "", err
-		}
-		// 渲染系统变量键值
-		parsedYaml = kube.ParseSysKeys(productInfo.Namespace, productInfo.EnvName, productInfo.ProductName, serviceName, parsedYaml)
-		// 替换服务模板容器镜像为用户指定镜像
-		parsedYaml, _, err = kube.ReplaceWorkloadImages(parsedYaml, containers)
-		return parsedYaml, err
+		return kube.RenderEnvService(productInfo, serviceInfo.GetServiceRender(), serviceInfo)
 	}
 	return "", nil
 }

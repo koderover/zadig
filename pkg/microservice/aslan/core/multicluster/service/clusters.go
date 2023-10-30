@@ -139,9 +139,27 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 
 	existClusterID := sets.NewString()
 	if projectName != "" {
-		projectClusterRelations, _ := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
+		projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
 			ProjectName: projectName,
 		})
+		if err != nil {
+			err = fmt.Errorf("Failed to list projectClusterRelation for %s, err: %w", projectName, err)
+			logger.Error(err)
+			return nil, err
+		}
+		for _, projectClusterRelation := range projectClusterRelations {
+			existClusterID.Insert(projectClusterRelation.ClusterID)
+		}
+
+		projectClusterRelations, err = commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
+			ProjectName: setting.AllProjects,
+		})
+		if err != nil {
+			err = fmt.Errorf("Failed to list projectClusterRelation for all projects, err: %w", err)
+			logger.Error(err)
+			return nil, err
+		}
+
 		for _, projectClusterRelation := range projectClusterRelations {
 			existClusterID.Insert(projectClusterRelation.ClusterID)
 		}
@@ -489,6 +507,25 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		return nil, err
 	}
 
+	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
+	// TODO: If the PVC is not successfully bound to the PV, it is necessary to consider how to expose this abnormal information.
+	//       Depends on product design.
+	if args.Cache.MediumType == types.NFSMedium && args.Cache.NFSProperties.ProvisionType == types.DynamicProvision {
+
+		if id == setting.LocalClusterID {
+			args.DindCfg = nil
+		}
+
+		if err := createDynamicPVC(id, "cache", &args.Cache.NFSProperties, logger); err != nil {
+			return nil, err
+		}
+	}
+	if args.ShareStorage.MediumType == types.NFSMedium && args.ShareStorage.NFSProperties.ProvisionType == types.DynamicProvision {
+		if err := createDynamicPVC(id, "share-storage", &args.ShareStorage.NFSProperties, logger); err != nil {
+			return nil, err
+		}
+	}
+
 	cluster := &commonmodels.K8SCluster{
 		Name:           args.Name,
 		Description:    args.Description,
@@ -508,25 +545,6 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	// if we don't need this cluster to schedule workflow, we don't need to upgrade hub-agent
 	if cluster.AdvancedConfig != nil && !cluster.AdvancedConfig.ScheduleWorkflow {
 		return cluster, nil
-	}
-
-	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
-	// TODO: If the PVC is not successfully bound to the PV, it is necessary to consider how to expose this abnormal information.
-	//       Depends on product design.
-	if args.Cache.MediumType == types.NFSMedium && args.Cache.NFSProperties.ProvisionType == types.DynamicProvision {
-
-		if id == setting.LocalClusterID {
-			args.DindCfg = nil
-		}
-
-		if err := createDynamicPVC(id, "cache", &args.Cache.NFSProperties, logger); err != nil {
-			return nil, err
-		}
-	}
-	if args.ShareStorage.MediumType == types.NFSMedium && args.ShareStorage.NFSProperties.ProvisionType == types.DynamicProvision {
-		if err := createDynamicPVC(id, "share-storage", &args.ShareStorage.NFSProperties, logger); err != nil {
-			return nil, err
-		}
 	}
 
 	return cluster, UpgradeAgent(id, logger)

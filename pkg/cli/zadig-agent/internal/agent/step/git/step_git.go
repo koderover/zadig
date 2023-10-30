@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/helper"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
+	agenttypes "github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/step"
@@ -44,12 +45,12 @@ type GitStep struct {
 	spec       *step.StepGitSpec
 	envs       []string
 	secretEnvs []string
-	workspace  string
+	dirs       *agenttypes.AgentWorkDirs
 	Logger     *log.JobLogger
 }
 
-func NewGitStep(spec interface{}, workspace string, envs, secretEnvs []string, logger *log.JobLogger) (*GitStep, error) {
-	gitStep := &GitStep{workspace: workspace, envs: envs, secretEnvs: secretEnvs, Logger: logger}
+func NewGitStep(spec interface{}, dirs *agenttypes.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*GitStep, error) {
+	gitStep := &GitStep{dirs: dirs, envs: envs, secretEnvs: secretEnvs, Logger: logger}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return gitStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -97,7 +98,7 @@ func (s *GitStep) runGitCmds() error {
 		go func() {
 			defer wg.Done()
 
-			helper.HandleCmdOutput(cmdOutReader, needPersistentLog, s.Logger.GetLogfilePath(), s.secretEnvs, s.Logger)
+			helper.HandleCmdOutput(cmdOutReader, needPersistentLog, s.Logger.GetLogfilePath(), s.secretEnvs, log.GetSimpleLogger())
 		}()
 
 		cmdErrReader, err := c.Cmd.StderrPipe()
@@ -108,7 +109,7 @@ func (s *GitStep) runGitCmds() error {
 		go func() {
 			defer wg.Done()
 
-			helper.HandleCmdOutput(cmdErrReader, needPersistentLog, s.Logger.GetLogfilePath(), s.secretEnvs, s.Logger)
+			helper.HandleCmdOutput(cmdErrReader, needPersistentLog, s.Logger.GetLogfilePath(), s.secretEnvs, log.GetSimpleLogger())
 		}()
 
 		c.Cmd.Env = s.envs
@@ -133,13 +134,16 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		return cmds
 	}
 
-	workDir := filepath.Join(s.workspace, repo.RepoName)
+	workDir := filepath.Join(s.dirs.Workspace, repo.RepoName)
 	if len(repo.CheckoutPath) != 0 {
-		workDir = filepath.Join(s.workspace, repo.CheckoutPath)
+		workDir = filepath.Join(s.dirs.Workspace, repo.CheckoutPath)
 	}
 
 	if _, err := os.Stat(workDir); os.IsNotExist(err) {
-		os.MkdirAll(workDir, 0777)
+		err = os.MkdirAll(workDir, 0777)
+		if err != nil {
+			s.Logger.Errorf("Failed to create dir %s: %v", workDir, err)
+		}
 	}
 
 	// 预防非正常退出导致git被锁住

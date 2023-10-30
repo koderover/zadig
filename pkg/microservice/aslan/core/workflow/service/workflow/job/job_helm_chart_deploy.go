@@ -23,6 +23,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type HelmChartDeployJob struct {
@@ -50,15 +51,7 @@ func (j *HelmChartDeployJob) SetPreset() error {
 	if err != nil {
 		return fmt.Errorf("env %s not exists", j.spec.Env)
 	}
-	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name:        product.Render.Name,
-		ProductTmpl: product.ProductName,
-		Revision:    product.Render.Revision,
-	})
-	if err != nil {
-		return fmt.Errorf("render set %s/%v not found", product.Render.Name, product.Render.Revision)
-	}
-	renderChartMap := renderset.GetChartDeployRenderMap()
+	renderChartMap := product.GetChartDeployRenderMap()
 
 	deploys := []*commonmodels.DeployHelmChart{}
 	productChartServiceMap := product.GetChartServiceMap()
@@ -121,6 +114,10 @@ func (j *HelmChartDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, erro
 		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
 	}
 	timeout := templateProduct.Timeout * 60
+
+	if templateProduct.ProductFeature.DeployType != setting.HelmDeployType {
+		return resp, fmt.Errorf("product %s deploy type is not helm", j.workflow.Project)
+	}
 
 	for _, deploy := range j.spec.DeployHelmCharts {
 		jobTaskSpec := &commonmodels.JobTaskHelmChartDeploySpec{

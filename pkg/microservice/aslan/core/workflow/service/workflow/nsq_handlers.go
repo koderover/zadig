@@ -43,6 +43,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowstat"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
@@ -182,29 +183,29 @@ func (h *TaskAckHandler) handle(pt *task.Task) error {
 				h.log.Errorf("ArchiveHistoryPipelineTask error: %v", err)
 			}
 		}()
-	}
 
-	// 更新数据库 product
-	var deploys []*task.Deploy
+		// 更新数据库 product
+		var deploys []*task.Deploy
 
-	for _, stage := range pt.Stages {
-		tasks := make([]map[string]interface{}, 0)
-		for _, v := range stage.SubTasks {
-			tasks = append(tasks, v)
+		for _, stage := range pt.Stages {
+			tasks := make([]map[string]interface{}, 0)
+			for _, v := range stage.SubTasks {
+				tasks = append(tasks, v)
+			}
+
+			deployList, _ := h.getDeployTasks(tasks)
+			deploys = append(deploys, deployList...)
 		}
 
-		deployList, _ := h.getDeployTasks(tasks)
-		deploys = append(deploys, deployList...)
-	}
-
-	for _, deploy := range deploys {
-		if deploy.Enabled && !pt.ResetImage {
-			containerName := strings.TrimSuffix(deploy.ContainerName, "_"+deploy.ServiceName)
-			if err := h.updateProductImageByNs(deploy.Namespace, deploy.ProductName, deploy.ServiceName, containerName, deploy.Image, deploy.EnvName); err != nil {
-				h.log.Errorf("updateProductImage %v error: %v", deploy, err)
-				continue
-			} else {
-				h.log.Infof("succeed to update container image %v", deploy)
+		for _, deploy := range deploys {
+			if deploy.Enabled && !pt.ResetImage {
+				containerName := strings.TrimSuffix(deploy.ContainerName, "_"+deploy.ServiceName)
+				if err := commonutil.UpdateProductImage(deploy.EnvName, deploy.ProductName, deploy.ServiceName, map[string]string{containerName: deploy.Image}, pt.TaskCreator, h.log); err != nil {
+					h.log.Errorf("updateProductImage %+v error: %v", deploy, err)
+					continue
+				} else {
+					h.log.Infof("succeed to update container image %+v", deploy)
+				}
 			}
 		}
 	}
@@ -287,7 +288,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							deliveryArtifact.ImageTag = buildInfo.JobCtx.FileArchiveCtx.FileName
 							deliveryArtifact.Type = string(config.File)
 							deliveryArtifact.PackageFileLocation = buildInfo.JobCtx.FileArchiveCtx.FileLocation
-							if storageInfo, err := s3.NewS3StorageFromEncryptedURI(pt.StorageURI); err == nil {
+							if storageInfo, err := s3.UnmarshalNewS3StorageFromEncrypted(pt.StorageURI); err == nil {
 								deliveryArtifact.PackageStorageURI = storageInfo.Endpoint + "/" + storageInfo.Bucket
 							}
 
@@ -588,9 +589,9 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							deliveryActivity.CreatedBy = pt.TaskCreator
 							deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/multi/%s/%d", pt.ProductName, pt.PipelineName, pt.TaskID)
 							deliveryActivity.RemoteFileKey = releaseFileInfo.RemoteFileKey
-							storageInfo, _ := s3.NewS3StorageFromEncryptedURI(releaseFileInfo.DestStorageURL)
+							storageInfo, _ := s3.UnmarshalNewS3StorageFromEncrypted(releaseFileInfo.DestStorageURL)
 							deliveryActivity.DistStorageURL = storageInfo.Endpoint
-							storageInfo, _ = s3.NewS3StorageFromEncryptedURI(pt.StorageURI)
+							storageInfo, _ = s3.UnmarshalNewS3StorageFromEncrypted(pt.StorageURI)
 							deliveryActivity.SrcStorageURL = storageInfo.Endpoint
 							deliveryActivity.CreatedTime = time.Now().Unix() + 6
 							deliveryActivity.StartTime = releaseFileInfo.StartTime
@@ -776,42 +777,6 @@ func (h *TaskAckHandler) getDeployTasks(subTasks []map[string]interface{}) ([]*t
 	}
 
 	return deploys, nil
-}
-
-// 更新subtasks中的所有容器部署任务对应服务的镜像
-func (h *TaskAckHandler) updateProductImageByNs(namespace, productName, serviceName, containerName, imageName, envName string) error {
-	opt := &commonrepo.ProductFindOptions{
-		Name:      productName,
-		Namespace: namespace,
-		EnvName:   envName,
-	}
-
-	prod, err := h.productColl.Find(opt)
-
-	if err != nil {
-		h.log.Errorf("find product namespace error: %v", err)
-		return err
-	}
-
-	for i, group := range prod.Services {
-		for j, service := range group {
-			if service.ServiceName == serviceName {
-				for l, container := range service.Containers {
-					if container.Name == containerName {
-						prod.Services[i][j].Containers[l].Image = imageName
-					}
-				}
-			}
-		}
-	}
-
-	if err := h.productColl.Update(prod); err != nil {
-		errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
-		h.log.Errorf(errMsg)
-		return errors.New(errMsg)
-	}
-
-	return nil
 }
 
 // TaskNotificationHandler ...

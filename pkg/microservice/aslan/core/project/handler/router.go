@@ -23,11 +23,6 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	// 查看自定义变量是否被引用
-	render := router.Group("renders")
-	{
-		render.GET("/render/:name/revision/:revision", GetRenderSetInfo)
-	}
 
 	// ---------------------------------------------------------------------------------------
 	// 项目管理接口
@@ -62,6 +57,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		group.DELETE("", DeleteProjectGroup)
 		group.GET("", ListProjectGroups)
 		group.GET("/preset", GetPresetProjectGroup)
+	}
+
+	bizdir := router.Group("bizdir")
+	{
+		bizdir.GET("", GetBizDirProject)
+		bizdir.GET("/services", GetBizDirProjectServices)
+		bizdir.GET("/service/detail", GetBizDirServiceDetail)
+		bizdir.GET("/search/project", SearchBizDirByProject)
+		bizdir.GET("/search/service", SearchBizDirByService)
 	}
 
 	production := router.Group("production/products")

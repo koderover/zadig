@@ -90,7 +90,6 @@ func (w *WorkflowV4) CalculateHash() [md5.Size]byte {
 	return md5.Sum(jsonBytes)
 }
 
-// @todo job spec
 type WorkflowStage struct {
 	Name     string    `bson:"name"          yaml:"name"         json:"name"`
 	Parallel bool      `bson:"parallel"      yaml:"parallel"     json:"parallel"`
@@ -574,6 +573,14 @@ type IstioRollBackJobSpec struct {
 	Namespace string            `bson:"namespace"   json:"namespace"   yaml:"namespace"`
 	Timeout   int64             `bson:"timeout"     json:"timeout"     yaml:"timeout"`
 	Targets   []*IstioJobTarget `bson:"targets"     json:"targets"     yaml:"targets"`
+}
+
+type SQLJobSpec struct {
+	// ID db instance id
+	ID     string                `bson:"id" json:"id" yaml:"id"`
+	Type   config.DBInstanceType `bson:"type" json:"type" yaml:"type"`
+	SQL    string                `bson:"sql" json:"sql" yaml:"sql"`
+	Source string                `bson:"source" json:"source" yaml:"source"`
 }
 
 type ApolloJobSpec struct {

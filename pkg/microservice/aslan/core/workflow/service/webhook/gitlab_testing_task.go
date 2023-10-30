@@ -223,6 +223,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					args.RepoOwner = item.MainRepo.RepoOwner
 					args.RepoNamespace = item.MainRepo.GetRepoNamespace()
 					args.RepoName = item.MainRepo.RepoName
+					args.Branch = item.MainRepo.Branch
 
 					// 3. create task with args
 					if resp, err := testingservice.CreateTestTask(args, log); err != nil {

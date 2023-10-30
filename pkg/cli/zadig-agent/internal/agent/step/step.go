@@ -24,11 +24,13 @@ import (
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/docker"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/git"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/script"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 )
 
 type StepInfos struct {
-	Step      *common.Step
+	Step      *types.Step
 	Workspace string
 	Paths     string
 	Envs      []string
@@ -38,33 +40,33 @@ type Step interface {
 	Run(ctx context.Context) error
 }
 
-func RunStep(ctx context.Context, jobCtx *common.JobContext, step *common.StepTask, workspace, paths string, envs, secretEnvs []string, logger *log.JobLogger) error {
+func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.StepTask, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) error {
 	var stepInstance Step
 	var err error
 
 	switch step.StepType {
 	case "shell":
-		stepInstance, err = script.NewShellStep(jobCtx.Outputs, step.Spec, workspace, paths, envs, secretEnvs, logger)
+		stepInstance, err = script.NewShellStep(jobCtx.Outputs, step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}
 	case "git":
-		stepInstance, err = git.NewGitStep(step.Spec, workspace, envs, secretEnvs, logger)
+		stepInstance, err = git.NewGitStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}
 	case "docker_build":
-		stepInstance, err = docker.NewDockerBuildStep(step.Spec, workspace, envs, secretEnvs, logger)
+		stepInstance, err = docker.NewDockerBuildStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}
 	case "archive":
-		stepInstance, err = archive.NewArchiveStep(step.Spec, workspace, envs, secretEnvs, logger)
+		stepInstance, err = archive.NewArchiveStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}
 	case "tar_archive":
-		stepInstance, err = archive.NewTararchiveStep(step.Spec, workspace, envs, secretEnvs, logger)
+		stepInstance, err = archive.NewTararchiveStep(step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
 			return err
 		}

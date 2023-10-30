@@ -18,12 +18,14 @@ package reporter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	errhelper "github.com/koderover/zadig/pkg/cli/zadig-agent/helper/error"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
 )
 
@@ -32,13 +34,14 @@ type JobReporter struct {
 	Ctx       context.Context
 	Client    *network.ZadigClient
 	Logger    *log.JobLogger
-	Offset    uint
+	Offset    int64
+	CurLogNum int64
 	Log       string
 	JobCancel *bool
-	Result    *common.JobExecuteResult
+	Result    *types.JobExecuteResult
 }
 
-func NewJobReporter(result *common.JobExecuteResult, client *network.ZadigClient, cancel *bool) *JobReporter {
+func NewJobReporter(result *types.JobExecuteResult, client *network.ZadigClient, cancel *bool) *JobReporter {
 	return &JobReporter{
 		Seq:       0,
 		Client:    client,
@@ -48,7 +51,7 @@ func NewJobReporter(result *common.JobExecuteResult, client *network.ZadigClient
 }
 
 func (r *JobReporter) Start(ctx context.Context) {
-	log.Infof("agent job %s reporter.", r.Result.JobInfo.JobName)
+	log.Infof("start project %s workflow %s job %s reporter.", r.Result.JobInfo.ProjectName, r.Result.JobInfo.WorkflowName, r.Result.JobInfo.JobName)
 	r.Ctx = ctx
 	ticker := time.NewTicker(time.Second)
 
@@ -56,28 +59,23 @@ func (r *JobReporter) Start(ctx context.Context) {
 		r.Seq++
 		select {
 		case <-ticker.C:
-			// get log from job log file
-			err := r.SetLog()
-			if err != nil {
-				log.Errorf("failed to set job log, error: %s", err)
-				continue
-			}
 			if err := r.Report(); err != nil {
 				log.Error(err)
 			}
 		case <-ctx.Done():
-			log.Infof("stop job reporter, received context cancel signal.")
+			log.Infof("stop job reporter, received context cancel signal from job executor.")
 			return
 		}
 	}
 }
 
 func (r *JobReporter) GetJobLog() (string, bool, error) {
-	buffer, newOffset, EOFErr, err := r.Logger.ReadByRowNum(r.Offset, common.DefaultJobLogReadNum)
+	buffer, newOffset, num, EOFErr, err := r.Logger.ReadByRowNum(r.Offset, r.CurLogNum, common.DefaultJobLogReadNum)
 	if err != nil {
 		return "", EOFErr, err
 	}
 	r.Offset = newOffset
+	r.CurLogNum = num
 	return string(buffer), EOFErr, nil
 }
 
@@ -86,7 +84,13 @@ func (r *JobReporter) Report() error {
 		return fmt.Errorf("reporter result is nil")
 	}
 
-	resp, err := r.Client.ReportJob(&common.ReportJobParameters{
+	// get log from job log file
+	err := r.SetLog()
+	if err != nil {
+		log.Errorf("failed to set job log, error: %s", err)
+	}
+
+	resp, err := r.Client.ReportJob(&types.ReportJobParameters{
 		Seq:       r.Seq,
 		JobID:     r.Result.JobInfo.JobID,
 		JobStatus: r.Result.Status,
@@ -94,10 +98,10 @@ func (r *JobReporter) Report() error {
 		JobLog:    r.Result.Log,
 		JobOutput: r.Result.OutputsJsonBytes,
 	})
-
 	if err != nil {
-		return fmt.Errorf("%s-%s ---------> SEQ: %d failed to report status, error: %s", r.Result.JobInfo.WorkflowName, r.Result.JobInfo.JobName, r.Seq, err)
+		return fmt.Errorf("%s-%s SEQ: %d failed to report status, error: %s", r.Result.JobInfo.WorkflowName, r.Result.JobInfo.JobName, r.Seq, err)
 	}
+	r.Result.Log = ""
 
 	if resp.JobID == r.Result.JobInfo.JobID && (resp.JobStatus == common.StatusTimeout.String() || resp.JobStatus == common.StatusCancelled.String()) {
 		*r.JobCancel = true
@@ -105,7 +109,7 @@ func (r *JobReporter) Report() error {
 	return nil
 }
 
-func (r *JobReporter) ReportWithData(result *common.JobExecuteResult) (*common.ReportAgentJobResp, error) {
+func (r *JobReporter) ReportWithData(result *types.JobExecuteResult) (*types.ReportAgentJobResp, error) {
 	if result == nil {
 		return nil, fmt.Errorf("reporter result is nil")
 	}
@@ -113,33 +117,14 @@ func (r *JobReporter) ReportWithData(result *common.JobExecuteResult) (*common.R
 		return nil, fmt.Errorf("reporter result job info is nil")
 	}
 
-	resp, err := r.Client.ReportJob(&common.ReportJobParameters{
+	resp, err := r.Client.ReportJob(&types.ReportJobParameters{
 		JobID:     result.JobInfo.JobID,
 		JobStatus: result.Status,
 		JobError:  errhelper.ErrHandler(result.Error),
 		JobLog:    result.Log,
+		JobOutput: result.OutputsJsonBytes,
 	})
 	return resp, err
-}
-
-func (r *JobReporter) SetStatus(status string) error {
-	if r.Result == nil {
-		return fmt.Errorf("reporter job result is nil")
-	}
-
-	r.Result.Status = status
-
-	return nil
-}
-
-func (r *JobReporter) SetError(err error) error {
-	if r.Result == nil {
-		return fmt.Errorf("reporter result is nil")
-	}
-
-	r.Result.Error = err
-
-	return nil
 }
 
 func (r *JobReporter) SetLog() error {
@@ -151,38 +136,29 @@ func (r *JobReporter) SetLog() error {
 	if err != nil {
 		return fmt.Errorf("failed to get job log, error: %s", err)
 	}
-
 	r.Result.Log = logStr
 
 	return nil
 }
 
-func (r *JobReporter) SetStartTime(startTime int64) error {
-	if r.Result == nil {
-		return fmt.Errorf("reporter result is nil")
+func (r *JobReporter) FinishedJobReport(status common.Status, err error) error {
+	r.Result.SetError(errors.New(errhelper.ErrHandler(err)))
+	r.Result.SetStatus(status)
+	r.Result.SetEndTime(time.Now().Unix())
+	r.Result.SetLog("")
+
+	retry := 3
+	for retry > 0 {
+		_, err = r.ReportWithData(r.Result)
+		if err == nil {
+			return nil
+		}
+
+		retry--
 	}
 
-	r.Result.StartTime = startTime
-
-	return nil
-}
-
-func (r *JobReporter) SetEndTime(endTime int64) error {
-	if r.Result == nil {
-		return fmt.Errorf("reporter result is nil")
+	if retry == 0 {
+		return fmt.Errorf("failed to report job finished result, error: %s", err)
 	}
-
-	r.Result.EndTime = endTime
-
-	return nil
-}
-
-func (r *JobReporter) SetOutputsJsonBytes(outputsJsonBytes []byte) error {
-	if r.Result == nil {
-		return fmt.Errorf("reporter result is nil")
-	}
-
-	r.Result.OutputsJsonBytes = outputsJsonBytes
-
 	return nil
 }

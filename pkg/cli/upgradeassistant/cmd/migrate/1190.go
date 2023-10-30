@@ -19,10 +19,13 @@ package migrate
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"gorm.io/gorm"
 
 	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internaldb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
@@ -30,8 +33,11 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	codehost_mongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
+	usermodels "github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -42,6 +48,7 @@ func init() {
 }
 
 func V1180ToV1190() error {
+
 	log.Infof("-------- start migrate cluster workflow schedule strategy --------")
 	if err := migrateClusterScheduleStrategy(); err != nil {
 		log.Errorf("migrateClusterScheduleStrategy err: %v", err)
@@ -51,6 +58,12 @@ func V1180ToV1190() error {
 	log.Infof("-------- start migrate workflow template --------")
 	if err := migrateWorkflowTemplate(); err != nil {
 		log.Infof("migrateWorkflowTemplate err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate register/s3storage/helmrepo --------")
+	if err := migrateAssetManagement(); err != nil {
+		log.Infof("migrateAssetManagement err: %v", err)
 		return err
 	}
 
@@ -88,6 +101,17 @@ func V1180ToV1190() error {
 	if err := migrateApolloIntegration(); err != nil {
 		log.Infof("migrateApolloIntegration err: %v", err)
 		return err
+	}
+
+	log.Infof("-------- start migrate asset management permissions --------")
+	if err := migrateAssetManagementPermissions(); err != nil {
+		log.Infof("migrateAssetManagementPermissions err: %v", err)
+		return err
+	}
+
+	log.Infof("-------- start migrate renderset info --------")
+	if err := migrateRendersets(); err != nil {
+		log.Infof("migrateRendersets err: %v", err)
 	}
 
 	log.Infof("-------- start migrate infrastructure filed in build & build template module and general job --------")
@@ -556,6 +580,190 @@ func migrateApolloIntegration() error {
 			apolloInfo.AuthConfig = apolloAuthConfig.ApolloAuthConfig
 			if err := mongodb.NewConfigurationManagementColl().Update(context.Background(), apolloInfo.ID.Hex(), apolloInfo); err != nil {
 				return fmt.Errorf("failed to update apollo config, id %s, err: %v", apolloInfo.ID.Hex(), err)
+			}
+		}
+	}
+	return nil
+}
+
+func migrateAssetManagement() error {
+	var registries []*models.RegistryNamespace
+	query := bson.M{
+		"projects": bson.M{"$exists": false},
+	}
+	cursor, err := mongodb.NewRegistryNamespaceColl().Collection.Find(context.TODO(), query)
+	if err != nil {
+		return fmt.Errorf("failed to list registries for migrateAssetManagement, err: %v", err)
+	}
+	err = cursor.All(context.TODO(), &registries)
+	if err != nil {
+		return err
+	}
+	for _, registry := range registries {
+		registry.Projects = append(registry.Projects, setting.AllProjects)
+		if err := mongodb.NewRegistryNamespaceColl().Update(registry.ID.Hex(), registry); err != nil {
+			return fmt.Errorf("failed to update registry %s for migrateAssetManagement, err: %v", registry.ID.Hex(), err)
+		}
+	}
+
+	var s3storages []*models.S3Storage
+	query = bson.M{
+		"projects": bson.M{"$exists": false},
+	}
+	cursor, err = mongodb.NewS3StorageColl().Collection.Find(context.TODO(), query)
+	if err != nil {
+		return err
+	}
+	err = cursor.All(context.TODO(), &s3storages)
+	if err != nil {
+		return err
+	}
+	for _, s3storage := range s3storages {
+		s3storage.Projects = append(s3storage.Projects, setting.AllProjects)
+		s3storage.UpdateTime = time.Now().Unix()
+
+		query := bson.M{"_id": s3storage.ID}
+		change := bson.M{"$set": s3storage}
+		_, err = mongodb.NewS3StorageColl().UpdateOne(context.TODO(), query, change)
+		if err != nil {
+			return fmt.Errorf("failed to update s3storage %s for migrateAssetManagement, err: %v", s3storage.ID.Hex(), err)
+		}
+	}
+
+	var helmrepos []*models.HelmRepo
+	query = bson.M{
+		"projects": bson.M{"$exists": false},
+	}
+	cursor, err = mongodb.NewHelmRepoColl().Collection.Find(context.TODO(), query)
+	if err != nil {
+		return err
+	}
+	err = cursor.All(context.TODO(), &helmrepos)
+	if err != nil {
+		return err
+	}
+	for _, helmrepo := range helmrepos {
+		helmrepo.Projects = append(helmrepo.Projects, setting.AllProjects)
+		if err := mongodb.NewHelmRepoColl().Update(helmrepo.ID.Hex(), helmrepo); err != nil {
+			return fmt.Errorf("failed to update helmrepo %s for migrateAssetManagement, err: %v", helmrepo.ID.Hex(), err)
+		}
+	}
+
+	return nil
+}
+
+func migrateAssetManagementPermissions() error {
+	var actions []*usermodels.Action
+	err := repository.DB.Where("action = ?", "get_cluster_management").Find(&actions).Error
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("failed to get action equal get_cluster_management, err: %v", err)
+	}
+	if len(actions) != 0 {
+		return nil
+	}
+	actions = []*usermodels.Action{
+		{Name: "查看", Action: "get_business_directory", Resource: "BusinessDirectory", Scope: 2},
+		{Name: "查看", Action: "get_cluster_management", Resource: "ClusterManagement", Scope: 2},
+		{Name: "新建", Action: "create_cluster_management", Resource: "ClusterManagement", Scope: 2},
+		{Name: "编辑", Action: "edit_cluster_management", Resource: "ClusterManagement", Scope: 2},
+		{Name: "删除", Action: "delete_cluster_management", Resource: "ClusterManagement", Scope: 2},
+		{Name: "查看", Action: "get_vm_management", Resource: "VMManagement", Scope: 2},
+		{Name: "新建", Action: "create_vm_management", Resource: "VMManagement", Scope: 2},
+		{Name: "编辑", Action: "edit_vm_management", Resource: "VMManagement", Scope: 2},
+		{Name: "删除", Action: "delete_vm_management", Resource: "VMManagement", Scope: 2},
+		{Name: "查看", Action: "get_registry_management", Resource: "RegistryManagement", Scope: 2},
+		{Name: "新建", Action: "create_registry_management", Resource: "RegistryManagement", Scope: 2},
+		{Name: "编辑", Action: "edit_registry_management", Resource: "RegistryManagement", Scope: 2},
+		{Name: "删除", Action: "delete_registry_management", Resource: "RegistryManagement", Scope: 2},
+		{Name: "查看", Action: "get_s3storage_management", Resource: "S3StorageManagement", Scope: 2},
+		{Name: "新建", Action: "create_s3storage_management", Resource: "S3StorageManagement", Scope: 2},
+		{Name: "编辑", Action: "edit_s3storage_management", Resource: "S3StorageManagement", Scope: 2},
+		{Name: "删除", Action: "delete_s3storage_management", Resource: "S3StorageManagement", Scope: 2},
+		{Name: "查看", Action: "get_helmrepo_management", Resource: "HelmRepoManagement", Scope: 2},
+		{Name: "新建", Action: "create_helmrepo_management", Resource: "HelmRepoManagement", Scope: 2},
+		{Name: "编辑", Action: "edit_helmrepo_management", Resource: "HelmRepoManagement", Scope: 2},
+		{Name: "删除", Action: "delete_helmrepo_management", Resource: "HelmRepoManagement", Scope: 2},
+	}
+
+	err = repository.DB.Create(actions).Error
+	if err != nil {
+		return fmt.Errorf("failed to create actions, err: %v", err)
+	}
+
+	return nil
+}
+
+// migrateRendersets used to remove renderset, global variables will be set in product, service render will be set in product.service
+func migrateRendersets() error {
+	allProjects, err := template.NewProductColl().ListWithOption(&template.ProductListOpt{})
+	if err != nil {
+		return errors.Wrapf(err, "failed to list projects")
+	}
+
+	for _, project := range allProjects {
+		if !project.IsK8sYamlProduct() && !project.IsHelmProduct() {
+			continue
+		}
+
+		log.Infof("migrating render set for project: %s", project.ProductName)
+
+		envs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{Name: project.ProductName})
+		if err != nil {
+			return errors.Wrapf(err, "failed to list envs of project: %s", project.ProductName)
+		}
+		for _, env := range envs {
+			if env.Render == nil {
+				continue
+			}
+
+			if len(env.DefaultValues) > 0 || len(env.GlobalVariables) > 0 {
+				continue
+			}
+			svcRenderSet := false
+			for _, svcGroup := range env.Services {
+				for _, svc := range svcGroup {
+					if svc.Render != nil && len(svc.Render.ServiceName) > 0 {
+						svcRenderSet = true
+						break
+					}
+				}
+			}
+			if svcRenderSet {
+				continue
+			}
+
+			curRender, err := mongodb.NewRenderSetColl().Find(&mongodb.RenderSetFindOption{ProductTmpl: project.ProductName, EnvName: env.EnvName, Name: env.Render.Name, Revision: env.Render.Revision})
+			if err != nil {
+				return errors.Wrapf(err, "failed to find render info for product: %s/%s, render info: %s/%d", env.ProductName, curRender.EnvName, env.Render.Name, env.Render.Revision)
+			}
+
+			log.Infof("migrating render set for product: %s/%s", project.ProductName, env.EnvName)
+
+			env.DefaultValues = curRender.DefaultValues
+			env.YamlData = curRender.YamlData
+			env.GlobalVariables = curRender.GlobalVariables
+
+			for _, svcGroup := range env.Services {
+				for _, svc := range svcGroup {
+					if project.IsHelmProduct() {
+						if svc.FromZadig() {
+							svc.Render = curRender.GetChartRenderMap()[svc.ServiceName]
+						} else {
+							svc.Render = curRender.GetChartDeployRenderMap()[svc.ReleaseName]
+						}
+					} else {
+						svc.Render = curRender.GetServiceRenderMap()[svc.ServiceName]
+					}
+					// ensure render is set, technically this should not happen
+					if svc.Render == nil {
+						svc.Render = svc.GetServiceRender()
+					}
+				}
+			}
+
+			err = mongodb.NewProductColl().Update(env)
+			if err != nil {
+				return errors.Wrapf(err, "failed to update render for product: %v/%v", env.ProductName, env.EnvName)
 			}
 		}
 	}

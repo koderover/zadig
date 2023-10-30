@@ -161,7 +161,6 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			Value: ""},
 	}
 
-	//serviceOption.VariableYaml = getTemplateMergedVariables(args)
 	serviceOption.VariableYaml = args.VariableYaml
 	serviceOption.ServiceVariableKVs = args.ServiceVariableKVs
 
@@ -169,6 +168,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromGitee {
 		serviceOption.Yaml = args.Yaml
 	}
+
 	return serviceOption, nil
 }
 
@@ -278,7 +278,6 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
 	}); err != nil {
-		// no need to create renderset since renderset is not necessary in host projects
 		if err := service.CreateProduct(userName, requestID, &commonmodels.Product{
 			ProductName: args.ProductName,
 			Source:      setting.SourceFromExternal,

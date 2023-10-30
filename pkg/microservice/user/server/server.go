@@ -18,10 +18,15 @@ package server
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"time"
 
+	ext_authz_v3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	"google.golang.org/grpc"
+
 	"github.com/koderover/zadig/pkg/microservice/user/core"
+	userGrpcServer "github.com/koderover/zadig/pkg/microservice/user/server/grpc"
 	"github.com/koderover/zadig/pkg/microservice/user/server/rest"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -35,6 +40,8 @@ func Serve(ctx context.Context) error {
 	engine := rest.NewEngine()
 	server := &http.Server{Addr: ":80", Handler: engine}
 
+	grpcServer := grpc.NewServer()
+
 	stopChan := make(chan struct{})
 	go func() {
 		defer close(stopChan)
@@ -46,6 +53,22 @@ func Serve(ctx context.Context) error {
 
 		if err := server.Shutdown(ctx); err != nil {
 			log.Errorf("Failed to stop server, error: %s", err)
+		}
+
+		grpcServer.GracefulStop()
+	}()
+
+	listen, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		log.Fatalf("failed to start grpc server listener, error: %s", err)
+	}
+
+	ext_authz_v3.RegisterAuthorizationServer(grpcServer, &userGrpcServer.AuthServer{})
+
+	go func() {
+		log.Infof("grpc server stating on port: %d.....", 8080)
+		if err := grpcServer.Serve(listen); err != nil {
+			log.Fatalf("failed to start grpc server, error: %s", err)
 		}
 	}()
 

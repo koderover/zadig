@@ -23,6 +23,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -65,6 +66,7 @@ func (c *Client) GetLocalCluster() (*clusterResp, error) {
 	clusterResp := &clusterResp{}
 	resp, err := c.Get(url, httpclient.SetResult(clusterResp))
 	if err != nil {
+		log.Errorf("failed to get local cluster, err: %v", err)
 		errorMessage := new(ErrorMessage)
 		err := json.Unmarshal(resp.Body(), errorMessage)
 		if err != nil {

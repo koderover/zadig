@@ -107,6 +107,38 @@ const (
 	VerbCreateReleasePlan = "create_release_plan"
 	VerbEditReleasePlan   = "edit_release_plan"
 	VerbDeleteReleasePlan = "delete_release_plan"
+	// cluster management
+	VerbGetClusterManagement    = "get_cluster_management"
+	VerbCreateClusterManagement = "create_cluster_management"
+	VerbEditClusterManagement   = "edit_cluster_management"
+	VerbDeleteClusterManagement = "delete_cluster_management"
+	// vm management
+	VerbGetVMManagement    = "get_vm_management"
+	VerbCreateVMManagement = "create_vm_management"
+	VerbEditVMManagement   = "edit_vm_management"
+	VerbDeleteVMManagement = "delete_vm_management"
+	// registry management
+	VerbGetRegistryManagement    = "get_registry_management"
+	VerbCreateRegistryManagement = "create_registry_management"
+	VerbEditRegistryManagement   = "edit_registry_management"
+	VerbDeleteRegistryManagement = "delete_registry_management"
+	// s3storage management
+	VerbGetS3StorageManagement    = "get_s3storage_management"
+	VerbCreateS3StorageManagement = "create_s3storage_management"
+	VerbEditS3StorageManagement   = "edit_s3storage_management"
+	VerbDeleteS3StorageManagement = "delete_s3storage_management"
+	// helmrepo management
+	VerbGetHelmRepoManagement    = "get_helmrepo_management"
+	VerbCreateHelmRepoManagement = "create_helmrepo_management"
+	VerbEditHelmRepoManagement   = "edit_helmrepo_management"
+	VerbDeleteHelmRepoManagement = "delete_helmrepo_management"
+	// business directory
+	VerbGetBusinessDirectory = "get_business_directory"
+	// dbinstance management
+	VerbGetDBInstanceManagement    = "get_dbinstance_management"
+	VerbCreateDBInstanceManagement = "create_dbinstance_management"
+	VerbEditDBInstanceManagement   = "edit_dbinstance_management"
+	VerbDeleteDBInstanceManagement = "delete_dbinstance_management"
 )
 
 type AuthorizedResources struct {
@@ -129,13 +161,20 @@ type ProjectActions struct {
 }
 
 type SystemActions struct {
-	Project        *SystemProjectActions  `json:"project"`
-	Template       *TemplateActions       `json:"template"`
-	TestCenter     *TestCenterActions     `json:"test_center"`
-	ReleaseCenter  *ReleaseCenterActions  `json:"release_center"`
-	DeliveryCenter *DeliveryCenterActions `json:"delivery_center"`
-	DataCenter     *DataCenterActions     `json:"data_center"`
-	ReleasePlan    *ReleasePlanActions    `json:"release_plan"`
+	Project              *SystemProjectActions        `json:"project"`
+	Template             *TemplateActions             `json:"template"`
+	TestCenter           *TestCenterActions           `json:"test_center"`
+	ReleaseCenter        *ReleaseCenterActions        `json:"release_center"`
+	DeliveryCenter       *DeliveryCenterActions       `json:"delivery_center"`
+	DataCenter           *DataCenterActions           `json:"data_center"`
+	ReleasePlan          *ReleasePlanActions          `json:"release_plan"`
+	BusinessDirectory    *BusinessDirectoryActions    `json:"business_directory"`
+	ClusterManagement    *ClusterManagementActions    `json:"cluster_management"`
+	VMManagement         *VMManagementActions         `json:"vm_management"`
+	RegistryManagement   *RegistryManagementActions   `json:"registry_management"`
+	S3StorageManagement  *S3StorageManagementActions  `json:"s3storage_management"`
+	HelmRepoManagement   *HelmRepoManagementActions   `json:"helmrepo_management"`
+	DBInstanceManagement *DBInstanceManagementActions `json:"dbinstance_management"`
 }
 
 type WorkflowActions struct {
@@ -246,6 +285,52 @@ type DataCenterActions struct {
 }
 
 type ReleasePlanActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type BusinessDirectoryActions struct {
+	View bool
+}
+
+type ClusterManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type VMManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type RegistryManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type S3StorageManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type HelmRepoManagementActions struct {
+	Create bool
+	View   bool
+	Edit   bool
+	Delete bool
+}
+
+type DBInstanceManagementActions struct {
 	Create bool
 	View   bool
 	Edit   bool

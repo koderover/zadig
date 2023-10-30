@@ -17,11 +17,18 @@ limitations under the License.
 package service
 
 import (
+	"database/sql"
+	"fmt"
+
+	_ "github.com/go-sql-driver/mysql"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/crypto"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 func ListDBInstances(encryptedKey string, log *zap.SugaredLogger) ([]*commonmodels.DBInstance, error) {
@@ -30,18 +37,40 @@ func ListDBInstances(encryptedKey string, log *zap.SugaredLogger) ([]*commonmode
 		log.Errorf("ListDBInstances GetAesKeyFromEncryptedKey err:%v", err)
 		return nil, err
 	}
-	helmRepos, err := commonrepo.NewDBInstanceColl().List()
+	resp, err := commonrepo.NewDBInstanceColl().List()
 	if err != nil {
 		return []*commonmodels.DBInstance{}, nil
 	}
-	for _, helmRepo := range helmRepos {
-		helmRepo.Password, err = crypto.AesEncryptByKey(helmRepo.Password, aesKey.PlainText)
+	for _, db := range resp {
+		db.Password, err = crypto.AesEncryptByKey(db.Password, aesKey.PlainText)
 		if err != nil {
 			log.Errorf("ListDBInstances AesEncryptByKey err:%v", err)
 			return nil, err
 		}
 	}
-	return helmRepos, nil
+	return resp, nil
+}
+
+func ListDBInstancesInfo(log *zap.SugaredLogger) ([]*commonmodels.DBInstance, error) {
+	resp, err := commonrepo.NewDBInstanceColl().List()
+	if err != nil {
+		return nil, err
+	}
+	for _, db := range resp {
+		db.Password = ""
+	}
+	return resp, nil
+}
+
+func ListDBInstancesInfoByProject(projectName string, log *zap.SugaredLogger) ([]*commonmodels.DBInstance, error) {
+	resp, err := commonrepo.NewDBInstanceColl().ListByProject(projectName)
+	if err != nil {
+		return nil, err
+	}
+	for _, db := range resp {
+		db.Password = ""
+	}
+	return resp, nil
 }
 
 func CreateDBInstance(args *commonmodels.DBInstance, log *zap.SugaredLogger) error {
@@ -60,10 +89,37 @@ func FindDBInstance(id, name string) (*commonmodels.DBInstance, error) {
 	return commonrepo.NewDBInstanceColl().Find(&commonrepo.DBInstanceCollFindOption{Id: id, Name: name})
 }
 
-func UpdateDBInstance(args *commonmodels.DBInstance, log *zap.SugaredLogger) error {
-	return commonrepo.NewDBInstanceColl().Update(args.ID, args)
+func UpdateDBInstance(id string, args *commonmodels.DBInstance, log *zap.SugaredLogger) error {
+	return commonrepo.NewDBInstanceColl().Update(id, args)
 }
 
 func DeleteDBInstance(id string) error {
 	return commonrepo.NewDBInstanceColl().Delete(id)
+}
+
+func ValidateDBInstance(args *commonmodels.DBInstance) error {
+	if args == nil {
+		return errors.New("nil DBInstance")
+	}
+	switch args.Type {
+	case config.DBInstanceTypeMySQL, config.DBInstanceTypeMariaDB:
+		return validateMySQLInstance(args)
+	default:
+		return errors.Errorf("invalid db type %s", args.Type)
+	}
+}
+
+func validateMySQLInstance(args *commonmodels.DBInstance) error {
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8&parseTime=True&loc=Local", args.Username, args.Password, args.Host, args.Port)
+
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return errors.Errorf("connect mysql failed, err: %s", err)
+	}
+	defer db.Close()
+
+	if err = db.Ping(); err != nil {
+		return errors.Errorf("ping mysql failed, err: %s", err)
+	}
+	return nil
 }

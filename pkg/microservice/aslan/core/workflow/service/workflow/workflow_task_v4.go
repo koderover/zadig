@@ -108,7 +108,7 @@ type JobTaskPreview struct {
 	Status           config.Status `bson:"status"         json:"status"`
 	StartTime        int64         `bson:"start_time"     json:"start_time,omitempty"`
 	EndTime          int64         `bson:"end_time"       json:"end_time,omitempty"`
-	CostSeconds      int64         `bson:"cost_seconds"   json:"cost_seconds,omitempty"`
+	CostSeconds      int64         `bson:"cost_seconds"   json:"cost_seconds"`
 	Error            string        `bson:"error"          json:"error"`
 	BreakpointBefore bool          `bson:"breakpoint_before" json:"breakpoint_before"`
 	BreakpointAfter  bool          `bson:"breakpoint_after"  json:"breakpoint_after"`
@@ -540,6 +540,9 @@ func RetryWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredL
 	jobTaskMap := make(map[string]*commonmodels.JobTask)
 	for _, stage := range task.WorkflowArgs.Stages {
 		for _, job := range stage.Jobs {
+			if job.Skipped {
+				continue
+			}
 			jobCtl, err := jobctl.InitJobCtl(job, task.WorkflowArgs)
 			if err != nil {
 				return errors.Errorf("init jobCtl %s error: %s", job.Name, err)

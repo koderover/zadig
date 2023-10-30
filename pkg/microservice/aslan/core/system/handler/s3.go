@@ -42,17 +42,12 @@ func ListS3Storage(c *gin.Context) {
 		return
 	}
 
-	// authorization checks
-	// TODO: Authorization leak
-	// This API is used in some workflow edit case, but we don't have projectKey in this API
-	// making the authorization of the API hard.
-	// The correct solution to this problem is to provide another API with the function of listing
-	// s3 storage but not returning all the AK/SK.
-
-	//if !ctx.Resources.IsSystemAdmin {
-	//	ctx.UnAuthorized = true
-	//	return
-	//}
+	if !ctx.Resources.IsSystemAdmin {
+		if !ctx.Resources.SystemActions.S3StorageManagement.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
@@ -62,12 +57,46 @@ func ListS3Storage(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListS3Storage(encryptedKey, ctx.Logger)
 }
 
+// @Summary List S3 Storage By Project
+// @Description List S3 Storage By Project
+// @Tags 	system
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string										true	"project name"
+// @Success 200 		{array} 	commonmodels.S3Storage
+// @Router /api/aslan/system/s3storage/project [get]
+func ListS3StorageByProject(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Logger.Errorf("failed to generate authorization info for user: %s, error: %s", ctx.UserID, err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if len(projectName) == 0 {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.ListS3StorageByProject(projectName, ctx.Logger)
+}
+
 func CreateS3Storage(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -86,8 +115,10 @@ func CreateS3Storage(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.S3StorageManagement.Create {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if err := c.BindJSON(args); err != nil {
@@ -119,7 +150,9 @@ func GetS3Storage(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
+		if !ctx.Resources.SystemActions.S3StorageManagement.View {
+			ctx.UnAuthorized = true
+		}
 		return
 	}
 
@@ -131,7 +164,6 @@ func UpdateS3Storage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -150,8 +182,10 @@ func UpdateS3Storage(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.S3StorageManagement.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	if err := c.BindJSON(args); err != nil {
@@ -176,7 +210,6 @@ func DeleteS3Storage(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -186,8 +219,10 @@ func DeleteS3Storage(c *gin.Context) {
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
-		ctx.UnAuthorized = true
-		return
+		if !ctx.Resources.SystemActions.S3StorageManagement.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = service.DeleteS3Storage(ctx.UserName, c.Param("id"), ctx.Logger)

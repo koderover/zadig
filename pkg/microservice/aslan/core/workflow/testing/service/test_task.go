@@ -65,7 +65,7 @@ func CreateTestTask(args *commonmodels.TestTaskArgs, log *zap.SugaredLogger) (*C
 		return nil, err
 	}
 
-	defaultURL, err := defaultS3Store.GetEncryptedURL()
+	defaultURL, err := defaultS3Store.GetEncrypted()
 	if err != nil {
 		err = e.ErrS3Storage.AddErr(err)
 		return nil, err

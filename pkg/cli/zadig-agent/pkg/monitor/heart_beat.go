@@ -81,7 +81,7 @@ func (h *HeartbeatService) Start(ctx context.Context) {
 				Heartbeat(h.AgentCtl, errChan, successChan, h.StopAgentChan)
 			})
 		case err := <-errChan:
-			log.Errorf("failed to ping to zadig server, err: %v", err)
+			log.Errorf("failed to ping zadig server, err: %v", err)
 			h.FailedTime++
 			ticker.Reset(time.Duration(h.Interval) * time.Second)
 		case _ = <-successChan:
@@ -142,10 +142,36 @@ func Heartbeat(agentCtl *agent.AgentController, errChan chan error, successChan 
 		close(stopChan)
 	}
 
-	if resp.WorkDir != "" {
-		agentconfig.SetAgentWorkDirectory(resp.WorkDir)
+	agentConfig := new(agentconfig.AgentConfig)
+	if resp.VmName != "" {
+		agentConfig.VmName = resp.VmName
 	}
-	agentconfig.SetScheduleWorkflow(resp.ScheduleWorkflow)
+	if resp.Description != "" {
+		agentConfig.Description = resp.Description
+	}
+	if resp.ZadigVersion != "" {
+		agentConfig.ZadigVersion = resp.ZadigVersion
+	}
+	if resp.ServerURL != "" {
+		agentConfig.ServerURL = resp.ServerURL
+	}
+	if resp.WorkDir != "" {
+		agentConfig.WorkDirectory = resp.WorkDir
+	}
+	agentConfig.ScheduleWorkflow = resp.ScheduleWorkflow
+
+	if resp.Concurrency > 0 {
+		agentConfig.Concurrency = resp.Concurrency
+	}
+
+	if resp.CacheType != "" {
+		agentConfig.CacheType = resp.CacheType
+	}
+
+	err = agentconfig.BatchUpdateAgentConfig(agentConfig)
+	if err != nil {
+		log.Errorf("failed to update agent config: %v", err)
+	}
 
 	successChan <- struct{}{}
 }

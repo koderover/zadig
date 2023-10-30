@@ -30,6 +30,7 @@ type RegistryNamespace struct {
 	RegType     string             `bson:"reg_type"                    json:"reg_type"`
 	RegProvider string             `bson:"reg_provider"                json:"reg_provider"`
 	IsDefault   bool               `bson:"is_default"                  json:"is_default"`
+	Projects    []string           `bson:"projects"                    json:"projects"`
 	// Namespace is NOT a required field, this could be empty when the registry is AWS ECR or so.
 	// use with CAUTION !!!!
 	Namespace  string `bson:"namespace,omitempty"         json:"namespace,omitempty"`

@@ -34,7 +34,7 @@ func (r *Reaper) archiveS3Files() (err error) {
 	if r.Ctx.FileArchiveCtx != nil && r.Ctx.StorageURI != "" {
 		var store *s3.S3
 
-		if store, err = s3.NewS3StorageFromEncryptedURI(r.Ctx.StorageURI, r.Ctx.AesKey); err != nil {
+		if store, err = s3.UnmarshalNewS3StorageFromEncrypted(r.Ctx.StorageURI, r.Ctx.AesKey); err != nil {
 			log.Errorf("failed to create s3 storage %s", r.Ctx.StorageURI)
 			return
 		}
@@ -79,7 +79,7 @@ func (r *Reaper) archiveTestFiles() error {
 		return nil
 	}
 
-	store, err := s3.NewS3StorageFromEncryptedURI(r.Ctx.StorageURI, r.Ctx.AesKey)
+	store, err := s3.UnmarshalNewS3StorageFromEncrypted(r.Ctx.StorageURI, r.Ctx.AesKey)
 	if err != nil {
 		log.Errorf("failed to create s3 storage %s, err: %s", r.Ctx.StorageURI, err)
 		return err
@@ -132,7 +132,7 @@ func (r *Reaper) archiveHTMLTestReportFile() error {
 		return nil
 	}
 
-	store, err := s3.NewS3StorageFromEncryptedURI(r.Ctx.StorageURI, r.Ctx.AesKey)
+	store, err := s3.UnmarshalNewS3StorageFromEncrypted(r.Ctx.StorageURI, r.Ctx.AesKey)
 	if err != nil {
 		log.Errorf("failed to create s3 storage %s, err: %s", r.Ctx.StorageURI, err)
 		return err

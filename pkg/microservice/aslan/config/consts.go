@@ -36,7 +36,7 @@ const (
 	ServiceNameRegexString = "^[a-zA-Z0-9-_]+$"
 	ConfigNameRegexString  = "^[a-zA-Z0-9-]+$"
 	ImageRegexString       = "^[a-zA-Z0-9.:\\/-]+$"
-	CVMNameRegexString     = "^[a-zA-Z_]\\w+$"
+	CVMNameRegexString     = "^[a-zA-Z_]\\w*$"
 
 	EnvRecyclePolicyAlways     = "always"
 	EnvRecyclePolicyTaskStatus = "success"
@@ -221,6 +221,7 @@ const (
 	JobJira                 JobType = "jira"
 	JobNacos                JobType = "nacos"
 	JobApollo               JobType = "apollo"
+	JobSQL                  JobType = "sql"
 	JobJenkins              JobType = "jenkins"
 	JobMeegoTransition      JobType = "meego-transition"
 	JobWorkflowTrigger      JobType = "workflow-trigger"
@@ -242,6 +243,13 @@ type ObservabilityType string
 const (
 	ObservabilityTypeGrafana   ObservabilityType = "grafana"
 	ObservabilityTypeGuanceyun ObservabilityType = "guanceyun"
+)
+
+type DBInstanceType string
+
+const (
+	DBInstanceTypeMySQL   DBInstanceType = "mysql"
+	DBInstanceTypeMariaDB DBInstanceType = "mariadb"
 )
 
 type ApprovalType string
@@ -323,26 +331,6 @@ const (
 	NameSpaceRegexString = "[^a-z0-9.-]"
 )
 
-// ProductPermission ...
-type ProductPermission string
-
-// ProductAuthType ...
-type ProductAuthType string
-
-const (
-	// ProductReadPermission ...
-	ProductReadPermission = ProductPermission("read")
-	// ProductWritePermission ...
-	ProductWritePermission = ProductPermission("write")
-)
-
-const (
-	// ProductAuthUser ...
-	ProductAuthUser = ProductAuthType("user")
-	// ProductAuthTeam ...
-	ProductAuthTeam = ProductAuthType("team")
-)
-
 type HookEventType string
 
 const (
@@ -350,12 +338,6 @@ const (
 	HookEventPr      = HookEventType("pull_request")
 	HookEventTag     = HookEventType("tag")
 	HookEventUpdated = HookEventType("ref-updated")
-)
-
-const (
-	KeyStateNew     = "new"
-	KeyStateUnused  = "unused"
-	KeyStatePresent = "present"
 )
 
 const (

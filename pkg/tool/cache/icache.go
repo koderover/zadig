@@ -11,6 +11,7 @@ type ICache interface {
 	IsCacheDisabled() bool
 }
 
+// New returns a memory cache which implements the iCache interface
 func New(noCache bool) ICache {
 	return NewMemCache(noCache)
 }

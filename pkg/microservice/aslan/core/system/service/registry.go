@@ -71,6 +71,20 @@ var ImageTagsReqStatus = struct {
 	List: make(map[string]struct{}),
 }
 
+func ListRegistriesByProject(projectName string, log *zap.SugaredLogger) ([]*commonmodels.RegistryNamespace, error) {
+	registryNamespaces, err := commonservice.ListRegistryByProject(projectName, log)
+	if err != nil {
+		log.Errorf("RegistryNamespace.List error: %v", err)
+		return registryNamespaces, fmt.Errorf("RegistryNamespace.List error: %v", err)
+	}
+	for _, registryNamespace := range registryNamespaces {
+		registryNamespace.AccessKey = ""
+		registryNamespace.SecretKey = ""
+		registryNamespace.Projects = nil
+	}
+	return registryNamespaces, nil
+}
+
 // ListRegistries 为了抹掉ak和sk的数据
 func ListRegistries(log *zap.SugaredLogger) ([]*commonmodels.RegistryNamespace, error) {
 	registryNamespaces, err := commonservice.ListRegistryNamespaces("", false, log)

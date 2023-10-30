@@ -34,6 +34,11 @@ const (
 	ENVMysqlPassword           = "MYSQL_PASSWORD"
 	ENVMysqlHost               = "MYSQL_HOST"
 	ENVMysqlUserDb             = "MYSQL_USER_DB"
+	ENVRedisHost               = "REDIS_HOST"
+	ENVRedisPort               = "REDIS_PORT"
+	ENVRedisUserName           = "REDIS_USERNAME"
+	ENVRedisPassword           = "REDIS_PASSWORD"
+	ENVRedisUserTokenDB        = "REDIS_USER_TOKEN_DB"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"
@@ -111,15 +116,16 @@ const (
 	TestMode    = "test"
 
 	// user
-	ENVIssuerURL      = "ISSUER_URL"
-	ENVClientID       = "CLIENT_ID"
-	ENVClientSecret   = "CLIENT_SECRET"
-	ENVRedirectURI    = "REDIRECT_URI"
-	ENVSecretKey      = "SECRET_KEY"
-	ENVMysqlUserDB    = "MYSQL_USER_DB"
-	ENVScopes         = "SCOPES"
-	ENVTokenExpiresAt = "TOKEN_EXPIRES_AT"
-	ENVUserPort       = "USER_PORT"
+	ENVIssuerURL       = "ISSUER_URL"
+	ENVClientID        = "CLIENT_ID"
+	ENVClientSecret    = "CLIENT_SECRET"
+	ENVRedirectURI     = "REDIRECT_URI"
+	ENVSecretKey       = "SECRET_KEY"
+	ENVMysqlUserDB     = "MYSQL_USER_DB"
+	ENVScopes          = "SCOPES"
+	ENVTokenExpiresAt  = "TOKEN_EXPIRES_AT"
+	ENVUserPort        = "USER_PORT"
+	ENVDecisionLogPath = "DECISION_LOG_PATH"
 
 	// config
 	ENVMysqlDexDB = "MYSQL_DEX_DB"
@@ -309,6 +315,8 @@ const (
 	PublishType = "publish"
 
 	FunctionTestType = "function"
+
+	AllProjects = "<all_projects>"
 )
 
 const (
@@ -441,6 +449,7 @@ const (
 	ServiceTemplateCounterName = "service:%s&project:%s"
 	// ProductionServiceTemplateCounterName use aslan/core/common/util.GenerateServiceNextRevision() to generate service revision
 	ProductionServiceTemplateCounterName = "productionservice:%s&project:%s"
+	EnvServiceVersionCounterName         = "project:%s&env:%s&service:%s&ishelmchart:%v"
 	// GerritDefaultOwner
 	GerritDefaultOwner = "dafault"
 	// YamlFileSeperator ...
@@ -573,9 +582,10 @@ const (
 // helm related
 const (
 	// components used to search image paths from yaml
-	PathSearchComponentRepo  = "repo"
-	PathSearchComponentImage = "image"
-	PathSearchComponentTag   = "tag"
+	PathSearchComponentRepo      = "repo"
+	PathSearchComponentNamespace = "namespace"
+	PathSearchComponentImage     = "image"
+	PathSearchComponentTag       = "tag"
 )
 
 // host for multiple cloud provider
@@ -848,14 +858,14 @@ const (
 	LinuxArm64 = "linux_arm64"
 	MacOSAmd64 = "darwin_amd64"
 	MacOSArm64 = "darwin_arm64"
+
+	// vm cache type
+	VmCache     = "vm"
+	ObjectCache = "object"
 )
 
 const (
 	// zadig build infrastructure
 	JobK8sInfrastructure = "kubernetes"
 	JobVMInfrastructure  = "vm"
-)
-
-const (
-// zadig-agent version
 )

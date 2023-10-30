@@ -21,16 +21,19 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/mojocn/base64Captcha"
 	"github.com/patrickmn/go-cache"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/user/config"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
+	zadigCache "github.com/koderover/zadig/pkg/tool/cache"
 )
 
 type LoginArgs struct {
@@ -156,6 +159,12 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		return nil, 0, err
 	}
 
+	systemSettings, err := aslan.New(configbase.AslanServiceAddress()).GetSystemSecurityAndPrivacySettings()
+	if err != nil {
+		logger.Errorf("failed to get system security settings, error: %s", err)
+		return nil, 0, fmt.Errorf("failed to get system security settings, error: %s", err)
+	}
+
 	token, err := CreateToken(&Claims{
 		Name:              user.Name,
 		UID:               user.UID,
@@ -163,7 +172,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 		PreferredUsername: user.Account,
 		StandardClaims: jwt.StandardClaims{
 			Audience:  setting.ProductName,
-			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
+			ExpiresAt: time.Now().Add(time.Duration(systemSettings.TokenExpirationTime) * time.Hour).Unix(),
 		},
 		FederatedClaims: FederatedClaims{
 			ConnectorId: user.IdentityType,
@@ -173,6 +182,11 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, int, error) 
 	if err != nil {
 		logger.Errorf("LocalLogin user:%s create token error, error msg:%s", args.Account, err.Error())
 		return nil, 0, err
+	}
+
+	err = zadigCache.NewRedisCache(config.RedisUserTokenDB()).Write(user.UID, token, time.Duration(systemSettings.TokenExpirationTime)*time.Hour)
+	if err != nil {
+		logger.Errorf("failed to write token into cache, error: %s\n warn: this will cause login failure", err)
 	}
 
 	return &User{
@@ -194,6 +208,12 @@ func LocalLogout(userID string, logger *zap.SugaredLogger) (bool, string, error)
 	}
 
 	logger.Infof("user Info: %v", userInfo)
+
+	err = zadigCache.NewRedisCache(config.RedisUserTokenDB()).Delete(userID)
+	if err != nil {
+		logger.Errorf("failed to void token, error: %s", err)
+		return false, "", fmt.Errorf("failed to void token, error: %s", err)
+	}
 
 	if userInfo.IdentityType != config.OauthIdentityType {
 		return false, "", nil

@@ -19,6 +19,14 @@ definitions:
     - CommonEnvCfgTypeConfigMap
     - CommonEnvCfgTypeSecret
     - CommonEnvCfgTypePvc
+  config.DBInstanceType:
+    enum:
+    - mysql
+    - mariadb
+    type: string
+    x-enum-varnames:
+    - DBInstanceTypeMySQL
+    - DBInstanceTypeMariaDB
   config.DeployContent:
     enum:
     - image
@@ -409,6 +417,33 @@ definitions:
       yaml_data:
         type: string
     type: object
+  models.DBInstance:
+    properties:
+      created_at:
+        type: integer
+      host:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      port:
+        type: string
+      projects:
+        items:
+          type: string
+        type: array
+      type:
+        $ref: '#/definitions/config.DBInstanceType'
+      update_by:
+        type: string
+      updated_at:
+        type: integer
+      username:
+        type: string
+    type: object
   models.DeplopyVariableConfig:
     properties:
       use_global_variable:
@@ -496,9 +531,34 @@ definitions:
       version:
         type: string
     type: object
+  models.HelmRepo:
+    properties:
+      created_at:
+        type: integer
+      id:
+        type: string
+      password:
+        type: string
+      projects:
+        items:
+          type: string
+        type: array
+      repo_name:
+        type: string
+      update_by:
+        type: string
+      updated_at:
+        type: integer
+      url:
+        type: string
+      username:
+        type: string
+    type: object
   models.ImagePathSpec:
     properties:
       image:
+        type: string
+      namespace:
         type: string
       repo:
         type: string
@@ -609,6 +669,10 @@ definitions:
         type: string
       release_name:
         type: string
+      render:
+        allOf:
+        - $ref: '#/definitions/template.ServiceRender'
+        description: New since 1.9.0 used to replace service renders in render_set
       revision:
         type: integer
       service_name:
@@ -617,6 +681,8 @@ definitions:
         type: string
       updatable:
         type: boolean
+      update_time:
+        type: integer
       variable_kvs:
         items:
           $ref: '#/definitions/types.RenderVariableKV'
@@ -632,6 +698,15 @@ definitions:
         type: boolean
       is_base:
         type: boolean
+    type: object
+  models.ProjectDetail:
+    properties:
+      project_deploy_type:
+        type: string
+      project_key:
+        type: string
+      project_name:
+        type: string
     type: object
   models.ProjectManagement:
     properties:
@@ -662,6 +737,54 @@ definitions:
       type:
         type: string
       updated_at:
+        type: integer
+    type: object
+  models.RegistryAdvancedSetting:
+    properties:
+      enable_tls:
+        description: New field since v1.11 to support self-signed TLS certificate
+        type: boolean
+      modified:
+        description: |-
+          indicator to make sure if the advanced has been modified
+          This is solely a field for frontend display and not used anywhere else in the backend system
+          TODO: whether this field should exist needs a discussion
+        type: boolean
+      tls_cert:
+        type: string
+    type: object
+  models.RegistryNamespace:
+    properties:
+      access_key:
+        type: string
+      advanced_setting:
+        $ref: '#/definitions/models.RegistryAdvancedSetting'
+      id:
+        type: string
+      is_default:
+        type: boolean
+      namespace:
+        description: |-
+          Namespace is NOT a required field, this could be empty when the registry is AWS ECR or so.
+          use with CAUTION !!!!
+        type: string
+      projects:
+        items:
+          type: string
+        type: array
+      reg_addr:
+        type: string
+      reg_provider:
+        type: string
+      reg_type:
+        type: string
+      region:
+        type: string
+      secret_key:
+        type: string
+      update_by:
+        type: string
+      update_time:
         type: integer
     type: object
   models.RenderInfo:
@@ -701,6 +824,37 @@ definitions:
     - ResourceTypeHPA
     - ResourceTypePDB
     - ResourceTypeNetworkPolicy
+  models.S3Storage:
+    properties:
+      ak:
+        type: string
+      bucket:
+        type: string
+      endpoint:
+        type: string
+      id:
+        type: string
+      insecure:
+        type: boolean
+      is_default:
+        type: boolean
+      projects:
+        items:
+          type: string
+        type: array
+      provider:
+        type: integer
+      region:
+        type: string
+      sk:
+        type: string
+      subfolder:
+        type: string
+      update_time:
+        type: integer
+      updated_by:
+        type: string
+    type: object
   models.Service:
     properties:
       auto_sync:
@@ -721,6 +875,8 @@ definitions:
         type: string
       create_from: {}
       create_time:
+        type: integer
+      deploy_time:
         type: integer
       description:
         type: string
@@ -978,6 +1134,10 @@ definitions:
         type: string
       name:
         type: string
+      pods:
+        items:
+          $ref: '#/definitions/resource.Pod'
+        type: array
       schedule:
         type: string
       suspend:
@@ -1299,6 +1459,38 @@ definitions:
       overrideYaml:
         type: string
     type: object
+  service.GetBizDirServiceDetailResponse:
+    properties:
+      chart_version:
+        type: string
+      env_name:
+        type: string
+      images:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      production:
+        type: boolean
+      project_name:
+        type: string
+      status:
+        type: string
+      type:
+        type: string
+      update_time:
+        type: integer
+    type: object
+  service.GetEnvServiceVersionYamlResponse:
+    properties:
+      type:
+        type: string
+      variable_yaml:
+        type: string
+      yaml:
+        type: string
+    type: object
   service.GetGlobalVariableCandidatesRespone:
     properties:
       key_name:
@@ -1321,6 +1513,15 @@ definitions:
       values:
         type: string
     type: object
+  service.GetServiceVersionYamlResponse:
+    properties:
+      type:
+        type: string
+      variable_yaml:
+        type: string
+      yaml:
+        type: string
+    type: object
   service.GetSvcRenderArg:
     properties:
       is_helm_chart_deploy:
@@ -1341,6 +1542,15 @@ definitions:
         type: string
       url:
         type: string
+    type: object
+  service.GroupDetail:
+    properties:
+      group_name:
+        type: string
+      projects:
+        items:
+          $ref: '#/definitions/models.ProjectDetail'
+        type: array
     type: object
   service.HelmDeployStatusCheckRequest:
     properties:
@@ -1442,6 +1652,17 @@ definitions:
         type: string
       value: {}
     type: object
+  service.ListEnvServiceVersionsResponse:
+    properties:
+      create_by:
+        type: string
+      create_time:
+        type: integer
+      revision:
+        type: integer
+      service_name:
+        type: string
+    type: object
   service.ListPodsInfoRespone:
     properties:
       create_time:
@@ -1455,6 +1676,17 @@ definitions:
       ready:
         type: string
       status:
+        type: string
+    type: object
+  service.ListServiceVersionsResponse:
+    properties:
+      create_by:
+        type: string
+      create_time:
+        type: integer
+      revision:
+        type: integer
+      service_name:
         type: string
     type: object
   service.LoadServiceFromYamlTemplateReq:
@@ -1636,6 +1868,10 @@ definitions:
         type: string
       release_name:
         type: string
+      render:
+        allOf:
+        - $ref: '#/definitions/template.ServiceRender'
+        description: New since 1.9.0 used to replace service renders in render_set
       revision:
         type: integer
       service_name:
@@ -1644,6 +1880,8 @@ definitions:
         type: string
       updatable:
         type: boolean
+      update_time:
+        type: integer
       variable_kvs:
         items:
           $ref: '#/definitions/types.RenderVariableKV'
@@ -1687,6 +1925,24 @@ definitions:
         $ref: '#/definitions/service.DeployStatus'
       type:
         type: string
+    type: object
+  service.SearchBizDirByServiceGroup:
+    properties:
+      group_name:
+        type: string
+      projects:
+        items:
+          $ref: '#/definitions/service.SearchBizDirByServiceProject'
+        type: array
+    type: object
+  service.SearchBizDirByServiceProject:
+    properties:
+      project:
+        $ref: '#/definitions/models.ProjectDetail'
+      services:
+        items:
+          type: string
+        type: array
     type: object
   service.ServiceDefinition:
     properties:
@@ -2316,7 +2572,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Run Enviroment Analysis
+      description: Run environment Analysis
       parameters:
       - description: env name
         in: path
@@ -2335,7 +2591,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvAnalysisRespone'
-      summary: Run Enviroment Analysis
+      summary: Run environment Analysis
       tags:
       - environment
   /api/aslan/environment/environments/{name}/analysis/cron:
@@ -2416,7 +2672,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvConfigsArgs'
-      summary: Get enviroment configs
+      summary: Get environment configs
       tags:
       - environment
     put:
@@ -2445,7 +2701,7 @@ paths:
       responses:
         "200":
           description: OK
-      summary: Update enviroment configs
+      summary: Update environment configs
       tags:
       - environment
   /api/aslan/environment/environments/{name}/globalVariableCandidates:
@@ -2757,6 +3013,182 @@ paths:
       summary: Upsert Env Sleep Cron
       tags:
       - environment
+  /api/aslan/environment/environments/{name}/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Environment Service Versions
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+            type: array
+      summary: List Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Environment Service Versions
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision a
+        in: query
+        name: revisionA
+        required: true
+        type: integer
+      - description: revision b
+        in: query
+        name: revisionB
+        required: true
+        type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+      summary: Diff Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/version/{serviceName}/revision/{revision}:
+    get:
+      consumes:
+      - application/json
+      description: Get Environment Service Version Yaml
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GetEnvServiceVersionYamlResponse'
+            type: array
+      summary: Get Environment Service Version Yaml
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Environment Service Version
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: query
+        name: revision
+        required: true
+        type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Environment Service Version
+      tags:
+      - environment
   /api/aslan/environment/init_info/{name}:
     get:
       consumes:
@@ -3025,7 +3457,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Run Production Enviroment Analysis
+      description: Run Production environment Analysis
       parameters:
       - description: env name
         in: path
@@ -3044,7 +3476,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvAnalysisRespone'
-      summary: Run Production Enviroment Analysis
+      summary: Run Production environment Analysis
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/analysis/cron:
@@ -3125,7 +3557,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/service.EnvConfigsArgs'
-      summary: Get production enviroment configs
+      summary: Get production environment configs
       tags:
       - environment
     put:
@@ -3154,7 +3586,7 @@ paths:
       responses:
         "200":
           description: OK
-      summary: Update production enviroment configs
+      summary: Update production environment configs
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/estimated-values:
@@ -3358,6 +3790,187 @@ paths:
       summary: Upsert Production Env Sleep Cron
       tags:
       - environment
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Production Environment Service Versions
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+            type: array
+      summary: List Production Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Production Environment Service Versions
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision a
+        in: query
+        name: revisionA
+        required: true
+        type: integer
+      - description: revision b
+        in: query
+        name: revisionB
+        required: true
+        type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListEnvServiceVersionsResponse'
+      summary: Diff Production Environment Service Versions
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}/revision/{revision}:
+    get:
+      consumes:
+      - application/json
+      description: Get Production Environment Service Version Yaml
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      - description: release name
+        in: query
+        name: releaseName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GetEnvServiceVersionYamlResponse'
+            type: array
+      summary: Get Production Environment Service Version Yaml
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Production Environment Service Version
+      parameters:
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name or release name when isHelmChart is true
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: query
+        name: revision
+        required: true
+        type: integer
+      - description: is helm chart type
+        in: query
+        name: isHelmChart
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Production Environment Service Version
+      tags:
+      - environment
   /api/aslan/environment/production/environments/{name}/workloads:
     get:
       consumes:
@@ -3526,6 +4139,120 @@ paths:
       summary: '[DONT USE]  ZadigDeployJobSpec'
       tags:
       - placeholder
+  /api/aslan/project/bizdir:
+    get:
+      consumes:
+      - application/json
+      description: Get Bussiness Directory
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GroupDetail'
+            type: array
+      summary: Get Bussiness Directory
+      tags:
+      - project
+  /api/aslan/project/bizdir/search/project:
+    get:
+      consumes:
+      - application/json
+      description: Bussiness Directory Search By Project
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GroupDetail'
+            type: array
+      summary: Bussiness Directory Search By Project
+      tags:
+      - project
+  /api/aslan/project/bizdir/search/service:
+    get:
+      consumes:
+      - application/json
+      description: Bussiness Directory Search By Service
+      parameters:
+      - description: service name
+        in: query
+        name: serviceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.SearchBizDirByServiceGroup'
+            type: array
+      summary: Bussiness Directory Search By Service
+      tags:
+      - project
+  /api/aslan/project/bizdir/service/detail:
+    get:
+      consumes:
+      - application/json
+      description: Get Bussiness Directory Searvice Detail
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: service name
+        in: query
+        name: serviceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.GetBizDirServiceDetailResponse'
+            type: array
+      summary: Get Bussiness Directory Searvice Detail
+      tags:
+      - project
+  /api/aslan/project/bizdir/services:
+    get:
+      consumes:
+      - application/json
+      description: Get Bussiness Directory Project Services
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      summary: Get Bussiness Directory Project Services
+      tags:
+      - project
   /api/aslan/project/integration/{name}/codehosts:
     get:
       consumes:
@@ -3824,6 +4551,130 @@ paths:
       summary: Update production_global variables
       tags:
       - project
+  /api/aslan/service/production/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Production Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListServiceVersionsResponse'
+            type: array
+      summary: List Production Service Versions
+      tags:
+      - service
+  /api/aslan/service/production/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Production Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision a
+        in: query
+        name: revisionA
+        required: true
+        type: integer
+      - description: revision b
+        in: query
+        name: revisionB
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListServiceVersionsResponse'
+      summary: Diff Production Service Versions
+      tags:
+      - service
+  /api/aslan/service/production/version/{serviceName}/revision/{revision}:
+    get:
+      consumes:
+      - application/json
+      description: Get Production Service Versions Yaml
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetServiceVersionYamlResponse'
+      summary: Get Production Service Version Yaml
+      tags:
+      - service
+  /api/aslan/service/production/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Production SService Version
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: query
+        name: revision
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Production Service Version
+      tags:
+      - service
   /api/aslan/service/services:
     post:
       consumes:
@@ -3969,6 +4820,176 @@ paths:
       summary: Reload service from yaml template
       tags:
       - service
+  /api/aslan/service/version/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: List Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/service.ListServiceVersionsResponse'
+            type: array
+      summary: List Service Versions
+      tags:
+      - service
+  /api/aslan/service/version/{serviceName}/diff:
+    get:
+      consumes:
+      - application/json
+      description: Diff Service Versions
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision a
+        in: query
+        name: revisionA
+        required: true
+        type: integer
+      - description: revision b
+        in: query
+        name: revisionB
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ListServiceVersionsResponse'
+      summary: Diff Service Versions
+      tags:
+      - service
+  /api/aslan/service/version/{serviceName}/revision/{revision}:
+    get:
+      consumes:
+      - application/json
+      description: Get Service Versions Yaml
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: path
+        name: revision
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetServiceVersionYamlResponse'
+      summary: Get Service Version Yaml
+      tags:
+      - service
+  /api/aslan/service/version/{serviceName}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Rollback Service Version
+      parameters:
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: revision
+        in: query
+        name: revision
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Rollback Service Version
+      tags:
+      - service
+  /api/aslan/system/dbinstance/project:
+    get:
+      consumes:
+      - application/json
+      description: List DB Instances Info By Project
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.DBInstance'
+            type: array
+      summary: List DB Instances Info By Project
+      tags:
+      - system
+  /api/aslan/system/helm/project:
+    get:
+      consumes:
+      - application/json
+      description: List Helm Repos By Project
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.HelmRepo'
+            type: array
+      summary: List Helm Repos By Project
+      tags:
+      - system
   /api/aslan/system/llm/integration:
     get:
       consumes:
@@ -4214,6 +5235,52 @@ paths:
               $ref: '#/definitions/models.ProjectManagement'
             type: array
       summary: List Project Management For Project
+      tags:
+      - system
+  /api/aslan/system/registry/project:
+    get:
+      consumes:
+      - application/json
+      description: List Registries
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.RegistryNamespace'
+            type: array
+      summary: List Registries
+      tags:
+      - system
+  /api/aslan/system/s3storage/project:
+    get:
+      consumes:
+      - application/json
+      description: List S3 Storage By Project
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.S3Storage'
+            type: array
+      summary: List S3 Storage By Project
       tags:
       - system
   /api/aslan/system/webhook/config:

@@ -21,6 +21,7 @@ import (
 
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type Product struct {
@@ -151,6 +152,13 @@ func (rc *ServiceRender) DeployedFromZadig() bool {
 	return !rc.IsHelmChartDeploy
 }
 
+func (rc *ServiceRender) GetSafeVariable() string {
+	if rc.OverrideYaml != nil {
+		return rc.OverrideYaml.YamlContent
+	}
+	return ""
+}
+
 type ProductFeature struct {
 	// 基础设施，kubernetes 或者 cloud_host
 	BasicFacility string `bson:"basic_facility"            json:"basic_facility"`
@@ -158,6 +166,22 @@ type ProductFeature struct {
 	DeployType string `bson:"deploy_type"                  json:"deploy_type"`
 	// 创建环境方式,system/external(系统创建/外部环境)
 	CreateEnvType string `bson:"create_env_type"           json:"create_env_type"`
+}
+
+func (p *ProductFeature) GetDeployType() string {
+	if p == nil {
+		log.Errorf("product feature is nil")
+		return setting.K8SDeployType
+	}
+	var deployType string
+	if p.CreateEnvType == "external" {
+		deployType = "external"
+	} else if p.BasicFacility == "cloud_host" {
+		deployType = "cloud_host"
+	} else {
+		deployType = p.DeployType
+	}
+	return deployType
 }
 
 type ForkProject struct {
@@ -168,11 +192,12 @@ type ForkProject struct {
 }
 
 type ImageSearchingRule struct {
-	Repo     string `bson:"repo,omitempty"`
-	Image    string `bson:"image,omitempty"`
-	Tag      string `bson:"tag,omitempty"`
-	InUse    bool   `bson:"in_use,omitempty"`
-	PresetId int    `bson:"preset_id,omitempty"`
+	Repo      string `bson:"repo,omitempty"`
+	Namespace string `bson:"namespace,omitempty"`
+	Image     string `bson:"image,omitempty"`
+	Tag       string `bson:"tag,omitempty"`
+	InUse     bool   `bson:"in_use,omitempty"`
+	PresetId  int    `bson:"preset_id,omitempty"`
 }
 
 type CustomRule struct {
@@ -305,6 +330,9 @@ func (rule *ImageSearchingRule) GetSearchingPattern() map[string]string {
 	ret := make(map[string]string)
 	if rule.Repo != "" {
 		ret[setting.PathSearchComponentRepo] = rule.Repo
+	}
+	if rule.Namespace != "" {
+		ret[setting.PathSearchComponentNamespace] = rule.Namespace
 	}
 	if rule.Image != "" {
 		ret[setting.PathSearchComponentImage] = rule.Image

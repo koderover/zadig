@@ -76,7 +76,7 @@ func (c *ApolloJobCtl) Run(ctx context.Context) {
 	client := apollo.NewClient(info.ServerAddress, info.Token)
 	for _, namespace := range c.jobTaskSpec.NamespaceList {
 		for _, kv := range namespace.KeyValList {
-			err := client.UpdateKeyVal(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, kv.Key, kv.Val, "zadig")
+			err := client.UpdateKeyVal(namespace.AppID, namespace.Env, namespace.ClusterID, namespace.Namespace, kv.Key, kv.Val, info.ApolloAuthConfig.User)
 			if err != nil {
 				fail = true
 				namespace.Error = fmt.Sprintf("update error: %v", err)

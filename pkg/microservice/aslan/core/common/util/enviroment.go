@@ -1,16 +1,18 @@
 package util
 
 import (
+	"errors"
 	"fmt"
-
-	"github.com/pkg/errors"
+	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -122,19 +124,7 @@ func GetReleaseNameToChartNameMap(prod *models.Product) (map[string]string, erro
 		releaseNameMap[util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)] = svcInfo.ServiceName
 	}
 
-	// svc render in renderchart
-	opt := &commonrepo.RenderSetFindOption{
-		ProductTmpl: productName,
-		EnvName:     envName,
-		Name:        prod.Render.Name,
-		Revision:    prod.Render.Revision,
-	}
-	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Errorf("failed to find render set : %s/%s", productName, envName).Error())
-	}
-	renderMap := rendersetObj.GetChartDeployRenderMap()
-
+	renderMap := prod.GetChartDeployRenderMap()
 	for _, svc := range prod.GetChartServiceMap() {
 		if renderInfo, ok := renderMap[svc.ReleaseName]; ok {
 			releaseNameMap[svc.ReleaseName] = renderInfo.ChartName
@@ -156,4 +146,66 @@ func GetServiceNameToReleaseNameMap(prod *models.Product) (map[string]string, er
 		releaseNameMap[svcInfo.ServiceName] = util.GeneReleaseName(svcInfo.GetReleaseNaming(), productName, prod.Namespace, envName, svcInfo.ServiceName)
 	}
 	return releaseNameMap, nil
+}
+
+// update product image info
+func UpdateProductImage(envName, productName, serviceName string, targets map[string]string, userName string, logger *zap.SugaredLogger) error {
+	prod, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: envName, Name: productName})
+
+	if err != nil {
+		logger.Errorf("find product namespace error: %v", err)
+		return err
+	}
+
+	for i, group := range prod.Services {
+		for j, service := range group {
+			if service.ServiceName == serviceName {
+				for l, container := range service.Containers {
+					if image, ok := targets[container.Name]; ok {
+						prod.Services[i][j].Containers[l].Image = image
+						prod.Services[i][j].Containers[l].ImageName = util.ExtractImageName(image)
+					}
+				}
+			}
+		}
+	}
+
+	service := prod.GetServiceMap()[serviceName]
+	if service != nil {
+		err = CreateEnvServiceVersion(prod, service, userName, log.SugaredLogger())
+		if err != nil {
+			log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
+		}
+	} else {
+		log.Errorf("service %s not found in prod %s/%s", serviceName, prod.ProductName, prod.EnvName)
+	}
+
+	templateProject, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return fmt.Errorf("find template project %s error: %v", productName, err)
+	}
+
+	if templateProject.IsHostProduct() {
+		tmplSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+			ServiceName: serviceName,
+			ProductName: productName,
+		}, prod.Production)
+		if err != nil {
+			return fmt.Errorf("find template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
+		}
+
+		tmplSvc.DeployTime = time.Now().Unix()
+		err = repository.Update(tmplSvc, prod.Production)
+		if err != nil {
+			return fmt.Errorf("update template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
+		}
+	}
+
+	if err := commonrepo.NewProductColl().Update(prod); err != nil {
+		errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
+		logger.Errorf(errMsg)
+		return errors.New(errMsg)
+	}
+
+	return nil
 }

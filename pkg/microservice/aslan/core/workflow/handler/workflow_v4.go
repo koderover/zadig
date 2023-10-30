@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 
@@ -1314,6 +1315,38 @@ func GetJenkinsJobParams(c *gin.Context) {
 	}{
 		Parameters: jobParams,
 	}
+}
+
+type ValidateSQLReq struct {
+	Type config.DBInstanceType `json:"type"`
+	SQL  string                `json:"sql"`
+}
+
+type ValidateSQLResp struct {
+	Message string `json:"message"`
+}
+
+func ValidateSQL(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(ValidateSQLReq)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	err := workflow.ValidateSQL(req.Type, req.SQL)
+	if err == nil {
+		ctx.Resp = []ValidateSQLResp{}
+		return
+	}
+	ctx.Resp = []ValidateSQLResp{
+		{
+			Message: err.Error(),
+		},
+	}
+	return
 }
 
 func getBody(c *gin.Context) string {

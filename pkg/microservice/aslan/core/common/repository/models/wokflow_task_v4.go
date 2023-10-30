@@ -438,6 +438,12 @@ type NacosData struct {
 	Error             string `bson:"error"      json:"error"      yaml:"error"`
 }
 
+type JobTaskSQLSpec struct {
+	ID   string                `bson:"id" json:"id" yaml:"id"`
+	Type config.DBInstanceType `bson:"type" json:"type" yaml:"type"`
+	SQL  string                `bson:"sql" json:"sql" yaml:"sql"`
+}
+
 type JobTaskApolloSpec struct {
 	ApolloID      string                    `bson:"apolloID" json:"apolloID" yaml:"apolloID"`
 	NamespaceList []*JobTaskApolloNamespace `bson:"namespaceList" json:"namespaceList" yaml:"namespaceList"`

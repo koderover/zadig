@@ -52,6 +52,11 @@ type user struct {
 	Email    string `json:"email"`
 }
 
+type SystemSetting struct {
+	TokenExpirationTime int64 `json:"token_expiration_time"`
+	ImprovementPlan     bool  `json:"improvement_plan"`
+}
+
 func (c *Client) InitializeUser(username, password, email string) error {
 	url := "/system/initialization/user"
 	req := user{
@@ -66,4 +71,16 @@ func (c *Client) InitializeUser(username, password, email string) error {
 	}
 
 	return nil
+}
+
+func (c *Client) GetSystemSecurityAndPrivacySettings() (*SystemSetting, error) {
+	url := "/system/security"
+
+	res := new(SystemSetting)
+
+	_, err := c.Get(url, httpclient.SetResult(&res))
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }

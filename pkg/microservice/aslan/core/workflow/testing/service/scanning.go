@@ -162,7 +162,11 @@ func GetScanningModuleByID(id string, log *zap.SugaredLogger) (*Scanning, error)
 	}
 
 	if scanning.AdvancedSetting != nil && scanning.AdvancedSetting.StrategyID == "" {
-		cluster, err := commonrepo.NewK8SClusterColl().FindByID(scanning.AdvancedSetting.ClusterID)
+		clusterID := scanning.AdvancedSetting.ClusterID
+		if clusterID == "" {
+			clusterID = setting.LocalClusterID
+		}
+		cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
 		if err != nil {
 			if err != mongo.ErrNoDocuments {
 				return nil, fmt.Errorf("failed to find cluster %s, error: %v", scanning.AdvancedSetting.ClusterID, err)
@@ -366,7 +370,7 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 		return 0, e.ErrFindDefaultS3Storage.AddDesc("default storage is required by distribute task")
 	}
 
-	defaultURL, err := defaultS3.GetEncryptedURL()
+	defaultURL, err := defaultS3.GetEncrypted()
 	if err != nil {
 		log.Errorf("cannot convert the s3 config to an encrypted URI, error: %s", err)
 		return 0, e.ErrS3Storage.AddErr(err)

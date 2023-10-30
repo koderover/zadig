@@ -28,6 +28,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
@@ -205,6 +206,28 @@ func (c *S3StorageColl) FindAll() ([]*models.S3Storage, error) {
 	return storages, nil
 }
 
+func (c *S3StorageColl) FindByProject(projectName string) ([]*models.S3Storage, error) {
+	var storages []*models.S3Storage
+	query := bson.M{
+		"projects": bson.M{
+			"$elemMatch": bson.M{
+				"$in": bson.A{projectName, setting.AllProjects},
+			},
+		},
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &storages)
+	if err != nil {
+		return nil, err
+	}
+
+	return storages, nil
+}
+
 func (c *S3StorageColl) InitData() error {
 	minioEndpoint := config.S3StorageEndpoint()
 	endpointInfo := strings.Split(minioEndpoint, ":")
@@ -240,6 +263,7 @@ func (c *S3StorageColl) InitData() error {
 		Endpoint:  minioEndpoint,
 		Bucket:    config.S3StorageBucket(),
 		IsDefault: setDefault,
+		Projects:  []string{setting.AllProjects},
 		Insecure:  true,
 		Provider:  0,
 	}

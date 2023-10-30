@@ -85,7 +85,7 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, args, ctx.Logger)
+	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateDeploymentContainerImage(c *gin.Context) {
@@ -152,7 +152,7 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, args, ctx.Logger)
+	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateProductionDeploymentContainerImage(c *gin.Context) {
@@ -219,7 +219,7 @@ func UpdateProductionDeploymentContainerImage(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, args, ctx.Logger)
+	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateCronJobContainerImage(c *gin.Context) {
@@ -273,5 +273,5 @@ func UpdateCronJobContainerImage(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateContainerImage(ctx.RequestID, args, ctx.Logger)
+	ctx.Err = service.UpdateContainerImage(ctx.RequestID, ctx.UserName, args, ctx.Logger)
 }

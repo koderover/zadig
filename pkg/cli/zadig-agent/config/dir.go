@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
 	fileutil "github.com/koderover/zadig/pkg/cli/zadig-agent/util/file"
 	osutil "github.com/koderover/zadig/pkg/cli/zadig-agent/util/os"
 )
@@ -33,8 +34,6 @@ import (
 const (
 	LocalConfig      = ".zadig-agent/agent_config.yaml"
 	LocalLogFilePath = ".zadig-agent/log"
-	JobLogFilePath   = "/log"
-	JobCacheDir      = "/.cache"
 	JobArtifactsDir  = "/artifacts"
 )
 
@@ -48,32 +47,6 @@ func GetActiveWorkDirectory() string {
 		directory = defaultDir
 	}
 	return directory
-}
-
-func GetJobLogFilePath(workDir, job string) (string, error) {
-	path := fmt.Sprintf("%s%s", workDir, JobLogFilePath)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		err := os.MkdirAll(path, os.ModePerm)
-		if err != nil {
-			return "", fmt.Errorf("failed to create log directory: %s", err)
-		}
-	}
-
-	filePath := filepath.Join(path, fmt.Sprintf("%s.log", job))
-	// remove old log file if exists
-	if _, err := os.Stat(filePath); err == nil {
-		if err := os.Remove(filePath); err != nil {
-			return "", fmt.Errorf("failed to remove log file: %s", err)
-		}
-	}
-	// create file
-	file, err := os.Create(filePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to create log file: %s", err)
-	}
-	defer file.Close()
-
-	return filePath, nil
 }
 
 func CreateFileIfNotExist(path string) error {
@@ -95,7 +68,7 @@ func GetArtifactsDir(workDir string) (string, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		err := os.MkdirAll(path, os.ModePerm)
 		if err != nil {
-			return "", fmt.Errorf("failed to create artifacts directory: %s", err)
+			return "", fmt.Errorf("failed to create artifacts directory: %v", err)
 		}
 	}
 	return path, nil
@@ -126,7 +99,7 @@ func GetAgentLogFilePath() (string, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		err = os.MkdirAll(path, os.ModePerm)
 		if err != nil {
-			return "", fmt.Errorf("failed to create log directory: %s", err)
+			return "", fmt.Errorf("failed to create log directory: %v", err)
 		}
 	}
 
@@ -147,7 +120,7 @@ func GetAgentWorkDir(dir string) (string, error) {
 	if dir == "" {
 		home, err := osutil.GetUserHomeDir()
 		if err != nil {
-			return "", fmt.Errorf("failed to get user home directory: %s", err)
+			return "", fmt.Errorf("failed to get user home directory: %v", err)
 		}
 		dir = home
 	}
@@ -174,7 +147,7 @@ func GetAgentConfigFilePathWithCheck() (string, error) {
 func GetAgentLogPath() (string, error) {
 	path, err := GetAgentLogFilePath()
 	if err != nil {
-		return "", fmt.Errorf("failed to get agent log directory: %s", err)
+		return "", fmt.Errorf("failed to get agent log directory: %v", err)
 	}
 
 	return path, nil
@@ -182,4 +155,55 @@ func GetAgentLogPath() (string, error) {
 
 func Home() string {
 	return viper.GetString(common.Home)
+}
+
+func GetJobLogFilePath(workDir string, job types.ZadigJobTask) (string, error) {
+	jobLogTmpDir := filepath.Join(workDir, common.JobLogTmpDir)
+	if _, err := os.Stat(jobLogTmpDir); os.IsNotExist(err) {
+		err = os.MkdirAll(jobLogTmpDir, os.ModePerm)
+		if err != nil {
+			return "", fmt.Errorf("failed to create job log tmp directory: %v", err)
+		}
+	}
+
+	logDir := filepath.Join(jobLogTmpDir, fmt.Sprintf("%s-%s-%d-%s", job.ProjectName, job.WorkflowName, job.TaskID, job.JobName))
+	return logDir, nil
+}
+
+func GetJobOutputsTmpDir(workDir string, job types.ZadigJobTask) (string, error) {
+	jobOutputsTmpDir := filepath.Join(workDir, common.JobOutputsTmpDir)
+	if _, err := os.Stat(jobOutputsTmpDir); os.IsNotExist(err) {
+		err := os.MkdirAll(jobOutputsTmpDir, os.ModePerm)
+		if err != nil {
+			return "", fmt.Errorf("failed to create job outputs tmp directory: %v", err)
+		}
+	}
+
+	dir := filepath.Join(jobOutputsTmpDir, fmt.Sprintf("%s-%s-%d-%s", job.ProjectName, job.WorkflowName, job.TaskID, job.JobName))
+	return filepath.Join(dir, common.JobOutputDir), nil
+}
+
+func GetJobScriptTmpDir(workDir string, job types.ZadigJobTask) (string, error) {
+	jobScriptTmpDir := filepath.Join(workDir, common.JobScriptTmpDir)
+	if _, err := os.Stat(jobScriptTmpDir); os.IsNotExist(err) {
+		err := os.MkdirAll(jobScriptTmpDir, os.ModePerm)
+		if err != nil {
+			return "", fmt.Errorf("failed to create job script tmp directory: %v", err)
+		}
+	}
+
+	jobScriptDir := filepath.Join(jobScriptTmpDir, fmt.Sprintf("%s-%s-%d-%s", job.ProjectName, job.WorkflowName, job.TaskID, job.JobName))
+	return jobScriptDir, nil
+}
+
+func GetCacheDir(workDir string) (string, error) {
+	cacheDir := filepath.Join(workDir, common.JobCacheTmpDir)
+	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+		err := os.MkdirAll(cacheDir, os.ModePerm)
+		if err != nil {
+			return "", fmt.Errorf("failed to create cache directory: %v", err)
+		}
+	}
+
+	return cacheDir, nil
 }

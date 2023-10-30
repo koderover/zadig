@@ -98,6 +98,16 @@ func FindDefaultRegistry(getRealCredential bool, log *zap.SugaredLogger) (reg *m
 	return findRegisty(&mongodb.FindRegOps{IsDefault: true}, getRealCredential, log)
 }
 
+func ListRegistryByProject(projectName string, log *zap.SugaredLogger) ([]*models.RegistryNamespace, error) {
+	resp, err := mongodb.NewRegistryNamespaceColl().FindByProject(projectName)
+	if err != nil {
+		log.Errorf("RegistryNamespace.List error: %s", err)
+		return resp, fmt.Errorf("RegistryNamespace.List error: %s", err)
+	}
+
+	return resp, nil
+}
+
 func ListRegistryNamespaces(encryptedKey string, getRealCredential bool, log *zap.SugaredLogger) ([]*models.RegistryNamespace, error) {
 	resp, err := mongodb.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
 	if err != nil {
