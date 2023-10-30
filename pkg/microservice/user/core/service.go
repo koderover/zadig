@@ -152,21 +152,13 @@ func InitializeUserDBAndTables() {
 }
 
 func initializeSystemActions() {
-	var count int64
-	err := repository.DB.Table(fmt.Sprintf("%s.action", config.MysqlUserDB())).Count(&count).Error
+	fmt.Println("initializing system actions...")
+	err := repository.DB.Exec(string(actionData)).Error
+
 	if err != nil {
-		panic("failed to count")
+		log.Panic(err)
 	}
-
-	if count == 0 {
-		fmt.Println("initializing system actions...")
-		err := repository.DB.Exec(string(actionData)).Error
-
-		if err != nil {
-			log.Panic(err)
-		}
-		fmt.Println("system actions initialized...")
-	}
+	fmt.Println("system actions initialized...")
 }
 
 // syncUserRoleBinding sync all the roles and role binding into mysql after 1.7
