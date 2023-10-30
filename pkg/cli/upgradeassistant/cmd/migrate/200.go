@@ -21,23 +21,20 @@ import (
 	"fmt"
 	"time"
 
-	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
-	internaldb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	codehost_mongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"gorm.io/gorm"
 
+	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
+	internaldb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
-	usermodels "github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	codehost_mongodb "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -102,12 +99,6 @@ func V1180ToV200() error {
 		return err
 	}
 
-	log.Infof("-------- start migrate asset management permissions --------")
-	if err := migrateAssetManagementPermissions(); err != nil {
-		log.Infof("migrateAssetManagementPermissions err: %v", err)
-		return err
-	}
-
 	log.Infof("-------- start migrate renderset info --------")
 	if err := migrateRendersets(); err != nil {
 		log.Infof("migrateRendersets err: %v", err)
@@ -134,25 +125,6 @@ func V200ToV1180() error {
 }
 
 func migrateDBIstanceProject() error {
-	var actions []*usermodels.Action
-	err := repository.DB.Where("action = ?", "get_dbinstance_management").Find(&actions).Error
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("failed to get action equal get_dbinstance_management, err: %v", err)
-	}
-	if len(actions) == 0 {
-		actions = []*usermodels.Action{
-			{Name: "查看", Action: "get_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-			{Name: "新建", Action: "create_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-			{Name: "编辑", Action: "edit_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-			{Name: "删除", Action: "delete_dbinstance_management", Resource: "DBInstanceManagement", Scope: 2},
-		}
-
-		err = repository.DB.Create(actions).Error
-		if err != nil {
-			return fmt.Errorf("failed to create actions, err: %v", err)
-		}
-	}
-
 	var dbInstances []*models.DBInstance
 	query := bson.M{
 		"projects": bson.M{"$exists": false},
@@ -695,47 +667,6 @@ func migrateAssetManagement() error {
 		if err := mongodb.NewHelmRepoColl().Update(helmrepo.ID.Hex(), helmrepo); err != nil {
 			return fmt.Errorf("failed to update helmrepo %s for migrateAssetManagement, err: %v", helmrepo.ID.Hex(), err)
 		}
-	}
-
-	return nil
-}
-
-func migrateAssetManagementPermissions() error {
-	var actions []*usermodels.Action
-	err := repository.DB.Where("action = ?", "get_cluster_management").Find(&actions).Error
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("failed to get action equal get_cluster_management, err: %v", err)
-	}
-	if len(actions) != 0 {
-		return nil
-	}
-	actions = []*usermodels.Action{
-		{Name: "查看", Action: "get_business_directory", Resource: "BusinessDirectory", Scope: 2},
-		{Name: "查看", Action: "get_cluster_management", Resource: "ClusterManagement", Scope: 2},
-		{Name: "新建", Action: "create_cluster_management", Resource: "ClusterManagement", Scope: 2},
-		{Name: "编辑", Action: "edit_cluster_management", Resource: "ClusterManagement", Scope: 2},
-		{Name: "删除", Action: "delete_cluster_management", Resource: "ClusterManagement", Scope: 2},
-		{Name: "查看", Action: "get_vm_management", Resource: "VMManagement", Scope: 2},
-		{Name: "新建", Action: "create_vm_management", Resource: "VMManagement", Scope: 2},
-		{Name: "编辑", Action: "edit_vm_management", Resource: "VMManagement", Scope: 2},
-		{Name: "删除", Action: "delete_vm_management", Resource: "VMManagement", Scope: 2},
-		{Name: "查看", Action: "get_registry_management", Resource: "RegistryManagement", Scope: 2},
-		{Name: "新建", Action: "create_registry_management", Resource: "RegistryManagement", Scope: 2},
-		{Name: "编辑", Action: "edit_registry_management", Resource: "RegistryManagement", Scope: 2},
-		{Name: "删除", Action: "delete_registry_management", Resource: "RegistryManagement", Scope: 2},
-		{Name: "查看", Action: "get_s3storage_management", Resource: "S3StorageManagement", Scope: 2},
-		{Name: "新建", Action: "create_s3storage_management", Resource: "S3StorageManagement", Scope: 2},
-		{Name: "编辑", Action: "edit_s3storage_management", Resource: "S3StorageManagement", Scope: 2},
-		{Name: "删除", Action: "delete_s3storage_management", Resource: "S3StorageManagement", Scope: 2},
-		{Name: "查看", Action: "get_helmrepo_management", Resource: "HelmRepoManagement", Scope: 2},
-		{Name: "新建", Action: "create_helmrepo_management", Resource: "HelmRepoManagement", Scope: 2},
-		{Name: "编辑", Action: "edit_helmrepo_management", Resource: "HelmRepoManagement", Scope: 2},
-		{Name: "删除", Action: "delete_helmrepo_management", Resource: "HelmRepoManagement", Scope: 2},
-	}
-
-	err = repository.DB.Create(actions).Error
-	if err != nil {
-		return fmt.Errorf("failed to create actions, err: %v", err)
 	}
 
 	return nil
