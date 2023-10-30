@@ -84,4 +84,4 @@ VALUES
     ("查看交付物追踪", "delivery_get", "ArtifactManagement", 2),
     ("查看数据概览", "data_over", "DataCenter", 2),
     ("查看效能洞察", "efficiency_over", "DataCenter", 2),
-    ("配置效能洞察", "edit_dashboard_config", "DataCenter", 2);
+    ("配置效能洞察", "edit_dashboard_config", "DataCenter", 2) ON DUPLICATE KEY UPDATE id=id;
