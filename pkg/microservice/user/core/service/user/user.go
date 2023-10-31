@@ -644,7 +644,11 @@ func SyncUser(syncUserInfo *SyncUserInfo, ifUpdateLoginTime bool, logger *zap.Su
 		logger.Errorf("UpdateLoginInfo get user:%s login error, error msg:%s", user.UID, err.Error())
 		return nil, err
 	}
-	err = login.CheckSignature(userLogin.LastLoginTime, logger)
+	var lastLoginTime int64 = 0
+	if userLogin != nil {
+		lastLoginTime = userLogin.LastLoginTime
+	}
+	err = login.CheckSignature(lastLoginTime, logger)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("UpdateLoginInfo check signature fail, user:%s, error msg:%s", user.UID, err.Error())
