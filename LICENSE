@@ -1,22 +1,22 @@
 # Zadig Open Source License
 
-The Zadig project is licensed under the Apache License 2.0, with the following additional conditions:
+The Zadig project is licensed under the Apache License 2.0, and it includes the following additional conditions:
 
-1. Zadig is permitted to be used for your own applications, such as backend service. You can add or modify code to improve availability/stability. However, when the following conditions are met, you must contact the producer to obtain explicit permission：
+1. Zadig is allowed to be used for your own applications, such as backend services. You have the freedom to add or modify code to enhance its availability and stability. However, specific conditions require you to contact the producer to obtain explicit permission:
 
-a. For commercial usage, including using zadig as your standalone commercial product or as part of your commercial product，or delivering
-it to other enterprises.
+   a. For commercial use, which includes using Zadig as a standalone commercial product, incorporating it into your commercial products, or distributing it to other enterprises.
 
-b. Gaining enterprise features without an enterprise license by modifying code about permission controlling or feature enablement. For detail list of enterprise features please visit: https://koderover.com/zadigx
+   b. Modifying code related to permission control or feature enablement with the aim of accessing enterprise-level features without an enterprise license. For a detailed list of enterprise features, please visit: Enterprise Features List.
 
-c. Multi-tenant SaaS service, you may not use zadig source code to operate a multi-tenant SaaS service.
+   c. Running a multi-tenant SaaS service using the Zadig source code is not permitted.
 
-Please contact contact@koderover.com by email to inquire about licensing matters.
+   For licensing inquiries, please reach out to us at contact@koderover.com via email.
 
-2. As a contributor, you should agree that your contributed code:
+2. As a contributor, you should agree that:
 
-a. The producer can adjust the open-source agreement to be more strict or relaxed.
-b. Can be used for commercial purposes
+   a. The project maintainers have the authority to adjust the open-source agreement, making it either more stringent or more lenient.
+
+   b. Your contributed code may be used for commercial purposes.
 
 ----------
 
