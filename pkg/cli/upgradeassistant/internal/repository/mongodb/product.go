@@ -18,6 +18,7 @@ package mongodb
 
 import (
 	"context"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -156,5 +157,28 @@ func (c *ProductColl) UpdateRender(envName, productName string, render *models.R
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
 
+	return err
+}
+
+func (c *ProductColl) Update(args *models.Product) error {
+	query := bson.M{"env_name": args.EnvName, "product_name": args.ProductName}
+	changePayload := bson.M{
+		"update_time":      time.Now().Unix(),
+		"services":         args.Services,
+		"global_variables": args.GlobalVariables,
+		"default_values":   args.DefaultValues,
+		"yaml_data":        args.YamlData,
+	}
+	if len(args.Source) > 0 {
+		changePayload["source"] = args.Source
+	}
+	if args.ServiceDeployStrategy != nil {
+		changePayload["service_deploy_strategy"] = args.ServiceDeployStrategy
+	}
+	if args.PreSleepStatus != nil {
+		changePayload["pre_sleep_status"] = args.PreSleepStatus
+	}
+	change := bson.M{"$set": changePayload}
+	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
