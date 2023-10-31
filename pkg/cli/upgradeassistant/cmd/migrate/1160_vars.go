@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"strings"
 
-	uamodel "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	uamongo "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -407,12 +406,12 @@ func adjustProductRenderInfo() error {
 //	return setProductRender(product, maxVersionRender)
 //}
 
-func setProductRender(product *uamodel.Product, maxVersionRender *uamodel.RenderInfo) error {
-	// revisions of product.render and product.service[].render are the same
-	if product.Render != nil && product.Render.Revision == maxVersionRender.Revision {
-		return nil
-	}
-	log.Infof("setting product render: %s from revision: %d to revision: %d", product.Render.Name, product.Revision, maxVersionRender.Revision)
-	product.Render = maxVersionRender
-	return uamongo.NewProductColl().UpdateProductRender(product)
-}
+//func setProductRender(product *uamodel.Product, maxVersionRender *uamodel.RenderInfo) error {
+//	// revisions of product.render and product.service[].render are the same
+//	if product.Render != nil && product.Render.Revision == maxVersionRender.Revision {
+//		return nil
+//	}
+//	log.Infof("setting product render: %s from revision: %d to revision: %d", product.Render.Name, product.Revision, maxVersionRender.Revision)
+//	product.Render = maxVersionRender
+//	return uamongo.NewProductColl().UpdateProductRender(product)
+//}
