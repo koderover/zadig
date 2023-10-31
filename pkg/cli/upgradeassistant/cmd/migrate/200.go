@@ -686,7 +686,7 @@ func migrateRendersets() error {
 
 		log.Infof("migrating render set for project: %s", project.ProductName)
 
-		envs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{Name: project.ProductName})
+		envs, err := internaldb.NewProductColl().List(&internaldb.ProductListOptions{Name: project.ProductName})
 		if err != nil {
 			return errors.Wrapf(err, "failed to list envs of project: %s", project.ProductName)
 		}
@@ -750,7 +750,7 @@ func migrateRendersets() error {
 				}
 			}
 
-			err = mongodb.NewProductColl().Update(env)
+			err = internaldb.NewProductColl().Update(env)
 			if err != nil {
 				return errors.Wrapf(err, "failed to update render for product: %v/%v", env.ProductName, env.EnvName)
 			}
