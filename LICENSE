@@ -1,3 +1,25 @@
+# Zadig Open Source License
+
+The Zadig project is licensed under the Apache License 2.0, and it includes the following additional conditions:
+
+1. Zadig is allowed to be used for your own applications, such as backend services. You have the freedom to add or modify code to enhance its availability and stability. However, specific conditions require you to contact the producer to obtain explicit permission:
+
+   a. For commercial use, which includes using Zadig as a standalone commercial product, incorporating it into your commercial products, or distributing it to other enterprises.
+
+   b. Modifying code related to permission control or feature enablement with the aim of accessing enterprise-level features without an enterprise license. For a detailed list of enterprise features, please visit: Enterprise Features List.
+
+   c. Running a multi-tenant SaaS service using the Zadig source code is not permitted.
+
+   For licensing inquiries, please reach out to us at contact@koderover.com via email.
+
+2. As a contributor, you should agree that:
+
+   a. The project maintainers have the authority to adjust the open-source agreement, making it either more stringent or more lenient.
+
+   b. Your contributed code may be used for commercial purposes.
+
+----------
+
 Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
