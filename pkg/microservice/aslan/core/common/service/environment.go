@@ -86,6 +86,7 @@ type ServiceResp struct {
 	ServiceDisplayName string       `json:"service_display_name"`
 	Type               string       `json:"type"`
 	Status             string       `json:"status"`
+	Error              string       `json:"error"`
 	Images             []string     `json:"images,omitempty"`
 	ProductName        string       `json:"product_name"`
 	EnvName            string       `json:"env_name"`

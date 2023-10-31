@@ -350,6 +350,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				EnvName:        envName,
 				DeployStrategy: service.DeployStrategy,
 				Updatable:      service.Updatable,
+				Error:          service.Error,
 			}
 			serviceTmpl, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 				ServiceName: service.ServiceName,
