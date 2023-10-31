@@ -727,6 +727,9 @@ func migrateRendersets() error {
 			for _, svcGroup := range env.Services {
 				for _, svc := range svcGroup {
 					if project.IsHelmProduct() {
+						if svc.Render != nil && (svc.Render.OverrideYaml != nil && len(svc.Render.OverrideYaml.YamlContent) > 0 || len(svc.Render.OverrideValues) > 0) {
+							continue
+						}
 						if svc.FromZadig() {
 							svc.Render = curRender.GetChartRenderMap()[svc.ServiceName]
 						} else {
