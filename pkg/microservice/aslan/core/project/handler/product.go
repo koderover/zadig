@@ -266,7 +266,7 @@ func UpdateProject(c *gin.Context) {
 
 	err = commonutil.CheckZadigXLicenseStatus()
 	if err != nil {
-		if args.AutoDeploy.Enable == true {
+		if args.AutoDeploy != nil && args.AutoDeploy.Enable == true {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
