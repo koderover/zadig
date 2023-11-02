@@ -17,14 +17,13 @@
 package job
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/pkg/errors"
-
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type GuanceyunCheckJob struct {

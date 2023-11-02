@@ -21,6 +21,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type GrafanaJob struct {
@@ -94,5 +96,10 @@ func (j *GrafanaJob) LintJob() error {
 	if err := commonmodels.IToiYaml(j.job.Spec, j.spec); err != nil {
 		return err
 	}
+
+	if err := util.CheckZadigXLicenseStatus(); err != nil {
+		return e.ErrLicenseInvalid.AddDesc("")
+	}
+
 	return nil
 }

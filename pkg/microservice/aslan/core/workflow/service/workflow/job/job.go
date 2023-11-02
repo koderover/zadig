@@ -111,6 +111,8 @@ func InitJobCtl(job *commonmodels.Job, workflow *commonmodels.WorkflowV4) (JobCt
 		resp = &MseGrayOfflineJob{job: job, workflow: workflow}
 	case config.JobGuanceyunCheck:
 		resp = &GuanceyunCheckJob{job: job, workflow: workflow}
+	case config.JobGrafana:
+		resp = &GrafanaJob{job: job, workflow: workflow}
 	case config.JobJenkins:
 		resp = &JenkinsJob{job: job, workflow: workflow}
 	case config.JobSQL:
