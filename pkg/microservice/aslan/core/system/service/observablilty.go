@@ -20,9 +20,11 @@ import (
 	"context"
 	"errors"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/grafana"
 	"github.com/koderover/zadig/pkg/tool/guanceyun"
 )
 
@@ -63,8 +65,10 @@ func DeleteObservability(id string) error {
 
 func ValidateObservability(args *models.Observability) error {
 	switch args.Type {
-	case "guanceyun":
+	case config.ObservabilityTypeGuanceyun:
 		return validateGuanceyun(args)
+	case config.ObservabilityTypeGrafana:
+		return validateGrafana(args)
 	default:
 		return errors.New("invalid observability type")
 	}
@@ -72,5 +76,10 @@ func ValidateObservability(args *models.Observability) error {
 
 func validateGuanceyun(args *models.Observability) error {
 	_, _, err := guanceyun.NewClient(args.Host, args.ApiKey).ListMonitor("", 1, 1)
+	return err
+}
+
+func validateGrafana(args *models.Observability) error {
+	_, err := grafana.NewClient(args.Host, args.GrafanaToken).ListAlertInstance()
 	return err
 }

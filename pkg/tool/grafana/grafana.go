@@ -121,6 +121,6 @@ func (c *Client) ListAlertInstance() (resp []*ListAlertInstanceResp, err error) 
 }
 
 func (c *Client) ListAlert() (resp []*ListAlertResp, err error) {
-	_, err = c.R().SetSuccessResult(&resp).Get("/api/v1/provisioning/alert-rules1")
+	_, err = c.R().SetSuccessResult(&resp).Get("/api/v1/provisioning/alert-rules")
 	return
 }
