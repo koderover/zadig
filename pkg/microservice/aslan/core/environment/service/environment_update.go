@@ -426,6 +426,52 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		// do nothing
 	}
 
+	// list services with max revision of project
+	allServices, err := repository.ListMaxRevisionsServices(productName, exitedProd.Production)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to list services with max revision of project %s, err: %v", productName, err))
+	}
+	prodRevs, err := GetProductRevision(exitedProd, allServices, log)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to get product revision, err: %v", err))
+	}
+	serviceRevisionMap := getServiceRevisionMap(prodRevs.ServiceRevisions)
+
+	for _, prodServiceGroup := range updateProd.Services {
+		for _, prodService := range prodServiceGroup {
+			if filter != nil && !filter(prodService) {
+				continue
+			}
+
+			service := &commonmodels.ProductService{
+				ServiceName: prodService.ServiceName,
+				ProductName: prodService.ProductName,
+				Type:        prodService.Type,
+				Revision:    prodService.Revision,
+				Render:      prodService.Render,
+				Containers:  prodService.Containers,
+			}
+
+			// need update service revision
+			if util.InStringArray(prodService.ServiceName, updateRevisionSvc) {
+				svcRev, ok := serviceRevisionMap[prodService.ServiceName+prodService.Type]
+				if !ok {
+					continue
+				}
+				service.Revision = svcRev.NextRevision
+				service.Containers = svcRev.Containers
+				service.UpdateTime = time.Now().Unix()
+			}
+
+			// render check
+			_, err := kube.RenderEnvService(updateProd, service.GetServiceRender(), service)
+			if err != nil {
+				log.Errorf("Failed to run render check, service %s, error: %v", service.ServiceName, err)
+				return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to render service %s, error: %v", service.ServiceName, err))
+			}
+		}
+	}
+
 	// 设置产品状态为更新中
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
@@ -436,7 +482,6 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		productErrMsg := ""
 		err = updateProductImpl(updateRevisionSvc, deployStrategy, exitedProd, updateProd, filter, user, log)
 		if err != nil {
-			productErrMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
 			title := fmt.Sprintf("更新 [%s] 的 [%s] 环境失败", productName, envName)
