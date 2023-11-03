@@ -229,6 +229,7 @@ const (
 	JobMseGrayRelease       JobType = "mse-gray-release"
 	JobMseGrayOffline       JobType = "mse-gray-offline"
 	JobGuanceyunCheck       JobType = "guanceyun-check"
+	JobGrafana              JobType = "grafana"
 )
 
 const (
@@ -242,6 +243,13 @@ type DBInstanceType string
 const (
 	DBInstanceTypeMySQL   DBInstanceType = "mysql"
 	DBInstanceTypeMariaDB DBInstanceType = "mariadb"
+)
+
+type ObservabilityType string
+
+const (
+	ObservabilityTypeGrafana   ObservabilityType = "grafana"
+	ObservabilityTypeGuanceyun ObservabilityType = "guanceyun"
 )
 
 type ApprovalType string

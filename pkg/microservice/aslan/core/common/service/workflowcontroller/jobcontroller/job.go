@@ -91,6 +91,8 @@ func initJobCtl(job *commonmodels.JobTask, workflowCtx *commonmodels.WorkflowTas
 		jobCtl = NewMseGrayOfflineJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobGuanceyunCheck):
 		jobCtl = NewGuanceyunCheckJobCtl(job, workflowCtx, ack, logger)
+	case string(config.JobGrafana):
+		jobCtl = NewGrafanaJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobJenkins):
 		jobCtl = NewJenkinsJobCtl(job, workflowCtx, ack, logger)
 	case string(config.JobSQL):

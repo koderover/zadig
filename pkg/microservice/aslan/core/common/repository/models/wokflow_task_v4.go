@@ -502,6 +502,15 @@ type JobTaskOfflineServiceEvent struct {
 	Error       string        `bson:"error" json:"error" yaml:"error"`
 }
 
+type JobTaskGrafanaSpec struct {
+	ID   string `bson:"id" json:"id" yaml:"id"`
+	Name string `bson:"name" json:"name" yaml:"name"`
+	// CheckTime minute
+	CheckTime int64           `bson:"check_time" json:"check_time" yaml:"check_time"`
+	CheckMode string          `bson:"check_mode" json:"check_mode" yaml:"check_mode"`
+	Alerts    []*GrafanaAlert `bson:"alerts" json:"alerts" yaml:"alerts"`
+}
+
 type JobTaskGuanceyunCheckSpec struct {
 	ID   string `bson:"id" json:"id" yaml:"id"`
 	Name string `bson:"name" json:"name" yaml:"name"`

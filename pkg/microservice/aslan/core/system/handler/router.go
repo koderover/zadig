@@ -362,6 +362,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		guanceyun.GET("/:id/monitor", ListGuanceyunMonitor)
 	}
 
+	// grafana
+	grafana := router.Group("grafana")
+	{
+		grafana.GET("/:id/alert", ListGrafanaAlert)
+	}
+
 	// personal favorite API
 	favorite := router.Group("favorite")
 	{

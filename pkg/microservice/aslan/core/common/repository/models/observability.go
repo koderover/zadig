@@ -16,19 +16,24 @@
 
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+)
 
 type Observability struct {
-	ID   primitive.ObjectID `json:"id" bson:"_id,omitempty" yaml:"id"`
-	Type string             `json:"type" bson:"type" yaml:"type"`
-	Name string             `json:"name" bson:"name" yaml:"name"`
-	Host string             `json:"host" bson:"host" yaml:"host"`
+	ID   primitive.ObjectID       `json:"id" bson:"_id,omitempty" yaml:"id"`
+	Type config.ObservabilityType `json:"type" bson:"type" yaml:"type"`
+	Name string                   `json:"name" bson:"name" yaml:"name"`
+	Host string                   `json:"host" bson:"host" yaml:"host"`
 	// ConsoleHost is used for guanceyun console, Host is guanceyun OpenApi Addr
 	ConsoleHost string `json:"console_host" bson:"console_host" yaml:"console_host"`
 	// ApiKey is used for guanceyun
 	ApiKey string `json:"api_key" bson:"api_key" yaml:"api_key"`
 
-	UpdateTime int64 `json:"update_time" bson:"update_time" yaml:"update_time"`
+	GrafanaToken string `json:"grafana_token" bson:"grafana_token" yaml:"grafana_token"`
+	UpdateTime   int64  `json:"update_time" bson:"update_time" yaml:"update_time"`
 }
 
 func (Observability) TableName() string {
