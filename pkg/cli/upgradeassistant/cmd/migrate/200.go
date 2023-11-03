@@ -744,7 +744,6 @@ func migrateRendersets() error {
 					// ensure render is set, technically this should not happen
 					if svc.Render == nil {
 						log.Infof("migrateRendersets failed to find service render for product: %s/%s, service: %s, render info: %v/%v", env.ProductName, env.EnvName, svc.ServiceName, curRender.Name, curRender.Revision)
-						time.Sleep(time.Second * 1)
 						svc.Render = svc.GetServiceRender()
 					}
 				}
