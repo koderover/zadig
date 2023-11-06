@@ -540,10 +540,12 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		}
 	}
 
+	log.Debugf("1")
 	err = buildConfigs(args)
 	if err != nil {
 		return nil, err
 	}
+	log.Debugf("2")
 
 	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
 	// TODO: If the PVC is not successfully bound to the PV, it is necessary to consider how to expose this abnormal information.
@@ -554,15 +556,19 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 			args.DindCfg = nil
 		}
 
+		log.Debugf("3")
 		if err := createDynamicPVC(id, "cache", &args.Cache.NFSProperties, logger); err != nil {
 			return nil, err
 		}
 	}
+	log.Debugf("4")
 	if args.ShareStorage.MediumType == types.NFSMedium && args.ShareStorage.NFSProperties.ProvisionType == types.DynamicProvision {
+		log.Debugf("5")
 		if err := createDynamicPVC(id, "share-storage", &args.ShareStorage.NFSProperties, logger); err != nil {
 			return nil, err
 		}
 	}
+	log.Debugf("6")
 
 	cluster := &commonmodels.K8SCluster{
 		Name:           args.Name,
