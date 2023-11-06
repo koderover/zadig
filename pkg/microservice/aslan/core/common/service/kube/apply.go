@@ -29,10 +29,13 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/helm/pkg/releaseutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -71,6 +74,7 @@ type ResourceApplyParam struct {
 	InjectSecrets    bool
 	SharedEnvHandler SharedEnvHandler
 	Uninstall        bool
+	WaitForUninstall bool
 }
 
 func DeploymentSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
@@ -167,7 +171,7 @@ func GetValidGVK(gvk schema.GroupVersionKind, version *version.Info) schema.Grou
 }
 
 // removeResources removes resources currently deployed in k8s that are not in the new resource list
-func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, kubeClient client.Client, version *version.Info, log *zap.SugaredLogger) error {
+func removeResources(currentItems, newItems []*unstructured.Unstructured, namespace string, waitForDelete bool, kubeClient client.Client, clientSet *kubernetes.Clientset, version *version.Info, log *zap.SugaredLogger) error {
 	itemsMap := make(map[string]*unstructured.Unstructured)
 	errList := &multierror.Error{}
 	for _, u := range newItems {
@@ -190,7 +194,78 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 			errList = multierror.Append(errList, errors.Wrapf(err, "failed to remove old item %s/%s from %s", item.GetName(), item.GetKind(), namespace))
 			continue
 		}
-		log.Infof("succeed to remove old item %s/%v from %s", item.GetName(), item.GroupVersionKind(), namespace)
+
+		if !waitForDelete {
+			continue
+		}
+
+		labelSelector := fmt.Sprintf("app=%s", item.GetName())
+		watchOpts := metav1.ListOptions{
+			TypeMeta:      metav1.TypeMeta{},
+			LabelSelector: labelSelector,
+			FieldSelector: "",
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
+		defer cancel()
+
+		var watcher watch.Interface
+		var err error
+		switch item.GetKind() {
+		case setting.Deployment:
+			watcher, err = clientSet.AppsV1().Deployments(namespace).Watch(ctx, watchOpts)
+		case setting.Service:
+			watcher, err = clientSet.CoreV1().Services(namespace).Watch(ctx, watchOpts)
+		case setting.StatefulSet:
+			watcher, err = clientSet.AppsV1().StatefulSets(namespace).Watch(ctx, watchOpts)
+		case setting.Secret:
+			watcher, err = clientSet.CoreV1().Secrets(namespace).Watch(ctx, watchOpts)
+		case setting.ConfigMap:
+			watcher, err = clientSet.CoreV1().ConfigMaps(namespace).Watch(ctx, watchOpts)
+		case setting.Ingress:
+			watcher, err = clientSet.ExtensionsV1beta1().Ingresses(namespace).Watch(ctx, watchOpts)
+		case setting.PersistentVolumeClaim:
+			watcher, err = clientSet.CoreV1().PersistentVolumeClaims(namespace).Watch(ctx, watchOpts)
+		case setting.Pod:
+			watcher, err = clientSet.CoreV1().Pods(namespace).Watch(ctx, watchOpts)
+		case setting.ReplicaSet:
+			watcher, err = clientSet.AppsV1().ReplicaSets(namespace).Watch(ctx, watchOpts)
+		case setting.Job:
+			watcher, err = clientSet.BatchV1().Jobs(namespace).Watch(ctx, watchOpts)
+		case setting.CronJob:
+			watcher, err = clientSet.BatchV1beta1().CronJobs(namespace).Watch(ctx, watchOpts)
+		case setting.ClusterRoleBinding:
+			watcher, err = clientSet.RbacV1().ClusterRoleBindings().Watch(ctx, watchOpts)
+		case setting.ServiceAccount:
+			watcher, err = clientSet.CoreV1().ServiceAccounts(namespace).Watch(ctx, watchOpts)
+		case setting.ClusterRole:
+			watcher, err = clientSet.RbacV1().ClusterRoles().Watch(ctx, watchOpts)
+		case setting.Role:
+			watcher, err = clientSet.RbacV1().Roles(namespace).Watch(ctx, watchOpts)
+		case setting.RoleBinding:
+			watcher, err = clientSet.RbacV1().RoleBindings(namespace).Watch(ctx, watchOpts)
+		default:
+			err = fmt.Errorf("unknown kind %s to watch", item.GetKind())
+			log.Error(err)
+		}
+		if err != nil {
+			log.Errorf("failed to watch %s in namespace %s, error: %v", item.GetKind(), namespace, err)
+			continue
+		}
+		defer watcher.Stop()
+
+	FOR:
+		for {
+			select {
+			case event := <-watcher.ResultChan():
+				if event.Type == watch.Deleted {
+					log.Infof("succeed to remove old item %s/%v from %s", item.GetName(), item.GroupVersionKind(), namespace)
+					break FOR
+				}
+			case <-ctx.Done():
+				log.Error("Context timeout for delete %s/%s", item.GetKind(), item.GetName())
+				break FOR
+			}
+		}
 	}
 
 	return errList.ErrorOrNil()
@@ -252,14 +327,14 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 			return nil, nil
 		}
 
-		err = removeResources(curResources, resources, namespace, applyParam.KubeClient, versionInfo, log)
+		err = removeResources(curResources, resources, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, log)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to remove old resources")
 		}
 		return nil, nil
 	}
 
-	err = removeResources(curResources, resources, namespace, applyParam.KubeClient, versionInfo, log)
+	err = removeResources(curResources, resources, namespace, applyParam.WaitForUninstall, applyParam.KubeClient, clientSet, versionInfo, log)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to remove old resources")
 	}
