@@ -529,7 +529,7 @@ func UpdateProductRegistry(envName, productName, registryID string, log *zap.Sug
 	}
 	productColl := commonrepo.NewProductCollWithSession()
 	productColl.StartTransaction()
-	defer productColl.EndSession(context.TODO())
+	//defer productColl.EndSession(context.TODO())
 
 	err = productColl.UpdateRegistry(envName, productName, registryID)
 	if err != nil {
