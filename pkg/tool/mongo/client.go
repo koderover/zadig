@@ -40,6 +40,15 @@ func Database(name string) *mongo.Database {
 	return Client().Database(name)
 }
 
+func Session() mongo.Session {
+	session, err := Client().StartSession()
+	if err != nil {
+		log.Panicf("Failed to start mongo session, err: %v", err)
+		return nil
+	}
+	return session
+}
+
 func Client() *mongo.Client {
 	if client == nil {
 		panic("mongoDB connection is not initialized yet")

@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -79,6 +81,7 @@ type projectID struct {
 
 type ProductColl struct {
 	*mongo.Collection
+	mongo.Session
 
 	coll string
 }
@@ -86,6 +89,22 @@ type ProductColl struct {
 func NewProductColl() *ProductColl {
 	name := models.Product{}.TableName()
 	return &ProductColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
+}
+
+func NewProductCollWithSession() *ProductColl {
+	name := models.Product{}.TableName()
+	return &ProductColl{
+		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		Session:    mongotool.Session(),
+		coll:       name,
+	}
+}
+
+func (c *ProductColl) StartSession() error {
+	if c.Session == nil {
+		log.Panicf("session not inited")
+	}
+	return c.Session.StartTransaction()
 }
 
 func (c *ProductColl) GetCollectionName() string {
@@ -318,7 +337,9 @@ func (c *ProductColl) UpdateStatusAndError(envName, projectName, status, errorMs
 		"status": status,
 		"error":  errorMsg,
 	}}
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	ctx := context.TODO()
+
+	_, err := c.UpdateOne(ctx, query, change)
 	return err
 }
 
@@ -328,7 +349,6 @@ func (c *ProductColl) UpdateStatus(owner, productName, status string) error {
 		"status": status,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
-
 	return err
 }
 
@@ -347,8 +367,12 @@ func (c *ProductColl) UpdateRegistry(envName, productName, registryId string) er
 	change := bson.M{"$set": bson.M{
 		"registry_id": registryId,
 	}}
-	_, err := c.UpdateOne(context.TODO(), query, change)
 
+	ctx := context.TODO()
+	if c.Session != nil {
+		ctx = mongo.NewSessionContext(ctx, c.Session)
+	}
+	_, err := c.UpdateOne(ctx, query, change)
 	return err
 }
 
