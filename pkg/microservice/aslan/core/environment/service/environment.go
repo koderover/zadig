@@ -528,7 +528,7 @@ func UpdateProductRegistry(envName, productName, registryID string, log *zap.Sug
 		return e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg)
 	}
 	productColl := commonrepo.NewProductColl()
-	productColl.StartSession()
+	productColl.StartTransaction()
 	defer productColl.EndSession(context.TODO())
 
 	err = productColl.UpdateRegistry(envName, productName, registryID)

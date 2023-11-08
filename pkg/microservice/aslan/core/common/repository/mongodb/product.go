@@ -100,7 +100,7 @@ func NewProductCollWithSession() *ProductColl {
 	}
 }
 
-func (c *ProductColl) StartSession() error {
+func (c *ProductColl) StartTransaction() error {
 	if c.Session == nil {
 		log.Panicf("session not inited")
 	}
