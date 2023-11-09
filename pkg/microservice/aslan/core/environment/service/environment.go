@@ -2037,11 +2037,12 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 			KubeClient:          kclient,
 			CurrentResourceYaml: serviceRelatedYaml[name],
 			Uninstall:           true,
+			WaitForUninstall:    true,
 		}
 		_, err = kube.CreateOrPatchResource(param, log)
 		if err != nil {
 			// Only record and do not block subsequent traversals.
-			log.Errorf("failed to remove k8s resources when deleting ervice: %s, err: %s", name, err)
+			log.Errorf("failed to remove k8s resources when deleting service: %s, err: %s", name, err)
 		}
 	}
 
