@@ -548,8 +548,8 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
 	// TODO: If the PVC is not successfully bound to the PV, it is necessary to consider how to expose this abnormal information.
 	//       Depends on product design.
+	// TODO: Currently can't change cluster to right config, if previous config is wrong.
 	if args.Cache.MediumType == types.NFSMedium && args.Cache.NFSProperties.ProvisionType == types.DynamicProvision {
-
 		if id == setting.LocalClusterID {
 			args.DindCfg = nil
 		}
