@@ -44,7 +44,7 @@ func SessionContext(ctx context.Context, session mongo.Session) context.Context 
 	if session == nil {
 		return ctx
 	}
-	return mongo.NewSessionContext(ctx, Session())
+	return mongo.NewSessionContext(ctx, session)
 }
 
 func Session() mongo.Session {
