@@ -29,6 +29,8 @@ import (
 	gotemplate "text/template"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
+
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 
 	"go.uber.org/zap"
@@ -279,7 +281,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 				Source:       setting.SourceFromExternal,
 				EnvName:      args.EnvName,
 				Revision:     1,
-			}, log)
+			}, session, log)
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -327,9 +329,8 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			return e.ErrCreateProduct.AddErr(err)
 		}
 	}
-	session.AbortTransaction(context.TODO())
 	return nil
-	//return session.CommitTransaction(context.TODO())
+	return session.CommitTransaction(context.TODO())
 }
 
 type ServiceWorkloadsUpdateAction struct {
@@ -502,7 +503,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 				Source:       setting.SourceFromExternal,
 				EnvName:      envName,
 				Revision:     1,
-			}, log); err != nil {
+			}, nil, log); err != nil {
 				log.Errorf("create service template failed err:%v", err)
 				delete(diff, v.Name)
 				continue
@@ -590,7 +591,7 @@ func replaceWorkloads(existWorkloads []commonmodels.Workload, newWorkloads []com
 }
 
 // CreateWorkloadTemplate only use for workload
-func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) error {
+func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session mongo.Session, log *zap.SugaredLogger) error {
 	_, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
 		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
@@ -607,7 +608,10 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 		ProductName:   args.ProductName,
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
-	_, notFoundErr := commonrepo.NewServiceColl().Find(opt)
+
+	serviceColl := commonrepo.NewServiceCollWithSession(session)
+
+	_, notFoundErr := serviceColl.Find(opt)
 	if notFoundErr != nil {
 		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
 			//获取项目里面的所有服务
@@ -617,7 +621,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 				productTempl.Services = [][]string{{args.ServiceName}}
 			}
 			//更新项目模板
-			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
+			err = templaterepo.NewProductCollWithSess(session).Update(args.ProductName, productTempl)
 			if err != nil {
 				log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
 				return e.ErrCreateTemplate.AddDesc(err.Error())
@@ -631,7 +635,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 		if err != nil {
 			return err
 		}
-		return commonrepo.NewServicesInExternalEnvColl().Create(&commonmodels.ServicesInExternalEnv{
+		return commonrepo.NewServiceInExternalEnvWithSess(session).Create(&commonmodels.ServicesInExternalEnv{
 			ProductName: args.ProductName,
 			ServiceName: args.ServiceName,
 			EnvName:     args.EnvName,
@@ -641,11 +645,11 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 		//return e.ErrCreateTemplate.AddDesc("do not support import same service name")
 	}
 
-	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
+	if err := serviceColl.Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
 		log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
 	}
 
-	if err := commonrepo.NewServiceColl().Create(args); err != nil {
+	if err := serviceColl.Create(args); err != nil {
 		log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
 		return e.ErrCreateTemplate.AddDesc(err.Error())
 	}

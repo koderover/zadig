@@ -46,13 +46,18 @@ type ProjectInfo struct {
 
 type ProductColl struct {
 	*mongo.Collection
-
+	mongo.Session
 	coll string
 }
 
 func NewProductColl() *ProductColl {
 	name := template.Product{}.TableName()
 	return &ProductColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
+}
+
+func NewProductCollWithSess(session mongo.Session) *ProductColl {
+	name := template.Product{}.TableName()
+	return &ProductColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), Session: session, coll: name}
 }
 
 func (c *ProductColl) GetCollectionName() string {
@@ -459,7 +464,7 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"public":                           args.Public,
 	}}
 
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
 
