@@ -216,6 +216,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 	}
+	log.Infof("========== sevices data: %+v", services)
 
 	g := new(errgroup.Group)
 	for _, workload := range args.WorkLoads {
@@ -301,8 +302,10 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		}
 		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
 	}
+	log.Infof("---------- workloadsTmp: %+v", workloadsTmp)
 
 	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, args.EnvName)
+	log.Infof("-------------- workloads data: %+v", workLoadStat.Workloads)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
 }
 
