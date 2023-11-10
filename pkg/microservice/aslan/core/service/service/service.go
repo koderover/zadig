@@ -30,9 +30,6 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
-
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
-
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -58,6 +55,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
@@ -220,8 +218,6 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 	}
-
-	log.Infof("========== sevices data: %+v", services)
 
 	session := mongotool.Session()
 	defer session.EndSession(context.TODO())
