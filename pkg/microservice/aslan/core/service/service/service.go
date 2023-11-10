@@ -323,7 +323,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		}
 	} else {
 		workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, args.EnvName)
-		err = commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
+		err = workloadStatCol.UpdateWorkloads(workLoadStat)
 		if err != nil {
 			session.AbortTransaction(context.TODO())
 			return e.ErrCreateProduct.AddErr(err)
