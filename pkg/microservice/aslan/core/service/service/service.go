@@ -329,7 +329,6 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			return e.ErrCreateProduct.AddErr(err)
 		}
 	}
-	return nil
 	return session.CommitTransaction(context.TODO())
 }
 
