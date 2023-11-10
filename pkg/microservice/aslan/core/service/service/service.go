@@ -216,7 +216,15 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 	}
+
 	log.Infof("========== sevices data: %+v", services)
+
+	//session := mongotool.Session()
+	//defer session.EndSession(context.TODO())
+	//
+	//session.StartTransaction()
+
+	//serviceInExternalEnvCol := commonrepo.NewServicesInExternalEnvColl()
 
 	g := new(errgroup.Group)
 	for _, workload := range args.WorkLoads {
@@ -292,6 +300,8 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}
 	}
+
+	return nil
 
 	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 	if err != nil {

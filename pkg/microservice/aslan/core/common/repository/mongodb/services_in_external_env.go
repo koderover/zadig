@@ -31,7 +31,7 @@ import (
 
 type ServicesInExternalEnvColl struct {
 	*mongo.Collection
-
+	mongo.Session
 	coll string
 }
 

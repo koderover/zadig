@@ -91,11 +91,11 @@ func NewProductColl() *ProductColl {
 	return &ProductColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
 
-func NewProductCollWithSession() *ProductColl {
+func NewProductCollWithSession(session mongo.Session) *ProductColl {
 	name := models.Product{}.TableName()
 	return &ProductColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
-		Session:    mongotool.Session(),
+		Session:    session,
 		coll:       name,
 	}
 }
