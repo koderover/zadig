@@ -40,6 +40,13 @@ func Database(name string) *mongo.Database {
 	return Client().Database(name)
 }
 
+func SessionContext(ctx context.Context, session mongo.Session) context.Context {
+	if session == nil {
+		return ctx
+	}
+	return mongo.NewSessionContext(ctx, Session())
+}
+
 func Session() mongo.Session {
 	session, err := Client().StartSession()
 	if err != nil {

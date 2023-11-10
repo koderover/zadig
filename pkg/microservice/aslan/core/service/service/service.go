@@ -29,6 +29,8 @@ import (
 	gotemplate "text/template"
 	"time"
 
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -219,12 +221,14 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 
 	log.Infof("========== sevices data: %+v", services)
 
-	//session := mongotool.Session()
-	//defer session.EndSession(context.TODO())
-	//
-	//session.StartTransaction()
+	session := mongotool.Session()
+	defer session.EndSession(context.TODO())
 
-	//serviceInExternalEnvCol := commonrepo.NewServicesInExternalEnvColl()
+	serviceInExternalEnvCol := commonrepo.NewServiceInExternalEnvWithSess(session)
+	productCol := commonrepo.NewProductCollWithSession(session)
+	workloadStatCol := commonrepo.NewWorkLoadsStatCollWithSession(session)
+
+	session.StartTransaction()
 
 	g := new(errgroup.Group)
 	for _, workload := range args.WorkLoads {
@@ -232,7 +236,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		g.Go(func() error {
 			// If the service is already included in the database service template, add it to the new association table
 			if serviceString.Has(tempWorkload.Name) {
-				return commonrepo.NewServicesInExternalEnvColl().Create(&commonmodels.ServicesInExternalEnv{
+				return serviceInExternalEnvCol.Create(&commonmodels.ServicesInExternalEnv{
 					ProductName: args.ProductName,
 					ServiceName: tempWorkload.Name,
 					EnvName:     args.EnvName,
@@ -279,17 +283,16 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		})
 	}
 	if err := g.Wait(); err != nil {
+		session.AbortTransaction(context.TODO())
 		return err
 	}
 
-	return errors.New("fake error")
-
 	// 没有环境，创建环境
-	if _, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+	if _, err = productCol.Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
 	}); err != nil {
-		if err := service.CreateProduct(userName, requestID, &commonmodels.Product{
+		if err := service.CreateProduct(userName, requestID, &service.ProductCreateArg{&commonmodels.Product{
 			ProductName: args.ProductName,
 			Source:      setting.SourceFromExternal,
 			ClusterID:   args.ClusterID,
@@ -298,27 +301,33 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			Namespace:   args.Namespace,
 			UpdateBy:    userName,
 			IsExisted:   true,
-		}, log); err != nil {
+		}, session}, log); err != nil {
+			session.AbortTransaction(context.TODO())
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}
 	}
 
-	return nil
-
-	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
+	workLoadStat, err := workloadStatCol.Find(args.ClusterID, args.Namespace)
 	if err != nil {
 		workLoadStat = &commonmodels.WorkloadStat{
 			ClusterID: args.ClusterID,
 			Namespace: args.Namespace,
 			Workloads: workloadsTmp,
 		}
-		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
+		err = workloadStatCol.Create(workLoadStat)
+		if err != nil {
+			session.AbortTransaction(context.TODO())
+			return e.ErrCreateProduct.AddErr(err)
+		}
+	} else {
+		workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, args.EnvName)
+		err = commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
+		if err != nil {
+			session.AbortTransaction(context.TODO())
+			return e.ErrCreateProduct.AddErr(err)
+		}
 	}
-	log.Infof("---------- workloadsTmp: %+v", workloadsTmp)
-
-	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, args.EnvName)
-	log.Infof("-------------- workloads data: %+v", workLoadStat.Workloads)
-	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
+	return session.CommitTransaction(context.TODO())
 }
 
 type ServiceWorkloadsUpdateAction struct {

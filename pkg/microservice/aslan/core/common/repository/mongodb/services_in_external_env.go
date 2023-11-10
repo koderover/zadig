@@ -43,6 +43,15 @@ func NewServicesInExternalEnvColl() *ServicesInExternalEnvColl {
 	}
 }
 
+func NewServiceInExternalEnvWithSess(session mongo.Session) *ServicesInExternalEnvColl {
+	name := models.ServicesInExternalEnv{}.TableName()
+	return &ServicesInExternalEnvColl{
+		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		Session:    session,
+		coll:       name,
+	}
+}
+
 func (c *ServicesInExternalEnvColl) GetCollectionName() string {
 	return c.coll
 }
@@ -77,9 +86,7 @@ func (c *ServicesInExternalEnvColl) Create(args *models.ServicesInExternalEnv) e
 	if args == nil {
 		return errors.New("nil ServicesInExternalEnv")
 	}
-
-	_, err := c.InsertOne(context.TODO(), args)
-
+	_, err := c.InsertOne(mongotool.SessionContext(context.TODO(), c.Session), args)
 	return err
 }
 

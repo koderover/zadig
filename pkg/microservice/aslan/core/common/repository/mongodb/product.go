@@ -22,8 +22,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -100,13 +98,6 @@ func NewProductCollWithSession(session mongo.Session) *ProductColl {
 	}
 }
 
-func (c *ProductColl) StartTransaction() error {
-	if c.Session == nil {
-		log.Panicf("session not inited")
-	}
-	return c.Session.StartTransaction()
-}
-
 func (c *ProductColl) GetCollectionName() string {
 	return c.coll
 }
@@ -160,7 +151,7 @@ func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 		}
 	}
 
-	err := c.FindOne(context.TODO(), query).Decode(res)
+	err := c.FindOne(mongotool.SessionContext(context.TODO(), c.Session), query).Decode(res)
 	if err != nil && mongo.ErrNoDocuments == err && opt.IgnoreNotFoundErr {
 		return nil, nil
 	}
@@ -431,7 +422,7 @@ func (c *ProductColl) Create(args *models.Product) error {
 	now := time.Now().Unix()
 	args.CreateTime = now
 	args.UpdateTime = now
-	_, err := c.InsertOne(context.TODO(), args)
+	_, err := c.InsertOne(mongotool.SessionContext(context.TODO(), c.Session), args)
 
 	return err
 }
