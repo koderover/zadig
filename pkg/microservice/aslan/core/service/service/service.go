@@ -327,7 +327,9 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			return e.ErrCreateProduct.AddErr(err)
 		}
 	}
-	return session.CommitTransaction(context.TODO())
+	session.AbortTransaction(context.TODO())
+	return nil
+	//return session.CommitTransaction(context.TODO())
 }
 
 type ServiceWorkloadsUpdateAction struct {
