@@ -282,6 +282,8 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		return err
 	}
 
+	return errors.New("fake error")
+
 	// 没有环境，创建环境
 	if _, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
