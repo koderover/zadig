@@ -30,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mozillazg/go-pinyin"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -136,6 +137,26 @@ func getJobLabels(jobLabel *JobLabel) map[string]string {
 		}
 	}
 	return retMap
+}
+
+func getJobContainerName(name string) string {
+	pyArgs := pinyin.NewArgs()
+	pyArgs.Fallback = func(r rune, a pinyin.Args) []string {
+		return []string{string(r)}
+	}
+
+	res := pinyin.Pinyin(name, pyArgs)
+
+	pinyins := make([]string, 0)
+	for _, py := range res {
+		pinyins = append(pinyins, strings.Join(py, ""))
+	}
+
+	resp := strings.Join(pinyins, "")
+	if len(resp) > 63 {
+		return resp[:63]
+	}
+	return resp
 }
 
 func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx string, kubeClient crClient.Client) error {
@@ -334,7 +355,7 @@ echo $result > %s
 					Containers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullAlways,
-							Name:            jobTask.Name,
+							Name:            getJobContainerName(jobTask.Name),
 							Image:           jobTaskSpec.Plugin.Image,
 							Args:            jobTaskSpec.Plugin.Args,
 							Command:         jobTaskSpec.Plugin.Cmds,
@@ -459,7 +480,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 					Containers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullAlways,
-							Name:            strings.ReplaceAll(jobTask.Name, "_", "-"),
+							Name:            getJobContainerName(strings.ReplaceAll(jobTask.Name, "_", "-")),
 							Image:           jobImage,
 							Command:         []string{"/bin/sh", "-c"},
 							Args:            []string{jobExecutorBootingScript},
