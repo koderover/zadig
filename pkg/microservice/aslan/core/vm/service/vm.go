@@ -117,7 +117,7 @@ func RecoveryVM(idString, user string, logger *zap.SugaredLogger) (*RecoveryAgen
 
 func generateAgentRecoveryCmd(vm *commonmodels.PrivateKey) (*RecoveryAgentCmd, error) {
 	return &RecoveryAgentCmd{
-		RecoveryCmd: fmt.Sprintf("nohup zadig-agent start &"),
+		RecoveryCmd: "nohup zadig-agent start &",
 	}, nil
 }
 

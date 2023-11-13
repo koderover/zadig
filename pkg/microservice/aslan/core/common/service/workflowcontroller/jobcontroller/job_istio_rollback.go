@@ -74,13 +74,13 @@ func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
 	// NOTE that the only supported version is v1alpha3 right now
 	istioClient, err := kubeclient.GetIstioClientV1Alpha3Client(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
-		logError(c.job, fmt.Sprintf("failed to prepare istio client to do the resource update"), c.logger)
+		logError(c.job, "failed to prepare istio client to do the resource update", c.logger)
 		return
 	}
 
 	cli, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
-		logError(c.job, fmt.Sprintf("failed to prepare istio client to do the resource update"), c.logger)
+		logError(c.job, "failed to prepare istio client to do the resource update", c.logger)
 		return
 	}
 
@@ -179,7 +179,7 @@ func (c *IstioRollbackJobCtl) Run(ctx context.Context) {
 			}
 		} else {
 			// something wrong about this deployment, we will stop here
-			logError(c.job, fmt.Sprintf("failed to find last applied replicas when the last applied image is found"), c.logger)
+			logError(c.job, "failed to find last applied replicas when the last applied image is found", c.logger)
 			return
 		}
 	}
