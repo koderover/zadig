@@ -141,7 +141,7 @@ func createSingleHostProduct(templateProduct *templatemodels.Product, requestID,
 		Alias:           arg.Alias,
 	}
 
-	return CreateProduct(userName, requestID, productObj, log)
+	return CreateProduct(userName, requestID, &ProductCreateArg{productObj, nil}, log)
 }
 
 func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID, userName, registryID string, arg *CreateSingleProductArg, serviceTmplMap map[string]*commonmodels.Service, log *zap.SugaredLogger) error {
@@ -170,7 +170,7 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 	if err != nil {
 		return err
 	}
-	return CreateProduct(userName, requestID, productObj, log)
+	return CreateProduct(userName, requestID, &ProductCreateArg{productObj, nil}, log)
 }
 
 // CreateHostProductionProduct creates environment for host project, this function only creates production environment
@@ -322,7 +322,7 @@ func createSingleYamlProduct(templateProduct *templatemodels.Product, requestID,
 	if err != nil {
 		return err
 	}
-	return CreateProduct(userName, requestID, productObj, log)
+	return CreateProduct(userName, requestID, &ProductCreateArg{productObj, nil}, log)
 }
 
 func CreateYamlProduct(productName, userName, requestID string, args []*CreateSingleProductArg, log *zap.SugaredLogger) error {

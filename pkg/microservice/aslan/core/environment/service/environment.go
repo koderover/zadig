@@ -584,7 +584,7 @@ func UpdateCVMProduct(envName, productName, user, requestID string, log *zap.Sug
 }
 
 // CreateProduct create a new product with its dependent stacks
-func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.SugaredLogger) (err error) {
+func CreateProduct(user, requestID string, args *ProductCreateArg, log *zap.SugaredLogger) (err error) {
 	log.Infof("[%s][P:%s] CreateProduct", args.EnvName, args.ProductName)
 	creator := getCreatorBySource(args.Source)
 	args.UpdateBy = user

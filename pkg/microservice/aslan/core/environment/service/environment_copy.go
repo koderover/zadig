@@ -168,7 +168,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 				}
 			}
 
-			err = CreateProduct(user, requestID, &newProduct, log)
+			err = CreateProduct(user, requestID, &ProductCreateArg{&newProduct, nil}, log)
 			if err != nil {
 				return err
 			}
@@ -302,5 +302,5 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 	if err != nil {
 		return err
 	}
-	return CreateProduct(userName, requestID, productInfo, log)
+	return CreateProduct(userName, requestID, &ProductCreateArg{productInfo, nil}, log)
 }

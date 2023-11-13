@@ -29,6 +29,7 @@ import (
 	gotemplate "text/template"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -54,6 +55,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
@@ -217,13 +219,22 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		serviceString.Insert(v.ServiceName)
 	}
 
+	session := mongotool.Session()
+	defer session.EndSession(context.TODO())
+
+	serviceInExternalEnvCol := commonrepo.NewServiceInExternalEnvWithSess(session)
+	productCol := commonrepo.NewProductCollWithSession(session)
+	workloadStatCol := commonrepo.NewWorkLoadsStatCollWithSession(session)
+
+	session.StartTransaction()
+
 	g := new(errgroup.Group)
 	for _, workload := range args.WorkLoads {
 		tempWorkload := workload
 		g.Go(func() error {
 			// If the service is already included in the database service template, add it to the new association table
 			if serviceString.Has(tempWorkload.Name) {
-				return commonrepo.NewServicesInExternalEnvColl().Create(&commonmodels.ServicesInExternalEnv{
+				return serviceInExternalEnvCol.Create(&commonmodels.ServicesInExternalEnv{
 					ProductName: args.ProductName,
 					ServiceName: tempWorkload.Name,
 					EnvName:     args.EnvName,
@@ -266,19 +277,20 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 				Source:       setting.SourceFromExternal,
 				EnvName:      args.EnvName,
 				Revision:     1,
-			}, log)
+			}, session, log)
 		})
 	}
 	if err := g.Wait(); err != nil {
+		session.AbortTransaction(context.TODO())
 		return err
 	}
 
 	// 没有环境，创建环境
-	if _, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+	if _, err = productCol.Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
 	}); err != nil {
-		if err := service.CreateProduct(userName, requestID, &commonmodels.Product{
+		if err := service.CreateProduct(userName, requestID, &service.ProductCreateArg{&commonmodels.Product{
 			ProductName: args.ProductName,
 			Source:      setting.SourceFromExternal,
 			ClusterID:   args.ClusterID,
@@ -287,23 +299,33 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			Namespace:   args.Namespace,
 			UpdateBy:    userName,
 			IsExisted:   true,
-		}, log); err != nil {
+		}, session}, log); err != nil {
+			session.AbortTransaction(context.TODO())
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}
 	}
 
-	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
+	workLoadStat, err := workloadStatCol.Find(args.ClusterID, args.Namespace)
 	if err != nil {
 		workLoadStat = &commonmodels.WorkloadStat{
 			ClusterID: args.ClusterID,
 			Namespace: args.Namespace,
 			Workloads: workloadsTmp,
 		}
-		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
+		err = workloadStatCol.Create(workLoadStat)
+		if err != nil {
+			session.AbortTransaction(context.TODO())
+			return e.ErrCreateProduct.AddErr(err)
+		}
+	} else {
+		workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, args.EnvName)
+		err = workloadStatCol.UpdateWorkloads(workLoadStat)
+		if err != nil {
+			session.AbortTransaction(context.TODO())
+			return e.ErrCreateProduct.AddErr(err)
+		}
 	}
-
-	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, args.EnvName)
-	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
+	return session.CommitTransaction(context.TODO())
 }
 
 type ServiceWorkloadsUpdateAction struct {
@@ -337,12 +359,23 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		return err
 	}
 
-	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
+	session := mongotool.Session()
+	defer session.EndSession(context.TODO())
+
+	serviceInExternalEnvCol := commonrepo.NewServiceInExternalEnvWithSess(session)
+	templateProductColl := templaterepo.NewProductCollWithSess(session)
+	serviceColl := commonrepo.NewServiceCollWithSession(session)
+	workloadStatCol := commonrepo.NewWorkLoadsStatCollWithSession(session)
+
+	session.StartTransaction()
+
+	workloadStat, err := workloadStatCol.Find(args.ClusterID, args.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s]NewWorkLoadsStatColl().Find %s", args.ClusterID, args.Namespace, err)
+		session.AbortTransaction(context.TODO())
 		return err
 	}
-	externalEnvServices, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+	externalEnvServices, _ := serviceInExternalEnvCol.List(&commonrepo.ServicesInExternalEnvArgs{
 		ProductName: productName,
 		EnvName:     envName,
 	})
@@ -397,7 +430,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		}
 	}
 
-	otherExternalEnvServices, err := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+	otherExternalEnvServices, err := serviceInExternalEnvCol.List(&commonrepo.ServicesInExternalEnvArgs{
 		ProductName:    productName,
 		ExcludeEnvName: envName,
 	})
@@ -410,9 +443,10 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		externalEnvServiceM[externalEnvService.ServiceName] = externalEnvService
 	}
 
-	templateProductInfo, err := templaterepo.NewProductColl().Find(productName)
+	templateProductInfo, err := templateProductColl.Find(productName)
 	if err != nil {
 		log.Errorf("failed to find template product: %s error: %s", productName, err)
+		session.AbortTransaction(context.TODO())
 		return err
 	}
 
@@ -424,16 +458,16 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		// 删除workload的引用
 		case "delete":
 			if externalService, isExist := externalEnvServiceM[v.Name]; !isExist {
-				if err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName); err != nil {
+				if err = serviceColl.UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName); err != nil {
 					log.Errorf("UpdateStatus external services error:%s", err)
 				}
 			} else {
 				// Update the env name in the service
-				if err = commonrepo.NewServiceColl().UpdateExternalServiceEnvName(v.Name, productName, externalService.EnvName); err != nil {
+				if err = serviceColl.UpdateExternalServiceEnvName(v.Name, productName, externalService.EnvName); err != nil {
 					log.Errorf("UpdateEnvName external services error:%s", err)
 				}
 				// Delete the reference in the original service
-				if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+				if err = serviceInExternalEnvCol.Delete(&commonrepo.ServicesInExternalEnvArgs{
 					ProductName: externalService.ProductName,
 					EnvName:     externalService.EnvName,
 					ServiceName: externalService.ServiceName,
@@ -441,7 +475,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 					log.Errorf("delete service in external env envName:%s error:%s", externalService.EnvName, err)
 				}
 			}
-			if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+			if err = serviceInExternalEnvCol.Delete(&commonrepo.ServicesInExternalEnvArgs{
 				ProductName: productName,
 				EnvName:     envName,
 				ServiceName: v.Name,
@@ -476,7 +510,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 				Source:       setting.SourceFromExternal,
 				EnvName:      envName,
 				Revision:     1,
-			}, log); err != nil {
+			}, session, log); err != nil {
 				log.Errorf("create service template failed err:%v", err)
 				delete(diff, v.Name)
 				continue
@@ -488,7 +522,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	if len(templateProductInfo.Services) == 1 {
 
 		func() {
-			productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+			productServices, err := serviceColl.ListExternalWorkloadsBy(productName, "")
 			if err != nil {
 				log.Errorf("ListWorkloadDetails ListExternalServicesBy err:%s", err)
 				return
@@ -498,7 +532,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 				productServiceNames.Insert(productService.ServiceName)
 			}
 			// add services in external env data
-			servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+			servicesInExternalEnv, _ := serviceInExternalEnvCol.List(&commonrepo.ServicesInExternalEnvArgs{
 				ProductName: productName,
 			})
 			for _, serviceInExternalEnv := range servicesInExternalEnv {
@@ -506,7 +540,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			}
 
 			templateProductInfo.Services[0] = productServiceNames.List()
-			err = templaterepo.NewProductColl().UpdateServiceOrchestration(templateProductInfo.ProductName, templateProductInfo.Services, templateProductInfo.UpdateBy)
+			err = templateProductColl.UpdateServiceOrchestration(templateProductInfo.ProductName, templateProductInfo.Services, templateProductInfo.UpdateBy)
 			if err != nil {
 				log.Errorf("failed to update service for product: %s, err: %s", templateProductInfo.ProductName, err)
 			}
@@ -516,7 +550,12 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 
 	// 删除 && 增加
 	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, envName, productName)
-	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
+	err = workloadStatCol.UpdateWorkloads(workloadStat)
+	if err != nil {
+		session.AbortTransaction(context.TODO())
+		return err
+	}
+	return session.CommitTransaction(context.TODO())
 }
 
 func updateWorkloads(existWorkloads []commonmodels.Workload, diff map[string]*ServiceWorkloadsUpdateAction, envName string, productName string) (result []commonmodels.Workload) {
@@ -564,7 +603,7 @@ func replaceWorkloads(existWorkloads []commonmodels.Workload, newWorkloads []com
 }
 
 // CreateWorkloadTemplate only use for workload
-func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) error {
+func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session mongo.Session, log *zap.SugaredLogger) error {
 	_, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
 		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
@@ -581,7 +620,10 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 		ProductName:   args.ProductName,
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
-	_, notFoundErr := commonrepo.NewServiceColl().Find(opt)
+
+	serviceColl := commonrepo.NewServiceCollWithSession(session)
+
+	_, notFoundErr := serviceColl.Find(opt)
 	if notFoundErr != nil {
 		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
 			//获取项目里面的所有服务
@@ -591,7 +633,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 				productTempl.Services = [][]string{{args.ServiceName}}
 			}
 			//更新项目模板
-			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
+			err = templaterepo.NewProductCollWithSess(session).Update(args.ProductName, productTempl)
 			if err != nil {
 				log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
 				return e.ErrCreateTemplate.AddDesc(err.Error())
@@ -605,7 +647,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 		if err != nil {
 			return err
 		}
-		return commonrepo.NewServicesInExternalEnvColl().Create(&commonmodels.ServicesInExternalEnv{
+		return commonrepo.NewServiceInExternalEnvWithSess(session).Create(&commonmodels.ServicesInExternalEnv{
 			ProductName: args.ProductName,
 			ServiceName: args.ServiceName,
 			EnvName:     args.EnvName,
@@ -615,11 +657,11 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 		//return e.ErrCreateTemplate.AddDesc("do not support import same service name")
 	}
 
-	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
+	if err := serviceColl.Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
 		log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
 	}
 
-	if err := commonrepo.NewServiceColl().Create(args); err != nil {
+	if err := serviceColl.Create(args); err != nil {
 		log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
 		return e.ErrCreateTemplate.AddDesc(err.Error())
 	}

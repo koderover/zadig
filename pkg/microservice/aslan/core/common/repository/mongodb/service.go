@@ -76,7 +76,7 @@ type ServiceAggregateResult struct {
 
 type ServiceColl struct {
 	*mongo.Collection
-
+	mongo.Session
 	coll string
 }
 
@@ -84,6 +84,15 @@ func NewServiceColl() *ServiceColl {
 	name := models.Service{}.TableName()
 	return &ServiceColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		coll:       name,
+	}
+}
+
+func NewServiceCollWithSession(session mongo.Session) *ServiceColl {
+	name := models.Service{}.TableName()
+	return &ServiceColl{
+		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		Session:    session,
 		coll:       name,
 	}
 }
@@ -252,7 +261,7 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 		opts.SetSort(bson.D{{"revision", -1}})
 	}
 
-	err := c.FindOne(context.TODO(), query, opts).Decode(service)
+	err := c.FindOne(mongotool.SessionContext(context.TODO(), c.Session), query, opts).Decode(service)
 	if err != nil {
 		if err == mongo.ErrNoDocuments && opt.IgnoreNoDocumentErr {
 			return nil, nil
@@ -285,7 +294,7 @@ func (c *ServiceColl) Delete(serviceName, serviceType, productName, status strin
 		return nil
 	}
 
-	_, err := c.DeleteMany(context.TODO(), query)
+	_, err := c.DeleteMany(mongotool.SessionContext(context.TODO(), c.Session), query)
 
 	return err
 }
@@ -304,7 +313,7 @@ func (c *ServiceColl) Create(args *models.Service) error {
 		h.Write([]byte(args.Yaml + "\n"))
 		args.Hash = fmt.Sprintf("%x", h.Sum(nil))
 	}
-	_, err := c.InsertOne(context.TODO(), args)
+	_, err := c.InsertOne(mongotool.SessionContext(context.TODO(), c.Session), args)
 	return err
 }
 
@@ -466,7 +475,7 @@ func (c *ServiceColl) UpdateExternalServiceEnvName(serviceName, productName, env
 		"env_name": envName,
 	}}
 
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
 
@@ -490,7 +499,7 @@ func (c *ServiceColl) UpdateExternalServicesStatus(serviceName, productName, sta
 		"status": status,
 	}}
 
-	_, err := c.UpdateMany(context.TODO(), query, change)
+	_, err := c.UpdateMany(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
 

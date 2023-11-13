@@ -79,6 +79,7 @@ type projectID struct {
 
 type ProductColl struct {
 	*mongo.Collection
+	mongo.Session
 
 	coll string
 }
@@ -86,6 +87,15 @@ type ProductColl struct {
 func NewProductColl() *ProductColl {
 	name := models.Product{}.TableName()
 	return &ProductColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
+}
+
+func NewProductCollWithSession(session mongo.Session) *ProductColl {
+	name := models.Product{}.TableName()
+	return &ProductColl{
+		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		Session:    session,
+		coll:       name,
+	}
 }
 
 func (c *ProductColl) GetCollectionName() string {
@@ -141,7 +151,7 @@ func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 		}
 	}
 
-	err := c.FindOne(context.TODO(), query).Decode(res)
+	err := c.FindOne(mongotool.SessionContext(context.TODO(), c.Session), query).Decode(res)
 	if err != nil && mongo.ErrNoDocuments == err && opt.IgnoreNotFoundErr {
 		return nil, nil
 	}
@@ -318,7 +328,9 @@ func (c *ProductColl) UpdateStatusAndError(envName, projectName, status, errorMs
 		"status": status,
 		"error":  errorMsg,
 	}}
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	ctx := context.TODO()
+
+	_, err := c.UpdateOne(ctx, query, change)
 	return err
 }
 
@@ -328,7 +340,6 @@ func (c *ProductColl) UpdateStatus(owner, productName, status string) error {
 		"status": status,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
-
 	return err
 }
 
@@ -347,8 +358,12 @@ func (c *ProductColl) UpdateRegistry(envName, productName, registryId string) er
 	change := bson.M{"$set": bson.M{
 		"registry_id": registryId,
 	}}
-	_, err := c.UpdateOne(context.TODO(), query, change)
 
+	ctx := context.TODO()
+	if c.Session != nil {
+		ctx = mongo.NewSessionContext(ctx, c.Session)
+	}
+	_, err := c.UpdateOne(ctx, query, change)
 	return err
 }
 
@@ -407,7 +422,7 @@ func (c *ProductColl) Create(args *models.Product) error {
 	now := time.Now().Unix()
 	args.CreateTime = now
 	args.UpdateTime = now
-	_, err := c.InsertOne(context.TODO(), args)
+	_, err := c.InsertOne(mongotool.SessionContext(context.TODO(), c.Session), args)
 
 	return err
 }

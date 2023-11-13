@@ -32,7 +32,7 @@ import (
 
 type WorkLoadsStatColl struct {
 	*mongo.Collection
-
+	mongo.Session
 	coll string
 }
 
@@ -41,11 +41,20 @@ func NewWorkLoadsStatColl() *WorkLoadsStatColl {
 	return &WorkLoadsStatColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
 
+func NewWorkLoadsStatCollWithSession(session mongo.Session) *WorkLoadsStatColl {
+	name := models.WorkloadStat{}.TableName()
+	return &WorkLoadsStatColl{
+		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		Session:    session,
+		coll:       name,
+	}
+}
+
 func (c *WorkLoadsStatColl) Create(args *models.WorkloadStat) error {
 	if args == nil {
 		return errors.New("nil WorkLoadsCounter args")
 	}
-	_, err := c.InsertOne(context.TODO(), args)
+	_, err := c.InsertOne(mongotool.SessionContext(context.TODO(), c.Session), args)
 	return err
 }
 
@@ -73,7 +82,7 @@ func (c *WorkLoadsStatColl) Find(clusterID string, namespace string) (*models.Wo
 
 	resp := new(models.WorkloadStat)
 
-	err := c.FindOne(context.TODO(), query).Decode(resp)
+	err := c.FindOne(mongotool.SessionContext(context.TODO(), c.Session), query).Decode(resp)
 	return resp, err
 }
 
@@ -100,7 +109,7 @@ func (c *WorkLoadsStatColl) UpdateWorkloads(args *models.WorkloadStat) error {
 	change := bson.M{"$set": bson.M{
 		"workloads": args.Workloads,
 	}}
-	_, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change, options.Update().SetUpsert(true))
 	if err != nil {
 		log.Errorf("UpdateOne err:%s - workloads:%+v", err, args.Workloads)
 	}

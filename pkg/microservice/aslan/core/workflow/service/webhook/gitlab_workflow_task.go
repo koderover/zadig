@@ -715,7 +715,7 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	baseProduct.EnvName = envName
 
 	// set renderset info
-	err = environmentservice.CreateProduct(setting.SystemUser, requestID, baseProduct, log)
+	err = environmentservice.CreateProduct(setting.SystemUser, requestID, &environmentservice.ProductCreateArg{baseProduct, nil}, log)
 	if err != nil {
 		return fmt.Errorf("CreateEnvAndTaskByPR CreateProduct err:%v", err)
 	}

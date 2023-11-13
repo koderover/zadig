@@ -434,7 +434,7 @@ func CreateProduct(c *gin.Context) {
 			return
 		}
 
-		ctx.Err = service.CreateProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
+		ctx.Err = service.CreateProduct(ctx.UserName, ctx.RequestID, &service.ProductCreateArg{Product: args}, ctx.Logger)
 	}
 }
 

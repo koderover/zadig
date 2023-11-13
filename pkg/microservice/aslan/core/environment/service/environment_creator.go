@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -44,7 +46,12 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 )
 
-type CreateProductParam struct {
+type ProductCreateArg struct {
+	*models.Product
+	mongo.Session
+}
+
+type AutoCreateProductParam struct {
 	UserName    string
 	RequestId   string
 	ProductName string
@@ -54,15 +61,15 @@ type CreateProductParam struct {
 }
 
 type AutoCreator struct {
-	Param *CreateProductParam
+	Param *AutoCreateProductParam
 }
 
 type IProductCreator interface {
-	Create(string, string, *models.Product, *zap.SugaredLogger) error
+	Create(string, string, *ProductCreateArg, *zap.SugaredLogger) error
 }
 
 func autoCreateProduct(envType, envName, productName, requestId, userName string, log *zap.SugaredLogger) (string, error) {
-	autoCreator := &AutoCreator{Param: &CreateProductParam{
+	autoCreator := &AutoCreator{Param: &AutoCreateProductParam{
 		UserName:    userName,
 		RequestId:   requestId,
 		ProductName: productName,
@@ -96,7 +103,7 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 	productObject.EnvName = envName
 	productObject.RegistryID = autoCreator.Param.RegistryID
 
-	err = CreateProduct(autoCreator.Param.UserName, autoCreator.Param.RequestId, productObject, log)
+	err = CreateProduct(autoCreator.Param.UserName, autoCreator.Param.RequestId, &ProductCreateArg{productObject, nil}, log)
 	if err != nil {
 		_, messageMap := e.ErrorMessage(err)
 		if errMessage, isExist := messageMap["description"]; isExist {
@@ -127,7 +134,7 @@ func newHelmProductCreator() *HelmProductCreator {
 	return &HelmProductCreator{}
 }
 
-func (creator *HelmProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
+func (creator *HelmProductCreator) Create(user, requestID string, args *ProductCreateArg, log *zap.SugaredLogger) error {
 	clusterID := args.ClusterID
 	if clusterID == "" {
 		projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
@@ -168,7 +175,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddErr(err)
 	}
 
-	if err = preCreateProduct(args.EnvName, args, kubeClient, log); err != nil {
+	if err = preCreateProduct(args.EnvName, args.Product, kubeClient, log); err != nil {
 		log.Errorf("CreateProduct preCreateProduct error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
@@ -187,7 +194,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	if args.IsForkedProduct {
 		args.RecycleDay = 7
 	}
-	err = commonrepo.NewProductColl().Create(args)
+	err = commonrepo.NewProductColl().Create(args.Product)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
@@ -201,7 +208,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		}
 	}
 
-	go installProductHelmCharts(user, requestID, args, nil, time.Now().Unix(), helmClient, kubeClient, istioClient, log)
+	go installProductHelmCharts(user, requestID, args.Product, nil, time.Now().Unix(), helmClient, kubeClient, istioClient, log)
 	return nil
 }
 
@@ -212,7 +219,7 @@ func newExternalProductCreator() *ExternalProductCreator {
 	return &ExternalProductCreator{}
 }
 
-func (creator *ExternalProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
+func (creator *ExternalProductCreator) Create(user, requestID string, args *ProductCreateArg, log *zap.SugaredLogger) error {
 	args.Status = setting.ProductStatusUnstable
 	args.RecycleDay = config.DefaultRecycleDay()
 
@@ -225,7 +232,7 @@ func (creator *ExternalProductCreator) Create(user, requestID string, args *mode
 		log.Errorf("[%s][%s] create add namesapce label error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
-	err = commonrepo.NewProductColl().Create(args)
+	err = commonrepo.NewProductCollWithSession(args.Session).Create(args.Product)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
@@ -240,22 +247,22 @@ func newPMProductCreator() *PMProductCreator {
 	return &PMProductCreator{}
 }
 
-func (creator *PMProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
+func (creator *PMProductCreator) Create(user, requestID string, args *ProductCreateArg, log *zap.SugaredLogger) error {
 	// technically renderset is not used for pm projects, this logic is used for compatibility with previous logic
-	if err := preCreateProduct(args.EnvName, args, nil, log); err != nil {
+	if err := preCreateProduct(args.EnvName, args.Product, nil, log); err != nil {
 		log.Errorf("CreateProduct preCreateProduct error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
-	err := commonrepo.NewProductColl().Create(args)
+	err := commonrepo.NewProductColl().Create(args.Product)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(user, requestID, args, time.Now().Unix(), nil, nil, nil, log)
+	go createGroups(user, requestID, args.Product, time.Now().Unix(), nil, nil, nil, log)
 	return nil
 }
 
@@ -266,7 +273,7 @@ func newDefaultProductCreator() *K8sYamlProductCreator {
 	return &K8sYamlProductCreator{}
 }
 
-func (creator *K8sYamlProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
+func (creator *K8sYamlProductCreator) Create(user, requestID string, args *ProductCreateArg, log *zap.SugaredLogger) error {
 	// get project cluster relation
 	clusterID := args.ClusterID
 	if clusterID == "" {
@@ -311,7 +318,7 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 	//创建角色环境之间的关联关系
 	//todo 创建环境暂时不指定角色
 	// 检查是否重复创建（TO BE FIXED）;检查k8s集群设置: Namespace/Secret .etc
-	if err := preCreateProduct(args.EnvName, args, kubeClient, log); err != nil {
+	if err := preCreateProduct(args.EnvName, args.Product, kubeClient, log); err != nil {
 		log.Errorf("CreateProduct preCreateProduct error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
@@ -326,13 +333,13 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *model
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
 	args.ClusterID = clusterID
-	err = commonrepo.NewProductColl().Create(args)
+	err = commonrepo.NewProductColl().Create(args.Product)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	go createGroups(user, requestID, args, time.Now().Unix(), inf, kubeClient, istioClient, log)
+	go createGroups(user, requestID, args.Product, time.Now().Unix(), inf, kubeClient, istioClient, log)
 	return nil
 }
 

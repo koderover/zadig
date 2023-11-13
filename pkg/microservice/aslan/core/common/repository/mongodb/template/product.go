@@ -46,13 +46,18 @@ type ProjectInfo struct {
 
 type ProductColl struct {
 	*mongo.Collection
-
+	mongo.Session
 	coll string
 }
 
 func NewProductColl() *ProductColl {
 	name := template.Product{}.TableName()
 	return &ProductColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
+}
+
+func NewProductCollWithSess(session mongo.Session) *ProductColl {
+	name := template.Product{}.TableName()
+	return &ProductColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), Session: session, coll: name}
 }
 
 func (c *ProductColl) GetCollectionName() string {
@@ -73,7 +78,7 @@ func (c *ProductColl) EnsureIndex(ctx context.Context) error {
 func (c *ProductColl) Find(productName string) (*template.Product, error) {
 	res := &template.Product{}
 	query := bson.M{"product_name": productName}
-	err := c.FindOne(context.TODO(), query).Decode(res)
+	err := c.FindOne(mongotool.SessionContext(context.TODO(), c.Session), query).Decode(res)
 	return res, err
 }
 
@@ -384,7 +389,7 @@ func (c *ProductColl) UpdateServiceOrchestration(productName string, services []
 		"update_by":   updateBy,
 	}}
 
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
 
@@ -459,7 +464,7 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"public":                           args.Public,
 	}}
 
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
 
