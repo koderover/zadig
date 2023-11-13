@@ -475,7 +475,7 @@ func (c *ServiceColl) UpdateExternalServiceEnvName(serviceName, productName, env
 		"env_name": envName,
 	}}
 
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
 
@@ -499,7 +499,7 @@ func (c *ServiceColl) UpdateExternalServicesStatus(serviceName, productName, sta
 		"status": status,
 	}}
 
-	_, err := c.UpdateMany(context.TODO(), query, change)
+	_, err := c.UpdateMany(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
 

@@ -78,7 +78,7 @@ func (c *ProductColl) EnsureIndex(ctx context.Context) error {
 func (c *ProductColl) Find(productName string) (*template.Product, error) {
 	res := &template.Product{}
 	query := bson.M{"product_name": productName}
-	err := c.FindOne(context.TODO(), query).Decode(res)
+	err := c.FindOne(mongotool.SessionContext(context.TODO(), c.Session), query).Decode(res)
 	return res, err
 }
 
@@ -389,7 +389,7 @@ func (c *ProductColl) UpdateServiceOrchestration(productName string, services []
 		"update_by":   updateBy,
 	}}
 
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
 
