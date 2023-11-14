@@ -353,6 +353,7 @@ func ListWorkflowV4(projectName, viewName, userID string, names, v4Names []strin
 			ignoreWorkflowV4 = true
 		}
 	} else {
+		fmt.Println("!!!!!!!!!!!!!!!!!! View name:", viewName)
 		names, v4Names, err = filterWorkflowNamesByView(projectName, viewName, names, v4Names, policyFound)
 		if err != nil {
 			logger.Errorf("filterWorkflowNames error: %s", err)
