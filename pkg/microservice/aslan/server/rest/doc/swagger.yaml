@@ -2007,6 +2007,8 @@ definitions:
         items:
           $ref: '#/definitions/models.EnvStatus'
         type: array
+      error:
+        type: string
       images:
         items:
           type: string
@@ -2042,6 +2044,15 @@ definitions:
         description: |-
           ZadigXReleaseType represents the service contain created by zadigx release workflow
           frontend should limit some operations on these services
+        type: string
+    type: object
+  service.SetupPortalServiceRequest:
+    properties:
+      host:
+        type: string
+      port_number:
+        type: integer
+      port_protocol:
         type: string
     type: object
   service.SvcDiffResult:
@@ -2927,6 +2938,43 @@ paths:
           schema:
             $ref: '#/definitions/service.SvcDiffResult'
       summary: Preview service
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/share/setupPortal/{serviceName}:
+    post:
+      consumes:
+      - application/json
+      description: Setup Portal Service for Share Env
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.SetupPortalServiceRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Setup Portal Service for Share Env
       tags:
       - environment
   /api/aslan/environment/environments/{name}/sleep:

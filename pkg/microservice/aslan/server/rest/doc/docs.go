@@ -779,6 +779,61 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}/share/setupPortal/{serviceName}": {
+            "post": {
+                "description": "Setup Portal Service for Share Env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Setup Portal Service for Share Env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.SetupPortalServiceRequest"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments/{name}/sleep": {
             "post": {
                 "description": "Environment Sleep",
@@ -7580,6 +7635,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.EnvStatus"
                     }
                 },
+                "error": {
+                    "type": "string"
+                },
                 "images": {
                     "type": "array",
                     "items": {
@@ -7628,6 +7686,20 @@ const docTemplate = `{
                 },
                 "zadigx_release_type": {
                     "description": "ZadigXReleaseType represents the service contain created by zadigx release workflow\nfrontend should limit some operations on these services",
+                    "type": "string"
+                }
+            }
+        },
+        "service.SetupPortalServiceRequest": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "port_number": {
+                    "type": "integer"
+                },
+                "port_protocol": {
                     "type": "string"
                 }
             }
