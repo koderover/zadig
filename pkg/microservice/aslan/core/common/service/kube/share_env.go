@@ -504,7 +504,6 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 		return nil
 	}
 
-	// @note helm
 	svcNames, err := util.GetSvcNamesFromManifest(manifest)
 	if err != nil {
 		return fmt.Errorf("failed to get Service names from manifest: %s", err)

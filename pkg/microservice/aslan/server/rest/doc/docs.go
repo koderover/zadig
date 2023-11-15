@@ -779,9 +779,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/aslan/environment/environments/{name}/share/gatewayAddress": {
+        "/api/aslan/environment/environments/{name}/share/portal/{serviceName}": {
             "get": {
-                "description": "Get Istio Gateway Address for Share Env",
+                "description": "Get Portal Service for Share Env",
                 "consumes": [
                     "application/json"
                 ],
@@ -791,7 +791,7 @@ const docTemplate = `{
                 "tags": [
                     "environment"
                 ],
-                "summary": "Get Istio Gateway Address for Share Env",
+                "summary": "Get Portal Service for Share Env",
                 "parameters": [
                     {
                         "type": "string",
@@ -806,19 +806,24 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/service.GetIstioGatewayAddressResponse"
+                            "$ref": "#/definitions/service.GetPortalServiceResponse"
                         }
                     }
                 }
-            }
-        },
-        "/api/aslan/environment/environments/{name}/share/setupPortal/{serviceName}": {
+            },
             "post": {
                 "description": "Setup Portal Service for Share Env",
                 "consumes": [
@@ -6895,11 +6900,17 @@ const docTemplate = `{
                 }
             }
         },
-        "service.GetIstioGatewayAddressResponse": {
+        "service.GetPortalServiceResponse": {
             "type": "object",
             "properties": {
                 "default_gateway_ip": {
                     "type": "string"
+                },
+                "servers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.SetupPortalServiceRequest"
+                    }
                 }
             }
         },

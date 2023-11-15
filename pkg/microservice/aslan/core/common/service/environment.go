@@ -784,6 +784,7 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 
+	// @note helm
 	hostInfos := make([]resource.HostInfo, 0)
 	if kubeclient.VersionLessThan122(version) {
 		ingresses, err := getter.ListExtensionsV1Beta1Ingresses(nil, informer)

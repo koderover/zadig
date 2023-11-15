@@ -1335,6 +1335,72 @@ func CheckServicesDeployedInSubEnvs(ctx context.Context, productName, envName st
 	return svcsInSubEnvs, nil
 }
 
+type GetPortalServiceResponse struct {
+	DefaultGatewayIP string                      `json:"default_gateway_ip"`
+	Servers          []SetupPortalServiceRequest `json:"servers"`
+}
+
+func GetPortalService(ctx context.Context, productName, envName, serviceName string) (GetPortalServiceResponse, error) {
+	resp := GetPortalServiceResponse{}
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return resp, e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to query env %s of product %s: %s", envName, productName, err))
+	}
+	if !env.ShareEnv.Enable && !env.ShareEnv.IsBase {
+		return resp, e.ErrSetupPortalService.AddDesc("%s doesn't enable share environment or is not base environment")
+	}
+
+	ns := env.Namespace
+	clusterID := env.ClusterID
+
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return resp, e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
+	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return resp, e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
+	}
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return resp, e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
+	}
+
+	gatewayName := genGatewayName(serviceName)
+	gatewaySvc := &corev1.Service{}
+	err = kclient.Get(ctx, client.ObjectKey{
+		Name:      "istio-ingressgateway",
+		Namespace: "istio-system",
+	}, gatewaySvc)
+	if len(gatewaySvc.Status.LoadBalancer.Ingress) == 0 {
+		return resp, e.ErrGetIstioGatewayAddress.AddDesc("istio default gateway's lb doesn't have ip address")
+	}
+	for _, ing := range gatewaySvc.Status.LoadBalancer.Ingress {
+	resp.DefaultGatewayIP = ing.IP
+	}
+
+	gwObj, err := istioClient.NetworkingV1alpha3().Gateways(ns).Get(ctx, gatewayName, metav1.GetOptions{})
+	if err != nil {
+		return resp, e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get gateway %s in namespace %s, err: %w", gatewayName, ns, err))
+	}
+
+	for _, server := range gwObj.Spec.Servers {
+		if len(server.Hosts) == 0 {
+			return resp, e.ErrSetupPortalService.AddDesc("can't find any host in istio gateway")
+		}
+		resp.Servers = append(resp.Servers, SetupPortalServiceRequest{
+			Host:         server.Hosts[0],
+			PortNumber:   server.Port.Number,
+			PortProtocol: server.Port.Protocol,
+		})
+	}
+
+	return resp, nil
+}
+
 type SetupPortalServiceRequest struct {
 	Host         string `json:"host"`
 	PortNumber   uint32 `json:"port_number"`
@@ -1439,7 +1505,6 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 	// 3. change the related virtualservice
 	svcs := []*corev1.Service{}
 	deployType := templateProd.ProductFeature.GetDeployType()
-	log.Debugf("deployType: %v", deployType)
 	if deployType == setting.K8SDeployType {
 		prodSvc := env.GetServiceMap()[serviceName]
 		if prodSvc == nil {
@@ -1542,42 +1607,4 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 	}
 
 	return nil
-}
-
-type GetIstioGatewayAddressResponse struct {
-	DefaultGatewayIP string `json:"default_gateway_ip"`
-}
-
-func GetIstioGatewayAddress(ctx context.Context, productName, envName string) (GetIstioGatewayAddressResponse, error) {
-	resp := GetIstioGatewayAddressResponse{}
-	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
-	})
-	if err != nil {
-		return resp, e.ErrGetIstioGatewayAddress.AddErr(fmt.Errorf("failed to query env %s of product %s: %s", envName, productName, err))
-	}
-	if !env.ShareEnv.Enable && !env.ShareEnv.IsBase {
-		return resp, e.ErrGetIstioGatewayAddress.AddDesc("%s doesn't enable share environment or is not base environment")
-	}
-
-	clusterID := env.ClusterID
-	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
-	if err != nil {
-		return resp, e.ErrGetIstioGatewayAddress.AddErr(fmt.Errorf("failed to get kube client: %s", err))
-	}
-
-	gatewaySvc := &corev1.Service{}
-	err = kclient.Get(ctx, client.ObjectKey{
-		Name:      "istio-ingressgateway",
-		Namespace: "istio-system",
-	}, gatewaySvc)
-	if len(gatewaySvc.Status.LoadBalancer.Ingress) == 0 {
-		return resp, e.ErrGetIstioGatewayAddress.AddDesc("istio default gateway's lb doesn't have ip address")
-	}
-	for _, ing := range gatewaySvc.Status.LoadBalancer.Ingress {
-		resp.DefaultGatewayIP = ing.IP
-	}
-
-	return resp, nil
 }

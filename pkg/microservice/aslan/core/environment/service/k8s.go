@@ -307,6 +307,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		return nil
 	}
 
+	// @note k8s
 	hostInfos := make([]resource.HostInfo, 0)
 	version, err := cls.Discovery().ServerVersion()
 	if err != nil {

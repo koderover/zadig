@@ -1500,10 +1500,14 @@ definitions:
           type: string
         type: array
     type: object
-  service.GetIstioGatewayAddressResponse:
+  service.GetPortalServiceResponse:
     properties:
       default_gateway_ip:
         type: string
+      servers:
+        items:
+          $ref: '#/definitions/service.SetupPortalServiceRequest'
+        type: array
     type: object
   service.GetReleaseInstanceDeployStatusResponse:
     properties:
@@ -2945,11 +2949,11 @@ paths:
       summary: Preview service
       tags:
       - environment
-  /api/aslan/environment/environments/{name}/share/gatewayAddress:
+  /api/aslan/environment/environments/{name}/share/portal/{serviceName}:
     get:
       consumes:
       - application/json
-      description: Get Istio Gateway Address for Share Env
+      description: Get Portal Service for Share Env
       parameters:
       - description: project name
         in: query
@@ -2961,17 +2965,21 @@ paths:
         name: name
         required: true
         type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/service.GetIstioGatewayAddressResponse'
-      summary: Get Istio Gateway Address for Share Env
+            $ref: '#/definitions/service.GetPortalServiceResponse'
+      summary: Get Portal Service for Share Env
       tags:
       - environment
-  /api/aslan/environment/environments/{name}/share/setupPortal/{serviceName}:
     post:
       consumes:
       - application/json
