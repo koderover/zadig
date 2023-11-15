@@ -142,6 +142,9 @@ func (s *GitStep) runGitCmds() error {
 		tokens = append(tokens, repo.OauthToken)
 		cmds = append(cmds, s.buildGitCommands(repo, hostNames)...)
 	}
+
+	log.Infof("-------- hostNames: %v", hostNames.List())
+
 	// write ssh key
 	if len(hostNames.List()) > 0 {
 		if err := writeSSHConfigFile(hostNames, s.spec.Proxy); err != nil {
@@ -342,6 +345,8 @@ func writeSSHConfigFile(hostNames sets.String, proxy *step.Proxy) error {
 		}
 	}
 	file := path.Join(config.Home(), "/.ssh/config")
+	log.Infof("-------- ssh file: %s", file)
+	log.Infof("-------- ssh file content : %s", out)
 	return ioutil.WriteFile(file, []byte(out), 0600)
 }
 
