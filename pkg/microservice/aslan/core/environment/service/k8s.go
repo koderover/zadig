@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -24,15 +25,16 @@ import (
 	"sync"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,6 +56,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
+	zadigtypes "github.com/koderover/zadig/pkg/types"
 )
 
 type K8sService struct {
@@ -307,7 +310,6 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		return nil
 	}
 
-	// @note k8s
 	hostInfos := make([]resource.HostInfo, 0)
 	version, err := cls.Discovery().ServerVersion()
 	if err != nil {
@@ -332,6 +334,27 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		} else {
 			log.Warnf("Failed to list ingresses, the error is: %s", err)
 		}
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("failed to get rest config: %s", err)
+		return nil
+	}
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		log.Errorf("failed to new istio client: %s", err)
+		return nil
+	}
+	zadigLabels := map[string]string{
+		zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
+	}
+	gwObjs, err := istioClient.NetworkingV1alpha3().Gateways(productInfo.Namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: labels.FormatLabels(zadigLabels),
+	})
+	if err != nil {
+		log.Errorf("failed to list gateways in ns `%s`: %s", productInfo.Namespace, err)
+		return nil
 	}
 
 	// get all services
@@ -387,6 +410,10 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 
 			} else {
 				gp.Status = setting.ClusterUnknown
+			}
+
+			gp.IstioGateway = &commonservice.IstioGatewayInfo{
+				Servers: commonservice.FindServiceFromIstioGateway(gwObjs, service.ServiceName),
 			}
 
 			mutex.Lock()

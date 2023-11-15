@@ -1613,6 +1613,22 @@ definitions:
           $ref: '#/definitions/resource.HostInfo'
         type: array
     type: object
+  service.IstioGatewayInfo:
+    properties:
+      servers:
+        items:
+          $ref: '#/definitions/service.IstioGatewayServer'
+        type: array
+    type: object
+  service.IstioGatewayServer:
+    properties:
+      host:
+        type: string
+      port_number:
+        type: integer
+      port_protocol:
+        type: string
+    type: object
   service.JiraProjectsResp:
     properties:
       key:
@@ -2026,6 +2042,8 @@ definitions:
         $ref: '#/definitions/service.IngressInfo'
       is_helm_chart_deploy:
         type: boolean
+      istio_gateway:
+        $ref: '#/definitions/service.IstioGatewayInfo'
       product_name:
         type: string
       ready:

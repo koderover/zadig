@@ -7074,6 +7074,31 @@ const docTemplate = `{
                 }
             }
         },
+        "service.IstioGatewayInfo": {
+            "type": "object",
+            "properties": {
+                "servers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.IstioGatewayServer"
+                    }
+                }
+            }
+        },
+        "service.IstioGatewayServer": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "port_number": {
+                    "type": "integer"
+                },
+                "port_protocol": {
+                    "type": "string"
+                }
+            }
+        },
         "service.JiraProjectsResp": {
             "type": "object",
             "properties": {
@@ -7707,6 +7732,9 @@ const docTemplate = `{
                 },
                 "is_helm_chart_deploy": {
                     "type": "boolean"
+                },
+                "istio_gateway": {
+                    "$ref": "#/definitions/service.IstioGatewayInfo"
                 },
                 "product_name": {
                     "type": "string"

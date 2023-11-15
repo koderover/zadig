@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -29,7 +30,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -55,6 +59,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/log"
+	zadigtypes "github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	jsonutil "github.com/koderover/zadig/pkg/util/json"
 )
@@ -80,17 +85,18 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, production boo
 }
 
 type ServiceResp struct {
-	ServiceName        string       `json:"service_name"`
-	ReleaseName        string       `json:"release_name"`
-	IsHelmChartDeploy  bool         `json:"is_helm_chart_deploy"`
-	ServiceDisplayName string       `json:"service_display_name"`
-	Type               string       `json:"type"`
-	Status             string       `json:"status"`
-	Error              string       `json:"error"`
-	Images             []string     `json:"images,omitempty"`
-	ProductName        string       `json:"product_name"`
-	EnvName            string       `json:"env_name"`
-	Ingress            *IngressInfo `json:"ingress"`
+	ServiceName        string            `json:"service_name"`
+	ReleaseName        string            `json:"release_name"`
+	IsHelmChartDeploy  bool              `json:"is_helm_chart_deploy"`
+	ServiceDisplayName string            `json:"service_display_name"`
+	Type               string            `json:"type"`
+	Status             string            `json:"status"`
+	Error              string            `json:"error"`
+	Images             []string          `json:"images,omitempty"`
+	ProductName        string            `json:"product_name"`
+	EnvName            string            `json:"env_name"`
+	Ingress            *IngressInfo      `json:"ingress"`
+	IstioGateway       *IstioGatewayInfo `json:"istio_gateway"`
 	//deprecated
 	Ready          string              `json:"ready"`
 	EnvStatuses    []*models.EnvStatus `json:"env_statuses,omitempty"`
@@ -107,6 +113,16 @@ type ServiceResp struct {
 
 type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
+}
+
+type IstioGatewayInfo struct {
+	Servers []IstioGatewayServer `json:"servers"`
+}
+
+type IstioGatewayServer struct {
+	Host         string `json:"host"`
+	PortProtocol string `json:"port_protocol"`
+	PortNumber   uint32 `json:"port_number"`
 }
 
 func UnMarshalSourceDetail(source interface{}) (*models.CreateFromRepo, error) {
@@ -664,10 +680,15 @@ func fillServiceName(envName, productName string, workloads []*Workload) error {
 	if err != nil {
 		return err
 	}
+	releaseServiceNameMap, err := commonutil.GetReleaseNameToServiceNameMap(productInfo)
+	if err != nil {
+		return err
+	}
 	for _, wl := range workloads {
 		if chartRelease, ok := wl.Annotation[setting.HelmReleaseNameAnnotation]; ok {
 			wl.ReleaseName = chartRelease
 			wl.ChartName = releaseChartNameMap[wl.ReleaseName]
+			wl.ServiceName = releaseServiceNameMap[wl.ReleaseName]
 		}
 	}
 	return nil
@@ -778,13 +799,21 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", clusterID, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return 0, resp, e.ErrListGroups.AddErr(fmt.Errorf("failed to get rest config: %s", err))
+	}
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return 0, resp, e.ErrListGroups.AddErr(fmt.Errorf("failed to new istio client: %s", err))
+	}
+
 	count, workLoads, err := ListWorkloads(envName, productName, perPage, page, informer, version, log, filter...)
 	if err != nil {
 		log.Errorf("failed to list workloads, [%s][%s], error: %v", namespace, envName, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	// @note helm
 	hostInfos := make([]resource.HostInfo, 0)
 	if kubeclient.VersionLessThan122(version) {
 		ingresses, err := getter.ListExtensionsV1Beta1Ingresses(nil, informer)
@@ -804,6 +833,16 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 		} else {
 			log.Warnf("Failed to list ingresses, the error is: %s", err)
 		}
+	}
+
+	zadigLabels := map[string]string{
+		zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
+	}
+	gwObjs, err := istioClient.NetworkingV1alpha3().Gateways(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: labels.FormatLabels(zadigLabels),
+	})
+	if err != nil {
+		return 0, resp, e.ErrListGroups.AddErr(fmt.Errorf("failed to list gateways in ns `%s`: %s", namespace, err))
 	}
 
 	// get all services
@@ -836,6 +875,9 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = kube.GetSelectedPodsInfo(selector, informer, workload.Images, log)
 			productRespInfo.Ingress = &IngressInfo{
 				HostInfo: FindServiceFromIngress(hostInfos, workload, allServices),
+			}
+			productRespInfo.IstioGateway = &IstioGatewayInfo{
+				Servers: FindServiceFromIstioGateway(gwObjs, workload.ServiceName),
 			}
 		} else if workload.Type == setting.CronJob {
 			productRespInfo.Status = workload.Status
@@ -874,6 +916,33 @@ func FindServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 			}
 		}
 	}
+	return resp
+}
+
+func FindServiceFromIstioGateway(gwObjs *v1alpha3.GatewayList, serviceName string) []IstioGatewayServer {
+	resp := []IstioGatewayServer{}
+	if len(gwObjs.Items) == 0 {
+		return resp
+	}
+	gatewayName := commonutil.GenIstioGatewayName(serviceName)
+	for _, gwObj := range gwObjs.Items {
+		if gwObj.Name == gatewayName {
+			for _, serverObj := range gwObj.Spec.Servers {
+				if len(serverObj.Hosts) == 0 {
+					continue
+				}
+
+				server := IstioGatewayServer{
+					Host:         serverObj.Hosts[0],
+					PortProtocol: serverObj.Port.Protocol,
+					PortNumber:   serverObj.Port.Number,
+				}
+				resp = append(resp, server)
+			}
+			break
+		}
+	}
+
 	return resp
 }
 
