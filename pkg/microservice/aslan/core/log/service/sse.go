@@ -342,7 +342,6 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 		waitVmAndGetLog(ctx, streamChan, vmJobOptions, log)
 	} else {
 		selector := getWorkflowSelector(options)
-		fmt.Println("the selector we got is:", selector.String())
 		waitAndGetLog(ctx, streamChan, selector, options, log)
 	}
 }

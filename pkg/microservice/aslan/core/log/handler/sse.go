@@ -97,8 +97,6 @@ func GetWorkflowJobContainerLogsSSE(c *gin.Context) {
 	}
 
 	jobName := c.Param("jobName")
-	fmt.Println("getting container logs for job:", jobName)
-	fmt.Println("the real container name we got is:", jobcontroller.GetJobContainerName(jobName))
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
 		logservice.WorkflowTaskV4ContainerLogStream(
