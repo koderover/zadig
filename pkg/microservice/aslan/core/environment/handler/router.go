@@ -270,6 +270,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.DELETE("/:name/share/enable", DisableBaseEnv)
 		environments.GET("/:name/check/sharenv/:op/ready", CheckShareEnvReady)
 		environments.POST("/:name/share/setupPortal/:serviceName", SetupPortalService)
+		environments.GET("/:name/share/gatewayAddress", GetIstioGatewayAddress)
 
 		environments.GET("/:name/services/:serviceName/pmexec", ConnectSshPmExec)
 

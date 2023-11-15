@@ -779,6 +779,29 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}/share/gatewayAddress": {
+            "get": {
+                "description": "Get Istio Gateway Address for Share Env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Istio Gateway Address for Share Env",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.GetIstioGatewayAddressResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments/{name}/share/setupPortal/{serviceName}": {
             "post": {
                 "description": "Setup Portal Service for Share Env",
@@ -6853,6 +6876,14 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "service.GetIstioGatewayAddressResponse": {
+            "type": "object",
+            "properties": {
+                "default_gateway_ip": {
+                    "type": "string"
                 }
             }
         },

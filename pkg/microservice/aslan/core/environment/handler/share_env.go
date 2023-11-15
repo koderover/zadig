@@ -213,3 +213,43 @@ func SetupPortalService(c *gin.Context) {
 	ctx.Err = service.SetupPortalService(c, projectKey, envName, serviceName, req)
 	return
 }
+
+// @Summary Get Istio Gateway Address for Share Env
+// @Description Get Istio Gateway Address for Share Env
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Success 200 		{object} 	service.GetIstioGatewayAddressResponse
+// @Router /api/aslan/environment/environments/{name}/share/gatewayAddress [get]
+func GetIstioGatewayAddress(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetIstioGatewayAddress(c, projectKey, envName)
+	return
+}

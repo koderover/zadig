@@ -178,6 +178,7 @@ var (
 	ErrDiffEnvServiceVersions    = NewHTTPError(6079, "Diff环境服务版本失败")
 	ErrRollbackEnvServiceVersion = NewHTTPError(6079, "回滚环境服务版本失败")
 	ErrSetupPortalService        = NewHTTPError(6079, "设置入口服务失败")
+	ErrGetIstioGatewayAddress    = NewHTTPError(6079, "获取Istio Gateway地址失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product Service APIs Range: 6080 - 6099 AND 6150 -6199

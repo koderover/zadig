@@ -1500,6 +1500,11 @@ definitions:
           type: string
         type: array
     type: object
+  service.GetIstioGatewayAddressResponse:
+    properties:
+      default_gateway_ip:
+        type: string
+    type: object
   service.GetReleaseInstanceDeployStatusResponse:
     properties:
       chart_name:
@@ -2938,6 +2943,21 @@ paths:
           schema:
             $ref: '#/definitions/service.SvcDiffResult'
       summary: Preview service
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/share/gatewayAddress:
+    get:
+      consumes:
+      - application/json
+      description: Get Istio Gateway Address for Share Env
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetIstioGatewayAddressResponse'
+      summary: Get Istio Gateway Address for Share Env
       tags:
       - environment
   /api/aslan/environment/environments/{name}/share/setupPortal/{serviceName}:
