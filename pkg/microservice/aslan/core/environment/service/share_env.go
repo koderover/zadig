@@ -182,25 +182,31 @@ func DisableBaseEnv(ctx context.Context, envName, productName string) error {
 		return fmt.Errorf("failed to delete EnvoyFilter: %s", err)
 	}
 
-	// 3. Delete all VirtualServices delivered by the Zadig.
+	// 3. Delete Gateway delivered by the Zadig.
+	err = deleteGateways(ctx, kclient, istioClient, ns)
+	if err != nil {
+		return fmt.Errorf("failed to delete EnvoyFilter: %s", err)
+	}
+
+	// 4. Delete all VirtualServices delivered by the Zadig.
 	err = deleteVirtualServices(ctx, kclient, istioClient, ns)
 	if err != nil {
 		return fmt.Errorf("failed to delete VirtualServices that Zadig created in ns `%s`: %s", ns, err)
 	}
 
-	// 4. Remove the `istio-injection=enabled` label of the namespace.
+	// 5. Remove the `istio-injection=enabled` label of the namespace.
 	err = removeIstioLabel(ctx, kclient, ns)
 	if err != nil {
 		return fmt.Errorf("failed to remove istio label on ns `%s`: %s", ns, err)
 	}
 
-	// 5. Restart the istio-Proxy injected Pods.
+	// 6. Restart the istio-Proxy injected Pods.
 	err = removePodsIstioProxy(ctx, kclient, ns)
 	if err != nil {
 		return fmt.Errorf("failed to remove istio-proxy from pods in ns `%s`: %s", ns, err)
 	}
 
-	// 6. Update the environment configuration.
+	// 7. Update the environment configuration.
 	return ensureDisableBaseEnvConfig(ctx, prod)
 }
 
@@ -807,6 +813,31 @@ func buildEnvoyPatchValue(data map[string]interface{}) (*types.Struct, error) {
 	return val, err
 }
 
+func deleteGateways(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) error {
+	zadigLabels := map[string]string{
+		zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
+	}
+
+	gwObjs, err := istioClient.NetworkingV1alpha3().Gateways(ns).List(ctx, metav1.ListOptions{
+		LabelSelector: labels.FormatLabels(zadigLabels),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list gateways in ns `%s`: %s", ns, err)
+	}
+
+	deleteOption := metav1.DeletePropagationBackground
+	for _, gwObj := range gwObjs.Items {
+		err := istioClient.NetworkingV1alpha3().Gateways(ns).Delete(ctx, gwObj.Name, metav1.DeleteOptions{
+			PropagationPolicy: &deleteOption,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete gateways %s in ns `%s`: %s", gwObj.Name, ns, err)
+		}
+	}
+
+	return nil
+}
+
 func deleteVirtualServices(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) error {
 	zadigLabels := map[string]string{
 		zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
@@ -851,6 +882,10 @@ func removePodsIstioProxy(ctx context.Context, kclient client.Client, ns string)
 
 func genVirtualServiceName(svc *corev1.Service) string {
 	return fmt.Sprintf("%s-%s", zadigNamePrefix, svc.Name)
+}
+
+func genGatewayName(serviceName string) string {
+	return fmt.Sprintf("%s-gateway-%s", zadigNamePrefix, serviceName)
 }
 
 func restartPodsWithIstioProxy(ctx context.Context, kclient client.Client, ns string, restartConditionHasIstioProxy bool) error {
@@ -1338,7 +1373,7 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 	if err != nil {
 		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}
-	gatewayName := fmt.Sprintf("zadig-gateway-%s", serviceName)
+	gatewayName := genGatewayName(serviceName)
 
 	if len(servers) == 0 {
 		// delete operation
@@ -1404,6 +1439,7 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 	// 3. change the related virtualservice
 	svcs := []*corev1.Service{}
 	deployType := templateProd.ProductFeature.GetDeployType()
+	log.Debugf("deployType: %v", deployType)
 	if deployType == setting.K8SDeployType {
 		prodSvc := env.GetServiceMap()[serviceName]
 		if prodSvc == nil {
@@ -1431,7 +1467,7 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 				svcs = append(svcs, svc)
 			}
 		}
-	} else if deployType == setting.HelmChartDeployType {
+	} else if deployType == setting.HelmDeployType {
 		helmClient, err := helmtool.NewClientFromRestConf(restConfig, env.Namespace)
 		if err != nil {
 			log.Errorf("[%s][%s] NewClientFromRestConf error: %s", envName, productName, err)
@@ -1483,13 +1519,13 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 
 	for _, svc := range svcs {
 		vsName := genVirtualServiceName(svc)
-		// delete operation
 		vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
 		if err != nil {
 			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get vritualservice %s in namespace %s, err: %w", vsName, ns, err))
 		}
 
 		if len(servers) == 0 {
+			// delete operation
 			vsObj.Spec.Gateways = sets.NewString(vsObj.Spec.Gateways...).Delete(gatewayName).List()
 			vsObj.Spec.Hosts = []string{svc.Name}
 		} else {

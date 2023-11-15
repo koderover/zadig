@@ -219,6 +219,8 @@ func SetupPortalService(c *gin.Context) {
 // @Tags 	environment
 // @Accept 	json
 // @Produce json
+// @Param 	projectName		query		string									true	"project name"
+// @Param 	name			path		string									true	"env name"
 // @Success 200 		{object} 	service.GetIstioGatewayAddressResponse
 // @Router /api/aslan/environment/environments/{name}/share/gatewayAddress [get]
 func GetIstioGatewayAddress(c *gin.Context) {
