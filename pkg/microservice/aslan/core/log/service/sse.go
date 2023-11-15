@@ -28,7 +28,6 @@ import (
 	"time"
 
 	jenkins "github.com/bndr/gojenkins"
-	vmservice "github.com/koderover/zadig/pkg/microservice/aslan/core/vm/service"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -38,6 +37,8 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	vmmongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
+	vmservice "github.com/koderover/zadig/pkg/microservice/aslan/core/vm/service"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
@@ -279,7 +280,7 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 
 	for _, stage := range task.Stages {
 		for _, job := range stage.Jobs {
-			if job.Name != options.SubTask {
+			if jobcontroller.GetJobContainerName(job.Name) != options.SubTask {
 				continue
 			}
 			options.JobName = job.K8sJobName
