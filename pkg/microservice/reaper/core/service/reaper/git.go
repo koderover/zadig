@@ -48,6 +48,8 @@ func (r *Reaper) RunGitGc(folder string) error {
 
 func (r *Reaper) runGitCmds() error {
 
+	log.Infof("-------- start run git cmds ----------")
+
 	envs := r.getUserEnvs()
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
 	if r.Ctx.Proxy.EnableRepoProxy && r.Ctx.Proxy.Type == "http" {
@@ -113,6 +115,9 @@ func (r *Reaper) runGitCmds() error {
 		tokens = append(tokens, repo.OauthToken)
 		cmds = append(cmds, r.buildGitCommands(repo, hostNames)...)
 	}
+
+	log.Infof(" ---------- host names: %v --------------")
+
 	// write ssh key
 	if len(hostNames.List()) > 0 {
 		if err := writeSSHConfigFile(hostNames, r.Ctx.Proxy); err != nil {
@@ -313,6 +318,10 @@ func writeSSHConfigFile(hostNames sets.String, proxy *meta.Proxy) error {
 		}
 	}
 	file := path.Join(config.Home(), "/.ssh/config")
+
+	log.Infof("------- write ssh config file, file: %s", file)
+	log.Infof("------- write ssh config file, content: %s", string(out))
+
 	return ioutil.WriteFile(file, []byte(out), 0600)
 }
 
