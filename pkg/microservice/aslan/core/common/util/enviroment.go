@@ -1,9 +1,12 @@
 package util
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
+
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -170,9 +173,17 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 		}
 	}
 
+	session := mongotool.Session()
+	defer session.EndSession(context.TODO())
+
+	err = session.StartTransaction()
+	if err != nil {
+		return err
+	}
+
 	service := prod.GetServiceMap()[serviceName]
 	if service != nil {
-		err = CreateEnvServiceVersion(prod, service, userName, log.SugaredLogger())
+		err = CreateEnvServiceVersion(prod, service, userName, session, log.SugaredLogger())
 		if err != nil {
 			log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 		}
@@ -180,8 +191,9 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 		log.Errorf("service %s not found in prod %s/%s", serviceName, prod.ProductName, prod.EnvName)
 	}
 
-	templateProject, err := templaterepo.NewProductColl().Find(productName)
+	templateProject, err := templaterepo.NewProductCollWithSess(session).Find(productName)
 	if err != nil {
+		session.AbortTransaction(context.TODO())
 		return fmt.Errorf("find template project %s error: %v", productName, err)
 	}
 
@@ -191,21 +203,24 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 			ProductName: productName,
 		}, prod.Production)
 		if err != nil {
+			session.AbortTransaction(context.TODO())
 			return fmt.Errorf("find template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
 		}
 
 		tmplSvc.DeployTime = time.Now().Unix()
-		err = repository.Update(tmplSvc, prod.Production)
+		err = repository.UpdateWithSession(tmplSvc, prod.Production, session)
 		if err != nil {
+			session.AbortTransaction(context.TODO())
 			return fmt.Errorf("update template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
 		}
 	}
 
-	if err := commonrepo.NewProductColl().Update(prod); err != nil {
+	if err := commonrepo.NewProductCollWithSession(session).Update(prod); err != nil {
 		errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
 		logger.Errorf(errMsg)
+		session.AbortTransaction(context.TODO())
 		return errors.New(errMsg)
 	}
 
-	return nil
+	return session.CommitTransaction(context.TODO())
 }

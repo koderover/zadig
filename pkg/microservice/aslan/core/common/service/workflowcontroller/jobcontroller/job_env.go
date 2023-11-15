@@ -17,8 +17,11 @@ limitations under the License.
 package jobcontroller
 
 import (
+	"context"
 	"sync"
 	"time"
+
+	"github.com/koderover/zadig/pkg/tool/mongo"
 
 	"github.com/pkg/errors"
 
@@ -117,6 +120,14 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		productInfo.Services = [][]*models.ProductService{[]*models.ProductService{}}
 	}
 
+	session := mongo.Session()
+	defer session.EndSession(context.TODO())
+
+	err = session.StartTransaction()
+	if err != nil {
+		return err
+	}
+
 	if !deployInfo.Uninstall {
 		// install or update service
 		sevOnline := false
@@ -146,10 +157,12 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			templateVarKVs := commontypes.ServiceToRenderVariableKVs(svcTemplate.ServiceVariableKVs)
 			_, mergedVariableKVs, err = commontypes.MergeRenderVariableKVs(templateVarKVs, svcRender.OverrideYaml.RenderVariableKVs, deployInfo.VariableKVs)
 			if err != nil {
+				session.AbortTransaction(context.TODO())
 				return errors.Wrapf(err, "failed to merge render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
 			}
 			mergedVariableYaml, mergedVariableKVs, err = commontypes.ClipRenderVariableKVs(svcTemplate.ServiceVariableKVs, mergedVariableKVs)
 			if err != nil {
+				session.AbortTransaction(context.TODO())
 				return errors.Wrapf(err, "failed to clip render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
 			}
 		}
@@ -166,7 +179,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			productInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(productInfo.ServiceDeployStrategy, deployInfo.ServiceName)
 		}
 
-		err = commonutil.CreateEnvServiceVersion(productInfo, productInfo.GetServiceMap()[deployInfo.ServiceName], deployInfo.UserName, log.SugaredLogger())
+		err = commonutil.CreateEnvServiceVersion(productInfo, productInfo.GetServiceMap()[deployInfo.ServiceName], deployInfo.UserName, session, log.SugaredLogger())
 		if err != nil {
 			log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 		}
@@ -197,9 +210,10 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		}
 	}
 
-	err = commonrepo.NewProductColl().Update(productInfo)
+	err = commonrepo.NewProductCollWithSession(session).Update(productInfo)
 	if err != nil {
+		session.AbortTransaction(context.TODO())
 		return errors.Wrapf(err, "failed to update product %s", deployInfo.ProductName)
 	}
-	return nil
+	return session.CommitTransaction(context.TODO())
 }

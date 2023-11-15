@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/mongo"
+
 	"go.uber.org/zap"
 
 	helmclient "github.com/mittwald/go-helm-client"
@@ -312,15 +314,26 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 		return err
 	}
 
-	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, log.SugaredLogger())
+	session := mongo.Session()
+	defer session.EndSession(context.TODO())
+
+	err = session.StartTransaction()
+	if err != nil {
+		return err
+	}
+
+	err = commonutil.CreateEnvServiceVersion(product, productSvc, user, session, log.SugaredLogger())
 	if err != nil {
 		log.Errorf("failed to create helm service version, err: %v", err)
 	}
 
+	productColl := commonrepo.NewProductCollWithSession(session)
+
 	// select product info and render info from db, in case of concurrent update caused data override issue
 	// those code can be optimized if MongoDB version are newer than 4.0
-	newProductInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: product.ProductName, EnvName: product.EnvName})
+	newProductInfo, err := productColl.Find(&commonrepo.ProductFindOptions{Name: product.ProductName, EnvName: product.EnvName})
 	if err != nil {
+		session.AbortTransaction(context.TODO())
 		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
 	}
 
@@ -342,12 +355,13 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 		newProductInfo.Services[0] = append(newProductInfo.Services[0], service)
 	}
 
-	if err = commonrepo.NewProductColl().Update(newProductInfo); err != nil {
+	if err = productColl.Update(newProductInfo); err != nil {
 		log.Errorf("update product %s error: %s", newProductInfo.ProductName, err.Error())
+		session.AbortTransaction(context.TODO())
 		return fmt.Errorf("failed to update product info, name %s", newProductInfo.ProductName)
 	}
 
-	return nil
+	return session.CommitTransaction(context.TODO())
 }
 
 func UninstallServiceByName(helmClient helmclient.Client, serviceName string, env *commonmodels.Product, revision int64, force bool) error {

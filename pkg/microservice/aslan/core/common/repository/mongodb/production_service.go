@@ -36,6 +36,7 @@ import (
 
 type ProductionServiceColl struct {
 	*mongo.Collection
+	mongo.Session
 	coll string
 }
 
@@ -43,6 +44,15 @@ func NewProductionServiceColl() *ProductionServiceColl {
 	name := "production_template_service"
 	return &ProductionServiceColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		coll:       name,
+	}
+}
+
+func NewProductionServiceCollWithSession(session mongo.Session) *ProductionServiceColl {
+	name := "production_template_service"
+	return &ProductionServiceColl{
+		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		Session:    session,
 		coll:       name,
 	}
 }
@@ -270,7 +280,7 @@ func (c *ProductionServiceColl) Update(args *models.Service) error {
 		changeMap["env_statuses"] = args.EnvStatuses
 	}
 	change := bson.M{"$set": changeMap}
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
 
