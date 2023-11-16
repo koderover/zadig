@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
-
 	"go.uber.org/zap"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -38,6 +36,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type ListEnvServiceVersionsResponse struct {

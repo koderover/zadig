@@ -21,11 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/mongo"
-
 	"github.com/pkg/errors"
-
-	"github.com/koderover/zadig/pkg/util/converter"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -36,6 +32,8 @@ import (
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/tool/mongo"
+	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 type ProductServiceDeployInfo struct {

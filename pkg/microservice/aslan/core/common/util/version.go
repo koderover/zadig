@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -11,7 +12,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util"
-	"go.uber.org/zap"
 )
 
 func GenerateEnvServiceNextRevision(projectName, envName, serviceName string, isHelmChart bool, session mongo.Session) (int64, error) {

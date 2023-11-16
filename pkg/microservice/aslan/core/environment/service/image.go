@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
-
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -37,6 +35,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type UpdateContainerImageArgs struct {

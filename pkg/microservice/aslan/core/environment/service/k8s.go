@@ -25,17 +25,14 @@ import (
 	"sync"
 	"time"
 
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
-
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,6 +54,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type K8sService struct {

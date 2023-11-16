@@ -25,12 +25,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/mongo"
-
-	"go.uber.org/zap"
-
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
@@ -52,6 +49,7 @@ import (
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	kubeutil "github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/fs"
