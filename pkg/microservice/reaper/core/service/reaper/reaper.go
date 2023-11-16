@@ -114,7 +114,7 @@ func (r *Reaper) CompressCache(storageURI string) error {
 	cacheDir := r.ActiveWorkspace
 	if r.Ctx.CacheDirType == types.UserDefinedCacheDir {
 		// Note: Product supports using environment variables, so we need to parsing the directory path here.
-		fmt.Println(11111111111111111111111)
+		fmt.Println("11111111111111111111111")
 		cacheDir = r.renderUserEnv(fmt.Sprintf("%s/%s", "/workspace", r.Ctx.CacheUserDir))
 	}
 
