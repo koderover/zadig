@@ -22,15 +22,14 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
-	_ "github.com/go-sql-driver/mysql"
+	//_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type SQLJobCtl struct {
@@ -91,7 +90,8 @@ func (c *SQLJobCtl) ExecMySQLStatement() error {
 	log.Infof("---------- db info: %v", *c.dbInfo)
 	log.Infof("---------- db password: %v", url.QueryEscape(info.Password))
 
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8&multiStatements=true", info.Username, url.QueryEscape(info.Password), info.Host, info.Port))
+	//db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8&multiStatements=true", info.Username, url.QueryEscape(info.Password), info.Host, info.Port))
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8&multiStatements=true", info.Username, info.Password, info.Host, info.Port))
 	if err != nil {
 		return errors.Errorf("connect db error: %v", err)
 	}
