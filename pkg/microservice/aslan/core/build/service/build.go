@@ -612,21 +612,23 @@ func correctFields(build *commonmodels.Build) error {
 		}
 	}
 
-	if build.PreBuild == nil {
-		return fmt.Errorf("build prebuild is nil")
-	} else {
-		if build.PreBuild.ClusterID == "" {
-			return fmt.Errorf("build prebuild clusterid is empty")
-		}
-		if build.PreBuild.StrategyID == "" {
-			buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
-				ID: build.TemplateID,
-			})
-			if err != nil {
-				return fmt.Errorf("failed to find build template with id: %s, err: %s", build.TemplateID, err)
+	if build.TemplateID == "" {
+		if build.PreBuild == nil {
+			return fmt.Errorf("build prebuild is nil")
+		} else {
+			if build.PreBuild.ClusterID == "" {
+				return fmt.Errorf("build prebuild clusterid is empty")
 			}
-			if buildTemplate.PreBuild != nil {
-				build.PreBuild.StrategyID = buildTemplate.PreBuild.StrategyID
+			if build.PreBuild.StrategyID == "" {
+				buildTemplate, err := commonrepo.NewBuildTemplateColl().Find(&commonrepo.BuildTemplateQueryOption{
+					ID: build.TemplateID,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to find build template with id: %s, err: %s", build.TemplateID, err)
+				}
+				if buildTemplate.PreBuild != nil {
+					build.PreBuild.StrategyID = buildTemplate.PreBuild.StrategyID
+				}
 			}
 		}
 	}
