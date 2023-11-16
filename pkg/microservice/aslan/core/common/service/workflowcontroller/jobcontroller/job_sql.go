@@ -20,7 +20,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"net/url"
 
 	//_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
@@ -29,7 +28,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type SQLJobCtl struct {
@@ -87,17 +85,11 @@ func (c *SQLJobCtl) Run(ctx context.Context) {
 func (c *SQLJobCtl) ExecMySQLStatement() error {
 	info := c.dbInfo
 
-	log.Infof("---------- db info: %v", *c.dbInfo)
-	log.Infof("---------- db password: %v", url.QueryEscape(info.Password))
-
-	//db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8&multiStatements=true", info.Username, url.QueryEscape(info.Password), info.Host, info.Port))
 	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8&multiStatements=true", info.Username, info.Password, info.Host, info.Port))
 	if err != nil {
 		return errors.Errorf("connect db error: %v", err)
 	}
 	defer db.Close()
-
-	log.Infof("------- exec sql: %v", c.jobTaskSpec.SQL)
 
 	// 插入示例
 	_, err = db.Exec(c.jobTaskSpec.SQL)
