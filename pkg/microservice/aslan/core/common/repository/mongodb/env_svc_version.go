@@ -32,13 +32,18 @@ import (
 
 type EnvVersionColl struct {
 	*mongo.Collection
-
+	mongo.Session
 	coll string
 }
 
 func NewEnvServiceVersionColl() *EnvVersionColl {
 	name := models.EnvServiceVersion{}.TableName()
 	return &EnvVersionColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
+}
+
+func NewEnvServiceVersionCollWithSession(session mongo.Session) *EnvVersionColl {
+	name := models.EnvServiceVersion{}.TableName()
+	return &EnvVersionColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), Session: session, coll: name}
 }
 
 func (c *EnvVersionColl) GetCollectionName() string {
@@ -180,7 +185,7 @@ func (c *EnvVersionColl) DeleteRevisions(productName, envName, serviceName strin
 		query["service.service_name"] = serviceName
 	}
 
-	_, err := c.DeleteMany(context.TODO(), query)
+	_, err := c.DeleteMany(mongotool.SessionContext(context.TODO(), c.Session), query)
 
 	return err
 }
@@ -194,7 +199,7 @@ func (c *EnvVersionColl) Create(args *models.EnvServiceVersion) error {
 	now := time.Now().Unix()
 	args.CreateTime = now
 	args.UpdateTime = now
-	_, err := c.InsertOne(context.TODO(), args)
+	_, err := c.InsertOne(mongotool.SessionContext(context.TODO(), c.Session), args)
 
 	return err
 }

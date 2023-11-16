@@ -3,21 +3,23 @@ package util
 import (
 	"fmt"
 
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util"
-	"go.uber.org/zap"
 )
 
-func GenerateEnvServiceNextRevision(projectName, envName, serviceName string, isHelmChart bool) (int64, error) {
+func GenerateEnvServiceNextRevision(projectName, envName, serviceName string, isHelmChart bool, session mongo.Session) (int64, error) {
 	counterName := fmt.Sprintf(setting.EnvServiceVersionCounterName, projectName, envName, serviceName, isHelmChart)
-	return commonrepo.NewCounterColl().GetNextSeq(counterName)
+	return commonrepo.NewCounterCollWithSession(session).GetNextSeq(counterName)
 }
 
-func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService, createBy string, log *zap.SugaredLogger) error {
+func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService, createBy string, session mongo.Session, log *zap.SugaredLogger) error {
 	name := prodSvc.ServiceName
 	isHelmChart := !prodSvc.FromZadig()
 	if isHelmChart {
@@ -36,11 +38,12 @@ func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService
 		prodSvc.ReleaseName = releaseName
 	}
 
-	revision, err := GenerateEnvServiceNextRevision(env.ProductName, env.EnvName, name, isHelmChart)
+	revision, err := GenerateEnvServiceNextRevision(env.ProductName, env.EnvName, name, isHelmChart, session)
 	if err != nil {
 		return fmt.Errorf("failed to generate service %s/%s/%s revision, error: %v", env.ProductName, env.EnvName, name, err)
 	}
 
+	svcVersionColl := mongodb.NewEnvServiceVersionCollWithSession(session)
 	version := &models.EnvServiceVersion{
 		ProductName:     env.ProductName,
 		EnvName:         env.EnvName,
@@ -53,7 +56,7 @@ func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService
 		YamlData:        env.YamlData,
 		CreateBy:        createBy,
 	}
-	err = mongodb.NewEnvServiceVersionColl().Create(version)
+	err = svcVersionColl.Create(version)
 	if err != nil {
 		return fmt.Errorf("failed to create service %s/%s/%s version %d, error: %v", env.ProductName, env.EnvName, name, revision, err)
 	}
@@ -62,7 +65,7 @@ func CreateEnvServiceVersion(env *models.Product, prodSvc *models.ProductService
 
 	if revision > 20 {
 		// delete old version
-		err = mongodb.NewEnvServiceVersionColl().DeleteRevisions(env.ProductName, env.EnvName, name, isHelmChart, env.Production, revision-20)
+		err = svcVersionColl.DeleteRevisions(env.ProductName, env.EnvName, name, isHelmChart, env.Production, revision-20)
 		if err != nil {
 			log.Errorf("failed to delete service %s/%s/%s version less equal than %d, error: %v", env.ProductName, env.EnvName, name, revision-20, err)
 		}
