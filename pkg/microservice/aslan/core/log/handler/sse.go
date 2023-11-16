@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 	logservice "github.com/koderover/zadig/pkg/microservice/aslan/core/log/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -95,13 +96,15 @@ func GetWorkflowJobContainerLogsSSE(c *gin.Context) {
 		tails = int64(10)
 	}
 
+	jobName := c.Param("jobName")
+
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
 		logservice.WorkflowTaskV4ContainerLogStream(
 			ctx1, streamChan,
 			&logservice.GetContainerOptions{
 				Namespace:    config.Namespace(),
 				PipelineName: c.Param("workflowName"),
-				SubTask:      c.Param("jobName"),
+				SubTask:      jobcontroller.GetJobContainerName(jobName),
 				TaskID:       taskID,
 				TailLines:    tails,
 			},
