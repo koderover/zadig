@@ -248,7 +248,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		view.POST("", CreateWorkflowView)
 		view.GET("", ListWorkflowViewNames)
 		view.GET("/preset", GetWorkflowViewPreset)
-		view.DELETE("/:projectName/:viewName", DeleteWorkflowView)
+		view.DELETE("", DeleteWorkflowView)
 		view.PUT("", UpdateWorkflowView)
 	}
 
