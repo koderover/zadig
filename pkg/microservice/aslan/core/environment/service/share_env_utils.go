@@ -240,6 +240,22 @@ func ensureServicesInAllSubEnvs(ctx context.Context, env *commonmodels.Product, 
 	return nil
 }
 
+func ensureDeleteGateway(ctx context.Context, env *commonmodels.Product, gwName string, istioClient versionedclient.Interface) error {
+	_, err := istioClient.NetworkingV1alpha3().Gateways(env.Namespace).Get(ctx, gwName, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		log.Warnf("Failed to find gateway %s for env %s of product %s. Don't try to delete it.", gwName, env.EnvName, env.ProductName)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	deleteOption := metav1.DeletePropagationBackground
+	return istioClient.NetworkingV1alpha3().Gateways(env.Namespace).Delete(ctx, gwName, metav1.DeleteOptions{
+		PropagationPolicy: &deleteOption,
+	})
+}
+
 func ensureDeleteVirtualService(ctx context.Context, env *commonmodels.Product, vsName string, istioClient versionedclient.Interface) error {
 	_, err := istioClient.NetworkingV1alpha3().VirtualServices(env.Namespace).Get(ctx, vsName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {

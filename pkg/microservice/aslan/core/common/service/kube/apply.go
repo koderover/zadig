@@ -196,7 +196,7 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 	return errList.ErrorOrNil()
 }
 
-func manifestToUnstructured(manifest string) ([]*unstructured.Unstructured, error) {
+func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, error) {
 	if len(manifest) == 0 {
 		return nil, nil
 	}
@@ -224,13 +224,13 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	kubeClient := applyParam.KubeClient
 	istioClient := applyParam.IstioClient
 
-	curResources, err := manifestToUnstructured(applyParam.CurrentResourceYaml)
+	curResources, err := ManifestToUnstructured(applyParam.CurrentResourceYaml)
 	if err != nil {
 		log.Errorf("Failed to convert currently deplyed resource yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.CurrentResourceYaml, err)
 		return nil, err
 	}
 
-	resources, err := manifestToUnstructured(applyParam.UpdateResourceYaml)
+	resources, err := ManifestToUnstructured(applyParam.UpdateResourceYaml)
 	if err != nil {
 		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.UpdateResourceYaml, err)
 		return nil, err

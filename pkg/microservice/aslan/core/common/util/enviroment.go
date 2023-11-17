@@ -209,3 +209,7 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 
 	return nil
 }
+
+func GenIstioGatewayName(serviceName string) string {
+	return fmt.Sprintf("%s-gateway-%s", "zadig", serviceName)
+}

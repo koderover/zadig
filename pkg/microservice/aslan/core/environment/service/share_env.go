@@ -31,13 +31,20 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	e "github.com/koderover/zadig/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/pkg/types"
@@ -176,25 +183,31 @@ func DisableBaseEnv(ctx context.Context, envName, productName string) error {
 		return fmt.Errorf("failed to delete EnvoyFilter: %s", err)
 	}
 
-	// 3. Delete all VirtualServices delivered by the Zadig.
+	// 3. Delete Gateway delivered by the Zadig.
+	err = deleteGateways(ctx, kclient, istioClient, ns)
+	if err != nil {
+		return fmt.Errorf("failed to delete EnvoyFilter: %s", err)
+	}
+
+	// 4. Delete all VirtualServices delivered by the Zadig.
 	err = deleteVirtualServices(ctx, kclient, istioClient, ns)
 	if err != nil {
 		return fmt.Errorf("failed to delete VirtualServices that Zadig created in ns `%s`: %s", ns, err)
 	}
 
-	// 4. Remove the `istio-injection=enabled` label of the namespace.
+	// 5. Remove the `istio-injection=enabled` label of the namespace.
 	err = removeIstioLabel(ctx, kclient, ns)
 	if err != nil {
 		return fmt.Errorf("failed to remove istio label on ns `%s`: %s", ns, err)
 	}
 
-	// 5. Restart the istio-Proxy injected Pods.
+	// 6. Restart the istio-Proxy injected Pods.
 	err = removePodsIstioProxy(ctx, kclient, ns)
 	if err != nil {
 		return fmt.Errorf("failed to remove istio-proxy from pods in ns `%s`: %s", ns, err)
 	}
 
-	// 6. Update the environment configuration.
+	// 7. Update the environment configuration.
 	return ensureDisableBaseEnvConfig(ctx, prod)
 }
 
@@ -801,6 +814,31 @@ func buildEnvoyPatchValue(data map[string]interface{}) (*types.Struct, error) {
 	return val, err
 }
 
+func deleteGateways(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) error {
+	zadigLabels := map[string]string{
+		zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
+	}
+
+	gwObjs, err := istioClient.NetworkingV1alpha3().Gateways(ns).List(ctx, metav1.ListOptions{
+		LabelSelector: labels.FormatLabels(zadigLabels),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list gateways in ns `%s`: %s", ns, err)
+	}
+
+	deleteOption := metav1.DeletePropagationBackground
+	for _, gwObj := range gwObjs.Items {
+		err := istioClient.NetworkingV1alpha3().Gateways(ns).Delete(ctx, gwObj.Name, metav1.DeleteOptions{
+			PropagationPolicy: &deleteOption,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete gateways %s in ns `%s`: %s", gwObj.Name, ns, err)
+		}
+	}
+
+	return nil
+}
+
 func deleteVirtualServices(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) error {
 	zadigLabels := map[string]string{
 		zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
@@ -1292,4 +1330,282 @@ func CheckServicesDeployedInSubEnvs(ctx context.Context, productName, envName st
 	}
 
 	return svcsInSubEnvs, nil
+}
+
+type GetPortalServiceResponse struct {
+	DefaultGatewayIP string                      `json:"default_gateway_ip"`
+	Servers          []SetupPortalServiceRequest `json:"servers"`
+}
+
+func GetPortalService(ctx context.Context, productName, envName, serviceName string) (GetPortalServiceResponse, error) {
+	resp := GetPortalServiceResponse{}
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to query env %s of product %s: %s", envName, productName, err))
+	}
+	if !env.ShareEnv.Enable && !env.ShareEnv.IsBase {
+		return resp, e.ErrGetPortalService.AddDesc("%s doesn't enable share environment or is not base environment")
+	}
+
+	ns := env.Namespace
+	clusterID := env.ClusterID
+
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
+	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
+	}
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
+	}
+
+	gatewayName := commonutil.GenIstioGatewayName(serviceName)
+	gatewaySvc := &corev1.Service{}
+	err = kclient.Get(ctx, client.ObjectKey{
+		Name:      "istio-ingressgateway",
+		Namespace: "istio-system",
+	}, gatewaySvc)
+	if len(gatewaySvc.Status.LoadBalancer.Ingress) == 0 {
+		return resp, e.ErrGetPortalService.AddDesc("istio default gateway's lb doesn't have ip address")
+	}
+	for _, ing := range gatewaySvc.Status.LoadBalancer.Ingress {
+		resp.DefaultGatewayIP = ing.IP
+	}
+
+	gwObj, err := istioClient.NetworkingV1alpha3().Gateways(ns).Get(ctx, gatewayName, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return resp, nil
+		} else {
+			return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get gateway %s in namespace %s, err: %w", gatewayName, ns, err))
+		}
+	}
+
+	for _, server := range gwObj.Spec.Servers {
+		if len(server.Hosts) == 0 {
+			return resp, e.ErrGetPortalService.AddDesc("can't find any host in istio gateway")
+		}
+		resp.Servers = append(resp.Servers, SetupPortalServiceRequest{
+			Host:         server.Hosts[0],
+			PortNumber:   server.Port.Number,
+			PortProtocol: server.Port.Protocol,
+		})
+	}
+
+	return resp, nil
+}
+
+type SetupPortalServiceRequest struct {
+	Host         string `json:"host"`
+	PortNumber   uint32 `json:"port_number"`
+	PortProtocol string `json:"port_protocol"`
+}
+
+func SetupPortalService(ctx context.Context, productName, envName, serviceName string, servers []SetupPortalServiceRequest) error {
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to query env %s of product %s: %s", envName, productName, err))
+	}
+	if !env.ShareEnv.Enable && !env.ShareEnv.IsBase {
+		return e.ErrSetupPortalService.AddDesc("%s doesn't enable share environment or is not base environment")
+	}
+
+	templateProd, err := template.NewProductColl().Find(productName)
+	if err != nil {
+		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to find template product %s, err: %w", productName, err))
+	}
+
+	ns := env.Namespace
+	clusterID := env.ClusterID
+
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
+	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
+	}
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
+	}
+	gatewayName := commonutil.GenIstioGatewayName(serviceName)
+
+	if len(servers) == 0 {
+		// delete operation
+		err = istioClient.NetworkingV1alpha3().Gateways(ns).Delete(ctx, gatewayName, metav1.DeleteOptions{})
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to delete gateway %s in namespace %s, err: %w", gatewayName, ns, err))
+		}
+	} else {
+		// 1. check istio ingress gateway whether has load balancing
+		gatewaySvc := &corev1.Service{}
+		err = kclient.Get(ctx, client.ObjectKey{
+			Name:      "istio-ingressgateway",
+			Namespace: "istio-system",
+		}, gatewaySvc)
+		if len(gatewaySvc.Status.LoadBalancer.Ingress) == 0 {
+			return e.ErrSetupPortalService.AddDesc("istio default gateway's lb doesn't have ip address")
+		}
+
+		// 2. create gateway for the service
+		isExisted := false
+		gwObj, err := istioClient.NetworkingV1alpha3().Gateways(ns).Get(ctx, gatewayName, metav1.GetOptions{})
+		if err == nil {
+			isExisted = true
+		}
+		if err != nil && !apierrors.IsNotFound(err) {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get gateway %s in namespace %s, err: %w", gatewayName, ns, err))
+		}
+
+		gwObj.Name = gatewayName
+		gwObj.Namespace = ns
+		if gwObj.Labels == nil {
+			gwObj.Labels = map[string]string{}
+		}
+		gwObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
+		gwObj.Spec = networkingv1alpha3.Gateway{
+			Selector: map[string]string{"istio": "ingressgateway"},
+		}
+		for _, server := range servers {
+			serverObj := &networkingv1alpha3.Server{
+				Hosts: []string{server.Host},
+				Port: &networkingv1alpha3.Port{
+					Name:     fmt.Sprintf("%s:%s:%d", server.Host, server.PortProtocol, server.PortNumber),
+					Number:   server.PortNumber,
+					Protocol: server.PortProtocol,
+				},
+			}
+			gwObj.Spec.Servers = append(gwObj.Spec.Servers, serverObj)
+		}
+
+		if !isExisted {
+			_, err = istioClient.NetworkingV1alpha3().Gateways(ns).Create(ctx, gwObj, metav1.CreateOptions{})
+			if err != nil {
+				return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to create gateway %s in namespace %s, err: %w", gatewayName, ns, err))
+			}
+		} else {
+			_, err = istioClient.NetworkingV1alpha3().Gateways(ns).Update(ctx, gwObj, metav1.UpdateOptions{})
+			if err != nil {
+				return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to update gateway %s in namespace %s, err: %w", gatewayName, ns, err))
+			}
+		}
+	}
+
+	// 3. change the related virtualservice
+	svcs := []*corev1.Service{}
+	deployType := templateProd.ProductFeature.GetDeployType()
+	if deployType == setting.K8SDeployType {
+		prodSvc := env.GetServiceMap()[serviceName]
+		if prodSvc == nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("can't find %s in env %s", serviceName, env.EnvName))
+		}
+		yaml, err := kube.RenderEnvService(env, prodSvc.GetServiceRender(), prodSvc)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to render env service, err: %w", err))
+		}
+		resources, err := kube.ManifestToUnstructured(yaml)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", yaml, err))
+		}
+
+		for _, resource := range resources {
+			if resource.GetKind() == setting.Service {
+				svc := &corev1.Service{}
+				err = kclient.Get(ctx, client.ObjectKey{
+					Name:      resource.GetName(),
+					Namespace: ns,
+				}, svc)
+				if err != nil {
+					return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get service %s in namespace %s, err: %w", resource.GetName(), ns, err))
+				}
+				svcs = append(svcs, svc)
+			}
+		}
+	} else if deployType == setting.HelmDeployType {
+		helmClient, err := helmtool.NewClientFromRestConf(restConfig, env.Namespace)
+		if err != nil {
+			log.Errorf("[%s][%s] NewClientFromRestConf error: %s", envName, productName, err)
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to init helm client, err: %s", err))
+		}
+
+		releaseName := serviceName
+		isHelmChartDeploy := false
+		if !isHelmChartDeploy {
+			serviceMap := env.GetServiceMap()
+			prodSvc, ok := serviceMap[serviceName]
+			if !ok {
+				return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to find sercice %s in env %s", serviceName, envName))
+			}
+
+			revisionSvc, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
+				ServiceName: serviceName,
+				Revision:    prodSvc.Revision,
+				ProductName: prodSvc.ProductName,
+			}, env.Production)
+			if err != nil {
+				return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to query template service %s/%s/%d, err: %w",
+					productName, serviceName, prodSvc.Revision, err))
+			}
+
+			releaseName = zadigutil.GeneReleaseName(revisionSvc.GetReleaseNaming(), prodSvc.ProductName, env.Namespace, env.EnvName, prodSvc.ServiceName)
+		}
+
+		release, err := helmClient.GetRelease(releaseName)
+		if err != nil {
+			return fmt.Errorf("failed to get release %s, err: %w", releaseName, err)
+		}
+		svcNames, err := util.GetSvcNamesFromManifest(release.Manifest)
+		if err != nil {
+			return fmt.Errorf("failed to get Service names from manifest, err: %w", err)
+		}
+		for _, svcName := range svcNames {
+			svc := &corev1.Service{}
+			err = kclient.Get(ctx, client.ObjectKey{
+				Name:      svcName,
+				Namespace: env.Namespace,
+			}, svc)
+			if err != nil {
+				return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get service %s in namespace %s, err: %w", svcName, ns, err))
+			}
+			svcs = append(svcs, svc)
+		}
+	}
+
+	for _, svc := range svcs {
+		vsName := genVirtualServiceName(svc)
+		vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get vritualservice %s in namespace %s, err: %w", vsName, ns, err))
+		}
+
+		if len(servers) == 0 {
+			// delete operation
+			vsObj.Spec.Gateways = sets.NewString(vsObj.Spec.Gateways...).Delete(gatewayName).List()
+			vsObj.Spec.Hosts = []string{svc.Name}
+		} else {
+			vsObj.Spec.Gateways = []string{gatewayName}
+			vsObj.Spec.Hosts = []string{svc.Name}
+			for _, server := range servers {
+				vsObj.Spec.Hosts = append(vsObj.Spec.Hosts, server.Host)
+			}
+		}
+		_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Update(ctx, vsObj, metav1.UpdateOptions{})
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to update virtualservice %s in namespace %s, err: %v", vsName, ns, err))
+		}
+	}
+
+	return nil
 }
