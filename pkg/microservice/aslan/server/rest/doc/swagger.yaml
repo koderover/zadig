@@ -1500,6 +1500,15 @@ definitions:
           type: string
         type: array
     type: object
+  service.GetPortalServiceResponse:
+    properties:
+      default_gateway_ip:
+        type: string
+      servers:
+        items:
+          $ref: '#/definitions/service.SetupPortalServiceRequest'
+        type: array
+    type: object
   service.GetReleaseInstanceDeployStatusResponse:
     properties:
       chart_name:
@@ -1603,6 +1612,22 @@ definitions:
         items:
           $ref: '#/definitions/resource.HostInfo'
         type: array
+    type: object
+  service.IstioGatewayInfo:
+    properties:
+      servers:
+        items:
+          $ref: '#/definitions/service.IstioGatewayServer'
+        type: array
+    type: object
+  service.IstioGatewayServer:
+    properties:
+      host:
+        type: string
+      port_number:
+        type: integer
+      port_protocol:
+        type: string
     type: object
   service.JiraProjectsResp:
     properties:
@@ -2007,6 +2032,8 @@ definitions:
         items:
           $ref: '#/definitions/models.EnvStatus'
         type: array
+      error:
+        type: string
       images:
         items:
           type: string
@@ -2015,6 +2042,8 @@ definitions:
         $ref: '#/definitions/service.IngressInfo'
       is_helm_chart_deploy:
         type: boolean
+      istio_gateway:
+        $ref: '#/definitions/service.IstioGatewayInfo'
       product_name:
         type: string
       ready:
@@ -2042,6 +2071,15 @@ definitions:
         description: |-
           ZadigXReleaseType represents the service contain created by zadigx release workflow
           frontend should limit some operations on these services
+        type: string
+    type: object
+  service.SetupPortalServiceRequest:
+    properties:
+      host:
+        type: string
+      port_number:
+        type: integer
+      port_protocol:
         type: string
     type: object
   service.SvcDiffResult:
@@ -2927,6 +2965,73 @@ paths:
           schema:
             $ref: '#/definitions/service.SvcDiffResult'
       summary: Preview service
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/share/portal/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: Get Portal Service for Share Env
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetPortalServiceResponse'
+      summary: Get Portal Service for Share Env
+      tags:
+      - environment
+    post:
+      consumes:
+      - application/json
+      description: Setup Portal Service for Share Env
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.SetupPortalServiceRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Setup Portal Service for Share Env
       tags:
       - environment
   /api/aslan/environment/environments/{name}/sleep:

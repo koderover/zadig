@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
@@ -32,7 +33,6 @@ func CheckWorkloadsK8sServices(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -65,7 +65,6 @@ func EnableBaseEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -100,7 +99,6 @@ func DisableBaseEnv(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -137,7 +135,6 @@ func CheckShareEnvReady(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -163,4 +160,100 @@ func CheckShareEnvReady(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.CheckShareEnvReady(c, envName, c.Param("op"), projectKey)
+}
+
+// @Summary Get Portal Service for Share Env
+// @Description Get Portal Service for Share Env
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string									true	"project name"
+// @Param 	name			path		string									true	"env name"
+// @Param 	serviceName		path		string									true	"service name"
+// @Success 200 			{object} 	service.GetPortalServiceResponse
+// @Router /api/aslan/environment/environments/{name}/share/portal/{serviceName} [get]
+func GetPortalService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	serviceName := c.Param("serviceName")
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetPortalService(c, projectKey, envName, serviceName)
+	return
+}
+
+// @Summary Setup Portal Service for Share Env
+// @Description Setup Portal Service for Share Env
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string									true	"project name"
+// @Param 	name			path		string									true	"env name"
+// @Param 	serviceName		path		string									true	"service name"
+// @Param 	body 			body 		[]service.SetupPortalServiceRequest 	true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/environments/{name}/share/portal/{serviceName} [post]
+func SetupPortalService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	serviceName := c.Param("serviceName")
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	req := []service.SetupPortalServiceRequest{}
+	err = c.ShouldBindJSON(&req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.SetupPortalService(c, projectKey, envName, serviceName, req)
+	return
 }

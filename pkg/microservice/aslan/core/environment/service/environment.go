@@ -2036,7 +2036,6 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		}
 
 		selector := labels.Set{setting.ProductLabel: productInfo.ProductName, setting.ServiceLabel: name}.AsSelector()
-
 		err = EnsureDeleteZadigService(ctx, productInfo, selector, kclient, istioClient)
 		if err != nil {
 			// Only record and do not block subsequent traversals.

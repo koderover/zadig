@@ -779,6 +779,105 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/environments/{name}/share/portal/{serviceName}": {
+            "get": {
+                "description": "Get Portal Service for Share Env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Portal Service for Share Env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.GetPortalServiceResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Setup Portal Service for Share Env",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Setup Portal Service for Share Env",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.SetupPortalServiceRequest"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments/{name}/sleep": {
             "post": {
                 "description": "Environment Sleep",
@@ -6801,6 +6900,20 @@ const docTemplate = `{
                 }
             }
         },
+        "service.GetPortalServiceResponse": {
+            "type": "object",
+            "properties": {
+                "default_gateway_ip": {
+                    "type": "string"
+                },
+                "servers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.SetupPortalServiceRequest"
+                    }
+                }
+            }
+        },
         "service.GetReleaseInstanceDeployStatusResponse": {
             "type": "object",
             "properties": {
@@ -6958,6 +7071,31 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/resource.HostInfo"
                     }
+                }
+            }
+        },
+        "service.IstioGatewayInfo": {
+            "type": "object",
+            "properties": {
+                "servers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.IstioGatewayServer"
+                    }
+                }
+            }
+        },
+        "service.IstioGatewayServer": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "port_number": {
+                    "type": "integer"
+                },
+                "port_protocol": {
+                    "type": "string"
                 }
             }
         },
@@ -7580,6 +7718,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.EnvStatus"
                     }
                 },
+                "error": {
+                    "type": "string"
+                },
                 "images": {
                     "type": "array",
                     "items": {
@@ -7591,6 +7732,9 @@ const docTemplate = `{
                 },
                 "is_helm_chart_deploy": {
                     "type": "boolean"
+                },
+                "istio_gateway": {
+                    "$ref": "#/definitions/service.IstioGatewayInfo"
                 },
                 "product_name": {
                     "type": "string"
@@ -7628,6 +7772,20 @@ const docTemplate = `{
                 },
                 "zadigx_release_type": {
                     "description": "ZadigXReleaseType represents the service contain created by zadigx release workflow\nfrontend should limit some operations on these services",
+                    "type": "string"
+                }
+            }
+        },
+        "service.SetupPortalServiceRequest": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "port_number": {
+                    "type": "integer"
+                },
+                "port_protocol": {
                     "type": "string"
                 }
             }

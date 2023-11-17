@@ -224,3 +224,7 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 
 	return session.CommitTransaction(context.TODO())
 }
+
+func GenIstioGatewayName(serviceName string) string {
+	return fmt.Sprintf("%s-gateway-%s", "zadig", serviceName)
+}
