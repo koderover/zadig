@@ -139,7 +139,7 @@ func getJobLabels(jobLabel *JobLabel) map[string]string {
 	return retMap
 }
 
-func getJobContainerName(name string) string {
+func GetJobContainerName(name string) string {
 	pyArgs := pinyin.NewArgs()
 	pyArgs.Fallback = func(r rune, a pinyin.Args) []string {
 		return []string{string(r)}
@@ -355,7 +355,7 @@ echo $result > %s
 					Containers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullAlways,
-							Name:            getJobContainerName(jobTask.Name),
+							Name:            GetJobContainerName(jobTask.Name),
 							Image:           jobTaskSpec.Plugin.Image,
 							Args:            jobTaskSpec.Plugin.Args,
 							Command:         jobTaskSpec.Plugin.Cmds,
@@ -480,7 +480,7 @@ func buildJob(jobType, jobImage, jobName, clusterID, currentNamespace string, re
 					Containers: []corev1.Container{
 						{
 							ImagePullPolicy: corev1.PullAlways,
-							Name:            getJobContainerName(strings.ReplaceAll(jobTask.Name, "_", "-")),
+							Name:            GetJobContainerName(strings.ReplaceAll(jobTask.Name, "_", "-")),
 							Image:           jobImage,
 							Command:         []string{"/bin/sh", "-c"},
 							Args:            []string{jobExecutorBootingScript},

@@ -28,11 +28,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
-
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -50,6 +47,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/ai"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/msg_queue"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -61,6 +59,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/imnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -74,6 +73,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/boolptr"
@@ -376,6 +376,14 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
 
+	session := mongotool.Session()
+	defer session.EndSession(context.TODO())
+
+	err = session.StartTransaction()
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
 	// 遍历产品环境和产品模板交叉对比的结果
 	// 四个状态：待删除，待添加，待更新，无需更新
 	//var deletedServices []string
@@ -408,6 +416,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
+		session.AbortTransaction(context.TODO())
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
@@ -475,7 +484,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						service.Error = ""
 					}
 
-					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, log)
+					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, session, log)
 					if err != nil {
 						log.Errorf("CreateK8SEnvServiceVersion error: %v", err)
 					}
@@ -485,18 +494,20 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		}
 		wg.Wait()
 
-		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupSvcs)
+		err = commonrepo.NewProductCollWithSession(session).UpdateGroup(envName, productName, groupIndex, groupSvcs)
 		if err != nil {
 			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
+			session.AbortTransaction(context.TODO())
 			return
 		}
 	}
 
-	err = commonrepo.NewProductColl().UpdateGlobalVariable(updateProd)
+	err = commonrepo.NewProductCollWithSession(session).UpdateGlobalVariable(updateProd)
 	if err != nil {
 		log.Errorf("failed to update product globalvariable error: %v", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())
+		session.AbortTransaction(context.TODO())
 		return
 	}
 
@@ -509,15 +520,16 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 				existedProd.ServiceDeployStrategy[k] = v
 			}
 		}
-		err = commonrepo.NewProductColl().UpdateDeployStrategy(envName, productName, existedProd.ServiceDeployStrategy)
+		err = commonrepo.NewProductCollWithSession(session).UpdateDeployStrategy(envName, productName, existedProd.ServiceDeployStrategy)
 		if err != nil {
 			log.Errorf("Failed to update deploy strategy data, error: %v", err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
+			session.AbortTransaction(context.TODO())
 			return
 		}
 	}
 
-	return nil
+	return session.CommitTransaction(context.TODO())
 }
 
 func UpdateProductRegistry(envName, productName, registryID string, log *zap.SugaredLogger) (err error) {
@@ -2764,13 +2776,22 @@ func findRenderChartFromList(svc *commonmodels.ProductService, renderCharts []*t
 // @todo merge with UpgradeHelmRelease
 func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.HelmClient, filter svcUpgradeFilter, user string, log *zap.SugaredLogger) error {
 	productName, envName := productResp.ProductName, productResp.EnvName
+
+	session := mongotool.Session()
+	defer session.EndSession(context.TODO())
+
+	err := session.StartTransaction()
+	if err != nil {
+		return err
+	}
+
 	handler := func(param *kube.ReleaseInstallParam, isRetry bool, log *zap.SugaredLogger) (err error) {
 		defer func() {
 			if param.ProdService != nil {
 				if err != nil {
 					param.ProdService.Error = err.Error()
 				} else {
-					err = commonutil.CreateEnvServiceVersion(productResp, param.ProdService, user, log)
+					err = commonutil.CreateEnvServiceVersion(productResp, param.ProdService, user, session, log)
 					if err != nil {
 						log.Errorf("failed to create service version, err: %v", err)
 					}
@@ -2828,6 +2849,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 			param, err := buildInstallParam(productResp.DefaultValues, productResp, chartInfo, prodSvc)
 			if err != nil {
 				log.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", prodSvc.ServiceName, productResp.Namespace, err)
+				session.AbortTransaction(context.TODO())
 				return err
 			}
 			prodSvc.Render = chartInfo
@@ -2838,11 +2860,16 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
-		err := commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
+		err := commonrepo.NewProductCollWithSession(session).UpdateGroup(envName, productName, groupIndex, groupServices)
 		if err != nil {
 			log.Errorf("Failed to update service group %d. Error: %v", groupIndex, err)
+			session.AbortTransaction(context.TODO())
 			return err
 		}
+	}
+	err = session.CommitTransaction(context.TODO())
+	if err != nil {
+		return err
 	}
 	return errList.ErrorOrNil()
 }

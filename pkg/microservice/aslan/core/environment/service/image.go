@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -34,6 +35,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type UpdateContainerImageArgs struct {
@@ -159,15 +161,25 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 			}
 		}
 
-		if err := commonrepo.NewProductColl().Update(product); err != nil {
+		session := mongotool.Session()
+		defer session.EndSession(context.TODO())
+
+		err = session.StartTransaction()
+		if err != nil {
+			return e.ErrUpdateConainterImage.AddErr(err)
+		}
+
+		if err := commonrepo.NewProductCollWithSession(session).Update(product); err != nil {
 			log.Errorf("[%s] update product %s error: %s", namespace, args.ProductName, err.Error())
+			session.AbortTransaction(context.TODO())
 			return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
 		}
 
-		err = commonutil.CreateEnvServiceVersion(product, prodSvc, username, log)
+		err = commonutil.CreateEnvServiceVersion(product, prodSvc, username, session, log)
 		if err != nil {
 			log.Errorf("create env service version for %s/%s error: %v", product.EnvName, prodSvc.ServiceName, err)
 		}
+		return session.CommitTransaction(context.TODO())
 	}
 	return nil
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -35,6 +36,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type ListEnvServiceVersionsResponse struct {
@@ -241,7 +243,15 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to create or patch resource for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
 		}
 
-		err = commonutil.CreateEnvServiceVersion(env, envSvcVersion.Service, ctx.UserName, log)
+		session := mongotool.Session()
+		defer session.EndSession(context.Background())
+
+		err = session.StartTransaction()
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(err)
+		}
+
+		err = commonutil.CreateEnvServiceVersion(env, envSvcVersion.Service, ctx.UserName, session, log)
 		if err != nil {
 			log.Errorf("failed to create env service version for service %s/%s, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, err)
 		}
@@ -262,12 +272,14 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			}
 		}
 		if groupIndex < 0 || svcIndex < 0 {
+			session.AbortTransaction(context.Background())
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
 		}
 
 		env.Services[groupIndex][svcIndex] = envSvcVersion.Service
-		err = commonrepo.NewProductColl().UpdateGroup(envName, projectName, groupIndex, env.Services[groupIndex])
+		err = commonrepo.NewProductCollWithSession(session).UpdateGroup(envName, projectName, groupIndex, env.Services[groupIndex])
 		if err != nil {
+			session.AbortTransaction(context.Background())
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
 		}
 
@@ -278,9 +290,14 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			}
 			globalKV.RelatedServices = relatedServiceSet.List()
 		}
-		err = commonrepo.NewProductColl().UpdateGlobalVariable(env)
+		err = commonrepo.NewProductCollWithSession(session).UpdateGlobalVariable(env)
 		if err != nil {
+			session.AbortTransaction(context.Background())
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update global variables in env %s/%s, isProudction %v", envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
+		}
+		err = session.CommitTransaction(context.Background())
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
 	} else if envSvcVersion.Service.Type == setting.HelmDeployType || envSvcVersion.Service.Type == setting.HelmChartDeployType {
 		var svcTmpl *commonmodels.Service

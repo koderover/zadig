@@ -19,6 +19,7 @@ package repository
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func QueryTemplateService(option *mongodb.ServiceFindOption, production bool) (*models.Service, error) {
@@ -88,6 +89,14 @@ func Update(service *models.Service, production bool) error {
 		return mongodb.NewServiceColl().Update(service)
 	} else {
 		return mongodb.NewProductionServiceColl().Update(service)
+	}
+}
+
+func UpdateWithSession(service *models.Service, production bool, session mongo.Session) error {
+	if !production {
+		return mongodb.NewServiceCollWithSession(session).Update(service)
+	} else {
+		return mongodb.NewProductionServiceCollWithSession(session).Update(service)
 	}
 }
 

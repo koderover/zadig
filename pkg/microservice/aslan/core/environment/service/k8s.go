@@ -57,6 +57,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/pkg/types"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type K8sService struct {
@@ -228,22 +229,34 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 
 	exitedProd.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(exitedProd.ServiceDeployStrategy, args.ServiceName)
 
+	session := mongotool.Session()
+	defer session.EndSession(context.Background())
+
+	err = session.StartTransaction()
+	if err != nil {
+		return e.ErrUpdateProduct.AddErr(err)
+	}
+
+	productColl := commonrepo.NewProductCollWithSession(session)
+
 	// Note update logic need to be optimized since we only need to update one service
-	if err := commonrepo.NewProductColl().Update(exitedProd); err != nil {
+	if err := productColl.Update(exitedProd); err != nil {
 		k.log.Errorf("[%s][%s] Product.Update error: %v", args.EnvName, args.ProductName, err)
-		return e.ErrUpdateProduct
+		session.AbortTransaction(context.Background())
+		return e.ErrUpdateProduct.AddErr(err)
 	}
 
-	if err := commonrepo.NewProductColl().UpdateGlobalVariable(exitedProd); err != nil {
+	if err := productColl.UpdateGlobalVariable(exitedProd); err != nil {
 		k.log.Errorf("[%s][%s] Product.UpdateGlobalVariable error: %v", args.EnvName, args.ProductName, err)
-		return e.ErrUpdateProduct
+		session.AbortTransaction(context.Background())
+		return e.ErrUpdateProduct.AddErr(err)
 	}
 
-	if err := commonutil.CreateEnvServiceVersion(exitedProd, newProductSvc, args.UpdateBy, k.log); err != nil {
+	if err := commonutil.CreateEnvServiceVersion(exitedProd, newProductSvc, args.UpdateBy, session, k.log); err != nil {
 		k.log.Errorf("[%s][%s] Product.CreateEnvServiceVersion for service %s error: %v", args.EnvName, args.ProductName, args.ServiceName, err)
 	}
 
-	return nil
+	return session.CommitTransaction(context.Background())
 }
 
 func (k *K8sService) calculateProductStatus(productInfo *commonmodels.Product, informer informers.SharedInformerFactory) (string, error) {
@@ -673,7 +686,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 				lock.Unlock()
 			}
 
-			err = commonutil.CreateEnvServiceVersion(product, svc, username, k.log)
+			err = commonutil.CreateEnvServiceVersion(product, svc, username, nil, k.log)
 			if err != nil {
 				log.Errorf("failed to create env service version for service %s/%s, error: %v", product.EnvName, svc.ServiceName, err)
 			}

@@ -381,7 +381,7 @@ func (c *ProductColl) UpdateGlobalVariable(args *models.Product) error {
 		"global_variables": args.GlobalVariables,
 	}
 	change := bson.M{"$set": changePayload}
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
 
@@ -409,7 +409,7 @@ func (c *ProductColl) Update(args *models.Product) error {
 		changePayload["pre_sleep_status"] = args.PreSleepStatus
 	}
 	change := bson.M{"$set": changePayload}
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, change)
 	return err
 }
 
@@ -440,7 +440,7 @@ func (c *ProductColl) UpdateGroup(envName, productName string, groupIndex int, g
 		serviceGroup:  group,
 	}
 
-	_, err := c.UpdateOne(context.TODO(), query, bson.M{"$set": change})
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, bson.M{"$set": change})
 
 	return err
 }
@@ -471,7 +471,7 @@ func (c *ProductColl) UpdateDeployStrategy(envName, productName string, deploySt
 		"service_deploy_strategy": deployStrategy,
 	}
 
-	_, err := c.UpdateOne(context.TODO(), query, bson.M{"$set": change})
+	_, err := c.UpdateOne(mongotool.SessionContext(context.TODO(), c.Session), query, bson.M{"$set": change})
 
 	return err
 }
