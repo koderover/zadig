@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	types "github.com/golang/protobuf/ptypes/struct"
@@ -836,6 +837,26 @@ func deleteGateways(ctx context.Context, kclient client.Client, istioClient vers
 		}
 	}
 
+	gatewaySvc := &corev1.Service{}
+	err = kclient.Get(ctx, client.ObjectKey{
+		Name:      "istio-ingressgateway",
+		Namespace: "istio-system",
+	}, gatewaySvc)
+	if err != nil {
+		return fmt.Errorf("failed to get istio default ingress gateway %s in ns %s, err: %w", "istio-ingressgateway", "istio-system", err)
+	}
+	newPorts := []corev1.ServicePort{}
+	for _, port := range gatewaySvc.Spec.Ports {
+		if !strings.HasPrefix(port.Name, zadigNamePrefix) {
+			newPorts = append(newPorts, port)
+		}
+	}
+	gatewaySvc.Spec.Ports = newPorts
+	err = kclient.Update(ctx, gatewaySvc)
+	if err != nil {
+		return fmt.Errorf("failed to update istio ingress gateway service %s in namespace %s, err: %w", gatewaySvc.Name, gatewaySvc.Namespace, err)
+	}
+
 	return nil
 }
 
@@ -1448,6 +1469,26 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 		if err != nil {
 			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to delete gateway %s in namespace %s, err: %w", gatewayName, ns, err))
 		}
+
+		gatewaySvc := &corev1.Service{}
+		err = kclient.Get(ctx, client.ObjectKey{
+			Name:      "istio-ingressgateway",
+			Namespace: "istio-system",
+		}, gatewaySvc)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get istio default ingress gateway %s in ns %s, err: %w", "istio-ingressgateway", "istio-system", err))
+		}
+		newPorts := []corev1.ServicePort{}
+		for _, port := range gatewaySvc.Spec.Ports {
+			if !strings.HasPrefix(port.Name, zadigNamePrefix) {
+				newPorts = append(newPorts, port)
+			}
+		}
+		gatewaySvc.Spec.Ports = newPorts
+		err = kclient.Update(ctx, gatewaySvc)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to update istio ingress gateway service %s in namespace %s, err: %w", gatewaySvc.Name, gatewaySvc.Namespace, err))
+		}
 	} else {
 		// 1. check istio ingress gateway whether has load balancing
 		gatewaySvc := &corev1.Service{}
@@ -1455,6 +1496,9 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 			Name:      "istio-ingressgateway",
 			Namespace: "istio-system",
 		}, gatewaySvc)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get istio default ingress gateway %s in ns %s, err: %w", "istio-ingressgateway", "istio-system", err))
+		}
 		if len(gatewaySvc.Status.LoadBalancer.Ingress) == 0 {
 			return e.ErrSetupPortalService.AddDesc("istio default gateway's lb doesn't have ip address")
 		}
@@ -1501,9 +1545,35 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 				return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to update gateway %s in namespace %s, err: %w", gatewayName, ns, err))
 			}
 		}
+
+		// 3. patch istio-ingressgateway service's port
+		newPorts := []corev1.ServicePort{}
+		hasPortSet := sets.NewInt32()
+		for _, port := range gatewaySvc.Spec.Ports {
+			if !strings.HasPrefix(port.Name, zadigNamePrefix) {
+				newPorts = append(newPorts, port)
+				hasPortSet.Insert(port.Port)
+			}
+		}
+		for _, server := range servers {
+			if hasPortSet.Has(int32(server.PortNumber)) {
+				continue
+			}
+			port := corev1.ServicePort{
+				Name:     fmt.Sprintf("%s-%s-%d", zadigNamePrefix, "http", server.PortNumber),
+				Protocol: "TCP",
+				Port:     int32(server.PortNumber),
+			}
+			newPorts = append(newPorts, port)
+		}
+		gatewaySvc.Spec.Ports = newPorts
+		err = kclient.Update(ctx, gatewaySvc)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to update istio default ingress gateway service %s in namespace %s, err: %w", gatewaySvc.Name, gatewaySvc.Namespace, err))
+		}
 	}
 
-	// 3. change the related virtualservice
+	// 4. change the related virtualservice
 	svcs := []*corev1.Service{}
 	deployType := templateProd.ProductFeature.GetDeployType()
 	if deployType == setting.K8SDeployType {
