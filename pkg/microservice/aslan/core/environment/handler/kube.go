@@ -23,7 +23,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -125,11 +124,6 @@ func DownloadFileFromPod(c *gin.Context) {
 	}
 	if len(filePath) == 0 {
 		ctx.Err = e.ErrInvalidParam.AddDesc("file path can't be nil")
-		return
-	}
-
-	if err := commonutil.CheckZadigXLicenseStatus(); err != nil {
-		ctx.Err = err
 		return
 	}
 
