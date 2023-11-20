@@ -144,13 +144,13 @@ func DeleteWorkflowView(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	projectKey := c.Query("projectName")
+	viewName := c.Query("viewName")
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -166,5 +166,5 @@ func DeleteWorkflowView(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = workflowservice.DeleteWorkflowView(projectKey, c.Param("viewName"), ctx.Logger)
+	ctx.Err = workflowservice.DeleteWorkflowView(projectKey, viewName, ctx.Logger)
 }
