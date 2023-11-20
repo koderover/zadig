@@ -32,6 +32,8 @@ import (
 	"strings"
 	"sync"
 
+	"helm.sh/helm/v3/pkg/registry"
+
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	hc "github.com/mittwald/go-helm-client"
 	"helm.sh/helm/v3/pkg/action"
@@ -631,11 +633,47 @@ func (hClient *HelmClient) FetchIndexYaml(repoEntry *repo.Entry) (*repo.IndexFil
 func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
 	hClient.lock.Lock()
 	defer hClient.lock.Unlock()
+
+	// download chart from ocr registry
+	if registry.IsOCI(repoEntry.URL) {
+		chartNameStr := strings.Split(chartRef, "/")
+		if len(chartNameStr) < 2 {
+			return fmt.Errorf("chart name is not valid")
+		}
+		return hClient.DownloadOCIChart(repoEntry, chartNameStr[len(chartNameStr)-1], chartVersion, destDir, unTar)
+	}
+
 	_, err := hClient.UpdateChartRepo(repoEntry)
 	if err != nil {
-		return nil
+		return err
 	}
 	pull := action.NewPullWithOpts(action.WithConfig(&action.Configuration{}))
+	pull.Password = repoEntry.Username
+	pull.Username = repoEntry.Password
+	pull.Version = chartVersion
+	pull.Settings = generalSettings
+	pull.DestDir = destDir
+	pull.UntarDir = destDir
+	pull.Untar = unTar
+	_, err = pull.Run(chartRef)
+	return err
+}
+
+func (hClient *HelmClient) DownloadOCIChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
+	hClient.lock.Lock()
+	defer hClient.lock.Unlock()
+
+	pullConfig := &action.Configuration{}
+	var err error
+	pullConfig.RegistryClient, err = registry.NewClient(
+		registry.ClientOptEnableCache(true),
+		registry.ClientOptDebug(true),
+		registry.ClientOptWriter(os.Stdout),
+	)
+	if err != nil {
+		return err
+	}
+	pull := action.NewPullWithOpts(action.WithConfig(pullConfig))
 	pull.Password = repoEntry.Username
 	pull.Username = repoEntry.Password
 	pull.Version = chartVersion
@@ -687,6 +725,30 @@ func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath stri
 	return nil
 }
 
+func (hClient *HelmClient) pushOCIRegistry(repoEntry *repo.Entry, chartPath string) error {
+	hClient.lock.Lock()
+	defer hClient.lock.Unlock()
+
+	pushConfig := &action.Configuration{}
+	var err error
+	pushConfig.RegistryClient, err = registry.NewClient(
+		registry.ClientOptEnableCache(true),
+		registry.ClientOptDebug(true),
+		registry.ClientOptWriter(os.Stdout),
+	)
+
+	hostUrl := strings.TrimPrefix(repoEntry.URL, fmt.Sprintf("%s://", registry.OCIScheme))
+	err = pushConfig.RegistryClient.Login(hostUrl, registry.LoginOptBasicAuth(repoEntry.Username, repoEntry.Password))
+	if err != nil {
+		return err
+	}
+
+	push := action.NewPushWithOpts(action.WithPushConfig(pushConfig))
+	push.Settings = generalSettings
+	_, err = push.Run(chartPath, repoEntry.URL)
+	return err
+}
+
 func getChartmuseumError(b []byte, code int) error {
 	var er struct {
 		Error string `json:"error"`
@@ -723,6 +785,8 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) er
 	}
 	if repoUrl.Scheme == "acr" {
 		return hClient.pushAcrChart(repoEntry, chartPath)
+	} else if repoUrl.Scheme == registry.OCIScheme {
+		return hClient.pushOCIRegistry(repoEntry, chartPath)
 	} else {
 		return hClient.pushChartMuseum(repoEntry, chartPath)
 	}
