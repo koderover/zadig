@@ -104,6 +104,9 @@ func (p *TestPlugin) TaskTimeout() int {
 }
 
 func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
+	// since a prefix of $WORKSPACE is added to the user path in the product, we add this prefix to the cacheUserDir parameter
+	pipelineCtx.CacheUserDir = fmt.Sprintf("%s/%s", "/workspace", p.Task.CacheUserDir)
+
 	if p.Task.CacheEnable && !pipelineTask.ConfigPayload.ResetCache {
 		pipelineCtx.CacheEnable = true
 		pipelineCtx.Cache = p.Task.Cache

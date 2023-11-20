@@ -209,20 +209,23 @@ func (p *ScanPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	reaperContext.Scripts = append(reaperContext.Scripts, strings.Split(replaceWrapLine(p.Task.Script), "\n")...)
 
 	if p.Task.CacheEnable {
+		// since a prefix of $WORKSPACE is added to the user path in the product, we add this prefix to the cacheUserDir parameter
+		cacheDir := fmt.Sprintf("%s/%s", "/workspace", p.Task.CacheUserDir)
+
 		// job creation usage
 		pipelineCtx.CacheEnable = true
 		pipelineCtx.Cache = p.Task.Cache
 		pipelineCtx.CacheDirType = p.Task.CacheDirType
-		pipelineCtx.CacheUserDir = p.Task.CacheUserDir
+		pipelineCtx.CacheUserDir = cacheDir
 		// job usage
-		reaperContext.CacheEnable = p.Task.CacheEnable
+		reaperContext.CacheEnable = true
 		reaperContext.CacheDirType = p.Task.CacheDirType
-		reaperContext.CacheUserDir = p.Task.CacheUserDir
+		reaperContext.CacheUserDir = cacheDir
 		reaperContext.Cache = p.Task.Cache
 
 		// Since we allow users to use custom environment variables, variable resolution is required.
 		if pipelineCtx.CacheEnable && pipelineCtx.Cache.MediumType == types.NFSMedium {
-			pipelineCtx.CacheUserDir = p.renderEnv(pipelineCtx.CacheUserDir, envVars)
+			pipelineCtx.CacheUserDir = p.renderEnv(cacheDir, envVars)
 			pipelineCtx.Cache.NFSProperties.Subpath = p.renderEnv(pipelineCtx.Cache.NFSProperties.Subpath, envVars)
 		}
 	}
