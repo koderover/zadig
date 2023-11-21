@@ -643,12 +643,14 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 
 	// download chart from ocr registry
 	if registry.IsOCI(repoEntry.URL) {
-		log.Infof("start download chart from oci registry")
+		log.Infof("start download chart from oci registry, chartRef: %s", chartRef)
 		chartNameStr := strings.Split(chartRef, "/")
 		if len(chartNameStr) < 2 {
 			return fmt.Errorf("chart name is not valid")
 		}
-		return hClient.DownloadOCIChart(repoEntry, chartNameStr[len(chartNameStr)-1], chartVersion, destDir, unTar)
+		chartRef = fmt.Sprintf("%s/%s", repoEntry.URL, chartNameStr[len(chartNameStr)-1])
+		log.Infof("final chart ref is %s", chartRef)
+		return hClient.DownloadOCIChart(repoEntry, chartRef, chartVersion, destDir, unTar)
 	}
 
 	_, err := hClient.UpdateChartRepo(repoEntry)
