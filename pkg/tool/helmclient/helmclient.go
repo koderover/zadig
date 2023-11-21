@@ -649,7 +649,6 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 			return fmt.Errorf("chart name is not valid")
 		}
 		chartRef = fmt.Sprintf("%s/%s", repoEntry.URL, chartNameStr[len(chartNameStr)-1])
-		log.Infof("final chart ref is %s", chartRef)
 		return hClient.DownloadOCIChart(repoEntry, chartRef, chartVersion, destDir, unTar)
 	}
 
@@ -733,6 +732,7 @@ func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath stri
 }
 
 func (hClient *HelmClient) pushOCIRegistry(repoEntry *repo.Entry, chartPath string) error {
+	log.Infof("------- push chart to oci registry: %s/%s", repoEntry.URL, chartPath)
 	pushConfig := &action.Configuration{}
 	var err error
 	pushConfig.RegistryClient, err = registry.NewClient(
@@ -742,6 +742,7 @@ func (hClient *HelmClient) pushOCIRegistry(repoEntry *repo.Entry, chartPath stri
 	)
 
 	hostUrl := strings.TrimPrefix(repoEntry.URL, fmt.Sprintf("%s://", registry.OCIScheme))
+	log.Infof("------ host url : %s", hostUrl)
 	err = pushConfig.RegistryClient.Login(hostUrl, registry.LoginOptBasicAuth(repoEntry.Username, repoEntry.Password))
 	if err != nil {
 		return err
@@ -787,6 +788,7 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) er
 	if err != nil {
 		return fmt.Errorf("failed to parse repo url: %s, err: %w", repoEntry.URL, err)
 	}
+	log.Infof("----- chart repo schema: %s", repoUrl.Scheme)
 	if repoUrl.Scheme == "acr" {
 		return hClient.pushAcrChart(repoEntry, chartPath)
 	} else if repoUrl.Scheme == registry.OCIScheme {
