@@ -617,7 +617,9 @@ func (hClient *HelmClient) FetchIndexYaml(repoEntry *repo.Entry) (*repo.IndexFil
 	defer hClient.lock.Unlock()
 
 	if registry.IsOCI(repoEntry.URL) {
-		return nil, nil
+		return &repo.IndexFile{
+			Entries: make(map[string]repo.ChartVersions),
+		}, nil
 	}
 
 	indexFilePath, err := hClient.UpdateChartRepo(repoEntry)
