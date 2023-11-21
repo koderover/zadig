@@ -780,10 +780,6 @@ func handlePushResponse(resp *http.Response) error {
 func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) error {
 	hClient.lock.Lock()
 	defer hClient.lock.Unlock()
-	_, err := hClient.UpdateChartRepo(repoEntry)
-	if err != nil {
-		return nil
-	}
 	repoUrl, err := url.Parse(repoEntry.URL)
 	if err != nil {
 		return fmt.Errorf("failed to parse repo url: %s, err: %w", repoEntry.URL, err)
@@ -794,6 +790,10 @@ func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) er
 	} else if repoUrl.Scheme == registry.OCIScheme {
 		return hClient.pushOCIRegistry(repoEntry, chartPath)
 	} else {
+		_, err := hClient.UpdateChartRepo(repoEntry)
+		if err != nil {
+			return err
+		}
 		return hClient.pushChartMuseum(repoEntry, chartPath)
 	}
 }
