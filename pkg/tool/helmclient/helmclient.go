@@ -643,6 +643,7 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 
 	// download chart from ocr registry
 	if registry.IsOCI(repoEntry.URL) {
+		log.Infof("start download chart from oci registry")
 		chartNameStr := strings.Split(chartRef, "/")
 		if len(chartNameStr) < 2 {
 			return fmt.Errorf("chart name is not valid")
@@ -667,9 +668,6 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 }
 
 func (hClient *HelmClient) DownloadOCIChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
-	hClient.lock.Lock()
-	defer hClient.lock.Unlock()
-
 	pullConfig := &action.Configuration{}
 	var err error
 	pullConfig.RegistryClient, err = registry.NewClient(
@@ -733,9 +731,6 @@ func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath stri
 }
 
 func (hClient *HelmClient) pushOCIRegistry(repoEntry *repo.Entry, chartPath string) error {
-	hClient.lock.Lock()
-	defer hClient.lock.Unlock()
-
 	pushConfig := &action.Configuration{}
 	var err error
 	pushConfig.RegistryClient, err = registry.NewClient(
