@@ -106,17 +106,18 @@ func ListProjectCodeHost(c *gin.Context) {
 		return
 	}
 
+	// TODO: Authorization leaks
 	// authorization checks
-	if !ctx.Resources.IsSystemAdmin {
-		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
-			ctx.UnAuthorized = true
-			return
-		}
-		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
-			ctx.UnAuthorized = true
-			return
-		}
-	}
+	//if !ctx.Resources.IsSystemAdmin {
+	//	if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//	if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
+	//		ctx.UnAuthorized = true
+	//		return
+	//	}
+	//}
 
 	encryptedKey := c.Query("encryptedKey")
 	if len(encryptedKey) == 0 {
