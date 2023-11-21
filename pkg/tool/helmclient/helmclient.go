@@ -615,6 +615,11 @@ func (hClient *HelmClient) UpdateChartRepo(repoEntry *repo.Entry) (string, error
 func (hClient *HelmClient) FetchIndexYaml(repoEntry *repo.Entry) (*repo.IndexFile, error) {
 	hClient.lock.Lock()
 	defer hClient.lock.Unlock()
+
+	if registry.IsOCI(repoEntry.URL) {
+		return nil, nil
+	}
+
 	indexFilePath, err := hClient.UpdateChartRepo(repoEntry)
 	if err != nil {
 		return nil, err
