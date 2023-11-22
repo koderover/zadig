@@ -1583,7 +1583,9 @@ func updateMultiK8sEnv(c *gin.Context, request *service.UpdateEnvRequest, produc
 	for _, arg := range args {
 		for _, service := range arg.Services {
 			if service.DeployStrategy == setting.ServiceDeployStrategyImport {
-				if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+				if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
+					licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
+					licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 					ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 					return
 				}

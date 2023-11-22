@@ -91,7 +91,9 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 	if reg.RegType == config.RegistryProviderACREnterprise ||
 		reg.RegType == config.RegistryProviderTCREnterprise ||
 		reg.RegType == config.RegistryProviderJFrog {
-		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
+			licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
+			licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
