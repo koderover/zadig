@@ -32,8 +32,6 @@ import (
 	"strings"
 	"sync"
 
-	"helm.sh/helm/v3/pkg/registry"
-
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	hc "github.com/mittwald/go-helm-client"
 	"helm.sh/helm/v3/pkg/action"
@@ -42,6 +40,7 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/plugin"
+	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/repo"
