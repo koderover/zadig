@@ -73,7 +73,7 @@ func EnableIstioGrayscale(ctx context.Context, envName, productName string) erro
 	}
 
 	// 4. Update the environment configuration.
-	return ensureBaseEnvConfig(ctx, prod)
+	return ensureIstioGrayConfig(ctx, prod)
 }
 
 // @todo disable istio grayscale

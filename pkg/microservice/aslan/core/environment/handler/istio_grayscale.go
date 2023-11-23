@@ -33,7 +33,7 @@ import (
 // @Produce json
 // @Param 	projectName	query		string									true	"project name"
 // @Param 	name 		path		string									true	"env name"
-// @Success 200
+// @Success 200 		{array} 	string
 // @Router /api/aslan/environment/production/environments/{name}/check/workloads/k8services [get]
 func CheckProductionWorkloadsK8sServices(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
@@ -146,6 +146,16 @@ func DisableIstioGrayscale(c *gin.Context) {
 	ctx.Err = service.DisableBaseEnv(c, envName, projectKey)
 }
 
+// @Summary Check Istio Grayscale Ready
+// @Description Check Istio Grayscale Ready
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string									true	"project name"
+// @Param 	name 		path		string									true	"env name"
+// @Param 	op 			path		string									true	"operation"
+// @Success 200 		{object} 	service.IstioGrayScaleReady
+// @Router /api/aslan/environment/production/environments/{name}/check/istioGrayscale/{op}/ready [get]
 func CheckIstioGrayscaleReady(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -1776,6 +1776,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/production/environments/{name}/check/istioGrayscale/{op}/ready": {
+            "get": {
+                "description": "Check Istio Grayscale Ready",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Check Istio Grayscale Ready",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "operation",
+                        "name": "op",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.IstioGrayScaleReady"
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/production/environments/{name}/check/workloads/k8services": {
             "get": {
                 "description": "Check Production Workloads K8sServices",
@@ -1807,7 +1853,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
@@ -7198,6 +7250,34 @@ const docTemplate = `{
                 },
                 "port_protocol": {
                     "type": "string"
+                }
+            }
+        },
+        "service.IstioGrayScaleChecks": {
+            "type": "object",
+            "properties": {
+                "namespace_has_istio_label": {
+                    "type": "boolean"
+                },
+                "pods_have_istio_proxy": {
+                    "type": "boolean"
+                },
+                "workloads_have_k8s_service": {
+                    "type": "boolean"
+                },
+                "workloads_ready": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "service.IstioGrayScaleReady": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "$ref": "#/definitions/service.IstioGrayScaleChecks"
+                },
+                "is_ready": {
+                    "type": "boolean"
                 }
             }
         },

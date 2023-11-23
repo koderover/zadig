@@ -395,6 +395,7 @@ func (c *ProductColl) Update(args *models.Product) error {
 		"revision":         args.Revision,
 		"error":            args.Error,
 		"share_env":        args.ShareEnv,
+		"istio_gray_scale": args.IstioGrayScale,
 		"global_variables": args.GlobalVariables,
 		"default_values":   args.DefaultValues,
 		"yaml_data":        args.YamlData,

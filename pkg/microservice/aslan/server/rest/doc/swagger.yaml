@@ -1649,6 +1649,24 @@ definitions:
       port_protocol:
         type: string
     type: object
+  service.IstioGrayScaleChecks:
+    properties:
+      namespace_has_istio_label:
+        type: boolean
+      pods_have_istio_proxy:
+        type: boolean
+      workloads_have_k8s_service:
+        type: boolean
+      workloads_ready:
+        type: boolean
+    type: object
+  service.IstioGrayScaleReady:
+    properties:
+      checks:
+        $ref: '#/definitions/service.IstioGrayScaleChecks'
+      is_ready:
+        type: boolean
+    type: object
   service.JiraProjectsResp:
     properties:
       key:
@@ -3672,6 +3690,37 @@ paths:
       summary: Upsert Production Env Analysis Cron
       tags:
       - environment
+  /api/aslan/environment/production/environments/{name}/check/istioGrayscale/{op}/ready:
+    get:
+      consumes:
+      - application/json
+      description: Check Istio Grayscale Ready
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: operation
+        in: path
+        name: op
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.IstioGrayScaleReady'
+      summary: Check Istio Grayscale Ready
+      tags:
+      - environment
   /api/aslan/environment/production/environments/{name}/check/workloads/k8services:
     get:
       consumes:
@@ -3693,6 +3742,10 @@ paths:
       responses:
         "200":
           description: OK
+          schema:
+            items:
+              type: string
+            type: array
       summary: Check Production Workloads K8sServices
       tags:
       - environment
