@@ -213,6 +213,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/version/:serviceName/revision/:revision", GetProductionEnvServiceVersionYaml)
 		production.GET("/environments/:name/version/:serviceName/diff", DiffProductionEnvServiceVersions)
 		production.POST("/environments/:name/version/:serviceName/rollback", RollbackProductionEnvServiceVersion)
+
+		production.GET("/environments/:name/check/workloads/k8services", CheckProductionWorkloadsK8sServices)
+		production.POST("/environments/:name/istioGrayscale/enable", EnableIstioGrayscale)
+		production.DELETE("/environments/:name/istioGrayscale/enable", DisableIstioGrayscale)
+		production.GET("/environments/:name/check/istioGrayscale/:op/ready", CheckIstioGrayscaleReady)
+		production.GET("/environments/:name/istioGrayscale/portal/:serviceName", GetPortalService)
+		production.POST("/environments/:name/istioGrayscale/portal/:serviceName", SetupPortalService)
 	}
 
 	// ---------------------------------------------------------------------------------------

@@ -143,6 +143,18 @@ type ShareEnvReadyChecks struct {
 	WorkloadsHaveK8sService bool `json:"workloads_have_k8s_service"`
 }
 
+type IstioGrayScaleReady struct {
+	IsReady bool                 `json:"is_ready"`
+	Checks  IstioGrayScaleChecks `json:"checks"`
+}
+
+type IstioGrayScaleChecks struct {
+	NamespaceHasIstioLabel  bool `json:"namespace_has_istio_label"`
+	PodsHaveIstioProxy      bool `json:"pods_have_istio_proxy"`
+	WorkloadsReady          bool `json:"workloads_ready"`
+	WorkloadsHaveK8sService bool `json:"workloads_have_k8s_service"`
+}
+
 // Note: `WorkloadsHaveK8sService` is an optional condition.
 func (s *ShareEnvReady) CheckAndSetReady(state ShareEnvOp) {
 	if !s.Checks.WorkloadsReady {
@@ -159,6 +171,29 @@ func (s *ShareEnvReady) CheckAndSetReady(state ShareEnvOp) {
 		}
 	default:
 		if !s.Checks.NamespaceHasIstioLabel && !s.Checks.VirtualServicesDeployed && !s.Checks.PodsHaveIstioProxy {
+			s.IsReady = true
+		} else {
+			s.IsReady = false
+		}
+	}
+}
+
+// Note: `WorkloadsHaveK8sService` is an optional condition.
+func (s *IstioGrayScaleReady) CheckAndSetReady(state ShareEnvOp) {
+	if !s.Checks.WorkloadsReady {
+		s.IsReady = false
+		return
+	}
+
+	switch state {
+	case ShareEnvEnable:
+		if !s.Checks.NamespaceHasIstioLabel || !s.Checks.PodsHaveIstioProxy {
+			s.IsReady = false
+		} else {
+			s.IsReady = true
+		}
+	default:
+		if !s.Checks.NamespaceHasIstioLabel && !s.Checks.PodsHaveIstioProxy {
 			s.IsReady = true
 		} else {
 			s.IsReady = false

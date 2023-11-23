@@ -3672,6 +3672,30 @@ paths:
       summary: Upsert Production Env Analysis Cron
       tags:
       - environment
+  /api/aslan/environment/production/environments/{name}/check/workloads/k8services:
+    get:
+      consumes:
+      - application/json
+      description: Check Production Workloads K8sServices
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Check Production Workloads K8sServices
+      tags:
+      - environment
   /api/aslan/environment/production/environments/{name}/configs:
     get:
       consumes:
@@ -3842,6 +3866,30 @@ paths:
           schema:
             $ref: '#/definitions/service.ValuesResp'
       summary: Get Production Chart Values
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/istioGrayscale/enable:
+    post:
+      consumes:
+      - application/json
+      description: Enable Istio Grayscale
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Enable Istio Grayscale
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/sleep:

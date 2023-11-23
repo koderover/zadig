@@ -37,11 +37,11 @@ import (
 )
 
 func ensureBaseEnvConfig(ctx context.Context, baseEnv *commonmodels.Product) error {
-	if baseEnv.ShareEnv.Enable && baseEnv.ShareEnv.IsBase {
+	if baseEnv.IstioGrayScale.Enable && baseEnv.IstioGrayScale.IsBase {
 		return nil
 	}
 
-	baseEnv.ShareEnv = commonmodels.ProductShareEnv{
+	baseEnv.IstioGrayScale = commonmodels.IstioGrayScale{
 		Enable: true,
 		IsBase: true,
 	}
