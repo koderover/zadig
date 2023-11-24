@@ -170,11 +170,6 @@ func EnsureResp(build *commonmodels.Build) {
 				Repos: target.Repos,
 				Envs:  envs,
 			}
-			for _, v := range targetRepo.Envs {
-				if v.IsCredential {
-					v.Value = setting.MaskValue
-				}
-			}
 			build.TargetRepos = append(build.TargetRepos, targetRepo)
 		}
 	}
