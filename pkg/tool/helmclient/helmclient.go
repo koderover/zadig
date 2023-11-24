@@ -72,8 +72,8 @@ var generalSettings *cli.EnvSettings
 
 // enable support of oci registry
 func init() {
-	os.Setenv("HELM_EXPERIMENTAL_OCI", "1")
-	os.Setenv("HELM_PLUGINS", HelmPluginsDirectory)
+	_ = os.Setenv("HELM_EXPERIMENTAL_OCI", "1")
+	_ = os.Setenv("HELM_PLUGINS", HelmPluginsDirectory)
 	repoInfo = &repo.File{}
 	generalSettings = cli.New()
 	generalSettings.PluginsDirectory = HelmPluginsDirectory
@@ -589,8 +589,8 @@ func (hClient *HelmClient) UpdateChartRepo(repoEntry *repo.Entry) (string, error
 	}
 	if repoUrl.Scheme == "acr" {
 		// export envionment-variables for ali acr chart repo
-		os.Setenv("HELM_REPO_USERNAME", repoEntry.Username)
-		os.Setenv("HELM_REPO_PASSWORD", repoEntry.Password)
+		_ = os.Setenv("HELM_REPO_USERNAME", repoEntry.Username)
+		_ = os.Setenv("HELM_REPO_PASSWORD", repoEntry.Password)
 	}
 
 	// update repo info
@@ -648,7 +648,7 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 			return fmt.Errorf("chart name is not valid")
 		}
 		chartRef = fmt.Sprintf("%s/%s", repoEntry.URL, chartNameStr[len(chartNameStr)-1])
-		return hClient.DownloadOCIChart(repoEntry, chartRef, chartVersion, destDir, unTar)
+		return hClient.downloadOCIChart(repoEntry, chartRef, chartVersion, destDir, unTar)
 	}
 
 	_, err := hClient.UpdateChartRepo(repoEntry)
@@ -667,7 +667,7 @@ func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string,
 	return err
 }
 
-func (hClient *HelmClient) DownloadOCIChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
+func (hClient *HelmClient) downloadOCIChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
 	pullConfig := &action.Configuration{}
 	var err error
 	pullConfig.RegistryClient, err = registry.NewClient(
