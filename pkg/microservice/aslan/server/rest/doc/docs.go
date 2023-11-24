@@ -1816,7 +1816,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/service.IstioGrayScaleReady"
+                            "$ref": "#/definitions/service.IstioGrayscaleReady"
                         }
                     }
                 }
@@ -4954,6 +4954,16 @@ const docTemplate = `{
                 "is_prod": {
                     "type": "boolean"
                 },
+                "istio_grayscale_base_env": {
+                    "type": "string"
+                },
+                "istio_grayscale_enable": {
+                    "description": "New Since v2.1.0",
+                    "type": "boolean"
+                },
+                "istio_grayscale_is_base": {
+                    "type": "boolean"
+                },
                 "namespace": {
                     "type": "string"
                 },
@@ -7253,7 +7263,7 @@ const docTemplate = `{
                 }
             }
         },
-        "service.IstioGrayScaleChecks": {
+        "service.IstioGrayscaleChecks": {
             "type": "object",
             "properties": {
                 "namespace_has_istio_label": {
@@ -7270,11 +7280,11 @@ const docTemplate = `{
                 }
             }
         },
-        "service.IstioGrayScaleReady": {
+        "service.IstioGrayscaleReady": {
             "type": "object",
             "properties": {
                 "checks": {
-                    "$ref": "#/definitions/service.IstioGrayScaleChecks"
+                    "$ref": "#/definitions/service.IstioGrayscaleChecks"
                 },
                 "is_ready": {
                     "type": "boolean"

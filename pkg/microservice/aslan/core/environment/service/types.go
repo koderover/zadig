@@ -143,12 +143,12 @@ type ShareEnvReadyChecks struct {
 	WorkloadsHaveK8sService bool `json:"workloads_have_k8s_service"`
 }
 
-type IstioGrayScaleReady struct {
+type IstioGrayscaleReady struct {
 	IsReady bool                 `json:"is_ready"`
-	Checks  IstioGrayScaleChecks `json:"checks"`
+	Checks  IstioGrayscaleChecks `json:"checks"`
 }
 
-type IstioGrayScaleChecks struct {
+type IstioGrayscaleChecks struct {
 	NamespaceHasIstioLabel  bool `json:"namespace_has_istio_label"`
 	PodsHaveIstioProxy      bool `json:"pods_have_istio_proxy"`
 	WorkloadsReady          bool `json:"workloads_ready"`
@@ -179,7 +179,7 @@ func (s *ShareEnvReady) CheckAndSetReady(state ShareEnvOp) {
 }
 
 // Note: `WorkloadsHaveK8sService` is an optional condition.
-func (s *IstioGrayScaleReady) CheckAndSetReady(state ShareEnvOp) {
+func (s *IstioGrayscaleReady) CheckAndSetReady(state ShareEnvOp) {
 	if !s.Checks.WorkloadsReady {
 		s.IsReady = false
 		return

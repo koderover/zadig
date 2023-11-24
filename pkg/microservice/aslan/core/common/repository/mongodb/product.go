@@ -64,6 +64,11 @@ type ProductListOptions struct {
 	ShareEnvIsBase  *bool
 	ShareEnvBaseEnv *string
 
+	// New Since v2.1.0
+	IstioGrayscaleEnable  *bool
+	IstioGrayscaleIsBase  *bool
+	IstioGrayscaleBaseEnv *string
+
 	Production *bool
 }
 
@@ -262,6 +267,15 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	if opt.ShareEnvBaseEnv != nil {
 		query["share_env.base_env"] = *opt.ShareEnvBaseEnv
 	}
+	if opt.IstioGrayscaleEnable != nil {
+		query["istio_grayscale.enable"] = *opt.IstioGrayscaleEnable
+	}
+	if opt.IstioGrayscaleIsBase != nil {
+		query["istio_grayscale.is_base"] = *opt.IstioGrayscaleIsBase
+	}
+	if opt.IstioGrayscaleBaseEnv != nil {
+		query["istio_grayscale.base_env"] = *opt.IstioGrayscaleBaseEnv
+	}
 	if opt.Production != nil {
 		if *opt.Production {
 			query["production"] = true
@@ -395,7 +409,7 @@ func (c *ProductColl) Update(args *models.Product) error {
 		"revision":         args.Revision,
 		"error":            args.Error,
 		"share_env":        args.ShareEnv,
-		"istio_gray_scale": args.IstioGrayScale,
+		"istio_grayscale":  args.IstioGrayscale,
 		"global_variables": args.GlobalVariables,
 		"default_values":   args.DefaultValues,
 		"yaml_data":        args.YamlData,

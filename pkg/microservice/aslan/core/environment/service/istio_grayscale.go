@@ -24,6 +24,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/util/boolptr"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -147,7 +148,7 @@ func DisableIstioGrayscale(ctx context.Context, envName, productName string) err
 	return ensureDisableBaseEnvConfig(ctx, prod)
 }
 
-func CheckIstioGrayscaleReady(ctx context.Context, envName, op, productName string) (*IstioGrayScaleReady, error) {
+func CheckIstioGrayscaleReady(ctx context.Context, envName, op, productName string) (*IstioGrayscaleReady, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -187,8 +188,8 @@ func CheckIstioGrayscaleReady(ctx context.Context, envName, op, productName stri
 		return nil, fmt.Errorf("failed to check whether all pods in ns `%s` have istio-proxy and are ready: %s", ns, err)
 	}
 
-	res := &IstioGrayScaleReady{
-		Checks: IstioGrayScaleChecks{
+	res := &IstioGrayscaleReady{
+		Checks: IstioGrayscaleChecks{
 			NamespaceHasIstioLabel:  isNamespaceHasIstioLabel,
 			WorkloadsHaveK8sService: isWorkloadsHaveNoK8sService,
 			PodsHaveIstioProxy:      allHaveIstioProxy,
@@ -201,10 +202,10 @@ func CheckIstioGrayscaleReady(ctx context.Context, envName, op, productName stri
 }
 
 func EnsureFullPathGrayScaleConfig(ctx context.Context, env *commonmodels.Product, kclient client.Client, istioClient versionedclient.Interface) error {
-	opt := &commonrepo.ProductFindOptions{Name: env.ProductName, EnvName: env.IstioGrayScale.BaseEnv}
+	opt := &commonrepo.ProductFindOptions{Name: env.ProductName, EnvName: env.IstioGrayscale.BaseEnv, Production: boolptr.True()}
 	baseEnv, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return fmt.Errorf("failed to find base env %s of product %s: %s", env.EnvName, env.ProductName, err)
+		return fmt.Errorf("failed to find base env %s of product %s: %s", env.IstioGrayscale.BaseEnv, env.ProductName, err)
 	}
 
 	baseNS := baseEnv.Namespace

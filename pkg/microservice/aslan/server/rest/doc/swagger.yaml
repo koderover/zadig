@@ -98,6 +98,13 @@ definitions:
         type: boolean
       isPublic:
         type: boolean
+      istio_grayscale_base_env:
+        type: string
+      istio_grayscale_enable:
+        description: New Since v2.1.0
+        type: boolean
+      istio_grayscale_is_base:
+        type: boolean
       namespace:
         type: string
       product_name:
@@ -1649,7 +1656,7 @@ definitions:
       port_protocol:
         type: string
     type: object
-  service.IstioGrayScaleChecks:
+  service.IstioGrayscaleChecks:
     properties:
       namespace_has_istio_label:
         type: boolean
@@ -1660,10 +1667,10 @@ definitions:
       workloads_ready:
         type: boolean
     type: object
-  service.IstioGrayScaleReady:
+  service.IstioGrayscaleReady:
     properties:
       checks:
-        $ref: '#/definitions/service.IstioGrayScaleChecks'
+        $ref: '#/definitions/service.IstioGrayscaleChecks'
       is_ready:
         type: boolean
     type: object
@@ -3717,7 +3724,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/service.IstioGrayScaleReady'
+            $ref: '#/definitions/service.IstioGrayscaleReady'
       summary: Check Istio Grayscale Ready
       tags:
       - environment

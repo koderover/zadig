@@ -154,7 +154,7 @@ func DisableIstioGrayscale(c *gin.Context) {
 // @Param 	projectName	query		string									true	"project name"
 // @Param 	name 		path		string									true	"env name"
 // @Param 	op 			path		string									true	"operation"
-// @Success 200 		{object} 	service.IstioGrayScaleReady
+// @Success 200 		{object} 	service.IstioGrayscaleReady
 // @Router /api/aslan/environment/production/environments/{name}/check/istioGrayscale/{op}/ready [get]
 func CheckIstioGrayscaleReady(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)

@@ -162,27 +162,30 @@ func ListProducts(userID, projectName string, envNames []string, production bool
 			baseRefs = append(baseRefs, cmSet.List()...)
 		}
 		res = append(res, &EnvResp{
-			ProjectName:     projectName,
-			Name:            env.EnvName,
-			IsPublic:        env.IsPublic,
-			IsExisted:       env.IsExisted,
-			ClusterName:     getClusterName(env.ClusterID),
-			Source:          env.Source,
-			Production:      env.Production,
-			Status:          env.Status,
-			Error:           env.Error,
-			UpdateTime:      env.UpdateTime,
-			UpdateBy:        env.UpdateBy,
-			RegistryID:      env.RegistryID,
-			ClusterID:       env.ClusterID,
-			Namespace:       env.Namespace,
-			Alias:           env.Alias,
-			BaseRefs:        baseRefs,
-			BaseName:        env.BaseName,
-			ShareEnvEnable:  env.ShareEnv.Enable,
-			ShareEnvIsBase:  env.ShareEnv.IsBase,
-			ShareEnvBaseEnv: env.ShareEnv.BaseEnv,
-			IsFavorite:      favSet.Has(env.EnvName),
+			ProjectName:           projectName,
+			Name:                  env.EnvName,
+			IsPublic:              env.IsPublic,
+			IsExisted:             env.IsExisted,
+			ClusterName:           getClusterName(env.ClusterID),
+			Source:                env.Source,
+			Production:            env.Production,
+			Status:                env.Status,
+			Error:                 env.Error,
+			UpdateTime:            env.UpdateTime,
+			UpdateBy:              env.UpdateBy,
+			RegistryID:            env.RegistryID,
+			ClusterID:             env.ClusterID,
+			Namespace:             env.Namespace,
+			Alias:                 env.Alias,
+			BaseRefs:              baseRefs,
+			BaseName:              env.BaseName,
+			ShareEnvEnable:        env.ShareEnv.Enable,
+			ShareEnvIsBase:        env.ShareEnv.IsBase,
+			ShareEnvBaseEnv:       env.ShareEnv.BaseEnv,
+			IstioGrayscaleEnable:  env.IstioGrayscale.Enable,
+			IstioGrayscaleIsBase:  env.IstioGrayscale.IsBase,
+			IstioGrayscaleBaseEnv: env.IstioGrayscale.BaseEnv,
+			IsFavorite:            favSet.Has(env.EnvName),
 		})
 	}
 
@@ -2246,7 +2249,7 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 			log.Errorf("Failed to ensure environment sharing in env %s of product %s: %s", args.EnvName, args.ProductName, err)
 			return
 		}
-	} else if args.Production && args.IstioGrayScale.Enable && !args.IstioGrayScale.IsBase {
+	} else if args.Production && args.IstioGrayscale.Enable && !args.IstioGrayscale.IsBase {
 		err = EnsureFullPathGrayScaleConfig(context.TODO(), args, kubeClient, istioClient)
 		if err != nil {
 			args.Status = setting.ProductStatusFailed
@@ -2554,7 +2557,7 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 		if shareEnvErr != nil {
 			errList = multierror.Append(errList, shareEnvErr)
 		}
-	} else if args.IstioGrayScale.Enable && !args.IstioGrayScale.IsBase {
+	} else if args.IstioGrayscale.Enable && !args.IstioGrayscale.IsBase {
 		err = EnsureFullPathGrayScaleConfig(context.TODO(), args, kclient, istioClient)
 		if err != nil {
 			args.Status = setting.ProductStatusFailed

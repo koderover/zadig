@@ -82,7 +82,7 @@ type Product struct {
 	GlobalVariables []*commontypes.GlobalVariableKV `bson:"global_variables,omitempty"     json:"global_variables,omitempty"`
 
 	// New Since v2.1.0.
-	IstioGrayScale IstioGrayScale `bson:"istio_gray_scale" json:"istio_gray_scale"`
+	IstioGrayscale IstioGrayscale `bson:"istio_grayscale" json:"istio_grayscale"`
 
 	// For production environment
 	Production bool   `json:"production" bson:"production"`
@@ -211,7 +211,7 @@ type ProductShareEnv struct {
 	BaseEnv string `bson:"base_env" json:"base_env"`
 }
 
-type IstioGrayScale struct {
+type IstioGrayscale struct {
 	Enable             bool                     `bson:"enable"   json:"enable"`
 	IsBase             bool                     `bson:"is_base"  json:"is_base"`
 	BaseEnv            string                   `bson:"base_env" json:"base_env"`

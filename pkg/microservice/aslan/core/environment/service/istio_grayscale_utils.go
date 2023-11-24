@@ -24,11 +24,11 @@ import (
 )
 
 func ensureIstioGrayConfig(ctx context.Context, baseEnv *commonmodels.Product) error {
-	if baseEnv.IstioGrayScale.Enable && baseEnv.IstioGrayScale.IsBase {
+	if baseEnv.IstioGrayscale.Enable && baseEnv.IstioGrayscale.IsBase {
 		return nil
 	}
 
-	baseEnv.IstioGrayScale = commonmodels.IstioGrayScale{
+	baseEnv.IstioGrayscale = commonmodels.IstioGrayscale{
 		Enable: true,
 		IsBase: true,
 	}
