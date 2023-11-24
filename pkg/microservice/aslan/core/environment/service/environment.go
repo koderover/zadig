@@ -2238,18 +2238,24 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 		}
 	}
 
-	// If the user does not enable environment sharing, end. Otherwise, continue to perform environment sharing operations.
-	if !args.ShareEnv.Enable {
-		return
+	if !args.Production && args.ShareEnv.Enable && !args.ShareEnv.IsBase {
+		// Note: Currently, only sub-environments can be created, but baseline environments cannot be created.
+		err = EnsureGrayEnvConfig(context.TODO(), args, kubeClient, istioClient)
+		if err != nil {
+			args.Status = setting.ProductStatusFailed
+			log.Errorf("Failed to ensure environment sharing in env %s of product %s: %s", args.EnvName, args.ProductName, err)
+			return
+		}
+	} else if args.Production && args.IstioGrayScale.Enable && !args.IstioGrayScale.IsBase {
+		err = EnsureFullPathGrayScaleConfig(context.TODO(), args, kubeClient, istioClient)
+		if err != nil {
+			args.Status = setting.ProductStatusFailed
+			log.Errorf("Failed to ensure full path grayscale in env %s of product %s: %s", args.EnvName, args.ProductName, err)
+			return
+		}
 	}
 
-	// Note: Currently, only sub-environments can be created, but baseline environments cannot be created.
-	err = EnsureGrayEnvConfig(context.TODO(), args, kubeClient, istioClient)
-	if err != nil {
-		args.Status = setting.ProductStatusFailed
-		log.Errorf("Failed to ensure environment sharing in env %s of product %s: %s", args.EnvName, args.ProductName, err)
-		return
-	}
+	return
 }
 
 func getProjectType(productName string) string {
@@ -2547,6 +2553,13 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 		shareEnvErr := EnsureGrayEnvConfig(context.TODO(), args, kclient, istioClient)
 		if shareEnvErr != nil {
 			errList = multierror.Append(errList, shareEnvErr)
+		}
+	} else if args.IstioGrayScale.Enable && !args.IstioGrayScale.IsBase {
+		err = EnsureFullPathGrayScaleConfig(context.TODO(), args, kclient, istioClient)
+		if err != nil {
+			args.Status = setting.ProductStatusFailed
+			log.Errorf("Failed to ensure full path grayscale in env %s of product %s: %s", args.EnvName, args.ProductName, err)
+			return
 		}
 	}
 

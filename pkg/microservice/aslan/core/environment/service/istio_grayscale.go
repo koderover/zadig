@@ -21,9 +21,11 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func EnableIstioGrayscale(ctx context.Context, envName, productName string) error {
@@ -196,4 +198,22 @@ func CheckIstioGrayscaleReady(ctx context.Context, envName, op, productName stri
 	res.CheckAndSetReady(shareEnvOp)
 
 	return res, nil
+}
+
+func EnsureFullPathGrayScaleConfig(ctx context.Context, env *commonmodels.Product, kclient client.Client, istioClient versionedclient.Interface) error {
+	opt := &commonrepo.ProductFindOptions{Name: env.ProductName, EnvName: env.IstioGrayScale.BaseEnv}
+	baseEnv, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return fmt.Errorf("failed to find base env %s of product %s: %s", env.EnvName, env.ProductName, err)
+	}
+
+	baseNS := baseEnv.Namespace
+
+	// Deploy K8s Services and VirtualServices of all workloads in the base environment to the gray environment.
+	err = ensureDefaultK8sServiceAndVirtualServicesInGray(ctx, env, baseNS, kclient, istioClient)
+	if err != nil {
+		return fmt.Errorf("failed to ensure K8s Services and VirtualServices: %s", err)
+	}
+
+	return nil
 }
