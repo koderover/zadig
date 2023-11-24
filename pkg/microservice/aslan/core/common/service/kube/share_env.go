@@ -428,7 +428,7 @@ func ensureUpdateVirtualServiceInBase(ctx context.Context, envName, vsName, svcN
 }
 
 func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, svcName string, kclient client.Client, istioClient versionedclient.Interface) error {
-	if !env.ShareEnv.Enable {
+	if !env.ShareEnv.Enable && !env.IstioGrayscale.Enable {
 		return nil
 	}
 
@@ -451,7 +451,12 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 		return fmt.Errorf("failed to query Service %s in ns %s: %s", svcName, env.Namespace, err)
 	}
 
-	return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
+	if env.ShareEnv.Enable {
+		return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
+	} else if env.IstioGrayscale.Enable {
+		return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
+	}
+	return nil
 }
 
 func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace string, chartSpec *helmclient.ChartSpec, helmClient *helmtool.HelmClient) error {

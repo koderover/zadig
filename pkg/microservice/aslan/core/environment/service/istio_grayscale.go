@@ -218,3 +218,45 @@ func EnsureFullPathGrayScaleConfig(ctx context.Context, env *commonmodels.Produc
 
 	return nil
 }
+
+func GetIstioGrayscaleConfig(ctx context.Context, envName, productName string) (commonmodels.IstioGrayscale, error) {
+	resp := commonmodels.IstioGrayscale{}
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: boolptr.True()}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return resp, fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
+	}
+	if !prod.IstioGrayscale.IsBase {
+		return resp, fmt.Errorf("cannot get istio grayscale config from gray environment %s/%s", productName, envName)
+	}
+
+	return prod.IstioGrayscale, nil
+}
+
+type SetIstioGrayscaleConfigRequest struct {
+	GrayscaleStrategy  commonmodels.GrayscaleStrategyType    `bson:"grayscale_strategy" json:"grayscale_strategy"`
+	WeightConfigs      []commonmodels.IstioWeightConfig      `bson:"weight_configs" json:"weight_configs"`
+	HeaderMatchConfigs []commonmodels.IstioHeaderMatchConfig `bson:"header_match_configs" json:"header_match_configs"`
+}
+
+func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, req SetIstioGrayscaleConfigRequest) error {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: boolptr.True()}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
+	}
+	if !prod.IstioGrayscale.IsBase {
+		return fmt.Errorf("cannot set istio grayscale config for gray environment")
+	}
+
+	prod.IstioGrayscale.GrayscaleStrategy = req.GrayscaleStrategy
+	prod.IstioGrayscale.WeightConfigs = req.WeightConfigs
+	prod.IstioGrayscale.HeaderMatchConfigs = req.HeaderMatchConfigs
+
+	err = commonrepo.NewProductColl().UpdateIstioGrayscale(prod.EnvName, prod.ProductName, prod.IstioGrayscale)
+	if err != nil {
+		return fmt.Errorf("failed to update istio grayscale config of %s/%s environment: %s", prod.ProductName, prod.EnvName, err)
+	}
+
+	return nil
+}

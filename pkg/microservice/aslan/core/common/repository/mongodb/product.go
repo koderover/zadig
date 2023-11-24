@@ -536,6 +536,17 @@ func (c *ProductColl) UpdateIsPublic(envName, productName string, isPublic bool)
 	return err
 }
 
+func (c *ProductColl) UpdateIstioGrayscale(envName, productName string, istioGrayscale models.IstioGrayscale) error {
+	query := bson.M{"env_name": envName, "product_name": productName}
+	change := bson.M{"$set": bson.M{
+		"update_time":     time.Now().Unix(),
+		"istio_grayscale": istioGrayscale,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+
+	return err
+}
+
 func (c *ProductColl) Count(productName string) (int, error) {
 	num, err := c.CountDocuments(context.TODO(), bson.M{"product_name": productName, "status": bson.M{"$ne": setting.ProductStatusDeleting}})
 

@@ -577,6 +577,50 @@ definitions:
       tag:
         type: string
     type: object
+  models.IstioGrayscale:
+    properties:
+      base_env:
+        type: string
+      enable:
+        type: boolean
+      grayscale_strategy:
+        type: string
+      header_match_configs:
+        items:
+          $ref: '#/definitions/models.IstioHeaderMatchConfig'
+        type: array
+      is_base:
+        type: boolean
+      weight_configs:
+        items:
+          $ref: '#/definitions/models.IstioWeightConfig'
+        type: array
+    type: object
+  models.IstioHeaderMatch:
+    properties:
+      key:
+        type: string
+      match:
+        type: string
+      value:
+        type: string
+    type: object
+  models.IstioHeaderMatchConfig:
+    properties:
+      env:
+        type: string
+      header_match:
+        items:
+          $ref: '#/definitions/models.IstioHeaderMatch'
+        type: array
+    type: object
+  models.IstioWeightConfig:
+    properties:
+      env:
+        type: string
+      weight:
+        type: integer
+    type: object
   models.LLMIntegration:
     properties:
       base_url:
@@ -1347,6 +1391,10 @@ definitions:
         type: array
       is_existed:
         type: boolean
+      istio_grayscale:
+        allOf:
+        - $ref: '#/definitions/models.IstioGrayscale'
+        description: New Since v2.1.0
       namespace:
         type: string
       product_name:
@@ -2121,6 +2169,19 @@ definitions:
           ZadigXReleaseType represents the service contain created by zadigx release workflow
           frontend should limit some operations on these services
         type: string
+    type: object
+  service.SetIstioGrayscaleConfigRequest:
+    properties:
+      grayscale_strategy:
+        type: string
+      header_match_configs:
+        items:
+          $ref: '#/definitions/models.IstioHeaderMatchConfig'
+        type: array
+      weight_configs:
+        items:
+          $ref: '#/definitions/models.IstioWeightConfig'
+        type: array
     type: object
   service.SetupPortalServiceRequest:
     properties:
@@ -3926,6 +3987,61 @@ paths:
           schema:
             $ref: '#/definitions/service.ValuesResp'
       summary: Get Production Chart Values
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/istioGrayscale/config:
+    get:
+      consumes:
+      - application/json
+      description: Get Istio Grayscale Config
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.IstioGrayscale'
+      summary: Get Istio Grayscale Config
+      tags:
+      - environment
+    post:
+      consumes:
+      - application/json
+      description: Set Istio Grayscale Config
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.SetIstioGrayscaleConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Set Istio Grayscale Config
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/istioGrayscale/enable:

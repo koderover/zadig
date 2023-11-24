@@ -2111,6 +2111,88 @@
                 }
             }
         },
+        "/api/aslan/environment/production/environments/{name}/istioGrayscale/config": {
+            "get": {
+                "description": "Get Istio Grayscale Config",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Istio Grayscale Config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.IstioGrayscale"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Set Istio Grayscale Config",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Set Istio Grayscale Config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.SetIstioGrayscaleConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/production/environments/{name}/istioGrayscale/enable": {
             "post": {
                 "description": "Enable Istio Grayscale",
@@ -5669,6 +5751,74 @@
                 }
             }
         },
+        "models.IstioGrayscale": {
+            "type": "object",
+            "properties": {
+                "base_env": {
+                    "type": "string"
+                },
+                "enable": {
+                    "type": "boolean"
+                },
+                "grayscale_strategy": {
+                    "type": "string"
+                },
+                "header_match_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioHeaderMatchConfig"
+                    }
+                },
+                "is_base": {
+                    "type": "boolean"
+                },
+                "weight_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioWeightConfig"
+                    }
+                }
+            }
+        },
+        "models.IstioHeaderMatch": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "match": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.IstioHeaderMatchConfig": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "header_match": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioHeaderMatch"
+                    }
+                }
+            }
+        },
+        "models.IstioWeightConfig": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "weight": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.LLMIntegration": {
             "type": "object",
             "properties": {
@@ -6774,6 +6924,14 @@
                 },
                 "is_existed": {
                     "type": "boolean"
+                },
+                "istio_grayscale": {
+                    "description": "New Since v2.1.0",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.IstioGrayscale"
+                        }
+                    ]
                 },
                 "namespace": {
                     "type": "string"
@@ -7962,6 +8120,26 @@
                 "zadigx_release_type": {
                     "description": "ZadigXReleaseType represents the service contain created by zadigx release workflow\nfrontend should limit some operations on these services",
                     "type": "string"
+                }
+            }
+        },
+        "service.SetIstioGrayscaleConfigRequest": {
+            "type": "object",
+            "properties": {
+                "grayscale_strategy": {
+                    "type": "string"
+                },
+                "header_match_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioHeaderMatchConfig"
+                    }
+                },
+                "weight_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioWeightConfig"
+                    }
                 }
             }
         },

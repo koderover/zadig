@@ -223,8 +223,8 @@ type IstioGrayscale struct {
 type GrayscaleStrategyType string
 
 var (
-	GrayscaleStrategyWeight      GrayscaleStrategyType
-	GrayscaleStrategyHeaderMatch GrayscaleStrategyType
+	GrayscaleStrategyWeight      GrayscaleStrategyType = "weight"
+	GrayscaleStrategyHeaderMatch GrayscaleStrategyType = "header_match"
 )
 
 type IstioWeightConfig struct {
@@ -246,9 +246,9 @@ type IstioHeaderMatch struct {
 type StringMatchType string
 
 var (
-	StringMatchPrefix StringMatchType
-	StringMatchExact  StringMatchType
-	StringMatchRegex  StringMatchType
+	StringMatchPrefix StringMatchType = "prefix"
+	StringMatchExact  StringMatchType = "exact"
+	StringMatchRegex  StringMatchType = "regex"
 )
 
 func (Product) TableName() string {
