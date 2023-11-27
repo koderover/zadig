@@ -468,7 +468,7 @@ func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace 
 		return fmt.Errorf("failed to query namespace %q in project %q: %s", namespace, productName, err)
 	}
 
-	if !(env.ShareEnv.Enable && !env.ShareEnv.IsBase) {
+	if !((env.ShareEnv.Enable && !env.ShareEnv.IsBase) || (env.IstioGrayscale.Enable && !env.IstioGrayscale.IsBase)) {
 		return nil
 	}
 

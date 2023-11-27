@@ -24,8 +24,16 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	zadigtypes "github.com/koderover/zadig/pkg/types"
+	zadigutil "github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/boolptr"
+	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -241,21 +249,296 @@ type SetIstioGrayscaleConfigRequest struct {
 
 func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, req SetIstioGrayscaleConfigRequest) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: boolptr.True()}
-	prod, err := commonrepo.NewProductColl().Find(opt)
+	baseEnv, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		return fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
 	}
-	if !prod.IstioGrayscale.IsBase {
+	if !baseEnv.IstioGrayscale.IsBase {
 		return fmt.Errorf("cannot set istio grayscale config for gray environment")
 	}
+	if baseEnv.IsSleeping() {
+		return fmt.Errorf("Environment %s is sleeping", baseEnv.EnvName)
+	}
 
-	prod.IstioGrayscale.GrayscaleStrategy = req.GrayscaleStrategy
-	prod.IstioGrayscale.WeightConfigs = req.WeightConfigs
-	prod.IstioGrayscale.HeaderMatchConfigs = req.HeaderMatchConfigs
-
-	err = commonrepo.NewProductColl().UpdateIstioGrayscale(prod.EnvName, prod.ProductName, prod.IstioGrayscale)
+	grayEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:                  baseEnv.ProductName,
+		IstioGrayscaleEnable:  zadigutil.GetBoolPointer(true),
+		IstioGrayscaleIsBase:  zadigutil.GetBoolPointer(false),
+		IstioGrayscaleBaseEnv: zadigutil.GetStrPointer(baseEnv.EnvName),
+		Production:            zadigutil.GetBoolPointer(true),
+	})
 	if err != nil {
-		return fmt.Errorf("failed to update istio grayscale config of %s/%s environment: %s", prod.ProductName, prod.EnvName, err)
+		return fmt.Errorf("failed to list gray environments of %s/%s: %s", baseEnv.ProductName, baseEnv.EnvName, err)
+	}
+
+	envMap := map[string]*commonmodels.Product{
+		baseEnv.EnvName: baseEnv,
+	}
+	for _, env := range grayEnvs {
+		if env.IsSleeping() {
+			return fmt.Errorf("Environment %s is sleeping", baseEnv.EnvName)
+		}
+		envMap[env.EnvName] = env
+	}
+
+	if req.GrayscaleStrategy == commonmodels.GrayscaleStrategyWeight {
+		err = setIstioGrayscaleWeight(context.TODO(), envMap, req.WeightConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to set istio grayscale weight, err: %w", err)
+		}
+	} else if req.GrayscaleStrategy == commonmodels.GrayscaleStrategyHeaderMatch {
+		err = setIstioGrayscaleHeaderMatch(context.TODO(), envMap, req.HeaderMatchConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to set istio grayscale weight, err: %w", err)
+		}
+	} else {
+		return fmt.Errorf("unsupported grayscale strategy type: %s", req.GrayscaleStrategy)
+	}
+
+	baseEnv.IstioGrayscale.GrayscaleStrategy = req.GrayscaleStrategy
+	baseEnv.IstioGrayscale.WeightConfigs = req.WeightConfigs
+	baseEnv.IstioGrayscale.HeaderMatchConfigs = req.HeaderMatchConfigs
+
+	err = commonrepo.NewProductColl().UpdateIstioGrayscale(baseEnv.EnvName, baseEnv.ProductName, baseEnv.IstioGrayscale)
+	if err != nil {
+		return fmt.Errorf("failed to update istio grayscale config of %s/%s environment: %s", baseEnv.ProductName, baseEnv.EnvName, err)
+	}
+
+	return nil
+}
+
+func setIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodels.Product, weightConfigs []commonmodels.IstioWeightConfig) error {
+	for _, env := range envMap {
+		ns := env.Namespace
+		clusterID := env.ClusterID
+
+		kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+		if err != nil {
+			return fmt.Errorf("failed to get kube client: %s", err)
+		}
+
+		restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+		if err != nil {
+			return fmt.Errorf("failed to get rest config: %s", err)
+		}
+
+		istioClient, err := versionedclient.NewForConfig(restConfig)
+		if err != nil {
+			return fmt.Errorf("failed to new istio client: %s", err)
+		}
+
+		svcs := &corev1.ServiceList{}
+		err = kclient.List(ctx, svcs, client.InNamespace(ns))
+		if err != nil {
+			return err
+		}
+
+		for _, svc := range svcs.Items {
+			// If there is no workloads in this environment, then service is not updated.
+			hasWorkload, err := doesSvcHasWorkload(ctx, ns, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
+			if err != nil {
+				return err
+			}
+
+			if !hasWorkload {
+				continue
+			}
+
+			isExisted := false
+			vsName := genVirtualServiceName(&svc)
+			svcName := svc.Name
+
+			vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
+			if err == nil {
+				isExisted = true
+			}
+			if err != nil && !apierrors.IsNotFound(err) {
+				return err
+			}
+
+			vsObj.Name = vsName
+			vsObj.Namespace = ns
+
+			if vsObj.Labels == nil {
+				vsObj.Labels = map[string]string{}
+			}
+			vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
+
+			httpRouteDestinations := []*networkingv1alpha3.HTTPRouteDestination{}
+			for _, weightConfig := range weightConfigs {
+				if envMap[weightConfig.Env] == nil {
+					return fmt.Errorf("env %s is not found", weightConfig.Env)
+				}
+
+				httpRouteDestination := &networkingv1alpha3.HTTPRouteDestination{
+					Destination: &networkingv1alpha3.Destination{
+						Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, envMap[weightConfig.Env].Namespace),
+					},
+					Weight: weightConfig.Weight,
+				}
+				httpRouteDestinations = append(httpRouteDestinations, httpRouteDestination)
+			}
+
+			vsObj.Spec = networkingv1alpha3.VirtualService{
+				Hosts: []string{svcName},
+				Http: []*networkingv1alpha3.HTTPRoute{
+					{
+						Route: httpRouteDestinations,
+					},
+				},
+			}
+
+			if isExisted {
+				_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Update(ctx, vsObj, metav1.UpdateOptions{})
+			} else {
+				_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Create(ctx, vsObj, metav1.CreateOptions{})
+			}
+			if err != nil {
+				return fmt.Errorf("failed to create or update virtual service %s in ns %s: %s", vsName, ns, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func setIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*commonmodels.Product, headerMatchConfigs []commonmodels.IstioHeaderMatchConfig) error {
+	for _, env := range envMap {
+		ns := env.Namespace
+		clusterID := env.ClusterID
+		baseEnvName := env.IstioGrayscale.BaseEnv
+		if baseEnvName == "" {
+			baseEnvName = env.EnvName
+		}
+
+		kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+		if err != nil {
+			return fmt.Errorf("failed to get kube client: %s", err)
+		}
+
+		restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+		if err != nil {
+			return fmt.Errorf("failed to get rest config: %s", err)
+		}
+
+		istioClient, err := versionedclient.NewForConfig(restConfig)
+		if err != nil {
+			return fmt.Errorf("failed to new istio client: %s", err)
+		}
+
+		svcs := &corev1.ServiceList{}
+		err = kclient.List(ctx, svcs, client.InNamespace(ns))
+		if err != nil {
+			return err
+		}
+
+		for _, svc := range svcs.Items {
+			// If there is no workloads in this environment, then service is not updated.
+			hasWorkload, err := doesSvcHasWorkload(ctx, ns, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
+			if err != nil {
+				return err
+			}
+
+			if !hasWorkload {
+				continue
+			}
+
+			isExisted := false
+			vsName := genVirtualServiceName(&svc)
+			svcName := svc.Name
+
+			vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
+			if err == nil {
+				isExisted = true
+			}
+			if err != nil && !apierrors.IsNotFound(err) {
+				return err
+			}
+
+			vsObj.Name = vsName
+			vsObj.Namespace = ns
+
+			if vsObj.Labels == nil {
+				vsObj.Labels = map[string]string{}
+			}
+			vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
+
+			configedEnvSet := sets.NewString()
+			httpRoutes := []*networkingv1alpha3.HTTPRoute{}
+			for _, headerMatchConfig := range headerMatchConfigs {
+				if envMap[headerMatchConfig.Env] == nil {
+					return fmt.Errorf("env %s is not found", headerMatchConfig.Env)
+				}
+				configedEnvSet.Insert(headerMatchConfig.Env)
+
+				header := map[string]*networkingv1alpha3.StringMatch{}
+				for _, headerMatch := range headerMatchConfig.HeaderMatchs {
+					if headerMatch.Match == commonmodels.StringMatchPrefix {
+						header[headerMatch.Key] = &networkingv1alpha3.StringMatch{
+							MatchType: &networkingv1alpha3.StringMatch_Prefix{
+								Prefix: headerMatch.Value,
+							},
+						}
+					} else if headerMatch.Match == commonmodels.StringMatchExact {
+						header[headerMatch.Key] = &networkingv1alpha3.StringMatch{
+							MatchType: &networkingv1alpha3.StringMatch_Exact{
+								Exact: headerMatch.Value,
+							},
+						}
+					} else if headerMatch.Match == commonmodels.StringMatchRegex {
+						header[headerMatch.Key] = &networkingv1alpha3.StringMatch{
+							MatchType: &networkingv1alpha3.StringMatch_Regex{
+								Regex: headerMatch.Value,
+							},
+						}
+					} else {
+						return fmt.Errorf("unsupported header match type: %s", headerMatch.Match)
+					}
+				}
+				httpRoutes = append(httpRoutes, &networkingv1alpha3.HTTPRoute{
+					Match: []*networkingv1alpha3.HTTPMatchRequest{
+						{
+							Headers: header,
+						},
+					},
+					Route: []*networkingv1alpha3.HTTPRouteDestination{
+						{
+							Destination: &networkingv1alpha3.Destination{
+								Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, envMap[headerMatchConfig.Env].Namespace),
+							},
+						},
+					},
+				})
+			}
+
+			for _, env := range envMap {
+				if !configedEnvSet.Has(env.EnvName) {
+					httpRoutes = append(httpRoutes, &networkingv1alpha3.HTTPRoute{
+						Route: []*networkingv1alpha3.HTTPRouteDestination{
+							{
+								Destination: &networkingv1alpha3.Destination{
+									Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, envMap[baseEnvName].Namespace),
+								},
+							},
+						},
+					})
+				}
+			}
+
+			vsObj.Spec = networkingv1alpha3.VirtualService{
+				Hosts: []string{svcName},
+				Http:  httpRoutes,
+			}
+
+			if isExisted {
+				_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Update(ctx, vsObj, metav1.UpdateOptions{})
+			} else {
+				_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Create(ctx, vsObj, metav1.CreateOptions{})
+			}
+			if err != nil {
+				return fmt.Errorf("failed to create or update virtual service %s in ns %s: %s", vsName, ns, err)
+			}
+		}
 	}
 
 	return nil

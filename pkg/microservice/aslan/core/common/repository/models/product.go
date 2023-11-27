@@ -229,7 +229,7 @@ var (
 
 type IstioWeightConfig struct {
 	Env    string `bson:"env"    json:"env"`
-	Weight uint32 `bson:"weight" json:"weight"`
+	Weight int32  `bson:"weight" json:"weight"`
 }
 
 type IstioHeaderMatchConfig struct {
