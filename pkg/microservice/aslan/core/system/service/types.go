@@ -226,3 +226,8 @@ type SecurityAndPrivacySettings struct {
 	TokenExpirationTime int64 `json:"token_expiration_time"`
 	ImprovementPlan     bool  `json:"improvement_plan"`
 }
+
+type ApolloConfig struct {
+	ConfigType string                   `json:"type"`
+	Config     []*commonmodels.ApolloKV `json:"kv"`
+}

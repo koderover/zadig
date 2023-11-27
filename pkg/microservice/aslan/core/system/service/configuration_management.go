@@ -245,3 +245,31 @@ func ListApolloNamespaces(id string, appID string, env string, cluster string, l
 	}
 	return namespaceNameList, nil
 }
+
+func ListApolloConfig(id, appID, env, cluster, namespace string, log *zap.SugaredLogger) (*ApolloConfig, error) {
+	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), id)
+	if err != nil {
+		log.Errorf("failed to get apollo info in database, error: %s", err)
+		return nil, errors.Errorf("failed to get apollo info from mongo: %v", err)
+	}
+	cli := apollo.NewClient(info.ServerAddress, info.Token)
+	namespaceInfo, err := cli.GetNamespace(appID, env, cluster, namespace)
+	if err != nil {
+		log.Errorf("failed to get namespace from apollo, error: %s", err)
+		return nil, fmt.Errorf("failed to get namespace info from apollo, error: %s", err)
+	}
+	resp := make([]*commonmodels.ApolloKV, 0)
+	for _, item := range namespaceInfo.Items {
+		if item.Key == "" {
+			continue
+		}
+		resp = append(resp, &commonmodels.ApolloKV{
+			Key: item.Key,
+			Val: item.Value,
+		})
+	}
+	return &ApolloConfig{
+		ConfigType: namespaceInfo.Format,
+		Config:     resp,
+	}, nil
+}
