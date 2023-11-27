@@ -110,6 +110,17 @@ type WorkloadDetailResp struct {
 	Services []*resource.Service       `json:"service_endpoints"`
 }
 
+type RelatedEnvs struct {
+	ProjectName string `json:"project_name"`
+	EnvName     string `json:"env_name"`
+	Production  bool   `json:"production"`
+}
+
+type AvailableNamespace struct {
+	*resource.Namespace
+	RelatedEnvs []*RelatedEnvs `json:"related_envs"`
+}
+
 func ListKubeEvents(env string, productName string, name string, rtype string, log *zap.SugaredLogger) ([]*resource.Event, error) {
 	res := make([]*resource.Event, 0)
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
@@ -173,9 +184,26 @@ func ListPodEvents(envName, productName, podName string, log *zap.SugaredLogger)
 	return res, nil
 }
 
+func FindNsUseEnvs(clusterID, namespace string, log *zap.SugaredLogger) ([]*RelatedEnvs, error) {
+	resp := make([]*RelatedEnvs, 0)
+	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(clusterID, namespace)
+	if err != nil {
+		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
+		return nil, err
+	}
+	for _, env := range envs {
+		resp = append(resp, &RelatedEnvs{
+			ProjectName: env.ProductName,
+			EnvName:     env.EnvName,
+			Production:  env.Production,
+		})
+	}
+	return resp, nil
+}
+
 // ListAvailableNamespaces lists available namespaces created by non-koderover
-func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger) ([]*resource.Namespace, error) {
-	resp := make([]*resource.Namespace, 0)
+func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger) ([]*AvailableNamespace, error) {
+	resp := make([]*AvailableNamespace, 0)
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("ListNamespaces clusterID:%s err:%v", clusterID, err)
@@ -191,31 +219,37 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 	}
 
 	filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
-	if listType == setting.ListNamespaceTypeCreate {
-		nsList, err := commonrepo.NewProductColl().ListExistedNamespace(clusterID)
-		if err != nil {
-			log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
-			return nil, err
-		}
-		filterK8sNamespaces.Insert(nsList...)
-	}
+	//if listType == setting.ListNamespaceTypeCreate {
+	//	nsList, err := commonrepo.NewProductColl().ListExistedNamespace(clusterID)
+	//	if err != nil {
+	//		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
+	//		return nil, err
+	//	}
+	//	filterK8sNamespaces.Insert(nsList...)
+	//}
 
-	productionEnvs, err := commonrepo.NewProductColl().ListProductionNamespace(clusterID)
+	//productionEnvs, err := commonrepo.NewProductColl().ListProductionNamespace(clusterID)
+	//if err != nil {
+	//	log.Errorf("Failed to list production namespace from the env List, error: %s", err)
+	//	return nil, err
+	//}
+	//filterK8sNamespaces.Insert(productionEnvs...)
+
+	usedNSList, err := commonrepo.NewProductColl().ListNamespace(clusterID)
 	if err != nil {
-		log.Errorf("Failed to list production namespace from the env List, error: %s", err)
 		return nil, err
 	}
-	filterK8sNamespaces.Insert(productionEnvs...)
+	usedNSSet := sets.NewString(usedNSList...)
 
 	filter := func(namespace *corev1.Namespace) bool {
-		if listType == setting.ListNamespaceTypeALL {
-			return true
-		}
-		if value, IsExist := namespace.Labels[setting.EnvCreatedBy]; IsExist {
-			if value == setting.EnvCreator {
-				return false
-			}
-		}
+		//if listType == setting.ListNamespaceTypeALL {
+		//	return true
+		//}
+		//if value, IsExist := namespace.Labels[setting.EnvCreatedBy]; IsExist {
+		//	if value == setting.EnvCreator {
+		//		return false
+		//	}
+		//}
 		if filterK8sNamespaces.Has(namespace.Name) {
 			return false
 		}
@@ -223,9 +257,20 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 	}
 
 	for _, namespace := range namespaces {
-		if filter(namespace) {
-			resp = append(resp, wrapper.Namespace(namespace).Resource())
+		if !filter(namespace) {
+			continue
 		}
+		nsResource := &AvailableNamespace{
+			Namespace: wrapper.Namespace(namespace).Resource(),
+		}
+		if usedNSSet.Has(namespace.Name) {
+			nsResource.RelatedEnvs, err = FindNsUseEnvs(clusterID, namespace.Name, log)
+			if err != nil {
+				log.Errorf("failed to find envs use namespace %s, error: %s", namespace.Name, err)
+				return nil, err
+			}
+		}
+		resp = append(resp, nsResource)
 	}
 	return resp, nil
 }
