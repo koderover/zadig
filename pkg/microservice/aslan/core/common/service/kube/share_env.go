@@ -451,7 +451,6 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 		return fmt.Errorf("failed to query Service %s in ns %s: %s", svcName, env.Namespace, err)
 	}
 
-	log.Debugf("svcName: %s", svcName)
 	if env.ShareEnv.Enable {
 		return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
 	} else if env.IstioGrayscale.Enable {
@@ -507,7 +506,7 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 		return fmt.Errorf("failed to query namespace %q in project %q: %s", namespace, productName, err)
 	}
 
-	if !env.ShareEnv.Enable {
+	if !env.ShareEnv.Enable && !env.IstioGrayscale.Enable {
 		return nil
 	}
 
@@ -534,7 +533,7 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 	for _, svcName := range svcNames {
 		err := EnsureUpdateZadigService(ctx, env, svcName, kclient, istioClient)
 		if err != nil {
-			return fmt.Errorf("failed to ensure Zadig Service for K8s Service %q in env %q of product %q: %s", svcName, env.EnvName, env.ProductName, err)
+			return err
 		}
 	}
 

@@ -337,6 +337,8 @@ func generateGrayscaleHeaderMatchVirtualService(ctx context.Context, envMap map[
 		}
 	}
 
+	log.Debugf("httpRoutes: %+v", httpRoutes)
+
 	vsObj.Spec = networkingv1alpha3.VirtualService{
 		Hosts: []string{svcName},
 		Http:  httpRoutes,
@@ -363,7 +365,7 @@ func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Prod
 		// 1. Create VirtualService in all of the base environments.
 		err = ensureGrayscaleVirtualService(ctx, kclient, istioClient, curEnv, envMap, curEnv.IstioGrayscale, svc, vsName)
 		if err != nil {
-			return fmt.Errorf("failed to ensure VirtualService %s in env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc, err)
+			return fmt.Errorf("failed to ensure VirtualService %s in env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc.Name, err)
 		}
 
 		// 2. Create Default Service in all of the gray environments.
@@ -382,16 +384,15 @@ func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Prod
 		}
 		envMap[baseEnv.EnvName] = baseEnv
 
-		log.Debugf("vsName: %s, update base and gray env: %s, %s", vsName, baseEnv.EnvName, curEnv.EnvName)
 		// 1. Create VirtualService in the gray environment.
 		err = ensureGrayscaleVirtualService(ctx, kclient, istioClient, curEnv, envMap, baseEnv.IstioGrayscale, svc, vsName)
 		if err != nil {
-			return fmt.Errorf("failed to ensure VirtualService %s in env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc, err)
+			return fmt.Errorf("failed to ensure VirtualService %s in env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc.Name, err)
 		}
 		// 2. Updated the VirtualService configuration in the base environment.
 		err = ensureGrayscaleVirtualService(ctx, kclient, istioClient, baseEnv, envMap, baseEnv.IstioGrayscale, svc, vsName)
 		if err != nil {
-			return fmt.Errorf("failed to ensure VirtualService %s in env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc, err)
+			return fmt.Errorf("failed to ensure VirtualService %s in env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc.Name, err)
 		}
 
 		return nil
@@ -427,21 +428,24 @@ func ensureDeleteGrayscaleService(ctx context.Context, env *commonmodels.Product
 func ensureGrayscaleVirtualService(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, curEnv *commonmodels.Product, envMap map[string]*commonmodels.Product, istioGrayscaleConfig commonmodels.IstioGrayscale, svc *corev1.Service, vsName string) error {
 	isExisted := false
 	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(curEnv.Namespace).Get(ctx, vsName, metav1.GetOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to query VirtualService `%s` in ns `%s`: %s", vsName, curEnv.Namespace, err)
+	}
 	if err == nil {
 		isExisted = true
 		// log.Infof("Has found VirtualService `%s` in ns `%s` and don't recreate.", vsName, curEnv.Namespace)
 		// return nil
 	}
 
-	if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to query VirtualService `%s` in ns `%s`: %s", vsName, curEnv.Namespace, err)
-	}
-
 	if istioGrayscaleConfig.GrayscaleStrategy == commonmodels.GrayscaleStrategyWeight {
-		vsObj, err = generateGrayscaleWeightVirtualService(ctx, envMap, svc.Name, vsName, curEnv.Namespace, curEnv.IstioGrayscale.WeightConfigs, vsObj)
+		vsObj, err = generateGrayscaleWeightVirtualService(ctx, envMap, svc.Name, vsName, curEnv.Namespace, istioGrayscaleConfig.WeightConfigs, vsObj)
 	} else if istioGrayscaleConfig.GrayscaleStrategy == commonmodels.GrayscaleStrategyHeaderMatch {
-		baseNs := curEnv.IstioGrayscale.BaseEnv
-		vsObj, err = generateGrayscaleHeaderMatchVirtualService(ctx, envMap, svc.Name, vsName, curEnv.Namespace, baseNs, curEnv.IstioGrayscale.HeaderMatchConfigs, vsObj)
+		baseEnvName := curEnv.IstioGrayscale.BaseEnv
+		if baseEnvName == "" {
+			baseEnvName = curEnv.EnvName
+		}
+		baseNs := envMap[baseEnvName].Namespace
+		vsObj, err = generateGrayscaleHeaderMatchVirtualService(ctx, envMap, svc.Name, vsName, curEnv.Namespace, baseNs, istioGrayscaleConfig.HeaderMatchConfigs, vsObj)
 	} else {
 		return fmt.Errorf("unsupported grayscale strategy type: %s", istioGrayscaleConfig.GrayscaleStrategy)
 	}

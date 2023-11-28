@@ -135,7 +135,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	} else {
 		err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
 		if err != nil {
-			err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
+			err = errors.WithMessagef(err, "failed to ensure Zadig Service, err: %s", err)
 		}
 	}
 
