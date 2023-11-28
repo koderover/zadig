@@ -421,7 +421,7 @@ func ensureDeleteGrayscaleService(ctx context.Context, env *commonmodels.Product
 		}
 
 		// Update VirtualService Routes in the base environment.
-		return ensureCleanRouteInBase(ctx, env.EnvName, baseEnv.Namespace, vsName, istioClient)
+		return ensureCleanGrayscaleRouteInBase(ctx, env.EnvName, env.Namespace, baseEnv.Namespace, svc.Name, vsName, istioClient)
 	}
 }
 
@@ -515,5 +515,56 @@ func ensureGrayscaleDefaultVirtualService(ctx context.Context, kclient client.Cl
 		Http:  routes,
 	}
 	_, err = istioClient.NetworkingV1alpha3().VirtualServices(env.Namespace).Create(ctx, vsObj, metav1.CreateOptions{})
+	return err
+}
+
+func ensureCleanGrayscaleRouteInBase(ctx context.Context, envName, ns, baseNS, svcName, vsName string, istioClient versionedclient.Interface) error {
+	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Get(ctx, vsName, metav1.GetOptions{})
+	if err != nil {
+		log.Warnf("Failed to query VirtualService %s releated to env %s in namesapce %s: %s. It may be not an exception and skip.", vsName, envName, baseNS, err)
+		return nil
+	}
+
+	// Note: DeepCopy is used to avoid unpredictable results in concurrent operations.
+	baseVS := vsObj.DeepCopy()
+
+	if len(baseVS.Spec.Http) == 0 {
+		return nil
+	}
+
+	var needClean bool
+	var location int
+	for i, vsHttp := range baseVS.Spec.Http {
+		if len(vsHttp.Match) == 0 {
+			continue
+		}
+
+		for _, route := range vsHttp.Route {
+			if route.Destination.Host == fmt.Sprintf("%s.%s.svc.cluster.local", svcName, ns) {
+				needClean = true
+				break
+			}
+		}
+
+		if !needClean {
+			continue
+		}
+
+		location = i
+		break
+	}
+
+	if !needClean {
+		return nil
+	}
+
+	log.Infof("Begin to clean route svc %s in base ns %s for VirtualService %s.", svcName, baseNS, vsName)
+
+	httpRoutes := make([]*networkingv1alpha3.HTTPRoute, 0, len(baseVS.Spec.Http)-1)
+	httpRoutes = append(httpRoutes, baseVS.Spec.Http[:location]...)
+	httpRoutes = append(httpRoutes, baseVS.Spec.Http[location+1:]...)
+	baseVS.Spec.Http = httpRoutes
+
+	_, err = istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Update(ctx, baseVS, metav1.UpdateOptions{})
 	return err
 }

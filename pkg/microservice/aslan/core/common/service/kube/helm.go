@@ -755,5 +755,10 @@ func EnsureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Pr
 		return fmt.Errorf("failed to find Service %q in namespace %q: %s", svcName, env.Namespace, err)
 	}
 
-	return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
+	if env.ShareEnv.Enable {
+		return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
+	} else if env.IstioGrayscale.Enable {
+		return ensureDeleteGrayscaleService(ctx, env, svc, kclient, istioClient)
+	}
+	return nil
 }
