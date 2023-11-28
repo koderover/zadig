@@ -751,7 +751,6 @@ func EnsureDeleteK8sService(ctx context.Context, ns, svcName string, kclient cli
 }
 
 func EnsureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Product, svcName string, kclient client.Client, istioClient versionedclient.Interface) error {
-	log.Debugf("enter EnsureDeleteZadigServiceBySvcName")
 	svc := &corev1.Service{}
 	err := kclient.Get(ctx, client.ObjectKey{
 		Name:      svcName,

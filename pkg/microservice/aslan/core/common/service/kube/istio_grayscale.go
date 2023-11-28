@@ -127,7 +127,6 @@ func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodel
 
 			isExisted := false
 			vsName := genVirtualServiceName(&svc)
-			svcName := svc.Name
 
 			vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
 			if err == nil {
@@ -137,9 +136,9 @@ func SetIstioGrayscaleWeight(ctx context.Context, envMap map[string]*commonmodel
 				return err
 			}
 
-			vsObj, err = generateGrayscaleWeightVirtualService(ctx, envMap, svcName, vsName, ns, weightConfigs, vsObj)
+			vsObj, err = generateGrayscaleWeightVirtualService(ctx, envMap, vsName, ns, weightConfigs, false, &svc, kclient, vsObj)
 			if err != nil {
-				return fmt.Errorf("failed to generate VirtualService `%s` in ns `%s` for service %s: %s", vsName, env.Namespace, svcName, err)
+				return fmt.Errorf("failed to generate VirtualService `%s` in ns `%s` for service %s: %s", vsName, env.Namespace, svc.Name, err)
 			}
 
 			if isExisted {
@@ -210,7 +209,7 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 				return err
 			}
 
-			vsObj, err = generateGrayscaleHeaderMatchVirtualService(ctx, envMap, svcName, vsName, ns, baseNs, headerMatchConfigs, vsObj)
+			vsObj, err = generateGrayscaleHeaderMatchVirtualService(ctx, envMap, vsName, ns, baseNs, headerMatchConfigs, false, &svc, kclient, vsObj)
 			if err != nil {
 				return fmt.Errorf("failed to generate VirtualService `%s` in ns `%s` for service %s: %s", vsName, env.Namespace, svcName, err)
 			}
@@ -229,7 +228,8 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 	return nil
 }
 
-func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[string]*commonmodels.Product, svcName, vsName, ns string, weightConfigs []commonmodels.IstioWeightConfig, vsObj *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
+func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[string]*commonmodels.Product, vsName, ns string, weightConfigs []commonmodels.IstioWeightConfig, skipWorkloadCheck bool, svc *corev1.Service, kclient client.Client, vsObj *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
+	svcName := svc.Name
 	vsObj.Name = vsName
 	vsObj.Namespace = ns
 
@@ -242,6 +242,18 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 	for _, weightConfig := range weightConfigs {
 		if envMap[weightConfig.Env] == nil {
 			return nil, fmt.Errorf("env %s is not found", weightConfig.Env)
+		}
+
+		if skipWorkloadCheck {
+			// If there is no workloads in this environment, then service is not updated.
+			hasWorkload, err := doesSvcHasWorkload(ctx, envMap[weightConfig.Env].Namespace, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
+			if err != nil {
+				return nil, err
+			}
+
+			if !hasWorkload {
+				continue
+			}
 		}
 
 		httpRouteDestination := &networkingv1alpha3.HTTPRouteDestination{
@@ -265,7 +277,8 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 	return vsObj, nil
 }
 
-func generateGrayscaleHeaderMatchVirtualService(ctx context.Context, envMap map[string]*commonmodels.Product, svcName, vsName, ns, baseNs string, headerMatchConfigs []commonmodels.IstioHeaderMatchConfig, vsObj *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
+func generateGrayscaleHeaderMatchVirtualService(ctx context.Context, envMap map[string]*commonmodels.Product, vsName, ns, baseNs string, headerMatchConfigs []commonmodels.IstioHeaderMatchConfig, skipWorkloadCheck bool, svc *corev1.Service, kclient client.Client, vsObj *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
+	svcName := svc.Name
 	vsObj.Name = vsName
 	vsObj.Namespace = ns
 
@@ -280,6 +293,19 @@ func generateGrayscaleHeaderMatchVirtualService(ctx context.Context, envMap map[
 		if envMap[headerMatchConfig.Env] == nil {
 			return nil, fmt.Errorf("env %s is not found", headerMatchConfig.Env)
 		}
+
+		if !skipWorkloadCheck {
+			// If there is no workloads in this environment, then service is not updated.
+			hasWorkload, err := doesSvcHasWorkload(ctx, envMap[headerMatchConfig.Env].Namespace, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
+			if err != nil {
+				return nil, err
+			}
+
+			if !hasWorkload {
+				continue
+			}
+		}
+
 		configedEnvSet.Insert(headerMatchConfig.Env)
 
 		header := map[string]*networkingv1alpha3.StringMatch{}
@@ -337,8 +363,6 @@ func generateGrayscaleHeaderMatchVirtualService(ctx context.Context, envMap map[
 		}
 	}
 
-	log.Debugf("httpRoutes: %+v", httpRoutes)
-
 	vsObj.Spec = networkingv1alpha3.VirtualService{
 		Hosts: []string{svcName},
 		Http:  httpRoutes,
@@ -350,18 +374,18 @@ func generateGrayscaleHeaderMatchVirtualService(ctx context.Context, envMap map[
 func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
 	vsName := genVirtualServiceName(svc)
 
-	grayEnvs, err := commonutil.FetchGrayEnvs(ctx, curEnv.ProductName, curEnv.ClusterID, curEnv.EnvName)
-	if err != nil {
-		return fmt.Errorf("failed to fetch gray environments of %s/%s, err: %s", curEnv.ProductName, curEnv.EnvName, err)
-	}
-
-	envMap := map[string]*commonmodels.Product{}
-	for _, grayEnv := range grayEnvs {
-		envMap[grayEnv.EnvName] = grayEnv
-	}
-	envMap[curEnv.EnvName] = curEnv
-
 	if curEnv.IstioGrayscale.IsBase {
+		grayEnvs, err := commonutil.FetchGrayEnvs(ctx, curEnv.ProductName, curEnv.ClusterID, curEnv.EnvName)
+		if err != nil {
+			return fmt.Errorf("failed to fetch gray environments of %s/%s, err: %s", curEnv.ProductName, curEnv.EnvName, err)
+		}
+
+		envMap := map[string]*commonmodels.Product{}
+		for _, grayEnv := range grayEnvs {
+			envMap[grayEnv.EnvName] = grayEnv
+		}
+		envMap[curEnv.EnvName] = curEnv
+
 		// 1. Create VirtualService in all of the base environments.
 		err = ensureGrayscaleVirtualService(ctx, kclient, istioClient, curEnv, envMap, curEnv.IstioGrayscale, svc, vsName)
 		if err != nil {
@@ -382,17 +406,26 @@ func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Prod
 		if err != nil {
 			return fmt.Errorf("failed to find base env %s of product %s, err: %w", curEnv.IstioGrayscale.BaseEnv, curEnv.ProductName, err)
 		}
+		grayEnvs, err := commonutil.FetchGrayEnvs(ctx, baseEnv.ProductName, baseEnv.ClusterID, baseEnv.EnvName)
+		if err != nil {
+			return fmt.Errorf("failed to fetch gray environments of %s/%s, err: %s", curEnv.ProductName, curEnv.EnvName, err)
+		}
+		envMap := map[string]*commonmodels.Product{}
+		for _, grayEnv := range grayEnvs {
+			envMap[grayEnv.EnvName] = grayEnv
+		}
+		envMap[curEnv.EnvName] = curEnv
 		envMap[baseEnv.EnvName] = baseEnv
 
 		// 1. Create VirtualService in the gray environment.
 		err = ensureGrayscaleVirtualService(ctx, kclient, istioClient, curEnv, envMap, baseEnv.IstioGrayscale, svc, vsName)
 		if err != nil {
-			return fmt.Errorf("failed to ensure VirtualService %s in env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc.Name, err)
+			return fmt.Errorf("failed to ensure VirtualService %s in gray env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc.Name, err)
 		}
 		// 2. Updated the VirtualService configuration in the base environment.
 		err = ensureGrayscaleVirtualService(ctx, kclient, istioClient, baseEnv, envMap, baseEnv.IstioGrayscale, svc, vsName)
 		if err != nil {
-			return fmt.Errorf("failed to ensure VirtualService %s in env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc.Name, err)
+			return fmt.Errorf("failed to ensure VirtualService %s in base env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc.Name, err)
 		}
 
 		return nil
@@ -400,7 +433,6 @@ func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Prod
 }
 
 func ensureDeleteGrayscaleService(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
-	log.Debugf("enter ensureDeleteGrayscaleService")
 	vsName := genVirtualServiceName(svc)
 
 	// Delete VirtualService in the current environment.
@@ -415,7 +447,7 @@ func ensureDeleteGrayscaleService(ctx context.Context, env *commonmodels.Product
 	} else {
 		baseEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 			Name:    env.ProductName,
-			EnvName: env.ShareEnv.BaseEnv,
+			EnvName: env.IstioGrayscale.BaseEnv,
 		})
 		if err != nil {
 			return err
@@ -439,14 +471,14 @@ func ensureGrayscaleVirtualService(ctx context.Context, kclient client.Client, i
 	}
 
 	if istioGrayscaleConfig.GrayscaleStrategy == commonmodels.GrayscaleStrategyWeight {
-		vsObj, err = generateGrayscaleWeightVirtualService(ctx, envMap, svc.Name, vsName, curEnv.Namespace, istioGrayscaleConfig.WeightConfigs, vsObj)
+		vsObj, err = generateGrayscaleWeightVirtualService(ctx, envMap, vsName, curEnv.Namespace, istioGrayscaleConfig.WeightConfigs, true, svc, kclient, vsObj)
 	} else if istioGrayscaleConfig.GrayscaleStrategy == commonmodels.GrayscaleStrategyHeaderMatch {
 		baseEnvName := curEnv.IstioGrayscale.BaseEnv
 		if baseEnvName == "" {
 			baseEnvName = curEnv.EnvName
 		}
 		baseNs := envMap[baseEnvName].Namespace
-		vsObj, err = generateGrayscaleHeaderMatchVirtualService(ctx, envMap, svc.Name, vsName, curEnv.Namespace, baseNs, istioGrayscaleConfig.HeaderMatchConfigs, vsObj)
+		vsObj, err = generateGrayscaleHeaderMatchVirtualService(ctx, envMap, vsName, curEnv.Namespace, baseNs, istioGrayscaleConfig.HeaderMatchConfigs, true, svc, kclient, vsObj)
 	} else {
 		return fmt.Errorf("unsupported grayscale strategy type: %s", istioGrayscaleConfig.GrayscaleStrategy)
 	}
@@ -528,6 +560,7 @@ func ensureCleanGrayscaleRouteInBase(ctx context.Context, envName, ns, baseNS, s
 
 	// Note: DeepCopy is used to avoid unpredictable results in concurrent operations.
 	baseVS := vsObj.DeepCopy()
+	host := fmt.Sprintf("%s.%s.svc.cluster.local", svcName, ns)
 
 	if len(baseVS.Spec.Http) == 0 {
 		return nil
@@ -541,7 +574,7 @@ func ensureCleanGrayscaleRouteInBase(ctx context.Context, envName, ns, baseNS, s
 		}
 
 		for _, route := range vsHttp.Route {
-			if route.Destination.Host == fmt.Sprintf("%s.%s.svc.cluster.local", svcName, ns) {
+			if route.Destination.Host == host {
 				needClean = true
 				break
 			}
