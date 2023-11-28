@@ -56,7 +56,7 @@ type ZadigXLicenseStatus struct {
 }
 
 func (c *Client) CheckZadigXLicenseStatus() (*ZadigXLicenseStatus, error) {
-	url := fmt.Sprintf("/license")
+	url := "/license"
 	res := &ZadigXLicenseStatus{}
 	_, err := c.Get(url, httpclient.SetResult(res))
 	return res, err

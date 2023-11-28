@@ -25,7 +25,7 @@ import (
 )
 
 func (c *Client) GetArtifactByImage(header http.Header, qs url.Values, image string) ([]byte, error) {
-	url := fmt.Sprintf("/delivery/artifacts/image")
+	url := "/delivery/artifacts/image"
 
 	res, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetQueryParam(image, image))
 	if err != nil {
