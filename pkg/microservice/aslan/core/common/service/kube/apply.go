@@ -312,7 +312,7 @@ func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured
 	resSet := sets.NewString()
 	resources := UnstructuredToResources(unstructuredRes)
 
-	log.Infof("------ checkResourceAppliedByOtherEnv %s/%s ", productInfo.ProductName, productInfo.EnvName)
+	log.Infof("------ checkResourceAppliedByOtherEnv %s/%s, clusterID: %s, namespace: %s ", productInfo.ProductName, productInfo.EnvName, productInfo.ClusterID, productInfo.Namespace)
 
 	for _, res := range resources {
 		resSet.Insert(res.String())
@@ -325,6 +325,8 @@ func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured
 		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
 		return nil, err
 	}
+
+	log.Infof("------- count of envs with same namespace %d", len(envs))
 
 	for _, env := range envs {
 		if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName {
