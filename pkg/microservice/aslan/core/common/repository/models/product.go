@@ -17,6 +17,8 @@ limitations under the License.
 package models
 
 import (
+	"fmt"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -150,6 +152,10 @@ type RenderInfo struct {
 type ServiceResource struct {
 	schema.GroupVersionKind
 	Name string
+}
+
+func (r *ServiceResource) String() string {
+	return fmt.Sprintf("%s/%s", r.GroupVersionKind.String(), r.Name)
 }
 
 type ProductService struct {

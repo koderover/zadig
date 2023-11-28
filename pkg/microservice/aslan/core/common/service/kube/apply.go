@@ -19,7 +19,12 @@ package kube
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -50,6 +55,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type SharedEnvHandler func(context.Context, *commonmodels.Product, string, client.Client, versionedclient.Interface) error
@@ -300,6 +306,44 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, erro
 	return resources, errList.ErrorOrNil()
 }
 
+func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured, productInfo *commonmodels.Product) ([]*service.SharedNSEnvs, error) {
+	sharedNSEnvList := make([]*service.SharedNSEnvs, 0)
+
+	resSet := sets.NewString()
+	resources := UnstructuredToResources(unstructuredRes)
+
+	for _, res := range resources {
+		resSet.Insert(res.String())
+	}
+
+	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
+	if err != nil {
+		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
+		return nil, err
+	}
+
+	for _, env := range envs {
+		if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName {
+			continue
+		}
+	LOOP:
+		for _, svc := range env.GetServiceMap() {
+			for _, res := range svc.Resources {
+				if resSet.Has(res.String()) {
+					sharedNSEnvList = append(sharedNSEnvList, &service.SharedNSEnvs{
+						EnvName:     env.EnvName,
+						ProjectName: env.ProductName,
+						Production:  env.Production,
+					})
+					break LOOP
+				}
+			}
+		}
+	}
+
+	return sharedNSEnvList, nil
+}
+
 // CreateOrPatchResource create or patch resources defined in UpdateResourceYaml
 // `CurrentResourceYaml` will be used to determine if some resources will be deleted
 func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogger) ([]*unstructured.Unstructured, error) {
@@ -320,6 +364,20 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	if err != nil {
 		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.UpdateResourceYaml, err)
 		return nil, err
+	}
+
+	// check is resource is deployed in other env with same cluster+namespace
+	usedEnvs, err := checkResourceAppliedByOtherEnv(resources, productInfo)
+	if err != nil {
+		log.Errorf("Failed to check if resource is applied by other env, error: %v", err)
+		return nil, err
+	}
+	if len(usedEnvs) > 0 {
+		usedEnvStr := make([]string, 0)
+		for _, env := range usedEnvs {
+			usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s/%s", env.ProjectName, env.EnvName))
+		}
+		return nil, fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
 	}
 
 	clientSet, errGetClientSet := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)
