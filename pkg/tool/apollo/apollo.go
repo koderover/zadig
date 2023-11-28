@@ -16,6 +16,14 @@
 
 package apollo
 
+type BriefNamespace struct {
+	AppID         string `json:"appId"`
+	Env           string `json:"env"`
+	ClusterName   string `json:"clusterName"`
+	NamespaceName string `json:"namespaceName"`
+	Format        string `json:"format"`
+}
+
 type Namespace struct {
 	AppID                      string   `json:"appId"`
 	ClusterName                string   `json:"clusterName"`

@@ -267,6 +267,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		configuration.POST("/validate", ValidateConfigurationManagement)
 		configuration.GET("/apollo/:id/app", ListApolloApps)
 		configuration.GET("/apollo/:id/:app_id/env", ListApolloEnvAndClusters)
+		configuration.GET("/apollo/:id/:app_id/config", ListApolloConfigByType)
 		configuration.GET("/apollo/:id/:app_id/:env/:cluster/namespace", ListApolloNamespaces)
 		configuration.GET("/apollo/:id/:app_id/:env/:cluster/namespace/:namespace", ListApolloConfig)
 	}

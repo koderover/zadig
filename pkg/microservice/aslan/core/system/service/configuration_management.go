@@ -229,6 +229,44 @@ func ListApolloEnvAndClusters(id string, appID string, log *zap.SugaredLogger) (
 	return envs, nil
 }
 
+func ListApolloConfigByType(id, appID, configType string, log *zap.SugaredLogger) ([]*apollo.BriefNamespace, error) {
+	resp := make([]*apollo.BriefNamespace, 0)
+	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), id)
+	if err != nil {
+		log.Errorf("failed to get apollo info in database, error: %s", err)
+		return nil, errors.Errorf("failed to get apollo info from mongo: %v", err)
+	}
+	cli := apollo.NewClient(info.ServerAddress, info.Token)
+	envs, err := cli.ListAppEnvsAndClusters(appID)
+	if err != nil {
+		log.Errorf("failed to list env and clusters for app id: %s, error is: %s", id, err)
+		return nil, e.ErrGetApolloInfo.AddErr(err)
+	}
+	for _, env := range envs {
+		for _, cluster := range env.Clusters {
+			namesapceList, err := cli.ListAppNamespace(appID, env.Env, cluster)
+			if err != nil {
+				log.Errorf("failed to get namespace info from apollo for app: %s, env: %s, cluster: %s, error: %s", appID, env.Env, cluster, err)
+				return nil, e.ErrGetApolloInfo.AddErr(err)
+			}
+			for _, namespace := range namesapceList {
+				if configType != "" && namespace.Format != configType {
+					continue
+				}
+				resp = append(resp, &apollo.BriefNamespace{
+					AppID:         appID,
+					Env:           env.Env,
+					ClusterName:   cluster,
+					NamespaceName: namespace.NamespaceName,
+					Format:        namespace.Format,
+				})
+			}
+		}
+	}
+
+	return resp, nil
+}
+
 func ListApolloNamespaces(id string, appID string, env string, cluster string, log *zap.SugaredLogger) ([]string, error) {
 	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), id)
 	if err != nil {

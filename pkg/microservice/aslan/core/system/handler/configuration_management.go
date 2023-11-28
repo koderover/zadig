@@ -188,13 +188,25 @@ func ListApolloEnvAndClusters(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
 	ctx.Resp, ctx.Err = service.ListApolloEnvAndClusters(c.Param("id"), c.Param("app_id"), ctx.Logger)
+}
+
+func ListApolloConfigByType(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListApolloConfigByType(c.Param("id"), c.Param("app_id"), c.Query("content_type"), ctx.Logger)
 }
 
 func ListApolloNamespaces(c *gin.Context) {
