@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	//"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -306,8 +306,8 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, erro
 	return resources, errList.ErrorOrNil()
 }
 
-func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured, productInfo *commonmodels.Product) ([]*service.SharedNSEnvs, error) {
-	sharedNSEnvList := make([]*service.SharedNSEnvs, 0)
+func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured, productInfo *commonmodels.Product) ([]*commonmodels.Product, error) {
+	sharedNSEnvList := make([]*commonmodels.Product, 0)
 
 	resSet := sets.NewString()
 	resources := UnstructuredToResources(unstructuredRes)
@@ -330,11 +330,7 @@ func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured
 		for _, svc := range env.GetServiceMap() {
 			for _, res := range svc.Resources {
 				if resSet.Has(res.String()) {
-					sharedNSEnvList = append(sharedNSEnvList, &service.SharedNSEnvs{
-						EnvName:     env.EnvName,
-						ProjectName: env.ProductName,
-						Production:  env.Production,
-					})
+					sharedNSEnvList = append(sharedNSEnvList, env)
 					break LOOP
 				}
 			}
@@ -375,7 +371,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	if len(usedEnvs) > 0 {
 		usedEnvStr := make([]string, 0)
 		for _, env := range usedEnvs {
-			usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s/%s", env.ProjectName, env.EnvName))
+			usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s/%s", env.ProductName, env.EnvName))
 		}
 		return nil, fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
 	}
