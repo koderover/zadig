@@ -604,7 +604,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	}
 
 	if errList.ErrorOrNil() != nil {
-		return nil, errList.ErrorOrNil()
+		return res, errList.ErrorOrNil()
 	}
 
 	return res, nil

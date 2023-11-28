@@ -118,6 +118,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	}
 
 	newProductSvc.Containers = currentProductSvc.Containers
+	newProductSvc.Resources = currentProductSvc.Resources
 
 	if !args.UpdateServiceTmpl {
 		newProductSvc.Revision = currentProductSvc.Revision
