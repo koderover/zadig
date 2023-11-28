@@ -312,9 +312,13 @@ func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured
 	resSet := sets.NewString()
 	resources := UnstructuredToResources(unstructuredRes)
 
+	log.Infof("------ checkResourceAppliedByOtherEnv %s/%s ", productInfo.ProductName, productInfo.EnvName)
+
 	for _, res := range resources {
 		resSet.Insert(res.String())
 	}
+
+	log.Infof("-------- resSet %v", resSet.List())
 
 	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
@@ -326,6 +330,7 @@ func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured
 		if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName {
 			continue
 		}
+		log.Infof("----- checking env: %s/%s", env.ProductName, env.EnvName)
 	LOOP:
 		for _, svc := range env.GetServiceMap() {
 			for _, res := range svc.Resources {
