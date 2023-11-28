@@ -451,10 +451,11 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 		return fmt.Errorf("failed to query Service %s in ns %s: %s", svcName, env.Namespace, err)
 	}
 
+	log.Debugf("svcName: %s", svcName)
 	if env.ShareEnv.Enable {
 		return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
 	} else if env.IstioGrayscale.Enable {
-		return ensureUpdateIstioGrayscaleSerivce(ctx, env, svc, kclient, istioClient)
+		return ensureUpdateGrayscaleSerivce(ctx, env, svc, kclient, istioClient)
 	}
 	return nil
 }

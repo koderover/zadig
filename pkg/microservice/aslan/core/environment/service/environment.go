@@ -2250,7 +2250,7 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 			return
 		}
 	} else if args.Production && args.IstioGrayscale.Enable && !args.IstioGrayscale.IsBase {
-		err = EnsureFullPathGrayScaleConfig(context.TODO(), args, kubeClient, istioClient)
+		err = kube.EnsureFullPathGrayScaleConfig(context.TODO(), args, kubeClient, istioClient)
 		if err != nil {
 			args.Status = setting.ProductStatusFailed
 			log.Errorf("Failed to ensure full path grayscale in env %s of product %s: %s", args.EnvName, args.ProductName, err)
@@ -2380,7 +2380,7 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 		Uninstall:                false,
 		AddZadigLabel:            addLabel,
 		SharedEnvHandler:         EnsureUpdateZadigService,
-		IstioGrayscaleEnvHandler: EnsureUpdateGrayscaleService,
+		IstioGrayscaleEnvHandler: kube.EnsureUpdateGrayscaleService,
 	}
 
 	return kube.CreateOrPatchResource(resourceApplyParam, log)
@@ -2559,7 +2559,7 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 			errList = multierror.Append(errList, shareEnvErr)
 		}
 	} else if args.IstioGrayscale.Enable && !args.IstioGrayscale.IsBase {
-		err = EnsureFullPathGrayScaleConfig(context.TODO(), args, kclient, istioClient)
+		err = kube.EnsureFullPathGrayScaleConfig(context.TODO(), args, kclient, istioClient)
 		if err != nil {
 			args.Status = setting.ProductStatusFailed
 			log.Errorf("Failed to ensure full path grayscale in env %s of product %s: %s", args.EnvName, args.ProductName, err)
