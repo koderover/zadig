@@ -378,6 +378,8 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	updateProd.GlobalVariables = exitedProd.GlobalVariables
 	updateProd.DefaultValues = exitedProd.DefaultValues
 	updateProd.YamlData = exitedProd.YamlData
+	updateProd.ClusterID = exitedProd.ClusterID
+	updateProd.Namespace = exitedProd.Namespace
 
 	svcsToBeAdd := sets.NewString()
 
@@ -467,10 +469,15 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			}
 
 			// render check
-			_, err := kube.RenderEnvService(updateProd, service.GetServiceRender(), service)
+			serviceYaml, err := kube.RenderEnvService(updateProd, service.GetServiceRender(), service)
 			if err != nil {
 				log.Errorf("Failed to run render check, service %s, error: %v", service.ServiceName, err)
 				return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to render service %s, error: %v", service.ServiceName, err))
+			}
+
+			err = kube.CheckResourceAppliedByOtherEnv(serviceYaml, updateProd)
+			if err != nil {
+				return e.ErrUpdateEnv.AddErr(err)
 			}
 		}
 	}

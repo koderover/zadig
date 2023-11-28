@@ -277,9 +277,17 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 	return errList.ErrorOrNil()
 }
 
-func UnstructuredToResources(unstructureds []*unstructured.Unstructured) []*commonmodels.ServiceResource {
+func ManifestToResource(manifest string) ([]*commonmodels.ServiceResource, error) {
+	unstructuredList, err := ManifestToUnstructured(manifest)
+	if err != nil {
+		return nil, err
+	}
+	return UnstructuredToResources(unstructuredList), nil
+}
+
+func UnstructuredToResources(unstructured []*unstructured.Unstructured) []*commonmodels.ServiceResource {
 	ret := make([]*commonmodels.ServiceResource, 0)
-	for _, res := range unstructureds {
+	for _, res := range unstructured {
 		ret = append(ret, &commonmodels.ServiceResource{
 			GroupVersionKind: res.GroupVersionKind(),
 			Name:             res.GetName(),
@@ -306,7 +314,12 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, erro
 	return resources, errList.ErrorOrNil()
 }
 
-func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured, productInfo *commonmodels.Product) ([]*commonmodels.Product, error) {
+func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodels.Product) error {
+	unstructuredRes, err := ManifestToUnstructured(serviceYaml)
+	if err != nil {
+		return fmt.Errorf("failed to convert manifest to resource, error: %v", err)
+	}
+
 	sharedNSEnvList := make([]*commonmodels.Product, 0)
 
 	resSet := sets.NewString()
@@ -323,7 +336,7 @@ func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured
 	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
 		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
-		return nil, err
+		return err
 	}
 
 	log.Infof("------- count of envs with same namespace %d", len(envs))
@@ -344,7 +357,15 @@ func checkResourceAppliedByOtherEnv(unstructuredRes []*unstructured.Unstructured
 		}
 	}
 
-	return sharedNSEnvList, nil
+	if len(sharedNSEnvList) == 0 {
+		return nil
+	}
+
+	usedEnvStr := make([]string, 0)
+	for _, env := range sharedNSEnvList {
+		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s/%s", env.ProductName, env.EnvName))
+	}
+	return fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
 }
 
 // CreateOrPatchResource create or patch resources defined in UpdateResourceYaml
@@ -367,20 +388,6 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	if err != nil {
 		log.Errorf("Failed to convert yaml to Unstructured, manifest is\n%s\n, error: %v", applyParam.UpdateResourceYaml, err)
 		return nil, err
-	}
-
-	// check is resource is deployed in other env with same cluster+namespace
-	usedEnvs, err := checkResourceAppliedByOtherEnv(resources, productInfo)
-	if err != nil {
-		log.Errorf("Failed to check if resource is applied by other env, error: %v", err)
-		return nil, err
-	}
-	if len(usedEnvs) > 0 {
-		usedEnvStr := make([]string, 0)
-		for _, env := range usedEnvs {
-			usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s/%s", env.ProductName, env.EnvName))
-		}
-		return nil, fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
 	}
 
 	clientSet, errGetClientSet := kubeclient.GetKubeClientSet(config.HubServerAddress(), productInfo.ClusterID)

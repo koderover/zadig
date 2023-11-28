@@ -274,6 +274,11 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		}
 	}
 
+	err := kube.CheckResourceAppliedByOtherEnv(updatedYaml, env)
+	if err != nil {
+		return errors.New(err.Error())
+	}
+
 	unstructuredList, err := kube.CreateOrPatchResource(&kube.ResourceApplyParam{
 		ServiceName:         c.jobTaskSpec.ServiceName,
 		CurrentResourceYaml: currentYaml,
