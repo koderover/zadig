@@ -56,8 +56,8 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
-	zadigtypes "github.com/koderover/zadig/pkg/types"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	zadigtypes "github.com/koderover/zadig/pkg/types"
 )
 
 type K8sService struct {
@@ -204,17 +204,17 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	if previewResult.Current.Yaml == previewResult.Latest.Yaml {
 		k.log.Infof("[%s][P:%s] Service yaml is not changed", args.EnvName, args.ProductName)
 	} else {
-		_, err = upsertService(
+		items, err := upsertService(
 			exitedProd,
 			newProductSvc,
 			currentProductSvc,
 			!exitedProd.Production, inf, kubeClient, istioClient, k.log)
-
 		if err != nil {
 			k.log.Error(err)
 			newProductSvc.Error = err.Error()
 			return e.ErrUpdateProduct.AddDesc(err.Error())
 		}
+		newProductSvc.Resources = kube.UnstructuredToResources(items)
 	}
 
 	newProductSvc.Error = ""
@@ -685,6 +685,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 				svc.Error = err.Error()
 				lock.Unlock()
 			}
+			svc.Resources = kube.UnstructuredToResources(items)
 
 			err = commonutil.CreateEnvServiceVersion(product, svc, username, nil, k.log)
 			if err != nil {

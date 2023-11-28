@@ -379,6 +379,8 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	updateProd.DefaultValues = exitedProd.DefaultValues
 	updateProd.YamlData = exitedProd.YamlData
 
+	svcsToBeAdd := sets.NewString()
+
 	// build services
 	productSvcs := exitedProd.GetServiceMap()
 	svcGroupMap := make(map[string]int)
@@ -398,6 +400,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			} else if util.InStringArray(svc.ServiceName, updateRevisionSvc) {
 				// services to be added
 				validSvcGroup = append(validSvcGroup, svc)
+				svcsToBeAdd.Insert(svc.ServiceName)
 			}
 		}
 		svcGroups = append(svcGroups, validSvcGroup)

@@ -271,6 +271,17 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 	return errList.ErrorOrNil()
 }
 
+func UnstructuredToResources(unstructureds []*unstructured.Unstructured) []*commonmodels.ServiceResource {
+	ret := make([]*commonmodels.ServiceResource, 0)
+	for _, res := range unstructureds {
+		ret = append(ret, &commonmodels.ServiceResource{
+			GroupVersionKind: res.GroupVersionKind(),
+			Name:             res.GetName(),
+		})
+	}
+	return ret
+}
+
 func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, error) {
 	if len(manifest) == 0 {
 		return nil, nil

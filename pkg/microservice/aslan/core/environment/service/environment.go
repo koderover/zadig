@@ -473,7 +473,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						return
 					}
 
-					_, errUpsertService := upsertService(
+					items, errUpsertService := upsertService(
 						updateProd,
 						service,
 						existedProd.GetServiceMap()[service.ServiceName],
@@ -483,6 +483,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 					} else {
 						service.Error = ""
 					}
+					service.Resources = kube.UnstructuredToResources(items)
 
 					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, session, log)
 					if err != nil {

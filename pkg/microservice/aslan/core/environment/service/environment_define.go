@@ -69,6 +69,12 @@ type EnvResp struct {
 	ShareEnvBaseEnv string `json:"share_env_base_env"`
 }
 
+type SharedNSEnvs struct {
+	ProjectName string `json:"project_name"`
+	EnvName     string `json:"env_name"`
+	Production  bool   `json:"production"`
+}
+
 type ProductResp struct {
 	ID          string                           `json:"id"`
 	ProductName string                           `json:"product_name"`
@@ -95,6 +101,9 @@ type ProductResp struct {
 	ShareEnvEnable  bool   `json:"share_env_enable"`
 	ShareEnvIsBase  bool   `json:"share_env_is_base"`
 	ShareEnvBaseEnv string `json:"share_env_base_env"`
+
+	// New Since v2.1.0
+	SharedNSEnvs []*SharedNSEnvs `json:"related_envs",omitempty`
 }
 
 type ProductParams struct {

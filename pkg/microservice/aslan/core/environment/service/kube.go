@@ -110,15 +110,9 @@ type WorkloadDetailResp struct {
 	Services []*resource.Service       `json:"service_endpoints"`
 }
 
-type RelatedEnvs struct {
-	ProjectName string `json:"project_name"`
-	EnvName     string `json:"env_name"`
-	Production  bool   `json:"production"`
-}
-
 type AvailableNamespace struct {
 	*resource.Namespace
-	RelatedEnvs []*RelatedEnvs `json:"related_envs"`
+	Used bool `json:"used_by_other_env"`
 }
 
 func ListKubeEvents(env string, productName string, name string, rtype string, log *zap.SugaredLogger) ([]*resource.Event, error) {
@@ -184,15 +178,15 @@ func ListPodEvents(envName, productName, podName string, log *zap.SugaredLogger)
 	return res, nil
 }
 
-func FindNsUseEnvs(clusterID, namespace string, log *zap.SugaredLogger) ([]*RelatedEnvs, error) {
-	resp := make([]*RelatedEnvs, 0)
+func FindNsUseEnvs(clusterID, namespace string, log *zap.SugaredLogger) ([]*SharedNSEnvs, error) {
+	resp := make([]*SharedNSEnvs, 0)
 	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(clusterID, namespace)
 	if err != nil {
 		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
 		return nil, err
 	}
 	for _, env := range envs {
-		resp = append(resp, &RelatedEnvs{
+		resp = append(resp, &SharedNSEnvs{
 			ProjectName: env.ProductName,
 			EnvName:     env.EnvName,
 			Production:  env.Production,
@@ -264,11 +258,12 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 			Namespace: wrapper.Namespace(namespace).Resource(),
 		}
 		if usedNSSet.Has(namespace.Name) {
-			nsResource.RelatedEnvs, err = FindNsUseEnvs(clusterID, namespace.Name, log)
-			if err != nil {
-				log.Errorf("failed to find envs use namespace %s, error: %s", namespace.Name, err)
-				return nil, err
-			}
+			//nsResource.SharedNSEnvs, err = FindNsUseEnvs(clusterID, namespace.Name, log)
+			//if err != nil {
+			//	log.Errorf("failed to find envs use namespace %s, error: %s", namespace.Name, err)
+			//	return nil, err
+			//}
+			nsResource.Used = true
 		}
 		resp = append(resp, nsResource)
 	}

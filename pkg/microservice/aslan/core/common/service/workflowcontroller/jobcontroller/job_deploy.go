@@ -306,6 +306,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		Containers:            containers,
 		UpdateServiceRevision: updateRevision,
 		UserName:              c.workflowCtx.WorkflowTaskCreatorUsername,
+		Resources:             unstructuredList,
 	})
 	if err != nil {
 		msg := fmt.Sprintf("update service render set info error: %v", err)
