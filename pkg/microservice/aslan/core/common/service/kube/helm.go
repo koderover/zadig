@@ -567,6 +567,11 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 			if err != nil {
 				log.Errorf("Failed to ensure gray env config: %s", err)
 			}
+		} else if productInfo.IstioGrayscale.Enable && !productInfo.IstioGrayscale.IsBase {
+			err = EnsureFullPathGrayScaleConfig(ctx, productInfo, kclient, istioClient)
+			if err != nil {
+				log.Errorf("Failed to ensure full path gray scale config: %s", err)
+			}
 		}
 	}()
 	return nil
@@ -683,7 +688,7 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 }
 
 func EnsureDeleteZadigServiceByHelmRelease(ctx context.Context, env *commonmodels.Product, releaseName string, helmClient helmclient.Client) error {
-	if !env.ShareEnv.Enable {
+	if !env.ShareEnv.Enable && !env.IstioGrayscale.Enable {
 		return nil
 	}
 
@@ -746,6 +751,7 @@ func EnsureDeleteK8sService(ctx context.Context, ns, svcName string, kclient cli
 }
 
 func EnsureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Product, svcName string, kclient client.Client, istioClient versionedclient.Interface) error {
+	log.Debugf("enter EnsureDeleteZadigServiceBySvcName")
 	svc := &corev1.Service{}
 	err := kclient.Get(ctx, client.ObjectKey{
 		Name:      svcName,

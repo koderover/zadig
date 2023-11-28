@@ -400,6 +400,7 @@ func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Prod
 }
 
 func ensureDeleteGrayscaleService(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
+	log.Debugf("enter ensureDeleteGrayscaleService")
 	vsName := genVirtualServiceName(svc)
 
 	// Delete VirtualService in the current environment.
