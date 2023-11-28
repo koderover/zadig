@@ -331,6 +331,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	namespace := existedProd.Namespace
 	updateProd.EnvName = existedProd.EnvName
 	updateProd.Namespace = existedProd.Namespace
+	updateProd.ClusterID = existedProd.ClusterID
 
 	var allServices []*commonmodels.Service
 	var prodRevs *ProductRevision
