@@ -21,6 +21,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	zadigutil "github.com/koderover/zadig/pkg/util"
 )
 
 func ensureIstioGrayConfig(ctx context.Context, baseEnv *commonmodels.Product) error {
@@ -34,4 +35,15 @@ func ensureIstioGrayConfig(ctx context.Context, baseEnv *commonmodels.Product) e
 	}
 
 	return commonrepo.NewProductColl().Update(baseEnv)
+}
+
+func fetchGrayEnvs(ctx context.Context, productName, clusterID, baseEnvName string) ([]*commonmodels.Product, error) {
+	return commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:                  productName,
+		ClusterID:             clusterID,
+		IstioGrayscaleEnable:  zadigutil.GetBoolPointer(true),
+		IstioGrayscaleIsBase:  zadigutil.GetBoolPointer(false),
+		IstioGrayscaleBaseEnv: zadigutil.GetStrPointer(baseEnvName),
+		Production:            zadigutil.GetBoolPointer(true),
+	})
 }

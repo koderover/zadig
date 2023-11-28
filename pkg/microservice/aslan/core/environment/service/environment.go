@@ -2369,17 +2369,18 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 	}
 
 	resourceApplyParam := &kube.ResourceApplyParam{
-		ProductInfo:         env,
-		ServiceName:         newService.ServiceName,
-		CurrentResourceYaml: preResourceYaml,
-		UpdateResourceYaml:  parsedYaml,
-		Informer:            informer,
-		KubeClient:          kubeClient,
-		IstioClient:         istioClient,
-		InjectSecrets:       true,
-		Uninstall:           false,
-		AddZadigLabel:       addLabel,
-		SharedEnvHandler:    EnsureUpdateZadigService,
+		ProductInfo:              env,
+		ServiceName:              newService.ServiceName,
+		CurrentResourceYaml:      preResourceYaml,
+		UpdateResourceYaml:       parsedYaml,
+		Informer:                 informer,
+		KubeClient:               kubeClient,
+		IstioClient:              istioClient,
+		InjectSecrets:            true,
+		Uninstall:                false,
+		AddZadigLabel:            addLabel,
+		SharedEnvHandler:         EnsureUpdateZadigService,
+		IstioGrayscaleEnvHandler: EnsureUpdateGrayscaleService,
 	}
 
 	return kube.CreateOrPatchResource(resourceApplyParam, log)

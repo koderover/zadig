@@ -1044,9 +1044,9 @@ func ensureDefaultVirtualServiceInGray(ctx context.Context, baseSvc *corev1.Serv
 	vsObj.Spec = networkingv1alpha3.VirtualService{
 		Hosts: []string{svcName},
 		Http: []*networkingv1alpha3.HTTPRoute{
-			&networkingv1alpha3.HTTPRoute{
+			{
 				Route: []*networkingv1alpha3.HTTPRouteDestination{
-					&networkingv1alpha3.HTTPRouteDestination{
+					{
 						Destination: &networkingv1alpha3.Destination{
 							Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, baseNS),
 						},

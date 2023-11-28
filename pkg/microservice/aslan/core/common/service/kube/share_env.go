@@ -454,7 +454,7 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 	if env.ShareEnv.Enable {
 		return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
 	} else if env.IstioGrayscale.Enable {
-		return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
+		return ensureUpdateIstioGrayscaleSerivce(ctx, env, svc, kclient, istioClient)
 	}
 	return nil
 }
