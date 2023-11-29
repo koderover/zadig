@@ -42,11 +42,11 @@ import (
 
 var registrySecretSuffix = "-registry-secret"
 
-func CreateNamespace(namespace string, customLabels map[string]string, enableShare bool, kubeClient client.Client) error {
+func CreateNamespace(namespace string, customLabels map[string]string, enableIstioInjection bool, kubeClient client.Client) error {
 	nsLabels := map[string]string{
 		setting.EnvCreatedBy: setting.EnvCreator,
 	}
-	if enableShare {
+	if enableIstioInjection {
 		nsLabels[zadigtypes.IstioLabelKeyInjection] = zadigtypes.IstioLabelValueInjection
 	}
 

@@ -4068,6 +4068,73 @@ paths:
       summary: Enable Istio Grayscale
       tags:
       - environment
+  /api/aslan/environment/production/environments/{name}/istioGrayscale/portal/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: Get Portal Service for Istio Grayscale
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetPortalServiceResponse'
+      summary: Get Portal Service for Istio Grayscale
+      tags:
+      - environment
+    post:
+      consumes:
+      - application/json
+      description: Setup Portal Service for Istio Grayscale
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.SetupPortalServiceRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Setup Portal Service for Istio Grayscale
+      tags:
+      - environment
   /api/aslan/environment/production/environments/{name}/sleep:
     post:
       consumes:

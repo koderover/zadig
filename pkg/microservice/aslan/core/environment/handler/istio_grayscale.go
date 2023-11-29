@@ -282,3 +282,99 @@ func SetIstioGrayscaleConfig(c *gin.Context) {
 
 	ctx.Err = service.SetIstioGrayscaleConfig(c, envName, projectKey, req)
 }
+
+// @Summary Get Portal Service for Istio Grayscale
+// @Description Get Portal Service for Istio Grayscale
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string									true	"project name"
+// @Param 	name			path		string									true	"env name"
+// @Param 	serviceName		path		string									true	"service name"
+// @Success 200 			{object} 	service.GetPortalServiceResponse
+// @Router /api/aslan/environment/production/environments/{name}/istioGrayscale/portal/{serviceName} [get]
+func GetIstioGrayscalePortalService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	serviceName := c.Param("serviceName")
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	ctx.Resp, ctx.Err = service.GetIstioGrayscalePortalService(c, projectKey, envName, serviceName)
+	return
+}
+
+// @Summary Setup Portal Service for Istio Grayscale
+// @Description Setup Portal Service for Istio Grayscale
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string									true	"project name"
+// @Param 	name			path		string									true	"env name"
+// @Param 	serviceName		path		string									true	"service name"
+// @Param 	body 			body 		[]service.SetupPortalServiceRequest 	true 	"body"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/istioGrayscale/portal/{serviceName} [post]
+func SetupIstioGrayscalePortalService(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	envName := c.Param("name")
+	serviceName := c.Param("serviceName")
+	projectKey := c.Query("projectName")
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].ProductionEnv.EditConfig {
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, projectKey, types.ResourceTypeEnvironment, envName, types.EnvActionEditConfig)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
+	req := []service.SetupPortalServiceRequest{}
+	err = c.ShouldBindJSON(&req)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Err = service.SetupIstioGrayscalePortalService(c, projectKey, envName, serviceName, req)
+	return
+}

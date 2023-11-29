@@ -21,13 +21,17 @@ import (
 	"fmt"
 
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
+	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util/boolptr"
 )
 
@@ -272,6 +276,134 @@ func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, r
 	err = commonrepo.NewProductColl().UpdateIstioGrayscale(baseEnv.EnvName, baseEnv.ProductName, baseEnv.IstioGrayscale)
 	if err != nil {
 		return fmt.Errorf("failed to update istio grayscale config of %s/%s environment: %s", baseEnv.ProductName, baseEnv.EnvName, err)
+	}
+
+	return nil
+}
+
+func GetIstioGrayscalePortalService(ctx context.Context, productName, envName, serviceName string) (GetPortalServiceResponse, error) {
+	resp := GetPortalServiceResponse{}
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to query env %s of product %s: %s", envName, productName, err))
+	}
+	if !env.IstioGrayscale.Enable && !env.IstioGrayscale.IsBase {
+		return resp, e.ErrGetPortalService.AddDesc("%s doesn't enable share environment or is not base environment")
+	}
+
+	ns := env.Namespace
+	clusterID := env.ClusterID
+
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
+	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
+	}
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
+	}
+
+	gatewayName := commonutil.GenIstioGatewayName(serviceName)
+	resp.DefaultGatewayAddress, err = getDefaultIstioIngressGatewayAddress(ctx, serviceName, gatewayName, err, kclient)
+	if err != nil {
+		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get default istio ingress gateway address: %s", err))
+	}
+
+	resp.Servers, err = getIstioGatewayConfig(ctx, istioClient, ns, gatewayName)
+	if err != nil {
+		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get istio gateway config: %s", err))
+	}
+
+	return resp, nil
+}
+
+func SetupIstioGrayscalePortalService(ctx context.Context, productName, envName, serviceName string, servers []SetupPortalServiceRequest) error {
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to query env %s of product %s: %s", envName, productName, err))
+	}
+	if !env.IstioGrayscale.Enable && !env.IstioGrayscale.IsBase {
+		return e.ErrSetupPortalService.AddDesc("%s doesn't enable share environment or is not base environment")
+	}
+
+	templateProd, err := template.NewProductColl().Find(productName)
+	if err != nil {
+		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to find template product %s, err: %w", productName, err))
+	}
+
+	ns := env.Namespace
+	clusterID := env.ClusterID
+
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
+	}
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
+	}
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
+	}
+	gatewayName := commonutil.GenIstioGatewayName(serviceName)
+
+	if len(servers) == 0 {
+		// delete operation
+		err = cleanIstioIngressGatewayService(ctx, err, istioClient, ns, gatewayName, kclient)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to clean istio ingress gateway service, err: %w", err))
+		}
+	} else {
+		// 1. check istio ingress gateway whether has load balancing
+		gatewaySvc, err := checkIstioIngressGatewayLB(ctx, err, kclient)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to check istio ingress gateway's load balancing, err: %w", err))
+		}
+
+		// 2. create gateway for the service
+		err = createIstioGateway(ctx, istioClient, ns, gatewayName, servers)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to create gateway %s in namespace %s, err: %w", gatewayName, ns, err))
+		}
+
+		// 3. patch istio-ingressgateway service's port
+		err = patchIstioIngressGatewayServicePort(ctx, gatewaySvc, servers, kclient)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to patch istio ingress gateway service's port, err: %w", err))
+		}
+	}
+
+	// 4. change the related virtualservice
+	svcs := []*corev1.Service{}
+	deployType := templateProd.ProductFeature.GetDeployType()
+	if deployType == setting.K8SDeployType {
+		svcs, err = parseK8SProjectServices(ctx, env, serviceName, kclient, ns)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to parse k8s project services, err: %w", err))
+		}
+	} else if deployType == setting.HelmDeployType {
+		svcs, err = parseHelmProjectServices(ctx, restConfig, env, envName, productName, serviceName, kclient, ns)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to parse helm project services, err: %w", err))
+		}
+	}
+
+	for _, svc := range svcs {
+		err = updateVirtualServiceForPortalService(ctx, svc, istioClient, ns, servers, gatewayName)
+		if err != nil {
+			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to update virtualservice for portal service, err: %w", err))
+		}
 	}
 
 	return nil

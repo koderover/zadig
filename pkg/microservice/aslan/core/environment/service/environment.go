@@ -2443,7 +2443,11 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	}
 
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
-		return ensureKubeEnv(args.Namespace, args.RegistryID, map[string]string{setting.ProductLabel: args.ProductName}, args.ShareEnv.Enable, kubeClient, log)
+		enableIstioInjection := false
+		if args.ShareEnv.Enable || args.IstioGrayscale.Enable {
+			enableIstioInjection = true
+		}
+		return ensureKubeEnv(args.Namespace, args.RegistryID, map[string]string{setting.ProductLabel: args.ProductName}, enableIstioInjection, kubeClient, log)
 	}
 	return nil
 }
@@ -2458,8 +2462,8 @@ func preCreateNSAndSecret(productFeature *templatemodels.ProductFeature) bool {
 	return false
 }
 
-func ensureKubeEnv(namespace, registryId string, customLabels map[string]string, enableShare bool, kubeClient client.Client, log *zap.SugaredLogger) error {
-	err := kube.CreateNamespace(namespace, customLabels, enableShare, kubeClient)
+func ensureKubeEnv(namespace, registryId string, customLabels map[string]string, enableIstioInjection bool, kubeClient client.Client, log *zap.SugaredLogger) error {
+	err := kube.CreateNamespace(namespace, customLabels, enableIstioInjection, kubeClient)
 	if err != nil {
 		log.Errorf("[%s] get or create namespace error: %v", namespace, err)
 		return e.ErrCreateNamspace.AddDesc(err.Error())

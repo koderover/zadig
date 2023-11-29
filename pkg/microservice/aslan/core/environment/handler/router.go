@@ -220,8 +220,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		production.GET("/environments/:name/check/istioGrayscale/:op/ready", CheckIstioGrayscaleReady)
 		production.GET("/environments/:name/istioGrayscale/config", GetIstioGrayscaleConfig)
 		production.POST("/environments/:name/istioGrayscale/config", SetIstioGrayscaleConfig)
-		production.GET("/environments/:name/istioGrayscale/portal/:serviceName", GetPortalService)
-		production.POST("/environments/:name/istioGrayscale/portal/:serviceName", SetupPortalService)
+		production.GET("/environments/:name/istioGrayscale/portal/:serviceName", GetIstioGrayscalePortalService)
+		production.POST("/environments/:name/istioGrayscale/portal/:serviceName", SetupIstioGrayscalePortalService)
 	}
 
 	// ---------------------------------------------------------------------------------------
