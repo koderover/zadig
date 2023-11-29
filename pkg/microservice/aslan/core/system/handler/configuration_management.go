@@ -206,7 +206,7 @@ func ListApolloConfigByType(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListApolloConfigByType(c.Param("id"), c.Param("app_id"), c.Query("content_type"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListApolloConfigByType(c.Param("id"), c.Param("app_id"), c.Query("format"), ctx.Logger)
 }
 
 func ListApolloNamespaces(c *gin.Context) {

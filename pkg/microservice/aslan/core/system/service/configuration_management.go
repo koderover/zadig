@@ -229,7 +229,7 @@ func ListApolloEnvAndClusters(id string, appID string, log *zap.SugaredLogger) (
 	return envs, nil
 }
 
-func ListApolloConfigByType(id, appID, configType string, log *zap.SugaredLogger) ([]*apollo.BriefNamespace, error) {
+func ListApolloConfigByType(id, appID, format string, log *zap.SugaredLogger) ([]*apollo.BriefNamespace, error) {
 	resp := make([]*apollo.BriefNamespace, 0)
 	info, err := mongodb.NewConfigurationManagementColl().GetApolloByID(context.Background(), id)
 	if err != nil {
@@ -250,7 +250,7 @@ func ListApolloConfigByType(id, appID, configType string, log *zap.SugaredLogger
 				return nil, e.ErrGetApolloInfo.AddErr(err)
 			}
 			for _, namespace := range namesapceList {
-				if configType != "" && namespace.Format != configType {
+				if format != "" && namespace.Format != format {
 					continue
 				}
 				resp = append(resp, &apollo.BriefNamespace{
