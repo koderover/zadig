@@ -234,3 +234,29 @@ func ListApolloConfig(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.ListApolloConfig(c.Param("id"), c.Param("app_id"), c.Param("env"), c.Param("cluster"), c.Param("namespace"), ctx.Logger)
 }
+
+func ListNacosConfigByType(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListNacosConfigByType(c.Param("id"), c.Query("format"), ctx.Logger)
+}
+
+func GetNacosConfig(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetNacosConfig(c.Param("id"), c.Param("namespace"), c.Param("group_name"), c.Param("data_name"), ctx.Logger)
+}

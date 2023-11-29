@@ -270,6 +270,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		configuration.GET("/apollo/:id/:app_id/config", ListApolloConfigByType)
 		configuration.GET("/apollo/:id/:app_id/:env/:cluster/namespace", ListApolloNamespaces)
 		configuration.GET("/apollo/:id/:app_id/:env/:cluster/namespace/:namespace", ListApolloConfig)
+
+		configuration.GET("/nacos/:id/config", ListNacosConfigByType)
+		configuration.GET("/nacos/:id/namespace/:namespace/group/:group_name/data/:data_name", GetNacosConfig)
 	}
 
 	imapp := router.Group("im_app")
