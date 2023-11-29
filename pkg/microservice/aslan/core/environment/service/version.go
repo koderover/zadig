@@ -269,7 +269,6 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 					svcIndex = j
 					groupIndex = i
 					svc.Resources = kube.UnstructuredToResources(unstructuredList)
-
 					for _, kv := range envSvcVersion.Service.GetServiceRender().OverrideYaml.RenderVariableKVs {
 						kv.UseGlobalVariable = false
 					}

@@ -140,11 +140,6 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return nil
 	}
 
-	if err = kube.UninstallService(helmClient, productInfo, prodSvcTemp, true); err != nil {
-		err = fmt.Errorf("helm uninstall service: %s in namespace: %s, err: %s", serviceName, productInfo.Namespace, err)
-		return
-	}
-
 	err = updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
 	if err != nil {
 		return
@@ -153,6 +148,17 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 	param, errBuildParam := buildInstallParam(productInfo.DefaultValues, productInfo, renderChart, productSvc)
 	if errBuildParam != nil {
 		err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, errBuildParam)
+		return
+	}
+	productSvc.ReleaseName = param.ReleaseName
+
+	err = kube.CheckReleaseInstalledByOtherEnv(sets.NewString(param.ReleaseName), productInfo)
+	if err != nil {
+		return err
+	}
+
+	if err = kube.UninstallService(helmClient, productInfo, prodSvcTemp, true); err != nil {
+		err = fmt.Errorf("helm uninstall service: %s in namespace: %s, err: %s", serviceName, productInfo.Namespace, err)
 		return
 	}
 

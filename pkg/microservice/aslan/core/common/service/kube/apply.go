@@ -314,6 +314,36 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, erro
 	return resources, errList.ErrorOrNil()
 }
 
+func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *commonmodels.Product) error {
+	sharedNSEnvList := make([]*commonmodels.Product, 0)
+	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
+	if err != nil {
+		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
+		return err
+	}
+
+	for _, env := range envs {
+		if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName {
+			continue
+		}
+		for _, svc := range env.GetSvcList() {
+			if releaseNames.Has(svc.ReleaseName) {
+				sharedNSEnvList = append(sharedNSEnvList, env)
+				break
+			}
+		}
+	}
+
+	if len(sharedNSEnvList) == 0 {
+		return nil
+	}
+	usedEnvStr := make([]string, 0)
+	for _, env := range sharedNSEnvList {
+		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s/%s", env.ProductName, env.EnvName))
+	}
+	return fmt.Errorf("release is installed by other envs: %v", strings.Join(usedEnvStr, ","))
+}
+
 func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodels.Product) error {
 	unstructuredRes, err := ManifestToUnstructured(serviceYaml)
 	if err != nil {

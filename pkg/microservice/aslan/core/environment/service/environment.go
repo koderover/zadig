@@ -716,6 +716,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 				releaseName := util.GeneReleaseName(serviceMap[svr.ServiceName].GetReleaseNaming(), svr.ProductName, productResp.Namespace, productResp.EnvName, svr.ServiceName)
 				overrideChartMap[svr.ServiceName].ReleaseName = releaseName
 				addedReleaseNameSet.Insert(releaseName)
+				svr.ReleaseName = releaseName
 			} else if _, ok := templateSvcMap[svr.ServiceName]; ok {
 				releaseName := util.GeneReleaseName(templateSvcMap[svr.ServiceName].GetReleaseNaming(), svr.ProductName, productResp.Namespace, productResp.EnvName, svr.ServiceName)
 				overrideChartMap[svr.ServiceName].ReleaseName = releaseName
@@ -725,7 +726,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 					svr.GetServiceRender().ChartVersion = templateSvcMap[svr.ServiceName].HelmChart.Version
 					svr.GetServiceRender().ValuesYaml = templateSvcMap[svr.ServiceName].HelmChart.ValuesYaml
 				}
-
+				svr.ReleaseName = releaseName
 			}
 			svcGroup = append(svcGroup, svr)
 
@@ -747,16 +748,39 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 	}
 	productResp.Services = allServices
 
+	svcNameSet := sets.NewString()
+	for _, singleChart := range overrideCharts {
+		if singleChart.EnvName != envName {
+			continue
+		}
+		svcNameSet.Insert(singleChart.ServiceName)
+	}
+
+	filter := func(svc *commonmodels.ProductService) bool {
+		return svcNameSet.Has(svc.ServiceName)
+	}
+
+	// check
+	releases := sets.NewString()
+	for _, svc := range productResp.GetSvcList() {
+		if filter(svc) {
+			releases.Insert(svc.ReleaseName)
+		}
+	}
+	err = kube.CheckReleaseInstalledByOtherEnv(releases, productResp)
+	if err != nil {
+		return err
+	}
+
 	// set status to updating
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
-	//对比当前环境中的环境变量和默认的环境变量
 	go func() {
 		errMsg := ""
-		err := updateHelmProductGroup(username, productName, envName, productResp, overrideCharts, deletedSvcRevision, addedReleaseNameSet, log)
+		err := updateHelmProductGroup(username, productName, envName, productResp, overrideCharts, deletedSvcRevision, addedReleaseNameSet, filter, log)
 		if err != nil {
 			errMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
@@ -851,6 +875,7 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 					if addedReleaseNameSet.Has(releaseName) {
 						continue
 					}
+					svr.ReleaseName = releaseName
 					dupSvcNameSet.Insert(svr.ServiceName)
 				}
 
@@ -880,16 +905,47 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 
 	productResp.Services = allServices
 
+	svcNameSet := sets.NewString()
+	for _, singleChart := range overrideCharts {
+		if singleChart.EnvName != envName {
+			continue
+		}
+		if singleChart.IsChartDeploy {
+			svcNameSet.Insert(singleChart.ReleaseName)
+		} else {
+			svcNameSet.Insert(singleChart.ServiceName)
+		}
+	}
+
+	filter := func(svc *commonmodels.ProductService) bool {
+		if svc.FromZadig() {
+			return svcNameSet.Has(svc.ServiceName)
+		} else {
+			return svcNameSet.Has(svc.ReleaseName)
+		}
+	}
+
+	// check if release is installed in other env
+	releases := sets.NewString()
+	for _, svc := range productResp.GetSvcList() {
+		if filter(svc) {
+			releases.Insert(svc.ReleaseName)
+		}
+	}
+	err = kube.CheckReleaseInstalledByOtherEnv(releases, productResp)
+	if err != nil {
+		return err
+	}
+
 	// set status to updating
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
-	//对比当前环境中的环境变量和默认的环境变量
 	go func() {
 		errMsg := ""
-		err := updateHelmChartProductGroup(username, productName, envName, productResp, overrideCharts, deletedReleaseRevision, dupSvcNameSet, log)
+		err := updateHelmChartProductGroup(username, productName, envName, productResp, overrideCharts, deletedReleaseRevision, dupSvcNameSet, filter, log)
 		if err != nil {
 			errMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
@@ -2537,7 +2593,7 @@ func batchExecutor(interval time.Duration, serviceList []*kube.ReleaseInstallPar
 }
 
 func updateHelmProductGroup(username, productName, envName string, productResp *commonmodels.Product,
-	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, addedReleaseNameSet sets.String, log *zap.SugaredLogger) error {
+	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, addedReleaseNameSet sets.String, filter svcUpgradeFilter, log *zap.SugaredLogger) error {
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
@@ -2564,17 +2620,6 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 	}
 
 	productResp.ServiceRenders = renderSet.ChartInfos
-	svcNameSet := sets.NewString()
-	for _, singleChart := range overrideCharts {
-		if singleChart.EnvName != envName {
-			continue
-		}
-		svcNameSet.Insert(singleChart.ServiceName)
-	}
-
-	filter := func(svc *commonmodels.ProductService) bool {
-		return svcNameSet.Has(svc.ServiceName)
-	}
 
 	if productResp.ServiceDeployStrategy != nil {
 		for _, releaseName := range addedReleaseNameSet.List() {
@@ -2600,7 +2645,7 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 }
 
 func updateHelmChartProductGroup(username, productName, envName string, productResp *commonmodels.Product,
-	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, dupSvcNameSet sets.String, log *zap.SugaredLogger) error {
+	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, dupSvcNameSet sets.String, filter svcUpgradeFilter, log *zap.SugaredLogger) error {
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
@@ -2626,25 +2671,6 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 	mergeRenderSetAndRenderChart(productResp, overrideCharts, deletedRelease)
 
 	productResp.ServiceRenders = productResp.GetAllSvcRenders()
-	svcNameSet := sets.NewString()
-	for _, singleChart := range overrideCharts {
-		if singleChart.EnvName != envName {
-			continue
-		}
-		if singleChart.IsChartDeploy {
-			svcNameSet.Insert(singleChart.ReleaseName)
-		} else {
-			svcNameSet.Insert(singleChart.ServiceName)
-		}
-	}
-
-	filter := func(svc *commonmodels.ProductService) bool {
-		if svc.FromZadig() {
-			return svcNameSet.Has(svc.ServiceName)
-		} else {
-			return svcNameSet.Has(svc.ReleaseName)
-		}
-	}
 
 	if productResp.ServiceDeployStrategy != nil {
 		for _, svcName := range dupSvcNameSet.List() {
