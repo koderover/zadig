@@ -857,9 +857,10 @@ var (
 	ErrDeleteMeegoHook = NewHTTPError(6984, "删除飞书 hook 失败")
 
 	//-----------------------------------------------------------------------------------------------
-	// apollo releated Error Range: 6990 - 6999
+	// configuration releated Error Range: 6990 - 6999
 	//-----------------------------------------------------------------------------------------------
 	ErrGetApolloInfo = NewHTTPError(6990, "获取 apollo 信息失败")
+	ErrGetNacosInfo  = NewHTTPError(6991, "获取 nacos 信息失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// statistics dashboard Error Range: 7000 - 7009

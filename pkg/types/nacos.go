@@ -22,11 +22,12 @@ type NacosNamespace struct {
 }
 
 type NacosConfig struct {
-	DataID  string `bson:"data_id"                 json:"data_id"                 yaml:"data_id"`
-	Group   string `bson:"group"                   json:"group"                   yaml:"group"`
-	Desc    string `bson:"description,omitempty"   json:"description,omitempty"   yaml:"description,omitempty"`
-	Format  string `bson:"format,omitempty"        json:"format,omitempty"        yaml:"format,omitempty"`
-	Content string `bson:"content,omitempty"       json:"content,omitempty"       yaml:"content,omitempty"`
+	DataID          string `bson:"data_id"                 json:"data_id"                 yaml:"data_id"`
+	Group           string `bson:"group"                   json:"group"                   yaml:"group"`
+	Desc            string `bson:"description,omitempty"   json:"description,omitempty"   yaml:"description,omitempty"`
+	Format          string `bson:"format,omitempty"        json:"format,omitempty"        yaml:"format,omitempty"`
+	Content         string `bson:"content,omitempty"       json:"content,omitempty"       yaml:"content,omitempty"`
+	OriginalContent string `bson:"original_content,omitempty" json:"original_content,omitempty" yaml:"original_content,omitempty"`
 
 	// for frontend
 	Diff        interface{} `bson:"diff,omitempty" json:"diff,omitempty" yaml:"diff,omitempty"`

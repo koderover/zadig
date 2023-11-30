@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/pkg/errors"
 
 	"github.com/imroc/req/v3"
@@ -310,4 +312,53 @@ func ListApolloConfig(id, appID, env, cluster, namespace string, log *zap.Sugare
 		ConfigType: namespaceInfo.Format,
 		Config:     resp,
 	}, nil
+}
+
+func ListNacosConfigByType(id, format string, log *zap.SugaredLogger) ([]*BriefNacosConfig, error) {
+	resp := make([]*BriefNacosConfig, 0)
+	cli, err := service.GetNacosClient(id)
+	if err != nil {
+		log.Errorf("failed to get nacos client, error is: %s", err)
+		return nil, e.ErrGetNacosInfo.AddErr(err)
+	}
+	namespaces, err := cli.ListNamespaces()
+	if err != nil {
+		log.Errorf("failed to list nacos namespaces for id: %s, error is: %s", id, err)
+		return nil, e.ErrGetNacosInfo.AddErr(err)
+	}
+	for _, namespace := range namespaces {
+		configs, err := cli.ListConfigs(namespace.NamespaceID)
+		if err != nil {
+			log.Errorf("failed to list nacos config for namespace: %s, error is: %s", namespace.NamespacedName, err)
+			return nil, e.ErrGetNacosInfo.AddErr(err)
+		}
+		for _, config := range configs {
+			if format != "" && format != config.Format {
+				continue
+			}
+			resp = append(resp, &BriefNacosConfig{
+				DataID:        config.DataID,
+				Format:        config.Format,
+				Group:         config.Group,
+				NamespaceID:   namespace.NamespaceID,
+				NamespaceName: namespace.NamespacedName,
+			})
+		}
+	}
+
+	return resp, nil
+}
+
+func GetNacosConfig(id, namespace, groupName, dataName string, log *zap.SugaredLogger) (*types.NacosConfig, error) {
+	cli, err := service.GetNacosClient(id)
+	if err != nil {
+		log.Errorf("failed to get nacos client, error is: %s", err)
+		return nil, e.ErrGetNacosInfo.AddErr(err)
+	}
+	resp, err := cli.GetConfig(dataName, groupName, namespace)
+	if err != nil {
+		log.Errorf("failed to get config info for nacos data: %s under namespace: %s, error: %s", dataName, namespace, err)
+		return nil, e.ErrGetNacosInfo.AddErr(err)
+	}
+	return resp, nil
 }

@@ -231,3 +231,11 @@ type ApolloConfig struct {
 	ConfigType string                   `json:"type"`
 	Config     []*commonmodels.ApolloKV `json:"kv"`
 }
+
+type BriefNacosConfig struct {
+	DataID        string `json:"data_id"`
+	Format        string `json:"format"`
+	Group         string `json:"group"`
+	NamespaceID   string `json:"namespace_id"`
+	NamespaceName string `json:"namespace_name"`
+}
