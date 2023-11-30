@@ -934,7 +934,7 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 	}
 	err = kube.CheckReleaseInstalledByOtherEnv(releases, productResp)
 	if err != nil {
-		return err
+		return e.ErrUpdateEnv.AddErr(err)
 	}
 
 	// set status to updating

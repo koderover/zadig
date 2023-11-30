@@ -88,6 +88,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 
 			serviceResp := &commonmodels.ProductService{
 				ServiceName: serviceTmpl.ServiceName,
+				ReleaseName: util.GeneReleaseName(serviceTmpl.GetReleaseNaming(), productObj.ProductName, productObj.Namespace, productObj.EnvName, serviceName),
 				ProductName: serviceTmpl.ProductName,
 				Type:        serviceTmpl.Type,
 				Revision:    serviceTmpl.Revision,
