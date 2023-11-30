@@ -386,6 +386,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	updateProd.YamlData = exitedProd.YamlData
 	updateProd.ClusterID = exitedProd.ClusterID
 	updateProd.Namespace = exitedProd.Namespace
+	updateProd.EnvName = envName
 
 	svcsToBeAdd := sets.NewString()
 
