@@ -322,10 +322,13 @@ func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *comm
 		return err
 	}
 
+	log.Infof("------- CheckReleaseInstalledByOtherEnv releaseNames : %v", releaseNames.List())
+
 	for _, env := range envs {
 		if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName {
 			continue
 		}
+		log.Infof("----- checking env: %s/%s", env.ProductName, env.EnvName)
 		for _, svc := range env.GetSvcList() {
 			if releaseNames.Has(svc.ReleaseName) {
 				sharedNSEnvList = append(sharedNSEnvList, env)
