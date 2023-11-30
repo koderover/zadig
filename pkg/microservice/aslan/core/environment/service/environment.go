@@ -1864,10 +1864,16 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					return
 				}
 
-				s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
-				if err := commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
-					errList = multierror.Append(errList, e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg+": "+err.Error()))
-					return
+				sharedNSEnvs, errFindNS := FindNsUseEnvs(productInfo, log)
+				if errFindNS != nil {
+					err = e.ErrDeleteProduct.AddErr(errFindNS)
+				}
+				if len(sharedNSEnvs) == 0 {
+					s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
+					if err = commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
+						err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
+						return
+					}
 				}
 			} else {
 				if err := commonservice.DeleteZadigLabelFromNamespace(productInfo.Namespace, productInfo.ClusterID, log); err != nil {
@@ -1984,10 +1990,16 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					return
 				}
 
-				s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
-				if err = commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
-					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
-					return
+				sharedNSEnvs, errFindNS := FindNsUseEnvs(productInfo, log)
+				if errFindNS != nil {
+					err = e.ErrDeleteProduct.AddErr(errFindNS)
+				}
+				if len(sharedNSEnvs) == 0 {
+					s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
+					if err = commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
+						err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
+						return
+					}
 				}
 			} else {
 				if err := commonservice.DeleteZadigLabelFromNamespace(productInfo.Namespace, productInfo.ClusterID, log); err != nil {

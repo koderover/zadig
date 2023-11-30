@@ -345,7 +345,7 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *Produ
 		}
 		err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, args.Product)
 		if err != nil {
-			return err
+			return e.ErrCreateEnv.AddErr(err)
 		}
 	}
 

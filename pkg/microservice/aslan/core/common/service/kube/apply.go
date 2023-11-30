@@ -315,7 +315,10 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, erro
 }
 
 func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *commonmodels.Product) error {
-	sharedNSEnvList := make([]*commonmodels.Product, 0)
+	sharedNSEnvList := make(map[string]*commonmodels.Product)
+	insertEnvData := func(release string, env *commonmodels.Product) {
+		sharedNSEnvList[release] = env
+	}
 	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
 		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
@@ -331,7 +334,7 @@ func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *comm
 		log.Infof("----- checking env: %s/%s", env.ProductName, env.EnvName)
 		for _, svc := range env.GetSvcList() {
 			if releaseNames.Has(svc.ReleaseName) {
-				sharedNSEnvList = append(sharedNSEnvList, env)
+				insertEnvData(svc.ReleaseName, env)
 				break
 			}
 		}
@@ -341,8 +344,8 @@ func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *comm
 		return nil
 	}
 	usedEnvStr := make([]string, 0)
-	for _, env := range sharedNSEnvList {
-		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s/%s", env.ProductName, env.EnvName))
+	for releasename, env := range sharedNSEnvList {
+		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s: %s/%s", releasename, env.ProductName, env.EnvName))
 	}
 	return fmt.Errorf("release is installed by other envs: %v", strings.Join(usedEnvStr, ","))
 }
@@ -353,7 +356,10 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 		return fmt.Errorf("failed to convert manifest to resource, error: %v", err)
 	}
 
-	sharedNSEnvList := make([]*commonmodels.Product, 0)
+	sharedNSEnvList := make(map[string]*commonmodels.Product)
+	insertEnvData := func(resource string, env *commonmodels.Product) {
+		sharedNSEnvList[resource] = env
+	}
 
 	resSet := sets.NewString()
 	resources := UnstructuredToResources(unstructuredRes)
@@ -379,12 +385,11 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 			continue
 		}
 		log.Infof("----- checking env: %s/%s", env.ProductName, env.EnvName)
-	LOOP:
 		for _, svc := range env.GetServiceMap() {
 			for _, res := range svc.Resources {
 				if resSet.Has(res.String()) {
-					sharedNSEnvList = append(sharedNSEnvList, env)
-					break LOOP
+					insertEnvData(res.String(), env)
+					break
 				}
 			}
 		}
@@ -395,8 +400,8 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 	}
 
 	usedEnvStr := make([]string, 0)
-	for _, env := range sharedNSEnvList {
-		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s/%s", env.ProductName, env.EnvName))
+	for resource, env := range sharedNSEnvList {
+		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s: %s/%s", resource, env.ProductName, env.EnvName))
 	}
 	return fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
 }
