@@ -337,6 +337,18 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *Produ
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
 	args.ClusterID = clusterID
+
+	for _, svc := range args.Product.GetSvcList() {
+		parsedYaml, err := kube.RenderEnvService(args.Product, svc.GetServiceRender(), svc)
+		if err != nil {
+			return fmt.Errorf("failed to render env service yaml for service: %s, err: %s", svc.ServiceName, err)
+		}
+		err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, args.Product)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = commonrepo.NewProductColl().Create(args.Product)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)

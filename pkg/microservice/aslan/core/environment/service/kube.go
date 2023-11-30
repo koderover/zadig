@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -178,7 +180,8 @@ func ListPodEvents(envName, productName, podName string, log *zap.SugaredLogger)
 	return res, nil
 }
 
-func FindNsUseEnvs(clusterID, namespace string, log *zap.SugaredLogger) ([]*SharedNSEnvs, error) {
+func FindNsUseEnvs(productInfo *commonmodels.Product, log *zap.SugaredLogger) ([]*SharedNSEnvs, error) {
+	clusterID, namespace := productInfo.ClusterID, productInfo.Namespace
 	resp := make([]*SharedNSEnvs, 0)
 	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(clusterID, namespace)
 	if err != nil {
@@ -186,6 +189,9 @@ func FindNsUseEnvs(clusterID, namespace string, log *zap.SugaredLogger) ([]*Shar
 		return nil, err
 	}
 	for _, env := range envs {
+		if env.String() == productInfo.String() {
+			continue
+		}
 		resp = append(resp, &SharedNSEnvs{
 			ProjectName: env.ProductName,
 			EnvName:     env.EnvName,

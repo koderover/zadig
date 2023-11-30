@@ -665,18 +665,6 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 	var resources []*unstructured.Unstructured
 
 	for i := range group {
-		parsedYaml, err := kube.RenderEnvService(prod, group[i].GetServiceRender(), group[i])
-		if err != nil {
-			return fmt.Errorf("failed to render env service yaml for service: %s, err: %s", group[i].ServiceName, err)
-		}
-
-		err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, prod)
-		if err != nil {
-			return err
-		}
-	}
-
-	for i := range group {
 		if !commonutil.ServiceDeployed(group[i].ServiceName, product.ServiceDeployStrategy) {
 			// services are only imported, we do not deploy them again, but we need to fetch the images
 			containers, err := fetchWorkloadImages(group[i], product, kubeClient)

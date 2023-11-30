@@ -328,3 +328,7 @@ func (p *Product) GetChartDeployRenderMap() map[string]*templatemodels.ServiceRe
 	}
 	return serviceRenderMap
 }
+
+func (p *Product) String() string {
+	return fmt.Sprintf("%s/%s/%v", p.ProductName, p.EnvName, p.Production)
+}
