@@ -1949,10 +1949,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	default:
 		go func() {
 			var err error
-			err = commonrepo.NewProductColl().Delete(envName, productName)
-			if err != nil {
-				log.Errorf("Product.Delete error: %v", err)
-			}
+
 			defer func() {
 				if err != nil {
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
@@ -1965,22 +1962,33 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				}
 			}()
 			if productInfo.Production {
+				err = commonrepo.NewProductColl().Delete(envName, productName)
+				if err != nil {
+					log.Errorf("Product.Delete error: %v", err)
+				}
 				return
 			}
 			if isDelete {
-				// Delete Cluster level resources
-				err = commonservice.DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
-				if err != nil {
-					err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-					return
-				}
 
-				// Delete the namespace-scope resources
-				err = commonservice.DeleteNamespacedResource(productInfo.Namespace, labels.Set{setting.ProductLabel: productName}.AsSelector(), productInfo.ClusterID, log)
-				if err != nil {
-					err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-					return
+				svcNames := make([]string, 0)
+				for svcName := range productInfo.GetServiceMap() {
+					svcNames = append(svcNames, svcName)
 				}
+				DeleteProductServices("", requestID, envName, productName, svcNames, false, log)
+
+				//// Delete Cluster level resources
+				//err = commonservice.DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
+				//if err != nil {
+				//	err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
+				//	return
+				//}
+				//
+				//// Delete the namespace-scope resources
+				//err = commonservice.DeleteNamespacedResource(productInfo.Namespace, labels.Set{setting.ProductLabel: productName}.AsSelector(), productInfo.ClusterID, log)
+				//if err != nil {
+				//	err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
+				//	return
+				//}
 
 				// Handles environment sharing related operations.
 				err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
@@ -2006,6 +2014,10 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
 					return
 				}
+			}
+			err = commonrepo.NewProductColl().Delete(envName, productName)
+			if err != nil {
+				log.Errorf("Product.Delete error: %v", err)
 			}
 		}()
 	}

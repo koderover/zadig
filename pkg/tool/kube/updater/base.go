@@ -71,6 +71,11 @@ func deleteObjectsWithDefaultOptions(ns string, selector labels.Selector, obj cl
 	return deleteObjects(obj, cl, delOpt)
 }
 
+func DeleteObject(obj client.Object, cl client.Client) error {
+	deletePolicy := metav1.DeletePropagationBackground
+	return util.IgnoreNotFoundError(deleteObject(obj, cl, &client.DeleteOptions{PropagationPolicy: &deletePolicy}))
+}
+
 func createObject(obj client.Object, cl client.Client) error {
 	// always add the last-applied-configuration annotation
 	err := util.CreateApplyAnnotation(obj)
