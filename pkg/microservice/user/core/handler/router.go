@@ -30,7 +30,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	users := router.Group("/users")
 	{
 		users.POST("", user.CreateUser)
-		users.POST("/:uid/password", user.UpdatePassword)
+		users.PUT("/:uid/password", user.UpdatePassword)
 		users.PUT("/:uid", user.UpdateUser)
 		users.PUT("/:uid/personal", user.UpdatePersonalUser)
 		users.PUT("/:uid/setting", user.UpdateUserSetting)
