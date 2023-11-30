@@ -3786,10 +3786,10 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, args
 
 func EnsureProductionNamespace(createArgs []*CreateSingleProductArg) error {
 	for _, arg := range createArgs {
-		namespace, err := ListNamespaceFromCluster(arg.ClusterID)
-		if err != nil {
-			return err
-		}
+		//namespace, err := ListNamespaceFromCluster(arg.ClusterID)
+		//if err != nil {
+		//	return err
+		//}
 
 		// 1. check specified namespace
 		filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
