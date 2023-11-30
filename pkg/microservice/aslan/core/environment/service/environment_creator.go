@@ -22,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/hashicorp/go-multierror"
@@ -208,18 +206,6 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *ProductC
 		if err := commonrepo.NewProductColl().UpdateStatusAndError(args.EnvName, args.ProductName, setting.ProductStatusFailed, err.Error()); err != nil {
 			log.Errorf("helmInitEnvConfigSet [%s][P:%s] Product.UpdateStatus error: %s", args.EnvName, args.ProductName, err)
 		}
-	}
-
-	// check if release is installed in other envs
-	releases := sets.NewString()
-	for _, svcGroup := range args.Product.Services {
-		for _, svc := range svcGroup {
-			releases.Insert(svc.ReleaseName)
-		}
-	}
-	err = kube.CheckReleaseInstalledByOtherEnv(releases, args.Product)
-	if err != nil {
-		return err
 	}
 
 	go installProductHelmCharts(user, requestID, args.Product, nil, time.Now().Unix(), helmClient, kubeClient, istioClient, log)

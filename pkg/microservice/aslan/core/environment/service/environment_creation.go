@@ -19,6 +19,9 @@ package service
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 
@@ -117,6 +120,18 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 		serviceGroup = append(serviceGroup, servicesResp)
 	}
 	productObj.Services = serviceGroup
+
+	// check if release is installed in other envs
+	releases := sets.NewString()
+	for _, svcGroup := range productObj.Services {
+		for _, svc := range svcGroup {
+			releases.Insert(svc.ReleaseName)
+		}
+	}
+	err = kube.CheckReleaseInstalledByOtherEnv(releases, productObj)
+	if err != nil {
+		return err
+	}
 
 	productObj.DefaultValues = arg.DefaultValues
 	productObj.YamlData = geneYamlData(arg.ValuesData)
