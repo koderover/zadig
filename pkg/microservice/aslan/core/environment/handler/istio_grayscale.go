@@ -111,6 +111,15 @@ func EnableIstioGrayscale(c *gin.Context) {
 	ctx.Err = service.EnableIstioGrayscale(c, envName, projectKey)
 }
 
+// @Summary Disable Istio Grayscale
+// @Description Disable Istio Grayscale
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName	query		string									true	"project name"
+// @Param 	name 		path		string									true	"env name"
+// @Success 200
+// @Router /api/aslan/environment/production/environments/{name}/istioGrayscale/enable [delete]
 func DisableIstioGrayscale(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -144,7 +153,7 @@ func DisableIstioGrayscale(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.DisableBaseEnv(c, envName, projectKey)
+	ctx.Err = service.DisableIstioGrayscale(c, envName, projectKey)
 }
 
 // @Summary Check Istio Grayscale Ready

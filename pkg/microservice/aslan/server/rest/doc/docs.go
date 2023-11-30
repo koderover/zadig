@@ -2236,6 +2236,40 @@ const docTemplate = `{
                         "description": "OK"
                     }
                 }
+            },
+            "delete": {
+                "description": "Disable Istio Grayscale",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Disable Istio Grayscale",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
             }
         },
         "/api/aslan/environment/production/environments/{name}/istioGrayscale/portal/{serviceName}": {

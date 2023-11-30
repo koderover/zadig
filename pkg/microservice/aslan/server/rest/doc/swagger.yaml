@@ -4045,6 +4045,29 @@ paths:
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/istioGrayscale/enable:
+    delete:
+      consumes:
+      - application/json
+      description: Disable Istio Grayscale
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Disable Istio Grayscale
+      tags:
+      - environment
     post:
       consumes:
       - application/json

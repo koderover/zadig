@@ -417,11 +417,13 @@ func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Prod
 		envMap[curEnv.EnvName] = curEnv
 		envMap[baseEnv.EnvName] = baseEnv
 
+		log.Debugf("add gray vs")
 		// 1. Create VirtualService in the gray environment.
 		err = ensureGrayscaleVirtualService(ctx, kclient, istioClient, curEnv, envMap, baseEnv.IstioGrayscale, svc, vsName)
 		if err != nil {
 			return fmt.Errorf("failed to ensure VirtualService %s in gray env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc.Name, err)
 		}
+		log.Debugf("update base vs")
 		// 2. Updated the VirtualService configuration in the base environment.
 		err = ensureGrayscaleVirtualService(ctx, kclient, istioClient, baseEnv, envMap, baseEnv.IstioGrayscale, svc, vsName)
 		if err != nil {
@@ -432,7 +434,7 @@ func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Prod
 	}
 }
 
-func ensureDeleteGrayscaleService(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
+func EnsureDeleteGrayscaleService(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
 	vsName := genVirtualServiceName(svc)
 
 	// Delete VirtualService in the current environment.
@@ -466,8 +468,6 @@ func ensureGrayscaleVirtualService(ctx context.Context, kclient client.Client, i
 	}
 	if err == nil {
 		isExisted = true
-		// log.Infof("Has found VirtualService `%s` in ns `%s` and don't recreate.", vsName, curEnv.Namespace)
-		// return nil
 	}
 
 	if istioGrayscaleConfig.GrayscaleStrategy == commonmodels.GrayscaleStrategyWeight {
@@ -480,7 +480,7 @@ func ensureGrayscaleVirtualService(ctx context.Context, kclient client.Client, i
 		baseNs := envMap[baseEnvName].Namespace
 		vsObj, err = generateGrayscaleHeaderMatchVirtualService(ctx, envMap, vsName, curEnv.Namespace, baseNs, istioGrayscaleConfig.HeaderMatchConfigs, true, svc, kclient, vsObj)
 	} else {
-		return fmt.Errorf("unsupported grayscale strategy type: %s", istioGrayscaleConfig.GrayscaleStrategy)
+		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("failed to generate VirtualService `%s` in ns `%s` for service %s: %s", vsName, curEnv.Namespace, svc.Name, err)

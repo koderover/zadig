@@ -22,6 +22,7 @@ import (
 
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -32,6 +33,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/boolptr"
 )
 
@@ -85,7 +87,6 @@ func EnableIstioGrayscale(ctx context.Context, envName, productName string) erro
 	return commonutil.EnsureIstioGrayConfig(ctx, prod)
 }
 
-// @todo disable istio grayscale
 func DisableIstioGrayscale(ctx context.Context, envName, productName string) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
@@ -114,10 +115,10 @@ func DisableIstioGrayscale(ctx context.Context, envName, productName string) err
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}
 
-	// 1. Delete all associated subenvironments.
-	err = ensureDeleteAssociatedEnvs(ctx, prod)
+	// 1. Delete all associated gray environments.
+	err = ensureDeleteGrayscaleAssociatedEnvs(ctx, prod, kclient, istioClient)
 	if err != nil {
-		return fmt.Errorf("failed to delete associated subenvironments of base ns `%s`: %s", ns, err)
+		return fmt.Errorf("failed to delete associated gray environments of base ns `%s`: %s", ns, err)
 	}
 
 	// 2. Delete EnvoyFilter in the namespace of Istio installation.
@@ -151,7 +152,7 @@ func DisableIstioGrayscale(ctx context.Context, envName, productName string) err
 	}
 
 	// 7. Update the environment configuration.
-	return ensureDisableBaseEnvConfig(ctx, prod)
+	return ensureDisableGrayscaleEnvConfig(ctx, prod)
 }
 
 func CheckIstioGrayscaleReady(ctx context.Context, envName, op, productName string) (*IstioGrayscaleReady, error) {
@@ -407,4 +408,35 @@ func SetupIstioGrayscalePortalService(ctx context.Context, productName, envName,
 	}
 
 	return nil
+}
+
+func ensureDeleteGrayscaleAssociatedEnvs(ctx context.Context, baseProduct *commonmodels.Product, kclient client.Client, istioClient *versionedclient.Clientset) error {
+	envs, err := commonutil.FetchGrayEnvs(ctx, baseProduct.ProductName, baseProduct.ClusterID, baseProduct.EnvName)
+	if err != nil {
+		return fmt.Errorf("failed to list gray environments of %s/%s, err: %w", baseProduct.ProductName, baseProduct.EnvName, err)
+	}
+	logger := log.SugaredLogger()
+	for _, env := range envs {
+		err := DeleteProductionProduct("system", env.EnvName, env.ProductName, "", logger)
+		if err != nil {
+			err = fmt.Errorf("failed to delete gray environment %s/%s, err: %w", env.ProductName, env.EnvName, err)
+			log.Error(err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ensureDisableGrayscaleEnvConfig(ctx context.Context, baseEnv *commonmodels.Product) error {
+	if !baseEnv.IstioGrayscale.Enable && !baseEnv.IstioGrayscale.IsBase {
+		return nil
+	}
+
+	baseEnv.IstioGrayscale = commonmodels.IstioGrayscale{
+		Enable: false,
+		IsBase: false,
+	}
+
+	return commonrepo.NewProductColl().Update(baseEnv)
 }

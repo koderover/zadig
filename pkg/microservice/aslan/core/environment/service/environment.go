@@ -1773,9 +1773,14 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 
 func DeleteProduct(username, envName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) (err error) {
 	eventStart := time.Now().Unix()
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(false)})
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: util.GetBoolPointer(false),
+	})
 	if err != nil {
-		log.Errorf("find product error: %v", err)
+		err = fmt.Errorf("find product error: %v", err)
+		log.Error(err)
 		return err
 	}
 
@@ -2102,6 +2107,7 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 			continue
 		}
 
+		log.Debugf("delete vs for service %s", name)
 		selector := labels.Set{setting.ProductLabel: productInfo.ProductName, setting.ServiceLabel: name}.AsSelector()
 		err = EnsureDeleteZadigService(ctx, productInfo, selector, kclient, istioClient)
 		if err != nil {

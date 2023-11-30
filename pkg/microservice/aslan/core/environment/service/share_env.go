@@ -1273,7 +1273,7 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 }
 
 func EnsureDeleteZadigService(ctx context.Context, env *commonmodels.Product, svcSelector labels.Selector, kclient client.Client, istioClient versionedclient.Interface) error {
-	if !env.ShareEnv.Enable {
+	if !env.ShareEnv.Enable && !env.IstioGrayscale.Enable {
 		return nil
 	}
 
@@ -1291,7 +1291,12 @@ func EnsureDeleteZadigService(ctx context.Context, env *commonmodels.Product, sv
 	}
 	svc := &svcList.Items[0]
 
-	return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
+	if env.ShareEnv.Enable {
+		return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
+	} else if env.IstioGrayscale.Enable {
+		return kube.EnsureDeleteGrayscaleService(ctx, env, svc, kclient, istioClient)
+	}
+	return nil
 }
 
 func GetEnvServiceList(ctx context.Context, productName, baseEnvName string) ([][]string, error) {
