@@ -34,7 +34,7 @@ func (c *CronClient) UpsertTestScheduler(log *zap.SugaredLogger) {
 		return
 	}
 
-	log.Info("start init test scheduler..")
+	log.Info("start init test scheduler.., test count: %v", len(tests))
 	for _, test := range tests {
 		log.Infof("deal testing data, name:%s, schedule:%v", test.Name, test.Schedules)
 		key := "test-timer-" + test.Name
