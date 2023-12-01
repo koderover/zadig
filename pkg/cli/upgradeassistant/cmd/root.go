@@ -47,7 +47,7 @@ func init() {
 	_ = viper.BindPFlag(setting.ENVMongoDBConnectionString, rootCmd.PersistentFlags().Lookup("connection-string"))
 	_ = viper.BindPFlag(setting.ENVAslanDBName, rootCmd.PersistentFlags().Lookup("database"))
 
-	//initMysql()
+	initMysql()
 }
 
 func initConfig() {

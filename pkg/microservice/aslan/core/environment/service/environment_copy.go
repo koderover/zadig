@@ -296,15 +296,11 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 			templateProduct.ChartInfos = append(templateProduct.ChartInfos, chart)
 		}
 	}
-	log.Infof("------ product info: %s/%s production: %v", productInfo.ProductName, productInfo.Namespace, productInfo.Production)
-
 	// fill services and chart infos of product
 	err := prepareHelmProductCreation(templateProduct, productInfo, arg, serviceTmplMap, log)
 	if err != nil {
 		return err
 	}
-
-	log.Infof("------ after prepare product info: %s/%s production: %v", productInfo.ProductName, productInfo.Namespace, productInfo.Production)
 
 	return CreateProduct(userName, requestID, &ProductCreateArg{productInfo, nil}, log)
 }

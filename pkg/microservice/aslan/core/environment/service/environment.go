@@ -760,7 +760,6 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 		return svcNameSet.Has(svc.ServiceName)
 	}
 
-	// check
 	releases := sets.NewString()
 	for _, svc := range productResp.GetSvcList() {
 		if filter(svc) {
@@ -1975,20 +1974,6 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					svcNames = append(svcNames, svcName)
 				}
 				DeleteProductServices("", requestID, envName, productName, svcNames, false, log)
-
-				//// Delete Cluster level resources
-				//err = commonservice.DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
-				//if err != nil {
-				//	err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-				//	return
-				//}
-				//
-				//// Delete the namespace-scope resources
-				//err = commonservice.DeleteNamespacedResource(productInfo.Namespace, labels.Set{setting.ProductLabel: productName}.AsSelector(), productInfo.ClusterID, log)
-				//if err != nil {
-				//	err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-				//	return
-				//}
 
 				// Handles environment sharing related operations.
 				err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
@@ -3810,52 +3795,11 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, args
 
 func EnsureProductionNamespace(createArgs []*CreateSingleProductArg) error {
 	for _, arg := range createArgs {
-		//namespace, err := ListNamespaceFromCluster(arg.ClusterID)
-		//if err != nil {
-		//	return err
-		//}
-
 		// 1. check specified namespace
 		filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
 		if filterK8sNamespaces.Has(arg.Namespace) {
 			return fmt.Errorf("namespace %s is invalid, production environment namespace cannot be set to these three namespaces: kube-node-lease, kube-public, kube-system", arg.Namespace)
 		}
-
-		//// 2. check existed namespace
-		//nsList, err := mongodb.NewProductColl().ListExistedNamespace(arg.ClusterID)
-		//if err != nil {
-		//	return err
-		//}
-		//filterK8sNamespaces.Insert(nsList...)
-		//if filterK8sNamespaces.Has(arg.Namespace) {
-		//	return fmt.Errorf("namespace %s is invalid, it has been used for other test environment or host project", arg.Namespace)
-		//}
-		//
-		//// 3. check production namespace
-		//productionEnvs, err := mongodb.NewProductColl().ListProductionNamespace(arg.ClusterID)
-		//if err != nil {
-		//	return err
-		//}
-		//filterK8sNamespaces.Insert(productionEnvs...)
-		//if filterK8sNamespaces.Has(arg.Namespace) {
-		//	return fmt.Errorf("namespace %s is invalid, it has been used for other production environment", arg.Namespace)
-		//}
-		//
-		//// 4. check namespace created by koderover
-		//for _, ns := range namespace {
-		//	if ns.Name == arg.Namespace {
-		//		if value, IsExist := ns.Labels[setting.EnvCreatedBy]; IsExist {
-		//			if value == setting.EnvCreator {
-		//				return fmt.Errorf("namespace %s is invalid, namespace created by koderover cannot be used", arg.Namespace)
-		//			}
-		//		}
-		//		return nil
-		//	}
-		//}
-
-		//5. arg.namespace is not in valid namespace list
-		//return fmt.Errorf("namespace %s does not belong to legal namespace", arg.Namespace)
-		return nil
 	}
 	return nil
 }

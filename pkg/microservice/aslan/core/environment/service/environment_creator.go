@@ -174,8 +174,6 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *ProductC
 		return e.ErrCreateEnv.AddErr(err)
 	}
 
-	log.Infof("------- product info: %s/%s production %v", args.Product.ProductName, args.Product.EnvName, args.Production)
-
 	if err = preCreateProduct(args.EnvName, args.Product, kubeClient, log); err != nil {
 		log.Errorf("CreateProduct preCreateProduct error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
@@ -195,8 +193,6 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *ProductC
 	if args.IsForkedProduct {
 		args.RecycleDay = 7
 	}
-
-	log.Infof("------- before insert product info: %s/%s production %v", args.Product.ProductName, args.Product.EnvName, args.Production)
 
 	err = commonrepo.NewProductColl().Create(args.Product)
 	if err != nil {

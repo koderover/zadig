@@ -22,10 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
-	//"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -37,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
@@ -364,13 +361,11 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 	resSet := sets.NewString()
 	resources := UnstructuredToResources(unstructuredRes)
 
-	log.Infof("------ checkResourceAppliedByOtherEnv %s/%s, clusterID: %s, namespace: %s ", productInfo.ProductName, productInfo.EnvName, productInfo.ClusterID, productInfo.Namespace)
+	log.Infof("checkResourceAppliedByOtherEnv %s/%s, clusterID: %s, namespace: %s ", productInfo.ProductName, productInfo.EnvName, productInfo.ClusterID, productInfo.Namespace)
 
 	for _, res := range resources {
 		resSet.Insert(res.String())
 	}
-
-	log.Infof("-------- resSet %v", resSet.List())
 
 	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
@@ -378,10 +373,7 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 		return err
 	}
 
-	log.Infof("------- count of envs with same namespace %d", len(envs))
-
 	for _, env := range envs {
-		log.Infof("----- checking env: %s/%s", env.ProductName, env.EnvName)
 		for _, svc := range env.GetServiceMap() {
 			if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName && svc.ServiceName == serviceName {
 				continue

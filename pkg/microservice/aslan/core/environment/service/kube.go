@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -50,6 +48,7 @@ import (
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
@@ -219,21 +218,6 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 	}
 
 	filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
-	//if listType == setting.ListNamespaceTypeCreate {
-	//	nsList, err := commonrepo.NewProductColl().ListExistedNamespace(clusterID)
-	//	if err != nil {
-	//		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
-	//		return nil, err
-	//	}
-	//	filterK8sNamespaces.Insert(nsList...)
-	//}
-
-	//productionEnvs, err := commonrepo.NewProductColl().ListProductionNamespace(clusterID)
-	//if err != nil {
-	//	log.Errorf("Failed to list production namespace from the env List, error: %s", err)
-	//	return nil, err
-	//}
-	//filterK8sNamespaces.Insert(productionEnvs...)
 
 	usedNSList, err := commonrepo.NewProductColl().ListNamespace(clusterID)
 	if err != nil {
@@ -242,14 +226,6 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 	usedNSSet := sets.NewString(usedNSList...)
 
 	filter := func(namespace *corev1.Namespace) bool {
-		//if listType == setting.ListNamespaceTypeALL {
-		//	return true
-		//}
-		//if value, IsExist := namespace.Labels[setting.EnvCreatedBy]; IsExist {
-		//	if value == setting.EnvCreator {
-		//		return false
-		//	}
-		//}
 		if filterK8sNamespaces.Has(namespace.Name) {
 			return false
 		}
@@ -264,29 +240,11 @@ func ListAvailableNamespaces(clusterID, listType string, log *zap.SugaredLogger)
 			Namespace: wrapper.Namespace(namespace).Resource(),
 		}
 		if usedNSSet.Has(namespace.Name) {
-			//nsResource.SharedNSEnvs, err = FindNsUseEnvs(clusterID, namespace.Name, log)
-			//if err != nil {
-			//	log.Errorf("failed to find envs use namespace %s, error: %s", namespace.Name, err)
-			//	return nil, err
-			//}
 			nsResource.Used = true
 		}
 		resp = append(resp, nsResource)
 	}
 	return resp, nil
-}
-
-func ListNamespaceFromCluster(clusterID string) ([]*corev1.Namespace, error) {
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
-	if err != nil {
-		log.Errorf("ListNamespaces clusterID:%s err:%v", clusterID, err)
-		return nil, err
-	}
-	namespaces, err := getter.ListNamespaces(kubeClient)
-	if err != nil {
-		return nil, err
-	}
-	return namespaces, nil
 }
 
 func ListServicePods(productName, envName string, serviceName string, log *zap.SugaredLogger) ([]*resource.Pod, error) {
