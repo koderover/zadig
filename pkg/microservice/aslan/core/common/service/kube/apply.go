@@ -325,7 +325,7 @@ func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *comm
 		return err
 	}
 
-	log.Infof("------- CheckReleaseInstalledByOtherEnv releaseNames : %v", releaseNames.List())
+	log.Infof("------- CheckReleaseInstalledByOtherEnv releaseNames : %v, clusterID: %s, namesapce: %s, envcount: %v", releaseNames.List(), productInfo.ClusterID, productInfo.Namespace, len(envs))
 
 	for _, env := range envs {
 		if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName {
