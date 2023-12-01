@@ -220,7 +220,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 
 		// if not only deploy image, we will redeploy service
 		if !onlyDeployImage(c.jobTaskSpec.DeployContents) {
-			if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, updateRevision); err != nil {
+			if err := c.updateSystemService(env, currentYaml, updatedYaml, c.jobTaskSpec.VariableKVs, revision, containers, updateRevision, c.jobTaskSpec.ServiceName); err != nil {
 				logError(c.job, err.Error(), c.logger)
 				return err
 			}
@@ -265,7 +265,8 @@ func onlyDeployImage(deployContents []config.DeployContent) bool {
 	return slices.Contains(deployContents, config.DeployImage) && len(deployContents) == 1
 }
 
-func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml string, variableKVs []*commontypes.RenderVariableKV, revision int, containers []*commonmodels.Container, updateRevision bool) error {
+func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYaml, updatedYaml string, variableKVs []*commontypes.RenderVariableKV, revision int,
+	containers []*commonmodels.Container, updateRevision bool, serviceName string) error {
 	addZadigLabel := !c.jobTaskSpec.Production
 	if addZadigLabel {
 		if !commonutil.ServiceDeployed(c.jobTaskSpec.ServiceName, env.ServiceDeployStrategy) && !updateRevision &&
@@ -274,7 +275,7 @@ func (c *DeployJobCtl) updateSystemService(env *commonmodels.Product, currentYam
 		}
 	}
 
-	err := kube.CheckResourceAppliedByOtherEnv(updatedYaml, env)
+	err := kube.CheckResourceAppliedByOtherEnv(updatedYaml, env, serviceName)
 	if err != nil {
 		return errors.New(err.Error())
 	}

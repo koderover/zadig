@@ -205,7 +205,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	if previewResult.Current.Yaml == previewResult.Latest.Yaml {
 		k.log.Infof("[%s][P:%s] Service yaml is not changed", args.EnvName, args.ProductName)
 	} else {
-		err = kube.CheckResourceAppliedByOtherEnv(previewResult.Latest.Yaml, prodinfo)
+		err = kube.CheckResourceAppliedByOtherEnv(previewResult.Latest.Yaml, prodinfo, args.ServiceName)
 		if err != nil {
 			return e.ErrUpdateEnv.AddErr(err)
 		}

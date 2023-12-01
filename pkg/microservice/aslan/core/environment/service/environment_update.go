@@ -482,7 +482,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 				return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to render service %s, error: %v", service.ServiceName, err))
 			}
 
-			err = kube.CheckResourceAppliedByOtherEnv(serviceYaml, updateProd)
+			err = kube.CheckResourceAppliedByOtherEnv(serviceYaml, updateProd, service.ServiceName)
 			if err != nil {
 				return e.ErrUpdateEnv.AddErr(err)
 			}

@@ -224,7 +224,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
 
-		err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, env)
+		err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, env, envSvcVersion.Service.ServiceName)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}

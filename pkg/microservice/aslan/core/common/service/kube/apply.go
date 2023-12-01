@@ -350,7 +350,7 @@ func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *comm
 	return fmt.Errorf("release is installed by other envs: %v", strings.Join(usedEnvStr, ","))
 }
 
-func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodels.Product) error {
+func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodels.Product, serviceName string) error {
 	unstructuredRes, err := ManifestToUnstructured(serviceYaml)
 	if err != nil {
 		return fmt.Errorf("failed to convert manifest to resource, error: %v", err)
@@ -381,11 +381,11 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 	log.Infof("------- count of envs with same namespace %d", len(envs))
 
 	for _, env := range envs {
-		if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName {
-			continue
-		}
 		log.Infof("----- checking env: %s/%s", env.ProductName, env.EnvName)
 		for _, svc := range env.GetServiceMap() {
+			if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName && svc.ServiceName == serviceName {
+				continue
+			}
 			for _, res := range svc.Resources {
 				if resSet.Has(res.String()) {
 					insertEnvData(res.String(), env)

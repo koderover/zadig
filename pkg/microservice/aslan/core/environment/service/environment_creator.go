@@ -343,7 +343,7 @@ func (creator *K8sYamlProductCreator) Create(user, requestID string, args *Produ
 		if err != nil {
 			return fmt.Errorf("failed to render env service yaml for service: %s, err: %s", svc.ServiceName, err)
 		}
-		err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, args.Product)
+		err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, args.Product, svc.ServiceName)
 		if err != nil {
 			return e.ErrCreateEnv.AddErr(err)
 		}
