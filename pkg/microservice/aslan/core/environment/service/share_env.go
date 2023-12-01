@@ -1272,24 +1272,19 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 	return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
 }
 
-func EnsureDeleteZadigService(ctx context.Context, env *commonmodels.Product, svcSelector labels.Selector, kclient client.Client, istioClient versionedclient.Interface) error {
+func EnsureDeleteZadigService(ctx context.Context, env *commonmodels.Product, svcName string, kclient client.Client, istioClient versionedclient.Interface) error {
 	if !env.ShareEnv.Enable && !env.IstioGrayscale.Enable {
 		return nil
 	}
 
-	svcList := &corev1.ServiceList{}
-	err := kclient.List(ctx, svcList, &client.ListOptions{
-		Namespace:     env.Namespace,
-		LabelSelector: svcSelector,
-	})
+	svc := &corev1.Service{}
+	err := kclient.Get(ctx, client.ObjectKey{
+		Name:      svcName,
+		Namespace: env.Namespace,
+	}, svc)
 	if err != nil {
-		return util.IgnoreNotFoundError(err)
+		return fmt.Errorf("failed to get Service %s in ns %s, err: %s", svcName, env.Namespace, err)
 	}
-
-	if len(svcList.Items) != 1 {
-		return fmt.Errorf("length of svc list is not expected for env %s of product %s with selector %s. Expected 1 but got %d", env.EnvName, env.ProductName, svcSelector.String(), len(svcList.Items))
-	}
-	svc := &svcList.Items[0]
 
 	if env.ShareEnv.Enable {
 		return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)

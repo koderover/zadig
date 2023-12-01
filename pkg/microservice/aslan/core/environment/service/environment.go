@@ -2107,12 +2107,20 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 			continue
 		}
 
-		log.Debugf("delete vs for service %s", name)
-		selector := labels.Set{setting.ProductLabel: productInfo.ProductName, setting.ServiceLabel: name}.AsSelector()
-		err = EnsureDeleteZadigService(ctx, productInfo, selector, kclient, istioClient)
+		unstructuredList, err := kube.ManifestToUnstructured(serviceRelatedYaml[name])
 		if err != nil {
 			// Only record and do not block subsequent traversals.
-			log.Errorf("Failed to delete Zadig service: %s", err)
+			log.Errorf("failed to convert k8s manifest to unstructured list when deleting service: %s, err: %s", name, err)
+		}
+		for _, unstructured := range unstructuredList {
+			if unstructured.GetKind() == setting.Service {
+				svcName := unstructured.GetName()
+				err = EnsureDeleteZadigService(ctx, productInfo, svcName, kclient, istioClient)
+				if err != nil {
+					// Only record and do not block subsequent traversals.
+					log.Errorf("Failed to delete Zadig service %s, err: %s", svcName, err)
+				}
+			}
 		}
 
 		param := &kube.ResourceApplyParam{
@@ -2135,6 +2143,12 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		if err != nil {
 			log.Errorf("Failed to ensure gray env config: %s", err)
 			return fmt.Errorf("failed to ensure gray env config: %s", err)
+		}
+	} else if productInfo.IstioGrayscale.Enable && !productInfo.IstioGrayscale.IsBase {
+		err = kube.EnsureFullPathGrayScaleConfig(ctx, productInfo, kclient, istioClient)
+		if err != nil {
+			log.Errorf("Failed to ensure full path gray scale config: %s", err)
+			return fmt.Errorf("Failed to ensure full path gray scale config: %s", err)
 		}
 	}
 	return nil

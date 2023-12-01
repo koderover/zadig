@@ -265,8 +265,11 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 		httpRouteDestinations = append(httpRouteDestinations, httpRouteDestination)
 	}
 
+	hosts := sets.NewString(vsObj.Spec.Hosts...)
+	hosts.Insert(svcName)
 	vsObj.Spec = networkingv1alpha3.VirtualService{
-		Hosts: []string{svcName},
+		Gateways: vsObj.Spec.Gateways,
+		Hosts:    hosts.List(),
 		Http: []*networkingv1alpha3.HTTPRoute{
 			{
 				Route: httpRouteDestinations,
@@ -298,7 +301,7 @@ func generateGrayscaleHeaderMatchVirtualService(ctx context.Context, envMap map[
 			// If there is no workloads in this environment, then service is not updated.
 			hasWorkload, err := doesSvcHasWorkload(ctx, envMap[headerMatchConfig.Env].Namespace, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to check if service %s has workload in env %s, err: %s", svcName, envMap[headerMatchConfig.Env].EnvName, err)
 			}
 
 			if !hasWorkload {
@@ -363,9 +366,12 @@ func generateGrayscaleHeaderMatchVirtualService(ctx context.Context, envMap map[
 		}
 	}
 
+	hosts := sets.NewString(vsObj.Spec.Hosts...)
+	hosts.Insert(svcName)
 	vsObj.Spec = networkingv1alpha3.VirtualService{
-		Hosts: []string{svcName},
-		Http:  httpRoutes,
+		Gateways: vsObj.Spec.Gateways,
+		Hosts:    hosts.List(),
+		Http:     httpRoutes,
 	}
 
 	return vsObj, nil
@@ -480,7 +486,7 @@ func ensureGrayscaleVirtualService(ctx context.Context, kclient client.Client, i
 		baseNs := envMap[baseEnvName].Namespace
 		vsObj, err = generateGrayscaleHeaderMatchVirtualService(ctx, envMap, vsName, curEnv.Namespace, baseNs, istioGrayscaleConfig.HeaderMatchConfigs, true, svc, kclient, vsObj)
 	} else {
-		return nil
+		return ensureGrayscaleDefaultVirtualService(ctx, kclient, istioClient, curEnv, svc, vsName)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to generate VirtualService `%s` in ns `%s` for service %s: %s", vsName, curEnv.Namespace, svc.Name, err)
