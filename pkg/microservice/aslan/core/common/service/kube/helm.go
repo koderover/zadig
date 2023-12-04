@@ -221,6 +221,16 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 		replacedMergedValuesYaml string
 	)
 
+	releaseName = productSvc.ReleaseName
+	if productSvc.FromZadig() {
+		releaseName = util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName)
+	}
+
+	err = CheckReleaseInstalledByOtherEnv(sets.NewString(releaseName), product)
+	if err != nil {
+		return err
+	}
+
 	if productSvc.FromZadig() {
 		releaseName = util.GeneReleaseName(svcTemp.GetReleaseNaming(), svcTemp.ProductName, product.Namespace, product.EnvName, svcTemp.ServiceName)
 		replacedMergedValuesYaml, err = GeneMergedValues(productSvc, chartInfo, product.DefaultValues, images, false)

@@ -302,6 +302,10 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 
 	if prod.Source != setting.SourceFromExternal {
 		prodResp.Services = prod.Services
+		prodResp.SharedNSEnvs, err = FindNsUseEnvs(prod, log)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if prod.Status == setting.ProductStatusCreating {

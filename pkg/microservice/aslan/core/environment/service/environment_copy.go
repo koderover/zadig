@@ -240,7 +240,7 @@ func CopyHelmProduct(productName, userName, requestID string, args []*CreateSing
 	for _, arg := range args {
 		baseProduct, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 			Name:    productName,
-			EnvName: arg.BaseName,
+			EnvName: arg.BaseEnvName,
 		})
 		if err != nil {
 			errList = multierror.Append(errList, fmt.Errorf("failed to query base product info name :%s,envname:%s", productName, arg.BaseName))
@@ -296,11 +296,11 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productInfo 
 			templateProduct.ChartInfos = append(templateProduct.ChartInfos, chart)
 		}
 	}
-
 	// fill services and chart infos of product
 	err := prepareHelmProductCreation(templateProduct, productInfo, arg, serviceTmplMap, log)
 	if err != nil {
 		return err
 	}
+
 	return CreateProduct(userName, requestID, &ProductCreateArg{productInfo, nil}, log)
 }

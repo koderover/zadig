@@ -19,6 +19,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -32,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/informers"
@@ -50,6 +52,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type SharedEnvHandler func(context.Context, *commonmodels.Product, string, client.Client, versionedclient.Interface) error
@@ -271,6 +274,25 @@ func removeResources(currentItems, newItems []*unstructured.Unstructured, namesp
 	return errList.ErrorOrNil()
 }
 
+func ManifestToResource(manifest string) ([]*commonmodels.ServiceResource, error) {
+	unstructuredList, err := ManifestToUnstructured(manifest)
+	if err != nil {
+		return nil, err
+	}
+	return UnstructuredToResources(unstructuredList), nil
+}
+
+func UnstructuredToResources(unstructured []*unstructured.Unstructured) []*commonmodels.ServiceResource {
+	ret := make([]*commonmodels.ServiceResource, 0)
+	for _, res := range unstructured {
+		ret = append(ret, &commonmodels.ServiceResource{
+			GroupVersionKind: res.GroupVersionKind(),
+			Name:             res.GetName(),
+		})
+	}
+	return ret
+}
+
 func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, error) {
 	if len(manifest) == 0 {
 		return nil, nil
@@ -287,6 +309,93 @@ func ManifestToUnstructured(manifest string) ([]*unstructured.Unstructured, erro
 		resources = append(resources, u)
 	}
 	return resources, errList.ErrorOrNil()
+}
+
+func CheckReleaseInstalledByOtherEnv(releaseNames sets.String, productInfo *commonmodels.Product) error {
+	sharedNSEnvList := make(map[string]*commonmodels.Product)
+	insertEnvData := func(release string, env *commonmodels.Product) {
+		sharedNSEnvList[release] = env
+	}
+	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
+	if err != nil {
+		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
+		return err
+	}
+
+	log.Infof("------- CheckReleaseInstalledByOtherEnv releaseNames : %v, clusterID: %s, namesapce: %s, envcount: %v", releaseNames.List(), productInfo.ClusterID, productInfo.Namespace, len(envs))
+
+	for _, env := range envs {
+		if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName {
+			continue
+		}
+		log.Infof("----- checking env: %s/%s", env.ProductName, env.EnvName)
+		for _, svc := range env.GetSvcList() {
+			if releaseNames.Has(svc.ReleaseName) {
+				insertEnvData(svc.ReleaseName, env)
+				break
+			}
+		}
+	}
+
+	if len(sharedNSEnvList) == 0 {
+		return nil
+	}
+	usedEnvStr := make([]string, 0)
+	for releasename, env := range sharedNSEnvList {
+		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s: %s/%s", releasename, env.ProductName, env.EnvName))
+	}
+	return fmt.Errorf("release is installed by other envs: %v", strings.Join(usedEnvStr, ","))
+}
+
+func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodels.Product, serviceName string) error {
+	unstructuredRes, err := ManifestToUnstructured(serviceYaml)
+	if err != nil {
+		return fmt.Errorf("failed to convert manifest to resource, error: %v", err)
+	}
+
+	sharedNSEnvList := make(map[string]*commonmodels.Product)
+	insertEnvData := func(resource string, env *commonmodels.Product) {
+		sharedNSEnvList[resource] = env
+	}
+
+	resSet := sets.NewString()
+	resources := UnstructuredToResources(unstructuredRes)
+
+	log.Infof("checkResourceAppliedByOtherEnv %s/%s, clusterID: %s, namespace: %s ", productInfo.ProductName, productInfo.EnvName, productInfo.ClusterID, productInfo.Namespace)
+
+	for _, res := range resources {
+		resSet.Insert(res.String())
+	}
+
+	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
+	if err != nil {
+		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
+		return err
+	}
+
+	for _, env := range envs {
+		for _, svc := range env.GetServiceMap() {
+			if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName && svc.ServiceName == serviceName {
+				continue
+			}
+			for _, res := range svc.Resources {
+				if resSet.Has(res.String()) {
+					insertEnvData(res.String(), env)
+					break
+				}
+			}
+		}
+	}
+
+	if len(sharedNSEnvList) == 0 {
+		return nil
+	}
+
+	usedEnvStr := make([]string, 0)
+	for resource, env := range sharedNSEnvList {
+		usedEnvStr = append(usedEnvStr, fmt.Sprintf("%s: %s/%s", resource, env.ProductName, env.EnvName))
+	}
+	return fmt.Errorf("resource is applied by other envs: %v", strings.Join(usedEnvStr, ","))
 }
 
 // CreateOrPatchResource create or patch resources defined in UpdateResourceYaml
@@ -593,7 +702,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	}
 
 	if errList.ErrorOrNil() != nil {
-		return nil, errList.ErrorOrNil()
+		return res, errList.ErrorOrNil()
 	}
 
 	return res, nil

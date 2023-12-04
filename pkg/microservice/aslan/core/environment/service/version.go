@@ -224,6 +224,11 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}
 
+		err = kube.CheckResourceAppliedByOtherEnv(parsedYaml, env, envSvcVersion.Service.ServiceName)
+		if err != nil {
+			return e.ErrRollbackEnvServiceVersion.AddErr(err)
+		}
+
 		resourceApplyParam := &kube.ResourceApplyParam{
 			ProductInfo:         env,
 			ServiceName:         envSvcVersion.Service.ServiceName,
@@ -238,7 +243,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			SharedEnvHandler:    EnsureUpdateZadigService,
 		}
 
-		_, err = kube.CreateOrPatchResource(resourceApplyParam, log)
+		unstructuredList, err := kube.CreateOrPatchResource(resourceApplyParam, log)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to create or patch resource for env %s, service %s, revision %d, error: %v", envSvcVersion.EnvName, envSvcVersion.Service.ServiceName, envSvcVersion.Service.Revision, err))
 		}
@@ -263,7 +268,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 				if svc.ServiceName == envSvcVersion.Service.ServiceName {
 					svcIndex = j
 					groupIndex = i
-
+					svc.Resources = kube.UnstructuredToResources(unstructuredList)
 					for _, kv := range envSvcVersion.Service.GetServiceRender().OverrideYaml.RenderVariableKVs {
 						kv.UseGlobalVariable = false
 					}

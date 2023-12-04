@@ -140,11 +140,6 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 		return nil
 	}
 
-	if err = kube.UninstallService(helmClient, productInfo, prodSvcTemp, true); err != nil {
-		err = fmt.Errorf("helm uninstall service: %s in namespace: %s, err: %s", serviceName, productInfo.Namespace, err)
-		return
-	}
-
 	err = updateServiceRevisionInProduct(productInfo, templateSvc.ServiceName, templateSvc.Revision)
 	if err != nil {
 		return
@@ -153,6 +148,17 @@ func reInstallHelmServiceInEnv(productInfo *commonmodels.Product, templateSvc *c
 	param, errBuildParam := buildInstallParam(productInfo.DefaultValues, productInfo, renderChart, productSvc)
 	if errBuildParam != nil {
 		err = fmt.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", templateSvc.ServiceName, productInfo.Namespace, errBuildParam)
+		return
+	}
+	productSvc.ReleaseName = param.ReleaseName
+
+	err = kube.CheckReleaseInstalledByOtherEnv(sets.NewString(param.ReleaseName), productInfo)
+	if err != nil {
+		return err
+	}
+
+	if err = kube.UninstallService(helmClient, productInfo, prodSvcTemp, true); err != nil {
+		err = fmt.Errorf("helm uninstall service: %s in namespace: %s, err: %s", serviceName, productInfo.Namespace, err)
 		return
 	}
 
@@ -378,6 +384,11 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	updateProd.GlobalVariables = exitedProd.GlobalVariables
 	updateProd.DefaultValues = exitedProd.DefaultValues
 	updateProd.YamlData = exitedProd.YamlData
+	updateProd.ClusterID = exitedProd.ClusterID
+	updateProd.Namespace = exitedProd.Namespace
+	updateProd.EnvName = envName
+
+	svcsToBeAdd := sets.NewString()
 
 	// build services
 	productSvcs := exitedProd.GetServiceMap()
@@ -398,6 +409,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			} else if util.InStringArray(svc.ServiceName, updateRevisionSvc) {
 				// services to be added
 				validSvcGroup = append(validSvcGroup, svc)
+				svcsToBeAdd.Insert(svc.ServiceName)
 			}
 		}
 		svcGroups = append(svcGroups, validSvcGroup)
@@ -464,10 +476,15 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 			}
 
 			// render check
-			_, err := kube.RenderEnvService(updateProd, service.GetServiceRender(), service)
+			serviceYaml, err := kube.RenderEnvService(updateProd, service.GetServiceRender(), service)
 			if err != nil {
 				log.Errorf("Failed to run render check, service %s, error: %v", service.ServiceName, err)
 				return e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to render service %s, error: %v", service.ServiceName, err))
+			}
+
+			err = kube.CheckResourceAppliedByOtherEnv(serviceYaml, updateProd, service.ServiceName)
+			if err != nil {
+				return e.ErrUpdateEnv.AddErr(err)
 			}
 		}
 	}

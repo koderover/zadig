@@ -17,7 +17,10 @@ limitations under the License.
 package models
 
 import (
+	"fmt"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -146,6 +149,15 @@ type RenderInfo struct {
 	Description string `bson:"description"              json:"description"`
 }
 
+type ServiceResource struct {
+	schema.GroupVersionKind
+	Name string
+}
+
+func (r *ServiceResource) String() string {
+	return fmt.Sprintf("%s/%s", r.GroupVersionKind.String(), r.Name)
+}
+
 type ProductService struct {
 	ServiceName string                        `bson:"service_name"               json:"service_name"`
 	ReleaseName string                        `bson:"release_name"               json:"release_name"`
@@ -154,6 +166,7 @@ type ProductService struct {
 	Revision    int64                         `bson:"revision"                   json:"revision"`
 	Containers  []*Container                  `bson:"containers"                 json:"containers,omitempty"`
 	Error       string                        `bson:"error,omitempty"            json:"error,omitempty"`
+	Resources   []*ServiceResource            `bson:"resources,omitempty"             json:"resources,omitempty"`
 	UpdateTime  int64                         `bson:"update_time"                json:"update_time"`
 	Render      *templatemodels.ServiceRender `bson:"render"                     json:"render,omitempty"` // New since 1.9.0 used to replace service renders in render_set
 
@@ -314,4 +327,8 @@ func (p *Product) GetChartDeployRenderMap() map[string]*templatemodels.ServiceRe
 		}
 	}
 	return serviceRenderMap
+}
+
+func (p *Product) String() string {
+	return fmt.Sprintf("%s/%s/%v", p.ProductName, p.EnvName, p.Production)
 }

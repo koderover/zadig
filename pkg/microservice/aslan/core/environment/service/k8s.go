@@ -56,8 +56,8 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
-	zadigtypes "github.com/koderover/zadig/pkg/types"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	zadigtypes "github.com/koderover/zadig/pkg/types"
 )
 
 type K8sService struct {
@@ -103,21 +103,22 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	}
 
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
-	exitedProd, err := commonrepo.NewProductColl().Find(opt)
+	prodinfo, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		k.log.Error(err)
 		return errors.New(e.UpsertServiceErrMsg)
 	}
-	if exitedProd.IsSleeping() {
+	if prodinfo.IsSleeping() {
 		return e.ErrUpdateEnv.AddErr(fmt.Errorf("environment is sleeping"))
 	}
 
-	currentProductSvc := exitedProd.GetServiceMap()[newProductSvc.ServiceName]
+	currentProductSvc := prodinfo.GetServiceMap()[newProductSvc.ServiceName]
 	if currentProductSvc == nil {
-		return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service: %s in env: %s", newProductSvc.ServiceName, exitedProd.EnvName))
+		return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service: %s in env: %s", newProductSvc.ServiceName, prodinfo.EnvName))
 	}
 
 	newProductSvc.Containers = currentProductSvc.Containers
+	newProductSvc.Resources = currentProductSvc.Resources
 
 	if !args.UpdateServiceTmpl {
 		newProductSvc.Revision = currentProductSvc.Revision
@@ -125,7 +126,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		latestSvcRevision, err := repository.QueryTemplateService(&commonrepo.ServiceFindOption{
 			ServiceName: newProductSvc.ServiceName,
 			ProductName: newProductSvc.ProductName,
-		}, exitedProd.Production)
+		}, prodinfo.Production)
 		if err != nil {
 			return e.ErrUpdateService.AddErr(fmt.Errorf("failed to find service, err: %s", err))
 		}
@@ -135,21 +136,21 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 			ServiceName: currentProductSvc.ServiceName,
 			Revision:    currentProductSvc.Revision,
 			ProductName: currentProductSvc.ProductName,
-		}, exitedProd.Production)
+		}, prodinfo.Production)
 		if err != nil {
 			curUsedSvc = nil
 		}
-		newProductSvc.Containers = kube.CalculateContainer(currentProductSvc, curUsedSvc, latestSvcRevision.Containers, exitedProd)
+		newProductSvc.Containers = kube.CalculateContainer(currentProductSvc, curUsedSvc, latestSvcRevision.Containers, prodinfo)
 	}
 
-	switch exitedProd.Status {
+	switch prodinfo.Status {
 	case setting.ProductStatusCreating, setting.ProductStatusUpdating, setting.ProductStatusDeleting:
 		k.log.Errorf("[%s][P:%s] Product is not in valid status", args.EnvName, args.ProductName)
 		return e.ErrUpdateEnv.AddDesc(e.EnvCantUpdatedMsg)
 	}
 
-	curSvcRender := exitedProd.GetSvcRender(args.ServiceName)
-	globalVars := exitedProd.GlobalVariables
+	curSvcRender := prodinfo.GetSvcRender(args.ServiceName)
+	globalVars := prodinfo.GlobalVariables
 
 	globalVars, args.ServiceRev.VariableKVs, err = commontypes.UpdateGlobalVariableKVs(newProductSvc.ServiceName, globalVars, args.ServiceRev.VariableKVs, curSvcRender.OverrideYaml.RenderVariableKVs)
 	if err != nil {
@@ -162,12 +163,12 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	newProductSvc.GetServiceRender().OverrideYaml.RenderVariableKVs = args.ServiceRev.VariableKVs
 	newProductSvc.GetServiceRender().OverrideYaml.YamlContent = args.ServiceRev.VariableYaml
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prodinfo.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), exitedProd.ClusterID)
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), prodinfo.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -177,19 +178,19 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), exitedProd.ClusterID)
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), prodinfo.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
-	inf, err := informer.NewInformer(exitedProd.ClusterID, exitedProd.Namespace, cls)
+	inf, err := informer.NewInformer(prodinfo.ClusterID, prodinfo.Namespace, cls)
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
 
 	// resource will not be applied if service yaml is not changed
 	previewArg := &PreviewServiceArgs{
-		ProductName:           exitedProd.ProductName,
-		EnvName:               exitedProd.EnvName,
+		ProductName:           prodinfo.ProductName,
+		EnvName:               prodinfo.EnvName,
 		ServiceName:           args.ServiceName,
 		UpdateServiceRevision: args.UpdateServiceTmpl,
 		ServiceModules:        args.ServiceRev.Containers,
@@ -204,21 +205,25 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	if previewResult.Current.Yaml == previewResult.Latest.Yaml {
 		k.log.Infof("[%s][P:%s] Service yaml is not changed", args.EnvName, args.ProductName)
 	} else {
-		_, err = upsertService(
-			exitedProd,
+		err = kube.CheckResourceAppliedByOtherEnv(previewResult.Latest.Yaml, prodinfo, args.ServiceName)
+		if err != nil {
+			return e.ErrUpdateEnv.AddErr(err)
+		}
+		items, err := upsertService(
+			prodinfo,
 			newProductSvc,
 			currentProductSvc,
-			!exitedProd.Production, inf, kubeClient, istioClient, k.log)
-
+			!prodinfo.Production, inf, kubeClient, istioClient, k.log)
 		if err != nil {
 			k.log.Error(err)
 			newProductSvc.Error = err.Error()
 			return e.ErrUpdateProduct.AddDesc(err.Error())
 		}
+		newProductSvc.Resources = kube.UnstructuredToResources(items)
 	}
 
 	newProductSvc.Error = ""
-	for _, group := range exitedProd.Services {
+	for _, group := range prodinfo.Services {
 		for i, service := range group {
 			if service.ServiceName == args.ServiceName && service.Type == args.ServiceType {
 				newProductSvc.UpdateTime = time.Now().Unix()
@@ -227,7 +232,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		}
 	}
 
-	exitedProd.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(exitedProd.ServiceDeployStrategy, args.ServiceName)
+	prodinfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(prodinfo.ServiceDeployStrategy, args.ServiceName)
 
 	session := mongotool.Session()
 	defer session.EndSession(context.Background())
@@ -240,19 +245,19 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	productColl := commonrepo.NewProductCollWithSession(session)
 
 	// Note update logic need to be optimized since we only need to update one service
-	if err := productColl.Update(exitedProd); err != nil {
+	if err := productColl.Update(prodinfo); err != nil {
 		k.log.Errorf("[%s][%s] Product.Update error: %v", args.EnvName, args.ProductName, err)
 		session.AbortTransaction(context.Background())
 		return e.ErrUpdateProduct.AddErr(err)
 	}
 
-	if err := productColl.UpdateGlobalVariable(exitedProd); err != nil {
+	if err := productColl.UpdateGlobalVariable(prodinfo); err != nil {
 		k.log.Errorf("[%s][%s] Product.UpdateGlobalVariable error: %v", args.EnvName, args.ProductName, err)
 		session.AbortTransaction(context.Background())
 		return e.ErrUpdateProduct.AddErr(err)
 	}
 
-	if err := commonutil.CreateEnvServiceVersion(exitedProd, newProductSvc, args.UpdateBy, session, k.log); err != nil {
+	if err := commonutil.CreateEnvServiceVersion(prodinfo, newProductSvc, args.UpdateBy, session, k.log); err != nil {
 		k.log.Errorf("[%s][%s] Product.CreateEnvServiceVersion for service %s error: %v", args.EnvName, args.ProductName, args.ServiceName, err)
 	}
 
@@ -685,6 +690,7 @@ func (k *K8sService) createGroup(username string, product *commonmodels.Product,
 				svc.Error = err.Error()
 				lock.Unlock()
 			}
+			svc.Resources = kube.UnstructuredToResources(items)
 
 			err = commonutil.CreateEnvServiceVersion(product, svc, username, nil, k.log)
 			if err != nil {

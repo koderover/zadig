@@ -21,12 +21,14 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -88,6 +90,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 
 			serviceResp := &commonmodels.ProductService{
 				ServiceName: serviceTmpl.ServiceName,
+				ReleaseName: util.GeneReleaseName(serviceTmpl.GetReleaseNaming(), productObj.ProductName, productObj.Namespace, productObj.EnvName, serviceName),
 				ProductName: serviceTmpl.ProductName,
 				Type:        serviceTmpl.Type,
 				Revision:    serviceTmpl.Revision,
@@ -116,6 +119,18 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 		serviceGroup = append(serviceGroup, servicesResp)
 	}
 	productObj.Services = serviceGroup
+
+	// check if release is installed in other envs
+	releases := sets.NewString()
+	for _, svcGroup := range productObj.Services {
+		for _, svc := range svcGroup {
+			releases.Insert(svc.ReleaseName)
+		}
+	}
+	err = kube.CheckReleaseInstalledByOtherEnv(releases, productObj)
+	if err != nil {
+		return err
+	}
 
 	productObj.DefaultValues = arg.DefaultValues
 	productObj.YamlData = geneYamlData(arg.ValuesData)
