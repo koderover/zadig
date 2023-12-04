@@ -214,7 +214,6 @@ func (j *NacosJob) LintJob() error {
 func transNacosDatas(confs []*types.NacosConfig) []*commonmodels.NacosData {
 	resp := []*commonmodels.NacosData{}
 	for _, conf := range confs {
-		fmt.Printf("original data: %s\n", conf.OriginalContent)
 		resp = append(resp, &commonmodels.NacosData{
 			NacosConfig: *conf,
 		})
