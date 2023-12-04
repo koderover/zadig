@@ -103,7 +103,7 @@ type ProductResp struct {
 	ShareEnvBaseEnv string `json:"share_env_base_env"`
 
 	// New Since v2.1.0
-	SharedNSEnvs []*SharedNSEnvs `json:"related_envs",omitempty`
+	SharedNSEnvs []*SharedNSEnvs `json:"related_envs"`
 }
 
 type ProductParams struct {
