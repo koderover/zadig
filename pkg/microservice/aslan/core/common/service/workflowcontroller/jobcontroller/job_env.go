@@ -149,6 +149,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 				ServiceName:  deployInfo.ServiceName,
 				OverrideYaml: &template.CustomYaml{},
 			}
+			productSvc.Render = svcRender
 		}
 
 		// merge render variables and deploy variables
