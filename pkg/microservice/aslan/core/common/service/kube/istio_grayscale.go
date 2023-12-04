@@ -229,6 +229,7 @@ func SetIstioGrayscaleHeaderMatch(ctx context.Context, envMap map[string]*common
 }
 
 func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[string]*commonmodels.Product, vsName, ns string, weightConfigs []commonmodels.IstioWeightConfig, skipWorkloadCheck bool, svc *corev1.Service, kclient client.Client, vsObj *v1alpha3.VirtualService) (*v1alpha3.VirtualService, error) {
+	matchKey := "x-env"
 	svcName := svc.Name
 	vsObj.Name = vsName
 	vsObj.Namespace = ns
@@ -238,17 +239,17 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 	}
 	vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
 
-	httpRouteDestinations := []*networkingv1alpha3.HTTPRouteDestination{}
+	httpRoutes := []*networkingv1alpha3.HTTPRoute{}
 	for _, weightConfig := range weightConfigs {
 		if envMap[weightConfig.Env] == nil {
 			return nil, fmt.Errorf("env %s is not found", weightConfig.Env)
 		}
 
-		if skipWorkloadCheck {
+		if !skipWorkloadCheck {
 			// If there is no workloads in this environment, then service is not updated.
 			hasWorkload, err := doesSvcHasWorkload(ctx, envMap[weightConfig.Env].Namespace, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to check if service %s has workload in env %s, err: %s", svcName, envMap[weightConfig.Env].EnvName, err)
 			}
 
 			if !hasWorkload {
@@ -256,25 +257,72 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 			}
 		}
 
-		httpRouteDestination := &networkingv1alpha3.HTTPRouteDestination{
+		httpRoute := &networkingv1alpha3.HTTPRoute{
+			Match: []*networkingv1alpha3.HTTPMatchRequest{
+				{
+					Headers: map[string]*networkingv1alpha3.StringMatch{
+						matchKey: {
+							MatchType: &networkingv1alpha3.StringMatch_Exact{
+								Exact: weightConfig.Env,
+							},
+						},
+					},
+				},
+			},
+			Route: []*networkingv1alpha3.HTTPRouteDestination{
+				{
+					Destination: &networkingv1alpha3.Destination{
+						Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, envMap[weightConfig.Env].Namespace),
+					},
+				},
+			},
+		}
+		httpRoutes = append(httpRoutes, httpRoute)
+	}
+
+	routes := []*networkingv1alpha3.HTTPRouteDestination{}
+	for _, weightConfig := range weightConfigs {
+		if envMap[weightConfig.Env] == nil {
+			return nil, fmt.Errorf("env %s is not found", weightConfig.Env)
+		}
+
+		if !skipWorkloadCheck {
+			// If there is no workloads in this environment, then service is not updated.
+			hasWorkload, err := doesSvcHasWorkload(ctx, envMap[weightConfig.Env].Namespace, labels.SelectorFromSet(labels.Set(svc.Spec.Selector)), kclient)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check if service %s has workload in env %s, err: %s", svcName, envMap[weightConfig.Env].EnvName, err)
+			}
+
+			if !hasWorkload {
+				continue
+			}
+		}
+
+		route := &networkingv1alpha3.HTTPRouteDestination{
 			Destination: &networkingv1alpha3.Destination{
 				Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, envMap[weightConfig.Env].Namespace),
 			},
 			Weight: weightConfig.Weight,
+			Headers: &networkingv1alpha3.Headers{
+				Request: &networkingv1alpha3.Headers_HeaderOperations{
+					Set: map[string]string{
+						matchKey: weightConfig.Env,
+					},
+				},
+			},
 		}
-		httpRouteDestinations = append(httpRouteDestinations, httpRouteDestination)
+		routes = append(routes, route)
 	}
+	httpRoutes = append(httpRoutes, &networkingv1alpha3.HTTPRoute{
+		Route: routes,
+	})
 
 	hosts := sets.NewString(vsObj.Spec.Hosts...)
 	hosts.Insert(svcName)
 	vsObj.Spec = networkingv1alpha3.VirtualService{
 		Gateways: vsObj.Spec.Gateways,
 		Hosts:    hosts.List(),
-		Http: []*networkingv1alpha3.HTTPRoute{
-			{
-				Route: httpRouteDestinations,
-			},
-		},
+		Http:     httpRoutes,
 	}
 
 	return vsObj, nil
@@ -423,13 +471,11 @@ func ensureUpdateGrayscaleSerivce(ctx context.Context, curEnv *commonmodels.Prod
 		envMap[curEnv.EnvName] = curEnv
 		envMap[baseEnv.EnvName] = baseEnv
 
-		log.Debugf("add gray vs")
 		// 1. Create VirtualService in the gray environment.
 		err = ensureGrayscaleVirtualService(ctx, kclient, istioClient, curEnv, envMap, baseEnv.IstioGrayscale, svc, vsName)
 		if err != nil {
 			return fmt.Errorf("failed to ensure VirtualService %s in gray env `%s` for svc %s, err: %w", vsName, curEnv.EnvName, svc.Name, err)
 		}
-		log.Debugf("update base vs")
 		// 2. Updated the VirtualService configuration in the base environment.
 		err = ensureGrayscaleVirtualService(ctx, kclient, istioClient, baseEnv, envMap, baseEnv.IstioGrayscale, svc, vsName)
 		if err != nil {
@@ -572,39 +618,46 @@ func ensureCleanGrayscaleRouteInBase(ctx context.Context, envName, ns, baseNS, s
 		return nil
 	}
 
-	var needClean bool
-	var location int
-	for i, vsHttp := range baseVS.Spec.Http {
-		if len(vsHttp.Match) == 0 {
-			continue
-		}
-
-		for _, route := range vsHttp.Route {
-			if route.Destination.Host == host {
-				needClean = true
-				break
+	newHttpRoutes := []*networkingv1alpha3.HTTPRoute{}
+	for _, httpRoute := range baseVS.Spec.Http {
+		if len(httpRoute.Match) != 0 {
+			needToClean := false
+			for _, route := range httpRoute.Route {
+				if route.Destination.Host == host {
+					needToClean = true
+					break
+				}
 			}
+			if needToClean {
+				continue
+			}
+			newHttpRoutes = append(newHttpRoutes, httpRoute)
+		} else {
+			weightSum := 0
+			for _, route := range httpRoute.Route {
+				if route.Destination.Host == host {
+					continue
+				}
+				weightSum += int(route.Weight)
+			}
+
+			if weightSum != 100 {
+				baseHost := fmt.Sprintf("%s.%s.svc.cluster.local", svcName, baseNS)
+				httpRoute.Route = []*networkingv1alpha3.HTTPRouteDestination{
+					{
+						Destination: &networkingv1alpha3.Destination{
+							Host: baseHost,
+						},
+					},
+				}
+			}
+			newHttpRoutes = append(newHttpRoutes, httpRoute)
 		}
-
-		if !needClean {
-			continue
-		}
-
-		location = i
-		break
-	}
-
-	if !needClean {
-		return nil
 	}
 
 	log.Infof("Begin to clean route svc %s in base ns %s for VirtualService %s.", svcName, baseNS, vsName)
 
-	httpRoutes := make([]*networkingv1alpha3.HTTPRoute, 0, len(baseVS.Spec.Http)-1)
-	httpRoutes = append(httpRoutes, baseVS.Spec.Http[:location]...)
-	httpRoutes = append(httpRoutes, baseVS.Spec.Http[location+1:]...)
-	baseVS.Spec.Http = httpRoutes
-
+	baseVS.Spec.Http = newHttpRoutes
 	_, err = istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Update(ctx, baseVS, metav1.UpdateOptions{})
 	return err
 }
