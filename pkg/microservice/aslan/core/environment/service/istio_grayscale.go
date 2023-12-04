@@ -78,7 +78,7 @@ func EnableIstioGrayscale(ctx context.Context, envName, productName string) erro
 	}
 
 	// 3. Ensure `EnvoyFilter` in istio namespace.
-	err = ensureEnvoyFilter(ctx, istioClient, clusterID, istioNamespace, zadigEnvoyFilter)
+	err = ensureEnvoyFilter(ctx, istioClient, clusterID, istioNamespace, zadigEnvoyFilter, nil)
 	if err != nil {
 		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", istioNamespace, err)
 	}
@@ -266,6 +266,18 @@ func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, r
 		if err != nil {
 			return fmt.Errorf("failed to set istio grayscale weight, err: %w", err)
 		}
+
+		headerKeys := []string{}
+		for _, headerMatchConfig := range req.HeaderMatchConfigs {
+			for _, headerMatch := range headerMatchConfig.HeaderMatchs {
+				headerKeys = append(headerKeys, headerMatch.Key)
+			}
+		}
+
+		err = reGenerateEnvoyFilter(ctx, baseEnv.ClusterID, headerKeys)
+		if err != nil {
+			return fmt.Errorf("failed to re-generate envoy filter, err: %w", err)
+		}
 	} else {
 		return fmt.Errorf("unsupported grayscale strategy type: %s", req.GrayscaleStrategy)
 	}
@@ -439,4 +451,28 @@ func ensureDisableGrayscaleEnvConfig(ctx context.Context, baseEnv *commonmodels.
 	}
 
 	return commonrepo.NewProductColl().Update(baseEnv)
+}
+
+func reGenerateEnvoyFilter(ctx context.Context, clusterID string, headerKeys []string) error {
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to new istio client: %s", err)
+	}
+
+	err = deleteEnvoyFilter(ctx, istioClient, istioNamespace, zadigEnvoyFilter)
+	if err != nil {
+		return fmt.Errorf("failed to delete EnvoyFilter: %s", err)
+	}
+
+	err = ensureEnvoyFilter(ctx, istioClient, clusterID, istioNamespace, zadigEnvoyFilter, headerKeys)
+	if err != nil {
+		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", istioNamespace, err)
+	}
+
+	return nil
 }

@@ -136,7 +136,7 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 	}
 
 	// 4. Ensure `EnvoyFilter` in istio namespace.
-	err = ensureEnvoyFilter(ctx, istioClient, clusterID, istioNamespace, zadigEnvoyFilter)
+	err = ensureEnvoyFilter(ctx, istioClient, clusterID, istioNamespace, zadigEnvoyFilter, nil)
 	if err != nil {
 		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", istioNamespace, err)
 	}
@@ -576,7 +576,8 @@ func checkVirtualServicesDeployed(ctx context.Context, kclient client.Client, is
 	return true, nil
 }
 
-func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, clusterID, ns, name string) error {
+func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, clusterID, ns, name string, headerKeys []string) error {
+	headerKeySet := sets.NewString(headerKeys...)
 	envoyFilterObj, err := istioClient.NetworkingV1alpha3().EnvoyFilters(ns).Get(ctx, name, metav1.GetOptions{})
 	if err == nil {
 		log.Infof("Has found EnvoyFilter `%s` in ns `%s` and don't recreate.", name, istioNamespace)
@@ -587,12 +588,12 @@ func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interfac
 		return fmt.Errorf("failed to query EnvoyFilter `%s` in ns `%s`: %s", name, istioNamespace, err)
 	}
 
-	storeCacheOperation, err := buildEnvoyStoreCacheOperation()
+	storeCacheOperation, err := buildEnvoyStoreCacheOperation(headerKeySet.List())
 	if err != nil {
 		return fmt.Errorf("failed to build envoy operation of storing cache: %s", err)
 	}
 
-	getCacheOperation, err := buildEnvoyGetCacheOperation()
+	getCacheOperation, err := buildEnvoyGetCacheOperation(headerKeySet.List())
 	if err != nil {
 		return fmt.Errorf("failed to build envoy operation of getting cache: %s", err)
 	}
@@ -680,8 +681,7 @@ func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interfac
 	_, err = istioClient.NetworkingV1alpha3().EnvoyFilters(ns).Create(ctx, envoyFilterObj, metav1.CreateOptions{})
 	return err
 }
-
-func buildEnvoyStoreCacheOperation() (*types.Struct, error) {
+func buildEnvoyStoreCacheOperation1(keys []string) (*types.Struct, error) {
 	inlineCode := `function envoy_on_request(request_handle)
   function split_str(s, delimiter)
     res = {}
@@ -727,7 +727,7 @@ end
 	return buildEnvoyPatchValue(data)
 }
 
-func buildEnvoyGetCacheOperation() (*types.Struct, error) {
+func buildEnvoyGetCacheOperation1(keys []string) (*types.Struct, error) {
 	inlineCode := `function envoy_on_request(request_handle)
   function split_str(s, delimiter)
     res = {}
@@ -763,6 +763,149 @@ func buildEnvoyGetCacheOperation() (*types.Struct, error) {
   request_handle:headers():add("x-env", headers["x-data"]);
 end
 `
+	data := map[string]interface{}{
+		"name": "envoy.lua",
+		"typed_config": map[string]string{
+			"@type":      envoyFilterLua,
+			"inlineCode": inlineCode,
+		},
+	}
+
+	return buildEnvoyPatchValue(data)
+}
+
+func buildEnvoyStoreCacheOperation(headerKeys []string) (*types.Struct, error) {
+	inlineCodeStart := `function envoy_on_request(request_handle)
+  function split_str(s, delimiter)
+    res = {}
+    for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+      table.insert(res, match)
+    end
+
+    return res
+  end
+
+  local traceid = request_handle:headers():get("sw8")
+  if traceid then
+    arr = split_str(traceid, "-")
+    traceid = arr[2]
+  else
+    traceid = request_handle:headers():get("x-request-id")
+    if not traceid then
+      traceid = request_handle:headers():get("x-b3-traceid")
+    end
+  end
+
+  local env = request_handle:headers():get("x-env")
+  local headers, body = request_handle:httpCall(
+    "cache",
+    {
+      [":method"] = "POST",
+      [":path"] = string.format("/api/cache/%s/%s", traceid, env),
+      [":authority"] = "cache",
+    },
+    "",
+    5000
+  )
+`
+	inlineCodeMid := ``
+	for _, headerKey := range headerKeys {
+		tmpInlineCodeMid := `
+  local header_key = "%s"
+  local key = traceid .. "-" .. header_key
+  local value = request_handle:headers():get(header_key)
+  local headers, body = request_handle:httpCall(
+    "cache",
+    {
+      [":method"] = "POST",
+      [":path"] = string.format("/api/cache/%%s/%%s", key, value),
+      [":authority"] = "cache",
+    },
+    "",
+    5000
+  )
+	`
+		tmpInlineCodeMid = fmt.Sprintf(tmpInlineCodeMid, headerKey)
+		inlineCodeMid += tmpInlineCodeMid
+	}
+
+	inlineCodeEnd := `end
+`
+	inlineCode := fmt.Sprintf(`%s%s%s`, inlineCodeStart, inlineCodeMid, inlineCodeEnd)
+
+	data := map[string]interface{}{
+		"name": "envoy.lua",
+		"typed_config": map[string]string{
+			"@type":      envoyFilterLua,
+			"inlineCode": inlineCode,
+		},
+	}
+
+	return buildEnvoyPatchValue(data)
+}
+
+func buildEnvoyGetCacheOperation(headerKeys []string) (*types.Struct, error) {
+	inlineCodeStart := `function envoy_on_request(request_handle)
+  function split_str(s, delimiter)
+    res = {}
+    for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+      table.insert(res, match)
+    end
+
+    return res
+  end
+
+  local traceid = request_handle:headers():get("sw8")
+  if traceid then
+    arr = split_str(traceid, "-")
+    traceid = arr[2]
+  else
+    traceid = request_handle:headers():get("x-request-id")
+    if not traceid then
+      traceid = request_handle:headers():get("x-b3-traceid")
+    end
+  end
+
+  local headers, body = request_handle:httpCall(
+    "cache",
+    {
+      [":method"] = "GET",
+      [":path"] = string.format("/api/cache/%s", traceid),
+      [":authority"] = "cache",
+    },
+    "",
+    5000
+  )
+
+  request_handle:headers():add("x-env", headers["x-data"]);
+`
+
+	inlineCodeMid := ``
+	for _, headerKey := range headerKeys {
+		tmpInlineCodeMid := `
+  local header_key = "%s"
+  local key = traceid .. "-" .. header_key
+  local headers, body = request_handle:httpCall(
+    "cache",
+    {
+      [":method"] = "GET",
+      [":path"] = string.format("/api/cache/%%s", key),
+      [":authority"] = "cache",
+    },
+    "",
+    5000
+  )
+
+  request_handle:headers():add(header_key, headers["x-data"]);
+	`
+		tmpInlineCodeMid = fmt.Sprintf(tmpInlineCodeMid, headerKey)
+		inlineCodeMid += tmpInlineCodeMid
+	}
+
+	inlineCodeEnd := `end
+`
+	inlineCode := fmt.Sprintf(`%s%s%s`, inlineCodeStart, inlineCodeMid, inlineCodeEnd)
+
 	data := map[string]interface{}{
 		"name": "envoy.lua",
 		"typed_config": map[string]string{
