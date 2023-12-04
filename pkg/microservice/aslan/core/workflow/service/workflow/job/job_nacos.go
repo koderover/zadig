@@ -64,8 +64,24 @@ func (j *NacosJob) SetPreset() error {
 		return fmt.Errorf("fail to list nacos config: %w", err)
 	}
 
+	namespaces, err := commonservice.ListNacosNamespace(j.spec.NacosID, log.SugaredLogger())
+	if err != nil {
+		return fmt.Errorf("failed to list nacos namespace")
+	}
+
+	namespaceName := ""
+	for _, namespace := range namespaces {
+		if namespace.NamespaceID == originNamespaceID {
+			namespaceName = namespace.NamespacedName
+			break
+		}
+	}
+
 	nacosConfigsMap := map[string]*types.NacosConfig{}
 	for _, config := range nacosConfigs {
+		config.NamespaceID = originNamespaceID
+		config.NamespaceName = namespaceName
+
 		nacosConfigsMap[getNacosConfigKey(config.Group, config.DataID)] = config
 	}
 

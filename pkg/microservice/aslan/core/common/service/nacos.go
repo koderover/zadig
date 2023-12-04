@@ -50,11 +50,30 @@ func ListNacosConfig(nacosID, namespaceID string, log *zap.SugaredLogger) ([]*ty
 		log.Error(err)
 		return []*types.NacosConfig{}, err
 	}
+	namespaces, err := client.ListNamespaces()
+	if err != nil {
+		err = errors.Wrap(err, "fail to list nacos namespaces")
+		log.Error(err)
+		return nil, err
+	}
+
+	namespaceName := ""
+	for _, namespace := range namespaces {
+		if namespace.NamespaceID == namespaceID {
+			namespaceName = namespace.NamespacedName
+			break
+		}
+	}
+
 	resp, err := client.ListConfigs(namespaceID)
 	if err != nil {
 		err = errors.Wrap(err, "fail to list nacos config")
 		log.Error(err)
 		return []*types.NacosConfig{}, err
+	}
+	for _, item := range resp {
+		item.NamespaceID = namespaceID
+		item.NamespaceName = namespaceName
 	}
 	return resp, nil
 }
