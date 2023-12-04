@@ -141,15 +141,9 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			}
 			productInfo.Services[0] = append(productInfo.Services[0], productSvc)
 			sevOnline = true
+			productSvc.Render = svcRender
 		}
 		productSvc.UpdateTime = time.Now().Unix()
-
-		if svcRender == nil {
-			svcRender = &template.ServiceRender{
-				ServiceName:  deployInfo.ServiceName,
-				OverrideYaml: &template.CustomYaml{},
-			}
-		}
 
 		// merge render variables and deploy variables
 		mergedVariableYaml := deployInfo.VariableYaml
