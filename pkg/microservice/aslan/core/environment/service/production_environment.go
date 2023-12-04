@@ -41,8 +41,27 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-func ListProductionEnvs(userId string, projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
-	return ListProducts(userId, projectName, envNames, true, log)
+func ListProductionEnvs(userId string, projectName string, envNames []string, excludeSharedNs bool, log *zap.SugaredLogger) ([]*EnvResp, error) {
+	envs, err := ListProducts(userId, projectName, envNames, true, log)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*EnvResp, 0)
+	for _, env := range envs {
+		if !excludeSharedNs {
+			ret = append(ret, env)
+			continue
+		}
+		relatedEnvs, err := commonrepo.NewProductColl().ListEnvByNamespace(env.ClusterID, env.Namespace)
+		if err != nil {
+			return nil, err
+		}
+		if len(relatedEnvs) > 1 {
+			continue
+		}
+		ret = append(ret, env)
+	}
+	return ret, nil
 }
 
 func ListProductionGroups(serviceName, envName, productName string, perPage, page int, log *zap.SugaredLogger) ([]*commonservice.ServiceResp, int, error) {

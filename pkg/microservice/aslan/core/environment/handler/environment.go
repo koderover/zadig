@@ -118,7 +118,6 @@ func ListProductionEnvs(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
@@ -128,6 +127,11 @@ func ListProductionEnvs(c *gin.Context) {
 	if projectName == "" {
 		ctx.Err = e.ErrInvalidParam
 		return
+	}
+
+	excludeSharedNs := false
+	if c.Query("excludeSharedNS") == "true" {
+		excludeSharedNs = true
 	}
 
 	hasPermission := false
@@ -155,7 +159,7 @@ func ListProductionEnvs(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envFilter, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envFilter, excludeSharedNs, ctx.Logger)
 }
 
 // @Summary Update Multi products
