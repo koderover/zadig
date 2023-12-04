@@ -185,7 +185,7 @@ func FindNsUseEnvs(productInfo *commonmodels.Product, log *zap.SugaredLogger) ([
 	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(clusterID, namespace)
 	if err != nil {
 		log.Errorf("Failed to list existed namespace from the env List, error: %s", err)
-		return nil, err
+		return resp, err
 	}
 	for _, env := range envs {
 		if env.String() == productInfo.String() {
