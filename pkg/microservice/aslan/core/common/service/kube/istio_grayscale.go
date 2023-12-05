@@ -234,6 +234,8 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 	vsObj.Name = vsName
 	vsObj.Namespace = ns
 
+	baseEnv := ""
+
 	if vsObj.Labels == nil {
 		vsObj.Labels = map[string]string{}
 	}
@@ -243,6 +245,14 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 	for _, weightConfig := range weightConfigs {
 		if envMap[weightConfig.Env] == nil {
 			return nil, fmt.Errorf("env %s is not found", weightConfig.Env)
+		}
+
+		if baseEnv == "" {
+			if envMap[weightConfig.Env].IstioGrayscale.IsBase {
+				baseEnv = envMap[weightConfig.Env].EnvName
+			} else {
+				baseEnv = envMap[weightConfig.Env].IstioGrayscale.BaseEnv
+			}
 		}
 
 		if !skipWorkloadCheck {
@@ -280,6 +290,7 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 		httpRoutes = append(httpRoutes, httpRoute)
 	}
 
+	weightSum := 0
 	routes := []*networkingv1alpha3.HTTPRouteDestination{}
 	for _, weightConfig := range weightConfigs {
 		if envMap[weightConfig.Env] == nil {
@@ -298,6 +309,7 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 			}
 		}
 
+		weightSum += int(weightConfig.Weight)
 		route := &networkingv1alpha3.HTTPRouteDestination{
 			Destination: &networkingv1alpha3.Destination{
 				Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, envMap[weightConfig.Env].Namespace),
@@ -312,6 +324,19 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 			},
 		}
 		routes = append(routes, route)
+	}
+	if weightSum != 100 {
+		log.Warnf("The sum of weight is not 100 for the service %s, the full-path grayscale may not work correctly", svcName)
+		if baseEnv == "" {
+			return nil, fmt.Errorf("base env is not found")
+		}
+
+		route := &networkingv1alpha3.HTTPRouteDestination{
+			Destination: &networkingv1alpha3.Destination{
+				Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, envMap[baseEnv].Namespace),
+			},
+		}
+		routes = append([]*networkingv1alpha3.HTTPRouteDestination{}, route)
 	}
 	httpRoutes = append(httpRoutes, &networkingv1alpha3.HTTPRoute{
 		Route: routes,
