@@ -1048,7 +1048,7 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 		return
 	}
 
-	if arg.ValuesData.AutoSync {
+	if arg.ValuesData != nil && arg.ValuesData.AutoSync {
 		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
