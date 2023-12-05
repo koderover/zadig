@@ -2405,10 +2405,6 @@ func ListWorkloads(c *gin.Context) {
 							ProductName: env.ProductName,
 						}
 					}
-					workloadM[res.Name] = commonmodels.Workload{
-						EnvName:     env.EnvName,
-						ProductName: env.ProductName,
-					}
 				}
 			}
 		}
