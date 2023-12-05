@@ -2399,7 +2399,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	)
 
 	var productTmpl *templatemodels.Product
-	// 查询产品模板
 	productTmpl, err = templaterepo.NewProductColl().Find(productTemplateName)
 	if err != nil {
 		log.Errorf("[%s][P:%s] get product template error: %v", envName, productTemplateName, err)

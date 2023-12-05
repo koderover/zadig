@@ -275,6 +275,14 @@ func prepareK8sProductCreation(templateProduct *templatemodels.Product, productO
 		for _, svc := range svcGroup {
 			sg = append(sg, svc.ProductService)
 			serviceDeployStrategy[svc.ServiceName] = svc.DeployStrategy
+			parsedYaml, err := kube.RenderEnvService(productObj, svc.ProductService.GetServiceRender(), svc.ProductService)
+			if err != nil {
+				return fmt.Errorf("failed to render yaml for env creation, serviceName: %s, err: %w", svc.ServiceName, err)
+			}
+			svc.Resources, err = kube.ManifestToResource(parsedYaml)
+			if err != nil {
+				return fmt.Errorf("failed to parse yaml for env creation, serviceName: %s, err: %w", svc.ServiceName, err)
+			}
 		}
 		productObj.Services = append(productObj.Services, sg)
 	}
