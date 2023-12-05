@@ -129,11 +129,6 @@ func ListProductionEnvs(c *gin.Context) {
 		return
 	}
 
-	excludeSharedNs := false
-	if c.Query("excludeSharedNS") == "true" {
-		excludeSharedNs = true
-	}
-
 	hasPermission := false
 	envFilter := make([]string, 0)
 
@@ -159,7 +154,7 @@ func ListProductionEnvs(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envFilter, excludeSharedNs, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProductionEnvs(ctx.UserID, projectName, envFilter, ctx.Logger)
 }
 
 // @Summary Update Multi products
