@@ -1048,7 +1048,7 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 		return
 	}
 
-	if arg.ValuesData.AutoSync {
+	if arg.ValuesData != nil && arg.ValuesData.AutoSync {
 		if !commonutil.ValidateZadigXLicenseStatus(licenseStatus) {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
@@ -2388,6 +2388,28 @@ func ListWorkloads(c *gin.Context) {
 			workloadM[serviceInExternalEnv.ServiceName] = commonmodels.Workload{
 				EnvName:     serviceInExternalEnv.EnvName,
 				ProductName: serviceInExternalEnv.ProductName,
+			}
+		}
+
+		// find workloads existed in other envs
+		sharedNSEnvs, err := mongodb.NewProductColl().ListEnvByNamespace(args.ClusterID, args.Namespace)
+		if err != nil {
+			log.Errorf("ListWorkloads ListEnvByNamespace err:%v", err)
+		}
+		for _, env := range sharedNSEnvs {
+			for _, svc := range env.GetSvcList() {
+				for _, res := range svc.Resources {
+					if res.Kind == setting.Deployment || res.Kind == setting.StatefulSet {
+						workloadM[res.Name] = commonmodels.Workload{
+							EnvName:     env.EnvName,
+							ProductName: env.ProductName,
+						}
+					}
+					workloadM[res.Name] = commonmodels.Workload{
+						EnvName:     env.EnvName,
+						ProductName: env.ProductName,
+					}
+				}
 			}
 		}
 
