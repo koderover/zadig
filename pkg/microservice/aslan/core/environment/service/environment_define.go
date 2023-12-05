@@ -62,6 +62,7 @@ type EnvResp struct {
 	BaseName    string   `json:"base_name"`
 	IsExisted   bool     `json:"is_existed"`
 	IsFavorite  bool     `json:"is_favorite"`
+	SharedNS    bool     `json:"shared_ns"`
 
 	// New Since v1.11.0
 	ShareEnvEnable  bool   `json:"share_env_enable"`
