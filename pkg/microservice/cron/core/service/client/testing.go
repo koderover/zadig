@@ -54,6 +54,7 @@ func (c *Client) ListTests(log *zap.SugaredLogger) ([]*service.TestingOpt, error
 	if err != nil {
 		return resp, errors.WithMessage(err, "failed to list tests")
 	}
+	log.Infof("--------- resp of list testing is %s", string(body))
 
 	err = json.Unmarshal(body, &resp)
 	if err != nil {
