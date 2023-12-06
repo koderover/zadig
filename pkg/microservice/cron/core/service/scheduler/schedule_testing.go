@@ -28,6 +28,7 @@ import (
 
 // UpsertTestScheduler ...
 func (c *CronClient) UpsertTestScheduler(log *zap.SugaredLogger) {
+	return
 	tests, err := c.AslanCli.ListTests(log)
 	if err != nil {
 		log.Error(err)
