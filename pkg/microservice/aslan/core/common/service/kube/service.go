@@ -197,21 +197,22 @@ func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *z
 }
 
 func (s *Service) DeleteCluster(user string, id string, logger *zap.SugaredLogger) error {
-	clusterInfo, err := s.coll.Get(id)
-	if err != nil {
-		return e.ErrDeleteCluster.AddErr(e.ErrClusterNotFound.AddDesc(id))
-	}
+	//clusterInfo, err := s.coll.Get(id)
+	//if err != nil {
+	//	return e.ErrDeleteCluster.AddErr(e.ErrClusterNotFound.AddDesc(id))
+	//}
 
 	// Now we only clear the cluster resources when the cluster is using a kubeconfig
 	// This logic is required if the cluster need to be re-applied to Zadig.
-	if clusterInfo.Type == setting.KubeConfigClusterType {
-		err = RemoveClusterResources(config.HubServerAddress(), id)
-		if err != nil {
-			return e.ErrDeleteCluster.AddDesc(err.Error())
-		}
-	}
+	// 2023-12-06 this logic is removed. Cluster resource under koderover-agent ns is no longer maintained
+	//if clusterInfo.Type == setting.KubeConfigClusterType {
+	//	err = RemoveClusterResources(config.HubServerAddress(), id)
+	//	if err != nil {
+	//		return e.ErrDeleteCluster.AddDesc(err.Error())
+	//	}
+	//}
 
-	err = s.coll.Delete(id)
+	err := s.coll.Delete(id)
 	if err != nil {
 		logger.Errorf("failed to delete cluster by id %s %v", id, err)
 		return e.ErrDeleteCluster.AddErr(err)
