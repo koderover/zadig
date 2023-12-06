@@ -17,8 +17,6 @@ limitations under the License.
 package aslan
 
 import (
-	"fmt"
-
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -27,7 +25,7 @@ type GetDefaultLoginResp struct {
 }
 
 func (c *Client) GetDefaultLogin() (*GetDefaultLoginResp, error) {
-	url := fmt.Sprintf("/system/login/default")
+	url := "/system/login/default"
 
 	res := &GetDefaultLoginResp{}
 	_, err := c.Get(url, httpclient.SetResult(res))

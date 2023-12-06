@@ -414,7 +414,7 @@ func GetAiPrompts(logger *zap.SugaredLogger) (*ExamplePrompt, error) {
 	}
 	rand.Seed(time.Now().UnixNano())
 	list = append(list, fmt.Sprintf("分析 %s 项目近一个月的质量和效率，并给出优化建议", projects[rand.Intn(len(projects))]))
-	list = append(list, fmt.Sprintf("分析所有项目近一个月的整体表现，并给出优化建议"))
+	list = append(list, "分析所有项目近一个月的整体表现，并给出优化建议")
 	list = append(list, fmt.Sprintf("分析 %s 项目近一个月的质量数据，预测未来的趋势和潜在问题", projects[rand.Intn(len(projects))]))
 	list = append(list, fmt.Sprintf("通过历史数据，请用简洁的文字总结%s项目最近一个月的整体表现。", projects[rand.Intn(len(projects))]))
 	list = append(list, fmt.Sprintf("请根据项目%s的构建、部署、测试和发布等数据，分析项目最近一个月的现状，并基于历史数据，分析未来的趋势和潜在问题，并提出改进建议。", projects[rand.Intn(len(projects))]))

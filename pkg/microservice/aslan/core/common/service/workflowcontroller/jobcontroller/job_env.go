@@ -22,11 +22,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
@@ -47,6 +49,7 @@ type ProductServiceDeployInfo struct {
 	Containers            []*models.Container
 	UpdateServiceRevision bool
 	UserName              string
+	Resources             []*unstructured.Unstructured
 }
 
 func mergeContainers(currentContainer []*models.Container, newContainers ...[]*models.Container) []*models.Container {
@@ -138,15 +141,9 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			}
 			productInfo.Services[0] = append(productInfo.Services[0], productSvc)
 			sevOnline = true
+			productSvc.Render = svcRender
 		}
 		productSvc.UpdateTime = time.Now().Unix()
-
-		if svcRender == nil {
-			svcRender = &template.ServiceRender{
-				ServiceName:  deployInfo.ServiceName,
-				OverrideYaml: &template.CustomYaml{},
-			}
-		}
 
 		// merge render variables and deploy variables
 		mergedVariableYaml := deployInfo.VariableYaml
@@ -172,6 +169,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 		// update product info
 		productSvc.Containers = mergeContainers(svcTemplate.Containers, productSvc.Containers, deployInfo.Containers)
 		productSvc.Revision = int64(deployInfo.ServiceRevision)
+		productSvc.Resources = kube.UnstructuredToResources(deployInfo.Resources)
 		log.Infof("UpdateServiceRevision : %v, sevOnline: %v, variableYamlNil %v, serviceName: %s", deployInfo.UpdateServiceRevision, sevOnline, variableYamlNil(deployInfo.VariableYaml), deployInfo.ServiceName)
 		if deployInfo.UpdateServiceRevision || sevOnline || !variableYamlNil(deployInfo.VariableYaml) {
 			productInfo.ServiceDeployStrategy = commonutil.SetServiceDeployStrategyDepoly(productInfo.ServiceDeployStrategy, deployInfo.ServiceName)

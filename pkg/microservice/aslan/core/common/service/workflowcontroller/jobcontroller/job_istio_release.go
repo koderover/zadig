@@ -99,7 +99,7 @@ func (c *IstioReleaseJobCtl) Run(ctx context.Context) {
 
 	cli, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), c.jobTaskSpec.ClusterID)
 	if err != nil {
-		logError(c.job, fmt.Sprintf("failed to prepare istio client to do the resource update"), c.logger)
+		logError(c.job, "failed to prepare istio client to do the resource update", c.logger)
 		return
 	}
 	// initialize istio client

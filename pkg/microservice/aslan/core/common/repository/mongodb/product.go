@@ -603,6 +603,43 @@ func (c *ProductColl) ListProductionNamespace(clusterID string) ([]string, error
 	return resp.List(), nil
 }
 
+func (c *ProductColl) ListNamespace(clusterID string) ([]string, error) {
+	nsList := make([]*nsObject, 0)
+	resp := sets.NewString()
+	selector := bson.D{
+		{"namespace", 1},
+	}
+	query := bson.M{"cluster_id": clusterID}
+	opt := options.Find()
+	opt.SetProjection(selector)
+	cursor, err := c.Collection.Find(context.TODO(), query, opt)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &nsList)
+	if err != nil {
+		return nil, err
+	}
+	for _, obj := range nsList {
+		resp.Insert(obj.Namespace)
+	}
+	return resp.List(), nil
+}
+
+func (c *ProductColl) ListEnvByNamespace(clusterID, namespace string) ([]*models.Product, error) {
+	var resp []*models.Product
+	query := bson.M{"namespace": namespace, "cluster_id": clusterID}
+	cursor, err := c.Collection.Find(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.Background(), &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *ProductColl) UpdateConfigs(envName, productName string, analysisConfig *models.AnalysisConfig, notificationConfigs []*models.NotificationConfig) error {
 	query := bson.M{"env_name": envName, "product_name": productName}
 

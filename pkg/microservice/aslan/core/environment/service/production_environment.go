@@ -42,7 +42,20 @@ import (
 )
 
 func ListProductionEnvs(userId string, projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
-	return ListProducts(userId, projectName, envNames, true, log)
+	envs, err := ListProducts(userId, projectName, envNames, true, log)
+	if err != nil {
+		return nil, err
+	}
+	for _, env := range envs {
+		relatedEnvs, err := commonrepo.NewProductColl().ListEnvByNamespace(env.ClusterID, env.Namespace)
+		if err != nil {
+			continue
+		}
+		if len(relatedEnvs) > 1 {
+			env.SharedNS = true
+		}
+	}
+	return envs, nil
 }
 
 func ListProductionGroups(serviceName, envName, productName string, perPage, page int, log *zap.SugaredLogger) ([]*commonservice.ServiceResp, int, error) {

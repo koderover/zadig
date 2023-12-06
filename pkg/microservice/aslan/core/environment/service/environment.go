@@ -331,6 +331,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	namespace := existedProd.Namespace
 	updateProd.EnvName = existedProd.EnvName
 	updateProd.Namespace = existedProd.Namespace
+	updateProd.ClusterID = existedProd.ClusterID
 
 	var allServices []*commonmodels.Service
 	var prodRevs *ProductRevision
@@ -473,7 +474,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 						return
 					}
 
-					_, errUpsertService := upsertService(
+					items, errUpsertService := upsertService(
 						updateProd,
 						service,
 						existedProd.GetServiceMap()[service.ServiceName],
@@ -483,6 +484,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 					} else {
 						service.Error = ""
 					}
+					service.Resources = kube.UnstructuredToResources(items)
 
 					err = commonutil.CreateEnvServiceVersion(updateProd, service, user, session, log)
 					if err != nil {
@@ -714,6 +716,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 				releaseName := util.GeneReleaseName(serviceMap[svr.ServiceName].GetReleaseNaming(), svr.ProductName, productResp.Namespace, productResp.EnvName, svr.ServiceName)
 				overrideChartMap[svr.ServiceName].ReleaseName = releaseName
 				addedReleaseNameSet.Insert(releaseName)
+				svr.ReleaseName = releaseName
 			} else if _, ok := templateSvcMap[svr.ServiceName]; ok {
 				releaseName := util.GeneReleaseName(templateSvcMap[svr.ServiceName].GetReleaseNaming(), svr.ProductName, productResp.Namespace, productResp.EnvName, svr.ServiceName)
 				overrideChartMap[svr.ServiceName].ReleaseName = releaseName
@@ -723,7 +726,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 					svr.GetServiceRender().ChartVersion = templateSvcMap[svr.ServiceName].HelmChart.Version
 					svr.GetServiceRender().ValuesYaml = templateSvcMap[svr.ServiceName].HelmChart.ValuesYaml
 				}
-
+				svr.ReleaseName = releaseName
 			}
 			svcGroup = append(svcGroup, svr)
 
@@ -745,16 +748,38 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 	}
 	productResp.Services = allServices
 
+	svcNameSet := sets.NewString()
+	for _, singleChart := range overrideCharts {
+		if singleChart.EnvName != envName {
+			continue
+		}
+		svcNameSet.Insert(singleChart.ServiceName)
+	}
+
+	filter := func(svc *commonmodels.ProductService) bool {
+		return svcNameSet.Has(svc.ServiceName)
+	}
+
+	releases := sets.NewString()
+	for _, svc := range productResp.GetSvcList() {
+		if filter(svc) {
+			releases.Insert(svc.ReleaseName)
+		}
+	}
+	err = kube.CheckReleaseInstalledByOtherEnv(releases, productResp)
+	if err != nil {
+		return err
+	}
+
 	// set status to updating
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
-	//对比当前环境中的环境变量和默认的环境变量
 	go func() {
 		errMsg := ""
-		err := updateHelmProductGroup(username, productName, envName, productResp, overrideCharts, deletedSvcRevision, addedReleaseNameSet, log)
+		err := updateHelmProductGroup(username, productName, envName, productResp, overrideCharts, deletedSvcRevision, addedReleaseNameSet, filter, log)
 		if err != nil {
 			errMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
@@ -849,6 +874,7 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 					if addedReleaseNameSet.Has(releaseName) {
 						continue
 					}
+					svr.ReleaseName = releaseName
 					dupSvcNameSet.Insert(svr.ServiceName)
 				}
 
@@ -878,16 +904,47 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 
 	productResp.Services = allServices
 
+	svcNameSet := sets.NewString()
+	for _, singleChart := range overrideCharts {
+		if singleChart.EnvName != envName {
+			continue
+		}
+		if singleChart.IsChartDeploy {
+			svcNameSet.Insert(singleChart.ReleaseName)
+		} else {
+			svcNameSet.Insert(singleChart.ServiceName)
+		}
+	}
+
+	filter := func(svc *commonmodels.ProductService) bool {
+		if svc.FromZadig() {
+			return svcNameSet.Has(svc.ServiceName)
+		} else {
+			return svcNameSet.Has(svc.ReleaseName)
+		}
+	}
+
+	// check if release is installed in other env
+	releases := sets.NewString()
+	for _, svc := range productResp.GetSvcList() {
+		if filter(svc) {
+			releases.Insert(svc.ReleaseName)
+		}
+	}
+	err = kube.CheckReleaseInstalledByOtherEnv(releases, productResp)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
 	// set status to updating
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
-	//对比当前环境中的环境变量和默认的环境变量
 	go func() {
 		errMsg := ""
-		err := updateHelmChartProductGroup(username, productName, envName, productResp, overrideCharts, deletedReleaseRevision, dupSvcNameSet, log)
+		err := updateHelmChartProductGroup(username, productName, envName, productResp, overrideCharts, deletedReleaseRevision, dupSvcNameSet, filter, log)
 		if err != nil {
 			errMsg = err.Error()
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
@@ -1806,10 +1863,16 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					return
 				}
 
-				s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
-				if err := commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
-					errList = multierror.Append(errList, e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg+": "+err.Error()))
-					return
+				sharedNSEnvs, errFindNS := FindNsUseEnvs(productInfo, log)
+				if errFindNS != nil {
+					err = e.ErrDeleteProduct.AddErr(errFindNS)
+				}
+				if len(sharedNSEnvs) == 0 {
+					s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
+					if err = commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
+						err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
+						return
+					}
 				}
 			} else {
 				if err := commonservice.DeleteZadigLabelFromNamespace(productInfo.Namespace, productInfo.ClusterID, log); err != nil {
@@ -1885,10 +1948,7 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 	default:
 		go func() {
 			var err error
-			err = commonrepo.NewProductColl().Delete(envName, productName)
-			if err != nil {
-				log.Errorf("Product.Delete error: %v", err)
-			}
+
 			defer func() {
 				if err != nil {
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
@@ -1901,22 +1961,19 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 				}
 			}()
 			if productInfo.Production {
+				err = commonrepo.NewProductColl().Delete(envName, productName)
+				if err != nil {
+					log.Errorf("Product.Delete error: %v", err)
+				}
 				return
 			}
 			if isDelete {
-				// Delete Cluster level resources
-				err = commonservice.DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
-				if err != nil {
-					err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-					return
-				}
 
-				// Delete the namespace-scope resources
-				err = commonservice.DeleteNamespacedResource(productInfo.Namespace, labels.Set{setting.ProductLabel: productName}.AsSelector(), productInfo.ClusterID, log)
-				if err != nil {
-					err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-					return
+				svcNames := make([]string, 0)
+				for svcName := range productInfo.GetServiceMap() {
+					svcNames = append(svcNames, svcName)
 				}
+				DeleteProductServices("", requestID, envName, productName, svcNames, false, log)
 
 				// Handles environment sharing related operations.
 				err = EnsureDeleteShareEnvConfig(ctx, productInfo, istioClient)
@@ -1926,16 +1983,26 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					return
 				}
 
-				s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
-				if err = commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
-					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
-					return
+				sharedNSEnvs, errFindNS := FindNsUseEnvs(productInfo, log)
+				if errFindNS != nil {
+					err = e.ErrDeleteProduct.AddErr(errFindNS)
+				}
+				if len(sharedNSEnvs) == 0 {
+					s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
+					if err = commonservice.DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err != nil {
+						err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
+						return
+					}
 				}
 			} else {
 				if err := commonservice.DeleteZadigLabelFromNamespace(productInfo.Namespace, productInfo.ClusterID, log); err != nil {
 					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
 					return
 				}
+			}
+			err = commonrepo.NewProductColl().Delete(envName, productName)
+			if err != nil {
+				log.Errorf("Product.Delete error: %v", err)
 			}
 		}()
 	}
@@ -2332,7 +2399,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	)
 
 	var productTmpl *templatemodels.Product
-	// 查询产品模板
 	productTmpl, err = templaterepo.NewProductColl().Find(productTemplateName)
 	if err != nil {
 		log.Errorf("[%s][P:%s] get product template error: %v", envName, productTemplateName, err)
@@ -2535,7 +2601,7 @@ func batchExecutor(interval time.Duration, serviceList []*kube.ReleaseInstallPar
 }
 
 func updateHelmProductGroup(username, productName, envName string, productResp *commonmodels.Product,
-	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, addedReleaseNameSet sets.String, log *zap.SugaredLogger) error {
+	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, addedReleaseNameSet sets.String, filter svcUpgradeFilter, log *zap.SugaredLogger) error {
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
@@ -2562,17 +2628,6 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 	}
 
 	productResp.ServiceRenders = renderSet.ChartInfos
-	svcNameSet := sets.NewString()
-	for _, singleChart := range overrideCharts {
-		if singleChart.EnvName != envName {
-			continue
-		}
-		svcNameSet.Insert(singleChart.ServiceName)
-	}
-
-	filter := func(svc *commonmodels.ProductService) bool {
-		return svcNameSet.Has(svc.ServiceName)
-	}
 
 	if productResp.ServiceDeployStrategy != nil {
 		for _, releaseName := range addedReleaseNameSet.List() {
@@ -2598,7 +2653,7 @@ func updateHelmProductGroup(username, productName, envName string, productResp *
 }
 
 func updateHelmChartProductGroup(username, productName, envName string, productResp *commonmodels.Product,
-	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, dupSvcNameSet sets.String, log *zap.SugaredLogger) error {
+	overrideCharts []*commonservice.HelmSvcRenderArg, deletedSvcRevision map[string]int64, dupSvcNameSet sets.String, filter svcUpgradeFilter, log *zap.SugaredLogger) error {
 
 	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
@@ -2624,25 +2679,6 @@ func updateHelmChartProductGroup(username, productName, envName string, productR
 	mergeRenderSetAndRenderChart(productResp, overrideCharts, deletedRelease)
 
 	productResp.ServiceRenders = productResp.GetAllSvcRenders()
-	svcNameSet := sets.NewString()
-	for _, singleChart := range overrideCharts {
-		if singleChart.EnvName != envName {
-			continue
-		}
-		if singleChart.IsChartDeploy {
-			svcNameSet.Insert(singleChart.ReleaseName)
-		} else {
-			svcNameSet.Insert(singleChart.ServiceName)
-		}
-	}
-
-	filter := func(svc *commonmodels.ProductService) bool {
-		if svc.FromZadig() {
-			return svcNameSet.Has(svc.ServiceName)
-		} else {
-			return svcNameSet.Has(svc.ReleaseName)
-		}
-	}
 
 	if productResp.ServiceDeployStrategy != nil {
 		for _, svcName := range dupSvcNameSet.List() {
@@ -3758,52 +3794,11 @@ func PreviewProductGlobalVariablesWithRender(product *commonmodels.Product, args
 
 func EnsureProductionNamespace(createArgs []*CreateSingleProductArg) error {
 	for _, arg := range createArgs {
-		namespace, err := ListNamespaceFromCluster(arg.ClusterID)
-		if err != nil {
-			return err
-		}
-
 		// 1. check specified namespace
 		filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
 		if filterK8sNamespaces.Has(arg.Namespace) {
 			return fmt.Errorf("namespace %s is invalid, production environment namespace cannot be set to these three namespaces: kube-node-lease, kube-public, kube-system", arg.Namespace)
 		}
-
-		// 2. check existed namespace
-		nsList, err := mongodb.NewProductColl().ListExistedNamespace(arg.ClusterID)
-		if err != nil {
-			return err
-		}
-		filterK8sNamespaces.Insert(nsList...)
-		if filterK8sNamespaces.Has(arg.Namespace) {
-			return fmt.Errorf("namespace %s is invalid, it has been used for other test environment or host project", arg.Namespace)
-		}
-
-		// 3. check production namespace
-		productionEnvs, err := mongodb.NewProductColl().ListProductionNamespace(arg.ClusterID)
-		if err != nil {
-			return err
-		}
-		filterK8sNamespaces.Insert(productionEnvs...)
-		if filterK8sNamespaces.Has(arg.Namespace) {
-			return fmt.Errorf("namespace %s is invalid, it has been used for other production environment", arg.Namespace)
-		}
-
-		// 4. check namespace created by koderover
-		for _, ns := range namespace {
-			if ns.Name == arg.Namespace {
-				if value, IsExist := ns.Labels[setting.EnvCreatedBy]; IsExist {
-					if value == setting.EnvCreator {
-						return fmt.Errorf("namespace %s is invalid, namespace created by koderover cannot be used", arg.Namespace)
-					}
-				}
-				return nil
-			}
-		}
-
-		//5. arg.namespace is not in valid namespace list
-		//return fmt.Errorf("namespace %s does not belong to legal namespace", arg.Namespace)
-		return nil
 	}
 	return nil
 }
