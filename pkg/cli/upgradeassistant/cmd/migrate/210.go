@@ -133,7 +133,7 @@ func addReleaseNameToHelmProductServices() error {
 func handleK8sProductService(product *models.Product) error {
 	for _, svc := range product.GetSvcList() {
 		if len(svc.Resources) > 0 {
-			return nil
+			continue
 		}
 
 		prodSvcTemplate, err := findSvcTemplate(product.ProductName, svc.ServiceName, svc.Revision, product.Production)
@@ -144,14 +144,14 @@ func handleK8sProductService(product *models.Product) error {
 
 		fullRenderedYaml, err := kube.RenderServiceYaml(prodSvcTemplate.Yaml, product.ProductName, svc.ServiceName, svc.GetServiceRender())
 		if err != nil {
-			log.Errorf("failed to render service yaml: %s/%s/%v, err: %s", product.ProductName, svc.ServiceName, svc.Revision, err.Error())
+			log.Errorf("failed to render service yaml: %s/%s/%s/%v, err: %s", product.ProductName, product.EnvName, svc.ServiceName, svc.Revision, err.Error())
 			continue
 		}
-		fullRenderedYaml = kube.ParseSysKeys(fullRenderedYaml, product.EnvName, product.ProductName, svc.ServiceName, fullRenderedYaml)
+		fullRenderedYaml = kube.ParseSysKeys(product.EnvName, product.EnvName, product.ProductName, svc.ServiceName, fullRenderedYaml)
 
 		svc.Resources, err = kube.ManifestToResource(fullRenderedYaml)
 		if err != nil {
-			log.Errorf("failed to convert service yaml to resource: %s/%s/%v, err: %s", product.ProductName, svc.ServiceName, svc.Revision, err.Error())
+			log.Errorf("failed to convert service yaml to resource: %s/%s/%s/%v, err: %s", product.ProductName, product.EnvName, svc.ServiceName, svc.Revision, err.Error())
 			continue
 		}
 		log.Infof("update service resource: %s/%s/%v", product.ProductName, product.EnvName, svc.ServiceName)
