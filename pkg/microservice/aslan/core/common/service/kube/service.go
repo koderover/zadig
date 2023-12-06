@@ -204,12 +204,13 @@ func (s *Service) DeleteCluster(user string, id string, logger *zap.SugaredLogge
 
 	// Now we only clear the cluster resources when the cluster is using a kubeconfig
 	// This logic is required if the cluster need to be re-applied to Zadig.
-	if clusterInfo.Type == setting.KubeConfigClusterType {
-		err = RemoveClusterResources(config.HubServerAddress(), id)
-		if err != nil {
-			return e.ErrDeleteCluster.AddDesc(err.Error())
-		}
-	}
+	// 2023-12-06 this logic is removed. Cluster resource under koderover-agent ns is no longer maintained
+	//if clusterInfo.Type == setting.KubeConfigClusterType {
+	//	err = RemoveClusterResources(config.HubServerAddress(), id)
+	//	if err != nil {
+	//		return e.ErrDeleteCluster.AddDesc(err.Error())
+	//	}
+	//}
 
 	err = s.coll.Delete(id)
 	if err != nil {
