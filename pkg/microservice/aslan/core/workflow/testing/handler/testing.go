@@ -179,6 +179,8 @@ func ListTestModules(c *gin.Context) {
 			return
 		}
 		projects = allowedProjects
+		log.Infof("------ allowedProjects data is %v", allowedProjects)
+		log.Infof("------ auth data is %v / %v / %v", ctx.UserID, ctx.Resources.IsSystemAdmin)
 	}
 
 	ctx.Resp, ctx.Err = service.ListTestingOpt(projects, c.Query("testType"), ctx.Logger)
