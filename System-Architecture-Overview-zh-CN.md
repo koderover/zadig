@@ -2,7 +2,7 @@
 
 ## 系统架构图
 
-![Architecture_diagram](./Zadig-System-Architecture.svg)
+![Architecture_diagram](./Zadig-System-Architecture.png)
 
 ## 核心组件介绍
 用户入口：
