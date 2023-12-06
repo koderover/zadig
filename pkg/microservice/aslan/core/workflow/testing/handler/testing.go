@@ -156,6 +156,7 @@ func ListTestModules(c *gin.Context) {
 	projects := make([]string, 0)
 	// if a specific projectName is given, we query for that
 	projectName := c.Query("projectName")
+	log.Infof("--------- query parameter %s", projectName)
 	if len(projects) == 0 && len(projectName) > 0 {
 		// authorization check
 		if !ctx.Resources.IsSystemAdmin {
@@ -171,16 +172,18 @@ func ListTestModules(c *gin.Context) {
 			}
 		}
 		projects = []string{projectName}
+		log.Infof("-------- projects data is %v", projects)
 	} else {
+		log.Infof("------ allowedProjects data is %v", allowedProjects)
+		log.Infof("------ auth data is %v / %v / %v", ctx.UserID, ctx.Resources.IsSystemAdmin)
 		// otherwise all projects with the get testing permission will be added to the projects
 		allowedProjects, found, err := internalhandler.ListAuthorizedProjectsByResourceAndVerb(ctx.UserID, types.ResourceTypeTest, types.TestActionView)
 		if err != nil || !found {
+			log.Infof("-------- failed to find testing data, err: %s", err)
 			ctx.Resp = make([]*service.TestingOpt, 0)
 			return
 		}
 		projects = allowedProjects
-		log.Infof("------ allowedProjects data is %v", allowedProjects)
-		log.Infof("------ auth data is %v / %v / %v", ctx.UserID, ctx.Resources.IsSystemAdmin)
 	}
 
 	ctx.Resp, ctx.Err = service.ListTestingOpt(projects, c.Query("testType"), ctx.Logger)
