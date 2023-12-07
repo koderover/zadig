@@ -87,7 +87,9 @@ func (args *PrivateKey) Validate() error {
 	if err != nil {
 		return fmt.Errorf("failed to validate zadig license status, error: %s", err)
 	}
-	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+	if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
+		licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
+		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 		if args.Provider == config.VMProviderAmazon || args.ScheduleWorkflow {
 			return e.ErrLicenseInvalid.AddDesc("")
 		}

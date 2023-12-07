@@ -111,7 +111,9 @@ func CreateProjectManagement(c *gin.Context) {
 		return
 	}
 	if req.MeegoHost != "" {
-		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
+			licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
+			licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}
@@ -148,7 +150,9 @@ func UpdateProjectManagement(c *gin.Context) {
 		return
 	}
 	if req.MeegoHost != "" {
-		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
+			licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
+			licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
 			return
 		}

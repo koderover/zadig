@@ -83,7 +83,9 @@ func (args *RegistryNamespace) LicenseValidate() error {
 		args.RegProvider == config.RegistryProviderTCREnterprise ||
 		args.RegProvider == config.RegistryProviderECR ||
 		args.RegProvider == config.RegistryProviderJFrog {
-		if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+		if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
+			licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
+			licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 			return e.ErrLicenseInvalid.AddDesc("")
 		}
 	}

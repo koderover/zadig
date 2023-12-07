@@ -68,7 +68,9 @@ func CheckZadigXLicenseStatus() error {
 }
 
 func ValidateZadigXLicenseStatus(licenseStatus *plutusvendor.ZadigXLicenseStatus) bool {
-	if !(licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional && licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+	if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
+		licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
+		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
 		return false
 	}
 	return true
