@@ -1354,8 +1354,8 @@ func CheckServicesDeployedInSubEnvs(ctx context.Context, productName, envName st
 }
 
 type GetPortalServiceResponse struct {
-	DefaultGatewayIP string                      `json:"default_gateway_ip"`
-	Servers          []SetupPortalServiceRequest `json:"servers"`
+	DefaultGatewayAddress string                      `json:"default_gateway_address"`
+	Servers               []SetupPortalServiceRequest `json:"servers"`
 }
 
 func GetPortalService(ctx context.Context, productName, envName, serviceName string) (GetPortalServiceResponse, error) {
@@ -1397,7 +1397,7 @@ func GetPortalService(ctx context.Context, productName, envName, serviceName str
 		return resp, e.ErrGetPortalService.AddDesc("istio default gateway's lb doesn't have ip address")
 	}
 	for _, ing := range gatewaySvc.Status.LoadBalancer.Ingress {
-		resp.DefaultGatewayIP = ing.IP
+		resp.DefaultGatewayAddress = ing.IP
 	}
 
 	gwObj, err := istioClient.NetworkingV1alpha3().Gateways(ns).Get(ctx, gatewayName, metav1.GetOptions{})

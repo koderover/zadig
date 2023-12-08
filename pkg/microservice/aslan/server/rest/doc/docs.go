@@ -4842,6 +4842,13 @@ const docTemplate = `{
                 "registry_id": {
                     "type": "string"
                 },
+                "related_envs": {
+                    "description": "New Since v2.1.0",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.SharedNSEnvs"
+                    }
+                },
                 "render": {
                     "$ref": "#/definitions/models.RenderInfo"
                 },
@@ -5700,6 +5707,12 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceResource"
+                    }
+                },
                 "revision": {
                     "type": "integer"
                 },
@@ -6157,6 +6170,23 @@ const docTemplate = `{
                     "$ref": "#/definitions/models.ParameterSettingType"
                 },
                 "value": {}
+            }
+        },
+        "models.ServiceResource": {
+            "type": "object",
+            "properties": {
+                "group": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
             }
         },
         "models.WebHookType": {
@@ -6903,7 +6933,7 @@ const docTemplate = `{
         "service.GetPortalServiceResponse": {
             "type": "object",
             "properties": {
-                "default_gateway_ip": {
+                "default_gateway_address": {
                     "type": "string"
                 },
                 "servers": {
@@ -7511,6 +7541,12 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ServiceResource"
+                    }
+                },
                 "revision": {
                     "type": "integer"
                 },
@@ -7786,6 +7822,20 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "port_protocol": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.SharedNSEnvs": {
+            "type": "object",
+            "properties": {
+                "env_name": {
+                    "type": "string"
+                },
+                "production": {
+                    "type": "boolean"
+                },
+                "project_name": {
                     "type": "string"
                 }
             }
