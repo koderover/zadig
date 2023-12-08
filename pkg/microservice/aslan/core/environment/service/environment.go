@@ -1960,15 +1960,16 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					notify.SendMessage(username, title, content, requestID, log)
 				}
 			}()
+
+			err = commonrepo.NewProductColl().Delete(envName, productName)
+			if err != nil {
+				log.Errorf("Product.Delete error: %v", err)
+			}
 			if productInfo.Production {
-				err = commonrepo.NewProductColl().Delete(envName, productName)
-				if err != nil {
-					log.Errorf("Product.Delete error: %v", err)
-				}
 				return
 			}
-			if isDelete {
 
+			if isDelete {
 				svcNames := make([]string, 0)
 				for svcName := range productInfo.GetServiceMap() {
 					svcNames = append(svcNames, svcName)
@@ -1999,10 +2000,6 @@ func DeleteProduct(username, envName, productName, requestID string, isDelete bo
 					err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err.Error())
 					return
 				}
-			}
-			err = commonrepo.NewProductColl().Delete(envName, productName)
-			if err != nil {
-				log.Errorf("Product.Delete error: %v", err)
 			}
 		}()
 	}
