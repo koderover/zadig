@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 /*
 Copyright 2023 The KodeRover Authors.
 
@@ -16,4 +19,9 @@ limitations under the License.
 
 package config
 
-const AGENT_VERSION = "v2.1.0"
+import "path/filepath"
+
+func GetUserScriptFilePath(workDir string) string {
+	return filepath.Join(workDir, "user_script.bat")
+
+}

@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 /*
 Copyright 2023 The KodeRover Authors.
 
@@ -16,6 +19,11 @@ limitations under the License.
 
 package script
 
-func generateScript(spec *StepShellSpec, workspace string, logger *log.JobLogger) (string, error) {
+import (
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
+)
+
+func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []string, logger *log.JobLogger) (string, error) {
 	return "", nil
 }

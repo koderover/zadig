@@ -259,6 +259,7 @@ func (c *FreestyleJobCtl) run(ctx context.Context) error {
 func (c *FreestyleJobCtl) runVMJob(ctx context.Context) (string, error) {
 	jobCtxBytes, err := yaml.Marshal(BuildJobExcutorContext(c.jobTaskSpec, c.job, c.workflowCtx, c.logger))
 	if err != nil {
+
 		msg := fmt.Sprintf("cannot Jobexcutor.Context data: %v", err)
 		logError(c.job, msg, c.logger)
 		return "", errors.New(msg)

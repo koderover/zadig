@@ -2,7 +2,7 @@
 # WARNING:
 # This makefile used docker buildx to build multi-arch image
 # Please make sure you have the right version of docker.
-.PHONY: microservice.push swag
+.PHONY: microservice.push swag zadig-agent zadig-agent-clean
 
 IMAGE_REPOSITORY ?= koderover.tencentcloudcr.com/koderover-public
 IMAGE_REPOSITORY := $(IMAGE_REPOSITORY)
@@ -40,3 +40,14 @@ debugtools: prereq $(DEBUG_TOOLS_TARGETS:=.push)
 
 swag:
 	swag init --parseDependency --parseInternal --parseDepth 1 -d cmd/aslan,pkg/microservice/aslan -g ../../pkg/microservice/aslan/server/rest/router.go -o pkg/microservice/aslan/server/rest/doc
+
+zadig-agent:
+	GOOS=windows GOARCH=amd64 go build -o cmd/zadig-agent/out/zadig-agent-windows-amd64.exe cmd/zadig-agent/main.go
+	GOOS=windows GOARCH=arm64 go build -o cmd/zadig-agent/out/zadig-agent-windows-arm64.exe cmd/zadig-agent/main.go
+	GOOS=linux GOARCH=amd64 go build -o cmd/zadig-agent/out/zadig-agent-linux-amd64 cmd/zadig-agent/main.go
+	GOOS=linux GOARCH=arm64 go build -o cmd/zadig-agent/out/zadig-agent-linux-arm64 cmd/zadig-agent/main.go
+	GOOS=darwin GOARCH=amd64 go build -o cmd/zadig-agent/out/adig-agent-darwin-amd64 cmd/zadig-agent/main.go
+	GOOS=darwin GOARCH=arm64 go build -o cmd/zadig-agent/out/adig-agent-darwin-arm64 cmd/zadig-agent/main.go
+
+zadig-agent-clean:
+	rm -rf cmd/zadig-agent/out

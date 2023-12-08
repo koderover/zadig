@@ -11,12 +11,14 @@ bin
 .cache
 gin-bin
 .mock
+out
 
 # Files
 *.tar.gz
 *.dat
 *.local.*
 *.out
+*.exe
 
 node_modules
 bower_components

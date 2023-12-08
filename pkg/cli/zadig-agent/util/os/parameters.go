@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/user"
 	"runtime"
-	"syscall"
 
 	"github.com/shirou/gopsutil/mem"
 )
@@ -168,40 +167,6 @@ func GetHostname() (string, error) {
 		return "", err
 	}
 	return hostname, nil
-}
-
-func GetDiskSpace() (uint64, error) {
-	var totalSize uint64
-
-	if runtime.GOOS == "windows" {
-
-	} else {
-		var stat syscall.Statfs_t
-		err := syscall.Statfs("/", &stat)
-		if err != nil {
-			return 0, err
-		}
-		// 文件系统块大小和可用块数的乘积即为总大小
-		totalSize = stat.Blocks * uint64(stat.Bsize)
-	}
-	return totalSize, nil
-}
-
-func GetFreeDiskSpace() (uint64, error) {
-	var freeSize uint64
-
-	if runtime.GOOS == "windows" {
-
-	} else {
-		var stat syscall.Statfs_t
-		err := syscall.Statfs("/", &stat)
-		if err != nil {
-			return 0, err
-		}
-		// 文件系统块大小和可用块数的乘积即为总大小
-		freeSize = stat.Bfree * uint64(stat.Bsize)
-	}
-	return freeSize, nil
 }
 
 func GetOSCurrentUser() (string, error) {

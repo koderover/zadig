@@ -42,7 +42,7 @@ type ShellStep struct {
 type StepShellSpec struct {
 	Scripts     []string `json:"scripts"                                 yaml:"scripts,omitempty"`
 	Script      string   `json:"script"                                  yaml:"script"`
-	SkipPrepare bool     `    json:"skip_prepare"                            yaml:"skip_prepare"`
+	SkipPrepare bool     `json:"skip_prepare"                            yaml:"skip_prepare"`
 }
 
 func NewShellStep(jobOutput []string, spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*ShellStep, error) {
@@ -67,7 +67,10 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	}()
 
 	userScriptFile, err := generateScript(s.spec, s.dirs, s.JobOutput, s.Logger)
-	cmd := exec.Command("/bin/bash", userScriptFile)
+	if err != nil {
+		return fmt.Errorf("generate script failed: %v", err)
+	}
+	cmd := exec.Command("bash", userScriptFile)
 	cmd.Dir = s.dirs.Workspace
 	cmd.Env = s.envs
 
