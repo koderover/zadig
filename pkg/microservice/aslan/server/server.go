@@ -67,6 +67,7 @@ func Serve(ctx context.Context) error {
 	// pprof service, you can access it by {your_ip}:8888/debug/pprof
 	go func() {
 		mux := http.NewServeMux()
+		mux.HandleFunc("/api/debug/pprof/{cmd}", pprof.Index)
 		mux.HandleFunc("/api/debug/pprof", pprof.Index)
 		mux.HandleFunc("/api/debug/pprof/cmdline", pprof.Cmdline)
 		mux.HandleFunc("/api/debug/pprof/profile", pprof.Profile)
