@@ -193,8 +193,12 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 			return "", err
 		}
 		imageRelatedValues, err = yaml.Marshal(imageValuesMap)
+		if err != nil {
+			return "", err
+		}
 	}
 
+	log.Debugf("imageRelatedValues: %s", string(imageRelatedValues))
 	valuesMap, err := yamlutil.MergeAndUnmarshal([][]byte{imageRelatedValues, []byte(valuesYaml), []byte(defaultValues), []byte(overrideYaml)})
 	if err != nil {
 		return "", err
@@ -231,6 +235,7 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 	if err != nil {
 		return "", err
 	}
+	log.Debugf("final values: %s", string(bs))
 	return string(bs), nil
 }
 
