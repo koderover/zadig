@@ -709,6 +709,7 @@ DistributeLoop:
 				continue DistributeLoop
 			}
 			p.Log.Infof("final minimum merged values.yaml: \n%s", mergedValuesYaml)
+			replacedMergedValuesYaml = mergedValuesYaml
 
 			helmClient, err = helmtool.NewClientFromNamespace(distribute.DeployClusterID, distribute.DeployNamespace)
 			if err != nil {
