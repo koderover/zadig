@@ -73,7 +73,7 @@ func IsPublicURL(reqPath, method string) bool {
 		return true
 	}
 
-	if strings.HasPrefix(realPath, "/debug/pprof") && method == http.MethodGet {
+	if strings.HasPrefix(realPath, "/debug") && method == http.MethodGet {
 		return true
 	}
 
