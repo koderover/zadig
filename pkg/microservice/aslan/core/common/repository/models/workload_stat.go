@@ -17,6 +17,8 @@ limitations under the License.
 package models
 
 import (
+	"fmt"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -36,4 +38,8 @@ type Workload struct {
 
 func (WorkloadStat) TableName() string {
 	return "workload_stat"
+}
+
+func (wl *Workload) String() string {
+	return fmt.Sprintf("%s/%s", wl.Type, wl.Name)
 }

@@ -374,6 +374,17 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 	}
 
 	for _, env := range envs {
+		if env.Source == setting.SourceFromExternal {
+			workloadStat, _ := commonrepo.NewWorkLoadsStatColl().Find(productInfo.ClusterID, productInfo.Namespace)
+			for _, workload := range workloadStat.Workloads {
+				if resSet.Has(workload.String()) {
+					insertEnvData(workload.String(), env)
+					break
+				}
+			}
+			continue
+		}
+
 		for _, svc := range env.GetServiceMap() {
 			if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName && svc.ServiceName == serviceName {
 				continue
