@@ -43,6 +43,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/render"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/repository"
 	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
@@ -524,12 +525,17 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			if !ok {
 				log.Errorf("failed to find service: %s in template", workload.Service)
 			}
+			resources, err := kube.ManifestToResource(svcTemplate.Yaml)
+			if err != nil {
+				log.Errorf("failed to load resources from manifest, error: %s", err)
+			}
 			productServices = append(productServices, &commonmodels.ProductService{
 				ServiceName: workload.Service,
 				ProductName: product.ProductName,
 				Type:        svcTemplate.Type,
 				Revision:    svcTemplate.Revision,
 				Containers:  svcTemplate.Containers,
+				Resources:   resources,
 			})
 		}
 		product.Services = [][]*commonmodels.ProductService{productServices}
