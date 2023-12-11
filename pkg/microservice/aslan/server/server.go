@@ -68,12 +68,12 @@ func Serve(ctx context.Context) error {
 	// pprof service, you can access it by {your_ip}:8888/debug/pprof
 	go func() {
 		router := mux.NewRouter()
-		router.Handle("/api/debug/pprof", http.HandlerFunc(pprof.Index))
-		router.Handle("/api/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
-		router.Handle("/api/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
-		router.Handle("/api/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
-		router.Handle("/api/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
-		router.Handle("/api/debug/pprof/{cmd}", http.HandlerFunc(pprof.Index))
+		router.Handle("/debug/pprof", http.HandlerFunc(pprof.Index))
+		router.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+		router.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+		router.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+		router.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+		router.Handle("/debug/pprof/{cmd}", http.HandlerFunc(pprof.Index))
 		err := http.ListenAndServe("0.0.0.0:8888", router)
 		if err != nil {
 			log.Fatal(err)
