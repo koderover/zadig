@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -524,12 +526,17 @@ func transferProducts(user string, projectInfo *template.Product, templateServic
 			if !ok {
 				log.Errorf("failed to find service: %s in template", workload.Service)
 			}
+			resources, err := kube.ManifestToResource(svcTemplate.Yaml)
+			if err != nil {
+				log.Errorf("failed to load resources from manifest, error: %s", err)
+			}
 			productServices = append(productServices, &commonmodels.ProductService{
 				ServiceName: workload.Service,
 				ProductName: product.ProductName,
 				Type:        svcTemplate.Type,
 				Revision:    svcTemplate.Revision,
 				Containers:  svcTemplate.Containers,
+				Resources:   resources,
 			})
 		}
 		product.Services = [][]*commonmodels.ProductService{productServices}
