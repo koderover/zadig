@@ -358,11 +358,10 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 	resSet := sets.NewString()
 	resources := UnstructuredToResources(unstructuredRes)
 
-	log.Infof("checkResourceAppliedByOtherEnv %s/%s, clusterID: %s, namespace: %s ", productInfo.ProductName, productInfo.EnvName, productInfo.ClusterID, productInfo.Namespace)
-
 	for _, res := range resources {
 		resSet.Insert(res.String())
 	}
+	log.Infof("checkResourceAppliedByOtherEnv %s/%s, clusterID: %s, namespace: %s, resource: %v ", productInfo.ProductName, productInfo.EnvName, productInfo.ClusterID, productInfo.Namespace, resSet.List())
 
 	envs, err := commonrepo.NewProductColl().ListEnvByNamespace(productInfo.ClusterID, productInfo.Namespace)
 	if err != nil {
@@ -371,6 +370,17 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 	}
 
 	for _, env := range envs {
+		if env.Source == setting.SourceFromExternal {
+			workloadStat, _ := commonrepo.NewWorkLoadsStatColl().Find(productInfo.ClusterID, productInfo.Namespace)
+			for _, workload := range workloadStat.Workloads {
+				if resSet.Has(workload.String()) {
+					insertEnvData(workload.String(), env)
+					break
+				}
+			}
+			continue
+		}
+
 		for _, svc := range env.GetServiceMap() {
 			if env.ProductName == productInfo.ProductName && env.EnvName == productInfo.EnvName && svc.ServiceName == serviceName {
 				continue

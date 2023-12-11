@@ -155,7 +155,7 @@ type ServiceResource struct {
 }
 
 func (r *ServiceResource) String() string {
-	return fmt.Sprintf("%s/%s", r.GroupVersionKind.String(), r.Name)
+	return fmt.Sprintf("%s/%s", r.GroupVersionKind.Kind, r.Name)
 }
 
 type ProductService struct {
