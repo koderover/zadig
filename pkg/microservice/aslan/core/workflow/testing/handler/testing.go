@@ -172,13 +172,16 @@ func ListTestModules(c *gin.Context) {
 		}
 		projects = []string{projectName}
 	} else {
-		// otherwise all projects with the get testing permission will be added to the projects
-		allowedProjects, found, err := internalhandler.ListAuthorizedProjectsByResourceAndVerb(ctx.UserID, types.ResourceTypeTest, types.TestActionView)
-		if err != nil || !found {
-			ctx.Resp = make([]*service.TestingOpt, 0)
-			return
+		projects = []string{}
+		if !ctx.Resources.IsSystemAdmin {
+			// otherwise all projects with the get testing permission will be added to the projects
+			allowedProjects, found, err := internalhandler.ListAuthorizedProjectsByResourceAndVerb(ctx.UserID, types.ResourceTypeTest, types.TestActionView)
+			if err != nil || !found {
+				ctx.Resp = make([]*service.TestingOpt, 0)
+				return
+			}
+			projects = allowedProjects
 		}
-		projects = allowedProjects
 	}
 
 	ctx.Resp, ctx.Err = service.ListTestingOpt(projects, c.Query("testType"), ctx.Logger)

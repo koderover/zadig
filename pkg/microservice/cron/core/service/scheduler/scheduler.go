@@ -194,8 +194,6 @@ func (c *CronClient) Init() {
 	c.InitSystemCapacityGCScheduler()
 	// 定时任务触发
 	c.InitJobScheduler()
-	// 测试管理的定时任务触发
-	c.InitTestScheduler()
 
 	// 定时清理环境
 	c.InitCleanProductScheduler()
@@ -251,15 +249,6 @@ func (c *CronClient) InitJobScheduler() {
 	c.Schedulers[UpsertWorkflowScheduler].Every(1).Minutes().Do(c.UpsertWorkflowScheduler, c.log)
 
 	c.Schedulers[UpsertWorkflowScheduler].Start()
-}
-
-func (c *CronClient) InitTestScheduler() {
-
-	c.Schedulers[UpsertTestScheduler] = gocron.NewScheduler()
-
-	c.Schedulers[UpsertTestScheduler].Every(1).Minutes().Do(c.UpsertTestScheduler, c.log)
-
-	c.Schedulers[UpsertTestScheduler].Start()
 }
 
 func (c *CronClient) InitBuildStatScheduler() {
