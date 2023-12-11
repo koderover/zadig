@@ -373,11 +373,9 @@ func CheckResourceAppliedByOtherEnv(serviceYaml string, productInfo *commonmodel
 	}
 
 	for _, env := range envs {
-		log.Infof("handle single env: %s", env.ProductName, env.EnvName)
 		if env.Source == setting.SourceFromExternal {
 			workloadStat, _ := commonrepo.NewWorkLoadsStatColl().Find(productInfo.ClusterID, productInfo.Namespace)
 			for _, workload := range workloadStat.Workloads {
-				log.Infof("workload: %s", workload.String())
 				if resSet.Has(workload.String()) {
 					insertEnvData(workload.String(), env)
 					break
