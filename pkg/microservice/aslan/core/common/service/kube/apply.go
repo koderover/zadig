@@ -466,6 +466,7 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 	errList := &multierror.Error{}
 
 	for _, u := range resources {
+		log.Infof("------- handle single resource: %s/%s", u.GetKind(), u.GetName())
 		switch u.GetKind() {
 		case setting.Ingress:
 			ls := MergeLabels(labels, u.GetLabels())
