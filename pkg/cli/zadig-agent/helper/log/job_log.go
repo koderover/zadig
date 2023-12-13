@@ -26,13 +26,16 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 type JobLogger struct {
-	mu      sync.Mutex
-	writer  io.Writer
-	logger  *zap.SugaredLogger
-	logPath string
+	mu               sync.Mutex
+	writer           io.Writer
+	logger           *zap.SugaredLogger
+	lumberjackLogger *lumberjack.Logger
+	logPath          string
+	isClosed         bool
 }
 
 func NewJobLogger(logfile string) *JobLogger {
@@ -49,12 +52,13 @@ func NewJobLogger(logfile string) *JobLogger {
 		NoLogLevel: true,
 	}
 
-	return &JobLogger{
+	jobLogger := &JobLogger{
 		mu:      sync.Mutex{},
 		writer:  file,
-		logger:  InitJobLogger(cfg),
 		logPath: logfile,
 	}
+	jobLogger.logger, jobLogger.lumberjackLogger = InitJobLogger(cfg)
+	return jobLogger
 }
 
 func (l *JobLogger) Printf(format string, a ...any) {
@@ -225,8 +229,27 @@ func (l *JobLogger) Close() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	if l.isClosed {
+		return
+	}
+
+	closer, ok := l.writer.(io.Closer)
+	if ok {
+		if err := closer.Close(); err != nil {
+			Errorf("failed to close writer, error: %s", err)
+		}
+	}
+
+	if l.lumberjackLogger != nil {
+		if err := l.lumberjackLogger.Close(); err != nil {
+			Errorf("failed to close lumberjack logger, error: %s", err)
+		}
+	}
+
 	err := l.logger.Sync()
 	if err != nil {
 		Errorf("failed to sync job logger, error: %s", err)
 	}
+
+	l.isClosed = true
 }

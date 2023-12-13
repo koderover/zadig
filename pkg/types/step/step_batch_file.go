@@ -14,12 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package step
 
-import (
-	"github.com/koderover/zadig/v2/cmd/zgctl/cmd"
-)
-
-func main() {
-	cmd.Execute()
+type StepBatchFileSpec struct {
+	Scripts     []string `bson:"scripts"                              json:"scripts"                                 yaml:"scripts,omitempty"`
+	Script      string   `bson:"script"                               json:"script"                                  yaml:"script"`
+	SkipPrepare bool     `bson:"skip_prepare"                         json:"skip_prepare"                            yaml:"skip_prepare"`
 }

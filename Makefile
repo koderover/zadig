@@ -41,13 +41,19 @@ debugtools: prereq $(DEBUG_TOOLS_TARGETS:=.push)
 swag:
 	swag init --parseDependency --parseInternal --parseDepth 1 -d cmd/aslan,pkg/microservice/aslan -g ../../pkg/microservice/aslan/server/rest/router.go -o pkg/microservice/aslan/server/rest/doc
 
-zadig-agent:
-	GOOS=windows GOARCH=amd64 go build -o cmd/zadig-agent/out/zadig-agent-windows-amd64.exe cmd/zadig-agent/main.go
-	GOOS=windows GOARCH=arm64 go build -o cmd/zadig-agent/out/zadig-agent-windows-arm64.exe cmd/zadig-agent/main.go
-	GOOS=linux GOARCH=amd64 go build -o cmd/zadig-agent/out/zadig-agent-linux-amd64 cmd/zadig-agent/main.go
-	GOOS=linux GOARCH=arm64 go build -o cmd/zadig-agent/out/zadig-agent-linux-arm64 cmd/zadig-agent/main.go
-	GOOS=darwin GOARCH=amd64 go build -o cmd/zadig-agent/out/adig-agent-darwin-amd64 cmd/zadig-agent/main.go
-	GOOS=darwin GOARCH=arm64 go build -o cmd/zadig-agent/out/adig-agent-darwin-arm64 cmd/zadig-agent/main.go
+# zadig-agent
+ARCHS := amd64 arm64
+PLATFORMS := windows linux darwin
+ZADIG_AGENT_OUT_DIR := cmd/zadig-agent/out
+
+zadig-agent: $(foreach platform,$(PLATFORMS),$(foreach arch,$(ARCHS),zadig-agent-$(platform)-$(arch)))
 
 zadig-agent-clean:
-	rm -rf cmd/zadig-agent/out
+	@rm -rf $(ZADIG_AGENT_OUT_DIR)/*
+
+zadig-agent-%:
+	@$(eval GOOS=$(firstword $(subst -, ,$*)))
+	@$(eval GOARCH=$(lastword $(subst -, ,$*)))
+	@echo "Building zadig-agent for GOOS=$(GOOS), GOARCH=$(GOARCH)"
+	@$(eval ZADIG_AGENT_OUT_FILE=$(ZADIG_AGENT_OUT_DIR)/zadig-agent-$(GOOS)-$(GOARCH)$(if $(findstring windows,$(GOOS)),.exe))
+	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(ZADIG_AGENT_OUT_FILE) cmd/zadig-agent/main.go

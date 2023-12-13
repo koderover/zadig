@@ -37,7 +37,6 @@ import (
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/log"
 	commonjob "github.com/koderover/zadig/v2/pkg/types/job"
 )
 
@@ -471,14 +470,12 @@ func PollingAgentJob(token string, retry int, logger *zap.SugaredLogger) (*Polli
 			break
 		}
 	}
-	log.Debugf("vm %s get job %v", vm.Name, job)
 	if job == nil {
 		return nil, nil
 	}
 
 	jobID := job.ID.Hex()
 	if job != nil && jobGetter.AddGetter(jobID) {
-		log.Debugf("1")
 		defer jobGetter.RemoveGetter(jobID)
 		job.Status = string(config.StatusPrepare)
 		job.VMID = vm.ID.Hex()
@@ -500,7 +497,6 @@ func PollingAgentJob(token string, retry int, logger *zap.SugaredLogger) (*Polli
 			JobCtx:        job.JobCtx,
 		}
 	} else {
-		log.Debugf("2")
 		retry++
 		resp, err = PollingAgentJob(token, retry, logger)
 	}

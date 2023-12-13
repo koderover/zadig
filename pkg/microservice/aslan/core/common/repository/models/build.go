@@ -41,6 +41,7 @@ type Build struct {
 	Repos        []*types.Repository    `bson:"repos"                         json:"repos"`
 	PreBuild     *PreBuild              `bson:"pre_build"                     json:"pre_build"`
 	JenkinsBuild *JenkinsBuild          `bson:"jenkins_build,omitempty"       json:"jenkins_build,omitempty"`
+	ScriptType   ScriptType             `bson:"script_type"                   json:"script_type"`
 	Scripts      string                 `bson:"scripts"                       json:"scripts"`
 	PostBuild    *PostBuild             `bson:"post_build,omitempty"          json:"post_build"`
 
@@ -185,6 +186,13 @@ type Item struct {
 	Name    string `bson:"name"                   json:"name"`
 	Version string `bson:"version"                json:"version"`
 }
+
+type ScriptType string
+
+const (
+	ScriptTypeShell     ScriptType = "shell"
+	ScriptTypeBatchFile ScriptType = "batch_file"
+)
 
 func (build *Build) SafeRepos() []*types.Repository {
 	if len(build.Repos) == 0 {

@@ -134,8 +134,6 @@ func HandleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string,
 			break
 		}
 
-		//logger.Printf("%s", maskSecretEnvs(string(lineBytes), secretEnvs))
-
 		if needPersistentLog {
 			err := util.WriteFile(logFile, lineBytes, 0700)
 			if err != nil {
