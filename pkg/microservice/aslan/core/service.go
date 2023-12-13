@@ -73,7 +73,6 @@ import (
 
 const (
 	webhookController = iota
-	bundleController
 )
 
 type policyGetter interface {
@@ -87,11 +86,9 @@ type Controller interface {
 func StartControllers(stopCh <-chan struct{}) {
 	controllerWorkers := map[int]int{
 		webhookController: 1,
-		bundleController:  1,
 	}
 	controllers := map[int]Controller{
 		webhookController: webhook.NewWebhookController(),
-		bundleController:  policybundle.NewBundleController(),
 	}
 
 	var wg sync.WaitGroup
@@ -175,9 +172,9 @@ func Start(ctx context.Context) {
 	initRsaKey()
 
 	// policy initialization process
-	policybundle.GenerateOPABundle()
 	policyservice.MigratePolicyData()
 
+	initBundleGenerator()
 	initCron()
 }
 
@@ -228,6 +225,21 @@ func initService() {
 	if err := workflowservice.SubScribeNSQ(); err != nil {
 		errors = multierror.Append(errors, err)
 	}
+}
+
+func initBundleGenerator() {
+	ticker := time.NewTicker(20 * time.Second)
+
+	policybundle.GenerateOPABundle()
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				policybundle.GenerateOPABundle()
+			}
+		}
+	}()
 }
 
 // initResourcesForExternalClusters create role, serviceAccount and roleBinding for custom workflow
