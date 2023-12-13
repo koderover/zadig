@@ -681,6 +681,11 @@ func (hClient *HelmClient) downloadOCIChart(repoEntry *repo.Entry, chartRef stri
 	if err != nil {
 		return err
 	}
+	hostUrl := strings.TrimPrefix(repoEntry.URL, fmt.Sprintf("%s://", registry.OCIScheme))
+	err = pullConfig.RegistryClient.Login(hostUrl, registry.LoginOptBasicAuth(repoEntry.Username, repoEntry.Password))
+	if err != nil {
+		return err
+	}
 	pull := action.NewPullWithOpts(action.WithConfig(pullConfig))
 	pull.Password = repoEntry.Username
 	pull.Username = repoEntry.Password
