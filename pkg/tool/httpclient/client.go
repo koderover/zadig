@@ -25,7 +25,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 const (

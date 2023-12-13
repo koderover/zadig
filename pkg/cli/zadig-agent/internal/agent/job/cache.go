@@ -26,9 +26,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/helper"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 )
 
 var cache = &cacheLock{

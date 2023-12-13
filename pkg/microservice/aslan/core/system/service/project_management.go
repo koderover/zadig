@@ -27,18 +27,18 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/tool/meego"
+	"github.com/koderover/zadig/v2/pkg/tool/meego"
 
-	config2 "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	jira2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/jira"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
-	"github.com/koderover/zadig/pkg/setting"
-	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/jira"
-	"github.com/koderover/zadig/pkg/tool/log"
+	config2 "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	jira2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/jira"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/jira"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func ListProjectManagement(log *zap.SugaredLogger) ([]*models.ProjectManagement, error) {

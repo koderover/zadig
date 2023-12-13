@@ -31,10 +31,10 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/hubagent/config"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/tool/remotedialer"
+	"github.com/koderover/zadig/v2/pkg/microservice/hubagent/config"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
 )
 
 const (

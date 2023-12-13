@@ -20,10 +20,10 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/types"
 
-	buildservice "github.com/koderover/zadig/pkg/microservice/aslan/core/build/service"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	buildservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/build/service"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
 func ListDeployTarget(c *gin.Context) {

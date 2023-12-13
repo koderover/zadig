@@ -20,9 +20,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/config"
-	ginmiddleware "github.com/koderover/zadig/pkg/middleware/gin"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/config"
+	ginmiddleware "github.com/koderover/zadig/v2/pkg/middleware/gin"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type engine struct {

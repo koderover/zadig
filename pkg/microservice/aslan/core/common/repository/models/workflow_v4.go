@@ -27,13 +27,13 @@ import (
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/dingtalk"
-	"github.com/koderover/zadig/pkg/tool/guanceyun"
-	"github.com/koderover/zadig/pkg/tool/lark"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
+	"github.com/koderover/zadig/v2/pkg/tool/guanceyun"
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type WorkflowV4 struct {

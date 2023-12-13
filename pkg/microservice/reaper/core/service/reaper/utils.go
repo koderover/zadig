@@ -21,7 +21,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/cmd"
+	"github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/cmd"
 )
 
 // helper function returns true if directory dir is empty.

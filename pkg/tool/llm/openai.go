@@ -26,8 +26,8 @@ import (
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/sashabaranov/go-openai"
 
-	"github.com/koderover/zadig/pkg/tool/cache"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 const (

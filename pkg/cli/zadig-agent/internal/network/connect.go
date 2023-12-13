@@ -19,8 +19,8 @@ package network
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	httpclient "github.com/koderover/zadig/pkg/cli/zadig-agent/util/client"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	httpclient "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/client"
 )
 
 const (

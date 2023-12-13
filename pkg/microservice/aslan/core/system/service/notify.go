@@ -19,9 +19,9 @@ package service
 import (
 	"go.uber.org/zap"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 func PullNotify(user string, log *zap.SugaredLogger) ([]*commonmodels.Notify, error) {

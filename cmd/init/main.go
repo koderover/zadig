@@ -17,7 +17,7 @@ limitations under the License.
 package main
 
 import (
-	"github.com/koderover/zadig/pkg/cli/initconfig/cmd"
+	"github.com/koderover/zadig/v2/pkg/cli/initconfig/cmd"
 )
 
 func main() {

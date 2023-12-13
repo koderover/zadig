@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/v2/pkg/util"
 	"go.uber.org/zap"
 )
 

@@ -22,8 +22,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
-	plugins "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin"
+	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/config"
+	plugins "github.com/koderover/zadig/v2/pkg/microservice/warpdrive/core/service/taskplugin"
 )
 
 // Pool is a worker group that runs a number of tasks at a

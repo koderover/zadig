@@ -21,7 +21,7 @@ import (
 
 	"go.uber.org/zap"
 
-	configbase "github.com/koderover/zadig/pkg/config"
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 )
 
 func (c *Client) InitStatData(log *zap.SugaredLogger) error {

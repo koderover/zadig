@@ -19,8 +19,8 @@ package jira
 import (
 	"github.com/imroc/req/v3"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 // Client is jira RPC client

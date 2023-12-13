@@ -29,8 +29,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	fsutil "github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 const (

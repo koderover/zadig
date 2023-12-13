@@ -16,7 +16,7 @@ limitations under the License.
 
 package types
 
-import "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+import "github.com/koderover/zadig/v2/pkg/microservice/warpdrive/core/service/types/task"
 
 type PredatorContext struct {
 	JobType        string                 `yaml:"job_type"`

@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"github.com/imroc/req/v3"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/pkg/errors"
 )
 

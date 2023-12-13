@@ -19,8 +19,8 @@ package systemconfig
 import (
 	"fmt"
 
-	emailservice "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/service"
-	"github.com/koderover/zadig/pkg/tool/log"
+	emailservice "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/service"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type Email struct {

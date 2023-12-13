@@ -19,9 +19,9 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/user/core/handler/login"
-	"github.com/koderover/zadig/pkg/microservice/user/core/handler/permission"
-	"github.com/koderover/zadig/pkg/microservice/user/core/handler/user"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/login"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/permission"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/user"
 )
 
 type Router struct{}

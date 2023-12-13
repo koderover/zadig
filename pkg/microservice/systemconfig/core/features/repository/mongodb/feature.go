@@ -23,9 +23,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/repository/models"
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/repository/models"
+	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
 type FeatureColl struct {

@@ -21,7 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/tool/metrics"
+	"github.com/koderover/zadig/v2/pkg/tool/metrics"
 )
 
 func RegisterRequest() gin.HandlerFunc {

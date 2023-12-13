@@ -30,10 +30,10 @@ import (
 	"google.golang.org/genproto/googleapis/rpc/code"
 	rpc_status "google.golang.org/genproto/googleapis/rpc/status"
 
-	"github.com/koderover/zadig/pkg/microservice/user/config"
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
-	"github.com/koderover/zadig/pkg/tool/cache"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 var logger = log.NewFileLogger(config.DecisionLogPath())

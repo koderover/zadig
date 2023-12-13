@@ -23,8 +23,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/client/policy"
-	"github.com/koderover/zadig/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/microservice/picket/client/policy"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
 )
 
 const ALLUsers = "*"

@@ -8,9 +8,9 @@ import (
 	openapi "github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/tool/llm"
-	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/v2/pkg/tool/llm"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type BuildLogAnalysisArgs struct {

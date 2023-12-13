@@ -24,8 +24,8 @@ import (
 	"go.uber.org/zap"
 	"sigs.k8s.io/yaml"
 
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
 type HarborProject struct {

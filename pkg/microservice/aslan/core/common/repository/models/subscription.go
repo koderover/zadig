@@ -16,7 +16,7 @@ limitations under the License.
 
 package models
 
-import "github.com/koderover/zadig/pkg/microservice/aslan/config"
+import "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 
 type Subscription struct {
 	Subscriber     string            `bson:"subscriber"                   json:"subscriber,omitempty"`     // 订阅人

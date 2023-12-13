@@ -18,8 +18,8 @@ package service
 import (
 	"context"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 	"go.uber.org/zap"
 )
 

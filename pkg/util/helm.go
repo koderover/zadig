@@ -26,8 +26,8 @@ import (
 	"gopkg.in/yaml.v3"
 	"k8s.io/helm/pkg/strvals"
 
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/util/converter"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/util/converter"
 )
 
 func GeneReleaseName(namingRule, projectName, namespace, envName, service string) string {

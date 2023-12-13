@@ -17,7 +17,7 @@ limitations under the License.
 package models
 
 import (
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

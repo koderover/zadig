@@ -48,7 +48,6 @@ require (
 	github.com/jinzhu/copier v0.3.5
 	github.com/jinzhu/now v1.1.5
 	github.com/juju/ratelimit v1.0.2
-	github.com/koderover/zadig v0.0.0-00010101000000-000000000000
 	github.com/larksuite/oapi-sdk-go/v3 v3.0.10
 	github.com/magiconair/properties v1.8.5
 	github.com/mholt/archiver v3.1.1+incompatible
@@ -160,6 +159,7 @@ require (
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
+	github.com/frankban/quicktest v1.14.6 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
@@ -316,5 +316,3 @@ require (
 replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.9.0
 
 replace github.com/docker/libnetwork => github.com/docker/libnetwork v0.8.0-dev.2.0.20220716072657-0dde5c895075
-
-replace github.com/koderover/zadig => ../zadig

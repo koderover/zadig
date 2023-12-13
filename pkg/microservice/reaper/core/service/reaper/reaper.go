@@ -31,15 +31,15 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/koderover/zadig/pkg/tool/s3"
-	"github.com/koderover/zadig/pkg/tool/sonar"
+	"github.com/koderover/zadig/v2/pkg/tool/s3"
+	"github.com/koderover/zadig/v2/pkg/tool/sonar"
 
-	"github.com/koderover/zadig/pkg/microservice/reaper/config"
-	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/util/fs"
+	"github.com/koderover/zadig/v2/pkg/microservice/reaper/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/meta"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 const (

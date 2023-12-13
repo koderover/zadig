@@ -21,10 +21,10 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	userservice "github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
-	"github.com/koderover/zadig/pkg/shared/client/user"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	"github.com/koderover/zadig/pkg/types"
+	userservice "github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func GetUserAuthInfo(c *gin.Context) {

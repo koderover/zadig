@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/hubserver/config"
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/config"
+	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
 func Init() {

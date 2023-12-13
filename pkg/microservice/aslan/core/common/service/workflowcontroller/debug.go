@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
 
 // WorkflowTaskWithLock is used for editing workflow task data when it is running

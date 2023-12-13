@@ -19,7 +19,7 @@ package aslan
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
 func (c *Client) GetContainerLog(envName, projectName, container, pod string, tailLines int64) (string, error) {

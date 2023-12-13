@@ -22,7 +22,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	kubernetes "github.com/koderover/zadig/pkg/shared/kube/wrapper"
+	kubernetes "github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 )
 
 // DeploymentAnalyzer is an analyzer that checks for misconfigured Deployments

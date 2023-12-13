@@ -23,7 +23,7 @@ import (
 
 	"gitee.com/openeuler/go-gitee/gitee"
 
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
 func (c *Client) ListBranches(ctx context.Context, owner, repo string, opts *gitee.GetV5ReposOwnerRepoBranchesOpts) ([]gitee.Branch, error) {

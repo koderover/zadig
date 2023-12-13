@@ -25,10 +25,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/zgctl"
-	ginmiddleware "github.com/koderover/zadig/pkg/middleware/gin"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/zgctl"
+	ginmiddleware "github.com/koderover/zadig/v2/pkg/middleware/gin"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 var listenAddr string

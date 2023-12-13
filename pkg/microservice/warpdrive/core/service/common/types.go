@@ -16,7 +16,7 @@ limitations under the License.
 
 package common
 
-import "github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+import "github.com/koderover/zadig/v2/pkg/microservice/warpdrive/config"
 
 type Stage struct {
 	//Note: The same stage cannot temporarily run different types of tasks

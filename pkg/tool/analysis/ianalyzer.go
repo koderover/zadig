@@ -19,7 +19,7 @@ import (
 	"context"
 
 	openapi_v2 "github.com/google/gnostic/openapiv2"
-	"github.com/koderover/zadig/pkg/tool/llm"
+	"github.com/koderover/zadig/v2/pkg/tool/llm"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	appsv1 "k8s.io/api/apps/v1"

@@ -19,8 +19,8 @@ package models
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/config"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/config"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type CollaborationMode struct {

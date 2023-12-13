@@ -20,11 +20,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/shared/client/user"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type DeleteUserResp struct {

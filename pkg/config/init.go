@@ -21,8 +21,8 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/util/fs"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 func init() {

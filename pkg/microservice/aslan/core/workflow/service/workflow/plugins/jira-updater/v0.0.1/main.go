@@ -6,7 +6,7 @@ import (
 	jira "github.com/andygrunwald/go-jira"
 	"github.com/spf13/viper"
 
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 // envs

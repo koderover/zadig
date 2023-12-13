@@ -27,12 +27,12 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/helper"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/s3"
-	"github.com/koderover/zadig/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/s3"
+	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 type ArchiveStep struct {

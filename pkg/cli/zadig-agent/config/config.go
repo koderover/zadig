@@ -25,8 +25,8 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
-	utilfile "github.com/koderover/zadig/pkg/cli/zadig-agent/util/file"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	utilfile "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
 )
 
 var agentConfig *AgentConfig

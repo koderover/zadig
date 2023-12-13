@@ -17,8 +17,8 @@ limitations under the License.
 package user
 
 import (
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func (c *Client) ListRoles(namespace, uid string) ([]*types.Role, error) {

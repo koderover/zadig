@@ -17,7 +17,7 @@ limitations under the License.
 package command
 
 import (
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/command/cmd"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/command/cmd"
 )
 
 func Execute() error {

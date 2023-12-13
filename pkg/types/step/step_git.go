@@ -19,7 +19,7 @@ package step
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type StepGitSpec struct {

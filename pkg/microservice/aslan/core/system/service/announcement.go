@@ -19,9 +19,9 @@ package service
 import (
 	"go.uber.org/zap"
 
-	systemmodel "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
-	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	systemmodel "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
+	systemrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 func CreateAnnouncement(creater string, ctx *systemmodel.Announcement, log *zap.SugaredLogger) error {

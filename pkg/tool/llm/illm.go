@@ -21,7 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 )
 
 var (

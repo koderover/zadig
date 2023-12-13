@@ -30,8 +30,8 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/utils/exec"
 
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
-	"github.com/koderover/zadig/pkg/tool/log"
+	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 // ExecOptions passed to ExecWithOptions

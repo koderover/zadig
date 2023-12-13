@@ -26,7 +26,7 @@ import (
 	"k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/client-go/discovery"
@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
 )
 
 func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {

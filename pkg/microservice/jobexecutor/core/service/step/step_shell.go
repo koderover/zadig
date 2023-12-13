@@ -29,9 +29,9 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/step"
-	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type ShellStep struct {
@@ -72,7 +72,7 @@ func (s *ShellStep) Run(ctx context.Context) error {
 			log.Warnf("Failed to record shell_step_done file, error: %v", err)
 		}
 	}()
-	
+
 	if len(s.spec.Scripts) == 0 {
 		return nil
 	}

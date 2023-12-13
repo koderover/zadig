@@ -17,7 +17,7 @@ limitations under the License.
 package vm
 
 import (
-	"github.com/koderover/zadig/pkg/types/job"
+	"github.com/koderover/zadig/v2/pkg/types/job"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

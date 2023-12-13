@@ -23,10 +23,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
-	systemconfig_codehost_service "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	systemconfig_codehost_service "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/service"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 func CreateProjectCodeHost(projectName string, codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {

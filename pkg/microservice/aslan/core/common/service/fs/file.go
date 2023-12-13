@@ -24,8 +24,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/koderover/zadig/pkg/setting"
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	fsutil "github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 // PreloadFiles downloads a tarball from object storage and extracts it to a local path for further usage.

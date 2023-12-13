@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 // ConnectAuthorizer custom for authorization

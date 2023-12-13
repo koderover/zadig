@@ -20,11 +20,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
-	"github.com/koderover/zadig/pkg/setting"
-	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 var rootCmd = &cobra.Command{

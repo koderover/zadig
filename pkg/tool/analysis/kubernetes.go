@@ -18,7 +18,7 @@ package analysis
 import (
 	"fmt"
 
-	kube "github.com/koderover/zadig/pkg/shared/kube/client"
+	kube "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"

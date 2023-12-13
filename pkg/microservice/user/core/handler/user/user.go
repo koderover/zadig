@@ -21,11 +21,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/user/config"
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 // Deprecated

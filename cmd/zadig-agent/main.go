@@ -20,8 +20,8 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/command"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/command"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 )
 
 func main() {

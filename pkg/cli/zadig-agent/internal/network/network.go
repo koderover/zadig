@@ -19,9 +19,9 @@ package network
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
-	httpclient "github.com/koderover/zadig/pkg/cli/zadig-agent/util/client"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
+	httpclient "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/client"
 )
 
 type AgentConfig struct {

@@ -19,7 +19,7 @@ package gitlab
 import (
 	"github.com/27149chen/afero"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
 )
 
 func (c *Client) GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error) {

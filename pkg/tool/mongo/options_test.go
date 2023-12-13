@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
 type testParams struct {

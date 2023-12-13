@@ -16,7 +16,7 @@ limitations under the License.
 
 package service
 
-import "github.com/koderover/zadig/pkg/util"
+import "github.com/koderover/zadig/v2/pkg/util"
 
 type OpenAPIStatV2 struct {
 	Total        int64        `json:"total"`

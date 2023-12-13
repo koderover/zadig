@@ -25,7 +25,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 )
 
 var logger *zap.Logger

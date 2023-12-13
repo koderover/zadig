@@ -21,7 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
+	"github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/meta"
 )
 
 func TestReaper_BuildGitCommands_EmptyRepoName(t *testing.T) {

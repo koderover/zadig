@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 )
 
 func ErrHandler(err error) string {

@@ -17,7 +17,7 @@ limitations under the License.
 package models
 
 import (
-	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

@@ -21,13 +21,14 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"strings"
 
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func PrepareDinD(dynamicClient dynamic.Interface, namespace string, regList []*RegistryInfoForDinDUpdate) error {

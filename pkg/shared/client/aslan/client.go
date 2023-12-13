@@ -19,7 +19,7 @@ package aslan
 import (
 	"crypto/tls"
 
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
 type Client struct {

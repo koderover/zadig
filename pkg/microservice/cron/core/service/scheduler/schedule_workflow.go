@@ -24,8 +24,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {

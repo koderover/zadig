@@ -22,9 +22,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
-	"github.com/koderover/zadig/pkg/config"
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
+	"github.com/koderover/zadig/v2/pkg/config"
+	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
 type OrganizationColl struct {

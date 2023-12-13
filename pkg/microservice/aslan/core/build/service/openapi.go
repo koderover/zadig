@@ -21,13 +21,13 @@ import (
 
 	"go.uber.org/zap"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	systemService "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
-	"github.com/koderover/zadig/pkg/setting"
-	e "github.com/koderover/zadig/pkg/tool/errors"
-	openapitool "github.com/koderover/zadig/pkg/tool/openapi"
-	"github.com/koderover/zadig/pkg/types"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	systemService "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	openapitool "github.com/koderover/zadig/v2/pkg/tool/openapi"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func OpenAPICreateBuildModule(username string, req *OpenAPIBuildCreationReq, log *zap.SugaredLogger) error {

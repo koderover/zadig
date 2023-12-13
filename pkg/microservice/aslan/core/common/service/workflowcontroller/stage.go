@@ -25,17 +25,17 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	configbase "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	approvalservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/approval"
-	dingservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dingtalk"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
-	larkservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/lark"
-	"github.com/koderover/zadig/pkg/tool/dingtalk"
-	"github.com/koderover/zadig/pkg/tool/lark"
-	"github.com/koderover/zadig/pkg/tool/log"
+	configbase "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	approvalservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/approval"
+	dingservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/dingtalk"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/instantmessage"
+	larkservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/lark"
+	"github.com/koderover/zadig/v2/pkg/tool/dingtalk"
+	"github.com/koderover/zadig/v2/pkg/tool/lark"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type StageCtl interface {

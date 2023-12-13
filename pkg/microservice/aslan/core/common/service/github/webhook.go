@@ -20,9 +20,9 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
-	"github.com/koderover/zadig/pkg/tool/git"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	gitservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/git"
+	"github.com/koderover/zadig/v2/pkg/tool/git"
 )
 
 func (c *Client) CreateWebHook(owner, repo string) (string, error) {

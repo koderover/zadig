@@ -24,8 +24,8 @@ import (
 	"github.com/27149chen/afero"
 	"github.com/xanzy/go-gitlab"
 
-	"github.com/koderover/zadig/pkg/util"
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	"github.com/koderover/zadig/v2/pkg/util"
+	fsutil "github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 func (c *Client) ListTree(owner, repo, path, branch string, recursive bool, opts *ListOptions) ([]*gitlab.TreeNode, error) {

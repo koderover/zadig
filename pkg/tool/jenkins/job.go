@@ -1,6 +1,6 @@
 package jenkins
 
-import "github.com/koderover/zadig/pkg/microservice/aslan/config"
+import "github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 
 type ParameterType string
 

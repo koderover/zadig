@@ -22,12 +22,12 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	agentconfig "github.com/koderover/zadig/pkg/cli/zadig-agent/config"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
-	fileutil "github.com/koderover/zadig/pkg/cli/zadig-agent/util/file"
-	osutil "github.com/koderover/zadig/pkg/cli/zadig-agent/util/os"
+	agentconfig "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
+	fileutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
+	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 )
 
 func RegisterAgent() {

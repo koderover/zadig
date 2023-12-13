@@ -20,12 +20,12 @@ import (
 	"context"
 
 	github2 "github.com/google/go-github/v35/github"
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
-	"github.com/koderover/zadig/pkg/tool/git/github"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client"
+	"github.com/koderover/zadig/v2/pkg/tool/git/github"
 )
 
 type Config struct {

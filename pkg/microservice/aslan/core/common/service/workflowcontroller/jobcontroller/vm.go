@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	vmmongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/vm"
+	vmmongodb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/vm"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
 
 func waitVMJobStart(ctx context.Context, jobID string, taskTimeout <-chan time.Time, jobTask *commonmodels.JobTask, logger *zap.SugaredLogger) (config.Status, error) {

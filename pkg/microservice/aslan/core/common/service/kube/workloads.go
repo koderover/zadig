@@ -23,10 +23,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func FetchSelectedWorkloads(namespace string, Resource []*WorkloadResource, kubeclient crClient.Client, clientSet *kubernetes.Clientset) ([]*appsv1.Deployment, []*appsv1.StatefulSet,

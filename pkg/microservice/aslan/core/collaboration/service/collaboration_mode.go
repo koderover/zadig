@@ -20,8 +20,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 )
 
 func CreateCollaborationMode(userName string, collaborationMode *models.CollaborationMode, logger *zap.SugaredLogger) error {

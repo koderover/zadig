@@ -17,8 +17,8 @@ limitations under the License.
 package login
 
 import (
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type enabledStatus struct {

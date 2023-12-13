@@ -21,7 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
 type handlers struct {

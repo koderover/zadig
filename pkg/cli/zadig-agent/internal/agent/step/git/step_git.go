@@ -31,14 +31,14 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	gitcmd "github.com/koderover/zadig/pkg/cli/zadig-agent/helper/git"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/helper"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
-	agenttypes "github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
-	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/step"
+	gitcmd "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/git"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	agenttypes "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/config"
+	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 type GitStep struct {

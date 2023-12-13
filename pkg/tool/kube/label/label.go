@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/crypto"
-	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 // JobLabel is to describe labels that specify job identity

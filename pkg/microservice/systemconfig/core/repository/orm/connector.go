@@ -19,9 +19,9 @@ package orm
 import (
 	"gorm.io/gorm"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/models"
-	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/repository/models"
+	gormtool "github.com/koderover/zadig/v2/pkg/tool/gorm"
 )
 
 type ConnectorColl struct {

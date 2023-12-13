@@ -26,12 +26,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	commonconfig "github.com/koderover/zadig/pkg/config"
-	job "github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service"
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types"
+	commonconfig "github.com/koderover/zadig/v2/pkg/config"
+	job "github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/configmap"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func Execute(ctx context.Context) error {

@@ -23,7 +23,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )

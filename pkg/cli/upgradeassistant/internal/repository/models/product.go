@@ -19,7 +19,7 @@ package models
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 )
 
 type ProductAuthType string

@@ -19,8 +19,8 @@ package aslan
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func (c *Client) ListEnvironments(projectName string) ([]*Environment, error) {

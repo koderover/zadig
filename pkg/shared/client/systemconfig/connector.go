@@ -17,8 +17,8 @@ limitations under the License.
 package systemconfig
 
 import (
-	connectorservice "github.com/koderover/zadig/pkg/microservice/systemconfig/core/connector/service"
-	"github.com/koderover/zadig/pkg/tool/log"
+	connectorservice "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/connector/service"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type Connector struct {

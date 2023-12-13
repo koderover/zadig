@@ -28,12 +28,12 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/step"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/job"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/configmap"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/meta"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/step"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types/job"
 )
 
 type Job struct {

@@ -19,12 +19,12 @@ package workflow
 import (
 	"go.uber.org/zap"
 
-	commonConfig "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
-	labeldb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
-	"github.com/koderover/zadig/pkg/tool/log"
+	commonConfig "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/config"
+	labeldb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/service"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type resourceSpec struct {

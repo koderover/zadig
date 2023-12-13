@@ -16,7 +16,7 @@ limitations under the License.
 
 package models
 
-import templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+import templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
 
 // RenderSet ...
 type RenderSet struct {

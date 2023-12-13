@@ -23,9 +23,9 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/login"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 const (

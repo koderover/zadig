@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/yaml"
 
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+	yamlutil "github.com/koderover/zadig/v2/pkg/util/yaml"
 )
 
 var testYaml1 = `

@@ -19,8 +19,8 @@ package handler
 import (
 	"net/http"
 
-	"github.com/koderover/zadig/pkg/microservice/hubserver/core/service"
-	"github.com/koderover/zadig/pkg/tool/remotedialer"
+	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/service"
+	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
 )
 
 func Disconnect(server *remotedialer.Server, w http.ResponseWriter, r *http.Request) {

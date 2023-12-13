@@ -21,9 +21,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/repository/mongodb"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/features/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type Feature string

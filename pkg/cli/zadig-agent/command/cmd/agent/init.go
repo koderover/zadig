@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"os"
 
-	agentconfig "github.com/koderover/zadig/pkg/cli/zadig-agent/config"
-	errhelper "github.com/koderover/zadig/pkg/cli/zadig-agent/helper/error"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/register"
-	osutil "github.com/koderover/zadig/pkg/cli/zadig-agent/util/os"
+	agentconfig "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	errhelper "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/error"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/register"
+	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 )
 
 func InitAgent() {

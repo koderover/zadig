@@ -25,8 +25,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 )
 
 func CheckIstiod(ctx context.Context, clusterID string) (bool, error) {

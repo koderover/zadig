@@ -20,14 +20,14 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/koderover/zadig/pkg/shared/client/user"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
-	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
-	"github.com/koderover/zadig/pkg/microservice/picket/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/picket/client/aslan"
+	"github.com/koderover/zadig/v2/pkg/microservice/picket/client/opa"
+	"github.com/koderover/zadig/v2/pkg/microservice/picket/config"
 )
 
 type rule struct {

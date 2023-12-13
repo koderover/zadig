@@ -19,8 +19,8 @@ package rest
 import (
 	"github.com/gin-gonic/gin"
 
-	cachehandler "github.com/koderover/zadig/pkg/handler/cache"
-	"github.com/koderover/zadig/pkg/microservice/user/core/handler"
+	cachehandler "github.com/koderover/zadig/v2/pkg/handler/cache"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/handler"
 )
 
 func (s *engine) injectRouterGroup(router *gin.RouterGroup) {

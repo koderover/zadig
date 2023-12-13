@@ -19,7 +19,7 @@ package client
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/config"
 	"istio.io/client-go/pkg/clientset/versioned/typed/networking/v1alpha3"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -28,9 +28,9 @@ import (
 	"k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/setting"
-	aslanClient "github.com/koderover/zadig/pkg/shared/client/aslan"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	aslanClient "github.com/koderover/zadig/v2/pkg/shared/client/aslan"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/multicluster"
 )
 
 func GetKubeClient(hubserverAddr, clusterID string) (client.Client, error) {

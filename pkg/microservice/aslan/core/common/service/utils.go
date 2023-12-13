@@ -21,8 +21,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 func GetGitlabAddress(URL string) (string, error) {

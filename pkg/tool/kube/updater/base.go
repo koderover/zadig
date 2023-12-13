@@ -29,9 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/patcher"
-	"github.com/koderover/zadig/pkg/tool/kube/util"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/patcher"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
 )
 
 func patchObject(obj client.Object, patchBytes []byte, cl client.Client) error {

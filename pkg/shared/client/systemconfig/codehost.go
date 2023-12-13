@@ -19,10 +19,10 @@ package systemconfig
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
-	codehostservice "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
+	codehostservice "github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/service"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 const (

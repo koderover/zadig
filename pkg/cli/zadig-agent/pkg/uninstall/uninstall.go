@@ -16,7 +16,7 @@ limitations under the License.
 
 package uninstall
 
-import "github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent"
+import "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
 
 func UnInstallAgent(agentCtl *agent.AgentController) {
 

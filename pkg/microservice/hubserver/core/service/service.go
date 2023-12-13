@@ -29,13 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/proxy"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/koderover/zadig/pkg/microservice/hubserver/config"
-	"github.com/koderover/zadig/pkg/microservice/hubserver/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/hubserver/core/repository/mongodb"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/crypto"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/tool/remotedialer"
+	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
 )
 
 var clusters sync.Map

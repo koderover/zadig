@@ -29,7 +29,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
 // PutExtra 为表单上传的额外可选项
@@ -76,7 +76,6 @@ func NewFormUploader(cfg *Config) *FormUploader {
 // key       是要上传的文件访问路径。比如："foo/bar.jpg"。注意我们建议 key 不要以 '/' 开头。另外，key 为空字符串是合法的。
 // localFile 是要上传的文件的本地路径。
 // extra     是上传的一些可选项，可以指定为nil。详细见 PutExtra 结构的描述。
-//
 func (p *FormUploader) PutFile(
 	ctx context.Context, ret interface{}, uptoken, key, localFile string, extra *PutExtra) (err error) {
 	return p.putFile(ctx, ret, uptoken, key, true, localFile, extra)

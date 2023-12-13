@@ -22,11 +22,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/orm"
-	"github.com/koderover/zadig/pkg/shared/client/aslan"
-	"github.com/koderover/zadig/pkg/tool/crypto"
+	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/repository/orm"
+	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 )
 
 func ListConnectorsInternal(logger *zap.SugaredLogger) ([]*Connector, error) {

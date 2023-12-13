@@ -16,7 +16,7 @@ limitations under the License.
 
 package models
 
-import "github.com/koderover/zadig/pkg/util"
+import "github.com/koderover/zadig/v2/pkg/util"
 
 type StatDashboardConfig struct {
 	ID        string     `bson:"_id,omitempty"`

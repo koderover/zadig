@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/tool/kodo/qbox"
+	"github.com/koderover/zadig/v2/pkg/tool/kodo/qbox"
 )
 
 // UploadClient struct

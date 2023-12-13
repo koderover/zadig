@@ -23,9 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 )
 
 func GetSelectedPodsInfo(selector labels.Selector, informer informers.SharedInformerFactory, currentImages []string, log *zap.SugaredLogger) (string, string, []string) {

@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"time"
 
-	kubernetes "github.com/koderover/zadig/pkg/shared/kube/wrapper"
+	kubernetes "github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	cron "github.com/robfig/cron/v3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

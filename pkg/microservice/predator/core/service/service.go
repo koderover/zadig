@@ -29,9 +29,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/koderover/zadig/pkg/microservice/predator/config"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/microservice/predator/config"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 // Predator ...

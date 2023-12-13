@@ -19,8 +19,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/shared/client/aslan"
+	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
 )
 
 func Healthz() error {

@@ -19,7 +19,7 @@ package main
 import (
 	"log"
 
-	"github.com/koderover/zadig/pkg/microservice/packager/executor"
+	"github.com/koderover/zadig/v2/pkg/microservice/packager/executor"
 )
 
 func main() {

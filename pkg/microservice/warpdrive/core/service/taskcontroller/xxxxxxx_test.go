@@ -19,8 +19,8 @@ package taskcontroller
 import (
 	"testing"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/core/service/types/task"
 )
 
 func TestName(t *testing.T) {

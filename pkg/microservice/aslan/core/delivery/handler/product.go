@@ -19,9 +19,9 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	deliveryservice "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	deliveryservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/delivery/service"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 // GetProductByDeliveryInfo is not used by any API for now, disabling it in router and see if anything happens

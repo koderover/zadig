@@ -19,9 +19,9 @@ package service
 import (
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 type OperationLogArgs struct {

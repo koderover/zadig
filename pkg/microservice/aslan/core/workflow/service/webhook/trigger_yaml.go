@@ -17,7 +17,7 @@ limitations under the License.
 package webhook
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 )
 
 type Stage string
@@ -77,13 +77,14 @@ type Variables struct {
 
 /*
 Strategy
- single:
-	Update to the specified environment;
- dynamic:
-	Dynamic selection of idle environment;
- base:
-	Create a new environment based on the baseline environment
-	And Need to set EnvRecyclePolicy：success/always/never
+
+	 single:
+		Update to the specified environment;
+	 dynamic:
+		Dynamic selection of idle environment;
+	 base:
+		Create a new environment based on the baseline environment
+		And Need to set EnvRecyclePolicy：success/always/never
 */
 type Deploy struct {
 	Strategy         DeployStrategy   `yaml:"strategy"`
@@ -100,10 +101,11 @@ type Test struct {
 
 /*
 Strategy
- default：
-	Code repository information configured by default on the zadig platform
- currentRepo：
-	Use current changed code information
+
+	 default：
+		Code repository information configured by default on the zadig platform
+	 currentRepo：
+		Use current changed code information
 */
 type Repo struct {
 	Strategy TestRepoStrategy `yaml:"strategy"`

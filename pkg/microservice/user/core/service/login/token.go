@@ -19,7 +19,7 @@ package login
 import (
 	"github.com/golang-jwt/jwt"
 
-	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/config"
 )
 
 type Claims struct {

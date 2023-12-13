@@ -22,14 +22,14 @@ import (
 	"sync"
 	"time"
 
-	agentconfig "github.com/koderover/zadig/pkg/cli/zadig-agent/config"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/pkg/updater"
-	osutil "github.com/koderover/zadig/pkg/cli/zadig-agent/util/os"
-	"github.com/koderover/zadig/pkg/util"
+	agentconfig "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/updater"
+	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 var HeartbeatMonitor *HeartbeatService

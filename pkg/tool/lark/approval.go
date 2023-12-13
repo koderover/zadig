@@ -24,9 +24,9 @@ import (
 	larkapproval "github.com/larksuite/oapi-sdk-go/v3/service/approval/v4"
 	"github.com/pkg/errors"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 const (

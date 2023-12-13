@@ -20,9 +20,9 @@ import (
 	"github.com/jasonlvhit/gocron"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
-	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/cron/core/service/client"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 // EnvUpdateInterval TODO interval will be set on product in future

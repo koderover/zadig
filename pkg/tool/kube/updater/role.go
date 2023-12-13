@@ -19,12 +19,12 @@ package updater
 import (
 	"context"
 
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/koderover/zadig/pkg/tool/kube/util"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
 )
 
 func DeleteRoles(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {

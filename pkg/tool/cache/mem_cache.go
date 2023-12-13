@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 // item is the data to be cached.

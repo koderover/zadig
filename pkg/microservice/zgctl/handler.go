@@ -22,8 +22,8 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/gin-gonic/gin"
 
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	"github.com/koderover/zadig/pkg/types"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type HandlerConfig struct {

@@ -16,7 +16,7 @@ limitations under the License.
 
 package service
 
-import "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+import "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 
 func GetDockerfileTemplateContent(id string) (string, error) {
 	dockerfileTemplate, err := mongodb.NewDockerfileTemplateColl().GetById(id)

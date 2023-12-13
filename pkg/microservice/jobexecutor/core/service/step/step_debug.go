@@ -22,9 +22,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/configmap"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type DebugStep struct {
