@@ -29,11 +29,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/reaper/config"
-	c "github.com/koderover/zadig/pkg/microservice/reaper/core/service/cmd"
-	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/microservice/reaper/config"
+	c "github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/cmd"
+	"github.com/koderover/zadig/v2/pkg/microservice/reaper/core/service/meta"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func (r *Reaper) RunGitGc(folder string) error {

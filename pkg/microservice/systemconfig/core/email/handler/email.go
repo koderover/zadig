@@ -21,10 +21,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/service"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/email/service"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 func GetEmailHost(c *gin.Context) {

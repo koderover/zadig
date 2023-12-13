@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/koderover/zadig/pkg/tool/kube/util"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/util"
 )
 
 func DeletePersistentVolumeClaims(namespace string, selector labels.Selector, clientset *kubernetes.Clientset) error {

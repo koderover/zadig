@@ -19,7 +19,7 @@ package util
 import (
 	"strings"
 
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/setting"
 
 	"helm.sh/helm/v3/pkg/releaseutil"
 )

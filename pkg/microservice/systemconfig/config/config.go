@@ -19,7 +19,7 @@ package config
 import (
 	"github.com/spf13/viper"
 
-	configbase "github.com/koderover/zadig/pkg/config"
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 )
 
 func MysqlDexDB() string {

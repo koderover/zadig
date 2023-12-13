@@ -17,7 +17,7 @@ limitations under the License.
 package registry
 
 import (
-	_ "github.com/koderover/zadig/pkg/util/testing"
+	_ "github.com/koderover/zadig/v2/pkg/util/testing"
 )
 
 //func Test_v2RegistryService_ListRepoImages(t *testing.T) {

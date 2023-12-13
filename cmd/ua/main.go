@@ -19,7 +19,7 @@ package main
 import (
 	"log"
 
-	"github.com/koderover/zadig/pkg/cli/upgradeassistant/executor"
+	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/executor"
 )
 
 func main() {

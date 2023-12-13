@@ -17,7 +17,7 @@ limitations under the License.
 package models
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/hubserver/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/config"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

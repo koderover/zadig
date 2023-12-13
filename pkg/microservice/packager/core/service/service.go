@@ -34,8 +34,8 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 
-	"github.com/koderover/zadig/pkg/microservice/packager/config"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/microservice/packager/config"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type Packager struct {

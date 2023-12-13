@@ -23,9 +23,9 @@ import (
 
 	assert "github.com/stretchr/testify/require"
 
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func TestBuildTaskPlugin_TaskTimeout_Default(t *testing.T) {

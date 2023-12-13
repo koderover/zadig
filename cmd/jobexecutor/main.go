@@ -22,7 +22,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/executor"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/executor"
 )
 
 func main() {

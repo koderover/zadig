@@ -19,7 +19,7 @@ package msg_queue
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/task"
 )
 
 type MsgQueuePipelineTask struct {

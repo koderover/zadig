@@ -25,16 +25,16 @@ package migrate
 //	"go.mongodb.org/mongo-driver/mongo"
 //	"go.mongodb.org/mongo-driver/mongo/options"
 //
-//	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
-//	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
-//	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
-//	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/orm"
-//	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
-//	"github.com/koderover/zadig/pkg/config"
-//	"github.com/koderover/zadig/pkg/setting"
-//	"github.com/koderover/zadig/pkg/tool/log"
-//	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
-//	"github.com/koderover/zadig/pkg/types"
+//	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
+//	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
+//	internalmongodb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
+//	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/orm"
+//	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+//	"github.com/koderover/zadig/v2/pkg/config"
+//	"github.com/koderover/zadig/v2/pkg/setting"
+//	"github.com/koderover/zadig/v2/pkg/tool/log"
+//	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
+//	"github.com/koderover/zadig/v2/pkg/types"
 //)
 //
 //func init() {

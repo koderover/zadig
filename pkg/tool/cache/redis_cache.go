@@ -23,7 +23,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/koderover/zadig/pkg/microservice/user/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
 )
 
 type RedisCache struct {

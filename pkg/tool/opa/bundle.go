@@ -24,8 +24,8 @@ import (
 
 	"github.com/27149chen/afero"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	fsutil "github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 const (

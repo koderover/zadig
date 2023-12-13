@@ -21,8 +21,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 func TrimURLScheme(urlAddr string) string {

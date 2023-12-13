@@ -19,7 +19,7 @@ package cmd
 import (
 	"os/exec"
 
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 // InitGit creates an empty git repository.

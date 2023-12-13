@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/kodo/qbox"
+	"github.com/koderover/zadig/v2/pkg/tool/kodo/qbox"
 )
 
 // PutPolicy 表示文件上传的上传策略

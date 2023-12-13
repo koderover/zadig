@@ -27,7 +27,7 @@ import (
 	"strings"
 	"sync"
 
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	fsutil "github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 const aesKeyFile = "etc/encryption/aes"

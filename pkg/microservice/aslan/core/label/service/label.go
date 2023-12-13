@@ -22,9 +22,9 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/repository/mongodb"
 )
 
 type CreateLabelsResp struct {

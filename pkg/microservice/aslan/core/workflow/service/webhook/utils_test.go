@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 )
 
 var testDeployment = `

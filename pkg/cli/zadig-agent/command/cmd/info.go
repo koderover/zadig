@@ -23,9 +23,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	agentconfig "github.com/koderover/zadig/pkg/cli/zadig-agent/config"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	osutil "github.com/koderover/zadig/pkg/cli/zadig-agent/util/os"
+	agentconfig "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	osutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/os"
 )
 
 func init() {

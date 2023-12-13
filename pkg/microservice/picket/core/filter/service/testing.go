@@ -22,7 +22,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
+	"github.com/koderover/zadig/v2/pkg/microservice/picket/client/aslan"
 )
 
 // TODO: remove this, all the logic has been moved back to aslan

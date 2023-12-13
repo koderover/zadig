@@ -19,7 +19,7 @@ package orm
 import (
 	"gorm.io/gorm"
 
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
 )
 
 func GetConnectorInfo(id string, db *gorm.DB) (*models.Connector, error) {

@@ -24,9 +24,9 @@ import (
 	"github.com/27149chen/afero"
 	"github.com/google/go-github/v35/github"
 
-	"github.com/koderover/zadig/pkg/tool/git"
-	"github.com/koderover/zadig/pkg/util"
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	"github.com/koderover/zadig/v2/pkg/tool/git"
+	"github.com/koderover/zadig/v2/pkg/util"
+	fsutil "github.com/koderover/zadig/v2/pkg/util/fs"
 )
 
 func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, user string, opts *ListOptions) ([]*github.Repository, error) {

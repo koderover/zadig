@@ -22,8 +22,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/microservice/picket/client/opa"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 type evaluateResult struct {

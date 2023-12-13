@@ -22,8 +22,8 @@ import (
 	"net/url"
 	"path"
 
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func (c *Client) ListWorkflows(header http.Header, qs url.Values) ([]byte, error) {

@@ -22,12 +22,12 @@ import (
 	"sync"
 	"time"
 
-	commonconfig "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/hubserver/core/service"
-	"github.com/koderover/zadig/pkg/microservice/hubserver/server/rest"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/tool/remotedialer"
+	commonconfig "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/service"
+	"github.com/koderover/zadig/v2/pkg/microservice/hubserver/server/rest"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
 )
 
 func Serve(ctx context.Context) error {

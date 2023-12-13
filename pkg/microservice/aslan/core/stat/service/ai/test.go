@@ -23,7 +23,7 @@ import (
 
 	"go.uber.org/zap"
 
-	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
+	service2 "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/service"
 )
 
 type TestData struct {

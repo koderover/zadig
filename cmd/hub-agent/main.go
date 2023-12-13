@@ -22,7 +22,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/koderover/zadig/pkg/microservice/hubagent/server"
+	"github.com/koderover/zadig/v2/pkg/microservice/hubagent/server"
 )
 
 func main() {

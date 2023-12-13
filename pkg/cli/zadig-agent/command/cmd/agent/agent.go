@@ -24,11 +24,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/pkg/monitor"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/pkg/monitor"
 )
 
 type Agent struct {

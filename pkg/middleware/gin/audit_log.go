@@ -19,8 +19,8 @@ package gin
 import (
 	"github.com/gin-gonic/gin"
 
-	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
-	"github.com/koderover/zadig/pkg/util/ginzap"
+	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/v2/pkg/util/ginzap"
 )
 
 // OperationLogStatus update status of operation if necessary

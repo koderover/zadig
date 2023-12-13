@@ -17,8 +17,8 @@ limitations under the License.
 package plutusvendor
 
 import (
-	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
 type Client struct {

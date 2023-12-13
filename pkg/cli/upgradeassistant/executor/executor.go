@@ -17,7 +17,7 @@ limitations under the License.
 package executor
 
 import (
-	"github.com/koderover/zadig/pkg/cli/upgradeassistant/cmd"
+	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/cmd"
 )
 
 func Execute() error {

@@ -19,9 +19,9 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	cronservice "github.com/koderover/zadig/pkg/microservice/aslan/core/cron/service"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	cronservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/cron/service"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
 func CleanJobCronJob(c *gin.Context) {

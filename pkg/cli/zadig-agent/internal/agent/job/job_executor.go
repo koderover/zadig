@@ -27,15 +27,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/reporter"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
-	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
-	"github.com/koderover/zadig/pkg/types/job"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/reporter"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
+	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
+	"github.com/koderover/zadig/v2/pkg/types/job"
 )
 
 func NewJobExecutor(ctx context.Context, job *types.ZadigJobTask, client *network.ZadigClient, reporterCancel context.CancelFunc) *JobExecutor {

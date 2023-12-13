@@ -24,9 +24,9 @@ import (
 
 	"golang.org/x/oauth2"
 
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
-	"github.com/koderover/zadig/pkg/tool/log"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/systemconfig/core/codehost/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type OAuth struct {

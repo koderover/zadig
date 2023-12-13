@@ -31,13 +31,13 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/tool/log"
-	zadigtypes "github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	zadigtypes "github.com/koderover/zadig/v2/pkg/types"
 )
 
 var registrySecretSuffix = "-registry-secret"
@@ -181,7 +181,8 @@ func GenRegistrySecretName(reg *commonmodels.RegistryNamespace) (string, error) 
 }
 
 // Note: The name of a Secret object must be a valid DNS subdomain name:
-//   https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
+//
+//	https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
 func formatRegistryName(namespaceInRegistry string) (string, error) {
 	reg, err := regexp.Compile("[^a-zA-Z0-9\\.-]+")
 	if err != nil {

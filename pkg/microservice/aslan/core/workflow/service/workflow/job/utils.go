@@ -22,10 +22,10 @@ import (
 	"strconv"
 	"strings"
 
-	configbase "github.com/koderover/zadig/pkg/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/types"
+	configbase "github.com/koderover/zadig/v2/pkg/config"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 // PrepareDefaultWorkflowTaskEnvs System level default environment variables (every workflow type will have it)

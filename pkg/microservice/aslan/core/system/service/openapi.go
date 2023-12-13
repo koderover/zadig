@@ -21,8 +21,8 @@ import (
 
 	"go.uber.org/zap"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	cluster "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	cluster "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/multicluster/service"
 )
 
 func OpenAPICreateRegistry(username string, req *OpenAPICreateRegistryReq, logger *zap.SugaredLogger) error {

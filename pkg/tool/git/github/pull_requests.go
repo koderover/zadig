@@ -21,7 +21,7 @@ import (
 
 	"github.com/google/go-github/v35/github"
 
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func (c *Client) GetPullRequest(ctx context.Context, owner string, repo string, number int) (*github.PullRequest, error) {

@@ -23,9 +23,9 @@ package migrate
 //	"go.mongodb.org/mongo-driver/bson"
 //	"k8s.io/apimachinery/pkg/util/sets"
 //
-//	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
-//	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
-//	"github.com/koderover/zadig/pkg/tool/log"
+//	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
+//	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+//	"github.com/koderover/zadig/v2/pkg/tool/log"
 //)
 //
 //func init() {

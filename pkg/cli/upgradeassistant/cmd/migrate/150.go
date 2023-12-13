@@ -17,8 +17,8 @@ limitations under the License.
 package migrate
 
 import (
-	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func init() {

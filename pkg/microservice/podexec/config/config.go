@@ -17,7 +17,7 @@ limitations under the License.
 package config
 
 import (
-	configbase "github.com/koderover/zadig/pkg/config"
+	configbase "github.com/koderover/zadig/v2/pkg/config"
 )
 
 func HubServerAddr() string {

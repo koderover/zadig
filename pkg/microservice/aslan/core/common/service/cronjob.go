@@ -17,7 +17,7 @@ limitations under the License.
 package service
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 )
 
 type CronjobPayload struct {

@@ -33,10 +33,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
-	conf "github.com/koderover/zadig/pkg/microservice/podexec/config"
-	"github.com/koderover/zadig/pkg/shared/kube/client"
-	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	"github.com/koderover/zadig/pkg/tool/log"
+	conf "github.com/koderover/zadig/v2/pkg/microservice/podexec/config"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 var upgrader = websocket.Upgrader{

@@ -26,11 +26,11 @@ import (
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	_ "github.com/koderover/zadig/pkg/cli/upgradeassistant/cmd/migrate"
-	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	_ "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/cmd/migrate"
+	"github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 )
 
 const oldestVersion = "1.3.0"

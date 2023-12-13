@@ -22,10 +22,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
-	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/template"
+	templateservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/templatestore/service"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
 // @Summary Create yaml template

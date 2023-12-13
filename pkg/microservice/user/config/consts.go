@@ -17,7 +17,7 @@ limitations under the License.
 package config
 
 import (
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 const (

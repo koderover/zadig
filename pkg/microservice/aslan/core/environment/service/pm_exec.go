@@ -25,11 +25,11 @@ import (
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/setting"
-	e "github.com/koderover/zadig/pkg/tool/errors"
-	toolssh "github.com/koderover/zadig/pkg/tool/ssh"
-	"github.com/koderover/zadig/pkg/tool/wsconn"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	toolssh "github.com/koderover/zadig/v2/pkg/tool/ssh"
+	"github.com/koderover/zadig/v2/pkg/tool/wsconn"
 )
 
 var upgrader = websocket.Upgrader{

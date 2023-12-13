@@ -25,8 +25,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
-	util "github.com/koderover/zadig/pkg/cli/zadig-agent/util/file"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	util "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
 )
 
 const (

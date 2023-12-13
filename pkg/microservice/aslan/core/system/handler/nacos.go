@@ -19,8 +19,8 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
 func ListNacosNamespace(c *gin.Context) {

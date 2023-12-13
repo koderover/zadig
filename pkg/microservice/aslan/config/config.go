@@ -24,8 +24,8 @@ import (
 
 	"github.com/spf13/viper"
 
-	configbase "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/setting"
+	configbase "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 func DefaultIngressClass() string {

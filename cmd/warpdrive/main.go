@@ -22,7 +22,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/server"
+	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/server"
 )
 
 func main() {

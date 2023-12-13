@@ -19,7 +19,7 @@ package service
 import (
 	"go.uber.org/zap"
 
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
 func CreateOrUpdateSecuritySettings(args *SecurityAndPrivacySettings, logger *zap.SugaredLogger) error {

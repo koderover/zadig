@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"time"
 
-	errhelper "github.com/koderover/zadig/pkg/cli/zadig-agent/helper/error"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
+	errhelper "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/error"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
 )
 
 type JobReporter struct {

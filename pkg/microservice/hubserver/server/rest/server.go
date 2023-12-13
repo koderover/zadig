@@ -21,8 +21,8 @@ import (
 
 	"github.com/gorilla/mux"
 
-	h "github.com/koderover/zadig/pkg/microservice/hubserver/core/handler"
-	"github.com/koderover/zadig/pkg/tool/remotedialer"
+	h "github.com/koderover/zadig/v2/pkg/microservice/hubserver/core/handler"
+	"github.com/koderover/zadig/v2/pkg/tool/remotedialer"
 )
 
 type engine struct {

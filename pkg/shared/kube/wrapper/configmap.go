@@ -23,10 +23,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/kube/resource"
-	kubeutil "github.com/koderover/zadig/pkg/tool/kube/util"
-	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/kube/resource"
+	kubeutil "github.com/koderover/zadig/v2/pkg/tool/kube/util"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 // configMap is the wrapper for corev1.ConfigMap type.

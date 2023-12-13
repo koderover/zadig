@@ -23,7 +23,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/config"
 )
 
 type DbEditAction string

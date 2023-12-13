@@ -21,8 +21,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	svcservice "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	svcservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/service/service"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
 func ListHarborProjects(c *gin.Context) {

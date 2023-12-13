@@ -19,14 +19,14 @@ package step
 import (
 	"context"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/archive"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/docker"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/git"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/step/script"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	jobctl "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/archive"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/docker"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/git"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/script"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
 )
 
 type StepInfos struct {

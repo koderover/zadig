@@ -23,13 +23,13 @@ import (
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	aslanmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types"
+	aslanmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/orm"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type GetUserRulesByProjectResp struct {

@@ -17,7 +17,7 @@ limitations under the License.
 package collie
 
 import (
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
 type Client struct {

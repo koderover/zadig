@@ -22,9 +22,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	projectservice "github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	projectservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/project/service"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 type projectListArgs struct {

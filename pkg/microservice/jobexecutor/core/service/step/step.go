@@ -24,12 +24,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/cmd"
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/configmap"
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/meta"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/cmd"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/configmap"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/meta"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 type Step interface {

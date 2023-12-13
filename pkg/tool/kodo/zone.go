@@ -21,7 +21,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
 // 资源管理相关的默认域名

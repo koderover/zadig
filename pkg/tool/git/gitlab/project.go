@@ -22,9 +22,9 @@ import (
 
 	"github.com/xanzy/go-gitlab"
 
-	"github.com/koderover/zadig/pkg/tool/git"
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/util/boolptr"
+	"github.com/koderover/zadig/v2/pkg/tool/git"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/util/boolptr"
 )
 
 func (c *Client) ListUserProjects(owner, keyword string, opts *ListOptions) ([]*gitlab.Project, error) {

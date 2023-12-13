@@ -17,18 +17,19 @@ limitations under the License.
 package types
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
+	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/warpdrive/core/service/common"
 )
 
-//// AnnouncementCtx ...
-//type AnnouncementCtx struct {
-//	Title     string `bson:"title"                 json:"title"`      // 公告标题
-//	Priority  int    `bson:"priority"              json:"priority"`   // 公告级别
-//	Content   string `bson:"content"               json:"content"`    // 公告内容
-//	StartTime int64  `bson:"start_time"            json:"start_time"` // 公告开始时间
-//	EndTime   int64  `bson:"end_time"              json:"end_time"`   // 公告结束时间
-//}
+// // AnnouncementCtx ...
+//
+//	type AnnouncementCtx struct {
+//		Title     string `bson:"title"                 json:"title"`      // 公告标题
+//		Priority  int    `bson:"priority"              json:"priority"`   // 公告级别
+//		Content   string `bson:"content"               json:"content"`    // 公告内容
+//		StartTime int64  `bson:"start_time"            json:"start_time"` // 公告开始时间
+//		EndTime   int64  `bson:"end_time"              json:"end_time"`   // 公告结束时间
+//	}
 //
 // PipelineStatusCtx ...
 type PipelineStatusCtx struct {

@@ -21,8 +21,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
 func GetToolDownloadURL(c *gin.Context) {

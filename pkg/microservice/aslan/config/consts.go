@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 var (

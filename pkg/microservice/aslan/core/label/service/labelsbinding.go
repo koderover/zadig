@@ -23,10 +23,10 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	commondb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	commondb "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/config"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/label/repository/mongodb"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 type CreateLabelBindingsArgs struct {

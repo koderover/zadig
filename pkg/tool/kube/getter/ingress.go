@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 )
 
 var IngressGVK = schema.GroupVersionKind{

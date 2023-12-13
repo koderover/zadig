@@ -5,8 +5,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 
-	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
-	internaldb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
+	internalmodels "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/models"
+	internaldb "github.com/koderover/zadig/v2/pkg/cli/upgradeassistant/internal/repository/mongodb"
 )
 
 // getMigrationInfo get the current migration status from the mongodb, if none exists, initialize one and return the

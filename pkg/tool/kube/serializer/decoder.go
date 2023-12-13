@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	krkubeclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
 )
 
 type decoder struct {

@@ -32,11 +32,11 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/jobexecutor/config"
-	c "github.com/koderover/zadig/pkg/microservice/jobexecutor/core/service/cmd"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/step"
+	"github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/config"
+	c "github.com/koderover/zadig/v2/pkg/microservice/jobexecutor/core/service/cmd"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 type GitStep struct {

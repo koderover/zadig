@@ -25,10 +25,10 @@ import (
 	ext_authz_v3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"google.golang.org/grpc"
 
-	"github.com/koderover/zadig/pkg/microservice/user/core"
-	userGrpcServer "github.com/koderover/zadig/pkg/microservice/user/server/grpc"
-	"github.com/koderover/zadig/pkg/microservice/user/server/rest"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core"
+	userGrpcServer "github.com/koderover/zadig/v2/pkg/microservice/user/server/grpc"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/server/rest"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func Serve(ctx context.Context) error {

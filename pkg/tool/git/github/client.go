@@ -31,7 +31,7 @@ import (
 	"github.com/gregjones/httpcache"
 	"golang.org/x/oauth2"
 
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
 type listFunc func(options *github.ListOptions) ([]interface{}, *github.Response, error)

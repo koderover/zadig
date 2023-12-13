@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 )
 
 type InputGenerator func() (*Input, error)

@@ -17,7 +17,7 @@ limitations under the License.
 package gitlab
 
 import (
-	"github.com/koderover/zadig/pkg/tool/git/gitlab"
+	"github.com/koderover/zadig/v2/pkg/tool/git/gitlab"
 )
 
 type Client struct {

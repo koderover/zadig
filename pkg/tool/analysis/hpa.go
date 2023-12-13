@@ -18,7 +18,7 @@ package analysis
 import (
 	"fmt"
 
-	kubernetes "github.com/koderover/zadig/pkg/shared/kube/wrapper"
+	kubernetes "github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

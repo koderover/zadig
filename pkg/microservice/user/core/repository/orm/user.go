@@ -17,11 +17,11 @@ limitations under the License.
 package orm
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository"
 	"gorm.io/gorm"
 
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 // CreateUser create a user

@@ -18,7 +18,7 @@ package upgradepath
 
 import (
 	"github.com/blang/semver/v4"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 var VersionDatas versionList

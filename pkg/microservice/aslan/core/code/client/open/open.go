@@ -22,13 +22,13 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/gerrit"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/gitee"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/github"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/gitlab"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/gerrit"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/gitee"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/github"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/code/client/gitlab"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
 )
 
 type ClientConfig interface {

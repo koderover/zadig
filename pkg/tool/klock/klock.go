@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	krclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	krclient "github.com/koderover/zadig/v2/pkg/tool/kube/client"
 )
 
 const (

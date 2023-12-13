@@ -22,7 +22,7 @@ import (
 	larkcontact "github.com/larksuite/oapi-sdk-go/v3/service/contact/v3"
 	"github.com/pkg/errors"
 
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 func (client *Client) GetUserOpenIDByEmailOrMobile(_type, value string) (string, error) {

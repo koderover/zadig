@@ -33,9 +33,9 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/shirou/gopsutil/v3/process"
 
-	"github.com/koderover/zadig/pkg/shared/client/aslan"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/shared/client/aslan"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type ZgCtlConfig struct {

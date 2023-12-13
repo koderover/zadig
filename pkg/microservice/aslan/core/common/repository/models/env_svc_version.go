@@ -19,8 +19,8 @@ package models
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	templatemodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/template"
+	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 )
 
 type EnvServiceVersion struct {

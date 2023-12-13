@@ -19,8 +19,8 @@ package service
 import (
 	"go.uber.org/zap"
 
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/setting"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 func GetDefaultLogin(logger *zap.SugaredLogger) (*GetDefaultLoginResponse, error) {

@@ -22,9 +22,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/plutusvendor"
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/plutusvendor"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 func checkGpuResourceParam(gpuLimit string) error {

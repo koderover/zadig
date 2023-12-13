@@ -22,7 +22,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
+	"github.com/koderover/zadig/v2/pkg/microservice/picket/client/aslan"
 )
 
 func Overview(header http.Header, qs url.Values, log *zap.SugaredLogger) ([]byte, error) {

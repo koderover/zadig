@@ -17,9 +17,9 @@ limitations under the License.
 package template
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-	commontypes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/types"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
+	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 )
 
 type Chart struct {

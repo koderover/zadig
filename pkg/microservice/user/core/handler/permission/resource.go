@@ -19,8 +19,8 @@ package permission
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 )
 
 func GetResourceActionDefinitions(c *gin.Context) {

@@ -20,7 +20,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/config"
 )
 
 func GetHookSecret() string {

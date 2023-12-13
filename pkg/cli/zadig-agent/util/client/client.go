@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/go-resty/resty/v2"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 

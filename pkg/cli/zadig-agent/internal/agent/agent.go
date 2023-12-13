@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/config"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/helper/log"
-	jobexecutor "github.com/koderover/zadig/pkg/cli/zadig-agent/internal/agent/job"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/common/types"
-	"github.com/koderover/zadig/pkg/cli/zadig-agent/internal/network"
-	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+	jobexecutor "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/job"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/network"
+	"github.com/koderover/zadig/v2/pkg/util"
 )
 
 func NewAgentController() *AgentController {

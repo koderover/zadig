@@ -21,10 +21,10 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	userhandler "github.com/koderover/zadig/pkg/microservice/user/core/handler/user"
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/permission"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	userhandler "github.com/koderover/zadig/v2/pkg/microservice/user/core/handler/user"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/permission"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 type initializeProjectReq struct {

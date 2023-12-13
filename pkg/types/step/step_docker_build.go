@@ -19,7 +19,7 @@ package step
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/setting"
 )
 
 type StepDockerBuildSpec struct {

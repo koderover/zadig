@@ -30,12 +30,12 @@ import (
 	"github.com/golang-jwt/jwt"
 	"go.uber.org/zap"
 
-	systemmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/user"
-	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/util/ginzap"
+	systemmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/models"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/types"
+	"github.com/koderover/zadig/v2/pkg/util/ginzap"
 )
 
 // Context struct

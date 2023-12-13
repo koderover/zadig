@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/koderover/zadig/pkg/tool/kube/serializer"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/serializer"
 )
 
 var testConfigMap1 = `

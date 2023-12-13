@@ -20,11 +20,11 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
+	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
 
-	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	e "github.com/koderover/zadig/pkg/tool/errors"
+	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
+	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
 
 type createUserGroupReq struct {

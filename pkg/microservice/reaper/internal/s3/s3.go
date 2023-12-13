@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/tool/crypto"
+	"github.com/koderover/zadig/v2/pkg/tool/crypto"
 )
 
 type S3 struct {
