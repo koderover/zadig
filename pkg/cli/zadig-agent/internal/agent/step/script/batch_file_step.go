@@ -74,7 +74,7 @@ func (s *BatchFileStep) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("generate script failed: %v", err)
 	}
-	cmd := exec.Command("cmd", userScriptFile)
+	cmd := exec.Command(userScriptFile)
 	cmd.Dir = s.dirs.Workspace
 	cmd.Env = s.envs
 
@@ -139,9 +139,10 @@ func generateBatchFile(spec *StepBatchFileSpec, dirs *types.AgentWorkDirs, jobOu
 
 // generate script to save outputs variable to file
 func outputBatchFile(outputsDir string, outputs []string) []string {
-	resp := []string{}
+	resp := []string{"@echo off"}
 	for _, output := range outputs {
-		resp = append(resp, fmt.Sprintf("echo $%s > %s", output, path.Join(outputsDir, output)))
+		resp = append(resp, fmt.Sprintf("echo %%%s%% > %s", output, path.Join(outputsDir, output)))
 	}
+	resp = append(resp, "@echo on")
 	return resp
 }

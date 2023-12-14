@@ -1,5 +1,5 @@
-//go:build windows
-// +build windows
+//go:build linux || darwin
+// +build linux darwin
 
 /*
 Copyright 2023 The KodeRover Authors.
@@ -17,13 +17,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package script
+package helper
 
-import (
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
-)
-
-func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []string, logger *log.JobLogger) (string, error) {
-	return "", nil
+func handlingChineseEncoding(b []byte) ([]byte, error) {
+	return b, nil
 }

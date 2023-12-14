@@ -134,6 +134,11 @@ func HandleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string,
 			break
 		}
 
+		lineBytes, err = handlingChineseEncoding(lineBytes)
+		if err != nil {
+			logger.Errorf("Failed to handling chinese encoding when processing cmd output: %s", err)
+		}
+
 		if needPersistentLog {
 			err := util.WriteFile(logFile, lineBytes, 0700)
 			if err != nil {

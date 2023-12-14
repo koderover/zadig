@@ -17,13 +17,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package script
+package helper
 
 import (
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
-	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
+	"fmt"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
-func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []string, logger *log.JobLogger) (string, error) {
-	return "", nil
+func handlingChineseEncoding(b []byte) ([]byte, error) {
+	decodeBytes, err := simplifiedchinese.GB18030.NewDecoder().Bytes(b)
+	if err != nil {
+		return b, fmt.Errorf("failed to decode to GB18030, source: %s, err: %v", b, err)
+	}
+	return decodeBytes, nil
 }
