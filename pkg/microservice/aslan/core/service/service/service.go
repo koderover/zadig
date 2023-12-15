@@ -226,7 +226,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 	productCol := commonrepo.NewProductCollWithSession(session)
 	workloadStatCol := commonrepo.NewWorkLoadsStatCollWithSession(session)
 
-	mongo.StartTransaction(session)
+	mongotool.StartTransaction(session)
 
 	g := new(errgroup.Group)
 	for _, workload := range args.WorkLoads {
@@ -367,7 +367,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	serviceColl := commonrepo.NewServiceCollWithSession(session)
 	workloadStatCol := commonrepo.NewWorkLoadsStatCollWithSession(session)
 
-	mongo.StartTransaction(session)
+	mongotool.StartTransaction(session)
 
 	workloadStat, err := workloadStatCol.Find(args.ClusterID, args.Namespace)
 	if err != nil {
