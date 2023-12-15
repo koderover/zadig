@@ -40,7 +40,9 @@ func Database(name string) *mongo.Database {
 	return Client().Database(name)
 }
 
+// TODO FixMe
 func SessionContext(ctx context.Context, session mongo.Session) context.Context {
+	return ctx
 	if session == nil {
 		return ctx
 	}
@@ -54,6 +56,16 @@ func Session() mongo.Session {
 		return nil
 	}
 	return session
+}
+
+func AbortTransaction(session mongo.Session) error {
+	return nil
+	//return session.AbortTransaction(session)
+}
+
+func CommitTransaction(session mongo.Session) error {
+	return nil
+	//return session.CommitTransaction(context.Background())
 }
 
 func Client() *mongo.Client {

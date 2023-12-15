@@ -171,7 +171,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 
 		if err := commonrepo.NewProductCollWithSession(session).Update(product); err != nil {
 			log.Errorf("[%s] update product %s error: %s", namespace, args.ProductName, err.Error())
-			session.AbortTransaction(context.TODO())
+			mongotool.AbortTransaction(session)
 			return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
 		}
 
@@ -179,7 +179,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 		if err != nil {
 			log.Errorf("create env service version for %s/%s error: %v", product.EnvName, prodSvc.ServiceName, err)
 		}
-		return session.CommitTransaction(context.TODO())
+		return mongotool.CommitTransaction(session)
 	}
 	return nil
 }

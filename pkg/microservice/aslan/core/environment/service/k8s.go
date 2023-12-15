@@ -247,13 +247,13 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	// Note update logic need to be optimized since we only need to update one service
 	if err := productColl.Update(prodinfo); err != nil {
 		k.log.Errorf("[%s][%s] Product.Update error: %v", args.EnvName, args.ProductName, err)
-		session.AbortTransaction(context.Background())
+		mongotool.AbortTransaction(session)
 		return e.ErrUpdateProduct.AddErr(err)
 	}
 
 	if err := productColl.UpdateGlobalVariable(prodinfo); err != nil {
 		k.log.Errorf("[%s][%s] Product.UpdateGlobalVariable error: %v", args.EnvName, args.ProductName, err)
-		session.AbortTransaction(context.Background())
+		mongotool.AbortTransaction(session)
 		return e.ErrUpdateProduct.AddErr(err)
 	}
 
@@ -261,7 +261,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		k.log.Errorf("[%s][%s] Product.CreateEnvServiceVersion for service %s error: %v", args.EnvName, args.ProductName, args.ServiceName, err)
 	}
 
-	return session.CommitTransaction(context.Background())
+	return mongotool.CommitTransaction(session)
 }
 
 func (k *K8sService) calculateProductStatus(productInfo *commonmodels.Product, informer informers.SharedInformerFactory) (string, error) {
