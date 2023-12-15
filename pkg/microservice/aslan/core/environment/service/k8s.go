@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -364,15 +365,23 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 		log.Errorf("failed to new istio client: %s", err)
 		return nil
 	}
-	zadigLabels := map[string]string{
-		zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
-	}
-	gwObjs, err := istioClient.NetworkingV1alpha3().Gateways(productInfo.Namespace).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: labels.FormatLabels(zadigLabels),
-	})
+
+	var gwObjs *v1alpha3.GatewayList
+	istioInstalled, err := kube.CheckIstiodInstalled(context.TODO(), cls)
 	if err != nil {
-		log.Errorf("failed to list gateways in ns `%s`: %s", productInfo.Namespace, err)
-		return nil
+		log.Warnf("failed to check istiod whether installed: %s", err)
+	} else {
+		if istioInstalled {
+			zadigLabels := map[string]string{
+				zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
+			}
+			gwObjs, err = istioClient.NetworkingV1alpha3().Gateways(productInfo.Namespace).List(context.TODO(), metav1.ListOptions{
+				LabelSelector: labels.FormatLabels(zadigLabels),
+			})
+			if err != nil {
+				log.Warnf("Failed to list istio gateways, the error is: %s", err)
+			}
+		}
 	}
 
 	// get all services

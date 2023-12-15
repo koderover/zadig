@@ -835,14 +835,22 @@ func ListWorkloadDetails(envName, clusterID, namespace, productName string, perP
 		}
 	}
 
-	zadigLabels := map[string]string{
-		zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
-	}
-	gwObjs, err := istioClient.NetworkingV1alpha3().Gateways(namespace).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: labels.FormatLabels(zadigLabels),
-	})
+	var gwObjs *v1alpha3.GatewayList
+	istioInstalled, err := kube.CheckIstiodInstalled(context.TODO(), cls)
 	if err != nil {
-		return 0, resp, e.ErrListGroups.AddErr(fmt.Errorf("failed to list gateways in ns `%s`: %s", namespace, err))
+		log.Warnf("failed to check istiod whether installed: %s", err)
+	} else {
+		if istioInstalled {
+			zadigLabels := map[string]string{
+				zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
+			}
+			gwObjs, err = istioClient.NetworkingV1alpha3().Gateways(namespace).List(context.TODO(), metav1.ListOptions{
+				LabelSelector: labels.FormatLabels(zadigLabels),
+			})
+			if err != nil {
+				log.Warnf("Failed to list istio gateways, the error is: %s", err)
+			}
+		}
 	}
 
 	// get all services
@@ -921,7 +929,7 @@ func FindServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 
 func FindServiceFromIstioGateway(gwObjs *v1alpha3.GatewayList, serviceName string) []IstioGatewayServer {
 	resp := []IstioGatewayServer{}
-	if len(gwObjs.Items) == 0 {
+	if gwObjs == nil || len(gwObjs.Items) == 0 {
 		return resp
 	}
 	gatewayName := commonutil.GenIstioGatewayName(serviceName)
