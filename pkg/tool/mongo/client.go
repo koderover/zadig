@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"sync"
 
+	"go.mongodb.org/mongo-driver/mongo/readpref"
+
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -130,6 +132,10 @@ func InitWithOption(ctx context.Context, opt *options.ClientOptions) {
 
 func Close(ctx context.Context) error {
 	return client.Disconnect(ctx)
+}
+
+func Ping(ctx context.Context) error {
+	return client.Ping(ctx, readpref.Primary())
 }
 
 func connect(ctx context.Context, opt *options.ClientOptions) *mongo.Client {
