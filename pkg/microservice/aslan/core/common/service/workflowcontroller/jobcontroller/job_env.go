@@ -152,12 +152,12 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 			templateVarKVs := commontypes.ServiceToRenderVariableKVs(svcTemplate.ServiceVariableKVs)
 			_, mergedVariableKVs, err = commontypes.MergeRenderVariableKVs(templateVarKVs, svcRender.OverrideYaml.RenderVariableKVs, deployInfo.VariableKVs)
 			if err != nil {
-				mongo.AbortSession(session)
+				mongo.AbortTransaction(session)
 				return errors.Wrapf(err, "failed to merge render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
 			}
 			mergedVariableYaml, mergedVariableKVs, err = commontypes.ClipRenderVariableKVs(svcTemplate.ServiceVariableKVs, mergedVariableKVs)
 			if err != nil {
-				mongo.AbortSession(session)
+				mongo.AbortTransaction(session)
 				return errors.Wrapf(err, "failed to clip render variable kv for %s/%s, %s", deployInfo.ProductName, deployInfo.EnvName, deployInfo.ServiceName)
 			}
 		}
@@ -208,7 +208,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 
 	err = commonrepo.NewProductCollWithSession(session).Update(productInfo)
 	if err != nil {
-		mongo.AbortSession(session)
+		mongo.AbortTransaction(session)
 		return errors.Wrapf(err, "failed to update product %s", deployInfo.ProductName)
 	}
 	return mongo.CommitTransaction(session)

@@ -281,7 +281,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		})
 	}
 	if err := g.Wait(); err != nil {
-		mongotool.AbortSession(session)
+		mongotool.AbortTransaction(session)
 		return err
 	}
 
@@ -300,7 +300,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 			UpdateBy:    userName,
 			IsExisted:   true,
 		}, session}, log); err != nil {
-			mongotool.AbortSession(session)
+			mongotool.AbortTransaction(session)
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}
 	}
@@ -314,14 +314,14 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 		}
 		err = workloadStatCol.Create(workLoadStat)
 		if err != nil {
-			mongotool.AbortSession(session)
+			mongotool.AbortTransaction(session)
 			return e.ErrCreateProduct.AddErr(err)
 		}
 	} else {
 		workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, args.EnvName)
 		err = workloadStatCol.UpdateWorkloads(workLoadStat)
 		if err != nil {
-			mongotool.AbortSession(session)
+			mongotool.AbortTransaction(session)
 			return e.ErrCreateProduct.AddErr(err)
 		}
 	}
@@ -372,7 +372,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	workloadStat, err := workloadStatCol.Find(args.ClusterID, args.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s]NewWorkLoadsStatColl().Find %s", args.ClusterID, args.Namespace, err)
-		mongotool.AbortSession(session)
+		mongotool.AbortTransaction(session)
 		return err
 	}
 	externalEnvServices, _ := serviceInExternalEnvCol.List(&commonrepo.ServicesInExternalEnvArgs{
@@ -446,7 +446,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	templateProductInfo, err := templateProductColl.Find(productName)
 	if err != nil {
 		log.Errorf("failed to find template product: %s error: %s", productName, err)
-		mongotool.AbortSession(session)
+		mongotool.AbortTransaction(session)
 		return err
 	}
 
@@ -552,7 +552,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, envName, productName)
 	err = workloadStatCol.UpdateWorkloads(workloadStat)
 	if err != nil {
-		mongotool.AbortSession(session)
+		mongotool.AbortTransaction(session)
 		return err
 	}
 	return mongotool.CommitTransaction(session)

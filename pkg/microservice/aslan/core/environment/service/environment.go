@@ -417,7 +417,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
-		mongotool.AbortSession(session)
+		mongotool.AbortTransaction(session)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
@@ -500,7 +500,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		if err != nil {
 			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
-			mongotool.AbortSession(session)
+			mongotool.AbortTransaction(session)
 			return
 		}
 	}
@@ -509,7 +509,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	if err != nil {
 		log.Errorf("failed to update product globalvariable error: %v", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())
-		mongotool.AbortSession(session)
+		mongotool.AbortTransaction(session)
 		return
 	}
 
@@ -526,7 +526,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		if err != nil {
 			log.Errorf("Failed to update deploy strategy data, error: %v", err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
-			mongotool.AbortSession(session)
+			mongotool.AbortTransaction(session)
 			return
 		}
 	}
@@ -2882,7 +2882,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 			param, err := buildInstallParam(productResp.DefaultValues, productResp, chartInfo, prodSvc)
 			if err != nil {
 				log.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", prodSvc.ServiceName, productResp.Namespace, err)
-				mongotool.AbortSession(session)
+				mongotool.AbortTransaction(session)
 				return err
 			}
 			prodSvc.Render = chartInfo
@@ -2896,7 +2896,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 		err := commonrepo.NewProductCollWithSession(session).UpdateGroup(envName, productName, groupIndex, groupServices)
 		if err != nil {
 			log.Errorf("Failed to update service group %d. Error: %v", groupIndex, err)
-			mongotool.AbortSession(session)
+			mongotool.AbortTransaction(session)
 			return err
 		}
 	}

@@ -277,14 +277,14 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 			}
 		}
 		if groupIndex < 0 || svcIndex < 0 {
-			mongotool.AbortSession(session)
+			mongotool.AbortTransaction(session)
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to find service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
 		}
 
 		env.Services[groupIndex][svcIndex] = envSvcVersion.Service
 		err = commonrepo.NewProductCollWithSession(session).UpdateGroup(envName, projectName, groupIndex, env.Services[groupIndex])
 		if err != nil {
-			mongotool.AbortSession(session)
+			mongotool.AbortTransaction(session)
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update service %s in env %s/%s, isProudction %v", envSvcVersion.Service.ServiceName, envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
 		}
 
@@ -297,7 +297,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		}
 		err = commonrepo.NewProductCollWithSession(session).UpdateGlobalVariable(env)
 		if err != nil {
-			mongotool.AbortSession(session)
+			mongotool.AbortTransaction(session)
 			return e.ErrRollbackEnvServiceVersion.AddErr(fmt.Errorf("failed to update global variables in env %s/%s, isProudction %v", envSvcVersion.ProductName, envSvcVersion.EnvName, envSvcVersion.Production))
 		}
 		err = mongotool.CommitTransaction(session)

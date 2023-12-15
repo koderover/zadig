@@ -58,9 +58,9 @@ func Session() mongo.Session {
 	return session
 }
 
-func AbortSession(session mongo.Session) error {
+func AbortTransaction(session mongo.Session) error {
 	return nil
-	//return mongotool.AbortSession(session)
+	//return session.AbortTransaction(session)
 }
 
 func CommitTransaction(session mongo.Session) error {

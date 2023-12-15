@@ -171,7 +171,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 
 		if err := commonrepo.NewProductCollWithSession(session).Update(product); err != nil {
 			log.Errorf("[%s] update product %s error: %s", namespace, args.ProductName, err.Error())
-			mongotool.AbortSession(session)
+			mongotool.AbortTransaction(session)
 			return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
 		}
 
