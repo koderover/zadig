@@ -193,7 +193,7 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 
 	templateProject, err := templaterepo.NewProductCollWithSess(session).Find(productName)
 	if err != nil {
-		session.AbortTransaction(context.TODO())
+		mongotool.AbortTransaction(session)
 		return fmt.Errorf("find template project %s error: %v", productName, err)
 	}
 
@@ -203,14 +203,14 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 			ProductName: productName,
 		}, prod.Production)
 		if err != nil {
-			session.AbortTransaction(context.TODO())
+			mongotool.AbortTransaction(session)
 			return fmt.Errorf("find template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
 		}
 
 		tmplSvc.DeployTime = time.Now().Unix()
 		err = repository.UpdateWithSession(tmplSvc, prod.Production, session)
 		if err != nil {
-			session.AbortTransaction(context.TODO())
+			mongotool.AbortTransaction(session)
 			return fmt.Errorf("update template service %s/%s, production %v, error: %v", productName, serviceName, prod.Production, err)
 		}
 	}
@@ -218,11 +218,11 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 	if err := commonrepo.NewProductCollWithSession(session).Update(prod); err != nil {
 		errMsg := fmt.Sprintf("[%s][%s] update product image error: %v", prod.EnvName, prod.ProductName, err)
 		logger.Errorf(errMsg)
-		session.AbortTransaction(context.TODO())
+		mongotool.AbortTransaction(session)
 		return errors.New(errMsg)
 	}
 
-	return session.CommitTransaction(context.TODO())
+	return mongotool.CommitTransaction(session)
 }
 
 func GenIstioGatewayName(serviceName string) string {

@@ -341,7 +341,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 	// those code can be optimized if MongoDB version are newer than 4.0
 	newProductInfo, err := productColl.Find(&commonrepo.ProductFindOptions{Name: product.ProductName, EnvName: product.EnvName})
 	if err != nil {
-		session.AbortTransaction(context.TODO())
+		mongo.AbortTransaction(session)
 		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
 	}
 
@@ -365,11 +365,11 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 
 	if err = productColl.Update(newProductInfo); err != nil {
 		log.Errorf("update product %s error: %s", newProductInfo.ProductName, err.Error())
-		session.AbortTransaction(context.TODO())
+		mongo.AbortTransaction(session)
 		return fmt.Errorf("failed to update product info, name %s", newProductInfo.ProductName)
 	}
 
-	return session.CommitTransaction(context.TODO())
+	return mongo.CommitTransaction(session)
 }
 
 func UninstallServiceByName(helmClient helmclient.Client, serviceName string, env *commonmodels.Product, revision int64, force bool) error {
