@@ -28,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -532,4 +533,21 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 	}
 
 	return nil
+}
+
+func CheckIstiodInstalled(ctx context.Context, clientset *kubernetes.Clientset) (bool, error) {
+	podList, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "istio",
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to list istio pods, err: %s", err)
+	}
+
+	for _, pod := range podList.Items {
+		if pod.Status.Phase != corev1.PodRunning {
+			return false, fmt.Errorf("istio pod %s is not running", pod.Name)
+		}
+	}
+
+	return true, nil
 }
