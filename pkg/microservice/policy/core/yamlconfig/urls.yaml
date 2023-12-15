@@ -1,7 +1,7 @@
 description: "public urls: url not need to authentication ; system_admin urls: urls that only system admin has permission ; project_admin: urls that project admin has permission"
 exemption_urls:
   public:
-    - endpoint: /debug/**
+    - endpoint: /api/debug/**
       methods:
         - GET
     - endpoint: /api/plutus/license
