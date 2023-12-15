@@ -29,6 +29,8 @@ import (
 	gotemplate "text/template"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
+
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -214,9 +216,11 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 	)
 
 	serviceString := sets.NewString()
+	templateSvcs := make(map[string]*commonmodels.Service)
 	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(args.ProductName, "")
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
+		templateSvcs[v.ServiceName] = v
 	}
 
 	session := mongotool.Session()
@@ -228,12 +232,24 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 
 	session.StartTransaction()
 
+	productServices := make([]*commonmodels.ProductService, 0)
+
 	g := new(errgroup.Group)
 	for _, workload := range args.WorkLoads {
 		tempWorkload := workload
 		g.Go(func() error {
+
+			productSvc := &commonmodels.ProductService{
+				ServiceName: tempWorkload.Name,
+				ProductName: args.ProductName,
+				Type:        setting.K8SDeployType,
+			}
+
 			// If the service is already included in the database service template, add it to the new association table
 			if serviceString.Has(tempWorkload.Name) {
+				productSvc.Containers = templateSvcs[tempWorkload.Name].Containers
+				productSvc.Resources, _ = kube.ManifestToResource(templateSvcs[tempWorkload.Name].Yaml)
+				productServices = append(productServices, productSvc)
 				return serviceInExternalEnvCol.Create(&commonmodels.ServicesInExternalEnv{
 					ProductName: args.ProductName,
 					ServiceName: tempWorkload.Name,
@@ -602,18 +618,18 @@ func replaceWorkloads(existWorkloads []commonmodels.Workload, newWorkloads []com
 	return result
 }
 
-// CreateWorkloadTemplate only use for workload
-func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session mongo.Session, log *zap.SugaredLogger) error {
+// CreateWorkloadTemplate only use for host projects
+func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session mongo.Session, log *zap.SugaredLogger) (*commonmodels.Service, error) {
 	_, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
 		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
-		return e.ErrInvalidParam.AddErr(err)
+		return nil, e.ErrInvalidParam.AddErr(err)
 	}
 	// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
 	args.KubeYamls = []string{args.Yaml}
 	if err := commonutil.SetCurrentContainerImages(args); err != nil {
 		log.Errorf("Failed tosetCurrentContainerImages %s, err: %s", args.ProductName, err)
-		return err
+		return nil, err
 	}
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
@@ -623,7 +639,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session
 
 	serviceColl := commonrepo.NewServiceCollWithSession(session)
 
-	_, notFoundErr := serviceColl.Find(opt)
+	existedSvc, notFoundErr := serviceColl.Find(opt)
 	if notFoundErr != nil {
 		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
 			//获取项目里面的所有服务
@@ -636,7 +652,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session
 			err = templaterepo.NewProductCollWithSess(session).Update(args.ProductName, productTempl)
 			if err != nil {
 				log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
-				return e.ErrCreateTemplate.AddDesc(err.Error())
+				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 			}
 		}
 	} else {
@@ -645,9 +661,9 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session
 			EnvName: args.EnvName,
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return commonrepo.NewServiceInExternalEnvWithSess(session).Create(&commonmodels.ServicesInExternalEnv{
+		return existedSvc, commonrepo.NewServiceInExternalEnvWithSess(session).Create(&commonmodels.ServicesInExternalEnv{
 			ProductName: args.ProductName,
 			ServiceName: args.ServiceName,
 			EnvName:     args.EnvName,
@@ -663,9 +679,9 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session
 
 	if err := serviceColl.Create(args); err != nil {
 		log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
-		return e.ErrCreateTemplate.AddDesc(err.Error())
+		return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 	}
-	return nil
+	return args, nil
 }
 
 // fillServiceVariable fill and merge service.variableYaml and service.serviceVariableKVs by the previous revision
