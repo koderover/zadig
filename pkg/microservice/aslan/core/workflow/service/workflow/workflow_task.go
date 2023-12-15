@@ -1825,7 +1825,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			if env != nil {
 				// 生成部署的subtask
 				for _, deployEnv := range artifact.Deploy {
-					deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout)
+					deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout*60)
 					if err != nil {
 						log.Errorf("deploy env to subtask error: %v", err)
 						return nil, err
