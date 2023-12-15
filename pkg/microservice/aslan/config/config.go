@@ -102,6 +102,10 @@ func KodespaceVersion() string {
 	return viper.GetString(setting.ENVKodespaceVersion)
 }
 
+func EnableTransaction() bool {
+	return viper.GetBool(setting.ENVEnableTransaction)
+}
+
 // CleanIgnoredList is a list which will be ignored during environment cleanup.
 func CleanSkippedList() []string {
 	return strings.Split(viper.GetString(setting.CleanSkippedList), ",")

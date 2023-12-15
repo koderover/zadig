@@ -190,4 +190,5 @@ func initMongoDB() {
 	if err := mongotool.Ping(ctx); err != nil {
 		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
 	}
+
 }
