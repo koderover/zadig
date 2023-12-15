@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -63,7 +64,9 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 	}()
 
 	for _, upload := range s.spec.UploadDetail {
-		s.logger.Infof(fmt.Sprintf("Start archive %s.", upload.FilePath))
+		envmaps := helper.MakeEnvMap(s.envs, s.secretEnvs)
+		s.logger.Infof(fmt.Sprintf("Start archive %s.", replaceEnvWithValue(upload.FilePath, envmaps)))
+
 		if upload.DestinationPath == "" || upload.FilePath == "" {
 			return nil
 		}
@@ -76,19 +79,21 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 		}
 
-		envmaps := helper.MakeEnvMap(s.envs, s.secretEnvs)
-
 		upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
 		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
 		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 
+		if runtime.GOOS == "windows" {
+			upload.AbsFilePath = filepath.FromSlash(filepath.ToSlash(upload.AbsFilePath))
+			upload.AbsFilePath = strings.TrimSpace(upload.AbsFilePath)
+		}
+
 		if len(s.spec.S3.Subfolder) > 0 {
 			upload.DestinationPath = strings.TrimLeft(path.Join(s.spec.S3.Subfolder, upload.DestinationPath), "/")
 		}
-
 		info, err := os.Stat(upload.AbsFilePath)
 		if err != nil {
-			return fmt.Errorf("failed to upload file path [%s] to destination [%s], the error is: %s", upload.AbsFilePath, upload.DestinationPath, err)
+			return fmt.Errorf("failed to upload file path [%s] to destination [%s], the error is: %w", upload.AbsFilePath, upload.DestinationPath, err)
 		}
 		// if the given path is a directory
 		if info.IsDir() {
@@ -115,6 +120,8 @@ func replaceEnvWithValue(str string, envs map[string]string) string {
 			strKey := fmt.Sprintf("$%s", key)
 			ret = strings.ReplaceAll(ret, strKey, value)
 			strKey = fmt.Sprintf("${%s}", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
+			strKey = fmt.Sprintf("%%%s%%", key)
 			ret = strings.ReplaceAll(ret, strKey, value)
 		}
 	}

@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -160,6 +161,10 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		cmds = append(cmds, &common.Command{Cmd: gitcmd.InitGit(workDir)})
 	} else {
 		cmds = append(cmds, &common.Command{Cmd: gitcmd.RemoteRemove(repo.RemoteName), DisableTrace: true, IgnoreError: true})
+	}
+
+	if runtime.GOOS == "windows" {
+		cmds = append(cmds, &common.Command{Cmd: gitcmd.SetConfig("user.email", "zadig@koderover.com"), DisableTrace: true})
 	}
 
 	// namespace represents the real owner
