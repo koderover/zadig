@@ -21,15 +21,13 @@ import (
 	"reflect"
 	"sync"
 
-	"go.mongodb.org/mongo-driver/mongo/readpref"
-
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsoncodec"
 	"go.mongodb.org/mongo-driver/bson/bsonoptions"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -63,10 +61,8 @@ func Session() mongo.Session {
 
 func StartTransaction(session mongo.Session) error {
 	if !config.EnableTransaction() {
-		log.Infof("------- EnableTransaction disabled")
 		return nil
 	}
-	log.Infof("++++++++++ EnableTransaction disabled")
 	return session.StartTransaction()
 }
 
