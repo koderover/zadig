@@ -238,7 +238,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	session := mongotool.Session()
 	defer session.EndSession(context.Background())
 
-	err = session.StartTransaction()
+	err = mongotool.StartTransaction(session)
 	if err != nil {
 		return e.ErrUpdateProduct.AddErr(err)
 	}

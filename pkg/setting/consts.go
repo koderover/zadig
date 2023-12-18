@@ -129,6 +129,8 @@ const (
 	// config
 	ENVMysqlDexDB = "MYSQL_DEX_DB"
 	FeatureFlag   = "feature-gates"
+
+	ENVEnableTransaction = "ENABLE_TRANSACTION"
 )
 
 // k8s concepts
