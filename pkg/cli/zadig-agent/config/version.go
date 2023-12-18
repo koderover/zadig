@@ -16,4 +16,9 @@ limitations under the License.
 
 package config
 
-const AGENT_VERSION = "v2.1.0"
+var (
+	BuildAgentVersion = ""
+	BuildGoVersion    = ""
+	BuildCommit       = ""
+	BuildTime         = ""
+)

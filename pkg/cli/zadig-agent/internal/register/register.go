@@ -43,7 +43,7 @@ func RegisterAgent() {
 		panic(fmt.Errorf("failed to convert platform parameters to register agent parameters: %v", err))
 	}
 
-	args.AgentVersion = agentconfig.AGENT_VERSION
+	args.AgentVersion = agentconfig.BuildAgentVersion
 	if agentConfig.Token == "" {
 		log.Panicf("agent token is empty, please use zadig-agent --token=xxx to start agent.")
 	}

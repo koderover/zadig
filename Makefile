@@ -44,16 +44,30 @@ swag:
 # zadig-agent
 ARCHS := amd64 arm64
 PLATFORMS := windows linux darwin
+BUILD_TIME := $(shell TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S %Z')
+BUILD_COMMIT := $(shell git rev-parse --short HEAD)
+BUILD_GO_VERSION := $(shell go version | awk '{print $$3}')
+ZADIG_AGENT_VERSION ?= 2.1.0
 ZADIG_AGENT_OUT_DIR := cmd/zadig-agent/out
 
 zadig-agent: $(foreach platform,$(PLATFORMS),$(foreach arch,$(ARCHS),zadig-agent-$(platform)-$(arch)))
+tar-zadig-agent: $(foreach platform,$(PLATFORMS),$(foreach arch,$(ARCHS),tar-zadig-agent-$(platform)-$(arch)))
 
 zadig-agent-clean:
 	@rm -rf $(ZADIG_AGENT_OUT_DIR)/*
 
+tar-zadig-agent-%:
+	@$(eval GOOS=$(firstword $(subst -, ,$*)))
+	@$(eval GOARCH=$(lastword $(subst -, ,$*)))
+	tar -czvf $(ZADIG_AGENT_OUT_DIR)/zadig-agent-$*-v$(ZADIG_AGENT_VERSION).tar.gz  -C $(ZADIG_AGENT_OUT_DIR)  zadig-agent-$*-v$(ZADIG_AGENT_VERSION)$(if $(findstring windows,$(GOOS)),.exe)
+
+# Usage:
+# make zadig-agent ZADIG_AGENT_VERSION=2.1.0
+# make zadig-agent-linux-amd64 ZADIG_AGENT_VERSION=2.10
+# make tar-zadig-agent ZADIG_AGENT_VERSION=2.1.0
+# make tar-zadig-agent-linux-amd64 ZADIG_AGENT_VERSION=2.1.0
 zadig-agent-%:
 	@$(eval GOOS=$(firstword $(subst -, ,$*)))
 	@$(eval GOARCH=$(lastword $(subst -, ,$*)))
-	@echo "Building zadig-agent for GOOS=$(GOOS), GOARCH=$(GOARCH)"
-	@$(eval ZADIG_AGENT_OUT_FILE=$(ZADIG_AGENT_OUT_DIR)/zadig-agent-$(GOOS)-$(GOARCH)$(if $(findstring windows,$(GOOS)),.exe))
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(ZADIG_AGENT_OUT_FILE) cmd/zadig-agent/main.go
+	@$(eval ZADIG_AGENT_OUT_FILE=$(ZADIG_AGENT_OUT_DIR)/zadig-agent-$(GOOS)-$(GOARCH)-v$(ZADIG_AGENT_VERSION)$(if $(findstring windows,$(GOOS)),.exe))
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags '-X "main.BuildAgentVersion=$(ZADIG_AGENT_VERSION)" -X "main.BuildGoVersion=$(BUILD_GO_VERSION)" -X "main.BuildTime=$(BUILD_TIME)" -X "main.BuildCommit=$(BUILD_COMMIT)"' -o $(ZADIG_AGENT_OUT_FILE) cmd/zadig-agent/main.go
