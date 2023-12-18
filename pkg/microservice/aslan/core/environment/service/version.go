@@ -251,7 +251,7 @@ func RollbackEnvServiceVersion(ctx *internalhandler.Context, projectName, envNam
 		session := mongotool.Session()
 		defer session.EndSession(context.Background())
 
-		err = session.StartTransaction()
+		err = mongotool.StartTransaction(session)
 		if err != nil {
 			return e.ErrRollbackEnvServiceVersion.AddErr(err)
 		}

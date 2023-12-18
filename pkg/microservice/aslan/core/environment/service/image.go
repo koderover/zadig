@@ -164,7 +164,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 		session := mongotool.Session()
 		defer session.EndSession(context.TODO())
 
-		err = session.StartTransaction()
+		err = mongotool.StartTransaction(session)
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}

@@ -15,6 +15,7 @@ import (
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/koderover/zadig/v2/pkg/tool/mongo"
 	mongotool "github.com/koderover/zadig/v2/pkg/tool/mongo"
 	"github.com/koderover/zadig/v2/pkg/util"
 	"github.com/koderover/zadig/v2/pkg/util/converter"
@@ -176,7 +177,7 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 	session := mongotool.Session()
 	defer session.EndSession(context.TODO())
 
-	err = session.StartTransaction()
+	err = mongo.StartTransaction(session)
 	if err != nil {
 		return err
 	}

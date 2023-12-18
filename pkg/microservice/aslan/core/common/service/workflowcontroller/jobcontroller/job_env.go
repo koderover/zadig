@@ -124,7 +124,7 @@ func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error 
 	session := mongo.Session()
 	defer session.EndSession(context.TODO())
 
-	err = session.StartTransaction()
+	err = mongo.StartTransaction(session)
 	if err != nil {
 		return err
 	}
