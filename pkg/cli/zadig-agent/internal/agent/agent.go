@@ -99,7 +99,6 @@ func (c *AgentController) PollingJob(ctx context.Context) {
 					c.CurrentJobNum++
 					log.Infof("PollingJob: received job workflow name: %v, task id: %v, project name: %v, job name: %v",
 						job.WorkflowName, job.TaskID, job.ProjectName, job.JobName)
-					log.Debugf("full job info: %+v", job)
 				}
 
 				time.Sleep(common.DefaultAgentPollingInterval * time.Second)
