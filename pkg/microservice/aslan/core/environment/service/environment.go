@@ -380,7 +380,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	session := mongotool.Session()
 	defer session.EndSession(context.TODO())
 
-	err = session.StartTransaction()
+	err = mongotool.StartTransaction(session)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -2813,7 +2813,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 	session := mongotool.Session()
 	defer session.EndSession(context.TODO())
 
-	err := session.StartTransaction()
+	err := mongotool.StartTransaction(session)
 	if err != nil {
 		return err
 	}

@@ -176,7 +176,7 @@ func UpdateProductImage(envName, productName, serviceName string, targets map[st
 	session := mongotool.Session()
 	defer session.EndSession(context.TODO())
 
-	err = session.StartTransaction()
+	err = mongotool.StartTransaction(session)
 	if err != nil {
 		return err
 	}
