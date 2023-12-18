@@ -148,7 +148,6 @@ func HandleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string,
 				}
 			}
 		}
-		logger.Debugf("line: %q", string(lineBytes))
 
 		if needPersistentLog {
 			err := util.WriteFile(logFile, lineBytes, 0700)
