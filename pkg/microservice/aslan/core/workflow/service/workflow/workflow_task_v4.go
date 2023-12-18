@@ -19,7 +19,6 @@ package workflow
 import (
 	"fmt"
 	"io/ioutil"
-	"math"
 	"path/filepath"
 	"strings"
 	"time"
@@ -992,46 +991,46 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 
 					// get test report
 					testModules := make([]*commonmodels.WorkflowTestModule, 0)
-					for _, runningStage := range task.Stages {
-						if runningStage.Name != stage.Name {
-							continue
-						}
-						for _, runningJob := range runningStage.Jobs {
-							if runningJob.JobType != string(config.JobZadigTesting) {
-								continue
-							}
-							jobInfo := new(commonmodels.TaskJobInfo)
-							if err := commonmodels.IToi(runningJob.JobInfo, jobInfo); err != nil {
-								return nil, 0, err
-							}
-
-							if job.Name == jobInfo.JobName {
-								result, _ := service.GetWorkflowV4LocalTestSuite(task.WorkflowName, runningJob.Name, task.TaskID, logger)
-								if result != nil && result.FunctionTestSuite != nil {
-									duration := 0.0
-									for _, testCase := range result.FunctionTestSuite.TestCases {
-										duration += testCase.Time
-									}
-									testModule := &commonmodels.WorkflowTestModule{
-										RunningJobName: runningJob.Name,
-										Type:           "function",
-										TestName:       result.FunctionTestSuite.Name,
-										TestCaseNum:    result.FunctionTestSuite.Tests,
-										SuccessCaseNum: result.FunctionTestSuite.Successes,
-									}
-									if testModule.TestName == "" {
-										keys := strings.Split(runningJob.Key, ".")
-										testModule.TestName = keys[len(keys)-1]
-									}
-									if result.FunctionTestSuite.Time == 0 {
-										result.FunctionTestSuite.Time = math.Round(duration*1000) / 1000
-									}
-									testModule.TestTime = result.FunctionTestSuite.Time
-									testModules = append(testModules, testModule)
-								}
-							}
-						}
-					}
+					//for _, runningStage := range task.Stages {
+					//	if runningStage.Name != stage.Name {
+					//		continue
+					//	}
+					//	for _, runningJob := range runningStage.Jobs {
+					//		if runningJob.JobType != string(config.JobZadigTesting) {
+					//			continue
+					//		}
+					//		jobInfo := new(commonmodels.TaskJobInfo)
+					//		if err := commonmodels.IToi(runningJob.JobInfo, jobInfo); err != nil {
+					//			return nil, 0, err
+					//		}
+					//
+					//		if job.Name == jobInfo.JobName {
+					//			result, _ := service.GetWorkflowV4LocalTestSuite(task.WorkflowName, runningJob.Name, task.TaskID, logger)
+					//			if result != nil && result.FunctionTestSuite != nil {
+					//				duration := 0.0
+					//				for _, testCase := range result.FunctionTestSuite.TestCases {
+					//					duration += testCase.Time
+					//				}
+					//				testModule := &commonmodels.WorkflowTestModule{
+					//					RunningJobName: runningJob.Name,
+					//					Type:           "function",
+					//					TestName:       result.FunctionTestSuite.Name,
+					//					TestCaseNum:    result.FunctionTestSuite.Tests,
+					//					SuccessCaseNum: result.FunctionTestSuite.Successes,
+					//				}
+					//				if testModule.TestName == "" {
+					//					keys := strings.Split(runningJob.Key, ".")
+					//					testModule.TestName = keys[len(keys)-1]
+					//				}
+					//				if result.FunctionTestSuite.Time == 0 {
+					//					result.FunctionTestSuite.Time = math.Round(duration*1000) / 1000
+					//				}
+					//				testModule.TestTime = result.FunctionTestSuite.Time
+					//				testModules = append(testModules, testModule)
+					//			}
+					//		}
+					//	}
+					//}
 					jobPreview.TestModules = testModules
 				case config.JobZadigDistributeImage:
 					distribute := new(commonmodels.ZadigDistributeImageJobSpec)
