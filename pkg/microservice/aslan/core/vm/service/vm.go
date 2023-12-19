@@ -176,44 +176,49 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 				"zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
+					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"sudo nohup zadig-agent start &",
-				downloadLinuxAMD64URL)
+				downloadLinuxAMD64URL, linuxAMD64Name)
 		case setting.LinuxArm64:
 			downloadLinuxARM64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, linuxARM64Name)
 			cmd.UpgradeCmd = fmt.Sprintf(
 				"zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
+					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"sudo nohup zadig-agent start &",
-				downloadLinuxARM64URL)
+				downloadLinuxARM64URL, linuxARM64Name)
 		case setting.MacOSAmd64:
 			downloadMacOSAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, macOSAMD64Name)
 			cmd.UpgradeCmd = fmt.Sprintf(
 				"zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
+					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"nohup zadig-agent start &",
-				downloadMacOSAMD64URL)
+				downloadMacOSAMD64URL, macOSAMD64Name)
 		case setting.MacOSArm64:
 			downloadMacOSARM64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, macOSARM64Name)
 			cmd.UpgradeCmd = fmt.Sprintf(
 				"zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
+					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"nohup zadig-agent start &",
-				downloadMacOSARM64URL)
+				downloadMacOSARM64URL, macOSARM64Name)
 		case setting.WinAmd64:
 			downloadWinAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, strings.TrimSuffix(winAMD64Name, ".exe"))
 			cmd.UpgradeCmd = fmt.Sprintf(
 				"REM stop zadig-agent.exe manually\n "+
 					"rm -rf C:\\Users\\Administrator\\zadig-agent.exe \n "+
 					"curl -L %s | tar xzf - -C C:\\Users\\Administrator \n "+
+					"move /Y C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
 					"start C:\\Users\\Administrator\\zadig-agent.exe start",
-				downloadWinAMD64URL)
+				downloadWinAMD64URL, winAMD64Name)
 		default:
 			return nil, fmt.Errorf("unsupported platform %s", vm.VMInfo.Platform)
 		}
@@ -610,14 +615,16 @@ func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, err
 		LinuxPlatform: &AgentAccessCmd{
 			AMD64: fmt.Sprintf(
 				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
+					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"sudo nohup zadig-agent start --server-url %s --token %s &",
-				downloadLinuxAMD64URL, serverURL, token),
+				downloadLinuxAMD64URL, linuxAMD64Name, serverURL, token),
 			ARM64: fmt.Sprintf(
 				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
+					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"sudo nohup zadig-agent start --server-url %s --token %s &",
-				downloadLinuxARM64URL, serverURL, token),
+				downloadLinuxARM64URL, linuxARM64Name, serverURL, token),
 		},
 		MacOSPlatform: &AgentAccessCmd{
 			AMD64: fmt.Sprintf(
@@ -625,18 +632,20 @@ func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, err
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"nohup zadig-agent start --server-url %s --token %s &",
-				downloadMacAMD64URL, serverURL, token),
+				downloadMacAMD64URL, macOSAMD64Name, serverURL, token),
 			ARM64: fmt.Sprintf(
 				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
+					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"nohup zadig-agent start --server-url %s --token %s &",
-				downloadMacARM64URL, serverURL, token),
+				downloadMacARM64URL, macOSARM64Name, serverURL, token),
 		},
 		WinPlatform: &AgentAccessCmd{
 			AMD64: fmt.Sprintf(
 				"curl -L %s | tar xzf - -C C:\\Users\\Administrator \n "+
+					"move /Y C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
 					"start C:\\Users\\Administrator\\zadig-agent.exe start --server-url %s --token %s",
-				downloadWinAMD64URL, serverURL, token),
+				downloadWinAMD64URL, winAMD64Name, serverURL, token),
 		},
 	}
 
