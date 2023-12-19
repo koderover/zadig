@@ -361,11 +361,13 @@ func (e *JobExecutor) AfterExecute() error {
 	// -------------------------------------------- delete all temp file and dir ----------------------------------------
 
 	e.Logger.Close()
-	// @note deleteTempFileAndDir
-	// err := e.deleteTempFileAndDir()
-	// if err != nil {
-	// 	log.Errorf("failed to delete temp file and dir, error: %s", err)
-	// }
+
+	if !config.GetEnableDebug() {
+		err := e.deleteTempFileAndDir()
+		if err != nil {
+			log.Errorf("failed to delete temp file and dir, error: %s", err)
+		}
+	}
 
 	return nil
 }

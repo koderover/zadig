@@ -59,14 +59,14 @@ zadig-agent: $(foreach platform,$(PLATFORMS),$(foreach arch,$(ARCHS),zadig-agent
 zadig-agent-%:
 	@$(eval GOOS=$(firstword $(subst -, ,$*)))
 	@$(eval GOARCH=$(lastword $(subst -, ,$*)))
-	@$(eval ZADIG_AGENT_OUT_FILE=$(ZADIG_AGENT_OUT_DIR)/zadig-agent-$(GOOS)-$(GOARCH)-v$(ZADIG_AGENT_VERSION)$(if $(findstring windows,$(GOOS)),.exe))
+	@$(eval ZADIG_AGENT_OUT_FILE=$(ZADIG_AGENT_OUT_DIR)/zadig-agent-$(GOOS)-$(GOARCH)$(if $(findstring windows,$(GOOS)),.exe))
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags '-X "main.BuildAgentVersion=$(ZADIG_AGENT_VERSION)" -X "main.BuildGoVersion=$(BUILD_GO_VERSION)" -X "main.BuildTime=$(BUILD_TIME)" -X "main.BuildCommit=$(BUILD_COMMIT)"' -o $(ZADIG_AGENT_OUT_FILE) cmd/zadig-agent/main.go
 
 tar-zadig-agent: $(foreach platform,$(PLATFORMS),$(foreach arch,$(ARCHS),tar-zadig-agent-$(platform)-$(arch)))
 tar-zadig-agent-%:
 	@$(eval GOOS=$(firstword $(subst -, ,$*)))
 	@$(eval GOARCH=$(lastword $(subst -, ,$*)))
-	tar -czvf $(ZADIG_AGENT_OUT_DIR)/zadig-agent-$*-v$(ZADIG_AGENT_VERSION).tar.gz  -C $(ZADIG_AGENT_OUT_DIR)  zadig-agent-$*-v$(ZADIG_AGENT_VERSION)$(if $(findstring windows,$(GOOS)),.exe)
+	tar -czvf $(ZADIG_AGENT_OUT_DIR)/zadig-agent-$*-v$(ZADIG_AGENT_VERSION).tar.gz  -C $(ZADIG_AGENT_OUT_DIR)  zadig-agent-$*$(if $(findstring windows,$(GOOS)),.exe)
 
 zadig-agent-clean:
 	@rm -rf $(ZADIG_AGENT_OUT_DIR)/*
