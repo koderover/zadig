@@ -212,6 +212,8 @@ func (c *Client) Upload(bucketName, src string, objectKey string) error {
 	if err != nil {
 		return err
 	}
+	defer file.Close()
+
 	// TODO: add md5 check for file integrity
 	input := &s3.PutObjectInput{
 		Body:   file,

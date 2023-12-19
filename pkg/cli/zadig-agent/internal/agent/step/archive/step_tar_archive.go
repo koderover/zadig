@@ -99,7 +99,10 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 		s.logger.Errorf("failed to create %s err: %s", tarName, err)
 		return err
 	}
-	_ = temp.Close()
+	err = temp.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close %s err: %s", tarName, err)
+	}
 	cmd := exec.Command("tar", cmdAndArtifactFullPaths...)
 	cmd.Stderr = os.Stderr
 	if err = cmd.Run(); err != nil {
