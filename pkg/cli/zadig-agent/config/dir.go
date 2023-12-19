@@ -202,3 +202,11 @@ func GetCacheDir(workDir string) (string, error) {
 
 	return cacheDir, nil
 }
+
+func GetUserShellScriptFilePath(workDir string) string {
+	return filepath.Join(workDir, "user_script.sh")
+}
+
+func GetUserBatchFileScriptFilePath(workDir string) string {
+	return filepath.Join(workDir, "user_script.bat")
+}

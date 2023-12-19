@@ -130,7 +130,7 @@ func generateBatchFile(spec *StepBatchFileSpec, dirs *types.AgentWorkDirs, jobOu
 		scripts = append(scripts, outputBatchFile(dirs.JobOutputsDir, jobOutput)...)
 	}
 
-	userScriptFile := config.GetUserScriptFilePath(dirs.JobScriptDir)
+	userScriptFile := config.GetUserBatchFileScriptFilePath(dirs.JobScriptDir)
 	if err := ioutil.WriteFile(userScriptFile, []byte(strings.Join(scripts, "\n")), 0700); err != nil {
 		return "", fmt.Errorf("write script file error: %v", err)
 	}

@@ -22,6 +22,8 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -130,7 +132,7 @@ func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []
 		scripts = append(scripts, outputScript(dirs.JobOutputsDir, jobOutput)...)
 	}
 
-	userScriptFile := config.GetUserScriptFilePath(dirs.JobScriptDir)
+	userScriptFile := config.GetUserShellScriptFilePath(dirs.JobScriptDir)
 	if err := ioutil.WriteFile(userScriptFile, []byte(strings.Join(scripts, "\n")), 0700); err != nil {
 		return "", fmt.Errorf("write script file error: %v", err)
 	}
@@ -141,7 +143,13 @@ func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []
 func outputScript(outputsDir string, outputs []string) []string {
 	resp := []string{"set +ex"}
 	for _, output := range outputs {
-		resp = append(resp, fmt.Sprintf("echo $%s > %s", output, path.Join(outputsDir, output)))
+
+		if runtime.GOOS == "windows" {
+			scriptPath := filepath.FromSlash(filepath.ToSlash(path.Join(outputsDir, output)))
+			resp = append(resp, fmt.Sprintf("echo $%s > %s", output, scriptPath))
+		} else {
+			resp = append(resp, fmt.Sprintf("echo $%s > %s", output, path.Join(outputsDir, output)))
+		}
 	}
 	return resp
 }
