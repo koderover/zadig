@@ -18,11 +18,12 @@ package util
 
 import (
 	"context"
-	zadigutil "github.com/koderover/zadig/pkg/util"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	zadigutil "github.com/koderover/zadig/v2/pkg/util"
 )
+
 func EnsureIstioGrayConfig(ctx context.Context, baseEnv *commonmodels.Product) error {
 	if baseEnv.IstioGrayscale.Enable && baseEnv.IstioGrayscale.IsBase {
 		return nil
