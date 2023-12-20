@@ -52,49 +52,54 @@ func EnableIstioGrayscale(ctx context.Context, envName, productName string) erro
 
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
-		return fmt.Errorf("failed to get kube client: %s", err)
+		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
 
 	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
 	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
+		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to get rest config: %s", err))
 	}
 
 	istioClient, err := versionedclient.NewForConfig(restConfig)
 	if err != nil {
-		return fmt.Errorf("failed to new istio client: %s", err)
+		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}
 
 	// 1. Ensure `istio-injection=enabled` label on the namespace.
 	err = ensureIstioLabel(ctx, kclient, ns)
 	if err != nil {
-		return fmt.Errorf("failed to ensure istio label on namespace `%s`: %s", ns, err)
+		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to ensure istio label on namespace `%s`: %s", ns, err))
 	}
 
 	// 2. Ensure Pods that are not injected with `istio-proxy`.
 	err = ensurePodsWithIsitoProxy(ctx, kclient, ns)
 	if err != nil {
-		return fmt.Errorf("failed to ensure pods with istio-proxy in namespace `%s`: %s", ns, err)
+		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to ensure pods with istio-proxy in namespace `%s`: %s", ns, err))
 	}
 
 	// 3. Ensure `EnvoyFilter` in istio namespace.
 	err = ensureEnvoyFilter(ctx, istioClient, clusterID, istioNamespace, zadigEnvoyFilter, nil)
 	if err != nil {
-		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", istioNamespace, err)
+		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", istioNamespace, err))
 	}
 
 	// 4. Update the environment configuration.
-	return commonutil.EnsureIstioGrayConfig(ctx, prod)
+	err = commonutil.EnsureIstioGrayConfig(ctx, prod)
+	if err != nil {
+		return e.ErrEnableIstioGrayscale.AddErr(fmt.Errorf("failed to ensure istio gray config: %s", err))
+	}
+
+	return nil
 }
 
 func DisableIstioGrayscale(ctx context.Context, envName, productName string) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err))
 	}
 	if prod.IsSleeping() {
-		return fmt.Errorf("Environment is sleeping")
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("Environment is sleeping"))
 	}
 
 	ns := prod.Namespace
@@ -102,64 +107,69 @@ func DisableIstioGrayscale(ctx context.Context, envName, productName string) err
 
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
-		return fmt.Errorf("failed to get kube client: %s", err)
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
 
 	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
 	if err != nil {
-		return fmt.Errorf("failed to get rest config: %s", err)
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to get rest config: %s", err))
 	}
 
 	istioClient, err := versionedclient.NewForConfig(restConfig)
 	if err != nil {
-		return fmt.Errorf("failed to new istio client: %s", err)
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}
 
 	// 1. Delete all associated gray environments.
 	err = ensureDeleteGrayscaleAssociatedEnvs(ctx, prod, kclient, istioClient)
 	if err != nil {
-		return fmt.Errorf("failed to delete associated gray environments of base ns `%s`: %s", ns, err)
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to delete associated gray environments of base ns `%s`: %s", ns, err))
 	}
 
 	// 2. Delete EnvoyFilter in the namespace of Istio installation.
 	err = ensureDeleteEnvoyFilter(ctx, prod, istioClient)
 	if err != nil {
-		return fmt.Errorf("failed to delete EnvoyFilter: %s", err)
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to delete EnvoyFilter: %s", err))
 	}
 
 	// 3. Delete Gateway delivered by the Zadig.
 	err = deleteGateways(ctx, kclient, istioClient, ns)
 	if err != nil {
-		return fmt.Errorf("failed to delete EnvoyFilter: %s", err)
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to delete EnvoyFilter: %s", err))
 	}
 
 	// 4. Delete all VirtualServices delivered by the Zadig.
 	err = deleteVirtualServices(ctx, kclient, istioClient, ns)
 	if err != nil {
-		return fmt.Errorf("failed to delete VirtualServices that Zadig created in ns `%s`: %s", ns, err)
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to delete VirtualServices that Zadig created in ns `%s`: %s", ns, err))
 	}
 
 	// 5. Remove the `istio-injection=enabled` label of the namespace.
 	err = removeIstioLabel(ctx, kclient, ns)
 	if err != nil {
-		return fmt.Errorf("failed to remove istio label on ns `%s`: %s", ns, err)
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to remove istio label on ns `%s`: %s", ns, err))
 	}
 
 	// 6. Restart the istio-Proxy injected Pods.
 	err = removePodsIstioProxy(ctx, kclient, ns)
 	if err != nil {
-		return fmt.Errorf("failed to remove istio-proxy from pods in ns `%s`: %s", ns, err)
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to remove istio-proxy from pods in ns `%s`: %s", ns, err))
 	}
 
 	// 7. Update the environment configuration.
-	return ensureDisableGrayscaleEnvConfig(ctx, prod)
+	err = ensureDisableGrayscaleEnvConfig(ctx, prod)
+	if err != nil {
+		return e.ErrDisableIstioGrayscale.AddErr(fmt.Errorf("failed to ensure disable istio gray config: %s", err))
+	}
+
+	return nil
 }
 
 func CheckIstioGrayscaleReady(ctx context.Context, envName, op, productName string) (*IstioGrayscaleReady, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
+		return nil, e.ErrCheckIstioGrayscale.AddErr(fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err))
 	}
 
 	ns := prod.Namespace
@@ -167,7 +177,7 @@ func CheckIstioGrayscaleReady(ctx context.Context, envName, op, productName stri
 
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get kube client: %s", err)
+		return nil, e.ErrCheckIstioGrayscale.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
 
 	shareEnvOp := ShareEnvOp(op)
@@ -175,13 +185,13 @@ func CheckIstioGrayscaleReady(ctx context.Context, envName, op, productName stri
 	// 1. Check whether namespace has labeled `istio-injection=enabled`.
 	isNamespaceHasIstioLabel, err := checkIstioLabel(ctx, kclient, ns)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check whether namespace `%s` has labeled `istio-injection=enabled`: %s", ns, err)
+		return nil, e.ErrCheckIstioGrayscale.AddErr(fmt.Errorf("failed to check whether namespace `%s` has labeled `istio-injection=enabled`: %s", ns, err))
 	}
 
 	// 2. Check whether all workloads have K8s Service.
 	workloadsHaveNoK8sService, err := checkWorkloadsHaveK8sService(ctx, kclient, ns)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check whether all workloads in ns `%s` have K8s Service: %s", ns, err)
+		return nil, e.ErrCheckIstioGrayscale.AddErr(fmt.Errorf("failed to check whether all workloads in ns `%s` have K8s Service: %s", ns, err))
 	}
 
 	isWorkloadsHaveNoK8sService := true
@@ -192,7 +202,7 @@ func CheckIstioGrayscaleReady(ctx context.Context, envName, op, productName stri
 	// 3. Check whether all Pods have istio-proxy and are ready.
 	allHaveIstioProxy, allPodsReady, err := checkPodsWithIstioProxyAndReady(ctx, kclient, ns)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check whether all pods in ns `%s` have istio-proxy and are ready: %s", ns, err)
+		return nil, e.ErrCheckIstioGrayscale.AddErr(fmt.Errorf("failed to check whether all pods in ns `%s` have istio-proxy and are ready: %s", ns, err))
 	}
 
 	res := &IstioGrayscaleReady{
@@ -213,10 +223,10 @@ func GetIstioGrayscaleConfig(ctx context.Context, envName, productName string) (
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: boolptr.True()}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return resp, fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
+		return resp, e.ErrGetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err))
 	}
 	if !prod.IstioGrayscale.IsBase {
-		return resp, fmt.Errorf("cannot get istio grayscale config from gray environment %s/%s", productName, envName)
+		return resp, e.ErrGetIstioGrayscaleConfig.AddErr(fmt.Errorf("cannot get istio grayscale config from gray environment %s/%s", productName, envName))
 	}
 
 	return prod.IstioGrayscale, nil
@@ -232,18 +242,18 @@ func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, r
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: boolptr.True()}
 	baseEnv, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
+		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err))
 	}
 	if !baseEnv.IstioGrayscale.IsBase {
-		return fmt.Errorf("cannot set istio grayscale config for gray environment")
+		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("cannot set istio grayscale config for gray environment"))
 	}
 	if baseEnv.IsSleeping() {
-		return fmt.Errorf("Environment %s is sleeping", baseEnv.EnvName)
+		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("Environment %s is sleeping", baseEnv.EnvName))
 	}
 
 	grayEnvs, err := commonutil.FetchGrayEnvs(ctx, baseEnv.ProductName, baseEnv.ClusterID, baseEnv.EnvName)
 	if err != nil {
-		return fmt.Errorf("failed to list gray environments of %s/%s: %s", baseEnv.ProductName, baseEnv.EnvName, err)
+		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to list gray environments of %s/%s: %s", baseEnv.ProductName, baseEnv.EnvName, err))
 	}
 
 	envMap := map[string]*commonmodels.Product{
@@ -251,7 +261,7 @@ func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, r
 	}
 	for _, env := range grayEnvs {
 		if env.IsSleeping() {
-			return fmt.Errorf("Environment %s is sleeping", baseEnv.EnvName)
+			return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("Environment %s is sleeping", baseEnv.EnvName))
 		}
 		envMap[env.EnvName] = env
 	}
@@ -259,12 +269,12 @@ func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, r
 	if req.GrayscaleStrategy == commonmodels.GrayscaleStrategyWeight {
 		err = kube.SetIstioGrayscaleWeight(context.TODO(), envMap, req.WeightConfigs)
 		if err != nil {
-			return fmt.Errorf("failed to set istio grayscale weight, err: %w", err)
+			return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to set istio grayscale weight, err: %w", err))
 		}
 	} else if req.GrayscaleStrategy == commonmodels.GrayscaleStrategyHeaderMatch {
 		err = kube.SetIstioGrayscaleHeaderMatch(context.TODO(), envMap, req.HeaderMatchConfigs)
 		if err != nil {
-			return fmt.Errorf("failed to set istio grayscale weight, err: %w", err)
+			return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to set istio grayscale weight, err: %w", err))
 		}
 
 		headerKeys := []string{}
@@ -276,10 +286,10 @@ func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, r
 
 		err = reGenerateEnvoyFilter(ctx, baseEnv.ClusterID, headerKeys)
 		if err != nil {
-			return fmt.Errorf("failed to re-generate envoy filter, err: %w", err)
+			return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to re-generate envoy filter, err: %w", err))
 		}
 	} else {
-		return fmt.Errorf("unsupported grayscale strategy type: %s", req.GrayscaleStrategy)
+		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("unsupported grayscale strategy type: %s", req.GrayscaleStrategy))
 	}
 
 	baseEnv.IstioGrayscale.GrayscaleStrategy = req.GrayscaleStrategy
@@ -288,7 +298,7 @@ func SetIstioGrayscaleConfig(ctx context.Context, envName, productName string, r
 
 	err = commonrepo.NewProductColl().UpdateIstioGrayscale(baseEnv.EnvName, baseEnv.ProductName, baseEnv.IstioGrayscale)
 	if err != nil {
-		return fmt.Errorf("failed to update istio grayscale config of %s/%s environment: %s", baseEnv.ProductName, baseEnv.EnvName, err)
+		return e.ErrSetIstioGrayscaleConfig.AddErr(fmt.Errorf("failed to update istio grayscale config of %s/%s environment: %s", baseEnv.ProductName, baseEnv.EnvName, err))
 	}
 
 	return nil
@@ -301,10 +311,10 @@ func GetIstioGrayscalePortalService(ctx context.Context, productName, envName, s
 		EnvName: envName,
 	})
 	if err != nil {
-		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to query env %s of product %s: %s", envName, productName, err))
+		return resp, e.ErrGetIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to query env %s of product %s: %s", envName, productName, err))
 	}
 	if !env.IstioGrayscale.Enable && !env.IstioGrayscale.IsBase {
-		return resp, e.ErrGetPortalService.AddDesc("%s doesn't enable share environment or is not base environment")
+		return resp, e.ErrGetIstioGrayscalePortalService.AddDesc("%s doesn't enable share environment or is not base environment")
 	}
 
 	ns := env.Namespace
@@ -312,26 +322,26 @@ func GetIstioGrayscalePortalService(ctx context.Context, productName, envName, s
 
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
-		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
+		return resp, e.ErrGetIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
 	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
 	if err != nil {
-		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
+		return resp, e.ErrGetIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
 	}
 	istioClient, err := versionedclient.NewForConfig(restConfig)
 	if err != nil {
-		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
+		return resp, e.ErrGetIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}
 
 	gatewayName := commonutil.GenIstioGatewayName(serviceName)
 	resp.DefaultGatewayAddress, err = getDefaultIstioIngressGatewayAddress(ctx, serviceName, gatewayName, err, kclient)
 	if err != nil {
-		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get default istio ingress gateway address: %s", err))
+		return resp, e.ErrGetIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get default istio ingress gateway address: %s", err))
 	}
 
 	resp.Servers, err = getIstioGatewayConfig(ctx, istioClient, ns, gatewayName)
 	if err != nil {
-		return resp, e.ErrGetPortalService.AddErr(fmt.Errorf("failed to get istio gateway config: %s", err))
+		return resp, e.ErrGetIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get istio gateway config: %s", err))
 	}
 
 	return resp, nil
@@ -343,15 +353,15 @@ func SetupIstioGrayscalePortalService(ctx context.Context, productName, envName,
 		EnvName: envName,
 	})
 	if err != nil {
-		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to query env %s of product %s: %s", envName, productName, err))
+		return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to query env %s of product %s: %s", envName, productName, err))
 	}
 	if !env.IstioGrayscale.Enable && !env.IstioGrayscale.IsBase {
-		return e.ErrSetupPortalService.AddDesc("%s doesn't enable share environment or is not base environment")
+		return e.ErrSetupIstioGrayscalePortalService.AddDesc("%s doesn't enable share environment or is not base environment")
 	}
 
 	templateProd, err := template.NewProductColl().Find(productName)
 	if err != nil {
-		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to find template product %s, err: %w", productName, err))
+		return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to find template product %s, err: %w", productName, err))
 	}
 
 	ns := env.Namespace
@@ -359,15 +369,15 @@ func SetupIstioGrayscalePortalService(ctx context.Context, productName, envName,
 
 	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
-		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
+		return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get kube client: %s", err))
 	}
 	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
 	if err != nil {
-		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
+		return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to get rest config: %s", err))
 	}
 	istioClient, err := versionedclient.NewForConfig(restConfig)
 	if err != nil {
-		return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
+		return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to new istio client: %s", err))
 	}
 	gatewayName := commonutil.GenIstioGatewayName(serviceName)
 
@@ -375,25 +385,25 @@ func SetupIstioGrayscalePortalService(ctx context.Context, productName, envName,
 		// delete operation
 		err = cleanIstioIngressGatewayService(ctx, err, istioClient, ns, gatewayName, kclient)
 		if err != nil {
-			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to clean istio ingress gateway service, err: %w", err))
+			return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to clean istio ingress gateway service, err: %w", err))
 		}
 	} else {
 		// 1. check istio ingress gateway whether has load balancing
 		gatewaySvc, err := checkIstioIngressGatewayLB(ctx, err, kclient)
 		if err != nil {
-			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to check istio ingress gateway's load balancing, err: %w", err))
+			return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to check istio ingress gateway's load balancing, err: %w", err))
 		}
 
 		// 2. create gateway for the service
 		err = createIstioGateway(ctx, istioClient, ns, gatewayName, servers)
 		if err != nil {
-			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to create gateway %s in namespace %s, err: %w", gatewayName, ns, err))
+			return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to create gateway %s in namespace %s, err: %w", gatewayName, ns, err))
 		}
 
 		// 3. patch istio-ingressgateway service's port
 		err = patchIstioIngressGatewayServicePort(ctx, gatewaySvc, servers, kclient)
 		if err != nil {
-			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to patch istio ingress gateway service's port, err: %w", err))
+			return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to patch istio ingress gateway service's port, err: %w", err))
 		}
 	}
 
@@ -403,19 +413,19 @@ func SetupIstioGrayscalePortalService(ctx context.Context, productName, envName,
 	if deployType == setting.K8SDeployType {
 		svcs, err = parseK8SProjectServices(ctx, env, serviceName, kclient, ns)
 		if err != nil {
-			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to parse k8s project services, err: %w", err))
+			return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to parse k8s project services, err: %w", err))
 		}
 	} else if deployType == setting.HelmDeployType {
 		svcs, err = parseHelmProjectServices(ctx, restConfig, env, envName, productName, serviceName, kclient, ns)
 		if err != nil {
-			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to parse helm project services, err: %w", err))
+			return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to parse helm project services, err: %w", err))
 		}
 	}
 
 	for _, svc := range svcs {
 		err = updateVirtualServiceForPortalService(ctx, svc, istioClient, ns, servers, gatewayName)
 		if err != nil {
-			return e.ErrSetupPortalService.AddErr(fmt.Errorf("failed to update virtualservice for portal service, err: %w", err))
+			return e.ErrSetupIstioGrayscalePortalService.AddErr(fmt.Errorf("failed to update virtualservice for portal service, err: %w", err))
 		}
 	}
 

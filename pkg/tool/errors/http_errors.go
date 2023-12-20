@@ -912,4 +912,15 @@ var (
 	// License APIs Range: 7050 - 7059
 	//-----------------------------------------------------------------------------------------------
 	ErrLicenseInvalid = NewHTTPError(7050, "用户许可证不可用，请检查许可证后重试")
+
+	//-----------------------------------------------------------------------------------------------
+	// Istio Grayscale APIs Range: 7060 - 7069
+	//-----------------------------------------------------------------------------------------------
+	ErrEnableIstioGrayscale             = NewHTTPError(7060, "开启Istio灰度失败")
+	ErrDisableIstioGrayscale            = NewHTTPError(7061, "关闭Istio灰度失败")
+	ErrCheckIstioGrayscale              = NewHTTPError(7062, "检查Istio灰度就绪失败")
+	ErrGetIstioGrayscaleConfig          = NewHTTPError(7063, "获取Istio灰度配置失败")
+	ErrSetIstioGrayscaleConfig          = NewHTTPError(7064, "设置Istio灰度失败")
+	ErrGetIstioGrayscalePortalService   = NewHTTPError(7065, "获取Istio灰度入口服务配置失败")
+	ErrSetupIstioGrayscalePortalService = NewHTTPError(7066, "设置Istio灰度入口服务失败")
 )
