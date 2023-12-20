@@ -243,10 +243,13 @@ func (e *JobExecutor) Execute() {
 		}
 
 		e.Logger.Printf("====================== Job Executor End. Duration: %.2f seconds ======================\n", time.Since(start).Seconds())
+		e.Logger.Sync()
 	}()
 	e.Logger.Printf("====================== Job Executor Start ======================\n")
 	if e.CheckZadigCancel() {
 		err = fmt.Errorf("user cancel job %s", e.Job.JobName)
+		e.Logger.Errorf(err)
+		e.JobResult.SetError(err)
 		return
 	}
 
@@ -359,7 +362,6 @@ func (e *JobExecutor) AfterExecute() error {
 	}
 
 	// -------------------------------------------- delete all temp file and dir ----------------------------------------
-
 	e.Logger.Close()
 
 	if !config.GetEnableDebug() {

@@ -69,8 +69,11 @@ func (r *JobReporter) Start(ctx context.Context) {
 	}
 }
 
+// @note GetJobLog
 func (r *JobReporter) GetJobLog() (string, bool, error) {
+	fmt.Printf("before r.Logger.ReadByRowNum(%v, %v, %v)\n", r.Offset, r.CurLogNum, common.DefaultJobLogReadNum)
 	buffer, newOffset, num, EOFErr, err := r.Logger.ReadByRowNum(r.Offset, r.CurLogNum, common.DefaultJobLogReadNum)
+	fmt.Printf("result r.Logger.ReadByRowNum(%v, %v, %v, %v, %v)\n", len(string(buffer)), newOffset, num, EOFErr, err)
 	if err != nil {
 		return "", EOFErr, err
 	}

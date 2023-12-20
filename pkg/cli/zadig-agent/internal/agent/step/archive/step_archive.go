@@ -96,7 +96,6 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to upload file path [%s] to destination [%s], the error is: %w", upload.AbsFilePath, upload.DestinationPath, err)
 		}
 		upload.DestinationPath = filepath.ToSlash(upload.DestinationPath)
-		log.Debugf("upload file path: %s, destination path: %s", upload.AbsFilePath, upload.DestinationPath)
 		// if the given path is a directory
 		if info.IsDir() {
 			err := client.UploadDir(s.spec.S3.Bucket, upload.AbsFilePath, upload.DestinationPath)

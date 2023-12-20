@@ -213,8 +213,7 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 		case setting.WinAmd64:
 			downloadWinAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, strings.TrimSuffix(winAMD64Name, ".exe"))
 			cmd.UpgradeCmd = fmt.Sprintf(
-				"REM stop zadig-agent.exe manually\n "+
-					"rm -rf C:\\Users\\Administrator\\zadig-agent.exe \n "+
+				"del C:\\Users\\Administrator\\zadig-agent.exe \n "+
 					"curl -L %s | tar xzf - -C C:\\Users\\Administrator \n "+
 					"move /Y C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
 					"start C:\\Users\\Administrator\\zadig-agent.exe start",
@@ -678,7 +677,7 @@ func getZadigAgentVersion() (string, error) {
 	if found {
 		version := configMap.Data["ZADIG_AGENT_VERSION"]
 		if version != "" {
-			return version, nil
+			return strings.TrimPrefix(version, "v"), nil
 		}
 	}
 	return "", fmt.Errorf("zadig-agent version not found")

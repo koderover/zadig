@@ -201,14 +201,12 @@ func (l *JobLogger) ReadByRowNum(offset, curNum, num int64) ([]byte, int64, int6
 	var resultBuffer bytes.Buffer
 
 	// Read the file line by line until reaching the specified line count or end of file
-	for lineCount < curNum+num {
+	for lineCount < num {
 		line, err := reader.ReadString('\n')
 		if err == nil || err == io.EOF {
 			// If the current line number is within the specified range, append the line data to the result buffer
-			if lineCount >= curNum {
-				resultBuffer.WriteString(line)
-				offset += int64(len(line))
-			}
+			resultBuffer.WriteString(line)
+			offset += int64(len(line))
 			lineCount++
 
 			if err == io.EOF {
@@ -252,4 +250,14 @@ func (l *JobLogger) Close() {
 	}
 
 	l.isClosed = true
+}
+
+func (l *JobLogger) Sync() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	err := l.logger.Sync()
+	if err != nil {
+		Errorf("failed to sync job logger, error: %s", err)
+	}
 }
