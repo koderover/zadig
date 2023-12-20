@@ -25,12 +25,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson/bsoncodec"
 	"go.mongodb.org/mongo-driver/bson/bsonoptions"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
-
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var once sync.Once
@@ -41,6 +41,9 @@ func Database(name string) *mongo.Database {
 }
 
 func SessionContext(ctx context.Context, session mongo.Session) context.Context {
+	if !config.EnableTransaction() {
+		return ctx
+	}
 	if session == nil {
 		return ctx
 	}
@@ -54,6 +57,27 @@ func Session() mongo.Session {
 		return nil
 	}
 	return session
+}
+
+func StartTransaction(session mongo.Session) error {
+	if !config.EnableTransaction() {
+		return nil
+	}
+	return session.StartTransaction()
+}
+
+func AbortTransaction(session mongo.Session) error {
+	if !config.EnableTransaction() {
+		return nil
+	}
+	return session.AbortTransaction(context.TODO())
+}
+
+func CommitTransaction(session mongo.Session) error {
+	if !config.EnableTransaction() {
+		return nil
+	}
+	return session.CommitTransaction(context.Background())
 }
 
 func Client() *mongo.Client {

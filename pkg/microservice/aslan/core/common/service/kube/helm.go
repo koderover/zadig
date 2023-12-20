@@ -135,7 +135,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	} else {
 		err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
 		if err != nil {
-			err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
+			err = errors.WithMessagef(err, "failed to ensure Zadig Service, err: %s", err)
 		}
 	}
 
@@ -325,7 +325,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 	session := mongo.Session()
 	defer session.EndSession(context.TODO())
 
-	err = session.StartTransaction()
+	err = mongo.StartTransaction(session)
 	if err != nil {
 		return err
 	}
@@ -341,7 +341,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 	// those code can be optimized if MongoDB version are newer than 4.0
 	newProductInfo, err := productColl.Find(&commonrepo.ProductFindOptions{Name: product.ProductName, EnvName: product.EnvName})
 	if err != nil {
-		session.AbortTransaction(context.TODO())
+		mongo.AbortTransaction(session)
 		return errors.Wrapf(err, "failed to find product %s", product.ProductName)
 	}
 
@@ -365,11 +365,11 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 
 	if err = productColl.Update(newProductInfo); err != nil {
 		log.Errorf("update product %s error: %s", newProductInfo.ProductName, err.Error())
-		session.AbortTransaction(context.TODO())
+		mongo.AbortTransaction(session)
 		return fmt.Errorf("failed to update product info, name %s", newProductInfo.ProductName)
 	}
 
-	return session.CommitTransaction(context.TODO())
+	return mongo.CommitTransaction(session)
 }
 
 func UninstallServiceByName(helmClient helmclient.Client, serviceName string, env *commonmodels.Product, revision int64, force bool) error {
@@ -567,6 +567,11 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 			if err != nil {
 				log.Errorf("Failed to ensure gray env config: %s", err)
 			}
+		} else if productInfo.IstioGrayscale.Enable && !productInfo.IstioGrayscale.IsBase {
+			err = EnsureFullPathGrayScaleConfig(ctx, productInfo, kclient, istioClient)
+			if err != nil {
+				log.Errorf("Failed to ensure full path gray scale config: %s", err)
+			}
 		}
 	}()
 	return nil
@@ -683,7 +688,7 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 }
 
 func EnsureDeleteZadigServiceByHelmRelease(ctx context.Context, env *commonmodels.Product, releaseName string, helmClient helmclient.Client) error {
-	if !env.ShareEnv.Enable {
+	if !env.ShareEnv.Enable && !env.IstioGrayscale.Enable {
 		return nil
 	}
 
@@ -755,5 +760,10 @@ func EnsureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Pr
 		return fmt.Errorf("failed to find Service %q in namespace %q: %s", svcName, env.Namespace, err)
 	}
 
-	return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
+	if env.ShareEnv.Enable {
+		return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
+	} else if env.IstioGrayscale.Enable {
+		return EnsureDeleteGrayscaleService(ctx, env, svc, kclient, istioClient)
+	}
+	return nil
 }

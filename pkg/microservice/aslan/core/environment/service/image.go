@@ -148,6 +148,10 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 			return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("不支持的资源类型: %s", args.Type))
 		}
 
+		if product.Source == setting.SourceFromExternal {
+			return nil
+		}
+
 		// update image info in product.services.container
 		prodSvc := product.GetServiceMap()[args.ServiceName]
 		if prodSvc == nil {
@@ -164,14 +168,14 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 		session := mongotool.Session()
 		defer session.EndSession(context.TODO())
 
-		err = session.StartTransaction()
+		err = mongotool.StartTransaction(session)
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}
 
 		if err := commonrepo.NewProductCollWithSession(session).Update(product); err != nil {
 			log.Errorf("[%s] update product %s error: %s", namespace, args.ProductName, err.Error())
-			session.AbortTransaction(context.TODO())
+			mongotool.AbortTransaction(session)
 			return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
 		}
 
@@ -179,7 +183,7 @@ func UpdateContainerImage(requestID, username string, args *UpdateContainerImage
 		if err != nil {
 			log.Errorf("create env service version for %s/%s error: %v", product.EnvName, prodSvc.ServiceName, err)
 		}
-		return session.CommitTransaction(context.TODO())
+		return mongotool.CommitTransaction(session)
 	}
 	return nil
 }

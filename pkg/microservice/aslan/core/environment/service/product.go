@@ -221,24 +221,27 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 
 func buildProductResp(envName string, prod *commonmodels.Product, log *zap.SugaredLogger) (*ProductResp, error) {
 	prodResp := &ProductResp{
-		ID:              prod.ID.Hex(),
-		ProductName:     prod.ProductName,
-		Namespace:       prod.Namespace,
-		Status:          setting.PodUnstable,
-		EnvName:         prod.EnvName,
-		UpdateTime:      prod.UpdateTime,
-		UpdateBy:        prod.UpdateBy,
-		Render:          prod.Render,
-		Error:           prod.Error,
-		IsPublic:        prod.IsPublic,
-		IsExisted:       prod.IsExisted,
-		ClusterID:       prod.ClusterID,
-		RecycleDay:      prod.RecycleDay,
-		Source:          prod.Source,
-		RegisterID:      prod.RegistryID,
-		ShareEnvEnable:  prod.ShareEnv.Enable,
-		ShareEnvIsBase:  prod.ShareEnv.IsBase,
-		ShareEnvBaseEnv: prod.ShareEnv.BaseEnv,
+		ID:                    prod.ID.Hex(),
+		ProductName:           prod.ProductName,
+		Namespace:             prod.Namespace,
+		Status:                setting.PodUnstable,
+		EnvName:               prod.EnvName,
+		UpdateTime:            prod.UpdateTime,
+		UpdateBy:              prod.UpdateBy,
+		Render:                prod.Render,
+		Error:                 prod.Error,
+		IsPublic:              prod.IsPublic,
+		IsExisted:             prod.IsExisted,
+		ClusterID:             prod.ClusterID,
+		RecycleDay:            prod.RecycleDay,
+		Source:                prod.Source,
+		RegisterID:            prod.RegistryID,
+		ShareEnvEnable:        prod.ShareEnv.Enable,
+		ShareEnvIsBase:        prod.ShareEnv.IsBase,
+		ShareEnvBaseEnv:       prod.ShareEnv.BaseEnv,
+		IstioGrayscaleEnable:  prod.IstioGrayscale.Enable,
+		IstioGrayscaleIsBase:  prod.IstioGrayscale.IsBase,
+		IstioGrayscaleBaseEnv: prod.IstioGrayscale.BaseEnv,
 	}
 
 	serviceMap := prod.GetServiceMap()
@@ -302,7 +305,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 
 	if prod.Source != setting.SourceFromExternal {
 		prodResp.Services = prod.Services
-		prodResp.SharedNSEnvs, err = FindNsUseEnvs(prod, log)
+		prodResp.RelatedEnvs, err = FindNsUseEnvs(prod, log)
 		if err != nil {
 			return nil, err
 		}

@@ -162,27 +162,30 @@ func ListProducts(userID, projectName string, envNames []string, production bool
 			baseRefs = append(baseRefs, cmSet.List()...)
 		}
 		res = append(res, &EnvResp{
-			ProjectName:     projectName,
-			Name:            env.EnvName,
-			IsPublic:        env.IsPublic,
-			IsExisted:       env.IsExisted,
-			ClusterName:     getClusterName(env.ClusterID),
-			Source:          env.Source,
-			Production:      env.Production,
-			Status:          env.Status,
-			Error:           env.Error,
-			UpdateTime:      env.UpdateTime,
-			UpdateBy:        env.UpdateBy,
-			RegistryID:      env.RegistryID,
-			ClusterID:       env.ClusterID,
-			Namespace:       env.Namespace,
-			Alias:           env.Alias,
-			BaseRefs:        baseRefs,
-			BaseName:        env.BaseName,
-			ShareEnvEnable:  env.ShareEnv.Enable,
-			ShareEnvIsBase:  env.ShareEnv.IsBase,
-			ShareEnvBaseEnv: env.ShareEnv.BaseEnv,
-			IsFavorite:      favSet.Has(env.EnvName),
+			ProjectName:           projectName,
+			Name:                  env.EnvName,
+			IsPublic:              env.IsPublic,
+			IsExisted:             env.IsExisted,
+			ClusterName:           getClusterName(env.ClusterID),
+			Source:                env.Source,
+			Production:            env.Production,
+			Status:                env.Status,
+			Error:                 env.Error,
+			UpdateTime:            env.UpdateTime,
+			UpdateBy:              env.UpdateBy,
+			RegistryID:            env.RegistryID,
+			ClusterID:             env.ClusterID,
+			Namespace:             env.Namespace,
+			Alias:                 env.Alias,
+			BaseRefs:              baseRefs,
+			BaseName:              env.BaseName,
+			ShareEnvEnable:        env.ShareEnv.Enable,
+			ShareEnvIsBase:        env.ShareEnv.IsBase,
+			ShareEnvBaseEnv:       env.ShareEnv.BaseEnv,
+			IstioGrayscaleEnable:  env.IstioGrayscale.Enable,
+			IstioGrayscaleIsBase:  env.IstioGrayscale.IsBase,
+			IstioGrayscaleBaseEnv: env.IstioGrayscale.BaseEnv,
+			IsFavorite:            favSet.Has(env.EnvName),
 		})
 	}
 
@@ -380,7 +383,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	session := mongotool.Session()
 	defer session.EndSession(context.TODO())
 
-	err = session.StartTransaction()
+	err = mongotool.StartTransaction(session)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -417,7 +420,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
-		session.AbortTransaction(context.TODO())
+		mongotool.AbortTransaction(session)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
 
@@ -500,7 +503,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		if err != nil {
 			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
-			session.AbortTransaction(context.TODO())
+			mongotool.AbortTransaction(session)
 			return
 		}
 	}
@@ -509,7 +512,7 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	if err != nil {
 		log.Errorf("failed to update product globalvariable error: %v", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())
-		session.AbortTransaction(context.TODO())
+		mongotool.AbortTransaction(session)
 		return
 	}
 
@@ -526,12 +529,12 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 		if err != nil {
 			log.Errorf("Failed to update deploy strategy data, error: %v", err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
-			session.AbortTransaction(context.TODO())
+			mongotool.AbortTransaction(session)
 			return
 		}
 	}
 
-	return session.CommitTransaction(context.TODO())
+	return mongotool.CommitTransaction(session)
 }
 
 func UpdateProductRegistry(envName, productName, registryID string, log *zap.SugaredLogger) (err error) {
@@ -1770,9 +1773,14 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 
 func DeleteProduct(username, envName, productName, requestID string, isDelete bool, log *zap.SugaredLogger) (err error) {
 	eventStart := time.Now().Unix()
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName, Production: util.GetBoolPointer(false)})
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:       productName,
+		EnvName:    envName,
+		Production: util.GetBoolPointer(false),
+	})
 	if err != nil {
-		log.Errorf("find product error: %v", err)
+		err = fmt.Errorf("find product error: %v", err)
+		log.Error(err)
 		return err
 	}
 
@@ -2099,11 +2107,20 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 			continue
 		}
 
-		selector := labels.Set{setting.ProductLabel: productInfo.ProductName, setting.ServiceLabel: name}.AsSelector()
-		err = EnsureDeleteZadigService(ctx, productInfo, selector, kclient, istioClient)
+		unstructuredList, err := kube.ManifestToUnstructured(serviceRelatedYaml[name])
 		if err != nil {
 			// Only record and do not block subsequent traversals.
-			log.Errorf("Failed to delete Zadig service: %s", err)
+			log.Errorf("failed to convert k8s manifest to unstructured list when deleting service: %s, err: %s", name, err)
+		}
+		for _, unstructured := range unstructuredList {
+			if unstructured.GetKind() == setting.Service {
+				svcName := unstructured.GetName()
+				err = EnsureDeleteZadigService(ctx, productInfo, svcName, kclient, istioClient)
+				if err != nil {
+					// Only record and do not block subsequent traversals.
+					log.Errorf("Failed to delete Zadig service %s, err: %s", svcName, err)
+				}
+			}
 		}
 
 		param := &kube.ResourceApplyParam{
@@ -2126,6 +2143,12 @@ func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []
 		if err != nil {
 			log.Errorf("Failed to ensure gray env config: %s", err)
 			return fmt.Errorf("failed to ensure gray env config: %s", err)
+		}
+	} else if productInfo.IstioGrayscale.Enable && !productInfo.IstioGrayscale.IsBase {
+		err = kube.EnsureFullPathGrayScaleConfig(ctx, productInfo, kclient, istioClient)
+		if err != nil {
+			log.Errorf("Failed to ensure full path gray scale config: %s", err)
+			return fmt.Errorf("Failed to ensure full path gray scale config: %s", err)
 		}
 	}
 	return nil
@@ -2238,18 +2261,24 @@ func createGroups(user, requestID string, args *commonmodels.Product, eventStart
 		}
 	}
 
-	// If the user does not enable environment sharing, end. Otherwise, continue to perform environment sharing operations.
-	if !args.ShareEnv.Enable {
-		return
+	if !args.Production && args.ShareEnv.Enable && !args.ShareEnv.IsBase {
+		// Note: Currently, only sub-environments can be created, but baseline environments cannot be created.
+		err = EnsureGrayEnvConfig(context.TODO(), args, kubeClient, istioClient)
+		if err != nil {
+			args.Status = setting.ProductStatusFailed
+			log.Errorf("Failed to ensure environment sharing in env %s of product %s: %s", args.EnvName, args.ProductName, err)
+			return
+		}
+	} else if args.Production && args.IstioGrayscale.Enable && !args.IstioGrayscale.IsBase {
+		err = kube.EnsureFullPathGrayScaleConfig(context.TODO(), args, kubeClient, istioClient)
+		if err != nil {
+			args.Status = setting.ProductStatusFailed
+			log.Errorf("Failed to ensure full path grayscale in env %s of product %s: %s", args.EnvName, args.ProductName, err)
+			return
+		}
 	}
 
-	// Note: Currently, only sub-environments can be created, but baseline environments cannot be created.
-	err = EnsureGrayEnvConfig(context.TODO(), args, kubeClient, istioClient)
-	if err != nil {
-		args.Status = setting.ProductStatusFailed
-		log.Errorf("Failed to ensure environment sharing in env %s of product %s: %s", args.EnvName, args.ProductName, err)
-		return
-	}
+	return
 }
 
 func getProjectType(productName string) string {
@@ -2360,17 +2389,18 @@ func upsertService(env *commonmodels.Product, newService *commonmodels.ProductSe
 	}
 
 	resourceApplyParam := &kube.ResourceApplyParam{
-		ProductInfo:         env,
-		ServiceName:         newService.ServiceName,
-		CurrentResourceYaml: preResourceYaml,
-		UpdateResourceYaml:  parsedYaml,
-		Informer:            informer,
-		KubeClient:          kubeClient,
-		IstioClient:         istioClient,
-		InjectSecrets:       true,
-		Uninstall:           false,
-		AddZadigLabel:       addLabel,
-		SharedEnvHandler:    EnsureUpdateZadigService,
+		ProductInfo:              env,
+		ServiceName:              newService.ServiceName,
+		CurrentResourceYaml:      preResourceYaml,
+		UpdateResourceYaml:       parsedYaml,
+		Informer:                 informer,
+		KubeClient:               kubeClient,
+		IstioClient:              istioClient,
+		InjectSecrets:            true,
+		Uninstall:                false,
+		AddZadigLabel:            addLabel,
+		SharedEnvHandler:         EnsureUpdateZadigService,
+		IstioGrayscaleEnvHandler: kube.EnsureUpdateGrayscaleService,
 	}
 
 	return kube.CreateOrPatchResource(resourceApplyParam, log)
@@ -2433,7 +2463,11 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	}
 
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
-		return ensureKubeEnv(args.Namespace, args.RegistryID, map[string]string{setting.ProductLabel: args.ProductName}, args.ShareEnv.Enable, kubeClient, log)
+		enableIstioInjection := false
+		if args.ShareEnv.Enable || args.IstioGrayscale.Enable {
+			enableIstioInjection = true
+		}
+		return ensureKubeEnv(args.Namespace, args.RegistryID, map[string]string{setting.ProductLabel: args.ProductName}, enableIstioInjection, kubeClient, log)
 	}
 	return nil
 }
@@ -2448,8 +2482,8 @@ func preCreateNSAndSecret(productFeature *templatemodels.ProductFeature) bool {
 	return false
 }
 
-func ensureKubeEnv(namespace, registryId string, customLabels map[string]string, enableShare bool, kubeClient client.Client, log *zap.SugaredLogger) error {
-	err := kube.CreateNamespace(namespace, customLabels, enableShare, kubeClient)
+func ensureKubeEnv(namespace, registryId string, customLabels map[string]string, enableIstioInjection bool, kubeClient client.Client, log *zap.SugaredLogger) error {
+	err := kube.CreateNamespace(namespace, customLabels, enableIstioInjection, kubeClient)
 	if err != nil {
 		log.Errorf("[%s] get or create namespace error: %v", namespace, err)
 		return e.ErrCreateNamspace.AddDesc(err.Error())
@@ -2547,6 +2581,13 @@ func installProductHelmCharts(user, requestID string, args *commonmodels.Product
 		shareEnvErr := EnsureGrayEnvConfig(context.TODO(), args, kclient, istioClient)
 		if shareEnvErr != nil {
 			errList = multierror.Append(errList, shareEnvErr)
+		}
+	} else if args.IstioGrayscale.Enable && !args.IstioGrayscale.IsBase {
+		err = kube.EnsureFullPathGrayScaleConfig(context.TODO(), args, kclient, istioClient)
+		if err != nil {
+			args.Status = setting.ProductStatusFailed
+			log.Errorf("Failed to ensure full path grayscale in env %s of product %s: %s", args.EnvName, args.ProductName, err)
+			return
 		}
 	}
 
@@ -2813,7 +2854,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 	session := mongotool.Session()
 	defer session.EndSession(context.TODO())
 
-	err := session.StartTransaction()
+	err := mongotool.StartTransaction(session)
 	if err != nil {
 		return err
 	}
@@ -2882,7 +2923,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 			param, err := buildInstallParam(productResp.DefaultValues, productResp, chartInfo, prodSvc)
 			if err != nil {
 				log.Errorf("failed to generate install param, service: %s, namespace: %s, err: %s", prodSvc.ServiceName, productResp.Namespace, err)
-				session.AbortTransaction(context.TODO())
+				mongotool.AbortTransaction(session)
 				return err
 			}
 			prodSvc.Render = chartInfo
@@ -2896,11 +2937,11 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 		err := commonrepo.NewProductCollWithSession(session).UpdateGroup(envName, productName, groupIndex, groupServices)
 		if err != nil {
 			log.Errorf("Failed to update service group %d. Error: %v", groupIndex, err)
-			session.AbortTransaction(context.TODO())
+			mongotool.AbortTransaction(session)
 			return err
 		}
 	}
-	err = session.CommitTransaction(context.TODO())
+	err = mongotool.CommitTransaction(session)
 	if err != nil {
 		return err
 	}

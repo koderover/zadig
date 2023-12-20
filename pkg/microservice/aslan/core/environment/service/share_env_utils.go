@@ -88,13 +88,23 @@ func ensureDeleteAssociatedEnvs(ctx context.Context, baseProduct *commonmodels.P
 }
 
 func ensureDeleteEnvoyFilter(ctx context.Context, baseEnv *commonmodels.Product, istioClient versionedclient.Interface) error {
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+	shareSubEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		ShareEnvEnable: zadigutil.GetBoolPointer(true),
 		Production:     zadigutil.GetBoolPointer(false),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list products which enable env sharing: %s", err)
 	}
+	grayscaleGrayEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		IstioGrayscaleEnable: zadigutil.GetBoolPointer(true),
+		Production:           zadigutil.GetBoolPointer(true),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list products which enable istio grayscale: %s", err)
+	}
+
+	envs := shareSubEnvs
+	envs = append(envs, grayscaleGrayEnvs...)
 
 	needDeleteEnvoyFilter := true
 	for _, env := range envs {

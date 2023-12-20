@@ -28,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -427,7 +428,7 @@ func ensureUpdateVirtualServiceInBase(ctx context.Context, envName, vsName, svcN
 }
 
 func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, svcName string, kclient client.Client, istioClient versionedclient.Interface) error {
-	if !env.ShareEnv.Enable {
+	if !env.ShareEnv.Enable && !env.IstioGrayscale.Enable {
 		return nil
 	}
 
@@ -450,7 +451,12 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 		return fmt.Errorf("failed to query Service %s in ns %s: %s", svcName, env.Namespace, err)
 	}
 
-	return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
+	if env.ShareEnv.Enable {
+		return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
+	} else if env.IstioGrayscale.Enable {
+		return ensureUpdateGrayscaleSerivce(ctx, env, svc, kclient, istioClient)
+	}
+	return nil
 }
 
 func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace string, chartSpec *helmclient.ChartSpec, helmClient *helmtool.HelmClient) error {
@@ -462,7 +468,7 @@ func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace 
 		return fmt.Errorf("failed to query namespace %q in project %q: %s", namespace, productName, err)
 	}
 
-	if !(env.ShareEnv.Enable && !env.ShareEnv.IsBase) {
+	if !((env.ShareEnv.Enable && !env.ShareEnv.IsBase) || (env.IstioGrayscale.Enable && !env.IstioGrayscale.IsBase)) {
 		return nil
 	}
 
@@ -500,7 +506,7 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 		return fmt.Errorf("failed to query namespace %q in project %q: %s", namespace, productName, err)
 	}
 
-	if !env.ShareEnv.Enable {
+	if !env.ShareEnv.Enable && !env.IstioGrayscale.Enable {
 		return nil
 	}
 
@@ -527,9 +533,26 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 	for _, svcName := range svcNames {
 		err := EnsureUpdateZadigService(ctx, env, svcName, kclient, istioClient)
 		if err != nil {
-			return fmt.Errorf("failed to ensure Zadig Service for K8s Service %q in env %q of product %q: %s", svcName, env.EnvName, env.ProductName, err)
+			return err
 		}
 	}
 
 	return nil
+}
+
+func CheckIstiodInstalled(ctx context.Context, clientset *kubernetes.Clientset) (bool, error) {
+	podList, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "istio",
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to list istio pods, err: %s", err)
+	}
+
+	for _, pod := range podList.Items {
+		if pod.Status.Phase != corev1.PodRunning {
+			return false, fmt.Errorf("istio pod %s is not running", pod.Name)
+		}
+	}
+
+	return true, nil
 }

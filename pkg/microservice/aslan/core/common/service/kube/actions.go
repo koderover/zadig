@@ -42,11 +42,11 @@ import (
 
 var registrySecretSuffix = "-registry-secret"
 
-func CreateNamespace(namespace string, customLabels map[string]string, enableShare bool, kubeClient client.Client) error {
+func CreateNamespace(namespace string, customLabels map[string]string, enableIstioInjection bool, kubeClient client.Client) error {
 	nsLabels := map[string]string{
 		setting.EnvCreatedBy: setting.EnvCreator,
 	}
-	if enableShare {
+	if enableIstioInjection {
 		nsLabels[zadigtypes.IstioLabelKeyInjection] = zadigtypes.IstioLabelValueInjection
 	}
 
@@ -54,11 +54,12 @@ func CreateNamespace(namespace string, customLabels map[string]string, enableSha
 		customLabels = map[string]string{}
 	}
 	mergedLabels := labels.Merge(customLabels, nsLabels)
-	err := updater.CreateNamespaceByName(namespace, mergedLabels, kubeClient)
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return err
+	createErr := updater.CreateNamespaceByName(namespace, mergedLabels, kubeClient)
+	if createErr != nil && !apierrors.IsAlreadyExists(createErr) {
+		return createErr
 	}
 
+	var err error
 	nsObj := &corev1.Namespace{}
 	// It may fail to obtain the namespace immediately after it is created due to synchronization delay.
 	// Try twice.
@@ -74,6 +75,13 @@ func CreateNamespace(namespace string, customLabels map[string]string, enableSha
 	}
 	if err != nil {
 		return err
+	}
+	if enableIstioInjection && createErr != nil && apierrors.IsAlreadyExists(createErr) {
+		nsObj.Labels[zadigtypes.IstioLabelKeyInjection] = zadigtypes.IstioLabelValueInjection
+		err = updater.UpdateNamespace(nsObj, kubeClient)
+		if err != nil {
+			return fmt.Errorf("failed to add istio-injection label and update namespace %s: %s", namespace, err)
+		}
 	}
 
 	if nsObj.Status.Phase == corev1.NamespaceTerminating {

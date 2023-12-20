@@ -98,6 +98,13 @@ definitions:
         type: boolean
       isPublic:
         type: boolean
+      istio_grayscale_base_env:
+        type: string
+      istio_grayscale_enable:
+        description: New Since v2.1.0
+        type: boolean
+      istio_grayscale_is_base:
+        type: boolean
       namespace:
         type: string
       product_name:
@@ -569,6 +576,50 @@ definitions:
         type: string
       tag:
         type: string
+    type: object
+  models.IstioGrayscale:
+    properties:
+      base_env:
+        type: string
+      enable:
+        type: boolean
+      grayscale_strategy:
+        type: string
+      header_match_configs:
+        items:
+          $ref: '#/definitions/models.IstioHeaderMatchConfig'
+        type: array
+      is_base:
+        type: boolean
+      weight_configs:
+        items:
+          $ref: '#/definitions/models.IstioWeightConfig'
+        type: array
+    type: object
+  models.IstioHeaderMatch:
+    properties:
+      key:
+        type: string
+      match:
+        type: string
+      value:
+        type: string
+    type: object
+  models.IstioHeaderMatchConfig:
+    properties:
+      env:
+        type: string
+      header_match:
+        items:
+          $ref: '#/definitions/models.IstioHeaderMatch'
+        type: array
+    type: object
+  models.IstioWeightConfig:
+    properties:
+      env:
+        type: string
+      weight:
+        type: integer
     type: object
   models.LLMIntegration:
     properties:
@@ -1340,6 +1391,10 @@ definitions:
         type: array
       is_existed:
         type: boolean
+      istio_grayscale:
+        allOf:
+        - $ref: '#/definitions/models.IstioGrayscale'
+        description: New Since v2.1.0
       namespace:
         type: string
       product_name:
@@ -1648,6 +1703,24 @@ definitions:
         type: integer
       port_protocol:
         type: string
+    type: object
+  service.IstioGrayscaleChecks:
+    properties:
+      namespace_has_istio_label:
+        type: boolean
+      pods_have_istio_proxy:
+        type: boolean
+      workloads_have_k8s_service:
+        type: boolean
+      workloads_ready:
+        type: boolean
+    type: object
+  service.IstioGrayscaleReady:
+    properties:
+      checks:
+        $ref: '#/definitions/service.IstioGrayscaleChecks'
+      is_ready:
+        type: boolean
     type: object
   service.JiraProjectsResp:
     properties:
@@ -2096,6 +2169,19 @@ definitions:
           ZadigXReleaseType represents the service contain created by zadigx release workflow
           frontend should limit some operations on these services
         type: string
+    type: object
+  service.SetIstioGrayscaleConfigRequest:
+    properties:
+      grayscale_strategy:
+        type: string
+      header_match_configs:
+        items:
+          $ref: '#/definitions/models.IstioHeaderMatchConfig'
+        type: array
+      weight_configs:
+        items:
+          $ref: '#/definitions/models.IstioWeightConfig'
+        type: array
     type: object
   service.SetupPortalServiceRequest:
     properties:
@@ -3672,6 +3758,65 @@ paths:
       summary: Upsert Production Env Analysis Cron
       tags:
       - environment
+  /api/aslan/environment/production/environments/{name}/check/istioGrayscale/{op}/ready:
+    get:
+      consumes:
+      - application/json
+      description: Check Istio Grayscale Ready
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: operation
+        in: path
+        name: op
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.IstioGrayscaleReady'
+      summary: Check Istio Grayscale Ready
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/check/workloads/k8services:
+    get:
+      consumes:
+      - application/json
+      description: Check Production Workloads K8sServices
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      summary: Check Production Workloads K8sServices
+      tags:
+      - environment
   /api/aslan/environment/production/environments/{name}/configs:
     get:
       consumes:
@@ -3842,6 +3987,175 @@ paths:
           schema:
             $ref: '#/definitions/service.ValuesResp'
       summary: Get Production Chart Values
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/istioGrayscale/config:
+    get:
+      consumes:
+      - application/json
+      description: Get Istio Grayscale Config
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.IstioGrayscale'
+      summary: Get Istio Grayscale Config
+      tags:
+      - environment
+    post:
+      consumes:
+      - application/json
+      description: Set Istio Grayscale Config
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.SetIstioGrayscaleConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Set Istio Grayscale Config
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/istioGrayscale/enable:
+    delete:
+      consumes:
+      - application/json
+      description: Disable Istio Grayscale
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Disable Istio Grayscale
+      tags:
+      - environment
+    post:
+      consumes:
+      - application/json
+      description: Enable Istio Grayscale
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Enable Istio Grayscale
+      tags:
+      - environment
+  /api/aslan/environment/production/environments/{name}/istioGrayscale/portal/{serviceName}:
+    get:
+      consumes:
+      - application/json
+      description: Get Portal Service for Istio Grayscale
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.GetPortalServiceResponse'
+      summary: Get Portal Service for Istio Grayscale
+      tags:
+      - environment
+    post:
+      consumes:
+      - application/json
+      description: Setup Portal Service for Istio Grayscale
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      - description: body
+        in: body
+        name: body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/service.SetupPortalServiceRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+      summary: Setup Portal Service for Istio Grayscale
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/sleep:

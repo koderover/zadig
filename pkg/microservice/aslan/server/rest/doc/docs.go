@@ -1776,6 +1776,94 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/environment/production/environments/{name}/check/istioGrayscale/{op}/ready": {
+            "get": {
+                "description": "Check Istio Grayscale Ready",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Check Istio Grayscale Ready",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "operation",
+                        "name": "op",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.IstioGrayscaleReady"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/check/workloads/k8services": {
+            "get": {
+                "description": "Check Production Workloads K8sServices",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Check Production Workloads K8sServices",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/production/environments/{name}/configs": {
             "get": {
                 "description": "Get production environment configs",
@@ -2028,6 +2116,257 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/service.ValuesResp"
                         }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/istioGrayscale/config": {
+            "get": {
+                "description": "Get Istio Grayscale Config",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Istio Grayscale Config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.IstioGrayscale"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Set Istio Grayscale Config",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Set Istio Grayscale Config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.SetIstioGrayscaleConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/istioGrayscale/enable": {
+            "post": {
+                "description": "Enable Istio Grayscale",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Enable Istio Grayscale",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "delete": {
+                "description": "Disable Istio Grayscale",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Disable Istio Grayscale",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/production/environments/{name}/istioGrayscale/portal/{serviceName}": {
+            "get": {
+                "description": "Get Portal Service for Istio Grayscale",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Portal Service for Istio Grayscale",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/service.GetPortalServiceResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Setup Portal Service for Istio Grayscale",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Setup Portal Service for Istio Grayscale",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.SetupPortalServiceRequest"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
                     }
                 }
             }
@@ -4830,6 +5169,16 @@ const docTemplate = `{
                 "is_prod": {
                     "type": "boolean"
                 },
+                "istio_grayscale_base_env": {
+                    "type": "string"
+                },
+                "istio_grayscale_enable": {
+                    "description": "New Since v2.1.0",
+                    "type": "boolean"
+                },
+                "istio_grayscale_is_base": {
+                    "type": "boolean"
+                },
                 "namespace": {
                     "type": "string"
                 },
@@ -5541,6 +5890,74 @@ const docTemplate = `{
                 },
                 "tag": {
                     "type": "string"
+                }
+            }
+        },
+        "models.IstioGrayscale": {
+            "type": "object",
+            "properties": {
+                "base_env": {
+                    "type": "string"
+                },
+                "enable": {
+                    "type": "boolean"
+                },
+                "grayscale_strategy": {
+                    "type": "string"
+                },
+                "header_match_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioHeaderMatchConfig"
+                    }
+                },
+                "is_base": {
+                    "type": "boolean"
+                },
+                "weight_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioWeightConfig"
+                    }
+                }
+            }
+        },
+        "models.IstioHeaderMatch": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "match": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.IstioHeaderMatchConfig": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "header_match": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioHeaderMatch"
+                    }
+                }
+            }
+        },
+        "models.IstioWeightConfig": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "type": "string"
+                },
+                "weight": {
+                    "type": "integer"
                 }
             }
         },
@@ -6650,6 +7067,14 @@ const docTemplate = `{
                 "is_existed": {
                     "type": "boolean"
                 },
+                "istio_grayscale": {
+                    "description": "New Since v2.1.0",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.IstioGrayscale"
+                        }
+                    ]
+                },
                 "namespace": {
                     "type": "string"
                 },
@@ -7126,6 +7551,34 @@ const docTemplate = `{
                 },
                 "port_protocol": {
                     "type": "string"
+                }
+            }
+        },
+        "service.IstioGrayscaleChecks": {
+            "type": "object",
+            "properties": {
+                "namespace_has_istio_label": {
+                    "type": "boolean"
+                },
+                "pods_have_istio_proxy": {
+                    "type": "boolean"
+                },
+                "workloads_have_k8s_service": {
+                    "type": "boolean"
+                },
+                "workloads_ready": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "service.IstioGrayscaleReady": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "$ref": "#/definitions/service.IstioGrayscaleChecks"
+                },
+                "is_ready": {
+                    "type": "boolean"
                 }
             }
         },
@@ -7809,6 +8262,26 @@ const docTemplate = `{
                 "zadigx_release_type": {
                     "description": "ZadigXReleaseType represents the service contain created by zadigx release workflow\nfrontend should limit some operations on these services",
                     "type": "string"
+                }
+            }
+        },
+        "service.SetIstioGrayscaleConfigRequest": {
+            "type": "object",
+            "properties": {
+                "grayscale_strategy": {
+                    "type": "string"
+                },
+                "header_match_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioHeaderMatchConfig"
+                    }
+                },
+                "weight_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.IstioWeightConfig"
+                    }
                 }
             }
         },

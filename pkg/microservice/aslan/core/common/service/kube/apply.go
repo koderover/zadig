@@ -56,6 +56,7 @@ import (
 )
 
 type SharedEnvHandler func(context.Context, *commonmodels.Product, string, client.Client, versionedclient.Interface) error
+type IstioGrayscaleEnvHandler func(context.Context, *commonmodels.Product, string, client.Client, versionedclient.Interface) error
 
 type ResourceApplyParam struct {
 	ProductInfo         *commonmodels.Product
@@ -70,14 +71,15 @@ type ResourceApplyParam struct {
 	Timeout               int      // timeout for helm services
 	UpdateServiceRevision bool
 
-	Informer         informers.SharedInformerFactory
-	KubeClient       client.Client
-	IstioClient      versionedclient.Interface
-	AddZadigLabel    bool
-	InjectSecrets    bool
-	SharedEnvHandler SharedEnvHandler
-	Uninstall        bool
-	WaitForUninstall bool
+	Informer                 informers.SharedInformerFactory
+	KubeClient               client.Client
+	IstioClient              versionedclient.Interface
+	AddZadigLabel            bool
+	InjectSecrets            bool
+	SharedEnvHandler         SharedEnvHandler
+	IstioGrayscaleEnvHandler IstioGrayscaleEnvHandler
+	Uninstall                bool
+	WaitForUninstall         bool
 }
 
 func DeploymentSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
@@ -495,6 +497,14 @@ func CreateOrPatchResource(applyParam *ResourceApplyParam, log *zap.SugaredLogge
 				err = applyParam.SharedEnvHandler(context.TODO(), productInfo, u.GetName(), kubeClient, istioClient)
 				if err != nil {
 					log.Errorf("Failed to update Zadig service %s for env %s of product %s: %s", u.GetName(), productInfo.EnvName, productInfo.ProductName, err)
+					errList = multierror.Append(errList, err)
+					continue
+				}
+			}
+			if istioClient != nil && applyParam.IstioGrayscaleEnvHandler != nil {
+				err = applyParam.IstioGrayscaleEnvHandler(context.TODO(), productInfo, u.GetName(), kubeClient, istioClient)
+				if err != nil {
+					log.Errorf("Failed to update grayscale service %s for env %s of product %s: %s", u.GetName(), productInfo.EnvName, productInfo.ProductName, err)
 					errList = multierror.Append(errList, err)
 					continue
 				}
