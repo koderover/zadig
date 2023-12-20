@@ -111,6 +111,8 @@ func (s *TarArchiveStep) Run(ctx context.Context) error {
 	}
 
 	objectKey := filepath.Join(s.spec.S3DestDir, s.spec.FileName)
+	objectKey = filepath.ToSlash(objectKey)
+	log.Debugf("uploading %s to %s", tarName, objectKey)
 	if err := client.Upload(s.spec.S3Storage.Bucket, tarName, objectKey); err != nil {
 		return err
 	}

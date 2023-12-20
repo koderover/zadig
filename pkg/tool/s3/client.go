@@ -21,6 +21,7 @@ import (
 	"io/fs"
 	"mime"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -237,7 +238,7 @@ func (c *Client) UploadDir(bucketName, srcdir string, s3dir string) error {
 		if d.IsDir() {
 			return nil
 		}
-		key := filepath.Join(s3dir, p)
+		key := path.Join(s3dir, p)
 		originalFilePath := filepath.Join(srcdir, p)
 		return c.Upload(bucketName, originalFilePath, key)
 	})
