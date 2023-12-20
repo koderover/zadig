@@ -81,6 +81,9 @@ type Product struct {
 	// GlobalValues for k8s projects
 	GlobalVariables []*commontypes.GlobalVariableKV `bson:"global_variables,omitempty"     json:"global_variables,omitempty"`
 
+	// New Since v2.1.0.
+	IstioGrayscale IstioGrayscale `bson:"istio_grayscale" json:"istio_grayscale"`
+
 	// For production environment
 	Production bool   `json:"production" bson:"production"`
 	Alias      string `json:"alias" bson:"alias"`
@@ -207,6 +210,46 @@ type ProductShareEnv struct {
 	IsBase  bool   `bson:"is_base"  json:"is_base"`
 	BaseEnv string `bson:"base_env" json:"base_env"`
 }
+
+type IstioGrayscale struct {
+	Enable             bool                     `bson:"enable"   json:"enable"`
+	IsBase             bool                     `bson:"is_base"  json:"is_base"`
+	BaseEnv            string                   `bson:"base_env" json:"base_env"`
+	GrayscaleStrategy  GrayscaleStrategyType    `bson:"grayscale_strategy" json:"grayscale_strategy"`
+	WeightConfigs      []IstioWeightConfig      `bson:"weight_configs" json:"weight_configs"`
+	HeaderMatchConfigs []IstioHeaderMatchConfig `bson:"header_match_configs" json:"header_match_configs"`
+}
+
+type GrayscaleStrategyType string
+
+var (
+	GrayscaleStrategyWeight      GrayscaleStrategyType = "weight"
+	GrayscaleStrategyHeaderMatch GrayscaleStrategyType = "header_match"
+)
+
+type IstioWeightConfig struct {
+	Env    string `bson:"env"    json:"env"`
+	Weight int32  `bson:"weight" json:"weight"`
+}
+
+type IstioHeaderMatchConfig struct {
+	Env          string             `bson:"env"          json:"env"`
+	HeaderMatchs []IstioHeaderMatch `bson:"header_match" json:"header_match"`
+}
+
+type IstioHeaderMatch struct {
+	Key   string          `bson:"key"   json:"key"`
+	Match StringMatchType `bson:"match" json:"match"`
+	Value string          `bson:"value" json:"value"`
+}
+
+type StringMatchType string
+
+var (
+	StringMatchPrefix StringMatchType = "prefix"
+	StringMatchExact  StringMatchType = "exact"
+	StringMatchRegex  StringMatchType = "regex"
+)
 
 func (Product) TableName() string {
 	return "product"

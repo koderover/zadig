@@ -68,6 +68,11 @@ type EnvResp struct {
 	ShareEnvEnable  bool   `json:"share_env_enable"`
 	ShareEnvIsBase  bool   `json:"share_env_is_base"`
 	ShareEnvBaseEnv string `json:"share_env_base_env"`
+
+	// New Since v2.1.0
+	IstioGrayscaleEnable  bool   `json:"istio_grayscale_enable"`
+	IstioGrayscaleIsBase  bool   `json:"istio_grayscale_is_base"`
+	IstioGrayscaleBaseEnv string `json:"istio_grayscale_base_env"`
 }
 
 type SharedNSEnvs struct {
@@ -104,7 +109,10 @@ type ProductResp struct {
 	ShareEnvBaseEnv string `json:"share_env_base_env"`
 
 	// New Since v2.1.0
-	SharedNSEnvs []*SharedNSEnvs `json:"related_envs"`
+	RelatedEnvs           []*SharedNSEnvs `json:"related_envs"`
+	IstioGrayscaleEnable  bool            `json:"istio_grayscale_enable"`
+	IstioGrayscaleIsBase  bool            `json:"istio_grayscale_is_base"`
+	IstioGrayscaleBaseEnv string          `json:"istio_grayscale_base_env"`
 }
 
 type ProductParams struct {
@@ -178,6 +186,8 @@ type CreateSingleProductArg struct {
 	ShareEnv commonmodels.ProductShareEnv `json:"share_env"`
 	// New Since v1.13.0
 	EnvConfigs []*commonmodels.CreateUpdateCommonEnvCfgArgs `json:"env_configs"`
+	// New Since v2.1.0
+	IstioGrayscale commonmodels.IstioGrayscale `json:"istio_grayscale"`
 }
 
 type UpdateMultiHelmProductArg struct {

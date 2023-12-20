@@ -135,7 +135,7 @@ func InstallOrUpgradeHelmChartWithValues(param *ReleaseInstallParam, isRetry boo
 	} else {
 		err = EnsureZadigServiceByManifest(ctx, param.ProductName, param.Namespace, release.Manifest)
 		if err != nil {
-			err = errors.WithMessagef(err, "failed to ensure Zadig Service %s", err)
+			err = errors.WithMessagef(err, "failed to ensure Zadig Service, err: %s", err)
 		}
 	}
 
@@ -567,6 +567,11 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 			if err != nil {
 				log.Errorf("Failed to ensure gray env config: %s", err)
 			}
+		} else if productInfo.IstioGrayscale.Enable && !productInfo.IstioGrayscale.IsBase {
+			err = EnsureFullPathGrayScaleConfig(ctx, productInfo, kclient, istioClient)
+			if err != nil {
+				log.Errorf("Failed to ensure full path gray scale config: %s", err)
+			}
 		}
 	}()
 	return nil
@@ -683,7 +688,7 @@ func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmod
 }
 
 func EnsureDeleteZadigServiceByHelmRelease(ctx context.Context, env *commonmodels.Product, releaseName string, helmClient helmclient.Client) error {
-	if !env.ShareEnv.Enable {
+	if !env.ShareEnv.Enable && !env.IstioGrayscale.Enable {
 		return nil
 	}
 
@@ -755,5 +760,10 @@ func EnsureDeleteZadigServiceBySvcName(ctx context.Context, env *commonmodels.Pr
 		return fmt.Errorf("failed to find Service %q in namespace %q: %s", svcName, env.Namespace, err)
 	}
 
-	return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
+	if env.ShareEnv.Enable {
+		return ensureDeleteZadigService(ctx, env, svc, kclient, istioClient)
+	} else if env.IstioGrayscale.Enable {
+		return EnsureDeleteGrayscaleService(ctx, env, svc, kclient, istioClient)
+	}
+	return nil
 }

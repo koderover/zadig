@@ -17,21 +17,22 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
-
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -162,6 +163,44 @@ func DeleteProductionProduct(username, envName, productName, requestID string, l
 	err = service.DeleteZadigLabelFromNamespace(productInfo.Namespace, productInfo.ClusterID, log)
 	if err != nil {
 		log.Errorf("failed to delete zadig label from namespace %s, error: %v", productInfo.Namespace, err)
+	}
+
+	if productInfo.IstioGrayscale.Enable && !productInfo.IstioGrayscale.IsBase {
+		ctx := context.TODO()
+		clusterID := productInfo.ClusterID
+
+		kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+		if err != nil {
+			return fmt.Errorf("failed to get kube client: %s", err)
+		}
+
+		restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+		if err != nil {
+			return fmt.Errorf("failed to get rest config: %s", err)
+		}
+
+		istioClient, err := versionedclient.NewForConfig(restConfig)
+		if err != nil {
+			return fmt.Errorf("failed to new istio client: %s", err)
+		}
+
+		// Delete all VirtualServices delivered by the Zadig.
+		err = deleteVirtualServices(ctx, kclient, istioClient, productInfo.Namespace)
+		if err != nil {
+			return fmt.Errorf("failed to delete VirtualServices that Zadig created in ns `%s`: %s", productInfo.Namespace, err)
+		}
+
+		// Remove the `istio-injection=enabled` label of the namespace.
+		err = removeIstioLabel(ctx, kclient, productInfo.Namespace)
+		if err != nil {
+			return fmt.Errorf("failed to remove istio label on ns `%s`: %s", productInfo.Namespace, err)
+		}
+
+		// Restart the istio-Proxy injected Pods.
+		err = removePodsIstioProxy(ctx, kclient, productInfo.Namespace)
+		if err != nil {
+			return fmt.Errorf("failed to remove istio-proxy from pods in ns `%s`: %s", productInfo.Namespace, err)
+		}
 	}
 
 	return nil

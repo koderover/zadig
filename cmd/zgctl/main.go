@@ -17,7 +17,7 @@ limitations under the License.
 package main
 
 import (
-	"github.com/koderover/zadig/cmd/zgctl/cmd"
+	"github.com/koderover/zadig/v2/cmd/zgctl/cmd"
 )
 
 func main() {

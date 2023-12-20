@@ -428,7 +428,7 @@ func ensureUpdateVirtualServiceInBase(ctx context.Context, envName, vsName, svcN
 }
 
 func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, svcName string, kclient client.Client, istioClient versionedclient.Interface) error {
-	if !env.ShareEnv.Enable {
+	if !env.ShareEnv.Enable && !env.IstioGrayscale.Enable {
 		return nil
 	}
 
@@ -451,7 +451,12 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 		return fmt.Errorf("failed to query Service %s in ns %s: %s", svcName, env.Namespace, err)
 	}
 
-	return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
+	if env.ShareEnv.Enable {
+		return ensureUpdateZadigSerivce(ctx, env, svc, kclient, istioClient)
+	} else if env.IstioGrayscale.Enable {
+		return ensureUpdateGrayscaleSerivce(ctx, env, svc, kclient, istioClient)
+	}
+	return nil
 }
 
 func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace string, chartSpec *helmclient.ChartSpec, helmClient *helmtool.HelmClient) error {
@@ -463,7 +468,7 @@ func EnsureDeletePreCreatedServices(ctx context.Context, productName, namespace 
 		return fmt.Errorf("failed to query namespace %q in project %q: %s", namespace, productName, err)
 	}
 
-	if !(env.ShareEnv.Enable && !env.ShareEnv.IsBase) {
+	if !((env.ShareEnv.Enable && !env.ShareEnv.IsBase) || (env.IstioGrayscale.Enable && !env.IstioGrayscale.IsBase)) {
 		return nil
 	}
 
@@ -501,7 +506,7 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 		return fmt.Errorf("failed to query namespace %q in project %q: %s", namespace, productName, err)
 	}
 
-	if !env.ShareEnv.Enable {
+	if !env.ShareEnv.Enable && !env.IstioGrayscale.Enable {
 		return nil
 	}
 
@@ -528,7 +533,7 @@ func EnsureZadigServiceByManifest(ctx context.Context, productName, namespace, m
 	for _, svcName := range svcNames {
 		err := EnsureUpdateZadigService(ctx, env, svcName, kclient, istioClient)
 		if err != nil {
-			return fmt.Errorf("failed to ensure Zadig Service for K8s Service %q in env %q of product %q: %s", svcName, env.EnvName, env.ProductName, err)
+			return err
 		}
 	}
 
