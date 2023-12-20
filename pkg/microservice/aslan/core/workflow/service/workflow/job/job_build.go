@@ -338,13 +338,13 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		scriptStep := &commonmodels.StepTask{
 			JobName: jobTask.Name,
 		}
-		if buildInfo.ScriptType == commonmodels.ScriptTypeShell || buildInfo.ScriptType == "" {
+		if buildInfo.ScriptType == types.ScriptTypeShell || buildInfo.ScriptType == "" {
 			scriptStep.Name = build.ServiceName + "-shell"
 			scriptStep.StepType = config.StepShell
 			scriptStep.Spec = &step.StepShellSpec{
 				Scripts: scripts,
 			}
-		} else if buildInfo.ScriptType == commonmodels.ScriptTypeBatchFile {
+		} else if buildInfo.ScriptType == types.ScriptTypeBatchFile {
 			scriptStep.Name = build.ServiceName + "-batchfile"
 			scriptStep.StepType = config.StepBatchFile
 			scriptStep.Spec = &step.StepBatchFileSpec{

@@ -65,3 +65,10 @@ type StorageClassType string
 const (
 	StorageClassAll StorageClassType = "all"
 )
+
+type ScriptType string
+
+const (
+	ScriptTypeShell     ScriptType = "shell"
+	ScriptTypeBatchFile ScriptType = "batch_file"
+)
