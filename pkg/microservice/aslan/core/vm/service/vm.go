@@ -155,7 +155,7 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 	cmd := new(UpgradeAgentCmd)
 
 	baseURL := "https://resources.koderover.com/dist"
-	version, err := getAslanVersion()
+	version, err := getZadigAgentVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get zadig-agent version, error: %s", err)
 	}
@@ -589,7 +589,7 @@ func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, err
 	if vm.Agent != nil {
 		token = vm.Agent.Token
 	}
-	version, err := getAslanVersion()
+	version, err := getZadigAgentVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get zadig-agent version, error: %s", err)
 	}

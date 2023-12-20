@@ -550,6 +550,7 @@ func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 	moduleBuild.Timeout = buildTemplate.Timeout
 	moduleBuild.PreBuild = buildTemplate.PreBuild
 	moduleBuild.JenkinsBuild = buildTemplate.JenkinsBuild
+	moduleBuild.ScriptType = buildTemplate.ScriptType
 	moduleBuild.Scripts = buildTemplate.Scripts
 	moduleBuild.PostBuild = buildTemplate.PostBuild
 	moduleBuild.SSHs = buildTemplate.SSHs
