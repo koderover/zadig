@@ -188,7 +188,7 @@ func (l *JobLogger) ReadByRowNum(offset, curNum, num int64) ([]byte, int64, int6
 	// Seek to the beginning of the file
 	_, err = file.Seek(offset, 0)
 	if err != nil {
-		return nil, 0, 0, false, fmt.Errorf("failed to seek to the beginning of the file: %v", err)
+		return nil, 0, 0, false, fmt.Errorf("failed to seek to %v offset of the file: %v", offset, err)
 	}
 
 	// Create a buffered reader

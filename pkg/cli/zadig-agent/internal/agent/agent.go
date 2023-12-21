@@ -198,7 +198,8 @@ func (c *AgentController) RunSingleJob(ctx context.Context, job *types.ZadigJobT
 			log.Infof("workflow %s job %s finished.", job.WorkflowName, job.JobName)
 
 			if e := executor.JobResult.GetError(); e != nil {
-				return executor.Reporter.FinishedJobReport(common.StatusFailed, e)
+				log.Errorf("workflow %s job %s failed, error: %v", job.WorkflowName, job.JobName, e)
+				return executor.Reporter.FinishedJobReport(common.StatusFailed, nil)
 			}
 
 			if err != nil {

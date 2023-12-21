@@ -232,12 +232,12 @@ func (e *JobExecutor) Execute() {
 		e.ReporterCancel()
 
 		if outputs, err := e.getJobOutputVars(); err != nil {
-			e.Logger.Errorf("failed to collect job result, error: %s", err)
+			e.Logger.Errorf("failed to collect job result, error: %w", err)
 			e.JobResult.SetError(fmt.Errorf("failed to collect job result, error: %s", err))
 		} else {
 			err = e.JobResult.SetOutputs(outputs)
 			if err != nil {
-				e.Logger.Errorf("failed to set job outputs, error: %s", err)
+				e.Logger.Errorf("failed to set job outputs, error: %w", err)
 				e.JobResult.SetError(fmt.Errorf("failed to set job outputs, error: %s", err))
 			}
 		}
