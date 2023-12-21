@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -128,6 +130,8 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
+	log.Infof("------ deploy running %s/%s", c.workflowCtx.ProjectName, c.jobTaskSpec.Env)
+
 	c.namespace = env.Namespace
 	c.jobTaskSpec.ClusterID = env.ClusterID
 
@@ -165,6 +169,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
+	log.Infof("------ envtype: %s", c.jobTaskSpec.CreateEnvType)
 	if c.jobTaskSpec.CreateEnvType == "system" {
 		var updateRevision bool
 		if slices.Contains(c.jobTaskSpec.DeployContents, config.DeployConfig) && c.jobTaskSpec.UpdateConfig {
@@ -236,6 +241,7 @@ func (c *DeployJobCtl) run(ctx context.Context) error {
 		return nil
 	}
 
+	log.Infof("------ serviceName: %s, serviceType: %s", c.jobTaskSpec.CreateEnvType, c.jobTaskSpec.ServiceType)
 	// get servcie info
 	var (
 		serviceInfo *commonmodels.Service
