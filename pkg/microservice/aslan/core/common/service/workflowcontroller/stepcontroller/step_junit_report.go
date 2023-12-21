@@ -21,6 +21,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -131,5 +132,29 @@ func (s *junitReportCtl) AfterRun(ctx context.Context) error {
 		testTaskStat.UpdateTime = time.Now().Unix()
 		_ = commonrepo.NewTestTaskStatColl().Update(testTaskStat)
 	}
+
+	duration := 0.0
+	for _, cases := range testReport.TestCases {
+		duration += cases.Time
+	}
+	// save the test report information into db for further usage
+	err = commonrepo.NewCustomWorkflowTestReportColl().Create(&commonmodels.CustomWorkflowTestReport{
+		WorkflowName:     s.junitReportSpec.SourceWorkflow,
+		JobName:          s.junitReportSpec.SourceJobKey,
+		TaskID:           s.junitReportSpec.TaskID,
+		ServiceName:      s.junitReportSpec.ServiceName,
+		ServiceModule:    s.junitReportSpec.ServiceModule,
+		ZadigTestName:    s.junitReportSpec.TestName,
+		ZadigTestProject: s.junitReportSpec.TestProject,
+		TestName:         testReport.Name,
+		TestCaseNum:      testReport.Tests,
+		SuccessCaseNum:   testReport.Successes,
+		TestTime:         math.Round(duration*1000) / 1000,
+	})
+
+	if err != nil {
+		log.Error("save junit test result failed, error: %v", err)
+	}
+
 	return nil
 }

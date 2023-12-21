@@ -867,6 +867,15 @@ type StorageDetail struct {
 	MountPath string           `bson:"mount_path"       json:"mount_path"       yaml:"mount_path"`
 }
 
+type TestStatsInProperties struct {
+	RunningJobName string  `bson:"running_job_name" json:"running_job_name"`
+	Type           string  `bson:"type" json:"type"`
+	TestName       string  `bson:"name" json:"name"`
+	TestCaseNum    int     `bson:"total_case_num" json:"total_case_num"`
+	SuccessCaseNum int     `bson:"success_case_num" json:"success_case_num"`
+	TestTime       float64 `bson:"time" json:"time"`
+}
+
 func IToiYaml(before interface{}, after interface{}) error {
 	b, err := yaml.Marshal(before)
 	if err != nil {

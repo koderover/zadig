@@ -19,7 +19,6 @@ package workflow
 import (
 	"fmt"
 	"io/ioutil"
-	"math"
 	"path/filepath"
 	"strings"
 	"time"
@@ -995,28 +994,21 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 							}
 
 							if job.Name == jobInfo.JobName {
-								result, _ := service.GetWorkflowV4LocalTestSuite(task.WorkflowName, runningJob.Name, task.TaskID, logger)
-								if result != nil && result.FunctionTestSuite != nil {
-									duration := 0.0
-									for _, testCase := range result.FunctionTestSuite.TestCases {
-										duration += testCase.Time
-									}
-									testModule := &commonmodels.WorkflowTestModule{
+								testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(filter.WorkflowName, job.Name, task.TaskID)
+								if err != nil {
+									log.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
+									return nil, 0, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
+								}
+
+								for _, testResult := range testResultList {
+									testModules = append(testModules, &commonmodels.WorkflowTestModule{
 										RunningJobName: runningJob.Name,
 										Type:           "function",
-										TestName:       result.FunctionTestSuite.Name,
-										TestCaseNum:    result.FunctionTestSuite.Tests,
-										SuccessCaseNum: result.FunctionTestSuite.Successes,
-									}
-									if testModule.TestName == "" {
-										keys := strings.Split(runningJob.Key, ".")
-										testModule.TestName = keys[len(keys)-1]
-									}
-									if result.FunctionTestSuite.Time == 0 {
-										result.FunctionTestSuite.Time = math.Round(duration*1000) / 1000
-									}
-									testModule.TestTime = result.FunctionTestSuite.Time
-									testModules = append(testModules, testModule)
+										TestName:       testResult.TestName,
+										TestCaseNum:    testResult.TestCaseNum,
+										SuccessCaseNum: testResult.SuccessCaseNum,
+										TestTime:       testResult.TestTime,
+									})
 								}
 							}
 						}
