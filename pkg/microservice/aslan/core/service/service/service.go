@@ -452,7 +452,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 				Name:        v.Name,
 				Type:        v.Type,
 				ProductName: v.ProductName,
-				Operation:   "add",
+				//Operation:   "add",
 			}
 		}
 	}
@@ -570,30 +570,30 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	return mongotool.CommitTransaction(session)
 }
 
-func updateWorkloads(existWorkloads []commonmodels.Workload, diff map[string]*ServiceWorkloadsUpdateAction, envName string, productName string) (result []commonmodels.Workload) {
-	existWorkloadsMap := map[string]commonmodels.Workload{}
-	for _, v := range existWorkloads {
-		existWorkloadsMap[v.Name] = v
-	}
-	for _, v := range diff {
-		switch v.Operation {
-		case "add":
-			vv := commonmodels.Workload{
-				EnvName:     envName,
-				Name:        v.Name,
-				Type:        v.Type,
-				ProductName: productName,
-			}
-			existWorkloadsMap[v.Name] = vv
-		case "delete":
-			delete(existWorkloadsMap, v.Name)
-		}
-	}
-	for _, v := range existWorkloadsMap {
-		result = append(result, v)
-	}
-	return result
-}
+//func updateWorkloads(existWorkloads []commonmodels.Workload, diff map[string]*ServiceWorkloadsUpdateAction, envName string, productName string) (result []commonmodels.Workload) {
+//	existWorkloadsMap := map[string]commonmodels.Workload{}
+//	for _, v := range existWorkloads {
+//		existWorkloadsMap[v.Name] = v
+//	}
+//	for _, v := range diff {
+//		switch v.Operation {
+//		case "add":
+//			vv := commonmodels.Workload{
+//				EnvName:     envName,
+//				Name:        v.Name,
+//				Type:        v.Type,
+//				ProductName: productName,
+//			}
+//			existWorkloadsMap[v.Name] = vv
+//		case "delete":
+//			delete(existWorkloadsMap, v.Name)
+//		}
+//	}
+//	for _, v := range existWorkloadsMap {
+//		result = append(result, v)
+//	}
+//	return result
+//}
 
 func replaceWorkloads(existWorkloads []commonmodels.Workload, newWorkloads []commonmodels.Workload, envName string) []commonmodels.Workload {
 	var result []commonmodels.Workload
@@ -634,8 +634,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session
 	}
 
 	serviceColl := commonrepo.NewServiceCollWithSession(session)
-
-	existedSvc, notFoundErr := serviceColl.Find(opt)
+	_, notFoundErr := serviceColl.Find(opt)
 	if notFoundErr != nil {
 		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
 			//获取项目里面的所有服务
@@ -650,32 +649,31 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, session
 				log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
 				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 			}
+			if err := serviceColl.Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
+				log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
+			}
+
+			if err := serviceColl.Create(args); err != nil {
+				log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
+				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
+			}
 		}
 	} else {
-		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-			Name:    args.ProductName,
-			EnvName: args.EnvName,
-		})
-		if err != nil {
-			return nil, err
-		}
-		return existedSvc, commonrepo.NewServiceInExternalEnvWithSess(session).Create(&commonmodels.ServicesInExternalEnv{
-			ProductName: args.ProductName,
-			ServiceName: args.ServiceName,
-			EnvName:     args.EnvName,
-			Namespace:   product.Namespace,
-			ClusterID:   product.ClusterID,
-		})
+		//product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		//	Name:    args.ProductName,
+		//	EnvName: args.EnvName,
+		//})
+		//if err != nil {
+		//	return nil, err
+		//}
+		//return existedSvc, commonrepo.NewServiceInExternalEnvWithSess(session).Create(&commonmodels.ServicesInExternalEnv{
+		//	ProductName: args.ProductName,
+		//	ServiceName: args.ServiceName,
+		//	EnvName:     args.EnvName,
+		//	Namespace:   product.Namespace,
+		//	ClusterID:   product.ClusterID,
+		//})
 		//return e.ErrCreateTemplate.AddDesc("do not support import same service name")
-	}
-
-	if err := serviceColl.Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
-		log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
-	}
-
-	if err := serviceColl.Create(args); err != nil {
-		log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
-		return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 	}
 	return args, nil
 }
