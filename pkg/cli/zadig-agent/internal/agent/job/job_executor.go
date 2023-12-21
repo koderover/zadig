@@ -232,21 +232,24 @@ func (e *JobExecutor) Execute() {
 		e.ReporterCancel()
 
 		if outputs, err := e.getJobOutputVars(); err != nil {
-			e.Logger.Errorf("failed to collect job result, error: %s", err)
+			e.Logger.Errorf("failed to collect job result, error: %w", err)
 			e.JobResult.SetError(fmt.Errorf("failed to collect job result, error: %s", err))
 		} else {
 			err = e.JobResult.SetOutputs(outputs)
 			if err != nil {
-				e.Logger.Errorf("failed to set job outputs, error: %s", err)
+				e.Logger.Errorf("failed to set job outputs, error: %w", err)
 				e.JobResult.SetError(fmt.Errorf("failed to set job outputs, error: %s", err))
 			}
 		}
 
 		e.Logger.Printf("====================== Job Executor End. Duration: %.2f seconds ======================\n", time.Since(start).Seconds())
+		e.Logger.Sync()
 	}()
 	e.Logger.Printf("====================== Job Executor Start ======================\n")
 	if e.CheckZadigCancel() {
 		err = fmt.Errorf("user cancel job %s", e.Job.JobName)
+		e.Logger.Errorf(err)
+		e.JobResult.SetError(err)
 		return
 	}
 
@@ -359,9 +362,13 @@ func (e *JobExecutor) AfterExecute() error {
 	}
 
 	// -------------------------------------------- delete all temp file and dir ----------------------------------------
-	err := e.deleteTempFileAndDir()
-	if err != nil {
-		log.Errorf("failed to delete temp file and dir, error: %s", err)
+	e.Logger.Close()
+
+	if !config.GetEnableDebug() {
+		err := e.deleteTempFileAndDir()
+		if err != nil {
+			log.Errorf("failed to delete temp file and dir, error: %s", err)
+		}
 	}
 
 	return nil

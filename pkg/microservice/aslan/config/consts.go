@@ -177,6 +177,7 @@ type StepType string
 const (
 	StepTools             StepType = "tools"
 	StepShell             StepType = "shell"
+	StepBatchFile         StepType = "batch_file"
 	StepGit               StepType = "git"
 	StepDockerBuild       StepType = "docker_build"
 	StepDeploy            StepType = "deploy"

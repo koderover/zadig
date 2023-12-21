@@ -327,20 +327,31 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 		// init shell step
+		scripts := []string{}
 		dockerLoginCmd := `docker login -u "$DOCKER_REGISTRY_AK" -p "$DOCKER_REGISTRY_SK" "$DOCKER_REGISTRY_HOST" &> /dev/null`
-		scripts := append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
-		if jobTask.Infrastructure != setting.JobVMInfrastructure {
+		if jobTask.Infrastructure == setting.JobVMInfrastructure {
+			scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
+		} else {
+			scripts = append([]string{dockerLoginCmd}, strings.Split(replaceWrapLine(buildInfo.Scripts), "\n")...)
 			scripts = append(scripts, outputScript(outputs)...)
 		}
-		shellStep := &commonmodels.StepTask{
-			Name:     build.ServiceName + "-shell",
-			JobName:  jobTask.Name,
-			StepType: config.StepShell,
-			Spec: &step.StepShellSpec{
-				Scripts: scripts,
-			},
+		scriptStep := &commonmodels.StepTask{
+			JobName: jobTask.Name,
 		}
-		jobTaskSpec.Steps = append(jobTaskSpec.Steps, shellStep)
+		if buildInfo.ScriptType == types.ScriptTypeShell || buildInfo.ScriptType == "" {
+			scriptStep.Name = build.ServiceName + "-shell"
+			scriptStep.StepType = config.StepShell
+			scriptStep.Spec = &step.StepShellSpec{
+				Scripts: scripts,
+			}
+		} else if buildInfo.ScriptType == types.ScriptTypeBatchFile {
+			scriptStep.Name = build.ServiceName + "-batchfile"
+			scriptStep.StepType = config.StepBatchFile
+			scriptStep.Spec = &step.StepBatchFileSpec{
+				Scripts: scripts,
+			}
+		}
+		jobTaskSpec.Steps = append(jobTaskSpec.Steps, scriptStep)
 		// init debug after step
 		debugAfterStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-debug_after",
@@ -539,6 +550,7 @@ func fillBuildDetail(moduleBuild *commonmodels.Build, serviceName, serviceModule
 	moduleBuild.Timeout = buildTemplate.Timeout
 	moduleBuild.PreBuild = buildTemplate.PreBuild
 	moduleBuild.JenkinsBuild = buildTemplate.JenkinsBuild
+	moduleBuild.ScriptType = buildTemplate.ScriptType
 	moduleBuild.Scripts = buildTemplate.Scripts
 	moduleBuild.PostBuild = buildTemplate.PostBuild
 	moduleBuild.SSHs = buildTemplate.SSHs

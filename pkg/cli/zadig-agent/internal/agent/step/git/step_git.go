@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -90,9 +91,24 @@ func (s *GitStep) runGitCmds() error {
 		if err != nil {
 			return err
 		}
+		cmdErrReader, err := c.Cmd.StderrPipe()
+		if err != nil {
+			return err
+		}
 
-		needPersistentLog := true
+		c.Cmd.Env = s.envs
+		if !c.DisableTrace {
+			s.Logger.Printf("%s\n", strings.Join(c.Cmd.Args, " "))
+		}
+		if err := c.Cmd.Start(); err != nil {
+			if c.IgnoreError {
+				continue
+			}
+			return err
+		}
+
 		var wg sync.WaitGroup
+		needPersistentLog := true
 		// write script output to log file
 		wg.Add(1)
 		go func() {
@@ -100,11 +116,6 @@ func (s *GitStep) runGitCmds() error {
 
 			helper.HandleCmdOutput(cmdOutReader, needPersistentLog, s.Logger.GetLogfilePath(), s.secretEnvs, log.GetSimpleLogger())
 		}()
-
-		cmdErrReader, err := c.Cmd.StderrPipe()
-		if err != nil {
-			return err
-		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -112,11 +123,8 @@ func (s *GitStep) runGitCmds() error {
 			helper.HandleCmdOutput(cmdErrReader, needPersistentLog, s.Logger.GetLogfilePath(), s.secretEnvs, log.GetSimpleLogger())
 		}()
 
-		c.Cmd.Env = s.envs
-		if !c.DisableTrace {
-			s.Logger.Printf("%s\n", strings.Join(c.Cmd.Args, " "))
-		}
-		if err := c.Cmd.Run(); err != nil {
+		wg.Wait()
+		if err := c.Cmd.Wait(); err != nil {
 			if c.IgnoreError {
 				continue
 			}
@@ -160,6 +168,10 @@ func (s *GitStep) buildGitCommands(repo *types.Repository, hostNames sets.String
 		cmds = append(cmds, &common.Command{Cmd: gitcmd.InitGit(workDir)})
 	} else {
 		cmds = append(cmds, &common.Command{Cmd: gitcmd.RemoteRemove(repo.RemoteName), DisableTrace: true, IgnoreError: true})
+	}
+
+	if runtime.GOOS == "windows" {
+		cmds = append(cmds, &common.Command{Cmd: gitcmd.SetConfig("user.email", "zadig@koderover.com"), DisableTrace: true})
 	}
 
 	// namespace represents the real owner

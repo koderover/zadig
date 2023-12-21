@@ -21,7 +21,15 @@ import (
 	"runtime/debug"
 
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/command"
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/helper/log"
+)
+
+var (
+	BuildAgentVersion = ""
+	BuildGoVersion    = ""
+	BuildCommit       = ""
+	BuildTime         = ""
 )
 
 func main() {
@@ -32,6 +40,11 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	config.BuildAgentVersion = BuildAgentVersion
+	config.BuildGoVersion = BuildGoVersion
+	config.BuildCommit = BuildCommit
+	config.BuildTime = BuildTime
 
 	if err := command.Execute(); err != nil {
 		log.Fatalf("Failed to run zadig-agent cmd executor, error: %s", err)

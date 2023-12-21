@@ -76,7 +76,8 @@ func init() {
 
 	core := consoleCore
 	if cfg.SendToFile {
-		fileSyncer := getLogWriter(cfg.Filename, cfg.MaxSize, cfg.MaxBackups, cfg.MaxAge)
+		lumberjackLogger := getLumberjackLogger(cfg.Filename, cfg.MaxSize, cfg.MaxBackups, cfg.MaxAge)
+		fileSyncer := zapcore.AddSync(lumberjackLogger)
 		fileEncoder := getJSONEncoder(cfg)
 		fileCore := zapcore.NewCore(fileEncoder, fileSyncer, l)
 
@@ -87,7 +88,7 @@ func init() {
 	simpleLogger = logger.WithOptions(zap.AddCallerSkip(1)).Sugar()
 }
 
-func InitJobLogger(cfg *Config) *zap.SugaredLogger {
+func InitJobLogger(cfg *Config) (*zap.SugaredLogger, *lumberjack.Logger) {
 	var l = new(zapcore.Level)
 	err := l.UnmarshalText([]byte(cfg.Level))
 	if err != nil {
@@ -105,15 +106,17 @@ func InitJobLogger(cfg *Config) *zap.SugaredLogger {
 	}
 
 	core := consoleCore
+	var lumberjackLogger *lumberjack.Logger
 	if cfg.SendToFile {
-		fileSyncer := getLogWriter(cfg.Filename, cfg.MaxSize, cfg.MaxBackups, cfg.MaxAge)
+		lumberjackLogger = getLumberjackLogger(cfg.Filename, cfg.MaxSize, cfg.MaxBackups, cfg.MaxAge)
+		fileSyncer := zapcore.AddSync(lumberjackLogger)
 		fileEncoder := getJobLogEncoder(cfg)
 		fileCore := zapcore.NewCore(fileEncoder, fileSyncer, l)
 
 		core = zapcore.NewTee(consoleCore, fileCore)
 	}
 
-	return zap.New(core, opts...).WithOptions(zap.AddCallerSkip(1)).Sugar()
+	return zap.New(core, opts...).WithOptions(zap.AddCallerSkip(1)).Sugar(), lumberjackLogger
 }
 
 func getJobLogEncoder(cfg *Config) zapcore.Encoder {
@@ -165,7 +168,7 @@ func getEncoder(cfg *Config, jsonFormat bool) zapcore.Encoder {
 	return zapcore.NewConsoleEncoder(encoderConfig)
 }
 
-func getLogWriter(filename string, maxSize, maxBackup, maxAge int) zapcore.WriteSyncer {
+func getLumberjackLogger(filename string, maxSize, maxBackup, maxAge int) *lumberjack.Logger {
 	// keep 10 backups (1GB) if not set to avoid run out of disk space
 	if maxBackup == 0 {
 		maxBackup = 10
@@ -177,7 +180,7 @@ func getLogWriter(filename string, maxSize, maxBackup, maxAge int) zapcore.Write
 		// MaxAge:     maxAge,
 	}
 
-	return zapcore.AddSync(lumberJackLogger)
+	return lumberJackLogger
 }
 
 func NopSugaredLogger() *zap.SugaredLogger {
@@ -222,7 +225,8 @@ func GetLoggerFile() string {
 }
 
 func NewFileLogger(path string) *zap.Logger {
-	fileSyncer := getLogWriter(path, 0, 0, 0)
+	lumberjackLogger := getLumberjackLogger(path, 0, 0, 0)
+	fileSyncer := zapcore.AddSync(lumberjackLogger)
 	fileEncoder := getJSONEncoder(&Config{})
 	fileCore := zapcore.NewCore(fileEncoder, fileSyncer, zap.DebugLevel)
 	return zap.New(fileCore)

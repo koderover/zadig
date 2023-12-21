@@ -40,6 +40,8 @@ func WriteFile(filename string, data []byte, perm os.FileMode) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
+
 	if _, err := f.Write(data); err != nil {
 		return err
 	}

@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,8 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package script
+package step
 
-func generateScript(spec *StepShellSpec, workspace string, logger *log.JobLogger) (string, error) {
-	return "", nil
+type StepBatchFileSpec struct {
+	Scripts     []string `bson:"scripts"                              json:"scripts"                                 yaml:"scripts,omitempty"`
+	Script      string   `bson:"script"                               json:"script"                                  yaml:"script"`
+	SkipPrepare bool     `bson:"skip_prepare"                         json:"skip_prepare"                            yaml:"skip_prepare"`
 }

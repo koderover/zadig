@@ -41,6 +41,7 @@ type Build struct {
 	Repos        []*types.Repository    `bson:"repos"                         json:"repos"`
 	PreBuild     *PreBuild              `bson:"pre_build"                     json:"pre_build"`
 	JenkinsBuild *JenkinsBuild          `bson:"jenkins_build,omitempty"       json:"jenkins_build,omitempty"`
+	ScriptType   types.ScriptType       `bson:"script_type"                   json:"script_type"`
 	Scripts      string                 `bson:"scripts"                       json:"scripts"`
 	PostBuild    *PostBuild             `bson:"post_build,omitempty"          json:"post_build"`
 

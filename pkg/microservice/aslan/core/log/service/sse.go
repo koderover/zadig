@@ -270,7 +270,6 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 	if options == nil {
 		return
 	}
-	log.Debugf("Start to get task container log.")
 	task, err := commonrepo.NewworkflowTaskv4Coll().Find(options.PipelineName, options.TaskID)
 	if err != nil {
 		log.Errorf("Failed to find workflow %s taskID %s: %v", options.PipelineName, options.TaskID, err)
@@ -492,7 +491,6 @@ func ReadFromFileAndWriteToStreamChan(buf *bufio.Reader, streamChan chan interfa
 					}
 				}
 			} else {
-				line = strings.TrimSpace(line)
 				if len(line) > 0 {
 					streamChan <- line
 				}

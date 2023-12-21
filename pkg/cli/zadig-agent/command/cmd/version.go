@@ -55,7 +55,7 @@ func versionPreRun() error {
 
 func versionRun() error {
 
-	msg := fmt.Sprintf("zadig-agent version %s", config.AGENT_VERSION)
+	msg := fmt.Sprintf("zadig-agent version %s", config.BuildAgentVersion)
 
 	platform := osutil.GetPlatform()
 	if platform != "" {
@@ -63,6 +63,12 @@ func versionRun() error {
 	}
 
 	fmt.Println(msg)
+	fmt.Println()
+	fmt.Printf("Build Time: %s\n", config.BuildTime)
+	fmt.Printf("Build Commit: %s\n", config.BuildCommit)
+	fmt.Printf("Build Agent Version: %s\n", config.BuildAgentVersion)
+	fmt.Printf("Build Go Version: %s\n", config.BuildGoVersion)
+
 	return nil
 }
 

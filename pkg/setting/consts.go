@@ -854,6 +854,7 @@ const (
 	LinuxArm64 = "linux_arm64"
 	MacOSAmd64 = "darwin_amd64"
 	MacOSArm64 = "darwin_arm64"
+	WinAmd64   = "windows_amd64"
 
 	// vm cache type
 	VmCache     = "vm"

@@ -74,11 +74,6 @@ func GetArtifactsDir(workDir string) (string, error) {
 	return path, nil
 }
 
-func GetUserScriptFilePath(workDir string) string {
-	return filepath.Join(workDir, "user_script.sh")
-
-}
-
 func GetAgentConfigFilePath() (string, error) {
 	homeDir, err := osutil.GetUserHomeDir()
 	if err != nil {
@@ -206,4 +201,12 @@ func GetCacheDir(workDir string) (string, error) {
 	}
 
 	return cacheDir, nil
+}
+
+func GetUserShellScriptFilePath(workDir string) string {
+	return filepath.Join(workDir, "user_script.sh")
+}
+
+func GetUserBatchFileScriptFilePath(workDir string) string {
+	return filepath.Join(workDir, "user_script.bat")
 }

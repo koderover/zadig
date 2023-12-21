@@ -19,10 +19,16 @@ package script
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os/exec"
+	"path"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/config"
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/common/types"
 	"gopkg.in/yaml.v2"
 
@@ -42,7 +48,7 @@ type ShellStep struct {
 type StepShellSpec struct {
 	Scripts     []string `json:"scripts"                                 yaml:"scripts,omitempty"`
 	Script      string   `json:"script"                                  yaml:"script"`
-	SkipPrepare bool     `    json:"skip_prepare"                            yaml:"skip_prepare"`
+	SkipPrepare bool     `json:"skip_prepare"                            yaml:"skip_prepare"`
 }
 
 func NewShellStep(jobOutput []string, spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*ShellStep, error) {
@@ -67,7 +73,10 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	}()
 
 	userScriptFile, err := generateScript(s.spec, s.dirs, s.JobOutput, s.Logger)
-	cmd := exec.Command("/bin/bash", userScriptFile)
+	if err != nil {
+		return fmt.Errorf("generate script failed: %v", err)
+	}
+	cmd := exec.Command("bash", userScriptFile)
 	cmd.Dir = s.dirs.Workspace
 	cmd.Env = s.envs
 
@@ -109,4 +118,38 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	wg.Wait()
 
 	return cmd.Wait()
+}
+
+func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []string, logger *log.JobLogger) (string, error) {
+	if len(spec.Scripts) == 0 {
+		return "", nil
+	}
+	scripts := []string{}
+	scripts = append(scripts, spec.Scripts...)
+
+	// add job output to script
+	if len(jobOutput) > 0 {
+		scripts = append(scripts, outputScript(dirs.JobOutputsDir, jobOutput)...)
+	}
+
+	userScriptFile := config.GetUserShellScriptFilePath(dirs.JobScriptDir)
+	if err := ioutil.WriteFile(userScriptFile, []byte(strings.Join(scripts, "\n")), 0700); err != nil {
+		return "", fmt.Errorf("write script file error: %v", err)
+	}
+	return userScriptFile, nil
+}
+
+// generate script to save outputs variable to file
+func outputScript(outputsDir string, outputs []string) []string {
+	resp := []string{"set +ex"}
+	for _, output := range outputs {
+
+		if runtime.GOOS == "windows" {
+			scriptPath := filepath.FromSlash(filepath.ToSlash(path.Join(outputsDir, output)))
+			resp = append(resp, fmt.Sprintf("echo $%s > %s", output, scriptPath))
+		} else {
+			resp = append(resp, fmt.Sprintf("echo $%s > %s", output, path.Join(outputsDir, output)))
+		}
+	}
+	return resp
 }

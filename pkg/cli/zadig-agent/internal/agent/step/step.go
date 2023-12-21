@@ -45,6 +45,11 @@ func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.
 	var err error
 
 	switch step.StepType {
+	case "batch_file":
+		stepInstance, err = script.NewBatchFileStep(jobCtx.Outputs, step.Spec, dirs, envs, secretEnvs, logger)
+		if err != nil {
+			return err
+		}
 	case "shell":
 		stepInstance, err = script.NewShellStep(jobCtx.Outputs, step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {
