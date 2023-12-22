@@ -988,6 +988,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 							if runningJob.JobType != string(config.JobZadigTesting) {
 								continue
 							}
+							fmt.Println(">>>>>>> generating test result for job: ", runningJob.Name, "<<<<<<<<<<<<<<<")
 							jobInfo := new(commonmodels.TaskJobInfo)
 							if err := commonmodels.IToi(runningJob.JobInfo, jobInfo); err != nil {
 								return nil, 0, err
