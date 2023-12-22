@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+option go_package = "github.com/koderover/demo/pkg/protos";
+
+package protos;
+
+service Demo {
+  rpc GetInfo (InfoRequest) returns (InfoReply) {}
+}
+
+message InfoRequest {
+}
+
+message InfoReply {
+  string message = 1;
+}

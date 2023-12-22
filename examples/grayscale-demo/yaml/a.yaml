@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: a
+  labels:
+    app: a
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+  selector:
+    app: a
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a
+  labels:
+    app: a
+spec:
+  selector:
+    matchLabels:
+      app: a
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: a
+    spec:
+      containers:
+        - name: myapp-1
+          image: koderover.tencentcloudcr.com/koderover-demo/myapp-1:v0.1.1
+          imagePullPolicy: Always
+          command: ["/myapp-1"]
+          args:
+            [
+              "--downstream-addr",
+              "$(DOWNSTREAM_ADDR)",
+              "--headers",
+              "$(HEADERS)",
+            ]
+          env:
+            - name: DOWNSTREAM_ADDR
+              value: "b"
+            - name: HEADERS
+              value: "x-request-id"
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
