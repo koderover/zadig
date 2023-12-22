@@ -371,6 +371,7 @@ func initDatabase() {
 		commonrepo.NewConfigurationManagementColl(),
 		commonrepo.NewCounterColl(),
 		commonrepo.NewCronjobColl(),
+		commonrepo.NewCustomWorkflowTestReportColl(),
 		commonrepo.NewDeliveryActivityColl(),
 		commonrepo.NewDeliveryArtifactColl(),
 		commonrepo.NewDeliveryBuildColl(),

@@ -19,7 +19,6 @@ package workflow
 import (
 	"fmt"
 	"io/ioutil"
-	"math"
 	"path/filepath"
 	"strings"
 	"time"
@@ -981,45 +980,21 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 
 					// get test report
 					testModules := make([]*commonmodels.WorkflowTestModule, 0)
-					for _, runningStage := range task.Stages {
-						if runningStage.Name != stage.Name {
-							continue
-						}
-						for _, runningJob := range runningStage.Jobs {
-							if runningJob.JobType != string(config.JobZadigTesting) {
-								continue
-							}
-							jobInfo := new(commonmodels.TaskJobInfo)
-							if err := commonmodels.IToi(runningJob.JobInfo, jobInfo); err != nil {
-								return nil, 0, err
-							}
+					testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(filter.WorkflowName, job.Name, task.TaskID)
+					if err != nil {
+						log.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
+						return nil, 0, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
+					}
 
-							if job.Name == jobInfo.JobName {
-								result, _ := service.GetWorkflowV4LocalTestSuite(task.WorkflowName, runningJob.Name, task.TaskID, logger)
-								if result != nil && result.FunctionTestSuite != nil {
-									duration := 0.0
-									for _, testCase := range result.FunctionTestSuite.TestCases {
-										duration += testCase.Time
-									}
-									testModule := &commonmodels.WorkflowTestModule{
-										RunningJobName: runningJob.Name,
-										Type:           "function",
-										TestName:       result.FunctionTestSuite.Name,
-										TestCaseNum:    result.FunctionTestSuite.Tests,
-										SuccessCaseNum: result.FunctionTestSuite.Successes,
-									}
-									if testModule.TestName == "" {
-										keys := strings.Split(runningJob.Key, ".")
-										testModule.TestName = keys[len(keys)-1]
-									}
-									if result.FunctionTestSuite.Time == 0 {
-										result.FunctionTestSuite.Time = math.Round(duration*1000) / 1000
-									}
-									testModule.TestTime = result.FunctionTestSuite.Time
-									testModules = append(testModules, testModule)
-								}
-							}
-						}
+					for _, testResult := range testResultList {
+						testModules = append(testModules, &commonmodels.WorkflowTestModule{
+							RunningJobName: job.Name,
+							Type:           "function",
+							TestName:       testResult.ZadigTestName,
+							TestCaseNum:    testResult.TestCaseNum,
+							SuccessCaseNum: testResult.SuccessCaseNum,
+							TestTime:       testResult.TestTime,
+						})
 					}
 					jobPreview.TestModules = testModules
 				case config.JobZadigDistributeImage:
