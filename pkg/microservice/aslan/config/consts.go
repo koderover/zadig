@@ -178,6 +178,7 @@ const (
 	StepTools             StepType = "tools"
 	StepShell             StepType = "shell"
 	StepBatchFile         StepType = "batch_file"
+	StepPowerShell        StepType = "powershell"
 	StepGit               StepType = "git"
 	StepDockerBuild       StepType = "docker_build"
 	StepDeploy            StepType = "deploy"
