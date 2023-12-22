@@ -1052,6 +1052,7 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 		preview.Stages = stagePreviews
 		taskPreviews = append(taskPreviews, preview)
 	}
+	fmt.Println("=================================")
 	cleanWorkflowV4TasksPreviews(taskPreviews)
 	return taskPreviews, total, nil
 }
