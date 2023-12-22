@@ -157,28 +157,28 @@ func UpdateRole(c *gin.Context) {
 		}
 	}
 
-	licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
-	if err != nil {
-		ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
-		return
-	}
-	if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
-		licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
-		licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
-		actionSet := sets.NewString(args.Actions...)
-		if actionSet.Has(permission.VerbCreateReleasePlan) || actionSet.Has(permission.VerbDeleteReleasePlan) ||
-			actionSet.Has(permission.VerbEditReleasePlan) || actionSet.Has(permission.VerbGetReleasePlan) ||
-			actionSet.Has(permission.VerbEditDataCenterInsightConfig) ||
-			actionSet.Has(permission.VerbGetProductionService) || actionSet.Has(permission.VerbCreateProductionService) ||
-			actionSet.Has(permission.VerbEditProductionService) || actionSet.Has(permission.VerbDeleteProductionService) ||
-			actionSet.Has(permission.VerbGetProductionEnv) || actionSet.Has(permission.VerbCreateProductionEnv) ||
-			actionSet.Has(permission.VerbConfigProductionEnv) || actionSet.Has(permission.VerbEditProductionEnv) ||
-			actionSet.Has(permission.VerbDeleteProductionEnv) || actionSet.Has(permission.VerbDebugProductionEnvPod) ||
-			actionSet.Has(permission.VerbGetDelivery) || actionSet.Has(permission.VerbCreateDelivery) || actionSet.Has(permission.VerbDeleteDelivery) {
-			ctx.Err = e.ErrLicenseInvalid.AddDesc("")
-			return
-		}
-	}
+	//licenseStatus, err := plutusvendor.New().CheckZadigXLicenseStatus()
+	//if err != nil {
+	//	ctx.Err = fmt.Errorf("failed to validate zadig license status, error: %s", err)
+	//	return
+	//}
+	//if !((licenseStatus.Type == plutusvendor.ZadigSystemTypeProfessional ||
+	//	licenseStatus.Type == plutusvendor.ZadigSystemTypeEnterprise) &&
+	//	licenseStatus.Status == plutusvendor.ZadigXLicenseStatusNormal) {
+	//	actionSet := sets.NewString(args.Actions...)
+	//	if actionSet.Has(permission.VerbCreateReleasePlan) || actionSet.Has(permission.VerbDeleteReleasePlan) ||
+	//		actionSet.Has(permission.VerbEditReleasePlan) || actionSet.Has(permission.VerbGetReleasePlan) ||
+	//		actionSet.Has(permission.VerbEditDataCenterInsightConfig) ||
+	//		actionSet.Has(permission.VerbGetProductionService) || actionSet.Has(permission.VerbCreateProductionService) ||
+	//		actionSet.Has(permission.VerbEditProductionService) || actionSet.Has(permission.VerbDeleteProductionService) ||
+	//		actionSet.Has(permission.VerbGetProductionEnv) || actionSet.Has(permission.VerbCreateProductionEnv) ||
+	//		actionSet.Has(permission.VerbConfigProductionEnv) || actionSet.Has(permission.VerbEditProductionEnv) ||
+	//		actionSet.Has(permission.VerbDeleteProductionEnv) || actionSet.Has(permission.VerbDebugProductionEnvPod) ||
+	//		actionSet.Has(permission.VerbGetDelivery) || actionSet.Has(permission.VerbCreateDelivery) || actionSet.Has(permission.VerbDeleteDelivery) {
+	//		ctx.Err = e.ErrLicenseInvalid.AddDesc("")
+	//		return
+	//	}
+	//}
 
 	ctx.Err = permission.UpdateRole(projectName, args, ctx.Logger)
 }
