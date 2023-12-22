@@ -980,39 +980,21 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 
 					// get test report
 					testModules := make([]*commonmodels.WorkflowTestModule, 0)
-					for _, runningStage := range task.Stages {
-						if runningStage.Name != stage.Name {
-							continue
-						}
-						for _, runningJob := range runningStage.Jobs {
-							if runningJob.JobType != string(config.JobZadigTesting) {
-								continue
-							}
-							jobInfo := new(commonmodels.TaskJobInfo)
-							if err := commonmodels.IToi(runningJob.JobInfo, jobInfo); err != nil {
-								return nil, 0, err
-							}
+					testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(filter.WorkflowName, job.Name, task.TaskID)
+					if err != nil {
+						log.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
+						return nil, 0, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
+					}
 
-							if job.Name == jobInfo.JobName {
-								fmt.Println(">>>>>>> generating test result for job: ", runningJob.Name, "<<<<<<<<<<<<<<<")
-								testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(filter.WorkflowName, job.Name, task.TaskID)
-								if err != nil {
-									log.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
-									return nil, 0, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
-								}
-
-								for _, testResult := range testResultList {
-									testModules = append(testModules, &commonmodels.WorkflowTestModule{
-										RunningJobName: runningJob.Name,
-										Type:           "function",
-										TestName:       testResult.ZadigTestName,
-										TestCaseNum:    testResult.TestCaseNum,
-										SuccessCaseNum: testResult.SuccessCaseNum,
-										TestTime:       testResult.TestTime,
-									})
-								}
-							}
-						}
+					for _, testResult := range testResultList {
+						testModules = append(testModules, &commonmodels.WorkflowTestModule{
+							RunningJobName: job.Name,
+							Type:           "function",
+							TestName:       testResult.ZadigTestName,
+							TestCaseNum:    testResult.TestCaseNum,
+							SuccessCaseNum: testResult.SuccessCaseNum,
+							TestTime:       testResult.TestTime,
+						})
 					}
 					jobPreview.TestModules = testModules
 				case config.JobZadigDistributeImage:
@@ -1051,7 +1033,6 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 		}
 		preview.Stages = stagePreviews
 		taskPreviews = append(taskPreviews, preview)
-		fmt.Println("=================================")
 	}
 	cleanWorkflowV4TasksPreviews(taskPreviews)
 	return taskPreviews, total, nil
