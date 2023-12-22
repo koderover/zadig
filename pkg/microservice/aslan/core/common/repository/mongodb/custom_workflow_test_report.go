@@ -51,6 +51,7 @@ func (c *CustomWorkflowTestReportColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "workflow_name", Value: 1},
 				bson.E{Key: "job_name", Value: 1},
 				bson.E{Key: "task_id", Value: 1},
+				bson.E{Key: "zadig_test_name", Value: 1},
 				bson.E{Key: "service_name", Value: 1},
 				bson.E{Key: "service_module", Value: 1},
 			},

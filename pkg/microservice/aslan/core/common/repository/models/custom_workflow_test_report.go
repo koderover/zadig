@@ -34,5 +34,5 @@ type CustomWorkflowTestReport struct {
 }
 
 func (CustomWorkflowTestReport) TableName() string {
-	return "test_task_stat"
+	return "customer_workflow_test_report"
 }
