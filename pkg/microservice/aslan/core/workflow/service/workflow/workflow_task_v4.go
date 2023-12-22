@@ -988,13 +988,13 @@ func ListWorkflowTaskV4ByFilter(filter *TaskHistoryFilter, filterList []string, 
 							if runningJob.JobType != string(config.JobZadigTesting) {
 								continue
 							}
-							fmt.Println(">>>>>>> generating test result for job: ", runningJob.Name, "<<<<<<<<<<<<<<<")
 							jobInfo := new(commonmodels.TaskJobInfo)
 							if err := commonmodels.IToi(runningJob.JobInfo, jobInfo); err != nil {
 								return nil, 0, err
 							}
 
 							if job.Name == jobInfo.JobName {
+								fmt.Println(">>>>>>> generating test result for job: ", runningJob.Name, "<<<<<<<<<<<<<<<")
 								testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(filter.WorkflowName, job.Name, task.TaskID)
 								if err != nil {
 									log.Errorf("failed to list junit test report for workflow: %s, error: %s", filter.WorkflowName, err)
