@@ -55,7 +55,7 @@ func (c *CustomWorkflowTestReportColl) EnsureIndex(ctx context.Context) error {
 				bson.E{Key: "service_name", Value: 1},
 				bson.E{Key: "service_module", Value: 1},
 			},
-			Options: options.Index().SetUnique(false),
+			Options: options.Index().SetUnique(false).SetName("report_index"),
 		},
 	}
 
