@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: c
+  labels:
+    app: c
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8082
+  selector:
+    app: c
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: c
+  labels:
+    app: c
+spec:
+  selector:
+    matchLabels:
+      app: c
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: c
+    spec:
+      containers:
+        - name: myapp-3
+          image: koderover.tencentcloudcr.com/koderover-demo/myapp-3:v0.1.1
+          imagePullPolicy: Always
+          command: ["/myapp-3"]
+          ports:
+            - containerPort: 8082
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
