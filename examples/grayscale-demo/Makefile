@@ -12,7 +12,7 @@ microservice.push: $(MICROSERVICE_TARGETS:=.push)
 microservice.clean: $(MICROSERVICE_TARGETS:=.clean)
 
 %.build:
-	env GOOS=linux GOARCH=amd64 go build -o cmd/$*/$* ./cmd/$*/main.go
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o cmd/$*/$* ./cmd/$*/main.go
 
 %.image: MAKE_IMAGE_TAG ?= ${IMAGE_REPOSITORY}/$*:${VERSION}
 %.image: %.build
