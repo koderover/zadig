@@ -154,7 +154,10 @@ func UpgradeAgent(idString, user string, logger *zap.SugaredLogger) (*UpgradeAge
 func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLogger) (*UpgradeAgentCmd, error) {
 	cmd := new(UpgradeAgentCmd)
 
-	baseURL := "https://resources.koderover.com/dist"
+	baseURL, err := getRepoURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent repo url, err: %w", err)
+	}
 	version, err := getZadigAgentVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get zadig-agent version, error: %s", err)
@@ -583,10 +586,13 @@ func GenerateAgentToken() string {
 }
 
 func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, error) {
-	baseURL := "https://resources.koderover.com/dist"
 	var token string
 	if vm.Agent != nil {
 		token = vm.Agent.Token
+	}
+	baseURL, err := getRepoURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent repo url, err: %w", err)
 	}
 	version, err := getZadigAgentVersion()
 	if err != nil {
@@ -681,4 +687,20 @@ func getZadigAgentVersion() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("zadig-agent version not found")
+}
+
+func getRepoURL() (string, error) {
+	ns := commonconfig.Namespace()
+	kubeClient := krkubeclient.Client()
+	configMap, found, err := getter.GetConfigMap(ns, "aslan-config", kubeClient)
+	if err != nil || !found {
+		return "", fmt.Errorf("failed to get aslan configmap, error: %s", err)
+	}
+	if found {
+		version := configMap.Data["ZADIG_AGENT_REPO_URL"]
+		if version != "" {
+			return version, nil
+		}
+	}
+	return "", fmt.Errorf("zadig-agent repo URL not found")
 }
