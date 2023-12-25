@@ -129,7 +129,6 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 		return fmt.Errorf("failed to ensure pods with istio-proxy in namespace `%s`: %s", ns, err)
 	}
 
-	// @note share env
 	// 3. Ensure `VirtualService` (subsets are not required) in current namespace.
 	err = ensureVirtualServices(ctx, prod, kclient, istioClient)
 	if err != nil {
