@@ -350,7 +350,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			scriptStep.Spec = &step.StepBatchFileSpec{
 				Scripts: scripts,
 			}
-		} else if buildInfo.ScriptType == types.ScriptTypeBatchFile {
+		} else if buildInfo.ScriptType == types.ScriptTypePowerShell {
 			scriptStep.Name = build.ServiceName + "-powershell"
 			scriptStep.StepType = config.StepPowerShell
 			scriptStep.Spec = &step.StepPowerShellSpec{

@@ -100,8 +100,14 @@ func InitConfig() bool {
 		if err != nil {
 			log.Panicf("failed to unmarshal agent config file: %v", err)
 		}
+
 		if config.Token != "" && config.ServerURL != "" {
 			agentConfig = config
+			agentConfig.AgentVersion = BuildAgentVersion
+			agentConfig.BuildCommit = BuildCommit
+			agentConfig.BuildGoVersion = BuildGoVersion
+			agentConfig.BuildTime = BuildTime
+
 			return true
 		}
 		err = os.Remove(path)

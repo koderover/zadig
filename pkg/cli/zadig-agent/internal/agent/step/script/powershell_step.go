@@ -49,8 +49,8 @@ type StepPowerShellSpec struct {
 	SkipPrepare bool     `json:"skip_prepare"                            yaml:"skip_prepare"`
 }
 
-func NewPowerShellStep(jobOutput []string, spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*BatchFileStep, error) {
-	powershellStep := &BatchFileStep{dirs: dirs, envs: envs, secretEnvs: secretEnvs, JobOutput: jobOutput}
+func NewPowerShellStep(jobOutput []string, spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*PowerShellStep, error) {
+	powershellStep := &PowerShellStep{dirs: dirs, envs: envs, secretEnvs: secretEnvs, JobOutput: jobOutput}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return powershellStep, fmt.Errorf("marshal spec %+v failed", spec)
@@ -74,7 +74,7 @@ func (s *PowerShellStep) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("generate script failed: %v", err)
 	}
-	cmd := exec.Command(userScriptFile)
+	cmd := exec.Command("powershell", "-F", userScriptFile)
 	cmd.Dir = s.dirs.Workspace
 	cmd.Env = s.envs
 
