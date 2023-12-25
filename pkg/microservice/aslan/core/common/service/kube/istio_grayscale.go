@@ -291,6 +291,7 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 	}
 
 	weightSum := 0
+	configuredEnvSet := sets.NewString()
 	routes := []*networkingv1alpha3.HTTPRouteDestination{}
 	for _, weightConfig := range weightConfigs {
 		if envMap[weightConfig.Env] == nil {
@@ -324,22 +325,23 @@ func generateGrayscaleWeightVirtualService(ctx context.Context, envMap map[strin
 			},
 		}
 		routes = append(routes, route)
+
+		configuredEnvSet.Insert(weightConfig.Env)
 	}
-	if weightSum != 100 {
-		return nil, fmt.Errorf("the sum of weight is not 100 for the service %s, the full-path grayscale can't work correctly", svcName)
-
-		// @note code below is used when base env + grayscale envs > 2
-		// log.Warnf("The sum of weight is not 100 for the service %s, the full-path grayscale may not work correctly", svcName)
-		// if baseEnv == "" {
-		// 	return nil, fmt.Errorf("base env is not found")
-		// }
-
-		// route := &networkingv1alpha3.HTTPRouteDestination{
-		// 	Destination: &networkingv1alpha3.Destination{
-		// 		Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, envMap[baseEnv].Namespace),
-		// 	},
-		// }
-		// routes = append([]*networkingv1alpha3.HTTPRouteDestination{}, route)
+	if configuredEnvSet.Len() >= 2 {
+		if weightSum != 100 {
+			return nil, fmt.Errorf("the sum of weight is not 100 for the service %s, the full-path grayscale can't work correctly", svcName)
+		}
+	} else {
+		if baseEnv == "" {
+			return nil, fmt.Errorf("base env is not found")
+		}
+		route := &networkingv1alpha3.HTTPRouteDestination{
+			Destination: &networkingv1alpha3.Destination{
+				Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, envMap[baseEnv].Namespace),
+			},
+		}
+		routes = append([]*networkingv1alpha3.HTTPRouteDestination{}, route)
 	}
 	httpRoutes = append(httpRoutes, &networkingv1alpha3.HTTPRoute{
 		Route: routes,

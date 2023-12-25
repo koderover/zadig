@@ -1685,11 +1685,23 @@ func SetupPortalService(ctx context.Context, productName, envName, serviceName s
 }
 
 func updateVirtualServiceForPortalService(ctx context.Context, svc *corev1.Service, istioClient *versionedclient.Clientset, ns string, servers []SetupPortalServiceRequest, gatewayName string) error {
+	isExisted := false
 	vsName := genVirtualServiceName(svc)
 	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get vritualservice %s in namespace %s, err: %w", vsName, ns, err)
+	if err == nil {
+		isExisted = true
 	}
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	vsObj.Name = vsName
+	vsObj.Namespace = ns
+
+	if vsObj.Labels == nil {
+		vsObj.Labels = map[string]string{}
+	}
+	vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
 
 	if len(servers) == 0 {
 		// delete operation
@@ -1702,9 +1714,23 @@ func updateVirtualServiceForPortalService(ctx context.Context, svc *corev1.Servi
 			vsObj.Spec.Hosts = append(vsObj.Spec.Hosts, server.Host)
 		}
 	}
-	_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Update(ctx, vsObj, metav1.UpdateOptions{})
+
+	if isExisted {
+		_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Update(ctx, vsObj, metav1.UpdateOptions{})
+	} else {
+		vsObj.Spec.Http = append(vsObj.Spec.Http, &networkingv1alpha3.HTTPRoute{
+			Route: []*networkingv1alpha3.HTTPRouteDestination{
+				{
+					Destination: &networkingv1alpha3.Destination{
+						Host: fmt.Sprintf("%s.%s.svc.cluster.local", svc.Name, ns),
+					},
+				},
+			},
+		})
+		_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Create(ctx, vsObj, metav1.CreateOptions{})
+	}
 	if err != nil {
-		return fmt.Errorf("failed to update virtualservice %s in namespace %s, err: %v", vsName, ns, err)
+		return fmt.Errorf("failed to create or update virtual service %s in ns %s: %s", vsName, ns, err)
 	}
 	return nil
 }
