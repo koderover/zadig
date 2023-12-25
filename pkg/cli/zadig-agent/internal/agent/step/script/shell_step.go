@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -145,10 +144,10 @@ func outputScript(outputsDir string, outputs []string) []string {
 	for _, output := range outputs {
 
 		if runtime.GOOS == "windows" {
-			scriptPath := filepath.FromSlash(filepath.ToSlash(path.Join(outputsDir, output)))
+			scriptPath := filepath.FromSlash(filepath.ToSlash(filepath.Join(outputsDir, output)))
 			resp = append(resp, fmt.Sprintf("echo $%s > %s", output, scriptPath))
 		} else {
-			resp = append(resp, fmt.Sprintf("echo $%s > %s", output, path.Join(outputsDir, output)))
+			resp = append(resp, fmt.Sprintf("echo $%s > %s", output, filepath.Join(outputsDir, output)))
 		}
 	}
 	return resp

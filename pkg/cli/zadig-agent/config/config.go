@@ -434,6 +434,10 @@ func GetAgentConfig() (*AgentConfig, error) {
 			}
 
 			agentConfig = config
+			agentConfig.AgentVersion = BuildAgentVersion
+			agentConfig.BuildCommit = BuildCommit
+			agentConfig.BuildGoVersion = BuildGoVersion
+			agentConfig.BuildTime = BuildTime
 			return config, nil
 		} else {
 			return nil, fmt.Errorf("agent config file not found")

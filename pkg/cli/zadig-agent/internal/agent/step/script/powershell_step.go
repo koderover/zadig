@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -141,7 +141,7 @@ func generatePowerShellScript(spec *StepPowerShellSpec, dirs *types.AgentWorkDir
 func outputPowerShellScript(outputsDir string, outputs []string) []string {
 	resp := []string{}
 	for _, output := range outputs {
-		resp = append(resp, fmt.Sprintf("echo $%s > %s", output, path.Join(outputsDir, output)))
+		resp = append(resp, fmt.Sprintf("echo $env:%s > %s", output, filepath.Join(outputsDir, output)))
 	}
 	return resp
 }
