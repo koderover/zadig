@@ -58,6 +58,8 @@ func InitAgent() {
 
 	// TODO: 初始化服务，将服务注册到系统中, 能否用它来实现github.com/kardianos/service
 	log.Infof("initializing agent config successfully!!!")
+
+	log.Infof("agent version: %v, build commit: %v, build go version: %v, build time: %v", agentconfig.GetAgentVersion(), agentconfig.GetBuildCommit(), agentconfig.GetBuildGoVersion(), agentconfig.GetBuildTime())
 }
 
 func verifyAgent() error {

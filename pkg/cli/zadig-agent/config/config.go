@@ -386,6 +386,22 @@ func GetEnableDebug() bool {
 	return agentConfig.EnableDebug
 }
 
+func GetAgentVersion() string {
+	return agentConfig.AgentVersion
+}
+
+func GetBuildCommit() string {
+	return agentConfig.BuildCommit
+}
+
+func GetBuildGoVersion() string {
+	return agentConfig.BuildGoVersion
+}
+
+func GetBuildTime() string {
+	return agentConfig.BuildTime
+}
+
 func GetAgentConfig() (*AgentConfig, error) {
 	if agentConfig == nil {
 		path, err := GetAgentConfigFilePath()
