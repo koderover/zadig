@@ -29,6 +29,8 @@ import (
 	"text/template"
 	"time"
 
+	fileutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
+
 	"github.com/27149chen/afero"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -254,7 +256,6 @@ func GetProductionHelmServiceFilePath(serviceName, productName string, revision 
 	return GetProductionHelmFilePath(productName, serviceName, revision, dir)
 }
 
-// TODO add production parameter
 func GetFileContent(serviceName, productName string, param *GetFileContentParam, log *zap.SugaredLogger) (string, error) {
 	filePath, fileName, revision, forDelivery := param.FilePath, param.FileName, param.Revision, param.DeliveryVersion
 	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
@@ -283,12 +284,24 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 	}
 
 	if forDelivery {
+		originBase := base
 		base = config.LocalDeliveryChartPathWithRevision(productName, serviceName, revision)
+		os.RemoveAll(base)
+		if exists, err := fileutil.FileExists(base); !exists || err != nil {
+			fullPath := filepath.Join(originBase, svc.ServiceName)
+			log.Infof("----- copy source svc chart from %s to %s", fullPath, filepath.Join(base, svc.ServiceName))
+			err := copy.Copy(fullPath, filepath.Join(base, svc.ServiceName))
+			if err != nil {
+				return "", err
+			}
+		}
+
 	}
 
 	file := filepath.Join(base, serviceName, filePath, fileName)
 	fileContent, err := os.ReadFile(file)
 	if err != nil {
+
 		log.Errorf("Failed to read file %s, err: %s", file, err)
 		return "", e.ErrFileContent.AddDesc(err.Error())
 	}
