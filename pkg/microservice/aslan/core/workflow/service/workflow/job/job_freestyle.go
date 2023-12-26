@@ -76,6 +76,12 @@ func (j *FreeStyleJob) Instantiate() error {
 				return fmt.Errorf("parse shell step spec error: %v", err)
 			}
 			step.Spec = stepSpec
+		case config.StepPowerShell:
+			stepSpec := &steptypes.StepPowerShellSpec{}
+			if err := commonmodels.IToiYaml(step.Spec, stepSpec); err != nil {
+				return fmt.Errorf("parse shell step spec error: %v", err)
+			}
+			step.Spec = stepSpec
 		case config.StepArchive:
 			stepSpec := &steptypes.StepArchiveSpec{}
 			if err := commonmodels.IToiYaml(step.Spec, stepSpec); err != nil {
