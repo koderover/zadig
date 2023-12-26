@@ -17,7 +17,6 @@ limitations under the License.
 package job
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -385,16 +384,7 @@ func (e *JobExecutor) getJobOutputVars() ([]*job.JobOutput, error) {
 			return outputs, err
 		}
 
-		// compatible with powershell, no idea why file writen by powershell is start with 0xFFFE and has 0x00 between every character
-		fileContents = bytes.TrimPrefix(fileContents, []byte{0xFF, 0xFE})
-		value := strings.Map(func(r rune) rune {
-			if r == 0x00 {
-				return -1
-			}
-			return r
-		}, string(fileContents))
-		value = strings.TrimSpace(value)
-
+		value := strings.TrimSpace(string(fileContents))
 		outputs = append(outputs, &job.JobOutput{Name: outputName, Value: value})
 	}
 	return outputs, nil

@@ -139,9 +139,9 @@ func generatePowerShellScript(spec *StepPowerShellSpec, dirs *types.AgentWorkDir
 
 // generate script to save outputs variable to file
 func outputPowerShellScript(outputsDir string, outputs []string) []string {
-	resp := []string{}
+	resp := []string{"$Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding($False)"}
 	for _, output := range outputs {
-		resp = append(resp, fmt.Sprintf("echo $env:%s > %s", output, filepath.Join(outputsDir, output)))
+		resp = append(resp, fmt.Sprintf("if ($env:%s) {[System.IO.File]::WriteAllLines(\"%s\", $env:%s, $Utf8NoBomEncoding)}", output, filepath.Join(outputsDir, output), output))
 	}
 	return resp
 }
