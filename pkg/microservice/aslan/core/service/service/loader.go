@@ -181,7 +181,7 @@ func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, bra
 		log.Warnf("path does not exist,err:%s", err)
 		err = command.RunGitCmds(detail, repoOwner, repoOwner, repoName, branchName, remoteName)
 		if err != nil {
-			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
+			return nil, e.ErrPreloadServiceTemplate.AddDesc(fmt.Sprintf("failed to clone code, err: %s", err.Error()))
 		}
 	}
 
@@ -199,6 +199,7 @@ func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, bra
 		fileInfos, err := ioutil.ReadDir(filePath)
 		if err != nil {
 			log.Errorf("Failed to read directory info of path: %s, the error is: %s", filePath, err)
+			os.RemoveAll(base)
 			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
 		if isValidServiceDir(fileInfos) {
