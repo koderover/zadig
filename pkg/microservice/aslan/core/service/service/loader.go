@@ -176,6 +176,9 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 func preloadGiteeService(detail *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName, loadPath string, isDir bool) ([]string, error) {
 	ret := make([]string, 0)
 
+	if remoteName == "" {
+		remoteName = "origin"
+	}
 	base := path.Join(config.S3StoragePath(), repoName)
 	if exist, err := util.PathExists(base); !exist {
 		log.Warnf("path does not exist,err:%s", err)
