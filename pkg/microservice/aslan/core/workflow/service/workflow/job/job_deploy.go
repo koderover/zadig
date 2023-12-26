@@ -233,15 +233,15 @@ func (j *DeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 			workloadTypeMap[service.ServiceName] = service.WorkloadType
 		}
-		servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-			ProductName: j.workflow.Project,
-			EnvName:     envName,
-		})
-		for _, service := range servicesInExternalEnv {
-			productServiceMap[service.ServiceName] = &commonmodels.ProductService{
-				ServiceName: service.ServiceName,
-			}
-		}
+		//servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+		//	ProductName: j.workflow.Project,
+		//	EnvName:     envName,
+		//})
+		//for _, service := range servicesInExternalEnv {
+		//	productServiceMap[service.ServiceName] = &commonmodels.ProductService{
+		//		ServiceName: service.ServiceName,
+		//	}
+		//}
 	}
 
 	// get deploy info from previous build job

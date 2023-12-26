@@ -28,7 +28,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -471,15 +470,15 @@ func saveServices(projectName, username string, services []*commonmodels.Service
 func saveProducts(products []*commonmodels.Product) error {
 	for _, product := range products {
 
-		err := commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
-			ProductName: product.ProductName,
-			EnvName:     product.EnvName,
-		})
-		if err != nil && err != mongo.ErrNoDocuments {
-			return err
-		}
+		//err := commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+		//	ProductName: product.ProductName,
+		//	EnvName:     product.EnvName,
+		//})
+		//if err != nil && err != mongo.ErrNoDocuments {
+		//	return err
+		//}
 
-		err = commonrepo.NewProductColl().Update(product)
+		err := commonrepo.NewProductColl().Update(product)
 		if err != nil {
 			return err
 		}
@@ -775,11 +774,11 @@ func DeleteProductTemplate(userName, productName, requestID string, isDelete boo
 
 	// delete servicesInExternalEnv data
 	// TODO this function should be removed after services_in_external_env is deprecated
-	go func() {
-		_ = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
-			ProductName: productName,
-		})
-	}()
+	//go func() {
+	//	_ = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+	//		ProductName: productName,
+	//	})
+	//}()
 
 	// delete privateKey data
 	go func() {

@@ -226,7 +226,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 	session := mongotool.Session()
 	defer session.EndSession(context.TODO())
 
-	serviceInExternalEnvCol := commonrepo.NewServiceInExternalEnvWithSess(session)
+	//serviceInExternalEnvCol := commonrepo.NewServiceInExternalEnvWithSess(session)
 	productCol := commonrepo.NewProductCollWithSession(session)
 	workloadStatCol := commonrepo.NewWorkLoadsStatCollWithSession(session)
 
@@ -251,13 +251,14 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K
 				productSvc.Containers = templateSvcs[tempWorkload.Name].Containers
 				productSvc.Resources, _ = kube.ManifestToResource(templateSvcs[tempWorkload.Name].Yaml)
 				productServices = append(productServices, productSvc)
-				return serviceInExternalEnvCol.Create(&commonmodels.ServicesInExternalEnv{
-					ProductName: args.ProductName,
-					ServiceName: tempWorkload.Name,
-					EnvName:     args.EnvName,
-					Namespace:   args.Namespace,
-					ClusterID:   args.ClusterID,
-				})
+				//return serviceInExternalEnvCol.Create(&commonmodels.ServicesInExternalEnv{
+				//	ProductName: args.ProductName,
+				//	ServiceName: tempWorkload.Name,
+				//	EnvName:     args.EnvName,
+				//	Namespace:   args.Namespace,
+				//	ClusterID:   args.ClusterID,
+				//})
+				return nil
 			}
 
 			var bs []byte

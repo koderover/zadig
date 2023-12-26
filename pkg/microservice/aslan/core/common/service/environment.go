@@ -438,30 +438,35 @@ func fillServiceInfo(svcList []*ServiceResp, productInfo *models.Product) {
 // ListWorkloadDetailsInEnv returns all workloads in the given env which meet the filter.
 // this function is used for two scenarios: 1. calculate product status 2. list workflow details
 func BuildWorkloadFilterFunc(productInfo *models.Product, projectInfo *templatemodels.Product, filter string, log *zap.SugaredLogger) ([]FilterFunc, error) {
-	productName, envName := productInfo.ProductName, productInfo.EnvName
+	//productName, envName := productInfo.ProductName, productInfo.EnvName
 	filterArray := []FilterFunc{
 		func(workloads []*Workload) []*Workload {
 			if !projectInfo.IsHostProduct() {
 				return workloads
 			}
 
-			productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
-			if err != nil {
-				log.Errorf("ListWorkloadDetails ListExternalServicesBy err:%s", err)
-				return workloads
-			}
+			//productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
+			//if err != nil {
+			//	log.Errorf("ListWorkloadDetails ListExternalServicesBy err:%s", err)
+			//	return workloads
+			//}
 			productServiceNames := sets.NewString()
-			for _, productService := range productServices {
-				productServiceNames.Insert(productService.ServiceName)
+			for _, svc := range productInfo.GetServiceMap() {
+				if len(svc.Resources) > 0 {
+					productServiceNames.Insert(svc.Resources[0].Name)
+				}
 			}
-			// add services in external env data
-			servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-				ProductName: productName,
-				EnvName:     envName,
-			})
-			for _, serviceInExternalEnv := range servicesInExternalEnv {
-				productServiceNames.Insert(serviceInExternalEnv.ServiceName)
-			}
+			//for _, productService := range productServices {
+			//	productServiceNames.Insert(productService.ServiceName)
+			//}
+			//// add services in external env data
+			//servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+			//	ProductName: productName,
+			//	EnvName:     envName,
+			//})
+			//for _, serviceInExternalEnv := range servicesInExternalEnv {
+			//	productServiceNames.Insert(serviceInExternalEnv.ServiceName)
+			//}
 
 			var res []*Workload
 			for _, workload := range workloads {
