@@ -156,13 +156,13 @@ type ReportJobArgs struct {
 
 type AgentAccessCmds struct {
 	LinuxPlatform *AgentAccessCmd `json:"linux_platform,omitempty"`
-	WinPlatform   *AgentAccessCmd `json:"windows_platform,omitempty"`
 	MacOSPlatform *AgentAccessCmd `json:"macos_platform,omitempty"`
+	WinPlatform   *AgentAccessCmd `json:"windows_platform,omitempty"`
 }
 
 type AgentAccessCmd struct {
-	AMD64 string `json:"amd64"`
-	ARM64 string `json:"arm64"`
+	AMD64 map[string]string `json:"amd64"`
+	ARM64 map[string]string `json:"arm64"`
 }
 
 type AgentDetails struct {
