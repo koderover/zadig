@@ -7,13 +7,13 @@ spec:
   selector:
     matchLabels:
       app: spring-cloud-c
-      Zadig-release-version: original
+      zadigx-release-version: original
   template:
     metadata:
       labels:
         msePilotCreateAppName: spring-cloud-c
         app: spring-cloud-c
-        Zadig-release-version: original
+        zadigx-release-version: original
     spec:
       containers:
       - env:
