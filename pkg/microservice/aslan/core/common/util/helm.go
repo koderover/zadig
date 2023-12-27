@@ -48,6 +48,7 @@ var (
 
 func DownloadServiceManifests(base, projectName, serviceName string, production bool) error {
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName, production)
+	log.Debugf("DownloadServiceManifests s3Base: %v, serviceName: %v", s3Base, serviceName)
 	return fsservice.DownloadAndExtractFilesFromS3(serviceName, base, s3Base, log.SugaredLogger())
 }
 
