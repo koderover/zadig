@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -83,10 +84,10 @@ type TaskInfo struct {
 }
 
 type workflowCreateArg struct {
-	name                 string
-	envName              string
-	buildStageEnabled    bool
-	ArtifactStageEnabled bool
+	name              string
+	envName           string
+	buildStageEnabled bool
+	dockerRegistryID  string
 }
 
 type workflowCreateArgs struct {
@@ -103,27 +104,27 @@ func FindWorkflowRaw(name string, logger *zap.SugaredLogger) (*commonmodels.Work
 	return workflow, err
 }
 
-func (args *workflowCreateArgs) addWorkflowArg(envName string, buildStageEnabled, artifactStageEnabled bool) {
+func (args *workflowCreateArgs) addWorkflowArg(envName, dockerRegistryID string, buildStageEnabled bool) {
 	wName := fmt.Sprintf("%s-workflow-%s", args.productName, envName)
-	if artifactStageEnabled {
-		wName = fmt.Sprintf("%s-%s-workflow", args.productName, "ops")
-	}
 	// The hosting env workflow name is not bound to the environment
-	if !artifactStageEnabled && envName == "" {
+	if envName == "" {
 		wName = fmt.Sprintf("%s-workflow", args.productName)
 	}
+	if !buildStageEnabled {
+		wName = fmt.Sprintf("%s-%s-workflow", args.productName, "ops")
+	}
 	args.argsMap[wName] = &workflowCreateArg{
-		name:                 wName,
-		envName:              envName,
-		buildStageEnabled:    buildStageEnabled,
-		ArtifactStageEnabled: artifactStageEnabled,
+		name:              wName,
+		envName:           envName,
+		buildStageEnabled: buildStageEnabled,
+		dockerRegistryID:  dockerRegistryID,
 	}
 }
 
 func (args *workflowCreateArgs) initDefaultWorkflows() {
-	args.addWorkflowArg("dev", true, false)
-	args.addWorkflowArg("qa", true, false)
-	args.addWorkflowArg("", false, true)
+	args.addWorkflowArg("dev", "", true)
+	args.addWorkflowArg("qa", "", true)
+	args.addWorkflowArg("", "", false)
 }
 
 func (args *workflowCreateArgs) clear() {
@@ -150,7 +151,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 	createArgs.initDefaultWorkflows()
 
 	// helm/k8syaml project may have customized products, use the real created products
-	if productTmpl.IsHelmProduct() || productTmpl.IsK8sYamlProduct() {
+	if productTmpl.IsHelmProduct() || productTmpl.IsK8sYamlProduct() || productTmpl.IsHostProduct() {
 		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 			Name:       productName,
 			Production: util.GetBoolPointer(false),
@@ -158,102 +159,117 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 		if err != nil {
 			log.Errorf("fialed to list products, projectName %s, err %s", productName, err)
 		}
+
 		createArgs.clear()
 		for _, product := range productList {
-			createArgs.addWorkflowArg(product.EnvName, true, false)
+			createArgs.addWorkflowArg(product.EnvName, product.RegistryID, true)
 		}
-		createArgs.addWorkflowArg("", false, true)
+		if !productTmpl.IsHostProduct() {
+			createArgs.addWorkflowArg("", "", false)
+		}
 	}
 
-	// Only one workflow is created in the hosting environment
-	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		createArgs.clear()
-		createArgs.addWorkflowArg("", true, false)
-	}
-
-	workflowSlice := sets.NewString()
+	workflowSet := sets.NewString()
 	for workflowName := range createArgs.argsMap {
-		_, err := FindWorkflow(workflowName, log)
+		_, err := FindWorkflowV4Raw(workflowName, log)
 		if err == nil {
-			workflowSlice.Insert(workflowName)
+			workflowSet.Insert(workflowName)
 		}
 	}
 
-	if len(workflowSlice) < len(createArgs.argsMap) {
-		preSetResps, err := PreSetWorkflow(productName, log)
+	if len(workflowSet) < len(createArgs.argsMap) {
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllTestServiceInfos(), "")
 		if err != nil {
+			log.Errorf("ServiceTmpl.ListMaxRevisionsByProject error: %v", err)
 			errList = multierror.Append(errList, err)
 		}
-		buildModules := make([]*commonmodels.BuildModule, 0)
-		artifactModules := make([]*commonmodels.ArtifactModule, 0)
-		for _, preSetResp := range preSetResps {
-			buildModule := &commonmodels.BuildModule{
-				Target:         preSetResp.Target,
-				BuildModuleVer: setting.Version,
+		buildList, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{
+			ProductName: productName,
+		})
+		if err != nil {
+			log.Errorf("[Build.List] error: %v", err)
+			errList = multierror.Append(errList, err)
+		}
+		buildMap := map[string]*commonmodels.Build{}
+		for _, build := range buildList {
+			for _, target := range build.Targets {
+				buildMap[target.ServiceName] = build
 			}
-			buildModules = append(buildModules, buildModule)
-
-			artifactModule := &commonmodels.ArtifactModule{
-				Target: preSetResp.Target,
-			}
-			artifactModules = append(artifactModules, artifactModule)
 		}
 
 		for workflowName, workflowArg := range createArgs.argsMap {
-			if workflowSlice.Has(workflowName) {
+			if workflowSet.Has(workflowName) {
 				continue
 			}
-			if dupWorkflow, err := commonrepo.NewWorkflowColl().Find(workflowName); err == nil {
-				errList = multierror.Append(errList, fmt.Errorf("workflow [%s] 在项目 [%s] 中已经存在", workflowName, dupWorkflow.ProductTmplName))
+			if dupWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflowName); err == nil {
+				errList = multierror.Append(errList, fmt.Errorf("workflow [%s] 在项目 [%s] 中已经存在", workflowName, dupWorkflow.Project))
 			}
-			workflow := new(commonmodels.Workflow)
-			workflow.Enabled = true
-			workflow.ProductTmplName = productName
+			workflow := new(commonmodels.WorkflowV4)
+			workflow.Project = productName
 			workflow.Name = workflowName
 			workflow.DisplayName = workflowName
-			workflow.CreateBy = setting.SystemUser
-			workflow.UpdateBy = setting.SystemUser
-			workflow.EnvName = workflowArg.envName
-			workflow.BuildStage = &commonmodels.BuildStage{
-				Enabled: workflowArg.buildStageEnabled,
-				Modules: buildModules,
-			}
+			workflow.CreatedBy = setting.SystemUser
+			workflow.UpdatedBy = setting.SystemUser
+			workflow.CreateTime = time.Now().Unix()
+			workflow.UpdateTime = time.Now().Unix()
+			workflow.ConcurrencyLimit = 1
 
-			//如果是开启artifactStage，则关闭buildStage
-			if workflowArg.ArtifactStageEnabled {
-				workflow.ArtifactStage = &commonmodels.ArtifactStage{
-					Enabled: true,
-					Modules: artifactModules,
+			buildJobName := ""
+			if workflowArg.buildStageEnabled {
+				serviceAndBuilds := []*commonmodels.ServiceAndBuild{}
+				for _, serviceTmpl := range services {
+					if build, ok := buildMap[serviceTmpl.ServiceName]; ok {
+						for _, target := range build.Targets {
+							serviceAndBuild := &commonmodels.ServiceAndBuild{
+								ServiceName:   target.ServiceName,
+								ServiceModule: target.ServiceModule,
+								BuildName:     build.Name,
+							}
+							serviceAndBuilds = append(serviceAndBuilds, serviceAndBuild)
+						}
+					}
 				}
+				buildJobName = "构建"
+				buildJob := &commonmodels.Job{
+					Name:    buildJobName,
+					JobType: config.JobZadigBuild,
+					Spec: &commonmodels.ZadigBuildJobSpec{
+						DockerRegistryID: workflowArg.dockerRegistryID,
+						ServiceAndBuilds: serviceAndBuilds,
+					},
+				}
+				stage := &commonmodels.WorkflowStage{
+					Name: "构建",
+					Jobs: []*commonmodels.Job{buildJob},
+				}
+				workflow.Stages = append(workflow.Stages, stage)
 			}
 
-			workflow.Schedules = &commonmodels.ScheduleCtrl{
-				Enabled: false,
-				Items:   []*commonmodels.Schedule{},
+			spec := &commonmodels.ZadigDeployJobSpec{
+				Env: workflowArg.envName,
+				DeployContents: []config.DeployContent{
+					config.DeployImage,
+				},
+				Source:     config.SourceRuntime,
+				Production: true,
 			}
-			workflow.TestStage = &commonmodels.TestStage{
-				Enabled:   false,
-				TestNames: []string{},
+			if workflowArg.buildStageEnabled {
+				spec.Source = config.SourceFromJob
+				spec.JobName = buildJobName
+				spec.Production = false
 			}
-			workflow.NotifyCtl = &commonmodels.NotifyCtl{
-				Enabled:       false,
-				NotifyTypes:   []string{},
-				WeChatWebHook: "",
+			deployJob := &commonmodels.Job{
+				Name:    "部署",
+				JobType: config.JobZadigDeploy,
+				Spec:    spec,
 			}
-			workflow.HookCtl = &commonmodels.WorkflowHookCtrl{
-				Enabled: false,
-				Items:   []*commonmodels.WorkflowHook{},
+			stage := &commonmodels.WorkflowStage{
+				Name: "部署",
+				Jobs: []*commonmodels.Job{deployJob},
 			}
-			workflow.DistributeStage = &commonmodels.DistributeStage{
-				Enabled:     false,
-				S3StorageID: "",
-				ImageRepo:   "",
-				JumpBoxHost: "",
-				Releases:    []commonmodels.RepoImage{},
-				Distributes: []*commonmodels.ProductDistribute{},
-			}
+			workflow.Stages = append(workflow.Stages, stage)
 
-			if err := commonrepo.NewWorkflowColl().Create(workflow); err != nil {
+			if _, err := commonrepo.NewWorkflowV4Coll().Create(workflow); err != nil {
 				errList = multierror.Append(errList, err)
 			}
 		}
@@ -261,7 +277,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 			return &EnvStatus{Status: setting.ProductStatusFailed, ErrMessage: err.Error()}
 		}
 		return &EnvStatus{Status: setting.ProductStatusCreating}
-	} else if len(workflowSlice) == len(createArgs.argsMap) {
+	} else if len(workflowSet) == len(createArgs.argsMap) {
 		return &EnvStatus{Status: setting.ProductStatusSuccess}
 	}
 	return nil
