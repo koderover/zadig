@@ -7,13 +7,13 @@ spec:
   selector:
     matchLabels:
       app: spring-cloud-a
-      Zadig-release-version: original
+      zadigx-release-version: original
   template:
     metadata:
       labels:
         msePilotCreateAppName: spring-cloud-a
         app: spring-cloud-a
-        Zadig-release-version: original
+        zadigx-release-version: original
     spec:
       containers:
       - env:
@@ -42,7 +42,7 @@ spec:
       targetPort: 20001
   selector:
     app: spring-cloud-a
-    Zadig-release-version: original
+    zadigx-release-version: original
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
