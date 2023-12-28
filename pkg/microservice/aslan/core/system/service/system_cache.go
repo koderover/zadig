@@ -19,10 +19,13 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	config2 "github.com/koderover/zadig/v2/pkg/config"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -213,6 +216,11 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 		}
 	}
 
+	return nil
+}
+
+func CleanSharedStorage() error {
+	os.RemoveAll(config2.DataPath())
 	return nil
 }
 
