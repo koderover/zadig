@@ -29,8 +29,6 @@ import (
 	"text/template"
 	"time"
 
-	fileutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
-
 	"github.com/27149chen/afero"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
@@ -39,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
+	fileutil "github.com/koderover/zadig/v2/pkg/cli/zadig-agent/util/file"
 	configbase "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -289,7 +288,6 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 		os.RemoveAll(base)
 		if exists, err := fileutil.FileExists(base); !exists || err != nil {
 			fullPath := filepath.Join(originBase, svc.ServiceName)
-			log.Infof("----- copy source svc chart from %s to %s", fullPath, filepath.Join(base, svc.ServiceName))
 			err := copy.Copy(fullPath, filepath.Join(base, svc.ServiceName))
 			if err != nil {
 				return "", err
