@@ -20,6 +20,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/koderover/zadig/v2/pkg/config"
 )
 
 func GenerateTmpFile() (string, error) {
@@ -36,12 +38,11 @@ func GenerateTmpFile() (string, error) {
 }
 
 func CreateFileInCurrentDir(filename string) (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	filePath := filepath.Join(dir, filename)
+	//dir, err := os.Getwd()
+	//if err != nil {
+	//	return "", err
+	//}
+	filePath := filepath.Join(config.VMTaskLogPath(), filename)
 	f, err := os.Create(filePath)
 	if err != nil {
 		return "", err

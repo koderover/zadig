@@ -173,6 +173,10 @@ func DataPath() string {
 	return "/app/data"
 }
 
+func VMTaskLogPath() string {
+	return filepath.Join(DataPath(), "vm-task", "log")
+}
+
 func ObjectStorageServicePath(project, service string) string {
 	return filepath.Join(project, "service", service)
 }
