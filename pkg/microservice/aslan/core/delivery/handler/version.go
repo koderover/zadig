@@ -24,7 +24,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	deliveryservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/delivery/service"
@@ -168,56 +167,6 @@ type DeliveryFileDetail struct {
 type DeliveryFileInfo struct {
 	FileName           string               `json:"fileName"`
 	DeliveryFileDetail []DeliveryFileDetail `json:"versionInfo"`
-}
-
-func ListPackagesVersion(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	version := &commonrepo.DeliveryVersionArgs{
-		ProductName: c.Query("projectName"),
-	}
-	deliveryVersions, err := deliveryservice.FindDeliveryVersion(version, ctx.Logger)
-	if err != nil {
-		ctx.Err = e.NewHTTPError(500, err.Error())
-	}
-
-	fileMap := map[string][]DeliveryFileDetail{}
-
-	for _, deliveryVersion := range deliveryVersions {
-		//delivery := deliveryVersion
-		args := &commonrepo.DeliveryDistributeArgs{
-			ReleaseID:      deliveryVersion.ID.Hex(),
-			DistributeType: config.File,
-		}
-		distributeVersion, err := deliveryservice.FindDeliveryDistribute(args, ctx.Logger)
-		if err != nil {
-			ctx.Err = e.NewHTTPError(500, err.Error())
-		}
-
-		for _, distribute := range distributeVersion {
-			packageFile := distribute.PackageFile
-
-			fileMap[getFileName(packageFile)] = append(
-				fileMap[getFileName(packageFile)], DeliveryFileDetail{
-					FileVersion:     getFileVersion(packageFile),
-					DeliveryVersion: deliveryVersion.Version,
-					DeliveryID:      deliveryVersion.ID.Hex(),
-				})
-		}
-	}
-
-	fileInfoList := make([]*DeliveryFileInfo, 0)
-	for fileName, versionList := range fileMap {
-		info := DeliveryFileInfo{
-			FileName:           fileName,
-			DeliveryFileDetail: versionList,
-		}
-		fileInfoList = append(fileInfoList, &info)
-	}
-
-	ctx.Err = err
-	ctx.Resp = fileInfoList
 }
 
 func CreateHelmDeliveryVersion(c *gin.Context) {

@@ -113,7 +113,8 @@ func CleanSkippedList() []string {
 
 // FIXME FIXME FIXME FIXME delete constant
 func S3StoragePath() string {
-	return "/var/lib/workspace"
+	//return "/var/lib/workspace"
+	return "/app/data/workspace"
 }
 
 func Home() string {

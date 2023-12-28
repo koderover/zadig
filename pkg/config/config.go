@@ -172,9 +172,6 @@ func MinioServiceName() string {
 func DataPath() string {
 	return "/app/data"
 }
-func WorkflowDataPath() string {
-	return "/workflow/data"
-}
 
 func ObjectStorageServicePath(project, service string) string {
 	return filepath.Join(project, "service", service)
@@ -188,20 +185,12 @@ func ObjectStorageTemplatePath(name, kind string) string {
 	return filepath.Join("templates", kind, name)
 }
 
-func ObjectStorageDeliveryVersionPath(project string) string {
-	return filepath.Join("delivery-distributes", "files", project)
-}
-
 func ObjectStorageChartTemplatePath(name string) string {
 	return ObjectStorageTemplatePath(name, setting.ChartTemplatesPath)
 }
 
 func LocalTestServicePath(project, service string) string {
 	return filepath.Join(DataPath(), project, "test", service)
-}
-
-func LocalWorkflowServicePath(project, service string) string {
-	return filepath.Join(WorkflowDataPath(), project, service)
 }
 
 // LocalTestServicePathWithRevision returns a test service path with a given revision.
