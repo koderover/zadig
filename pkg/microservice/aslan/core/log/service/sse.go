@@ -437,6 +437,8 @@ func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *
 		return
 	}
 
+	log.Infof("------- job log file: %s", job.LogFile)
+
 	out, err := os.OpenFile(job.LogFile, os.O_APPEND|os.O_CREATE|os.O_RDONLY, 0644)
 	if err != nil {
 		log.Errorf("open vm job log file error: %v", err)
