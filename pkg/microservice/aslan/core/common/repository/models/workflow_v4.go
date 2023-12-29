@@ -285,6 +285,18 @@ type ZadigDeployJobSpec struct {
 	Services         []*DeployService   `bson:"services"             yaml:"services"             json:"services"`
 }
 
+type ZadigVMDeployJobSpec struct {
+	Env         string `bson:"env"                      yaml:"env"                         json:"env"`
+	ServiceName string `bson:"service_name"         yaml:"service_name"         json:"service_name"`
+	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
+	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
+	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
+	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
+	// save the origin quoted job name
+	OriginJobName string `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
+	Artifact      string `bson:"artifact"             yaml:"artifact"             json:"artifact"`
+}
+
 type ZadigHelmChartDeployJobSpec struct {
 	Env                string             `bson:"env"                      yaml:"env"                         json:"env"`
 	EnvSource          string             `bson:"env_source"               yaml:"env_source"                  json:"env_source"`

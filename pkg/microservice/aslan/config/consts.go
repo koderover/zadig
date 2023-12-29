@@ -207,6 +207,7 @@ const (
 	JobZadigScanning        JobType = "zadig-scanning"
 	JobCustomDeploy         JobType = "custom-deploy"
 	JobZadigDeploy          JobType = "zadig-deploy"
+	JobZadigVMDeploy        JobType = "zadig-vm-deploy"
 	JobZadigHelmDeploy      JobType = "zadig-helm-deploy"
 	JobZadigHelmChartDeploy JobType = "zadig-helm-chart-deploy"
 	JobFreestyle            JobType = "freestyle"

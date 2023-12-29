@@ -150,8 +150,6 @@ func (c *Client) UpdateService(args *service.ServiceTmplObject, log *zap.Sugared
 	}
 
 	url := fmt.Sprintf("%s/service/services", c.APIBase)
-	log.Debugf("url: %s", url)
-	log.Debugf("body: %s", body)
 	request, err := http.NewRequest("PUT", url, bytes.NewBuffer(body))
 	if err != nil {
 		log.Errorf("UpdateService new http request error: %v", err)

@@ -125,7 +125,6 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 			gp.ProductName = serviceTmpl.ProductName
 			if len(serviceTmpl.EnvStatuses) > 0 {
 				envStatuses := make([]*commonmodels.EnvStatus, 0)
-				// @note generate env status
 				filterEnvStatuses, err := pm.GenerateEnvStatus(serviceTmpl.EnvConfigs, log.NopSugaredLogger())
 				if err != nil {
 					return
