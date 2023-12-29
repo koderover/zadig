@@ -44,6 +44,7 @@ import (
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/pm"
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/environment/service"
@@ -849,83 +850,83 @@ func CreateProductionServiceTemplate(userName string, args *commonmodels.Service
 	return GetServiceOption(args, log)
 }
 
-//func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
-//	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-//		ProductName: args.ProductName,
-//		ServiceName: args.ServiceName,
-//		Revision:    args.Revision,
-//	})
-//	if err != nil {
-//		log.Errorf("Can not find service with option %+v. Error: %s", args, err)
-//		return err
-//	}
-//
-//	envStatuses := make([]*commonmodels.EnvStatus, 0)
-//	// Remove environments and hosts that do not exist in the check status
-//	for _, envStatus := range args.EnvStatuses {
-//		var existEnv, existHost bool
-//
-//		envName := envStatus.EnvName
-//		if _, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-//			Name:    args.ProductName,
-//			EnvName: envName,
-//		}); err == nil {
-//			existEnv = true
-//		}
-//
-//		op := commonrepo.FindPrivateKeyOption{
-//			Address: envStatus.Address,
-//			ID:      envStatus.HostID,
-//		}
-//		if _, err := commonrepo.NewPrivateKeyColl().Find(op); err == nil {
-//			existHost = true
-//		}
-//
-//		if existEnv && existHost {
-//			envStatuses = append(envStatuses, envStatus)
-//		}
-//	}
-//
-//	// for pm services, fill env status data
-//	if args.Type == setting.PMDeployType {
-//		validStatusMap := make(map[string]*commonmodels.EnvStatus)
-//		for _, status := range envStatuses {
-//			validStatusMap[fmt.Sprintf("%s-%s", status.EnvName, status.HostID)] = status
-//		}
-//
-//		envStatus, err := pm.GenerateEnvStatus(currentService.EnvConfigs, log.SugaredLogger())
-//		if err != nil {
-//			log.Errorf("failed to generate env status")
-//			return err
-//		}
-//		defaultStatusMap := make(map[string]*commonmodels.EnvStatus)
-//		for _, status := range envStatus {
-//			defaultStatusMap[fmt.Sprintf("%s-%s", status.EnvName, status.HostID)] = status
-//		}
-//
-//		for k, _ := range defaultStatusMap {
-//			if vv, ok := validStatusMap[k]; ok {
-//				defaultStatusMap[k] = vv
-//			}
-//		}
-//
-//		envStatuses = make([]*commonmodels.EnvStatus, 0)
-//		for _, v := range defaultStatusMap {
-//			envStatuses = append(envStatuses, v)
-//		}
-//	}
-//
-//	updateArgs := &commonmodels.Service{
-//		ProductName: args.ProductName,
-//		ServiceName: args.ServiceName,
-//		Revision:    args.Revision,
-//		Type:        args.Type,
-//		CreateBy:    args.Username,
-//		EnvConfigs:  args.EnvConfigs,
-//		EnvStatuses: envStatuses,
-//	}
-//	return commonrepo.NewServiceColl().Update(updateArgs)
-//}
+func UpdateServiceEnvStatus(args *commonservice.ServiceTmplObject) error {
+	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: args.ProductName,
+		ServiceName: args.ServiceName,
+		Revision:    args.Revision,
+	})
+	if err != nil {
+		log.Errorf("Can not find service with option %+v. Error: %s", args, err)
+		return err
+	}
+
+	envStatuses := make([]*commonmodels.EnvStatus, 0)
+	// Remove environments and hosts that do not exist in the check status
+	for _, envStatus := range args.EnvStatuses {
+		var existEnv, existHost bool
+
+		envName := envStatus.EnvName
+		if _, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    args.ProductName,
+			EnvName: envName,
+		}); err == nil {
+			existEnv = true
+		}
+
+		op := commonrepo.FindPrivateKeyOption{
+			Address: envStatus.Address,
+			ID:      envStatus.HostID,
+		}
+		if _, err := commonrepo.NewPrivateKeyColl().Find(op); err == nil {
+			existHost = true
+		}
+
+		if existEnv && existHost {
+			envStatuses = append(envStatuses, envStatus)
+		}
+	}
+
+	// for pm services, fill env status data
+	if args.Type == setting.PMDeployType {
+		validStatusMap := make(map[string]*commonmodels.EnvStatus)
+		for _, status := range envStatuses {
+			validStatusMap[fmt.Sprintf("%s-%s", status.EnvName, status.HostID)] = status
+		}
+
+		envStatus, err := pm.GenerateEnvStatus(currentService.EnvConfigs, log.SugaredLogger())
+		if err != nil {
+			log.Errorf("failed to generate env status")
+			return err
+		}
+		defaultStatusMap := make(map[string]*commonmodels.EnvStatus)
+		for _, status := range envStatus {
+			defaultStatusMap[fmt.Sprintf("%s-%s", status.EnvName, status.HostID)] = status
+		}
+
+		for k := range defaultStatusMap {
+			if vv, ok := validStatusMap[k]; ok {
+				defaultStatusMap[k] = vv
+			}
+		}
+
+		envStatuses = make([]*commonmodels.EnvStatus, 0)
+		for _, v := range defaultStatusMap {
+			envStatuses = append(envStatuses, v)
+		}
+	}
+
+	updateArgs := &commonmodels.Service{
+		ProductName: args.ProductName,
+		ServiceName: args.ServiceName,
+		Revision:    args.Revision,
+		Type:        args.Type,
+		CreateBy:    args.Username,
+		EnvConfigs:  args.EnvConfigs,
+		EnvStatuses: envStatuses,
+	}
+	return commonrepo.NewServiceColl().Update(updateArgs)
+}
 
 func containersChanged(oldContainers []*commonmodels.Container, newContainers []*commonmodels.Container) bool {
 	if len(oldContainers) != len(newContainers) {
