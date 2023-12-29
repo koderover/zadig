@@ -44,6 +44,11 @@ func CreateFileInCurrentDir(filename string) (string, error) {
 	//if err != nil {
 	//	return "", err
 	//}
+
+	if _, err := os.Stat(config.VMTaskLogPath()); os.IsNotExist(err) {
+		os.MkdirAll("config.VMTaskLogPath()", os.ModePerm)
+	}
+
 	filePath := filepath.Join(config.VMTaskLogPath(), filename)
 	log.Infof("----------- staring create log file: %s", filePath)
 	f, err := os.Create(filePath)
