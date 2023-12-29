@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -46,7 +47,10 @@ func CreateFileInCurrentDir(filename string) (string, error) {
 	//}
 
 	if _, err := os.Stat(config.VMTaskLogPath()); os.IsNotExist(err) {
-		os.MkdirAll("config.VMTaskLogPath()", os.ModePerm)
+		err = os.MkdirAll(config.VMTaskLogPath(), os.ModePerm)
+		if err != nil {
+			return "", fmt.Errorf("failed to create log dir: %s", err)
+		}
 	}
 
 	filePath := filepath.Join(config.VMTaskLogPath(), filename)
