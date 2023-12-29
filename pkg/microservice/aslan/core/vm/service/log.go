@@ -47,13 +47,17 @@ func vmJobKey(key string) string {
 }
 
 func (v *VMJobStatusMap) Exists(key string) bool {
-	exists, _ := cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).Exists(vmJobKey(key))
+	exists, err := cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).Exists(vmJobKey(key))
+	if err != nil {
+		log.Errorf("-------- redis check err: %s", err)
+	}
 	return exists
 }
 
 func (v *VMJobStatusMap) Set(key string) {
 	// use the timeout value of task timeout should be better
-	cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).SetNX(vmJobKey(key), "1", 24*time.Hour)
+	err := cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).SetNX(vmJobKey(key), "1", 24*time.Hour).Error()
+	log.Errorf("---------- reids write err: %s", err)
 }
 
 func (v *VMJobStatusMap) Delete(key string) {
@@ -90,7 +94,6 @@ func savaVMJobLog(job *vmmodel.VMJob, log string, logger *zap.SugaredLogger) (er
 			return fmt.Errorf("failed to upload job log to s3, project:%s workflow:%s taskID%d error: %s", job.ProjectName, job.WorkflowName, job.TaskID, err)
 		}
 
-		_ = os.Remove(file)
 		VMJobStatus.Delete(job.ID.Hex())
 	}
 	return

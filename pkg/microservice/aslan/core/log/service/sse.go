@@ -468,7 +468,7 @@ func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *
 					log.Errorf("scan vm log stream error: %v", err)
 					return
 				}
-				log.Infof("vm job log stream stopped")
+				log.Infof("job cache existed vm job log stream stopped")
 				return
 			}
 
