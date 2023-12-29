@@ -137,3 +137,86 @@ func CreateTestTask(args *commonmodels.TestTaskArgs, log *zap.SugaredLogger) (*C
 	resp := &CreateTaskResp{PipelineName: pipelineName, TaskID: nextTaskID}
 	return resp, nil
 }
+
+// CreateTestTaskV2 creates a test task, but with the new custom workflow engine
+func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
+	if args == nil {
+		return nil, fmt.Errorf("args should not be nil")
+	}
+
+	testInfo, err := commonrepo.NewTestingColl().Find(args.TestName, args.ProductName)
+	if err != nil {
+		log.Errorf("find test[%s] error: %v", args.TestName, err)
+		return nil, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
+	}
+
+	testWorkflow, err := generateCustomWorkflowFromTestingModule(testInfo, args)
+
+	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
+		Name:    username,
+		Account: account,
+		UserID:  userID,
+	}, testWorkflow, log)
+
+	if createResp != nil {
+		return &CreateTaskResp{
+			PipelineName: createResp.WorkflowName,
+			TaskID:       createResp.TaskID,
+		}, err
+	}
+
+	return nil, err
+}
+
+const (
+	testWorkflowNamingConvention = "zadig-testing-%s"
+)
+
+func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs) (*commonmodels.WorkflowV4, error) {
+	resp := &commonmodels.WorkflowV4{
+		Name:             fmt.Sprintf(testWorkflowNamingConvention, testInfo.Name),
+		DisplayName:      testInfo.Name,
+		Stages:           nil,
+		Project:          testInfo.ProductName,
+		CreatedBy:        "system",
+		ConcurrencyLimit: 0,
+	}
+
+	stage := make([]*commonmodels.WorkflowStage, 0)
+
+	job := make([]*commonmodels.Job, 0)
+	job = append(job, &commonmodels.Job{
+		Name:    testInfo.Name,
+		JobType: config.JobZadigTesting,
+		Skipped: false,
+		Spec: &commonmodels.ZadigTestingJobSpec{
+			TestType:       "",
+			Source:         config.SourceRuntime,
+			JobName:        "",
+			OriginJobName:  "",
+			TargetServices: nil,
+			TestModules: []*commonmodels.TestModule{
+				{
+					Name:        testInfo.Name,
+					ProjectName: testInfo.ProductName,
+					KeyVals:     testInfo.PreTest.Envs,
+					Repos:       testInfo.Repos,
+				},
+			},
+			ServiceAndTests: nil,
+		},
+		RunPolicy:      "",
+		ServiceModules: nil,
+	})
+
+	stage = append(stage, &commonmodels.WorkflowStage{
+		Name:     "test",
+		Parallel: false,
+		Approval: nil,
+		Jobs:     job,
+	})
+
+	resp.Stages = stage
+
+	return resp, nil
+}

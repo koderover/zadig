@@ -84,7 +84,7 @@ func CreateTestTask(c *gin.Context) {
 		args.TestTaskCreator = ctx.UserName
 	}
 
-	ctx.Resp, ctx.Err = service.CreateTestTask(args, ctx.Logger)
+	ctx.Resp, ctx.Err = service.CreateTestTaskV2(args, ctx.UserName, ctx.Account, ctx.UserID, ctx.Logger)
 	if ctx.Err != nil {
 		notify.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.TestName, ctx.RequestID, config.TestType, ctx.Err, ctx.Logger)
 	}
