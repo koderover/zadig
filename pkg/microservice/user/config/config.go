@@ -66,22 +66,6 @@ func DecisionLogPath() string {
 	return fmt.Sprintf("/var/log/%s/decision.log", setting.ProductName)
 }
 
-func RedisHost() string {
-	return viper.GetString(setting.ENVRedisHost)
-}
-
-func RedisPort() int {
-	return viper.GetInt(setting.ENVRedisPort)
-}
-
-func RedisUserName() string {
-	return viper.GetString(setting.ENVRedisUserName)
-}
-
-func RedisPassword() string {
-	return viper.GetString(setting.ENVRedisPassword)
-}
-
 func RedisUserTokenDB() int {
 	return viper.GetInt(setting.ENVRedisUserTokenDB)
 }

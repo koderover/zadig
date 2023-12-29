@@ -561,7 +561,6 @@ func ReportAgentJob(args *ReportJobArgs, logger *zap.SugaredLogger) (*ReportAgen
 		job.Outputs = outputs
 	}
 
-	// save log to temp file and save the tmep file path to db
 	err = savaVMJobLog(job, args.JobLog, logger)
 	if err != nil {
 		logger.Errorf("failed to save job %s log, error: %s", args.JobID, err)

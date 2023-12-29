@@ -23,7 +23,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
+	"github.com/koderover/zadig/v2/pkg/config"
 )
 
 type RedisCache struct {
@@ -53,6 +53,11 @@ func NewRedisCache(db int) *RedisCache {
 
 func (c *RedisCache) Write(key, val string, ttl time.Duration) error {
 	_, err := c.redisClient.Set(context.TODO(), key, val, ttl).Result()
+	return err
+}
+
+func (c *RedisCache) SetNX(key, val string, ttl time.Duration) error {
+	_, err := c.redisClient.SetNX(context.TODO(), key, val, ttl).Result()
 	return err
 }
 

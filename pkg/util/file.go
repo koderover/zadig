@@ -22,8 +22,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/koderover/zadig/v2/pkg/tool/log"
-
 	"github.com/koderover/zadig/v2/pkg/config"
 )
 
@@ -40,12 +38,7 @@ func GenerateTmpFile() (string, error) {
 	return tmpFile.Name(), nil
 }
 
-func CreateFileInCurrentDir(filename string) (string, error) {
-	//dir, err := os.Getwd()
-	//if err != nil {
-	//	return "", err
-	//}
-
+func CreateVMJobLogFile(filename string) (string, error) {
 	if _, err := os.Stat(config.VMTaskLogPath()); os.IsNotExist(err) {
 		err = os.MkdirAll(config.VMTaskLogPath(), os.ModePerm)
 		if err != nil {
@@ -54,10 +47,8 @@ func CreateFileInCurrentDir(filename string) (string, error) {
 	}
 
 	filePath := filepath.Join(config.VMTaskLogPath(), filename)
-	log.Infof("----------- staring create log file: %s", filePath)
 	f, err := os.Create(filePath)
 	if err != nil {
-		log.Errorf("-- failed to create log file: %s", err)
 		return "", err
 	}
 	defer f.Close()

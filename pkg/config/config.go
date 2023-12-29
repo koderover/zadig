@@ -254,3 +254,24 @@ func RoleBindingNameFromUIDAndRole(uid string, role setting.RoleType, roleNamesp
 func BuildResourceKey(resourceType, projectName, labelBinding string) string {
 	return fmt.Sprintf("%s-%s-%s", resourceType, projectName, labelBinding)
 }
+
+func RedisHost() string {
+	return viper.GetString(setting.ENVRedisHost)
+}
+
+func RedisPort() int {
+	return viper.GetInt(setting.ENVRedisPort)
+}
+
+func RedisUserName() string {
+	return viper.GetString(setting.ENVRedisUserName)
+}
+
+func RedisPassword() string {
+	return viper.GetString(setting.ENVRedisPassword)
+}
+
+func RedisCommonCacheTokenDB() int {
+	return 1
+	//return viper.GetInt(setting.ENVRedisCommonCacheTokenDB)
+}
