@@ -174,7 +174,7 @@ func DataPath() string {
 }
 
 func VMTaskLogPath() string {
-	return filepath.Join(DataPath(), "vm-task", "log")
+	return filepath.Join(DataPath(), "%vm-task%", "log")
 }
 
 func ObjectStorageServicePath(project, service string) string {

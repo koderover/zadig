@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+
 	"github.com/koderover/zadig/v2/pkg/config"
 )
 
@@ -43,8 +45,10 @@ func CreateFileInCurrentDir(filename string) (string, error) {
 	//	return "", err
 	//}
 	filePath := filepath.Join(config.VMTaskLogPath(), filename)
+	log.Infof("----------- staring create log file: %s", filePath)
 	f, err := os.Create(filePath)
 	if err != nil {
+		log.Errorf("-- failed to create log file: %s", err)
 		return "", err
 	}
 	defer f.Close()
