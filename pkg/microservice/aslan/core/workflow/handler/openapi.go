@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -18,34 +19,58 @@ import (
 )
 
 func CreateCustomWorkflowTask(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(workflowservice.OpenAPICreateCustomWorkflowTaskArgs)
-	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateWorkflowTaskv4 c.GetRawData() err : %s", err)
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
 	}
-	if err = json.Unmarshal(data, args); err != nil {
+
+	args := new(workflowservice.OpenAPICreateCustomWorkflowTaskArgs)
+	data := getBody(c)
+	if err := json.Unmarshal([]byte(data), args); err != nil {
 		log.Errorf("CreateWorkflowTaskv4 json.Unmarshal err : %s", err)
-	}
-
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新建", "自定义工作流任务", args.WorkflowName, data, ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Workflow.Execute {
+			// check if the permission is given by collaboration mode
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProjectName, types.ResourceTypeWorkflow, args.WorkflowName, types.WorkflowActionRun)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
 	}
 
 	ctx.Resp, ctx.Err = workflowservice.CreateCustomWorkflowTask(ctx.UserName, args, ctx.Logger)
 }
 
 func OpenAPICreateWorkflowView(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
 	args := new(workflowservice.OpenAPICreateWorkflowViewReq)
-	err := c.BindJSON(args)
+	err = c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 	}
@@ -54,6 +79,20 @@ func OpenAPICreateWorkflowView(c *gin.Context) {
 	if !isValid {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
+	}
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin {
+			// check if the permission is given by collaboration mode
+			ctx.UnAuthorized = true
+			return
+		}
 	}
 
 	ctx.Err = workflowservice.CreateWorkflowViewOpenAPI(args.Name, args.ProjectName, args.WorkflowList, ctx.UserName, ctx.Logger)
@@ -73,8 +112,14 @@ func OpenAPIGetWorkflowViews(c *gin.Context) {
 }
 
 func OpenAPIUpdateWorkflowView(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	viewName := c.Param("name")
 	if viewName == "" {
@@ -82,7 +127,7 @@ func OpenAPIUpdateWorkflowView(c *gin.Context) {
 		return
 	}
 	args := new(workflowservice.OpenAPICreateWorkflowViewReq)
-	err := c.BindJSON(args)
+	err = c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 	}
@@ -94,6 +139,20 @@ func OpenAPIUpdateWorkflowView(c *gin.Context) {
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "(OpenAPI)"+"更新", "工作流视图", viewName, "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin {
+			// check if the permission is given by collaboration mode
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	list := make([]*commonmodels.WorkflowViewDetail, 0)
 	for _, workflowInfo := range args.WorkflowList {
@@ -109,8 +168,14 @@ func OpenAPIUpdateWorkflowView(c *gin.Context) {
 }
 
 func OpenAPIDeleteWorkflowView(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	viewName := c.Param("name")
 	if viewName == "" {
@@ -124,6 +189,20 @@ func OpenAPIDeleteWorkflowView(c *gin.Context) {
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "工作流视图", viewName, "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin {
+			// check if the permission is given by collaboration mode
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = workflowservice.DeleteWorkflowView(projectKey, viewName, ctx.Logger)
 }
@@ -160,15 +239,24 @@ func OpenAPICancelWorkflowTaskV4(c *gin.Context) {
 }
 
 func OpenAPICreateProductWorkflowTask(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(workflowservice.OpenAPICreateProductWorkflowTaskArgs)
-	err := c.BindJSON(args)
 	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(workflowservice.OpenAPICreateProductWorkflowTaskArgs)
+	data := getBody(c)
+	if err := json.Unmarshal([]byte(data), args); err != nil {
+		log.Errorf("openapi CreateWorkflowTaskv4 json.Unmarshal err : %s", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新建", "自定义工作流任务", args.WorkflowName, data, ctx.Logger)
 
 	isValid, err := args.Validate()
 	if !isValid {
@@ -176,12 +264,36 @@ func OpenAPICreateProductWorkflowTask(c *gin.Context) {
 		return
 	}
 
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProjectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[args.ProjectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProjectName].Workflow.Execute {
+			// check if the permission is given by collaboration mode
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, args.ProjectName, types.ResourceTypeWorkflow, args.WorkflowName, types.WorkflowActionRun)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
+
 	ctx.Resp, ctx.Err = workflowservice.OpenAPICreateProductWorkflowTask(ctx.UserName, args, ctx.Logger)
 }
 
 func OpenAPIDeleteCustomWorkflowV4(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	workflowKey := c.Query("workflowKey")
 	projectKey := c.Query("projectKey")
@@ -190,6 +302,20 @@ func OpenAPIDeleteCustomWorkflowV4(c *gin.Context) {
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "自定义工作流", workflowKey, "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = workflowservice.OpenAPIDeleteCustomWorkflowV4(workflowKey, projectKey, ctx.Logger)
 }
@@ -213,8 +339,14 @@ func OpenAPIGetCustomWorkflowV4(c *gin.Context) {
 }
 
 func OpenAPIDeleteProductWorkflowV4(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	workflowKey := c.Query("workflowKey")
 	projectKey := c.Query("projectKey")
@@ -223,6 +355,20 @@ func OpenAPIDeleteProductWorkflowV4(c *gin.Context) {
 		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "(OpenAPI)"+"删除", "产品工作流", workflowKey, "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Workflow.Delete {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
 
 	ctx.Err = workflowservice.OpenAPIDeleteProductWorkflowV4(workflowKey, ctx.RequestID, ctx.RequestID, ctx.Logger)
 }

@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/v2/pkg/types"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/user/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/user/core/service/user"
@@ -148,13 +149,12 @@ func ListUsers(c *gin.Context) {
 		return
 	}
 
-	// TODO: Authorization leaks
 	// authorization checks
-	//if !ctx.Resources.IsSystemAdmin {
-	//	ctx.Logger.Errorf("user %s is not system admin, can not list users", ctx.UserID)
-	//	ctx.UnAuthorized = true
-	//	return
-	//}
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.Logger.Errorf("user %s is not system admin, can not list users", ctx.UserID)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := &user.QueryArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
@@ -170,6 +170,57 @@ func ListUsers(c *gin.Context) {
 		ctx.Resp, ctx.Err = user.SearchUserByAccount(args, ctx.Logger)
 	} else {
 		ctx.Resp, ctx.Err = user.SearchUsers(args, ctx.Logger)
+	}
+}
+
+func ListUsersBrief(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// this is local, so we simply generate user auth info from service
+	err := GenerateUserAuthInfo(ctx)
+	if err != nil {
+		ctx.UnAuthorized = true
+		ctx.Err = fmt.Errorf("failed to generate user authorization info, error: %s", err)
+		return
+	}
+
+	args := &user.QueryArgs{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	var resp *types.UsersResp
+	if len(args.UIDs) > 0 {
+		resp, err = user.SearchUsersByUIDs(args.UIDs, ctx.Logger)
+	} else if len(args.Account) > 0 {
+		if len(args.IdentityType) == 0 {
+			args.IdentityType = config.SystemIdentityType
+		}
+		resp, err = user.SearchUserByAccount(args, ctx.Logger)
+	} else {
+		resp, err = user.SearchUsers(args, ctx.Logger)
+	}
+
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	briefUserList := make([]*types.UserBriefInfo, 0)
+	for _, userInfo := range resp.Users {
+		briefUserList = append(briefUserList, &types.UserBriefInfo{
+			UID:          userInfo.Uid,
+			Account:      userInfo.Account,
+			IdentityType: userInfo.IdentityType,
+			Name:         userInfo.Name,
+		})
+	}
+
+	ctx.Resp = &types.UsersBriefResp{
+		Users:      briefUserList,
+		TotalCount: resp.TotalCount,
 	}
 }
 

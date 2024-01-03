@@ -38,6 +38,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		users.DELETE("/:uid", user.DeleteUser)
 		users.GET("/:uid/personal", user.GetPersonalUser)
 		users.GET("/:uid/setting", user.GetUserSetting)
+		users.POST("/brief", user.ListUsersBrief)
 		users.POST("/search", user.ListUsers)
 		users.GET("/count", user.CountSystemUsers)
 		users.GET("/check/duplicate", user.CheckDuplicateUser)

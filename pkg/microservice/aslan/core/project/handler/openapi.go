@@ -19,11 +19,11 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/project/service"
 	internalhandler "github.com/koderover/zadig/v2/pkg/shared/handler"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -31,8 +31,19 @@ import (
 )
 
 func OpenAPICreateProductTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(service.OpenAPICreateProductReq)
 	data, err := c.GetRawData()
@@ -70,8 +81,19 @@ func OpenAPICreateProductTemplate(c *gin.Context) {
 // @Success 200
 // @Router /openapi/projects/project/init/yaml [post]
 func OpenAPIInitializeYamlProject(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(service.OpenAPIInitializeProjectReq)
 	data, err := c.GetRawData()
@@ -95,8 +117,19 @@ func OpenAPIInitializeYamlProject(c *gin.Context) {
 }
 
 func OpenAPIInitializeHelmProject(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	args := new(service.OpenAPIInitializeProjectReq)
 	data, err := c.GetRawData()
@@ -122,8 +155,35 @@ func OpenAPIInitializeHelmProject(c *gin.Context) {
 }
 
 func OpenAPIListProject(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	var authorizedProjectList []string
+
+	if ctx.Resources.IsSystemAdmin {
+		authorizedProjectList = []string{}
+	} else {
+		var found bool
+		authorizedProjectList, found, err = internalhandler.ListAuthorizedProjects(ctx.UserID)
+		if err != nil {
+			ctx.Err = e.ErrInternalError.AddDesc(err.Error())
+			return
+		}
+
+		if !found {
+			ctx.Resp = &projectResp{
+				Projects: []string{},
+				Total:    0,
+			}
+			return
+		}
+	}
 
 	args := new(service.OpenAPIListProjectReq)
 	if err := c.ShouldBindQuery(args); err != nil {
@@ -131,16 +191,46 @@ func OpenAPIListProject(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListProjectOpenAPI(args.PageSize, args.PageNum, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProjectOpenAPI(authorizedProjectList, args.PageSize, args.PageNum, ctx.Logger)
 }
 
 func OpenAPIGetProjectDetail(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	authorizedProjectList, found, err := internalhandler.ListAuthorizedProjects(ctx.UserID)
+	if err != nil {
+		ctx.Err = e.ErrInternalError.AddDesc(err.Error())
+		return
+	}
+
+	if !found {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
+		return
+	}
+
+	authorized := false
+	for _, authorizedProject := range authorizedProjectList {
+		if projectKey == authorizedProject {
+			authorized = true
+			break
+		}
+	}
+
+	if !authorized {
+		ctx.UnAuthorized = true
 		return
 	}
 
@@ -148,14 +238,28 @@ func OpenAPIGetProjectDetail(c *gin.Context) {
 }
 
 func OpenAPIDeleteProject(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
 
 	projectKey := c.Query("projectKey")
 	if projectKey == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectKey is empty")
 		return
 	}
+
+	if !ctx.Resources.IsSystemAdmin {
+		if projectAuthInfo, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok || !projectAuthInfo.IsProjectAdmin {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
 	isDelete, err := strconv.ParseBool(c.Query("isDelete"))
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid param isDelete")
