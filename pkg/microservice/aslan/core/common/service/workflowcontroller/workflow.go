@@ -160,6 +160,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		GlobalContextEach:           c.globalContextEach,
 		ClusterIDAdd:                c.addCluterID,
 		SetStatus:                   c.setWorkflowStatus,
+		StartTime:                   time.Now(),
 	}
 	defer jobcontroller.CleanWorkflowJobs(ctx, c.workflowTask, workflowCtx, c.logger, c.ack)
 	if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(c.workflowTask, c.logger); err != nil {

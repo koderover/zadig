@@ -260,6 +260,7 @@ type ZadigBuildJobSpec struct {
 type ServiceAndBuild struct {
 	ServiceName      string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule    string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	Artifact         string              `bson:"artifact"             yaml:"artifact"             json:"artifact"`
 	BuildName        string              `bson:"build_name"          yaml:"build_name"       json:"build_name"`
 	Image            string              `bson:"image"                   yaml:"-"                json:"image"`
 	ImageName        string              `bson:"image_name"                   yaml:"image_name"                json:"image_name"`
@@ -286,15 +287,14 @@ type ZadigDeployJobSpec struct {
 }
 
 type ZadigVMDeployJobSpec struct {
-	Env         string `bson:"env"                      yaml:"env"                         json:"env"`
-	ServiceName string `bson:"service_name"         yaml:"service_name"         json:"service_name"`
+	Env              string             `bson:"env"                    yaml:"env"                  json:"env"`
+	ServiceAndBuilds []*ServiceAndBuild `bson:"service_and_builds"     yaml:"service_and_builds"     json:"service_and_builds"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
 	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
 	// save the origin quoted job name
 	OriginJobName string `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
-	Artifact      string `bson:"artifact"             yaml:"artifact"             json:"artifact"`
 }
 
 type ZadigHelmChartDeployJobSpec struct {

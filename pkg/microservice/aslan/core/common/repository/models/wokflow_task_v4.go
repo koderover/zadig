@@ -621,4 +621,5 @@ type WorkflowTaskCtx struct {
 	GlobalContextEach           func(f func(k, v string) bool)
 	ClusterIDAdd                func(clusterID string)
 	SetStatus                   func(status config.Status)
+	StartTime                   time.Time
 }

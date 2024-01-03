@@ -312,11 +312,12 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 		// init git clone step
+		repos := renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)
 		gitStep := &commonmodels.StepTask{
 			Name:     build.ServiceName + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)},
+			Spec:     step.StepGitSpec{Repos: repos},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 		// init debug before step
@@ -402,8 +403,13 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if buildInfo.PostBuild != nil && buildInfo.PostBuild.FileArchive != nil && buildInfo.PostBuild.FileArchive.FileLocation != "" {
 			uploads := []*step.Upload{
 				{
-					FilePath:        path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
-					DestinationPath: path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "archive"),
+					IsFileArchive:       true,
+					Name:                build.Package,
+					ServiceName:         build.ServiceName,
+					ServiceModule:       build.ServiceModule,
+					PackageFileLocation: buildInfo.PostBuild.FileArchive.FileLocation,
+					FilePath:            path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
+					DestinationPath:     path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "archive"),
 				},
 			}
 			archiveStep := &commonmodels.StepTask{
@@ -413,6 +419,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				Spec: step.StepArchiveSpec{
 					UploadDetail: uploads,
 					S3:           modelS3toS3(defaultS3),
+					Repos:        repos,
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, archiveStep)

@@ -169,6 +169,13 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 				logger.Errorf("ListTars err:%s", err)
 				return
 			}
+			deliveryArtifactArgs.Source = string(config.WorkflowTypeV4)
+			deliveryArtifacts2, err := commonrepo.NewDeliveryArtifactColl().ListTars(deliveryArtifactArgs)
+			if err != nil {
+				logger.Errorf("ListTars err:%s", err)
+				return
+			}
+			deliveryArtifacts = append(deliveryArtifacts, deliveryArtifacts2...)
 			deliveryArtifactArgs.Name = newServiceName + "_" + newServiceName
 			newDeliveryArtifacts, err := commonrepo.NewDeliveryArtifactColl().ListTars(deliveryArtifactArgs)
 			if err != nil {
@@ -182,13 +189,27 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 					logger.Errorf("deliveryActivity.list err:%s", err)
 					return
 				}
+
+				taskID := 0
 				urlArr := strings.Split(activities[0].URL, "/")
 				workflowName := urlArr[len(urlArr)-2]
 				taskIDStr := urlArr[len(urlArr)-1]
-				taskID, err := strconv.Atoi(taskIDStr)
-				if err != nil {
-					logger.Errorf("string convert to int err:%s", err)
-					return
+				if deliveryArtifact.Source == string(config.WorkflowType) {
+					taskID, err = strconv.Atoi(taskIDStr)
+					if err != nil {
+						logger.Errorf("WorkflowType source string convert to int err:%s", err)
+						continue
+					}
+				} else if deliveryArtifact.Source == string(config.WorkflowTypeV4) {
+					taskIDStrArr := strings.Split(taskIDStr, "?")
+					taskID, err = strconv.Atoi(taskIDStrArr[0])
+					if err != nil {
+						logger.Errorf("WorkflowTypeV4 source string convert to int err:%s", err)
+						continue
+					}
+				} else {
+					logger.Errorf("deliveryArtifact.Source err:%s", err)
+					continue
 				}
 
 				mutex.Lock()

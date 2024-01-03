@@ -185,6 +185,7 @@ const (
 	StepHelmDeploy        StepType = "helm_deploy"
 	StepCustomDeploy      StepType = "custom_deploy"
 	StepImageDistribute   StepType = "image_distribute"
+	StepDownloadArtifact  StepType = "download_artifact"
 	StepArchive           StepType = "archive"
 	StepArchiveDistribute StepType = "archive_distribute"
 	StepJunitReport       StepType = "junit_report"
