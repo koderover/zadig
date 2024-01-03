@@ -372,12 +372,13 @@ func OpenAPIInitializeHelmProject(userID, username, requestID string, args *Open
 	return envService.CreateHelmProduct(args.ProjectKey, username, requestID, creationArgs, logger)
 }
 
-func ListProjectOpenAPI(pageSize, pageNum int64, logger *zap.SugaredLogger) (*OpenAPIProjectListResp, error) {
+func ListProjectOpenAPI(authorizedProjectList []string, pageSize, pageNum int64, logger *zap.SugaredLogger) (*OpenAPIProjectListResp, error) {
 	resp, err := ListProjects(
 		&ProjectListOptions{
 			PageSize:  pageSize,
 			PageNum:   pageNum,
 			Verbosity: VerbosityDetailed,
+			Names:     authorizedProjectList,
 		},
 		logger,
 	)

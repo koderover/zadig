@@ -31,9 +31,21 @@ type UserInfo struct {
 	Admin              bool           `json:"admin"`
 }
 
+type UserBriefInfo struct {
+	UID          string `json:"uid"`
+	Account      string `json:"account"`
+	Name         string `json:"name"`
+	IdentityType string `json:"identity_type"`
+}
+
 type UsersResp struct {
 	Users      []*UserInfo `json:"users"`
 	TotalCount int64       `json:"total_count"`
+}
+
+type UsersBriefResp struct {
+	Users      []*UserBriefInfo `json:"users"`
+	TotalCount int64            `json:"total_count"`
 }
 
 type RoleBinding struct {

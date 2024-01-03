@@ -419,19 +419,17 @@ func OpenAPIUpdateGlobalVariables(args *OpenAPIEnvGlobalVariables, userName, req
 	return ensureKubeEnv(product.Namespace, product.RegistryID, map[string]string{setting.ProductLabel: product.ProductName}, false, kubeClient, logger)
 }
 
-func OpenAPIListEnvs(projectName string, logger *zap.SugaredLogger) ([]*OpenAPIListEnvBrief, error) {
-	production := false
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, Production: &production})
+func OpenAPIListEnvs(userID, projectName string, envNames []string, production bool, log *zap.SugaredLogger) ([]*OpenAPIListEnvBrief, error) {
+	envs, err := ListProducts(userID, projectName, envNames, production, log)
 	if err != nil {
-		logger.Errorf("failed to list project:%s envs, err:%v", projectName, err)
-		return nil, fmt.Errorf("failed to list project:%s envs, err:%v", projectName, err)
+		return nil, err
 	}
 
 	resp := make([]*OpenAPIListEnvBrief, 0)
 	for _, env := range envs {
 		resp = append(resp, &OpenAPIListEnvBrief{
 			Production: env.Production,
-			EnvName:    env.EnvName,
+			EnvName:    env.Name,
 			Alias:      env.Alias,
 			Status:     strings.ToLower(env.Status),
 			ClusterID:  env.ClusterID,
@@ -444,19 +442,17 @@ func OpenAPIListEnvs(projectName string, logger *zap.SugaredLogger) ([]*OpenAPIL
 	return resp, nil
 }
 
-func OpenAPIListProductionEnvs(projectName string, logger *zap.SugaredLogger) ([]*OpenAPIListEnvBrief, error) {
-	production := true
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, Production: &production})
+func OpenAPIListProductionEnvs(userId string, projectName string, envNames []string, log *zap.SugaredLogger) ([]*OpenAPIListEnvBrief, error) {
+	envs, err := ListProductionEnvs(userId, projectName, envNames, log)
 	if err != nil {
-		logger.Errorf("failed to list project:%s envs, err:%v", projectName, err)
-		return nil, fmt.Errorf("failed to list project:%s envs, err:%v", projectName, err)
+		return nil, err
 	}
 
 	resp := make([]*OpenAPIListEnvBrief, 0)
 	for _, env := range envs {
 		resp = append(resp, &OpenAPIListEnvBrief{
 			Production: env.Production,
-			EnvName:    env.EnvName,
+			EnvName:    env.Name,
 			Alias:      env.Alias,
 			Status:     strings.ToLower(env.Status),
 			ClusterID:  env.ClusterID,
