@@ -114,7 +114,7 @@ func (c *Client) Healthz() error {
 
 // moved from policy client, TODO: merge it with searchUser function
 func (c *Client) SearchUsers(header http.Header, qs url.Values, body interface{}) (*types.UsersResp, error) {
-	url := "/users"
+	url := "/users/brief"
 	result := &types.UsersResp{}
 	_, err := c.Post(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetBody(body), httpclient.SetResult(result))
 	if err != nil {
