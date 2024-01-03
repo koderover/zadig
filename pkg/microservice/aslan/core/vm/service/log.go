@@ -49,7 +49,7 @@ func vmJobKey(key string) string {
 func (v *VMJobStatusMap) Exists(key string) bool {
 	exists, err := cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).Exists(vmJobKey(key))
 	if err != nil {
-		log.Errorf("-------- redis check err: %s", err)
+		log.Errorf("redis check err: %s for key: %s", err, vmJobKey(key))
 	}
 	return exists
 }
@@ -58,7 +58,7 @@ func (v *VMJobStatusMap) Set(key string) {
 	// use the timeout value of task timeout should be better
 	err := cache.NewRedisCache(utilconfig.RedisCommonCacheTokenDB()).SetNX(vmJobKey(key), "1", 24*time.Hour)
 	if err != nil {
-		log.Errorf("---------- reids write err: %s", err)
+		log.Errorf("reids set nx err: %s for key: %s", err, vmJobKey(key))
 	}
 }
 

@@ -25,6 +25,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -88,7 +92,15 @@ func CleanImageCache(logger *zap.SugaredLogger) error {
 	//       Since `golang-1.18`, `sync.Mutex` provides a `TryLock()` method. For now, we can continue with the previous
 	//       logic and replace it with `TryLock()` after upgrading to `golang-1.18+` to return immediately.
 	startTime := time.Now()
-	cleanCacheLock.Lock()
+
+	// we use a long expiry lock since cleaning dind cache may take some time
+	cleanCacheLock := cache.NewRedisLockWithExpiry("dind-cache-clean", time.Minute*20)
+
+	err := cleanCacheLock.Lock()
+	if err != nil {
+		log.Errorf("failed to acquire redis lock, err: %s", err)
+		return fmt.Errorf("failed to clean cleanning progress: another cleaning process is running")
+	}
 	defer cleanCacheLock.Unlock()
 
 	dindCleans, err := commonrepo.NewDindCleanColl().List()

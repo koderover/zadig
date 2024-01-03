@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -418,12 +420,11 @@ func UninstallRelease(helmClient helmclient.Client, env *commonmodels.Product, r
 	})
 }
 
-// TODO optimize me
-var helmSvcOfflineLock sync.Mutex
-
 // 1. Uninstall related resources
 // 2. Delete service info from database
 func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmodels.Product, releaseNames []string, log *zap.SugaredLogger) error {
+
+	helmSvcOfflineLock := cache.NewRedisLock(fmt.Sprintf("product_svc_offline:%s:%s", productInfo.ProductName, productInfo.EnvName))
 
 	helmSvcOfflineLock.Lock()
 	defer helmSvcOfflineLock.Unlock()
@@ -581,6 +582,8 @@ func DeleteHelmReleaseFromEnv(userName, requestID string, productInfo *commonmod
 // 1. Uninstall related resources
 // 2. Delete service info from database
 func DeleteHelmServiceFromEnv(userName, requestID string, productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
+
+	helmSvcOfflineLock := cache.NewRedisLock(fmt.Sprintf("product_svc_offline:%s:%s", productInfo.ProductName, productInfo.EnvName))
 
 	helmSvcOfflineLock.Lock()
 	defer helmSvcOfflineLock.Unlock()

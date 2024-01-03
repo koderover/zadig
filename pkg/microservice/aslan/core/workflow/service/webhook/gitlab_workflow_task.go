@@ -22,8 +22,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
+
+	cache2 "github.com/koderover/zadig/v2/pkg/tool/cache"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
@@ -692,8 +693,6 @@ func findChangedFilesOfMergeRequest(event *gitlab.MergeEvent, codehostID int) ([
 	return client.ListChangedFiles(event)
 }
 
-var mutex sync.Mutex
-
 // CreateEnvAndTaskByPR 根据pr触发创建环境、使用工作流更新该创建的环境、根据环境删除策略删除环境
 func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int, requestID string, log *zap.SugaredLogger) error {
 	//获取基准环境的详细信息
@@ -702,6 +701,8 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	if err != nil {
 		return fmt.Errorf("CreateEnvAndTaskByPR Product Find err:%v", err)
 	}
+
+	mutex := cache2.NewRedisLock(fmt.Sprintf("pr_create_env:%s:%d", workflowArgs.ProductTmplName, prID))
 
 	mutex.Lock()
 	defer func() {
