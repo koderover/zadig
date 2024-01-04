@@ -407,6 +407,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					Name:                build.Package,
 					ServiceName:         build.ServiceName,
 					ServiceModule:       build.ServiceModule,
+					JobTaskName:         jobTask.Name,
 					PackageFileLocation: buildInfo.PostBuild.FileArchive.FileLocation,
 					FilePath:            path.Join(buildInfo.PostBuild.FileArchive.FileLocation, build.Package),
 					DestinationPath:     path.Join(j.workflow.Name, fmt.Sprint(taskID), jobTask.Name, "archive"),

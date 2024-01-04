@@ -100,6 +100,7 @@ func (s *archiveCtl) AfterRun(ctx context.Context) error {
 		deliveryActivity := new(commonmodels.DeliveryActivity)
 		deliveryActivity.Type = setting.BuildType
 		deliveryActivity.ArtifactID = deliveryArtifact.ID
+		deliveryActivity.JobTaskName = upload.JobTaskName
 		deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", s.workflowCtx.ProjectName, s.workflowCtx.WorkflowName, s.workflowCtx.TaskID, url.QueryEscape(s.workflowCtx.WorkflowDisplayName))
 		commits := make([]*commonmodels.ActivityCommit, 0)
 		for _, repo := range s.archiveSpec.Repos {

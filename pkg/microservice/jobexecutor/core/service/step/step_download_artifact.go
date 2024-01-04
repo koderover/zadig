@@ -53,12 +53,12 @@ func NewDownloadArtifactStep(spec interface{}, workspace string, envs, secretEnv
 func (s *DownloadArtifactStep) Run(ctx context.Context) error {
 	start := time.Now()
 	defer func() {
-		log.Infof("Archive ended. Duration: %.2f seconds", time.Since(start).Seconds())
+		log.Infof("Download Artifact ended. Duration: %.2f seconds", time.Since(start).Seconds())
 	}()
 
 	envmaps := makeEnvMap(s.envs, s.secretEnvs)
-	artifactPath := replaceEnvWithValue(s.spec.ArtifactPath, envmaps)
-	log.Infof("Start download artifact %s.", artifactPath)
+	artifact := replaceEnvWithValue(s.spec.Artifact, envmaps)
+	log.Infof("Start download artifact %s.", artifact)
 
 	forcedPathStyle := true
 	if s.spec.S3.Provider == setting.ProviderSourceAli {
@@ -69,12 +69,13 @@ func (s *DownloadArtifactStep) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 	}
 
+	objectKey := artifact
 	if len(s.spec.S3.Subfolder) > 0 {
-		artifactPath = strings.TrimLeft(path.Join(s.spec.S3.Subfolder, artifactPath), "/")
+		objectKey = strings.TrimLeft(path.Join(s.spec.S3.Subfolder, artifact), "/")
 	}
 
-	destPath := path.Join(s.workspace, "artifact", artifactPath)
-	err = client.Download(s.spec.S3.Bucket, artifactPath, destPath)
+	destPath := path.Join(s.workspace, "artifact", artifact)
+	err = client.Download(s.spec.S3.Bucket, objectKey, destPath)
 	if err != nil {
 		return err
 	}

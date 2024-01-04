@@ -286,9 +286,20 @@ type ZadigDeployJobSpec struct {
 	Services         []*DeployService   `bson:"services"             yaml:"services"             json:"services"`
 }
 
+type ServiceAndVMDeploy struct {
+	ServiceName   string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	ServiceModule string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	FileName      string              `bson:"file_name"           yaml:"file_name"        json:"file_name"`
+	TaskID        int                 `bson:"task_id"             yaml:"task_id"          json:"task_id"`
+	WorkflowType  config.PipelineType `bson:"workflow_type"       yaml:"workflow_type"    json:"workflow_type"`
+	WorkflowName  string              `bson:"workflow_name"       yaml:"workflow_name"    json:"workflow_name"`
+	JobTaskName   string              `bson:"job_task_name"       yaml:"job_task_name"    json:"job_task_name"`
+}
+
 type ZadigVMDeployJobSpec struct {
-	Env              string             `bson:"env"                    yaml:"env"                  json:"env"`
-	ServiceAndBuilds []*ServiceAndBuild `bson:"service_and_builds"     yaml:"service_and_builds"     json:"service_and_builds"`
+	Env                 string                `bson:"env"                    yaml:"env"                    json:"env"`
+	S3StorageID         string                `bson:"s3_storage_id"          yaml:"s3_storage_id"          json:"s3_storage_id"`
+	ServiceAndVMDeploys []*ServiceAndVMDeploy `bson:"service_and_vm_deploys" yaml:"service_and_vm_deploys" json:"service_and_vm_deploys"`
 	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
 	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
 	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务

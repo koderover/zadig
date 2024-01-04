@@ -346,7 +346,6 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							if len(tempDeliveryArtifacts) == 0 {
 								err = h.deliveryArtifactColl.Insert(deliveryArtifact)
 								if err == nil {
-									// @note activity
 									deliveryArtifacts = append(deliveryArtifacts, deliveryArtifact)
 									//添加事件
 									deliveryActivity := new(commonmodels.DeliveryActivity)

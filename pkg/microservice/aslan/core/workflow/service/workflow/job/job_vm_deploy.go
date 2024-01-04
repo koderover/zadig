@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strconv"
 	"strings"
@@ -31,7 +32,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/types"
-	"github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
@@ -89,19 +89,7 @@ func (j *VMDeployJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 
-		newBuilds := []*commonmodels.ServiceAndBuild{}
-		for _, build := range j.spec.ServiceAndBuilds {
-			for _, argsBuild := range argsSpec.ServiceAndBuilds {
-				if build.BuildName == argsBuild.BuildName && build.ServiceName == argsBuild.ServiceName {
-					build.Repos = mergeRepos(build.Repos, argsBuild.Repos)
-					build.KeyVals = renderKeyVals(argsBuild.KeyVals, build.KeyVals)
-					newBuilds = append(newBuilds, build)
-					break
-				}
-			}
-		}
-
-		j.spec.ServiceAndBuilds = newBuilds
+		j.spec.ServiceAndVMDeploys = argsSpec.ServiceAndVMDeploys
 		j.job.Spec = j.spec
 	}
 	return nil
@@ -122,24 +110,11 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		return resp, fmt.Errorf("env %s not exists", envName)
 	}
 
-	// get deploy info from previous build job
-	if j.spec.Source == config.SourceFromJob {
-		// adapt to the front end, use the direct quoted job name
-		if j.spec.OriginJobName != "" {
-			j.spec.JobName = j.spec.OriginJobName
-		}
-	}
-
 	templateProduct, err := templaterepo.NewProductColl().Find(j.workflow.Project)
 	if err != nil {
 		return resp, fmt.Errorf("cannot find product %s: %w", j.workflow.Project, err)
 	}
 	timeout := templateProduct.Timeout * 60
-
-	defaultS3, err := commonrepo.NewS3StorageColl().FindDefault()
-	if err != nil {
-		return resp, fmt.Errorf("find default s3 storage error: %v", err)
-	}
 
 	vms, err := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{})
 	if err != nil {
@@ -150,51 +125,99 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 	if err != nil {
 		return resp, fmt.Errorf("list project %s's services error: %v", j.workflow.Project, err)
 	}
+	serviceMap := map[string]*commonmodels.Service{}
+	for _, service := range services {
+		serviceMap[service.ServiceName] = service
+	}
 
-	for _, build := range j.spec.ServiceAndBuilds {
-		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.BuildName, ProductName: j.workflow.Project})
+	var s3Storage *commonmodels.S3Storage
+	// get deploy info from previous build job
+	if j.spec.Source == config.SourceFromJob {
+		// adapt to the front end, use the direct quoted job name
+		if j.spec.OriginJobName != "" {
+			j.spec.JobName = j.spec.OriginJobName
+		}
+		targets, err := j.getOriginReferedJobTargets(j.spec.JobName, int(taskID))
 		if err != nil {
-			return resp, fmt.Errorf("find build: %s error: %v", build.BuildName, err)
+			return resp, fmt.Errorf("get origin refered job: %s targets failed, err: %v", j.spec.JobName, err)
+		}
+
+		s3Storage, err = commonrepo.NewS3StorageColl().FindDefault()
+		if err != nil {
+			return resp, fmt.Errorf("find default s3 storage error: %v", err)
+		}
+		// clear service and image list to prevent old data from remaining
+		j.spec.ServiceAndVMDeploys = targets
+		j.spec.S3StorageID = s3Storage.ID.Hex()
+	} else {
+		s3Storage, err = commonrepo.NewS3StorageColl().Find(j.spec.S3StorageID)
+		if err != nil {
+			return resp, fmt.Errorf("find s3 storage id: %s, error: %v", j.spec.S3StorageID, err)
+		}
+	}
+
+	for _, vmDeployInfo := range j.spec.ServiceAndVMDeploys {
+		service, ok := serviceMap[vmDeployInfo.ServiceName]
+		if !ok {
+			return resp, fmt.Errorf("service %s not found", vmDeployInfo.ServiceName)
+		}
+		buildInfo, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: service.BuildName, ProductName: j.workflow.Project})
+		if err != nil {
+			return resp, fmt.Errorf("find build: %s error: %v", service.BuildName, err)
 		}
 		// it only fills build detail created from template
-		if err := fillBuildDetail(buildInfo, build.ServiceName, build.ServiceName); err != nil {
+		if err := fillBuildDetail(buildInfo, vmDeployInfo.ServiceName, vmDeployInfo.ServiceName); err != nil {
 			return resp, err
 		}
 		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreBuild.ImageID)
 		if err != nil {
 			return resp, fmt.Errorf("find base image: %s error: %v", buildInfo.PreBuild.ImageID, err)
 		}
-		// build.Package = fmt.Sprintf("%s.tar.gz", commonservice.ReleaseCandidate(build.Repos, taskID, j.workflow.Project, build.ServiceModule, "", build.ImageName, "tar"))
 
 		outputs := ensureBuildInOutputs(buildInfo.Outputs)
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
-			Name: jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + j.job.Name),
+			Name: jobNameFormat(vmDeployInfo.ServiceName + "-" + vmDeployInfo.ServiceModule + "-" + j.job.Name),
 			JobInfo: map[string]string{
-				"service_name":   build.ServiceName,
-				"service_module": build.ServiceModule,
+				"service_name":   vmDeployInfo.ServiceName,
+				"service_module": vmDeployInfo.ServiceModule,
 				JobNameKey:       j.job.Name,
 			},
-			Key:            strings.Join([]string{j.job.Name, build.ServiceName, build.ServiceModule}, "."),
+			Key:            strings.Join([]string{j.job.Name, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule}, "."),
 			JobType:        string(config.JobZadigBuild),
 			Spec:           jobTaskSpec,
 			Timeout:        int64(buildInfo.Timeout),
 			Outputs:        outputs,
-			Infrastructure: buildInfo.Infrastructure,
+			Infrastructure: setting.JobK8sInfrastructure,
 			VMLabels:       buildInfo.VMLabels,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
-			Timeout:             int64(timeout),
-			ResourceRequest:     buildInfo.PreBuild.ResReq,
-			ResReqSpec:          buildInfo.PreBuild.ResReqSpec,
-			CustomEnvs:          renderKeyVals(build.KeyVals, buildInfo.PreBuild.Envs),
-			ClusterID:           buildInfo.PreBuild.ClusterID,
-			StrategyID:          buildInfo.PreBuild.StrategyID,
-			BuildOS:             basicImage.Value,
-			ImageFrom:           buildInfo.PreBuild.ImageFrom,
-			ShareStorageDetails: getShareStorageDetail(j.workflow.ShareStorages, build.ShareStorageInfo, j.workflow.Name, taskID),
+			Timeout:         int64(timeout),
+			ResourceRequest: buildInfo.PreBuild.ResReq,
+			ResReqSpec:      buildInfo.PreBuild.ResReqSpec,
+			CustomEnvs:      buildInfo.PreBuild.Envs,
+			ClusterID:       buildInfo.PreBuild.ClusterID,
+			StrategyID:      buildInfo.PreBuild.StrategyID,
+			BuildOS:         basicImage.Value,
+			ImageFrom:       buildInfo.PreBuild.ImageFrom,
 		}
-		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, getVMDeployJobVariables(build, buildInfo, taskID, j.spec.Env, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, vms, services, log.SugaredLogger())...)
+
+		initShellScripts := []string{}
+		vmDeployVars := []*commonmodels.KeyVal{}
+		tmpVmDeployVars := getVMDeployJobVariables(vmDeployInfo, buildInfo, taskID, j.spec.Env, j.workflow.Project, j.workflow.Name, j.workflow.DisplayName, jobTask.Infrastructure, vms, services, log.SugaredLogger())
+		for _, kv := range tmpVmDeployVars {
+			if strings.HasSuffix(kv.Key, "_PK_CONTENT") {
+				name := strings.TrimSuffix(kv.Key, "_PK_CONTENT")
+				vmDeployVars = append(vmDeployVars, &commonmodels.KeyVal{Key: name + "_PK", Value: "~/.ssh/" + name + "_PK", IsCredential: false})
+
+				initShellScripts = append(initShellScripts, "echo \""+kv.Value+"\" > ~/.ssh/"+name+"_PK")
+				initShellScripts = append(initShellScripts, "chmod 600 ~/.ssh/"+name+"_PK")
+			} else {
+				vmDeployVars = append(vmDeployVars, kv)
+			}
+		}
+
+		jobTaskSpec.Properties.Envs = append(jobTaskSpec.Properties.CustomEnvs, vmDeployVars...)
 		jobTaskSpec.Properties.UseHostDockerDaemon = buildInfo.PreBuild.UseHostDockerDaemon
 
 		if jobTask.Infrastructure == setting.JobVMInfrastructure {
@@ -222,11 +245,6 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			}
 		}
 
-		// for other job refer current latest image.
-		build.Image = job.GetJobOutputKey(jobTask.Key, "IMAGE")
-		log.Infof("BuildJob ToJobs %d: workflow %s service %s, module %s, image %s",
-			taskID, j.workflow.Name, build.ServiceName, build.ServiceModule, build.Image)
-
 		// init tools install step
 		tools := []*step.Tool{}
 		for _, tool := range buildInfo.PreBuild.Installs {
@@ -236,7 +254,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			})
 		}
 		toolInstallStep := &commonmodels.StepTask{
-			Name:     fmt.Sprintf("%s-%s", build.ServiceName, "tool-install"),
+			Name:     fmt.Sprintf("%s-%s", vmDeployInfo.ServiceName, "tool-install"),
 			JobName:  jobTask.Name,
 			StepType: config.StepTools,
 			Spec:     step.StepToolInstallSpec{Installs: tools},
@@ -244,38 +262,54 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, toolInstallStep)
 		// init git clone step
 		gitStep := &commonmodels.StepTask{
-			Name:     build.ServiceName + "-git",
+			Name:     vmDeployInfo.ServiceName + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: renderRepos(build.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)},
+			Spec:     step.StepGitSpec{Repos: renderRepos(buildInfo.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
+
+		if vmDeployInfo.WorkflowType == config.WorkflowType {
+			if s3Storage.Subfolder != "" {
+				s3Storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", s3Storage.Subfolder, vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, "file")
+			} else {
+				s3Storage.Subfolder = fmt.Sprintf("%s/%d/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, "file")
+			}
+		} else if vmDeployInfo.WorkflowType == config.WorkflowTypeV4 {
+			if s3Storage.Subfolder != "" {
+				s3Storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s/%s", s3Storage.Subfolder, vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
+			} else {
+				s3Storage.Subfolder = fmt.Sprintf("%s/%d/%s/%s", vmDeployInfo.WorkflowName, vmDeployInfo.TaskID, vmDeployInfo.JobTaskName, "archive")
+			}
+		} else {
+			return resp, fmt.Errorf("unknown workflow type %s", vmDeployInfo.WorkflowType)
+		}
 		// init download artifact step
 		downloadArtifactStep := &commonmodels.StepTask{
-			Name:     build.ServiceName + "-download-artifact",
+			Name:     vmDeployInfo.ServiceName + "-download-artifact",
 			JobName:  jobTask.Name,
 			StepType: config.StepDownloadArtifact,
 			Spec: step.StepDownloadArtifactSpec{
-				ArtifactPath: build.Artifact,
-				S3:           modelS3toS3(defaultS3),
+				Artifact: vmDeployInfo.FileName,
+				S3:       modelS3toS3(s3Storage),
 			},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, downloadArtifactStep)
 		// init debug before step
 		debugBeforeStep := &commonmodels.StepTask{
-			Name:     build.ServiceName + "-debug_before",
+			Name:     vmDeployInfo.ServiceName + "-debug_before",
 			JobName:  jobTask.Name,
 			StepType: config.StepDebugBefore,
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, debugBeforeStep)
 		// init shell step
-		scripts := []string{}
+		scripts := append([]string{}, initShellScripts...)
 		scripts = append(scripts, strings.Split(replaceWrapLine(buildInfo.PMDeployScripts), "\n")...)
 		scriptStep := &commonmodels.StepTask{
 			JobName: jobTask.Name,
 		}
 		if buildInfo.ScriptType == types.ScriptTypeShell || buildInfo.ScriptType == "" {
-			scriptStep.Name = build.ServiceName + "-shell"
+			scriptStep.Name = vmDeployInfo.ServiceName + "-shell"
 			scriptStep.StepType = config.StepShell
 			scriptStep.Spec = &step.StepShellSpec{
 				Scripts: scripts,
@@ -284,7 +318,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, scriptStep)
 		// init debug after step
 		debugAfterStep := &commonmodels.StepTask{
-			Name:     build.ServiceName + "-debug_after",
+			Name:     vmDeployInfo.ServiceName + "-debug_after",
 			JobName:  jobTask.Name,
 			StepType: config.StepDebugAfter,
 		}
@@ -317,19 +351,50 @@ func (j *VMDeployJob) GetOutPuts(log *zap.SugaredLogger) []string {
 	return getOutputKey(j.job.Name, ensureDeployInOutputs())
 }
 
-func getVMDeployJobVariables(build *commonmodels.ServiceAndBuild, buildInfo *commonmodels.Build, taskID int64, envName, project, workflowName, workflowDisplayName, infrastructure string, vms []*commonmodels.PrivateKey, services []*commonmodels.Service, log *zap.SugaredLogger) []*commonmodels.KeyVal {
+func (j *VMDeployJob) getOriginReferedJobTargets(jobName string, taskID int) ([]*commonmodels.ServiceAndVMDeploy, error) {
+	serviceAndVMDeploys := []*commonmodels.ServiceAndVMDeploy{}
+	for _, stage := range j.workflow.Stages {
+		for _, job := range stage.Jobs {
+			if job.Name != j.spec.JobName {
+				continue
+			}
+			if job.JobType == config.JobZadigBuild {
+				buildSpec := &commonmodels.ZadigBuildJobSpec{}
+				if err := commonmodels.IToi(job.Spec, buildSpec); err != nil {
+					return serviceAndVMDeploys, err
+				}
+				for _, build := range buildSpec.ServiceAndBuilds {
+					serviceAndVMDeploys = append(serviceAndVMDeploys, &commonmodels.ServiceAndVMDeploy{
+						ServiceName:   build.ServiceName,
+						ServiceModule: build.ServiceModule,
+						FileName:      build.Package,
+						TaskID:        taskID,
+						WorkflowName:  j.workflow.Name,
+						WorkflowType:  config.WorkflowTypeV4,
+						JobTaskName:   jobNameFormat(build.ServiceName + "-" + build.ServiceModule + "-" + jobName),
+					})
+					log.Infof("DeployJob ToJobs getOriginReferedJobTargets: workflow %s service %s, module %s, image %s",
+						j.workflow.Name, build.ServiceName, build.ServiceModule, build.Image)
+				}
+				return serviceAndVMDeploys, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("build job %s not found", jobName)
+}
+
+func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInfo *commonmodels.Build, taskID int64, envName, project, workflowName, workflowDisplayName, infrastructure string, vms []*commonmodels.PrivateKey, services []*commonmodels.Service, log *zap.SugaredLogger) []*commonmodels.KeyVal {
 	ret := make([]*commonmodels.KeyVal, 0)
 	// basic envs
 	ret = append(ret, PrepareDefaultWorkflowTaskEnvs(project, workflowName, workflowDisplayName, infrastructure, taskID)...)
 
 	// repo envs
-	ret = append(ret, getReposVariables(build.Repos)...)
+	ret = append(ret, getReposVariables(buildInfo.Repos)...)
 
 	// vm deploy specific envs
 	ret = append(ret, &commonmodels.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE", Value: build.ServiceName, IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_NAME", Value: build.ServiceName, IsCredential: false})
-	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: build.Package, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE", Value: vmDeploy.ServiceName, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "SERVICE_NAME", Value: vmDeploy.ServiceName, IsCredential: false})
 
 	privateKeys := sets.String{}
 	IDvmMap := map[string]*commonmodels.PrivateKey{}
@@ -358,8 +423,12 @@ func getVMDeployJobVariables(build *commonmodels.ServiceAndBuild, buildInfo *com
 			if port == 0 {
 				port = setting.PMHostDefaultPort
 			}
-			privateKey := latestKeyInfo.PrivateKey
-			ret = append(ret, &commonmodels.KeyVal{Key: agentName + "_PK", Value: privateKey, IsCredential: false})
+			privateKey, err := base64.StdEncoding.DecodeString(latestKeyInfo.PrivateKey)
+			if err != nil {
+				log.Errorf("base64 decode failed ip:%s, error:%s", ip, err)
+				continue
+			}
+			ret = append(ret, &commonmodels.KeyVal{Key: agentName + "_PK", Value: string(privateKey), IsCredential: false})
 			ret = append(ret, &commonmodels.KeyVal{Key: agentName + "_USERNAME", Value: userName, IsCredential: false})
 			ret = append(ret, &commonmodels.KeyVal{Key: agentName + "_IP", Value: ip, IsCredential: false})
 			ret = append(ret, &commonmodels.KeyVal{Key: agentName + "_PORT", Value: strconv.Itoa(int(port)), IsCredential: false})
@@ -388,8 +457,12 @@ func getVMDeployJobVariables(build *commonmodels.ServiceAndBuild, buildInfo *com
 					if port == 0 {
 						port = setting.PMHostDefaultPort
 					}
-					privateKey := vm.PrivateKey
-					ret = append(ret, &commonmodels.KeyVal{Key: hostName + "_PK", Value: privateKey, IsCredential: false})
+					privateKey, err := base64.StdEncoding.DecodeString(vm.PrivateKey)
+					if err != nil {
+						log.Errorf("base64 decode failed ip:%s, error:%s", ip, err)
+						continue
+					}
+					ret = append(ret, &commonmodels.KeyVal{Key: hostName + "_PK_CONTENT", Value: string(privateKey), IsCredential: false})
 					ret = append(ret, &commonmodels.KeyVal{Key: hostName + "_USERNAME", Value: userName, IsCredential: false})
 					ret = append(ret, &commonmodels.KeyVal{Key: hostName + "_IP", Value: ip, IsCredential: false})
 					ret = append(ret, &commonmodels.KeyVal{Key: hostName + "_PORT", Value: strconv.Itoa(int(port)), IsCredential: false})
@@ -412,7 +485,7 @@ func getVMDeployJobVariables(build *commonmodels.ServiceAndBuild, buildInfo *com
 						port = setting.PMHostDefaultPort
 					}
 					privateKey := vm.PrivateKey
-					ret = append(ret, &commonmodels.KeyVal{Key: hostName + "_PK", Value: privateKey, IsCredential: false})
+					ret = append(ret, &commonmodels.KeyVal{Key: hostName + "_PK_CONTENT", Value: privateKey, IsCredential: false})
 					ret = append(ret, &commonmodels.KeyVal{Key: hostName + "_USERNAME", Value: userName, IsCredential: false})
 					ret = append(ret, &commonmodels.KeyVal{Key: hostName + "_IP", Value: ip, IsCredential: false})
 					ret = append(ret, &commonmodels.KeyVal{Key: hostName + "_PORT", Value: strconv.Itoa(int(port)), IsCredential: false})
@@ -428,5 +501,8 @@ func getVMDeployJobVariables(build *commonmodels.ServiceAndBuild, buildInfo *com
 	for envName, names := range envHostNamesMap {
 		ret = append(ret, &commonmodels.KeyVal{Key: envName + "_HOST_NAMEs", Value: strings.Join(names, ","), IsCredential: false})
 	}
+
+	ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "/workspace/artifact/" + vmDeploy.FileName, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: vmDeploy.FileName, IsCredential: false})
 	return ret
 }

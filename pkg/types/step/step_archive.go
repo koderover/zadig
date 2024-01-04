@@ -30,6 +30,7 @@ type Upload struct {
 	IsFileArchive       bool   `bson:"is_file_archive"                       json:"is_file_archive"                            yaml:"is_file_archive"`
 	ServiceName         string `bson:"service_name"                          json:"service_name"                                yaml:"service_name"`
 	ServiceModule       string `bson:"service_module"                        json:"service_module"                                yaml:"service_module"`
+	JobTaskName         string `bson:"job_task_name"                         json:"job_task_name"                               yaml:"job_task_name"`
 	PackageFileLocation string `bson:"package_file_location"                 json:"package_file_location"                       yaml:"package_file_location"`
 	FilePath            string `bson:"file_path"                             json:"file_path"                                 yaml:"file_path"`
 	AbsFilePath         string `bson:"abs_file_path"                         json:"aabs_file_pathk"                           yaml:"abs_file_path"`
