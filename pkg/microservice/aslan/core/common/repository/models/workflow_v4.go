@@ -289,6 +289,7 @@ type ZadigDeployJobSpec struct {
 type ServiceAndVMDeploy struct {
 	ServiceName   string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	ArtifactURL   string              `bson:"artifact_url"        yaml:"artifact_url"     json:"artifact_url"`
 	FileName      string              `bson:"file_name"           yaml:"file_name"        json:"file_name"`
 	TaskID        int                 `bson:"task_id"             yaml:"task_id"          json:"task_id"`
 	WorkflowType  config.PipelineType `bson:"workflow_type"       yaml:"workflow_type"    json:"workflow_type"`

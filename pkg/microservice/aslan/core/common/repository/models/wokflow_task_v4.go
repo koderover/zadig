@@ -171,13 +171,6 @@ type JobTaskCustomDeploySpec struct {
 	ReplaceResources   []Resource `bson:"replace_resources"      json:"replace_resources"     yaml:"replace_resources"`
 }
 
-type JobTaskVMDeploySpec struct {
-	Env         string `bson:"env"                              json:"env"                                 yaml:"env"`
-	ServiceName string `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`
-	Timeout     int64  `bson:"timeout"                          json:"timeout"                             yaml:"timeout"`
-	Artifact    string `bson:"artifact"                         json:"artifact"                            yaml:"artifact"`
-}
-
 type JobTaskDeploySpec struct {
 	Env                string                          `bson:"env"                              json:"env"                                 yaml:"env"`
 	ServiceName        string                          `bson:"service_name"                     json:"service_name"                        yaml:"service_name"`

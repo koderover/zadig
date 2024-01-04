@@ -24,7 +24,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
@@ -50,22 +49,6 @@ func NewDownloadArtifactCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLog
 func (s *downloadArtifactCtl) PreRun(ctx context.Context) error {
 	if s.downloadArtifact.S3 != nil {
 		return nil
-	}
-	var modelS3 *commonmodels.S3Storage
-	var err error
-	if s.downloadArtifact.ObjectStorageID == "" {
-		modelS3, err = commonrepo.NewS3StorageColl().FindDefault()
-		if err != nil {
-			return err
-		}
-		s.downloadArtifact.S3 = modelS3toS3(modelS3)
-	} else {
-		modelS3, err = commonrepo.NewS3StorageColl().Find(s.downloadArtifact.ObjectStorageID)
-		if err != nil {
-			return err
-		}
-		s.downloadArtifact.S3 = modelS3toS3(modelS3)
-		s.downloadArtifact.S3.Subfolder = ""
 	}
 	s.step.Spec = s.downloadArtifact
 	return nil

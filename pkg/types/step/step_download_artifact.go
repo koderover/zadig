@@ -17,7 +17,6 @@ limitations under the License.
 package step
 
 type StepDownloadArtifactSpec struct {
-	Artifact        string `bson:"artifact"                           json:"artifact"                                  yaml:"artifact"`
-	ObjectStorageID string `bson:"object_storage_id"                  json:"object_storage_id"                         yaml:"object_storage_id"`
-	S3              *S3    `bson:"s3_storage"                         json:"s3_storage"                                yaml:"s3_storage"`
+	Artifact string `bson:"artifact"                           json:"artifact"                                  yaml:"artifact"`
+	S3       *S3    `bson:"s3_storage"                         json:"s3_storage"                                yaml:"s3_storage"`
 }
