@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 
@@ -163,6 +164,7 @@ type TestingOpt struct {
 
 func ListTestingOpt(productNames []string, testType string, log *zap.SugaredLogger) ([]*TestingOpt, error) {
 	allTestings := make([]*commonmodels.Testing, 0)
+	// TODO: remove the test type cases, there are only function test type right now. (v2.1.0)
 	if testType == "" {
 		testings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{TestType: testType})
 		if err != nil {
@@ -191,8 +193,8 @@ func ListTestingOpt(productNames []string, testType string, log *zap.SugaredLogg
 					avgDuration := float64(testTaskStat.TotalDuration) / float64(totalNum)
 					testing.AvgDuration = decimal(avgDuration)
 				}
-
-				testing.Workflows, _ = ListAllWorkflows(testing.Name, log)
+				// TODO: Remove the code below. After the removal of the product workflow, there will no longer be references in the testing modules.
+				//testing.Workflows, _ = ListAllWorkflows(testing.Name, log)
 			}
 			allTestings = append(allTestings, testing)
 		}
@@ -222,7 +224,53 @@ func ListTestingOpt(productNames []string, testType string, log *zap.SugaredLogg
 }
 
 func GetTestTask(testName string) (*commonmodels.TestTaskStat, error) {
-	return commonrepo.NewTestTaskStatColl().FindTestTaskStat(&commonrepo.TestTaskStatOption{Name: testName})
+	testCustomWorkflowName := fmt.Sprintf(testWorkflowNamingConvention, testName)
+	testTasks, err := commonrepo.NewJobInfoColl().GetTestJobsByWorkflow(testCustomWorkflowName)
+	if err != nil {
+		log.Errorf("failed to get test task from mongodb, error: %s", err)
+		return nil, err
+	}
+
+	resp := &commonmodels.TestTaskStat{
+		Name: testName,
+	}
+
+	if len(testTasks) == 0 {
+		return resp, nil
+	}
+
+	var success, failure int
+	var duration int64
+	for _, testTask := range testTasks {
+		if testTask.Status == "passed" {
+			success++
+		} else {
+			failure++
+		}
+
+		duration += testTask.Duration
+	}
+
+	resp.TotalDuration = duration
+	resp.TotalFailure = failure
+	resp.TotalSuccess = success
+
+	// get latest test result to determine how many cases are there
+	testResults, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(testCustomWorkflowName, testName, testTasks[0].TaskID)
+	if err != nil {
+		log.Errorf("failed to get test report info for test: %s, error: %s", err)
+		resp.TestCaseNum = 0
+		// this error can be ignored.
+		return resp, nil
+	}
+
+	for _, testResult := range testResults {
+		if testResult.ZadigTestName == testName {
+			resp.TestCaseNum = testResult.TestCaseNum
+		}
+	}
+
+	return resp, nil
 }
 
 func decimal(value float64) float64 {

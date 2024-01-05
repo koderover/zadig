@@ -38,7 +38,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		itReport.GET("/pipelines/:pipelineName/id/:id/names/:testName", GetLocalTestSuite)
 		itReport.GET("/workflowv4/:workflowName/id/:id/job/:jobName", GetWorkflowV4LocalTestSuite)
 		itReport.GET("/workflow/:pipelineName/id/:id/names/:testName/service/:serviceName", GetWorkflowLocalTestSuite)
-		itReport.GET("/latest/service/:serviceName", GetTestLocalTestSuite)
+		itReport.GET("/latest/service/:testName", GetTestLocalTestSuite)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -90,6 +90,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	testTask := router.Group("testtask")
 	{
 		testTask.POST("", CreateTestTask)
+		testTask.GET("", ListTestTask)
+		testTask.GET("/detail", GetTestTaskInfo)
 		testTask.POST("/productName/:productName/id/:id/pipelines/:name/restart", RestartTestTask)
 		testTask.DELETE("/productName/:productName/id/:id/pipelines/:name", CancelTestTaskV2)
 	}

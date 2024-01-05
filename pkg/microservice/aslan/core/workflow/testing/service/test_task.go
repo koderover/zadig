@@ -168,6 +168,68 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 	return nil, err
 }
 
+type TestTaskList struct {
+	Total int                       `json:"total"`
+	Tasks []*commonrepo.TaskPreview `json:"tasks"`
+}
+
+func ListTestTask(testName, projectKey string, pageNum, pageSize int, log *zap.SugaredLogger) (*TestTaskList, error) {
+	workflowName := fmt.Sprintf(testWorkflowNamingConvention, testName)
+	workflowTasks, total, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{
+		WorkflowName: workflowName,
+		ProjectName:  projectKey,
+		Skip:         (pageNum - 1) * pageSize,
+		Limit:        pageSize,
+	})
+
+	if err != nil {
+		log.Errorf("failed to find testing module task of test: %s (common workflow name: %s), error: %s", testName, workflowName, err)
+		return nil, err
+	}
+
+	taskPreviewList := make([]*commonrepo.TaskPreview, 0)
+
+	for _, testTask := range workflowTasks {
+		testResultMap := make(map[string]interface{})
+
+		testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, testTask.TaskID)
+		if err != nil {
+			log.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+			return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+		}
+
+		for _, testResult := range testResultList {
+			testResultMap[testResult.TestName] = &commonmodels.TestSuite{
+				Tests:     testResult.TestCaseNum,
+				Failures:  testResult.FailedCaseNum,
+				Successes: testResult.SuccessCaseNum,
+				Skips:     testResult.SkipCaseNum,
+				Errors:    testResult.ErrorCaseNum,
+				Time:      testResult.TestTime,
+				TestCases: testResult.TestCases,
+				Name:      testResult.TestName,
+			}
+		}
+
+		taskPreviewList = append(taskPreviewList, &commonrepo.TaskPreview{
+			TaskID:       testTask.TaskID,
+			TaskCreator:  testTask.TaskCreator,
+			ProductName:  projectKey,
+			PipelineName: testName,
+			Status:       testTask.Status,
+			CreateTime:   testTask.CreateTime,
+			StartTime:    testTask.StartTime,
+			EndTime:      testTask.EndTime,
+			TestReports:  testResultMap,
+		})
+	}
+
+	return &TestTaskList{
+		Total: int(total),
+		Tasks: taskPreviewList,
+	}, nil
+}
+
 const (
 	testWorkflowNamingConvention = "zadig-testing-%s"
 )

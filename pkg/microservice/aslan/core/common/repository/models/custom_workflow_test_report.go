@@ -30,7 +30,11 @@ type CustomWorkflowTestReport struct {
 	TestName         string             `bson:"test_name"`
 	TestCaseNum      int                `bson:"test_case_num"`
 	SuccessCaseNum   int                `bson:"success_case_num"`
+	SkipCaseNum      int                `bson:"skip_case_num"`
+	FailedCaseNum    int                `bson:"failed_case_num"`
+	ErrorCaseNum     int                `bson:"error_case_num"`
 	TestTime         float64            `bson:"test_time"`
+	TestCases        []TestCase         `bson:"test_cases"`
 }
 
 func (CustomWorkflowTestReport) TableName() string {
