@@ -174,7 +174,6 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			return resp, fmt.Errorf("find base image: %s error: %v", buildInfo.PreBuild.ImageID, err)
 		}
 
-		// outputs := ensureBuildInOutputs(buildInfo.Outputs)
 		jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
 		jobTask := &commonmodels.JobTask{
 			Name: jobNameFormat(vmDeployInfo.ServiceName + "-" + vmDeployInfo.ServiceModule + "-" + j.job.Name),
@@ -183,11 +182,10 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 				"service_module": vmDeployInfo.ServiceModule,
 				JobNameKey:       j.job.Name,
 			},
-			Key:     strings.Join([]string{j.job.Name, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule}, "."),
-			JobType: string(config.JobZadigVMDeploy),
-			Spec:    jobTaskSpec,
-			Timeout: int64(buildInfo.Timeout),
-			// Outputs:        outputs,
+			Key:            strings.Join([]string{j.job.Name, vmDeployInfo.ServiceName, vmDeployInfo.ServiceModule}, "."),
+			JobType:        string(config.JobZadigVMDeploy),
+			Spec:           jobTaskSpec,
+			Timeout:        int64(buildInfo.Timeout),
 			Infrastructure: setting.JobK8sInfrastructure,
 			VMLabels:       buildInfo.VMLabels,
 		}
