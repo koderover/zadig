@@ -1191,7 +1191,7 @@ func GeneEstimatedValues(productName, envName, serviceOrReleaseName, scene, form
 			return nil, fmt.Errorf("failed to new helm client, err %s", err)
 		}
 
-		valuesYaml, err := client.GetChartValues(commonutil.GeneHelmRepo(chartRepo), productName, serviceOrReleaseName, arg.ChartRepo, arg.ChartName, arg.ChartVersion)
+		valuesYaml, err := client.GetChartValues(commonutil.GeneHelmRepo(chartRepo), productName, serviceOrReleaseName, arg.ChartRepo, arg.ChartName, arg.ChartVersion, arg.Production)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get chart values, chartRepo: %s, chartName: %s, chartVersion: %s, err %s", arg.ChartRepo, arg.ChartName, arg.ChartVersion, err)
 		}
@@ -2882,7 +2882,7 @@ func proceedHelmRelease(productResp *commonmodels.Product, helmClient *helmtool.
 			}
 
 			chartRef := fmt.Sprintf("%s/%s", param.RenderChart.ChartRepo, param.RenderChart.ChartName)
-			localPath := config.LocalServicePathWithRevision(param.ProductName, param.ReleaseName, param.RenderChart.ChartVersion, true)
+			localPath := config.LocalServicePathWithRevision(param.ProductName, param.ReleaseName, param.RenderChart.ChartVersion, param.Production)
 			// remove local file to untar
 			_ = os.RemoveAll(localPath)
 
