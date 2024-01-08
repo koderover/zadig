@@ -186,7 +186,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			JobType:        string(config.JobZadigVMDeploy),
 			Spec:           jobTaskSpec,
 			Timeout:        int64(buildInfo.Timeout),
-			Infrastructure: setting.JobK8sInfrastructure,
+			Infrastructure: buildInfo.Infrastructure,
 			VMLabels:       buildInfo.VMLabels,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
@@ -206,10 +206,10 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		for _, kv := range tmpVmDeployVars {
 			if strings.HasSuffix(kv.Key, "_PK_CONTENT") {
 				name := strings.TrimSuffix(kv.Key, "_PK_CONTENT")
-				vmDeployVars = append(vmDeployVars, &commonmodels.KeyVal{Key: name + "_PK", Value: "~/.ssh/" + name + "_PK", IsCredential: false})
+				vmDeployVars = append(vmDeployVars, &commonmodels.KeyVal{Key: name + "_PK", Value: "/tmp/" + name + "_PK", IsCredential: false})
 
-				initShellScripts = append(initShellScripts, "echo \""+kv.Value+"\" > ~/.ssh/"+name+"_PK")
-				initShellScripts = append(initShellScripts, "chmod 600 ~/.ssh/"+name+"_PK")
+				initShellScripts = append(initShellScripts, "echo \""+kv.Value+"\" > /tmp/"+name+"_PK")
+				initShellScripts = append(initShellScripts, "chmod 600 /tmp/"+name+"_PK")
 			} else {
 				vmDeployVars = append(vmDeployVars, kv)
 			}
@@ -501,7 +501,7 @@ func getVMDeployJobVariables(vmDeploy *commonmodels.ServiceAndVMDeploy, buildInf
 		ret = append(ret, &commonmodels.KeyVal{Key: envName + "_HOST_NAMEs", Value: strings.Join(names, ","), IsCredential: false})
 	}
 
-	ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "/workspace/artifact/" + vmDeploy.FileName, IsCredential: false})
+	ret = append(ret, &commonmodels.KeyVal{Key: "ARTIFACT", Value: "$WORKSPACE/artifact/" + vmDeploy.FileName, IsCredential: false})
 	ret = append(ret, &commonmodels.KeyVal{Key: "PKG_FILE", Value: vmDeploy.FileName, IsCredential: false})
 	return ret
 }
