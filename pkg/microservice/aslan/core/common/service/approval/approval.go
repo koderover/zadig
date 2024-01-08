@@ -17,9 +17,18 @@
 package approval
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+	"github.com/redis/go-redis/v9"
+
+	config2 "github.com/koderover/zadig/v2/pkg/config"
+
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -27,7 +36,7 @@ import (
 
 type ApproveMap struct {
 	m map[string]*ApproveWithLock
-	sync.RWMutex
+	//sync.RWMutex
 }
 
 type ApproveWithLock struct {
@@ -41,22 +50,37 @@ func init() {
 	GlobalApproveMap.m = make(map[string]*ApproveWithLock, 0)
 }
 
+func approveKey(instanceID string) string {
+	return fmt.Sprintf("normal-approve-%s", instanceID)
+}
+
 func (c *ApproveMap) SetApproval(key string, value *ApproveWithLock) {
-	c.Lock()
-	defer c.Unlock()
-	c.m[key] = value
+	bytes, _ := json.Marshal(value.Approval)
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(approveKey(key), string(bytes), 0)
 }
 
 func (c *ApproveMap) GetApproval(key string) (*ApproveWithLock, bool) {
-	c.RLock()
-	defer c.RUnlock()
-	v, existed := c.m[key]
-	return v, existed
+	value, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).GetString(approveKey(key))
+	if err != nil && !errors.Is(err, redis.Nil) {
+		log.Errorf("get approval from redis error: %v", err)
+		return nil, false
+	}
+
+	if errors.Is(err, redis.Nil) {
+		return nil, false
+	}
+
+	approval := &ApproveWithLock{}
+	err = json.Unmarshal([]byte(value), approval)
+	if err != nil {
+		log.Errorf("unmarshal approval error: %v", err)
+		return nil, false
+	}
+	return approval, true
 }
+
 func (c *ApproveMap) DeleteApproval(key string) {
-	c.Lock()
-	defer c.Unlock()
-	delete(c.m, key)
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(approveKey(key))
 }
 
 func (c *ApproveWithLock) IsApproval() (bool, int, error) {

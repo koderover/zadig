@@ -19,7 +19,12 @@ package dingtalk
 import (
 	"context"
 	"encoding/json"
-	"sync"
+	"fmt"
+
+	"github.com/redis/go-redis/v9"
+
+	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -34,84 +39,76 @@ const (
 )
 
 var (
-	once                       sync.Once
-	dingTalkApprovalManagerMap *ApprovalManagerMap
+// once                       sync.Once
+// dingTalkApprovalManagerMap *ApprovalManagerMap
 )
 
-type ApprovalManagerMap struct {
-	sync.RWMutex
-	// key: instance id
-	m map[string]*ApprovalManager
-}
+//type ApprovalManagerMap struct {
+//	sync.RWMutex
+//	// key: instance id
+//	m map[string]*ApprovalManager
+//}
 
-type ApprovalManager struct {
-	sync.RWMutex
-	// key: user id
-	instanceUserResultInfo map[string]*UserApprovalResult
-}
-
+//	type ApprovalManager struct {
+//		sync.RWMutex
+//		// key: user id
+//		instanceUserResultInfo map[string]*UserApprovalResult
+//	}
 type UserApprovalResult struct {
 	Result        string
 	OperationTime int64
 	Remark        string
 }
 
-func GetDingTalkApprovalManager(instanceID string) *ApprovalManager {
-	if dingTalkApprovalManagerMap == nil {
-		once.Do(func() {
-			dingTalkApprovalManagerMap = &ApprovalManagerMap{m: make(map[string]*ApprovalManager)}
-		})
-	}
-
-	dingTalkApprovalManagerMap.Lock()
-	defer dingTalkApprovalManagerMap.Unlock()
-
-	if manager, ok := dingTalkApprovalManagerMap.m[instanceID]; !ok {
-		dingTalkApprovalManagerMap.m[instanceID] = &ApprovalManager{
-			instanceUserResultInfo: make(map[string]*UserApprovalResult),
-		}
-		return dingTalkApprovalManagerMap.m[instanceID]
-	} else {
-		return manager
-	}
+func dingtalkApprovalCacheKey(instanceID string) string {
+	return fmt.Sprint("dingtalk_approval_cache_", instanceID)
 }
 
 func RemoveDingTalkApprovalManager(instanceID string) {
-	dingTalkApprovalManagerMap.Lock()
-	defer dingTalkApprovalManagerMap.Unlock()
-
-	delete(dingTalkApprovalManagerMap.m, instanceID)
+	cache.NewRedisCache(config.RedisCommonCacheTokenDB()).Delete(dingtalkApprovalCacheKey(instanceID))
 }
 
-func (l *ApprovalManager) GetAllUserApprovalResults() map[string]*UserApprovalResult {
-	l.RLock()
-	defer l.RUnlock()
+func GetAllUserApprovalResults(instanceID string) map[string]*UserApprovalResult {
 
-	re := make(map[string]*UserApprovalResult)
-	for k, v := range l.instanceUserResultInfo {
-		re[k] = &UserApprovalResult{
-			Result:        v.Result,
-			OperationTime: v.OperationTime,
-			Remark:        v.Remark,
-		}
+	resp, err := cache.NewRedisCache(config.RedisCommonCacheTokenDB()).HGetAllString(dingtalkApprovalCacheKey(instanceID))
+	if err != nil && !errors.Is(err, redis.Nil) {
+		log.Errorf("get dingtalk approval cache error: %v", err)
+		return nil
 	}
+	re := make(map[string]*UserApprovalResult)
+	for k, v := range resp {
+		var info UserApprovalResult
+		if err := json.Unmarshal([]byte(v), &info); err != nil {
+			log.Errorf("unmarshal dingtalk approval cache error: %v", err)
+			continue
+		}
+		re[k] = &info
+	}
+
 	return re
 }
 
-func (l *ApprovalManager) SetUserApprovalResult(userID, result, remark string, time int64) {
-	l.Lock()
-	defer l.Unlock()
+func SetUserApprovalResult(instanceID, userID, result, remark string, time int64) {
+	//l.Lock()
+	//defer l.Unlock()
 
 	// ignore if user approval result already set
-	if info := l.instanceUserResultInfo[userID]; info != nil && info.Result != "" {
-		return
-	}
+	//if info := l.instanceUserResultInfo[userID]; info != nil && info.Result != "" {
+	//	return
+	//}
 
-	l.instanceUserResultInfo[userID] = &UserApprovalResult{
+	bytes, _ := json.Marshal(&UserApprovalResult{
 		Result:        result,
 		OperationTime: time / 1000,
 		Remark:        remark,
-	}
+	})
+	cache.NewRedisCache(config.RedisCommonCacheTokenDB()).HWrite(dingtalkApprovalCacheKey(instanceID), userID, string(bytes), 0)
+
+	//l.instanceUserResultInfo[userID] = &UserApprovalResult{
+	//	Result:        result,
+	//	OperationTime: time / 1000,
+	//	Remark:        remark,
+	//}
 }
 
 type EventInstanceChangeData struct {
@@ -184,7 +181,7 @@ func EventHandler(appKey string, body []byte, signature, ts, nonce string) (*Eve
 		if event.Type != "finish" {
 			break
 		}
-		GetDingTalkApprovalManager(event.ProcessInstanceID).SetUserApprovalResult(event.StaffID, event.Result, event.Remark, event.FinishTime)
+		SetUserApprovalResult(event.ProcessInstanceID, event.StaffID, event.Result, event.Remark, event.FinishTime)
 		log.Infof("dingtalk event type: %s instanceID: %s userID: %s result: %s remark: %s",
 			eventType, event.ProcessInstanceID, event.StaffID, event.Result, event.Remark)
 	}

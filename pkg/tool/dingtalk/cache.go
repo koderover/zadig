@@ -16,30 +16,65 @@
 
 package dingtalk
 
-import "sync"
+import (
+	"fmt"
 
-var (
-	globalUserInfoCacheMap = map[string]map[string]*UserInfo{}
-	mu                     sync.RWMutex
+	"k8s.io/apimachinery/pkg/util/json"
+
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+
+	"github.com/koderover/zadig/v2/pkg/config"
+
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 )
 
-func (c *Client) getUserInfoMap() map[string]*UserInfo {
-	mu.Lock()
-	defer mu.Unlock()
-	if globalUserInfoCacheMap[c.AppKey] == nil {
-		globalUserInfoCacheMap[c.AppKey] = map[string]*UserInfo{}
-	}
-	return globalUserInfoCacheMap[c.AppKey]
+var (
+// globalUserInfoCacheMap = map[string]map[string]*UserInfo{}
+// mu                     sync.RWMutex
+)
+
+func (c *Client) cacheKey(userID string) string {
+	return fmt.Sprintf("dingtalk_%s_user_%s", c.AppKey, userID)
 }
 
+//func (c *Client) getUserInfoMap() map[string]*UserInfo {
+//	oncer.Do("DingDingTalkUserCache", func() {
+//		cache.NewRedisCache(config.RedisCommonCacheTokenDB())
+//	})
+//	mu.Lock()
+//	defer mu.Unlock()
+//
+//	if globalUserInfoCacheMap[c.AppKey] == nil {
+//		globalUserInfoCacheMap[c.AppKey] = map[string]*UserInfo{}
+//	}
+//	return globalUserInfoCacheMap[c.AppKey]
+//}
+
 func (c *Client) storeUserInfoInCache(userID string, userInfo *UserInfo) {
-	c.cacheLock.Lock()
-	defer c.cacheLock.Unlock()
-	c.getUserInfoMap()[userID] = userInfo
+	bytes, err := json.Marshal(userInfo)
+	if err != nil {
+		log.Errorf("marshal user info error: %v", err)
+		return
+	}
+	err = cache.NewRedisCache(config.RedisCommonCacheTokenDB()).Write(c.cacheKey(userID), string(bytes), 0)
+	if err != nil {
+		log.Errorf("write dingding user info to cache error: %v", err)
+		return
+	}
 }
 
 func (c *Client) getUserInfoFromCache(userID string) *UserInfo {
-	c.cacheLock.RLock()
-	defer c.cacheLock.RUnlock()
-	return c.getUserInfoMap()[userID]
+	value, err := cache.NewRedisCache(config.RedisCommonCacheTokenDB()).GetString(c.cacheKey(userID))
+	if err != nil {
+		log.Infof("get dingding user info from cache error: %v", err)
+		return nil
+	}
+
+	userInfo := &UserInfo{}
+	err = json.Unmarshal([]byte(value), userInfo)
+	if err != nil {
+		log.Errorf("unmarshal user info error: %v", err)
+		return nil
+	}
+	return userInfo
 }

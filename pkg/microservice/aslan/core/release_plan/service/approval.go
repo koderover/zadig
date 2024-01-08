@@ -170,7 +170,7 @@ func updateDingTalkApproval(ctx context.Context, approvalInfo *models.Approval) 
 		}
 	}
 
-	userApprovalResult := dingservice.GetDingTalkApprovalManager(instanceID).GetAllUserApprovalResults()
+	userApprovalResult := dingservice.GetAllUserApprovalResults(instanceID)
 	for _, node := range approval.ApprovalNodes {
 		if node.RejectOrApprove != "" {
 			continue

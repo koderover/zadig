@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -192,11 +194,10 @@ func ListProducts(userID, projectName string, envNames []string, production bool
 	return res, nil
 }
 
-var mutexAutoCreate sync.RWMutex
-
 // AutoCreateProduct happens in onboarding progress of pm project
 func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredLogger) []*EnvStatus {
 
+	mutexAutoCreate := cache.NewRedisLock(fmt.Sprintf("auto_create_project:%s", productName))
 	mutexAutoCreate.Lock()
 	defer func() {
 		mutexAutoCreate.Unlock()
@@ -218,8 +219,6 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 	return envStatus
 }
 
-var mutexAutoUpdate sync.RWMutex
-
 type UpdateServiceArg struct {
 	ServiceName    string                          `json:"service_name"`
 	DeployStrategy string                          `json:"deploy_strategy"`
@@ -232,7 +231,11 @@ type UpdateEnv struct {
 }
 
 func UpdateMultipleK8sEnv(args []*UpdateEnv, envNames []string, productName, requestID string, force, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	mutexAutoUpdate.Lock()
+	mutexAutoUpdate := cache.NewRedisLock(fmt.Sprintf("update_multiple_product:%s", productName))
+	err := mutexAutoUpdate.Lock()
+	if err != nil {
+		return nil, e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to acquire lock, err: %s", err))
+	}
 	defer func() {
 		mutexAutoUpdate.Unlock()
 	}()
@@ -1628,12 +1631,14 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 	return nil
 }
 
-var mutexUpdateMultiHelm sync.RWMutex
-
 func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProductArg, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	mutexUpdateMultiHelm.Lock()
+	mutexAutoUpdate := cache.NewRedisLock(fmt.Sprintf("update_multiple_product:%s", args.ProductName))
+	err := mutexAutoUpdate.Lock()
+	if err != nil {
+		return nil, e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to acquire lock, err: %s", err))
+	}
 	defer func() {
-		mutexUpdateMultiHelm.Unlock()
+		mutexAutoUpdate.Unlock()
 	}()
 
 	envNames, productName := args.EnvNames, args.ProductName
@@ -1704,7 +1709,12 @@ func UpdateMultipleHelmEnv(requestID, userName string, args *UpdateMultiHelmProd
 }
 
 func UpdateMultipleHelmChartEnv(requestID, userName string, args *UpdateMultiHelmProductArg, production bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	mutexUpdateMultiHelm.Lock()
+	mutexUpdateMultiHelm := cache.NewRedisLock(fmt.Sprintf("update_multiple_product:%s", args.ProductName))
+
+	err := mutexUpdateMultiHelm.Lock()
+	if err != nil {
+		return nil, e.ErrUpdateEnv.AddErr(fmt.Errorf("failed to acquire lock, err: %s", err))
+	}
 	defer func() {
 		mutexUpdateMultiHelm.Unlock()
 	}()

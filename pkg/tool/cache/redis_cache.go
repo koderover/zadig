@@ -56,6 +56,19 @@ func (c *RedisCache) Write(key, val string, ttl time.Duration) error {
 	return err
 }
 
+func (c *RedisCache) HWrite(key, field, val string, ttl time.Duration) error {
+	_, err := c.redisClient.HSet(context.TODO(), key, field, val).Result()
+	if err != nil {
+		return err
+	}
+
+	// not thread safe
+	if ttl > 0 {
+		_, err = c.redisClient.Expire(context.Background(), key, ttl).Result()
+	}
+	return err
+}
+
 func (c *RedisCache) SetNX(key, val string, ttl time.Duration) error {
 	_, err := c.redisClient.SetNX(context.TODO(), key, val, ttl).Result()
 	return err
@@ -76,6 +89,14 @@ func (c *RedisCache) Exists(key string) (bool, error) {
 
 func (c *RedisCache) GetString(key string) (string, error) {
 	return c.redisClient.Get(context.TODO(), key).Result()
+}
+
+func (c *RedisCache) HGetString(key, field string) (string, error) {
+	return c.redisClient.HGet(context.TODO(), key, field).Result()
+}
+
+func (c *RedisCache) HGetAllString(key string) (map[string]string, error) {
+	return c.redisClient.HGetAll(context.Background(), key).Result()
 }
 
 func (c *RedisCache) Delete(key string) error {

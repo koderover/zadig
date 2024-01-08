@@ -497,7 +497,7 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 			stage.Status = config.StatusCancelled
 			return fmt.Errorf("workflow timeout")
 		default:
-			userApprovalResult := dingservice.GetDingTalkApprovalManager(instanceID).GetAllUserApprovalResults()
+			userApprovalResult := dingservice.GetAllUserApprovalResults(instanceID)
 			userUpdated := false
 			for _, node := range approval.ApprovalNodes {
 				if node.RejectOrApprove != "" {

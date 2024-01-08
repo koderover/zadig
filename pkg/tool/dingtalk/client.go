@@ -18,7 +18,6 @@ package dingtalk
 
 import (
 	"encoding/json"
-	"sync"
 	"time"
 
 	"github.com/imroc/req/v3"
@@ -36,7 +35,7 @@ type Client struct {
 	AppKey    string
 	AppSecret string
 
-	cacheLock sync.RWMutex
+	//cacheLock sync.RWMutex
 }
 
 func NewClient(key, secret string) (client *Client) {
