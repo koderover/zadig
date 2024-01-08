@@ -140,7 +140,7 @@ So if you have added or modified any API on `aslan` service, please:
 2. Update the swagger API doc with the following command:
 
   ```bash
-  cd [your root path of Zadig-X]
+  cd [your root path of zadig]
 
   make swag
   ```
