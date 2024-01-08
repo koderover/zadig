@@ -383,7 +383,8 @@ func (e *JobExecutor) getJobOutputVars() ([]*job.JobOutput, error) {
 		} else if err != nil {
 			return outputs, err
 		}
-		value := strings.Trim(string(fileContents), "\n")
+
+		value := strings.TrimSpace(string(fileContents))
 		outputs = append(outputs, &job.JobOutput{Name: outputName, Value: value})
 	}
 	return outputs, nil

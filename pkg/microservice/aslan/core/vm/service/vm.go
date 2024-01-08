@@ -90,7 +90,7 @@ func OfflineVM(idString, user string, logger *zap.SugaredLogger) error {
 }
 
 type RecoveryAgentCmd struct {
-	RecoveryCmd string `json:"recovery_cmd"`
+	RecoveryCmd map[string]string `json:"recovery_cmd"`
 }
 
 func RecoveryVM(idString, user string, logger *zap.SugaredLogger) (*RecoveryAgentCmd, error) {
@@ -117,20 +117,91 @@ func RecoveryVM(idString, user string, logger *zap.SugaredLogger) (*RecoveryAgen
 }
 
 func generateAgentRecoveryCmd(vm *commonmodels.PrivateKey) (*RecoveryAgentCmd, error) {
-	if vm.VMInfo.Platform == "windows" {
-		return &RecoveryAgentCmd{
-			RecoveryCmd: "start C:\\Users\\Administrator\\zadig-agent.exe start",
-		}, nil
-	} else {
-		return &RecoveryAgentCmd{
-			RecoveryCmd: "nohup zadig-agent start &",
-		}, nil
+	cmd := new(RecoveryAgentCmd)
+
+	baseURL, err := getRepoURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent repo url, err: %w", err)
 	}
+	version, err := getZadigAgentVersion()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get zadig-agent version, error: %s", err)
+	}
+
+	if vm.Agent == nil {
+		return nil, fmt.Errorf("vm %s not install zadig-agent", vm.Name)
+	}
+
+	var token string
+	if vm.Agent != nil {
+		token = vm.Agent.Token
+	}
+	serverURL := commonconfig.SystemAddress()
+
+	linuxAMD64Name, linuxARM64Name := fmt.Sprintf("zadig-agent-linux-amd64-v%s", version), fmt.Sprintf("zadig-agent-linux-arm64-v%s", version)
+	macOSAMD64Name, macOSARM64Name := fmt.Sprintf("zadig-agent-darwin-amd64-v%s", version), fmt.Sprintf("zadig-agent-darwin-arm64-v%s", version)
+	winAMD64Name := fmt.Sprintf("zadig-agent-windows-amd64-v%s.exe", version)
+	winAMD64TarballName := strings.ReplaceAll(winAMD64Name, ".exe", ".tar.gz")
+
+	if vm.VMInfo != nil {
+		switch fmt.Sprintf("%s_%s", vm.VMInfo.Platform, vm.VMInfo.Architecture) {
+		case setting.LinuxAmd64:
+			downloadLinuxAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, linuxAMD64Name)
+			cmd.RecoveryCmd = map[string]string{"shell": fmt.Sprintf(
+				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
+					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
+					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
+					"sudo nohup zadig-agent start --server-url %s --token %s &",
+				downloadLinuxAMD64URL, linuxAMD64Name, serverURL, token)}
+		case setting.LinuxArm64:
+			downloadLinuxARM64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, linuxARM64Name)
+			cmd.RecoveryCmd = map[string]string{"shell": fmt.Sprintf(
+				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
+					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
+					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
+					"sudo nohup zadig-agent start --server-url %s --token %s &",
+				downloadLinuxARM64URL, linuxARM64Name, serverURL, token)}
+		case setting.MacOSAmd64:
+			downloadMacOSAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, macOSAMD64Name)
+			cmd.RecoveryCmd = map[string]string{"shell": fmt.Sprintf(
+				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
+					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
+					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
+					"nohup zadig-agent start --server-url %s --token %s &",
+				downloadMacOSAMD64URL, macOSAMD64Name, serverURL, token)}
+		case setting.MacOSArm64:
+			downloadMacOSARM64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, macOSARM64Name)
+			cmd.RecoveryCmd = map[string]string{"shell": fmt.Sprintf(
+				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
+					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
+					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
+					"nohup zadig-agent start --server-url %s --token %s &",
+				downloadMacOSARM64URL, macOSARM64Name, serverURL, token)}
+		case setting.WinAmd64:
+			downloadWinAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, strings.TrimSuffix(winAMD64Name, ".exe"))
+			cmd.RecoveryCmd = map[string]string{
+				"cmd": fmt.Sprintf(
+					"curl -L %s | tar xzf - -C C:\\Users\\Administrator \n "+
+						"move /Y C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
+						"start C:\\Users\\Administrator\\zadig-agent.exe start --server-url %s --token %s",
+					downloadWinAMD64URL, winAMD64Name, serverURL, token),
+				"powershell": fmt.Sprintf(
+					"curl -L %s -o %s \n"+
+						"tar xzf %s -C C:\\Users\\Administrator \n "+
+						"Remove-Item -Path \"C:\\Users\\Administrator\\%s\" -ErrorAction SilentlyContinue \n"+
+						"move -Force C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
+						"Start-Process -FilePath \"C:\\Users\\Administrator\\zadig-agent.exe\" -ArgumentList \"start\", \"--server-url\", \"%s\", \"--token\", \"%s\"",
+					downloadWinAMD64URL, winAMD64TarballName, winAMD64TarballName, winAMD64TarballName, winAMD64Name, serverURL, token)}
+		default:
+			return nil, fmt.Errorf("unsupported platform %s", vm.VMInfo.Platform)
+		}
+	}
+	return cmd, nil
 }
 
 type UpgradeAgentCmd struct {
-	UpgradeCmd string `json:"upgrade_cmd"`
-	Upgrade    bool   `json:"upgrade"`
+	UpgradeCmd map[string]string `json:"upgrade_cmd"`
+	Upgrade    bool              `json:"upgrade"`
 }
 
 func UpgradeAgent(idString, user string, logger *zap.SugaredLogger) (*UpgradeAgentCmd, error) {
@@ -154,7 +225,10 @@ func UpgradeAgent(idString, user string, logger *zap.SugaredLogger) (*UpgradeAge
 func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLogger) (*UpgradeAgentCmd, error) {
 	cmd := new(UpgradeAgentCmd)
 
-	baseURL := "https://resources.koderover.com/dist"
+	baseURL, err := getRepoURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent repo url, err: %w", err)
+	}
 	version, err := getZadigAgentVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get zadig-agent version, error: %s", err)
@@ -167,57 +241,69 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 	linuxAMD64Name, linuxARM64Name := fmt.Sprintf("zadig-agent-linux-amd64-v%s", version), fmt.Sprintf("zadig-agent-linux-arm64-v%s", version)
 	macOSAMD64Name, macOSARM64Name := fmt.Sprintf("zadig-agent-darwin-amd64-v%s", version), fmt.Sprintf("zadig-agent-darwin-arm64-v%s", version)
 	winAMD64Name := fmt.Sprintf("zadig-agent-windows-amd64-v%s.exe", version)
+	winAMD64TarballName := strings.ReplaceAll(winAMD64Name, ".exe", ".tar.gz")
 
 	if vm.VMInfo != nil {
 		switch fmt.Sprintf("%s_%s", vm.VMInfo.Platform, vm.VMInfo.Architecture) {
 		case setting.LinuxAmd64:
 			downloadLinuxAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, linuxAMD64Name)
-			cmd.UpgradeCmd = fmt.Sprintf(
+			cmd.UpgradeCmd = map[string]string{"shell": fmt.Sprintf(
 				"zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"sudo nohup zadig-agent start &",
-				downloadLinuxAMD64URL, linuxAMD64Name)
+				downloadLinuxAMD64URL, linuxAMD64Name)}
 		case setting.LinuxArm64:
 			downloadLinuxARM64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, linuxARM64Name)
-			cmd.UpgradeCmd = fmt.Sprintf(
+			cmd.UpgradeCmd = map[string]string{"shell": fmt.Sprintf(
 				"zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"sudo nohup zadig-agent start &",
-				downloadLinuxARM64URL, linuxARM64Name)
+				downloadLinuxARM64URL, linuxARM64Name)}
 		case setting.MacOSAmd64:
 			downloadMacOSAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, macOSAMD64Name)
-			cmd.UpgradeCmd = fmt.Sprintf(
+			cmd.UpgradeCmd = map[string]string{"shell": fmt.Sprintf(
 				"zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"nohup zadig-agent start &",
-				downloadMacOSAMD64URL, macOSAMD64Name)
+				downloadMacOSAMD64URL, macOSAMD64Name)}
 		case setting.MacOSArm64:
 			downloadMacOSARM64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, macOSARM64Name)
-			cmd.UpgradeCmd = fmt.Sprintf(
+			cmd.UpgradeCmd = map[string]string{"shell": fmt.Sprintf(
 				"zadig-agent stop \n "+
 					"sudo rm -rf /usr/local/bin/zadig-agent \n "+
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"nohup zadig-agent start &",
-				downloadMacOSARM64URL, macOSARM64Name)
+				downloadMacOSARM64URL, macOSARM64Name)}
 		case setting.WinAmd64:
 			downloadWinAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, strings.TrimSuffix(winAMD64Name, ".exe"))
-			cmd.UpgradeCmd = fmt.Sprintf(
-				"del C:\\Users\\Administrator\\zadig-agent.exe \n "+
-					"curl -L %s | tar xzf - -C C:\\Users\\Administrator \n "+
-					"move /Y C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
-					"start C:\\Users\\Administrator\\zadig-agent.exe start",
-				downloadWinAMD64URL, winAMD64Name)
+			cmd.UpgradeCmd = map[string]string{
+				"cmd": fmt.Sprintf(
+					"C:\\Users\\Administrator\\zadig-agent.exe stop\n "+
+						"del C:\\Users\\Administrator\\zadig-agent.exe \n "+
+						"curl -L %s | tar xzf - -C C:\\Users\\Administrator \n "+
+						"move /Y C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
+						"start C:\\Users\\Administrator\\zadig-agent.exe start",
+					downloadWinAMD64URL, winAMD64Name),
+				"powershell": fmt.Sprintf(
+					"C:\\Users\\Administrator\\zadig-agent.exe stop\n "+
+						"Remove-Item -Path C:\\Users\\Administrator\\zadig-agent.exe -ErrorAction SilentlyContinue \n "+
+						"curl -L %s -o %s \n"+
+						"tar xzf %s -C C:\\Users\\Administrator \n "+
+						"Remove-Item -Path \"C:\\Users\\Administrator\\%s\" -ErrorAction SilentlyContinue \n"+
+						"move -Force C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
+						"Start-Process -FilePath \"C:\\Users\\Administrator\\zadig-agent.exe\" -ArgumentList \"start\"",
+					downloadWinAMD64URL, winAMD64TarballName, winAMD64TarballName, winAMD64TarballName, winAMD64Name)}
 		default:
 			return nil, fmt.Errorf("unsupported platform %s", vm.VMInfo.Platform)
 		}
@@ -583,18 +669,20 @@ func GenerateAgentToken() string {
 }
 
 func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, error) {
-	baseURL := "https://resources.koderover.com/dist"
 	var token string
 	if vm.Agent != nil {
 		token = vm.Agent.Token
+	}
+	baseURL, err := getRepoURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent repo url, err: %w", err)
 	}
 	version, err := getZadigAgentVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get zadig-agent version, error: %s", err)
 	}
 
-	var serverURL string
-	serverURL = commonconfig.SystemAddress()
+	serverURL := commonconfig.SystemAddress()
 
 	var downloadLinuxAMD64URL, downloadLinuxARM64URL string
 	linuxAMD64Name, linuxARM64Name := fmt.Sprintf("zadig-agent-linux-amd64-v%s", version), fmt.Sprintf("zadig-agent-linux-arm64-v%s", version)
@@ -608,43 +696,53 @@ func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, err
 
 	var downloadWinAMD64URL string
 	winAMD64Name := fmt.Sprintf("zadig-agent-windows-amd64-v%s.exe", version)
+	winAMD64TarballName := strings.ReplaceAll(winAMD64Name, ".exe", ".tar.gz")
 	downloadWinAMD64URL = fmt.Sprintf("%s/%s.tar.gz", baseURL, strings.TrimSuffix(winAMD64Name, ".exe"))
 
 	resp := &AgentAccessCmds{
 		LinuxPlatform: &AgentAccessCmd{
-			AMD64: fmt.Sprintf(
+			AMD64: map[string]string{"shell": fmt.Sprintf(
 				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"sudo nohup zadig-agent start --server-url %s --token %s &",
-				downloadLinuxAMD64URL, linuxAMD64Name, serverURL, token),
-			ARM64: fmt.Sprintf(
+				downloadLinuxAMD64URL, linuxAMD64Name, serverURL, token)},
+			ARM64: map[string]string{"shell": fmt.Sprintf(
 				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"sudo nohup zadig-agent start --server-url %s --token %s &",
-				downloadLinuxARM64URL, linuxARM64Name, serverURL, token),
+				downloadLinuxARM64URL, linuxARM64Name, serverURL, token)},
 		},
 		MacOSPlatform: &AgentAccessCmd{
-			AMD64: fmt.Sprintf(
+			AMD64: map[string]string{"shell": fmt.Sprintf(
 				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"nohup zadig-agent start --server-url %s --token %s &",
-				downloadMacAMD64URL, macOSAMD64Name, serverURL, token),
-			ARM64: fmt.Sprintf(
+				downloadMacAMD64URL, macOSAMD64Name, serverURL, token)},
+			ARM64: map[string]string{"shell": fmt.Sprintf(
 				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
 					"nohup zadig-agent start --server-url %s --token %s &",
-				downloadMacARM64URL, macOSARM64Name, serverURL, token),
+				downloadMacARM64URL, macOSARM64Name, serverURL, token)},
 		},
 		WinPlatform: &AgentAccessCmd{
-			AMD64: fmt.Sprintf(
-				"curl -L %s | tar xzf - -C C:\\Users\\Administrator \n "+
-					"move /Y C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
-					"start C:\\Users\\Administrator\\zadig-agent.exe start --server-url %s --token %s",
-				downloadWinAMD64URL, winAMD64Name, serverURL, token),
+			AMD64: map[string]string{
+				"cmd": fmt.Sprintf(
+					"curl -L %s | tar xzf - -C C:\\Users\\Administrator \n "+
+						"move /Y C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
+						"start C:\\Users\\Administrator\\zadig-agent.exe start --server-url %s --token %s",
+					downloadWinAMD64URL, winAMD64Name, serverURL, token),
+				"powershell": fmt.Sprintf(
+					"curl -L %s -o %s \n"+
+						"tar xzf %s -C C:\\Users\\Administrator \n "+
+						"Remove-Item -Path \"C:\\Users\\Administrator\\%s\" -ErrorAction SilentlyContinue \n"+
+						"move -Force C:\\Users\\Administrator\\%s C:\\Users\\Administrator\\zadig-agent.exe \n "+
+						"Start-Process -FilePath \"C:\\Users\\Administrator\\zadig-agent.exe\" -ArgumentList \"start\", \"--server-url\", \"%s\", \"--token\", \"%s\"",
+					downloadWinAMD64URL, winAMD64TarballName, winAMD64TarballName, winAMD64TarballName, winAMD64Name, serverURL, token),
+			},
 		},
 	}
 
@@ -681,4 +779,20 @@ func getZadigAgentVersion() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("zadig-agent version not found")
+}
+
+func getRepoURL() (string, error) {
+	ns := commonconfig.Namespace()
+	kubeClient := krkubeclient.Client()
+	configMap, found, err := getter.GetConfigMap(ns, "aslan-config", kubeClient)
+	if err != nil || !found {
+		return "", fmt.Errorf("failed to get aslan configmap, error: %s", err)
+	}
+	if found {
+		version := configMap.Data["ZADIG_AGENT_REPO_URL"]
+		if version != "" {
+			return version, nil
+		}
+	}
+	return "", fmt.Errorf("zadig-agent repo URL not found")
 }

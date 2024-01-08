@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -35,8 +34,8 @@ import (
 	"github.com/koderover/zadig/v2/pkg/cli/zadig-agent/internal/agent/step/helper"
 )
 
-type ShellStep struct {
-	spec       *StepShellSpec
+type PowerShellStep struct {
+	spec       *StepPowerShellSpec
 	JobOutput  []string
 	envs       []string
 	secretEnvs []string
@@ -44,38 +43,38 @@ type ShellStep struct {
 	Logger     *log.JobLogger
 }
 
-type StepShellSpec struct {
+type StepPowerShellSpec struct {
 	Scripts     []string `json:"scripts"                                 yaml:"scripts,omitempty"`
 	Script      string   `json:"script"                                  yaml:"script"`
 	SkipPrepare bool     `json:"skip_prepare"                            yaml:"skip_prepare"`
 }
 
-func NewShellStep(jobOutput []string, spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*ShellStep, error) {
-	shellStep := &ShellStep{dirs: dirs, envs: envs, secretEnvs: secretEnvs, JobOutput: jobOutput}
+func NewPowerShellStep(jobOutput []string, spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*PowerShellStep, error) {
+	powershellStep := &PowerShellStep{dirs: dirs, envs: envs, secretEnvs: secretEnvs, JobOutput: jobOutput}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
-		return shellStep, fmt.Errorf("marshal spec %+v failed", spec)
+		return powershellStep, fmt.Errorf("marshal spec %+v failed", spec)
 	}
-	if err := yaml.Unmarshal(yamlBytes, &shellStep.spec); err != nil {
-		return shellStep, fmt.Errorf("unmarshal spec %s to script spec failed", yamlBytes)
+	if err := yaml.Unmarshal(yamlBytes, &powershellStep.spec); err != nil {
+		return powershellStep, fmt.Errorf("unmarshal spec %s to script spec failed", yamlBytes)
 	}
-	shellStep.Logger = logger
+	powershellStep.Logger = logger
 
-	return shellStep, nil
+	return powershellStep, nil
 }
 
-func (s *ShellStep) Run(ctx context.Context) error {
+func (s *PowerShellStep) Run(ctx context.Context) error {
 	start := time.Now()
 	s.Logger.Infof("Executing user script.")
 	defer func() {
 		s.Logger.Infof(fmt.Sprintf("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds()))
 	}()
 
-	userScriptFile, err := generateScript(s.spec, s.dirs, s.JobOutput, s.Logger)
+	userScriptFile, err := generatePowerShellScript(s.spec, s.dirs, s.JobOutput, s.Logger)
 	if err != nil {
 		return fmt.Errorf("generate script failed: %v", err)
 	}
-	cmd := exec.Command("bash", userScriptFile)
+	cmd := exec.Command("powershell", "-F", userScriptFile)
 	cmd.Dir = s.dirs.Workspace
 	cmd.Env = s.envs
 
@@ -119,7 +118,7 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	return cmd.Wait()
 }
 
-func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []string, logger *log.JobLogger) (string, error) {
+func generatePowerShellScript(spec *StepPowerShellSpec, dirs *types.AgentWorkDirs, jobOutput []string, logger *log.JobLogger) (string, error) {
 	if len(spec.Scripts) == 0 {
 		return "", nil
 	}
@@ -128,10 +127,10 @@ func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []
 
 	// add job output to script
 	if len(jobOutput) > 0 {
-		scripts = append(scripts, outputScript(dirs.JobOutputsDir, jobOutput)...)
+		scripts = append(scripts, outputPowerShellScript(dirs.JobOutputsDir, jobOutput)...)
 	}
 
-	userScriptFile := config.GetUserShellScriptFilePath(dirs.JobScriptDir)
+	userScriptFile := config.GetUserPowerShellScriptFilePath(dirs.JobScriptDir)
 	if err := ioutil.WriteFile(userScriptFile, []byte(strings.Join(scripts, "\n")), 0700); err != nil {
 		return "", fmt.Errorf("write script file error: %v", err)
 	}
@@ -139,16 +138,10 @@ func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []
 }
 
 // generate script to save outputs variable to file
-func outputScript(outputsDir string, outputs []string) []string {
-	resp := []string{"set +ex"}
+func outputPowerShellScript(outputsDir string, outputs []string) []string {
+	resp := []string{"$Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding($False)"}
 	for _, output := range outputs {
-
-		if runtime.GOOS == "windows" {
-			scriptPath := filepath.FromSlash(filepath.ToSlash(filepath.Join(outputsDir, output)))
-			resp = append(resp, fmt.Sprintf("echo $%s > %s", output, scriptPath))
-		} else {
-			resp = append(resp, fmt.Sprintf("echo $%s > %s", output, filepath.Join(outputsDir, output)))
-		}
+		resp = append(resp, fmt.Sprintf("if ($env:%s) {[System.IO.File]::WriteAllLines(\"%s\", $env:%s, $Utf8NoBomEncoding)}", output, filepath.Join(outputsDir, output), output))
 	}
 	return resp
 }
