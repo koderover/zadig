@@ -41,6 +41,8 @@ type TarInfo struct {
 	URL          string `bson:"url"                 json:"url"`
 	Name         string `bson:"name"                json:"name"`
 	WorkflowName string `bson:"workflow_name"       json:"workflow_name"`
+	WorkflowType string `bson:"workflow_type"       json:"workflow_type"`
+	JobTaskName  string `bson:"job_task_name"       json:"job_task_name"`
 	TaskID       int64  `bson:"task_id"             json:"task_id"`
 	FileName     string `bson:"file_name"           json:"file_name"`
 }

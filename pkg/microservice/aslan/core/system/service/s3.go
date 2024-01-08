@@ -218,6 +218,8 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 					Name:         newServiceName,
 					FileName:     deliveryArtifact.Image,
 					WorkflowName: workflowName,
+					WorkflowType: deliveryArtifact.Source,
+					JobTaskName:  activities[0].JobTaskName,
 					TaskID:       int64(taskID),
 				})
 				mutex.Unlock()
