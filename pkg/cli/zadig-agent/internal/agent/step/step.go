@@ -50,6 +50,11 @@ func RunStep(ctx context.Context, jobCtx *jobctl.JobContext, step *commonmodels.
 		if err != nil {
 			return err
 		}
+	case "powershell":
+		stepInstance, err = script.NewPowerShellStep(jobCtx.Outputs, step.Spec, dirs, envs, secretEnvs, logger)
+		if err != nil {
+			return err
+		}
 	case "shell":
 		stepInstance, err = script.NewShellStep(jobCtx.Outputs, step.Spec, dirs, envs, secretEnvs, logger)
 		if err != nil {

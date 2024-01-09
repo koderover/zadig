@@ -67,18 +67,16 @@ func AutoCreateWorkflow(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	projectKey := c.Param("productName")
-
 	// TODO: Authorization leak
 	// this API is sometimes used in edit/create workflow scenario, thus giving the edit/create workflow permission
 	// authorization check
 	permitted := false
+	projectKey := c.Query("projectName")
 
 	if ctx.Resources.IsSystemAdmin {
 		permitted = true
@@ -302,7 +300,6 @@ func DeleteWorkflow(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return

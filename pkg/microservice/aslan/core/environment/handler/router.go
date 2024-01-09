@@ -257,6 +257,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/workloads", ListWorkloadsInEnv)
 
 		environments.GET("/:name/helm/releases", ListReleases)
+		environments.DELETE("/:name/helm/releases", DeleteHelmReleases)
 		environments.GET("/:name/helm/values", GetChartValues)
 		environments.GET("/:name/helm/charts", GetChartInfos)
 		environments.GET("/:name/helm/images", GetImageInfos)

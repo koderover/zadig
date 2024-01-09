@@ -86,10 +86,10 @@ func OpenAPICreateReleasePlan(c *gin.Context) {
 		return
 	}
 
-	//if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Create {
-	//	ctx.UnAuthorized = true
-	//	return
-	//}
+	if !ctx.Resources.IsSystemAdmin && !ctx.Resources.SystemActions.ReleasePlan.Create {
+		ctx.UnAuthorized = true
+		return
+	}
 
 	opt := new(service.OpenAPICreateReleasePlanArgs)
 	if err := c.ShouldBindJSON(&opt); err != nil {

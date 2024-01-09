@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-cloud-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spring-cloud-a
+      zadigx-release-version: original
+  template:
+    metadata:
+      labels:
+        msePilotCreateAppName: spring-cloud-a
+        app: spring-cloud-a
+        zadigx-release-version: original
+    spec:
+      containers:
+      - env:
+        - name: JAVA_HOME
+          value: /usr/lib/jvm/java-1.8-openjdk/jre
+        image: koderover.tencentcloudcr.com/koderover-demo/spring-cloud-a:0.1-SNAPSHOT
+        imagePullPolicy: Always
+        name: spring-cloud-a
+        ports:
+        - containerPort: 20001
+        livenessProbe:
+          tcpSocket:
+            port: 20001
+          initialDelaySeconds: 10
+          periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spring-cloud-a-base
+spec:
+  ports:
+    - name: http
+      port: 20001
+      protocol: TCP
+      targetPort: 20001
+  selector:
+    app: spring-cloud-a
+    zadigx-release-version: original
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spring-cloud-a
+spec:
+  ingressClassName: mse
+  rules:
+    - host: example.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: spring-cloud-a-base
+                port:
+                  number: 20001
+            path: /
+            pathType: Prefix

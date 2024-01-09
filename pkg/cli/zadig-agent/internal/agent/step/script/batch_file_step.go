@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -141,7 +141,7 @@ func generateBatchFile(spec *StepBatchFileSpec, dirs *types.AgentWorkDirs, jobOu
 func outputBatchFile(outputsDir string, outputs []string) []string {
 	resp := []string{"@echo off"}
 	for _, output := range outputs {
-		resp = append(resp, fmt.Sprintf("echo %%%s%% > %s", output, path.Join(outputsDir, output)))
+		resp = append(resp, fmt.Sprintf("echo %%%s%% > %s", output, filepath.Join(outputsDir, output)))
 	}
 	resp = append(resp, "@echo on")
 	return resp

@@ -79,7 +79,7 @@ func (s *ArchiveStep) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to create s3 client to upload file, err: %s", err)
 		}
 
-		upload.AbsFilePath = fmt.Sprintf("$WORKSPACE/%s", upload.FilePath)
+		upload.AbsFilePath = fmt.Sprintf("$env:WORKSPACE/%s", upload.FilePath)
 		upload.AbsFilePath = replaceEnvWithValue(upload.AbsFilePath, envmaps)
 		upload.DestinationPath = replaceEnvWithValue(upload.DestinationPath, envmaps)
 
@@ -123,6 +123,8 @@ func replaceEnvWithValue(str string, envs map[string]string) string {
 			strKey = fmt.Sprintf("${%s}", key)
 			ret = strings.ReplaceAll(ret, strKey, value)
 			strKey = fmt.Sprintf("%%%s%%", key)
+			ret = strings.ReplaceAll(ret, strKey, value)
+			strKey = fmt.Sprintf("$env:%s", key)
 			ret = strings.ReplaceAll(ret, strKey, value)
 		}
 	}

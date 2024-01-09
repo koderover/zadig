@@ -102,7 +102,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	workflow := router.Group("workflow")
 	{
-		workflow.POST("/:productName/auto", AutoCreateWorkflow)
 		workflow.POST("", GetWorkflowProductName, CreateWorkflow)
 		workflow.PUT("/:workflowName", GetWorkflowProductName, UpdateWorkflow)
 		workflow.GET("", ListWorkflows)
@@ -172,6 +171,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV4.POST("/:name/workflowtask/field", SetWorkflowTasksCustomFields)
 		workflowV4.GET("/:name/workflowtask/field", GetWorkflowTasksCustomFields)
 		workflowV4.GET("", ListWorkflowV4)
+		workflowV4.POST("/auto", AutoCreateWorkflow)
 		workflowV4.GET("/trigger", ListWorkflowV4CanTrigger)
 		workflowV4.POST("/lint", LintWorkflowV4)
 		workflowV4.POST("/check/:name", CheckWorkflowV4Approval)

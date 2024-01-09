@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-cloud-c
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spring-cloud-c
+      zadigx-release-version: original
+  template:
+    metadata:
+      labels:
+        msePilotCreateAppName: spring-cloud-c
+        app: spring-cloud-c
+        zadigx-release-version: original
+    spec:
+      containers:
+      - env:
+        - name: JAVA_HOME
+          value: /usr/lib/jvm/java-1.8-openjdk/jre
+        image: koderover.tencentcloudcr.com/koderover-demo/spring-cloud-c:0.1-SNAPSHOT
+        imagePullPolicy: Always
+        name: spring-cloud-c
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          tcpSocket:
+            port: 20003
+          initialDelaySeconds: 10
+          periodSeconds: 30

@@ -210,3 +210,7 @@ func GetUserShellScriptFilePath(workDir string) string {
 func GetUserBatchFileScriptFilePath(workDir string) string {
 	return filepath.Join(workDir, "user_script.bat")
 }
+
+func GetUserPowerShellScriptFilePath(workDir string) string {
+	return filepath.Join(workDir, "user_script.ps1")
+}

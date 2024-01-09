@@ -69,6 +69,7 @@ const (
 type ScriptType string
 
 const (
-	ScriptTypeShell     ScriptType = "shell"
-	ScriptTypeBatchFile ScriptType = "batch_file"
+	ScriptTypeShell      ScriptType = "shell"
+	ScriptTypeBatchFile  ScriptType = "batch_file"
+	ScriptTypePowerShell ScriptType = "powershell"
 )

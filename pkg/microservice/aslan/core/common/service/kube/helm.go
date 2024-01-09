@@ -262,7 +262,7 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 		}
 
 		chartRef := fmt.Sprintf("%s/%s", chartInfo.ChartRepo, chartInfo.ChartName)
-		localPath := config.LocalServicePathWithRevision(product.ProductName, releaseName, chartInfo.ChartVersion, true)
+		localPath := config.LocalServicePathWithRevision(product.ProductName, releaseName, chartInfo.ChartVersion, product.Production)
 		// remove local file to untar
 		_ = os.RemoveAll(localPath)
 

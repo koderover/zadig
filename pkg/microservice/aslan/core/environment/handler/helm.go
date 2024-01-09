@@ -116,6 +116,8 @@ func GetChartValues(c *gin.Context) {
 	envName := c.Param("name")
 	projectKey := c.Query("projectName")
 	serviceName := c.Query("serviceName")
+	isHelmChartDeploy := c.Query("isHelmChartDeploy")
+	releaseName := c.Query("releaseName")
 
 	// authorization checks
 	if !ctx.Resources.IsSystemAdmin {
@@ -133,7 +135,11 @@ func GetChartValues(c *gin.Context) {
 		}
 	}
 
-	ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, serviceName, false, false)
+	if isHelmChartDeploy == "false" {
+		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, serviceName, false, false)
+	} else {
+		ctx.Resp, ctx.Err = commonservice.GetChartValues(projectKey, envName, releaseName, true, false)
+	}
 }
 
 // @Summary Get Production Chart Values

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-cloud-b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spring-cloud-b
+      zadigx-release-version: original
+  strategy:
+  template:
+    metadata:
+      labels:
+        msePilotCreateAppName: spring-cloud-b
+        app: spring-cloud-b
+        zadigx-release-version: original
+    spec:
+      containers:
+      - env:
+        - name: JAVA_HOME
+          value: /usr/lib/jvm/java-1.8-openjdk/jre
+        image: koderover.tencentcloudcr.com/koderover-demo/spring-cloud-b:0.1-SNAPSHOT
+        imagePullPolicy: Always
+        name: spring-cloud-b
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          tcpSocket:
+            port: 20002
+          initialDelaySeconds: 10
+          periodSeconds: 30

@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nacos-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nacos-server
+  template:
+    metadata:
+      labels:
+        app: nacos-server
+    spec:
+      containers:
+      - env:
+        - name: MODE
+          value: standalone
+        image: nacos/nacos-server:v2.2.0
+        imagePullPolicy: Always
+        name: nacos-server
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+
+# Nacos Server Service 配置
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nacos-server
+spec:
+  ports:
+  - port: 8848
+    protocol: TCP
+    targetPort: 8848
+  selector:
+    app: nacos-server
+  type: ClusterIP 
