@@ -18,9 +18,8 @@ package service
 
 import (
 	"fmt"
-	"sort"
-
 	"go.uber.org/zap"
+	"sort"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -227,6 +226,79 @@ func ListTestTask(testName, projectKey string, pageNum, pageSize int, log *zap.S
 	return &TestTaskList{
 		Total: int(total),
 		Tasks: taskPreviewList,
+	}, nil
+}
+
+func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.SugaredLogger) (*task.Task, error) {
+	workflowName := fmt.Sprintf(testWorkflowNamingConvention, testName)
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		log.Errorf("failed to find workflow task %d for test: %s, error: %s", taskID, testName, err)
+		return nil, err
+	}
+
+	testResultMap := make(map[string]interface{})
+
+	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
+	if err != nil {
+		log.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+		return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+	}
+
+	for _, testResult := range testResultList {
+		testResultMap[testResult.TestName] = &commonmodels.TestSuite{
+			Tests:     testResult.TestCaseNum,
+			Failures:  testResult.FailedCaseNum,
+			Successes: testResult.SuccessCaseNum,
+			Skips:     testResult.SkipCaseNum,
+			Errors:    testResult.ErrorCaseNum,
+			Time:      testResult.TestTime,
+			TestCases: testResult.TestCases,
+			Name:      testResult.TestName,
+		}
+	}
+
+	if len(workflowTask.Stages) != 1 || len(workflowTask.Stages[0].Jobs) != 1 {
+		errMsg := fmt.Sprintf("invalid test task!")
+		log.Errorf(errMsg)
+		return nil, fmt.Errorf(errMsg)
+	}
+
+	stages := make([]*commonmodels.Stage, 0)
+
+	subTaskInfo := make(map[string]map[string]interface{})
+
+	subTaskInfo[testName] = map[string]interface{}{
+		"start_time": workflowTask.Stages[0].Jobs[0].StartTime,
+		"end_time":   workflowTask.Stages[0].Jobs[0].EndTime,
+		"status":     workflowTask.Stages[0].Jobs[0].Status,
+		"type":       "testingv2",
+	}
+
+	stages = append(stages, &commonmodels.Stage{
+		TaskType:  "testingv2",
+		Status:    workflowTask.Stages[0].Status,
+		SubTasks:  subTaskInfo,
+		StartTime: workflowTask.Stages[0].StartTime,
+		EndTime:   workflowTask.Stages[0].EndTime,
+		TypeName:  workflowTask.Stages[0].Name,
+	})
+
+	return &task.Task{
+		TaskID:              workflowTask.TaskID,
+		ProductName:         workflowTask.ProjectName,
+		PipelineName:        workflowName,
+		PipelineDisplayName: testName,
+		Type:                "test",
+		Status:              workflowTask.Status,
+		TaskCreator:         workflowTask.TaskCreator,
+		TaskRevoker:         workflowTask.TaskRevoker,
+		CreateTime:          workflowTask.CreateTime,
+		StartTime:           workflowTask.StartTime,
+		EndTime:             workflowTask.EndTime,
+		Stages:              stages,
+		TestReports:         testResultMap,
+		IsRestart:           workflowTask.IsRestart,
 	}, nil
 }
 
