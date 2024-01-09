@@ -256,11 +256,7 @@ func goWithRecover(fn func(), logger *zap.SugaredLogger) {
 func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string, logger *zap.SugaredLogger) ([]*RepoImgResp, error) {
 	var regService registry.Service
 	images := make([]*RepoImgResp, 0)
-	if registryInfo.AdvancedSetting != nil {
-		regService = registry.NewV2Service(registryInfo.RegProvider, registryInfo.AdvancedSetting.TLSEnabled, registryInfo.AdvancedSetting.TLSCert)
-	} else {
-		regService = registry.NewV2Service(registryInfo.RegProvider, true, "")
-	}
+	regService = registry.NewV2Service(registryInfo.RegProvider, registryInfo)
 
 	endPoint := registry.Endpoint{
 		Addr:      registryInfo.RegAddr,
@@ -539,11 +535,8 @@ func insertNewTags2DB(images []*RepoImgResp, registryInfo *commonmodels.Registry
 func GetRepoTags(registryInfo *commonmodels.RegistryNamespace, name string, log *zap.SugaredLogger) (*registry.ImagesResp, error) {
 	var resp *registry.ImagesResp
 	var regService registry.Service
-	if registryInfo.AdvancedSetting != nil {
-		regService = registry.NewV2Service(registryInfo.RegProvider, registryInfo.AdvancedSetting.TLSEnabled, registryInfo.AdvancedSetting.TLSCert)
-	} else {
-		regService = registry.NewV2Service(registryInfo.RegProvider, true, "")
-	}
+	regService = registry.NewV2Service(registryInfo.RegProvider, registryInfo)
+
 	repos, err := regService.ListRepoImages(registry.ListRepoImagesOption{
 		Endpoint: registry.Endpoint{
 			Addr:      registryInfo.RegAddr,

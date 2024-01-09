@@ -350,6 +350,7 @@ const (
 const (
 	RegistryTypeSWR = "swr"
 	RegistryTypeAWS = "ecr"
+	RegistryTypeGCP = "gcp"
 )
 
 const (

@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/docker/api/types"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -41,7 +43,6 @@ import (
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/docker/distribution/registry/client/transport"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/registry"
 	"github.com/docker/go-connections/sockets"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/core/auth/basic"
@@ -81,7 +82,7 @@ type Service interface {
 	GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error)
 }
 
-func NewV2Service(provider string, tlsEnabled bool, tlsCert string) Service {
+func NewV2Service(provider string, registryNS *commonmodels.RegistryNamespace) Service {
 	// since SWR & AWS services are provided by known provider, we assume it is signed by well known CA
 	switch provider {
 	case config.RegistryTypeSWR:
@@ -90,28 +91,46 @@ func NewV2Service(provider string, tlsEnabled bool, tlsCert string) Service {
 		return &ecrService{}
 	default:
 		return &v2RegistryService{
-			EnableHTTPS: tlsEnabled,
-			CustomCert:  tlsCert,
+			RegistryNS: registryNS,
 		}
 	}
 }
 
 type v2RegistryService struct {
-	EnableHTTPS bool
-	CustomCert  string
+	RegistryNS *commonmodels.RegistryNamespace
 }
 
 type authClient struct {
-	endpoint    Endpoint
-	endpointURL *url.URL
-	cm          challenge.Manager
-	tr          http.RoundTripper
+	endpoint     Endpoint
+	endpointURL  *url.URL
+	cm           challenge.Manager
+	tr           http.RoundTripper
+	registryInfo *commonmodels.RegistryNamespace
 
 	ctx context.Context
 	log *zap.SugaredLogger
 }
 
+func (s *v2RegistryService) EnableHTTPS() bool {
+	if s.RegistryNS != nil && s.RegistryNS.AdvancedSetting != nil && !s.RegistryNS.AdvancedSetting.TLSEnabled {
+		return false
+	}
+	return true
+}
+
+func (s *v2RegistryService) CustomCert() string {
+	if s.RegistryNS != nil && s.RegistryNS.AdvancedSetting != nil {
+		return s.RegistryNS.AdvancedSetting.TLSCert
+	}
+	return ""
+}
+
 func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger) (cli *authClient, err error) {
+	err = s.ensureGcpToken()
+	if err != nil {
+		return nil, err
+	}
+
 	endpointURL, err := url.Parse(ep.Addr)
 	if err != nil {
 		return
@@ -125,11 +144,11 @@ func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger)
 
 	tlsConfig := &tls.Config{}
 
-	if s.EnableHTTPS && s.CustomCert != "" {
+	if s.EnableHTTPS() && s.CustomCert() != "" {
 		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM([]byte(s.CustomCert))
+		caCertPool.AppendCertsFromPEM([]byte(s.CustomCert()))
 		tlsConfig.RootCAs = caCertPool
-	} else if !s.EnableHTTPS {
+	} else if !s.EnableHTTPS() {
 		tlsConfig.InsecureSkipVerify = true
 	}
 
@@ -163,15 +182,29 @@ func (s *v2RegistryService) createClient(ep Endpoint, logger *zap.SugaredLogger)
 	}
 
 	cli = &authClient{
-		endpoint:    ep,
-		endpointURL: endpointURL,
-		cm:          challengeManager,
-		tr:          authTransport,
-		ctx:         ctx,
-		log:         logger,
+		endpoint:     ep,
+		endpointURL:  endpointURL,
+		cm:           challengeManager,
+		tr:           authTransport,
+		registryInfo: s.RegistryNS,
+		ctx:          ctx,
+		log:          logger,
 	}
 
 	return
+}
+
+type ExistingTokenHandler struct {
+	token string
+}
+
+func (th *ExistingTokenHandler) AuthorizeRequest(req *http.Request, _ map[string]string) error {
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", th.token))
+	return nil
+}
+
+func (th *ExistingTokenHandler) Scheme() string {
+	return "bearer"
 }
 
 func (c *authClient) getRepository(repoName string) (repo distribution.Repository, err error) {
@@ -180,36 +213,49 @@ func (c *authClient) getRepository(repoName string) (repo distribution.Repositor
 		return
 	}
 
-	creds := registry.NewStaticCredentialStore(&types.AuthConfig{
-		Username:      c.endpoint.Ak,
-		Password:      c.endpoint.Sk,
-		ServerAddress: c.endpoint.Addr,
-	})
+	var modifier transport.RequestModifier
+	if c.registryInfo.RegProvider == config.RegistryTypeGCP {
+		existingTokenHandler := &ExistingTokenHandler{token: c.authToken()}
+		modifier = auth.NewAuthorizer(c.cm, existingTokenHandler)
+	} else {
+		creds := registry.NewStaticCredentialStore(&types.AuthConfig{
+			Username:      c.endpoint.Ak,
+			Password:      c.endpoint.Sk,
+			ServerAddress: c.endpoint.Addr,
+		})
 
-	basicHandler := auth.NewBasicHandler(creds)
-	scope := auth.RepositoryScope{
-		Repository: repoName,
-		Actions:    []string{"pull"},
-		Class:      "",
+		basicHandler := auth.NewBasicHandler(creds)
+		scope := auth.RepositoryScope{
+			Repository: repoName,
+			Actions:    []string{"pull"},
+			Class:      "",
+		}
+
+		tokenHandlerOptions := auth.TokenHandlerOptions{
+			Transport:   c.tr,
+			Credentials: creds,
+			Scopes:      []auth.Scope{scope},
+			ClientID:    registry.AuthClientID,
+		}
+
+		tokenHandler := auth.NewTokenHandlerWithOptions(tokenHandlerOptions)
+		modifier = auth.NewAuthorizer(c.cm, tokenHandler, basicHandler)
 	}
 
-	tokenHandlerOptions := auth.TokenHandlerOptions{
-		Transport:   c.tr,
-		Credentials: creds,
-		Scopes:      []auth.Scope{scope},
-		ClientID:    registry.AuthClientID,
-	}
-
-	tokenHandler := auth.NewTokenHandlerWithOptions(tokenHandlerOptions)
-	modifier := auth.NewAuthorizer(c.cm, tokenHandler, basicHandler)
 	tr := transport.NewTransport(c.tr, modifier)
-
 	repo, err = client.NewRepository(repoNameRef, c.endpointURL.String(), tr)
 	if err != nil {
 		return
 	}
 
 	return
+}
+
+func (c *authClient) authToken() string {
+	if c.registryInfo != nil {
+		return c.registryInfo.AccessToken
+	}
+	return ""
 }
 
 func (c *authClient) listTags(repoName string) (tags []string, err error) {

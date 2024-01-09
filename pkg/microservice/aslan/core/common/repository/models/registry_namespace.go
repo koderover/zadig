@@ -36,12 +36,14 @@ type RegistryNamespace struct {
 	Projects    []string           `bson:"projects"                    json:"projects"`
 	// Namespace is NOT a required field, this could be empty when the registry is AWS ECR or so.
 	// use with CAUTION !!!!
-	Namespace  string `bson:"namespace,omitempty"         json:"namespace,omitempty"`
-	AccessKey  string `bson:"access_key"                  json:"access_key"`
-	SecretKey  string `bson:"secret_key"                  json:"secret_key"`
-	Region     string `bson:"region,omitempty"            json:"region,omitempty"`
-	UpdateTime int64  `bson:"update_time"                 json:"update_time"`
-	UpdateBy   string `bson:"update_by"                   json:"update_by"`
+	Namespace           string `bson:"namespace,omitempty"         json:"namespace,omitempty"`
+	AccessKey           string `bson:"access_key"                  json:"access_key"`
+	SecretKey           string `bson:"secret_key"                  json:"secret_key"`
+	Region              string `bson:"region,omitempty"            json:"region,omitempty"`
+	AccessToken         string `bson:"access_token"                json:"access_token"`
+	AccessTokenExpireAt int64  `bson:"access_token_expire_at"                json:"access_token_expire_at"`
+	UpdateTime          int64  `bson:"update_time"                 json:"update_time"`
+	UpdateBy            string `bson:"update_by"                   json:"update_by"`
 
 	AdvancedSetting *RegistryAdvancedSetting `bson:"advanced_setting" json:"advanced_setting"`
 }

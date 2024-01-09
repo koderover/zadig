@@ -811,11 +811,7 @@ func getImageInfo(productName, evnName, repoName, tag string, log *zap.SugaredLo
 	}
 
 	var regService registry.Service
-	if registryInfo.AdvancedSetting != nil {
-		regService = registry.NewV2Service(registryInfo.RegProvider, registryInfo.AdvancedSetting.TLSEnabled, registryInfo.AdvancedSetting.TLSCert)
-	} else {
-		regService = registry.NewV2Service(registryInfo.RegProvider, true, "")
-	}
+	regService = registry.NewV2Service(registryInfo.RegProvider, registryInfo)
 
 	return regService.GetImageInfo(registry.GetRepoImageDetailOption{
 		Endpoint: registry.Endpoint{
