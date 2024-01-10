@@ -199,7 +199,11 @@ func ListTestTask(testName, projectKey string, pageNum, pageSize int, log *zap.S
 		}
 
 		for _, testResult := range testResultList {
-			testResultMap[testResult.TestName] = &commonmodels.TestSuite{
+			mapKey := testName
+			if testResult.TestName != "" {
+				mapKey = testResult.TestName
+			}
+			testResultMap[mapKey] = &commonmodels.TestSuite{
 				Tests:     testResult.TestCaseNum,
 				Failures:  testResult.FailedCaseNum,
 				Successes: testResult.SuccessCaseNum,
@@ -247,7 +251,11 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 	}
 
 	for _, testResult := range testResultList {
-		testResultMap[testResult.TestName] = &commonmodels.TestSuite{
+		mapKey := testName
+		if testResult.TestName != "" {
+			mapKey = testResult.TestName
+		}
+		testResultMap[mapKey] = &commonmodels.TestSuite{
 			Tests:     testResult.TestCaseNum,
 			Failures:  testResult.FailedCaseNum,
 			Successes: testResult.SuccessCaseNum,
@@ -269,11 +277,23 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 
 	subTaskInfo := make(map[string]map[string]interface{})
 
+	var spec workflowservice.ZadigTestingJobSpec
+	err = commonmodels.IToi(workflowTask.Stages[0].Jobs[0].Spec, spec)
+	if err != nil {
+		log.Errorf("failed to decode testing job spec, err: %s", err)
+		return nil, err
+	}
+
 	subTaskInfo[testName] = map[string]interface{}{
 		"start_time": workflowTask.Stages[0].Jobs[0].StartTime,
 		"end_time":   workflowTask.Stages[0].Jobs[0].EndTime,
 		"status":     workflowTask.Stages[0].Jobs[0].Status,
-		"type":       "testingv2",
+		"job_ctx": struct {
+			IsHasArtifact bool `json:"is_has_artifact"`
+		}{
+			spec.Archive,
+		},
+		"type": "testingv2",
 	}
 
 	stages = append(stages, &commonmodels.Stage{
