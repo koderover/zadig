@@ -18,8 +18,9 @@ package service
 
 import (
 	"fmt"
-	"go.uber.org/zap"
 	"sort"
+
+	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -313,7 +314,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 		Stages:           nil,
 		Project:          testInfo.ProductName,
 		CreatedBy:        "system",
-		ConcurrencyLimit: 0,
+		ConcurrencyLimit: 1,
 	}
 
 	stage := make([]*commonmodels.WorkflowStage, 0)
