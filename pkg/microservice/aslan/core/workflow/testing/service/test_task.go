@@ -303,6 +303,32 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 	}, nil
 }
 
+func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap.SugaredLogger) ([]*commonmodels.TestSuite, error) {
+	workflowName := fmt.Sprintf(testWorkflowNamingConvention, testName)
+	testResults := make([]*commonmodels.TestSuite, 0)
+
+	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
+	if err != nil {
+		log.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+		return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+	}
+
+	for _, testResult := range testResultList {
+		testResults = append(testResults, &commonmodels.TestSuite{
+			Tests:     testResult.TestCaseNum,
+			Failures:  testResult.FailedCaseNum,
+			Successes: testResult.SuccessCaseNum,
+			Skips:     testResult.SkipCaseNum,
+			Errors:    testResult.ErrorCaseNum,
+			Time:      testResult.TestTime,
+			TestCases: testResult.TestCases,
+			Name:      testResult.TestName,
+		})
+	}
+
+	return testResults, nil
+}
+
 const (
 	testWorkflowNamingConvention = "zadig-testing-%s"
 )

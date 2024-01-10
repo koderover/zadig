@@ -92,6 +92,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		testTask.POST("", CreateTestTask)
 		testTask.GET("", ListTestTask)
 		testTask.GET("/detail", GetTestTaskInfo)
+		testTask.GET("/report", GetTestTaskReportInfo)
 		testTask.POST("/productName/:productName/id/:id/pipelines/:name/restart", RestartTestTask)
 		testTask.DELETE("/productName/:productName/id/:id/pipelines/:name", CancelTestTaskV2)
 	}
