@@ -153,14 +153,22 @@ func WorfklowTaskSender() {
 		}
 		var t *commonmodels.WorkflowQueue
 		for _, task := range waitingTasks {
+			var concurrency int
 			workflow, err := commonrepo.NewWorkflowV4Coll().Find(task.WorkflowName)
 			if err != nil {
 				log.Errorf("WorkflowV4 Queue: find workflow %s error: %v", task.WorkflowName, err)
-				Remove(task)
-				continue
+				systemSettings, err := commonrepo.NewSystemSettingColl().Get()
+				if err != nil {
+					log.Errorf("failed to get system setting, error: %+v", err)
+					Remove(task)
+					continue
+				}
+				concurrency = int(systemSettings.WorkflowConcurrency)
+			} else {
+				concurrency = workflow.ConcurrencyLimit
 			}
 			// no concurrency limit, run task
-			if workflow.ConcurrencyLimit == -1 {
+			if concurrency == -1 {
 				t = task
 				break
 			}
@@ -174,7 +182,7 @@ func WorfklowTaskSender() {
 				log.Errorf("WorkflowV4 Queue: find waiting approve workflow %s error: %v", task.WorkflowName, err)
 				continue
 			}
-			if len(resp)+len(resp2) < workflow.ConcurrencyLimit {
+			if len(resp)+len(resp2) < concurrency {
 				t = task
 				break
 			}
