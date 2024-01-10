@@ -220,6 +220,52 @@ func ListPackagesVersion(c *gin.Context) {
 	ctx.Resp = fileInfoList
 }
 
+// @Summary Create K8S Delivery Version
+// @Description Create K8S Delivery Version
+// @Tags 	delivery
+// @Accept 	json
+// @Produce json
+// @Param 	body 		body 		deliveryservice.CreateK8SDeliveryVersionArgs 	true 	"body"
+// @Success 200
+// @Router /api/aslan/delivery/releases/k8s [post]
+func CreateK8SDeliveryVersion(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(deliveryservice.CreateK8SDeliveryVersionArgs)
+	err = c.ShouldBindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	args.CreateBy = ctx.UserName
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProductName].Version.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新建", "版本交付", fmt.Sprintf("%s-%s", args.EnvName, args.Version), string(bs), ctx.Logger)
+
+	ctx.Err = deliveryservice.CreateK8SDeliveryVersion(args, ctx.Logger)
+}
+
 func CreateHelmDeliveryVersion(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

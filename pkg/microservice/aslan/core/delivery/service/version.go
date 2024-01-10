@@ -64,8 +64,9 @@ import (
 )
 
 const (
-	VerbosityBrief    string = "brief"    // brief delivery data
-	VerbosityDetailed string = "detailed" // detailed delivery version with total data
+	VerbosityBrief                            string = "brief"    // brief delivery data
+	VerbosityDetailed                         string = "detailed" // detailed delivery version with total data
+	deliveryVersionWorkflowV4NamingConvention string = "zadig-%s-%s"
 )
 
 type DeliveryVersionFilter struct {
@@ -78,9 +79,11 @@ type CreateHelmDeliveryVersionOption struct {
 }
 
 type ImageData struct {
-	ImageName string `json:"imageName"`
-	ImageTag  string `json:"imageTag"`
-	Selected  bool   `json:"selected"`
+	ContainerName string `json:"containerName"`
+	Image         string `json:"image"`
+	ImageName     string `json:"imageName"`
+	ImageTag      string `json:"imageTag"`
+	Selected      bool   `json:"selected"`
 }
 
 type CreateHelmDeliveryVersionChartData struct {
@@ -100,6 +103,28 @@ type CreateHelmDeliveryVersionArgs struct {
 	Labels        []string `json:"labels"`
 	ImageRepoName string   `json:"imageRepoName"`
 	*DeliveryVersionChartData
+}
+
+type CreateK8SDeliveryVersionYamlData struct {
+	ServiceName string       `json:"serviceName"`
+	YamlContent string       `json:"yamlContent"`
+	ImageDatas  []*ImageData `json:"imageDatas"`
+}
+
+type CreateK8SDeliveryVersionArgs struct {
+	CreateBy    string   `json:"-"`
+	ProductName string   `json:"productName"`
+	Retry       bool     `json:"retry"`
+	Version     string   `json:"version"`
+	Desc        string   `json:"desc"`
+	EnvName     string   `json:"envName"`
+	Labels      []string `json:"labels"`
+	*DeliveryVersionYamlData
+}
+
+type DeliveryVersionYamlData struct {
+	ImageRegistryID string                              `json:"imageRegistryID"`
+	YamlDatas       []*CreateK8SDeliveryVersionYamlData `json:"yamlDatas"`
 }
 
 type DeliveryVersionChartData struct {
@@ -479,7 +504,7 @@ func buildDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion, su
 		return nil
 	}
 
-	_, err := checkVersionStatus(deliveryVersion)
+	_, err := checkHelmChartVersionStatus(deliveryVersion)
 	if err != nil {
 		updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, setting.DeliveryVersionStatusFailed, err.Error())
 	}
@@ -800,12 +825,40 @@ func makeChartTGZFileDir(productName, versionName string) (string, error) {
 	return dirPath, nil
 }
 
+func CreateK8SDeliveryVersion(args *CreateK8SDeliveryVersionArgs, logger *zap.SugaredLogger) error {
+	if args.Retry {
+		return RetryCreateK8SDeliveryVersion(args.ProductName, args.Version, logger)
+	} else {
+		return CreateNewK8SDeliveryVersion(args, logger)
+	}
+}
+
 func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.SugaredLogger) error {
 	if args.Retry {
 		return RetryCreateHelmDeliveryVersion(args.ProductName, args.Version, logger)
 	} else {
 		return CreateNewHelmDeliveryVersion(args, logger)
 	}
+}
+
+// validate yamlInfo, make sure service is in environment
+// prepare data set for yaml delivery
+func prepareYamlData(yamlDatas []*CreateK8SDeliveryVersionYamlData, productInfo *commonmodels.Product) (map[string]string, error) {
+	serviceMap := productInfo.GetServiceMap()
+	result := map[string]string{}
+
+	for _, yamlData := range yamlDatas {
+		if productService, ok := serviceMap[yamlData.ServiceName]; ok {
+			yaml, err := kube.RenderEnvService(productInfo, productService.GetServiceRender(), productService)
+			if err != nil {
+				return nil, fmt.Errorf("failed to render yaml for service: %s", yamlData.ServiceName)
+			}
+			result[yamlData.ServiceName] = yaml
+		} else {
+			return nil, fmt.Errorf("service %s not found in environment", yamlData.ServiceName)
+		}
+	}
+	return result, nil
 }
 
 // validate chartInfo, make sure service is in environment
@@ -927,6 +980,64 @@ func insertDeliveryDistributions(result *task.ServicePackageResult, chartVersion
 	return nil
 }
 
+func buildDeliveryImages(productInfo *commonmodels.Product, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace, deliveryVersion *commonmodels.DeliveryVersion, args *DeliveryVersionYamlData, logger *zap.SugaredLogger) (err error) {
+	defer func() {
+		if err != nil {
+			deliveryVersion.Status = setting.DeliveryVersionStatusFailed
+			deliveryVersion.Error = err.Error()
+		}
+		updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
+	}()
+
+	for _, yamlData := range args.YamlDatas {
+		for _, imageData := range yamlData.ImageDatas {
+			deliveryDeploy := new(commonmodels.DeliveryDeploy)
+			deliveryDeploy.ReleaseID = deliveryVersion.ID
+			deliveryDeploy.StartTime = time.Now().Unix()
+			deliveryDeploy.EndTime = time.Now().Unix()
+			deliveryDeploy.ServiceName = yamlData.ServiceName
+			deliveryDeploy.ContainerName = imageData.ImageName
+			deliveryDeploy.RegistryID = args.ImageRegistryID
+
+			image := fmt.Sprintf("%s/%s/%s:%s", targetRegistry.RegAddr, targetRegistry.Namespace, imageData.ImageName, imageData.ImageTag)
+			deliveryDeploy.Image = image
+
+			deliveryDeploy.YamlContents = []string{yamlData.YamlContent}
+			//orderedServices
+			deliveryDeploy.OrderedServices = productInfo.GetGroupServiceNames()
+			deliveryDeploy.CreatedAt = time.Now().Unix()
+			deliveryDeploy.DeletedAt = 0
+			err := commonrepo.NewDeliveryDeployColl().Insert(deliveryDeploy)
+			if err != nil {
+				return fmt.Errorf("failed to insert deliveryDeploy, serviceName: %s", yamlData.ServiceName)
+			}
+		}
+	}
+
+	// create workflow task to deal with images
+	deliveryVersionWorkflowV4, err := generateCustomWorkflowFromDeliveryVersion(productInfo, deliveryVersion, targetRegistry, registryMap, args)
+	if err != nil {
+		return fmt.Errorf("failed to generate workflow from delivery version, versionName: %s, err: %s", deliveryVersion.Version, err)
+	}
+	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
+		Name: "system",
+	}, deliveryVersionWorkflowV4, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create delivery version custom workflow task, versionName: %s, err: %s", deliveryVersion.Version, err)
+	}
+
+	deliveryVersion.WorkflowName = createResp.WorkflowName
+	deliveryVersion.TaskID = int(createResp.TaskID)
+	err = commonrepo.NewDeliveryVersionColl().UpdateTaskID(deliveryVersion.Version, deliveryVersion.ProductName, int32(deliveryVersion.TaskID))
+	if err != nil {
+		logger.Errorf("failed to update delivery version task_id, version: %s, task_id: %s, err: %s", deliveryVersion, deliveryVersion.ProductName, deliveryVersion.TaskID)
+	}
+	// start a new routine to check task results
+	go waitK8SImageVersionDone(deliveryVersion)
+
+	return
+}
+
 func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVersion *commonmodels.DeliveryVersion, args *DeliveryVersionChartData, logger *zap.SugaredLogger) (err error) {
 	defer func() {
 		if err != nil {
@@ -1006,7 +1117,7 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		logger.Errorf("failed to update delivery version task_id, version: %s, task_id: %s, err: %s", deliveryVersion, deliveryVersion.ProductName, deliveryVersion.TaskID)
 	}
 	// start a new routine to check task results
-	go waitVersionDone(deliveryVersion)
+	go waitHelmChartVersionDone(deliveryVersion)
 
 	return
 }
@@ -1111,15 +1222,17 @@ func updateVersionStatus(versionName, projectName, status, errStr string) {
 			return
 		}
 
-		templateProduct, err := templaterepo.NewProductColl().Find(projectName)
-		if err != nil {
-			log.Errorf("updateVersionStatus failed to find template product: %s, err: %s", projectName, err)
-		} else {
-			hookConfig := templateProduct.DeliveryVersionHook
-			if hookConfig != nil && hookConfig.Enable {
-				err = sendVersionDeliveryHook(versionInfo, hookConfig.HookHost, hookConfig.Path)
-				if err != nil {
-					log.Errorf("updateVersionStatus failed to send version delivery hook, projectName: %s, err: %s", projectName, err)
+		if versionInfo.Type == setting.DeliveryVersionTypeChart {
+			templateProduct, err := templaterepo.NewProductColl().Find(projectName)
+			if err != nil {
+				log.Errorf("updateVersionStatus failed to find template product: %s, err: %s", projectName, err)
+			} else {
+				hookConfig := templateProduct.DeliveryVersionHook
+				if hookConfig != nil && hookConfig.Enable {
+					err = sendVersionDeliveryHook(versionInfo, hookConfig.HookHost, hookConfig.Path)
+					if err != nil {
+						log.Errorf("updateVersionStatus failed to send version delivery hook, projectName: %s, err: %s", projectName, err)
+					}
 				}
 			}
 		}
@@ -1135,7 +1248,7 @@ func taskFinished(status config.Status) bool {
 	return status == config.StatusPassed || status == config.StatusFailed || status == config.StatusTimeout || status == config.StatusCancelled
 }
 
-func waitVersionDone(deliveryVersion *commonmodels.DeliveryVersion) {
+func waitK8SImageVersionDone(deliveryVersion *commonmodels.DeliveryVersion) {
 	waitTimeout := time.After(60 * time.Minute * 1)
 	for {
 		select {
@@ -1143,7 +1256,7 @@ func waitVersionDone(deliveryVersion *commonmodels.DeliveryVersion) {
 			updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, setting.DeliveryVersionStatusFailed, "timeout")
 			return
 		default:
-			done, err := checkVersionStatus(deliveryVersion)
+			done, err := checkK8SImageVersionStatus(deliveryVersion)
 			if err != nil {
 				updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, setting.DeliveryVersionStatusFailed, err.Error())
 				return
@@ -1156,7 +1269,55 @@ func waitVersionDone(deliveryVersion *commonmodels.DeliveryVersion) {
 	}
 }
 
-func checkVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) (bool, error) {
+func waitHelmChartVersionDone(deliveryVersion *commonmodels.DeliveryVersion) {
+	waitTimeout := time.After(60 * time.Minute * 1)
+	for {
+		select {
+		case <-waitTimeout:
+			updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, setting.DeliveryVersionStatusFailed, "timeout")
+			return
+		default:
+			done, err := checkHelmChartVersionStatus(deliveryVersion)
+			if err != nil {
+				updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, setting.DeliveryVersionStatusFailed, err.Error())
+				return
+			}
+			if done {
+				return
+			}
+		}
+		time.Sleep(time.Second * 5)
+	}
+}
+
+func checkK8SImageVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) (bool, error) {
+	if deliveryVersion.Status == setting.DeliveryVersionStatusSuccess || deliveryVersion.Status == setting.DeliveryVersionStatusFailed {
+		return true, nil
+	}
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID))
+	if err != nil {
+		return false, fmt.Errorf("failed to find workflow task, workflowName: %s, taskID: %d", deliveryVersion.WorkflowName, deliveryVersion.TaskID)
+	}
+
+	if len(workflowTask.Stages) != 1 {
+		return false, fmt.Errorf("invalid task data, stage length not leagal")
+	}
+
+	done := false
+	if workflowTask.Status == config.StatusPassed {
+		deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
+		done = true
+	} else if workflowTask.Status == config.StatusFailed || workflowTask.Status == config.StatusTimeout || workflowTask.Status == config.StatusCancelled {
+		deliveryVersion.Status = setting.DeliveryVersionStatusFailed
+		done = true
+	}
+	if done {
+		updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
+	}
+	return done, nil
+}
+
+func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) (bool, error) {
 	if deliveryVersion.Status == setting.DeliveryVersionStatusSuccess || deliveryVersion.Status == setting.DeliveryVersionStatusFailed {
 		return true, nil
 	}
@@ -1254,6 +1415,67 @@ func checkVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) (bool, er
 	return allTaskDone, nil
 }
 
+func CreateNewK8SDeliveryVersion(args *CreateK8SDeliveryVersionArgs, logger *zap.SugaredLogger) error {
+	if len(args.ImageRegistryID) == 0 {
+		return e.ErrCreateDeliveryVersion.AddDesc("image registry not appointed")
+	}
+	// prepare data
+	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName)
+	if err != nil {
+		log.Infof("failed to query product info, productName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
+		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query product info, procutName: %s envName %s", args.ProductName, args.EnvName))
+	}
+
+	registryMap, err := buildRegistryMap()
+	if err != nil {
+		return fmt.Errorf("failed to build registry map")
+	}
+
+	var targetRegistry *commonmodels.RegistryNamespace
+	for _, registry := range registryMap {
+		if registry.ID.Hex() == args.ImageRegistryID {
+			targetRegistry = registry
+			break
+		}
+	}
+	targetRegistryProjectSet := sets.NewString()
+	for _, project := range targetRegistry.Projects {
+		targetRegistryProjectSet.Insert(project)
+	}
+	if !targetRegistryProjectSet.Has(productInfo.ProductName) && !targetRegistryProjectSet.Has(setting.AllProjects) {
+		return fmt.Errorf("registry %s/%s not support project %s", targetRegistry.RegAddr, targetRegistry.Namespace, productInfo.ProductName)
+	}
+
+	productInfo.ID, _ = primitive.ObjectIDFromHex("")
+
+	versionObj := &commonmodels.DeliveryVersion{
+		Version:        args.Version,
+		ProductName:    args.ProductName,
+		Type:           setting.DeliveryVersionTypeYaml,
+		Desc:           args.Desc,
+		Labels:         args.Labels,
+		ProductEnvInfo: productInfo,
+		Status:         setting.DeliveryVersionStatusCreating,
+		CreateArgument: args.DeliveryVersionYamlData,
+		CreatedBy:      args.CreateBy,
+		CreatedAt:      time.Now().Unix(),
+		DeletedAt:      0,
+	}
+
+	err = commonrepo.NewDeliveryVersionColl().Insert(versionObj)
+	if err != nil {
+		logger.Errorf("failed to insert version data, err: %s", err)
+		return e.ErrCreateDeliveryVersion.AddErr(fmt.Errorf("failed to insert delivery version: %s", versionObj.Version))
+	}
+
+	err = buildDeliveryImages(productInfo, targetRegistry, registryMap, versionObj, args.DeliveryVersionYamlData, logger)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.SugaredLogger) error {
 	// need appoint chart info
 	if len(args.ChartDatas) == 0 {
@@ -1303,6 +1525,32 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func RetryCreateK8SDeliveryVersion(projectName, versionName string, logger *zap.SugaredLogger) error {
+	deliveryVersion, err := commonrepo.NewDeliveryVersionColl().Get(&commonrepo.DeliveryVersionArgs{
+		ProductName: projectName,
+		Version:     versionName,
+	})
+	if err != nil {
+		logger.Errorf("failed to query delivery version data, verisonName: %s, error: %s", versionName, err)
+		return fmt.Errorf("failed to query delivery version data, verisonName: %s", versionName)
+	}
+
+	if deliveryVersion.Status != setting.DeliveryVersionStatusFailed {
+		return fmt.Errorf("can't reCreate version with status:%s", deliveryVersion.Status)
+	}
+
+	err = workflowservice.RetryWorkflowTaskV4(deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID), logger)
+	if err != nil {
+		return fmt.Errorf("failed to retry workflow task, workflowName: %s, taskID: %d, err: %s", deliveryVersion.WorkflowName, deliveryVersion.TaskID, err)
+	}
+
+	// update status
+	deliveryVersion.Status = setting.DeliveryVersionStatusRetrying
+	updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
 
 	return nil
 }
@@ -1725,4 +1973,101 @@ func ApplyDeliveryGlobalVariables(args *DeliveryVariablesApplyArgs, logger *zap.
 		})
 	}
 	return ret, nil
+}
+
+func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product, deliveryVersion *commonmodels.DeliveryVersion, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace, args *DeliveryVersionYamlData) (*commonmodels.WorkflowV4, error) {
+	name := fmt.Sprintf(deliveryVersionWorkflowV4NamingConvention, deliveryVersion.ProductName, deliveryVersion.Version)
+	resp := &commonmodels.WorkflowV4{
+		Name:             name,
+		DisplayName:      name,
+		Stages:           nil,
+		Project:          deliveryVersion.ProductName,
+		CreatedBy:        "system",
+		ConcurrencyLimit: 1,
+	}
+
+	stage := make([]*commonmodels.WorkflowStage, 0)
+	jobs := make([]*commonmodels.Job, 0)
+
+	registryDatasMap := map[*commonmodels.RegistryNamespace]map[string][]*ImageData{}
+	for _, yamlData := range args.YamlDatas {
+		for _, imageData := range yamlData.ImageDatas {
+			registryURL := strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, imageData.ImageTag))
+			sourceRegistry, ok := registryMap[registryURL]
+			if !ok {
+				return nil, fmt.Errorf("can't find soruce registry for image: %s", imageData.Image)
+			}
+			if registryDatasMap[sourceRegistry] == nil {
+				registryDatasMap[sourceRegistry] = map[string][]*ImageData{yamlData.ServiceName: {}}
+			}
+			if registryDatasMap[sourceRegistry][yamlData.ServiceName] == nil {
+				registryDatasMap[sourceRegistry][yamlData.ServiceName] = []*ImageData{}
+			}
+			registryDatasMap[sourceRegistry][yamlData.ServiceName] = append(registryDatasMap[sourceRegistry][yamlData.ServiceName], imageData)
+		}
+	}
+
+	serviceMap := productInfo.GetServiceMap()
+	serviceNameContainerMap := map[string]map[string]*commonmodels.Container{}
+	for serviceName, prodService := range serviceMap {
+		for _, container := range prodService.Containers {
+			if serviceNameContainerMap[serviceName] == nil {
+				serviceNameContainerMap[serviceName] = map[string]*commonmodels.Container{}
+			}
+			if serviceNameContainerMap[serviceName][container.Name] == nil {
+				serviceNameContainerMap[serviceName][container.Name] = container
+			}
+		}
+	}
+
+	for sourceRegistry, serviceNameImageDatasMap := range registryDatasMap {
+		targets := []*commonmodels.DistributeTarget{}
+		for serviceName, imageDatas := range serviceNameImageDatasMap {
+			for _, imageData := range imageDatas {
+				sourceContainter := serviceNameContainerMap[serviceName][imageData.ImageName]
+				if sourceContainter == nil {
+					return nil, fmt.Errorf("can't find source container for image: %s", imageData.Image)
+				}
+				sourceImage := sourceContainter.Image
+				sourceTagStr := strings.Split(sourceImage, ":")
+				sourceTag := "latest"
+				if len(sourceTagStr) == 2 {
+					sourceTag = sourceTagStr[1]
+				}
+				target := &commonmodels.DistributeTarget{
+					ServiceName:   serviceName,
+					ServiceModule: imageData.ContainerName,
+					ImageName:     imageData.ImageName,
+					SourceTag:     sourceTag,
+					TargetTag:     imageData.ImageTag,
+				}
+				targets = append(targets, target)
+			}
+		}
+		jobs = append(jobs, &commonmodels.Job{
+			Name:    name,
+			JobType: config.JobZadigDistributeImage,
+			Skipped: false,
+			Spec: &commonmodels.ZadigDistributeImageJobSpec{
+				Source:           config.SourceRuntime,
+				JobName:          "",
+				SourceRegistryID: sourceRegistry.ID.Hex(),
+				TargetRegistryID: targetRegistry.ID.Hex(),
+				Targets:          targets,
+			},
+			RunPolicy:      "",
+			ServiceModules: nil,
+		})
+	}
+
+	stage = append(stage, &commonmodels.WorkflowStage{
+		Name:     "distribute-image",
+		Parallel: false,
+		Approval: nil,
+		Jobs:     jobs,
+	})
+
+	resp.Stages = stage
+
+	return resp, nil
 }
