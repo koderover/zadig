@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -71,8 +70,6 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	defer func() {
 		s.Logger.Infof(fmt.Sprintf("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds()))
 	}()
-
-	log.Debugf("shell step Path: %s", os.Getenv("PATH"))
 
 	envmaps := helper.MakeEnvMap(s.envs, s.secretEnvs)
 	userScriptFile, err := generateScript(s.spec, s.dirs, s.JobOutput, envmaps, s.Logger)
