@@ -52,6 +52,8 @@ func (a *Agent) start(stop chan struct{}) {
 	// Initialize the agent
 	InitAgent()
 
+	log.Debugf("agent start Path: %s", os.Getenv("PATH"))
+
 	// Start the agent core service
 	agentCtl := agent.NewAgentController()
 	go agentCtl.Start(a.Ctx)
@@ -79,6 +81,8 @@ func (a *Agent) handleSignals() {
 func StartAgent() {
 	zadigAgent := newAgent()
 	stopAgentChan := make(chan struct{}, 1)
+
+	log.Debugf("StartAgent Path: %s", os.Getenv("PATH"))
 
 	// Start the agent
 	go zadigAgent.start(stopAgentChan)
