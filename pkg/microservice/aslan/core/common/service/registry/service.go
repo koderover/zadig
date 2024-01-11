@@ -518,14 +518,14 @@ func (s *ecrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 			}
 			var koderoverTags, customTags, sortedTags []string
 			for _, image := range result.ImageIds {
-				tagArray := strings.Split(*image.ImageTag, "-")
+				tagArray := strings.Split(aws.StringValue(image.ImageTag), "-")
 				if len(tagArray) > 1 && len(tagArray[0]) == 14 {
 					if _, err := time.Parse("20060102150405", tagArray[0]); err == nil {
-						koderoverTags = append(koderoverTags, *image.ImageTag)
+						koderoverTags = append(koderoverTags, aws.StringValue(image.ImageTag))
 						continue
 					}
 				}
-				customTags = append(customTags, *image.ImageTag)
+				customTags = append(customTags, aws.StringValue(image.ImageTag))
 			}
 
 			sort.Sort(sort.Reverse(sort.StringSlice(koderoverTags)))
