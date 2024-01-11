@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -36,12 +35,10 @@ import (
 
 type ApproveMap struct {
 	m map[string]*ApproveWithLock
-	//sync.RWMutex
 }
 
 type ApproveWithLock struct {
 	Approval *commonmodels.NativeApproval
-	sync.RWMutex
 }
 
 var GlobalApproveMap ApproveMap
@@ -51,7 +48,11 @@ func init() {
 }
 
 func approveKey(instanceID string) string {
-	return fmt.Sprintf("normal-approve-%s", instanceID)
+	return fmt.Sprintf("native-approve-%s", instanceID)
+}
+
+func approveLockKey(instanceID string) string {
+	return fmt.Sprintf("native-approve-lock-%s", instanceID)
 }
 
 func (c *ApproveMap) SetApproval(key string, value *ApproveWithLock) {
@@ -83,9 +84,32 @@ func (c *ApproveMap) DeleteApproval(key string) {
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(approveKey(key))
 }
 
-func (c *ApproveWithLock) IsApproval() (bool, int, error) {
-	c.Lock()
-	defer c.Unlock()
+func (c *ApproveMap) DoApproval(key, userName, userID, comment string, approval bool) error {
+	redisMutex := cache.NewRedisLock(approveLockKey(key))
+	redisMutex.Lock()
+	defer redisMutex.Unlock()
+
+	approvalData, ok := c.GetApproval(key)
+	if !ok {
+		return fmt.Errorf("not found approval")
+	}
+	err := approvalData.doApproval(userName, userID, comment, approval)
+	if err != nil {
+		return err
+	}
+	c.SetApproval(key, approvalData)
+	return nil
+}
+
+func (c *ApproveMap) IsApproval(key string) (bool, int, error) {
+	approval, ok := c.GetApproval(key)
+	if !ok {
+		return false, 0, fmt.Errorf("not found approval")
+	}
+	return approval.isApproval()
+}
+
+func (c *ApproveWithLock) isApproval() (bool, int, error) {
 	ApproveCount := 0
 	for _, user := range c.Approval.ApproveUsers {
 		if user.RejectOrApprove == config.Reject {
@@ -103,9 +127,7 @@ func (c *ApproveWithLock) IsApproval() (bool, int, error) {
 	return false, ApproveCount, nil
 }
 
-func (c *ApproveWithLock) DoApproval(userName, userID, comment string, appvove bool) error {
-	c.Lock()
-	defer c.Unlock()
+func (c *ApproveWithLock) doApproval(userName, userID, comment string, appvove bool) error {
 	for _, user := range c.Approval.ApproveUsers {
 		if user.UserID != userID {
 			continue

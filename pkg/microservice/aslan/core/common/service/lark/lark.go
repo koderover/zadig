@@ -18,7 +18,15 @@ package lark
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"sync"
+
+	"github.com/koderover/zadig/v2/pkg/tool/log"
+
+	config2 "github.com/koderover/zadig/v2/pkg/config"
+
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 
 	"github.com/pkg/errors"
 
@@ -188,19 +196,16 @@ func GetLarkUserID(approvalID, queryType, queryValue string) (string, error) {
 }
 
 var (
-	once                   sync.Once
-	larkApprovalManagerMap *ApprovalManagerMap
+	larkApprovalManagerMap ApprovalManagerMap
 )
 
 type ApprovalManagerMap struct {
-	sync.RWMutex
-	m map[string]*ApprovalManager
+	//m map[string]*ApprovalManager
 }
 
 type NodeUserApprovalResult map[string]map[string]*UserApprovalResult
 
 type ApprovalManager struct {
-	sync.RWMutex
 	// key nodeID
 	nodeMap     NodeUserApprovalResult
 	nodeKeyMap  map[string]string
@@ -213,38 +218,68 @@ type UserApprovalResult struct {
 	OperationTime   int64
 }
 
+func larkApprovalCacheKey(instanceID string) string {
+	return fmt.Sprint("lark-approval-", instanceID)
+}
+
+func larkApprovalLockKey(instanceID string) string {
+	return fmt.Sprint("lark-approval-lock-", instanceID)
+}
+
 func GetLarkApprovalInstanceManager(instanceID string) *ApprovalManager {
-	if larkApprovalManagerMap == nil {
-		once.Do(func() {
-			larkApprovalManagerMap = &ApprovalManagerMap{m: make(map[string]*ApprovalManager)}
-		})
-	}
+	redisMutex := cache.NewRedisLock(larkApprovalLockKey(instanceID))
+	redisMutex.Lock()
+	defer redisMutex.Unlock()
 
-	larkApprovalManagerMap.Lock()
-	defer larkApprovalManagerMap.Unlock()
-
-	if manager, ok := larkApprovalManagerMap.m[instanceID]; !ok {
-		larkApprovalManagerMap.m[instanceID] = &ApprovalManager{
+	approvalStr, _ := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).GetString(larkApprovalCacheKey(instanceID))
+	if len(approvalStr) > 0 {
+		approvalManager := &ApprovalManager{}
+		err := json.Unmarshal([]byte(approvalStr), approvalManager)
+		if err != nil {
+			log.Errorf("unmarshal approval manager error: %v", err)
+		}
+		return approvalManager
+	} else {
+		approvalData := &ApprovalManager{
 			nodeMap:     make(NodeUserApprovalResult),
 			requestUUID: make(map[string]struct{}),
 			nodeKeyMap:  make(map[string]string),
 		}
-		return larkApprovalManagerMap.m[instanceID]
-	} else {
-		return manager
+		bs, _ := json.Marshal(approvalData)
+		err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(larkApprovalCacheKey(instanceID), string(bs), 0)
+		if err != nil {
+			log.Errorf("write approval manager error: %v", err)
+		}
+		return approvalData
 	}
 }
 
 func RemoveLarkApprovalInstanceManager(instanceID string) {
-	larkApprovalManagerMap.Lock()
-	defer larkApprovalManagerMap.Unlock()
-	delete(larkApprovalManagerMap.m, instanceID)
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(larkApprovalCacheKey(instanceID))
 }
 
-func (l *ApprovalManager) GetNodeUserApprovalResults(nodeID string) map[string]*UserApprovalResult {
-	l.RLock()
-	defer l.RUnlock()
+func GetNodeUserApprovalResults(instanceID, nodeID string) map[string]*UserApprovalResult {
+	approvalManager := GetLarkApprovalInstanceManager(instanceID)
+	return approvalManager.getNodeUserApprovalResults(nodeID)
+}
 
+func UpdateNodeUserApprovalResult(instanceID, nodeKey, nodeID, userID string, result *UserApprovalResult) {
+	writeKey := fmt.Sprint("lark-approval-lock-write-", instanceID)
+	writeMutex := cache.NewRedisLock(writeKey)
+	writeMutex.Lock()
+	defer writeMutex.Unlock()
+
+	approvalManager := GetLarkApprovalInstanceManager(instanceID)
+	approvalManager.updateNodeKeyMap(nodeKey, nodeID)
+	approvalManager.updateNodeUserApprovalResult(nodeID, userID, result)
+	bs, _ := json.Marshal(approvalManager)
+	err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(larkApprovalCacheKey(instanceID), string(bs), 0)
+	if err != nil {
+		log.Errorf("write approval manager error: %v", err)
+	}
+}
+
+func (l *ApprovalManager) getNodeUserApprovalResults(nodeID string) map[string]*UserApprovalResult {
 	m := make(map[string]*UserApprovalResult)
 	if re, ok := l.nodeMap[nodeID]; !ok {
 		return m
@@ -256,9 +291,7 @@ func (l *ApprovalManager) GetNodeUserApprovalResults(nodeID string) map[string]*
 	}
 }
 
-func (l *ApprovalManager) UpdateNodeUserApprovalResult(nodeID, userID string, result *UserApprovalResult) {
-	l.Lock()
-	defer l.Unlock()
+func (l *ApprovalManager) updateNodeUserApprovalResult(nodeID, userID string, result *UserApprovalResult) {
 
 	if _, ok := l.nodeMap[nodeID]; !ok {
 		l.nodeMap[nodeID] = make(map[string]*UserApprovalResult)
@@ -277,8 +310,6 @@ func (l *ApprovalManager) UpdateNodeUserApprovalResult(nodeID, userID string, re
 }
 
 func (l *ApprovalManager) GetNodeKeyMap() map[string]string {
-	l.RLock()
-	defer l.RUnlock()
 	m := make(map[string]string)
 	for k, v := range l.nodeKeyMap {
 		m[k] = v
@@ -286,15 +317,11 @@ func (l *ApprovalManager) GetNodeKeyMap() map[string]string {
 	return m
 }
 
-func (l *ApprovalManager) UpdateNodeKeyMap(nodeKey, nodeCustomKey string) {
-	l.Lock()
-	defer l.Unlock()
+func (l *ApprovalManager) updateNodeKeyMap(nodeKey, nodeCustomKey string) {
 	l.nodeKeyMap[nodeCustomKey] = nodeKey
 }
 
 func (l *ApprovalManager) CheckAndUpdateUUID(uuid string) bool {
-	l.Lock()
-	defer l.Unlock()
 	if _, ok := l.requestUUID[uuid]; ok {
 		return false
 	}

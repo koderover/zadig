@@ -280,30 +280,6 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 	return nil
 }
 
-func updateNativeApproval(ctx context.Context, approval *models.Approval) error {
-	if approval == nil || approval.NativeApproval == nil {
-		return errors.New("updateLarkApproval: native approval data not found")
-	}
-
-	approveWithL, ok := approvalservice.GlobalApproveMap.GetApproval(approval.NativeApproval.InstanceCode)
-	if !ok {
-		log.Infof("updateNativeApproval: approval instance code %s not found, set it", approval.NativeApproval.InstanceCode)
-		approvalservice.GlobalApproveMap.SetApproval(approval.NativeApproval.InstanceCode, &approvalservice.ApproveWithLock{Approval: approval.NativeApproval})
-	}
-
-	approval.NativeApproval = approveWithL.Approval
-	approved, _, err := approveWithL.IsApproval()
-	if err != nil {
-		approval.Status = config.StatusReject
-		return nil
-	}
-	if approved {
-		approval.Status = config.StatusPassed
-		return nil
-	}
-	return nil
-}
-
 func createLarkApproval(approval *models.LarkApproval, manager, phone, content string) error {
 	if approval == nil {
 		return errors.New("waitForApprove: lark approval data not found")
@@ -393,7 +369,7 @@ func updateLarkApproval(ctx context.Context, approval *models.Approval) error {
 			if node.RejectOrApprove != "" {
 				continue
 			}
-			resultMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeUserApprovalResults(lark.ApprovalNodeIDKey(i))
+			resultMap := larkservice.GetNodeUserApprovalResults(instance, lark.ApprovalNodeIDKey(i))
 			for _, user := range node.ApproveUsers {
 				if result, ok := resultMap[user.ID]; ok && user.RejectOrApprove == "" {
 					instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})

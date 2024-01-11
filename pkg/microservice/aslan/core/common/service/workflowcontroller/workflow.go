@@ -18,10 +18,16 @@ package workflowcontroller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
+
+	config2 "github.com/koderover/zadig/v2/pkg/config"
+	"github.com/redis/go-redis/v9"
+
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -45,9 +51,10 @@ var cancelChannelMap sync.Map
 
 type workflowCtl struct {
 	workflowTask       *commonmodels.WorkflowTask
-	globalContextMutex sync.RWMutex
-	clusterIDMutex     sync.RWMutex
+	globalContextMutex *cache.RedisLock
+	clusterIDMutex     *cache.RedisLock
 	logger             *zap.SugaredLogger
+	prefix             string
 	ack                func()
 }
 
@@ -55,7 +62,10 @@ func NewWorkflowController(workflowTask *commonmodels.WorkflowTask, logger *zap.
 	ctl := &workflowCtl{
 		workflowTask: workflowTask,
 		logger:       logger,
+		prefix:       fmt.Sprintf("workflowctl-%s-%d", workflowTask.WorkflowName, workflowTask.TaskID),
 	}
+	ctl.globalContextMutex = cache.NewRedisLock(fmt.Sprintf("%s-global-context", ctl.prefix))
+	ctl.clusterIDMutex = cache.NewRedisLock(fmt.Sprintf("%s-cluster-id", ctl.prefix))
 	ctl.ack = ctl.updateWorkflowTask
 	return ctl
 }
@@ -317,8 +327,8 @@ const (
 )
 
 func (c *workflowCtl) getGlobalContextAll() map[string]string {
-	c.globalContextMutex.RLock()
-	defer c.globalContextMutex.RUnlock()
+	c.globalContextMutex.Lock()
+	defer c.globalContextMutex.Unlock()
 	res := make(map[string]string, len(c.workflowTask.GlobalContext))
 	for k, v := range c.workflowTask.GlobalContext {
 		k = strings.Join(strings.Split(k, split), ".")
@@ -328,21 +338,32 @@ func (c *workflowCtl) getGlobalContextAll() map[string]string {
 }
 
 func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
-	c.globalContextMutex.RLock()
-	defer c.globalContextMutex.RUnlock()
-	v, existed := c.workflowTask.GlobalContext[GetContextKey(key)]
+	c.globalContextMutex.Lock()
+	defer c.globalContextMutex.Unlock()
+
+	v, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HGetString(c.prefix, GetContextKey(key))
+	existed := true
+	if err != nil {
+		existed = false
+		if errors.Is(err, redis.Nil) {
+			log.Errorf("get global context %s error: %v", c.prefix, err)
+		}
+	}
 	return v, existed
+	//v, existed := c.workflowTask.GlobalContext[GetContextKey(key)]
+	//return v, existed
 }
 
 func (c *workflowCtl) setGlobalContext(key, value string) {
 	c.globalContextMutex.Lock()
 	defer c.globalContextMutex.Unlock()
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HWrite(c.prefix, GetContextKey(key), value, 0)
 	c.workflowTask.GlobalContext[GetContextKey(key)] = value
 }
 
 func (c *workflowCtl) globalContextEach(f func(k, v string) bool) {
-	c.globalContextMutex.RLock()
-	defer c.globalContextMutex.RUnlock()
+	c.globalContextMutex.Lock()
+	defer c.globalContextMutex.Unlock()
 	for k, v := range c.workflowTask.GlobalContext {
 		k = strings.Join(strings.Split(k, split), ".")
 		if !f(k, v) {
