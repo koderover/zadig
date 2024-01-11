@@ -16,20 +16,11 @@
 
 package service
 
-import "sync"
-
-var (
-	globalLockMap = make(map[string]*sync.RWMutex)
-	globalLock    = sync.RWMutex{}
+import (
+	"fmt"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 )
 
-func getLock(key string) *sync.RWMutex {
-	globalLock.Lock()
-	defer globalLock.Unlock()
-	if mu, ok := globalLockMap[key]; ok {
-		return mu
-	}
-	mu := &sync.RWMutex{}
-	globalLockMap[key] = mu
-	return mu
+func getLock(key string) *cache.RedisLock {
+	return cache.NewRedisLock(fmt.Sprint("release-plan-lock-", key))
 }

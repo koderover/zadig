@@ -47,6 +47,7 @@ type WorkflowTaskWithLock struct {
 func GetWorkflowTaskInMap(workflowName string, taskID int64) *WorkflowTaskWithLock {
 	globalWorkflowTaskWithLock.RLock()
 	defer globalWorkflowTaskWithLock.RUnlock()
+
 	return globalWorkflowTaskWithLock.m[fmt.Sprintf("%s-%d", workflowName, taskID)]
 }
 

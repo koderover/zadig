@@ -52,7 +52,6 @@ var cancelChannelMap sync.Map
 type workflowCtl struct {
 	workflowTask       *commonmodels.WorkflowTask
 	globalContextMutex *cache.RedisLock
-	clusterIDMutex     *cache.RedisLock
 	logger             *zap.SugaredLogger
 	prefix             string
 	ack                func()
@@ -65,7 +64,6 @@ func NewWorkflowController(workflowTask *commonmodels.WorkflowTask, logger *zap.
 		prefix:       fmt.Sprintf("workflowctl-%s-%d", workflowTask.WorkflowName, workflowTask.TaskID),
 	}
 	ctl.globalContextMutex = cache.NewRedisLock(fmt.Sprintf("%s-global-context", ctl.prefix))
-	ctl.clusterIDMutex = cache.NewRedisLock(fmt.Sprintf("%s-cluster-id", ctl.prefix))
 	ctl.ack = ctl.updateWorkflowTask
 	return ctl
 }
@@ -112,6 +110,7 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 		return nil
 	}
 	if f, ok := value.(context.CancelFunc); ok {
+		log.Infof("---------- found cancel channel data: %s/%d", workflowName, taskID)
 		f()
 		return nil
 	}
@@ -124,12 +123,6 @@ func (c *workflowCtl) setWorkflowStatus(status config.Status) {
 }
 
 func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
-	if c.workflowTask.GlobalContext == nil {
-		c.workflowTask.GlobalContext = make(map[string]string)
-	}
-	if c.workflowTask.ClusterIDMap == nil {
-		c.workflowTask.ClusterIDMap = make(map[string]bool)
-	}
 
 	addWorkflowTaskInMap(c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask, c.ack)
 	defer removeWorkflowTaskInMap(c.workflowTask.WorkflowName, c.workflowTask.TaskID)
@@ -148,6 +141,9 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	cancelKey := fmt.Sprintf("%s-%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
+
+	log.Infof("---------- add cancel channel data: %s/%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
+
 	cancelChannelMap.Store(cancelKey, cancel)
 	defer cancelChannelMap.Delete(cancelKey)
 
@@ -180,6 +176,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	}
 	RunStages(ctx, c.workflowTask.Stages, workflowCtx, concurrency, c.logger, c.ack)
 	updateworkflowStatus(c.workflowTask)
+	c.workflowTask.GlobalContext = c.getGlobalContextAll()
 }
 
 func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
@@ -279,7 +276,12 @@ func (c *workflowCtl) updateWorkflowTask() {
 }
 
 func (c *workflowCtl) CleanShareStorage() {
-	for clusterID := range c.workflowTask.ClusterIDMap {
+	clusterMap, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HGetAllString(c.prefix + "-cluster")
+	if err != nil {
+		c.logger.Errorf("get cluster map error: %v", err)
+	}
+
+	for clusterID := range clusterMap {
 		cleanJobName := fmt.Sprintf("clean-%s", rand.String(8))
 		namespace := setting.AttachedClusterNamespace
 		if clusterID == setting.LocalClusterID || clusterID == "" {
@@ -313,12 +315,13 @@ func (c *workflowCtl) CleanShareStorage() {
 		status := jobcontroller.WaitPlainJobEnd(context.Background(), 10, namespace, cleanJobName, kubeClient, kubeApiServer, c.logger)
 		c.logger.Infof("clean job %s finished, status: %s", cleanJobName, status)
 	}
+
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(c.prefix + "-cluster")
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(c.prefix)
 }
 
 func (c *workflowCtl) addCluterID(clusterID string) {
-	c.clusterIDMutex.Lock()
-	defer c.clusterIDMutex.Unlock()
-	c.workflowTask.ClusterIDMap[clusterID] = true
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HWrite(c.prefix+"-cluster", clusterID, "1", 0)
 }
 
 // mongo do not support dot in keys.
@@ -329,8 +332,15 @@ const (
 func (c *workflowCtl) getGlobalContextAll() map[string]string {
 	c.globalContextMutex.Lock()
 	defer c.globalContextMutex.Unlock()
-	res := make(map[string]string, len(c.workflowTask.GlobalContext))
-	for k, v := range c.workflowTask.GlobalContext {
+
+	res := make(map[string]string)
+	contextMap, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HGetAllString(c.prefix)
+	if err != nil {
+		log.Errorf("get global context %s error: %v", c.prefix, err)
+		return res
+	}
+
+	for k, v := range contextMap {
 		k = strings.Join(strings.Split(k, split), ".")
 		res[k] = v
 	}
@@ -357,14 +367,22 @@ func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
 func (c *workflowCtl) setGlobalContext(key, value string) {
 	c.globalContextMutex.Lock()
 	defer c.globalContextMutex.Unlock()
+
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HWrite(c.prefix, GetContextKey(key), value, 0)
-	c.workflowTask.GlobalContext[GetContextKey(key)] = value
+	//c.workflowTask.GlobalContext[GetContextKey(key)] = value
 }
 
 func (c *workflowCtl) globalContextEach(f func(k, v string) bool) {
 	c.globalContextMutex.Lock()
 	defer c.globalContextMutex.Unlock()
-	for k, v := range c.workflowTask.GlobalContext {
+
+	contextMap, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HGetAllString(c.prefix)
+	if err != nil {
+		log.Errorf("get global context %s error: %v", c.prefix, err)
+		return
+	}
+
+	for k, v := range contextMap {
 		k = strings.Join(strings.Split(k, split), ".")
 		if !f(k, v) {
 			return
