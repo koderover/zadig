@@ -47,7 +47,7 @@ func UpdateGitlabToken(id int, accessToken string) (string, error) {
 	mu := cache.NewRedisLockWithExpiry(fmt.Sprintf("gitlab_token_refresh:%d", id), time.Second*10)
 	err := mu.Lock()
 	if err != nil {
-		log.Errorf("failed to acquire lock, err: %s", err)
+		log.Errorf("failed to acquire gitlab token refresh lock, err: %s", err)
 		return "", fmt.Errorf("failed to update gitlab token, err: %s", err)
 	}
 	defer mu.Unlock()

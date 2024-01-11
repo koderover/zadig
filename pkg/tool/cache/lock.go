@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"strings"
 	"time"
 
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -33,11 +34,13 @@ func init() {
 }
 
 type RedisLock struct {
+	key   string
 	mutex *redsync.Mutex
 }
 
 func NewRedisLock(key string) *RedisLock {
 	return &RedisLock{
+		key:   key,
 		mutex: resync.NewMutex(key, redsync.WithRetryDelay(time.Millisecond*500)),
 	}
 }
@@ -51,7 +54,19 @@ func NewRedisLockWithExpiry(key string, expiry time.Duration) *RedisLock {
 func (lock *RedisLock) Lock() error {
 	err := lock.mutex.Lock()
 	if err != nil {
-		log.Errorf("failed to acquire redis lock, err: %s", err)
+		if strings.Contains(err.Error(), "lock already taken") {
+			log.Errorf("failed to acquire redis lock: %s, err: %s", lock.key, err)
+		}
+	}
+	return err
+}
+
+func (lock *RedisLock) TryLock() error {
+	err := lock.mutex.TryLock()
+	if err != nil {
+		if strings.Contains(err.Error(), "lock already taken") {
+			log.Errorf("failed to try acquire redis lock: %s, err: %s", lock.key, err)
+		}
 	}
 	return err
 }
