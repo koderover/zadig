@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	systemservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/system/service"
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
@@ -223,6 +224,27 @@ func DeprecatedWorkflowTemplateName() []string {
 }
 
 func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
+	imageID := ""
+	buildOS := "focal"
+	imageFrom := "koderover"
+	basicImages, err := systemservice.ListBasicImages("koderover", "", log.SugaredLogger())
+	if err != nil {
+		log.Errorf("Failed to list basic images, err: %v", err)
+	}
+	for _, basicImage := range basicImages {
+		if basicImage.Value == "focal" {
+			imageID = basicImage.ID.Hex()
+			buildOS = basicImage.Value
+			imageFrom = basicImage.ImageFrom
+			break
+		}
+	}
+	if imageID == "" && len(basicImages) > 0 {
+		imageID = basicImages[0].ID.Hex()
+		buildOS = basicImages[0].Value
+		imageFrom = basicImages[0].ImageFrom
+	}
+
 	buildInWorkflowTemplateInfos := []*commonmodels.WorkflowV4Template{
 		// deploy service
 		{
@@ -494,11 +516,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 									Timeout:         60,
 									ResourceRequest: "low",
 									ResReqSpec:      setting.LowRequestSpec,
-									BuildOS:         "focal",
-									ImageFrom:       "koderover",
-									ImageID:         "623d776ad26582d37d5a1aed",
+									BuildOS:         buildOS,
+									ImageFrom:       imageFrom,
+									ImageID:         imageID,
 									CacheEnable:     true,
 									CacheDirType:    "workspace",
+									Infrastructure:  setting.JobK8sInfrastructure,
 								},
 								Steps: []*commonmodels.Step{
 									{
@@ -730,11 +753,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 									Timeout:         60,
 									ResourceRequest: "low",
 									ResReqSpec:      setting.LowRequestSpec,
-									BuildOS:         "focal",
-									ImageFrom:       "koderover",
-									ImageID:         "623d776ad26582d37d5a1aed",
+									BuildOS:         buildOS,
+									ImageFrom:       imageFrom,
+									ImageID:         imageID,
 									CacheEnable:     true,
 									CacheDirType:    "workspace",
+									Infrastructure:  setting.JobK8sInfrastructure,
 								},
 								Steps: []*commonmodels.Step{
 									{
@@ -811,11 +835,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 									Timeout:         60,
 									ResourceRequest: "low",
 									ResReqSpec:      setting.LowRequestSpec,
-									BuildOS:         "focal",
-									ImageFrom:       "koderover",
-									ImageID:         "623d776ad26582d37d5a1aed",
+									BuildOS:         buildOS,
+									ImageFrom:       imageFrom,
+									ImageID:         imageID,
 									CacheEnable:     true,
 									CacheDirType:    "workspace",
+									Infrastructure:  setting.JobK8sInfrastructure,
 								},
 								Steps: []*commonmodels.Step{
 									{
@@ -978,11 +1003,12 @@ func InitWorkflowTemplateInfos() []*commonmodels.WorkflowV4Template {
 									Timeout:         60,
 									ResourceRequest: "low",
 									ResReqSpec:      setting.LowRequestSpec,
-									BuildOS:         "focal",
-									ImageFrom:       "koderover",
-									ImageID:         "623d776ad26582d37d5a1aed",
+									BuildOS:         buildOS,
+									ImageFrom:       imageFrom,
+									ImageID:         imageID,
 									CacheEnable:     true,
 									CacheDirType:    "workspace",
+									Infrastructure:  setting.JobK8sInfrastructure,
 								},
 								Steps: []*commonmodels.Step{
 									{

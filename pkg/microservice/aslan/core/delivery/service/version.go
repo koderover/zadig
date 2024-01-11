@@ -1562,7 +1562,7 @@ func RetryCreateHelmDeliveryVersion(projectName, versionName string, logger *zap
 	})
 	if err != nil {
 		logger.Errorf("failed to query delivery version data, verisonName: %s, error: %s", versionName, err)
-		return fmt.Errorf("failed to query delivery version data, verisonName: %s", versionName)
+		return fmt.Errorf("failed to query delivery version data, verisonName: %s, error: %s", versionName, err)
 	}
 
 	if deliveryVersion.Status != setting.DeliveryVersionStatusFailed {
