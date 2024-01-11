@@ -89,7 +89,7 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 	t.Status = config.StatusCancelled
 	t.TaskRevoker = userName
 
-	logger.Infof("[%s] CancelRunningTask %s:%d", userName, taskID, taskID)
+	logger.Infof("[%s] CancelRunningTask %s:%d", userName, workflowName, taskID)
 
 	if err := commonrepo.NewworkflowTaskv4Coll().Update(t.ID.Hex(), t); err != nil {
 		logger.Errorf("[%s] update task: %s:%d error: %v", userName, workflowName, taskID, err)
@@ -104,17 +104,23 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 		log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", t.WorkflowName, t.TaskID, err)
 	}
 
-	value, ok := cancelChannelMap.Load(fmt.Sprintf("%s-%d", workflowName, taskID))
-	if !ok {
-		logger.Errorf("no mactched task found, id: %d, workflow name: %s", taskID, workflowName)
-		return nil
+	log.Infof("---------- seding cancel channel data: %s/%d", t.WorkflowName, t.TaskID)
+	err = cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(fmt.Sprintf("workflowctl-cancel-%s-%d", workflowName, taskID), "cancel")
+	if err != nil {
+		return fmt.Errorf("failed to cancel task: %s:%d, err: %s", workflowName, taskID, err)
 	}
-	if f, ok := value.(context.CancelFunc); ok {
-		log.Infof("---------- found cancel channel data: %s/%d", workflowName, taskID)
-		f()
-		return nil
-	}
-	return fmt.Errorf("cancel func type mismatched, id: %d, workflow name: %s", taskID, workflowName)
+	return nil
+
+	//value, ok := cancelChannelMap.Load(fmt.Sprintf("%s-%d", workflowName, taskID))
+	//if !ok {
+	//	logger.Errorf("no mactched task found, id: %d, workflow name: %s", taskID, workflowName)
+	//	return nil
+	//}
+	//if f, ok := value.(context.CancelFunc); ok {
+	//	f()
+	//	return nil
+	//}
+	//return fmt.Errorf("cancel func type mismatched, id: %d, workflow name: %s", taskID, workflowName)
 }
 
 func (c *workflowCtl) setWorkflowStatus(status config.Status) {
@@ -140,12 +146,24 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	}()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	cancelKey := fmt.Sprintf("%s-%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
+	//cancelKey := fmt.Sprintf("%s-%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 
 	log.Infof("---------- add cancel channel data: %s/%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 
-	cancelChannelMap.Store(cancelKey, cancel)
-	defer cancelChannelMap.Delete(cancelKey)
+	// sub cancel signal from redis
+	cancelChan, closeFunc := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Subscribe(fmt.Sprintf("workflowctl-cancel-%s-%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID))
+	defer func() { _ = closeFunc() }()
+
+	go func() {
+		select {
+		case <-cancelChan:
+			log.Errorf("---------- receive cancel channel data: %s/%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
+			cancel()
+		}
+	}()
+
+	//cancelChannelMap.Store(cancelKey, cancel)
+	//defer cancelChannelMap.Delete(cancelKey)
 
 	workflowCtx := &commonmodels.WorkflowTaskCtx{
 		WorkflowName:                c.workflowTask.WorkflowName,

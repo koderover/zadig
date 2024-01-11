@@ -53,7 +53,7 @@ func (lock *RedisLock) Lock() error {
 	if err != nil {
 		log.Errorf("failed to acquire redis lock, err: %s", err)
 	}
-	return nil
+	return err
 }
 
 func (lock *RedisLock) Unlock() error {
