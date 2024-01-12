@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/setting"
 
 	"go.uber.org/zap"
 
@@ -28,7 +29,7 @@ import (
 func GetTestLocalTestSuite(testName string, log *zap.SugaredLogger) (*commonmodels.TestSuite, error) {
 	resp := new(commonmodels.TestSuite)
 
-	testCustomWorkflowName := fmt.Sprintf(testWorkflowNamingConvention, testName)
+	testCustomWorkflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
 	testTasks, err := commonrepo.NewJobInfoColl().GetTestJobsByWorkflow(testCustomWorkflowName)
 	if err != nil {
 		log.Errorf("failed to get test task from mongodb, error: %s", err)
