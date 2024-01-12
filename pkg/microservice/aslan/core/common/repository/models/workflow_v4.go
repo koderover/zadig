@@ -260,6 +260,7 @@ type ZadigBuildJobSpec struct {
 type ServiceAndBuild struct {
 	ServiceName      string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule    string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	Artifact         string              `bson:"artifact"             yaml:"artifact"             json:"artifact"`
 	BuildName        string              `bson:"build_name"          yaml:"build_name"       json:"build_name"`
 	Image            string              `bson:"image"                   yaml:"-"                json:"image"`
 	ImageName        string              `bson:"image_name"                   yaml:"image_name"                json:"image_name"`
@@ -283,6 +284,29 @@ type ZadigDeployJobSpec struct {
 	OriginJobName    string             `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
 	ServiceAndImages []*ServiceAndImage `bson:"service_and_images"   yaml:"service_and_images"   json:"service_and_images"`
 	Services         []*DeployService   `bson:"services"             yaml:"services"             json:"services"`
+}
+
+type ServiceAndVMDeploy struct {
+	ServiceName   string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
+	ServiceModule string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
+	ArtifactURL   string              `bson:"artifact_url"        yaml:"artifact_url"     json:"artifact_url"`
+	FileName      string              `bson:"file_name"           yaml:"file_name"        json:"file_name"`
+	TaskID        int                 `bson:"task_id"             yaml:"task_id"          json:"task_id"`
+	WorkflowType  config.PipelineType `bson:"workflow_type"       yaml:"workflow_type"    json:"workflow_type"`
+	WorkflowName  string              `bson:"workflow_name"       yaml:"workflow_name"    json:"workflow_name"`
+	JobTaskName   string              `bson:"job_task_name"       yaml:"job_task_name"    json:"job_task_name"`
+}
+
+type ZadigVMDeployJobSpec struct {
+	Env                 string                `bson:"env"                    yaml:"env"                    json:"env"`
+	S3StorageID         string                `bson:"s3_storage_id"          yaml:"s3_storage_id"          json:"s3_storage_id"`
+	ServiceAndVMDeploys []*ServiceAndVMDeploy `bson:"service_and_vm_deploys" yaml:"service_and_vm_deploys" json:"service_and_vm_deploys"`
+	// fromjob/runtime, runtime 表示运行时输入，fromjob 表示从上游构建任务中获取
+	Source config.DeploySourceType `bson:"source"     yaml:"source"     json:"source"`
+	// 当 source 为 fromjob 时需要，指定部署镜像来源是上游哪一个构建任务
+	JobName string `bson:"job_name"             yaml:"job_name"             json:"job_name"`
+	// save the origin quoted job name
+	OriginJobName string `bson:"origin_job_name"      yaml:"origin_job_name"      json:"origin_job_name"`
 }
 
 type ZadigHelmChartDeployJobSpec struct {

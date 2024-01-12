@@ -2222,6 +2222,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		build.JobCtx.PMDeployScripts = module.PMDeployScripts
 	}
 
+	// @note ssh vars
 	if len(module.SSHs) > 0 && build.ServiceType == setting.PMDeployType {
 		privateKeys := make([]*taskmodels.SSH, 0)
 		for _, sshID := range module.SSHs {

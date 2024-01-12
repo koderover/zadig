@@ -71,7 +71,8 @@ func (s *ShellStep) Run(ctx context.Context) error {
 		s.Logger.Infof(fmt.Sprintf("Script Execution ended. Duration: %.2f seconds.", time.Since(start).Seconds()))
 	}()
 
-	userScriptFile, err := generateScript(s.spec, s.dirs, s.JobOutput, s.Logger)
+	envmaps := helper.MakeEnvMap(s.envs, s.secretEnvs)
+	userScriptFile, err := generateScript(s.spec, s.dirs, s.JobOutput, envmaps, s.Logger)
 	if err != nil {
 		return fmt.Errorf("generate script failed: %v", err)
 	}
@@ -119,12 +120,13 @@ func (s *ShellStep) Run(ctx context.Context) error {
 	return cmd.Wait()
 }
 
-func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []string, logger *log.JobLogger) (string, error) {
+func generateScript(spec *StepShellSpec, dirs *types.AgentWorkDirs, jobOutput []string, envmaps map[string]string, logger *log.JobLogger) (string, error) {
 	if len(spec.Scripts) == 0 {
 		return "", nil
 	}
 	scripts := []string{}
 	scripts = append(scripts, spec.Scripts...)
+	scripts = replaceEnvWithValue(scripts, envmaps)
 
 	// add job output to script
 	if len(jobOutput) > 0 {
@@ -151,4 +153,25 @@ func outputScript(outputsDir string, outputs []string) []string {
 		}
 	}
 	return resp
+}
+
+func replaceEnvWithValue(str []string, envs map[string]string) []string {
+	ret := []string{}
+	for _, s := range str {
+		// Exec twice to render nested variables
+		for i := 0; i < 2; i++ {
+			for key, value := range envs {
+				strKey := fmt.Sprintf("$%s", key)
+				s = strings.ReplaceAll(s, strKey, value)
+				strKey = fmt.Sprintf("${%s}", key)
+				s = strings.ReplaceAll(s, strKey, value)
+				strKey = fmt.Sprintf("%%%s%%", key)
+				s = strings.ReplaceAll(s, strKey, value)
+				strKey = fmt.Sprintf("$env:%s", key)
+				s = strings.ReplaceAll(s, strKey, value)
+			}
+		}
+		ret = append(ret, s)
+	}
+	return ret
 }

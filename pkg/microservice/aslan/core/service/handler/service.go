@@ -266,45 +266,43 @@ func CreateServiceTemplate(c *gin.Context) {
 	ctx.Resp, ctx.Err = svcservice.CreateServiceTemplate(ctx.UserName, svc, force, ctx.Logger)
 }
 
-// UpdateServiceTemplate TODO figure out in which scene this function will be used
-//func UpdateServiceTemplate(c *gin.Context) {
-//	ctx, err := internalhandler.NewContextWithAuthorization(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	if err != nil {
-//
-//		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
-//		ctx.UnAuthorized = true
-//		return
-//	}
-//
-//	args := new(commonservice.ServiceTmplObject)
-//	if err := c.ShouldBindJSON(args); err != nil {
-//		ctx.Err = err
-//		return
-//	}
-//	if args.Username != "system" {
-//		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
-//	}
-//
-//	// authorization checks
-//	projectName := args.ProductName
-//
-//	if !ctx.Resources.IsSystemAdmin {
-//		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
-//			ctx.UnAuthorized = true
-//			return
-//		}
-//		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
-//			!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
-//			ctx.UnAuthorized = true
-//			return
-//		}
-//	}
-//
-//	args.Username = ctx.UserName
-//	ctx.Err = svcservice.UpdateServiceVisibility(args)
-//}
+// used in cron, update service env status
+func UpdateServiceTemplate(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(commonservice.ServiceTmplObject)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	if args.Username != "system" {
+		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
+	}
+
+	// authorization checks
+	projectName := args.ProductName
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectName].Service.Edit {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	args.Username = ctx.UserName
+	ctx.Err = svcservice.UpdateServiceEnvStatus(args)
+}
 
 type updateServiceVariableRequest struct {
 	VariableYaml       string                           `json:"variable_yaml" binding:"required"`

@@ -1402,6 +1402,51 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 			spec.SkipCheckRunStatus = taskJobSpec.SkipCheckRunStatus
 			spec.DeployHelmCharts = append(spec.DeployHelmCharts, taskJobSpec.DeployHelmChart)
 			jobPreview.Spec = spec
+		case string(config.JobZadigVMDeploy):
+			spec := commonmodels.ZadigVMDeployJobSpec{}
+			taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
+			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+				continue
+			}
+
+			serviceModule := ""
+			serviceName := ""
+			for _, arg := range taskJobSpec.Properties.Envs {
+				if arg.Key == "ENV_NAME" {
+					spec.Env = arg.Value
+					continue
+				}
+				if arg.Key == "SERVICE_MODULE" {
+					serviceModule = arg.Value
+				}
+				if arg.Key == "SERVICE_NAME" {
+					serviceName = arg.Value
+				}
+			}
+
+			serviceAndVMDeploy := []*commonmodels.ServiceAndVMDeploy{}
+			for _, step := range taskJobSpec.Steps {
+				if step.StepType == config.StepDownloadArtifact {
+					stepSpec := &stepspec.StepDownloadArtifactSpec{}
+					if err := commonmodels.IToi(step.Spec, &stepSpec); err != nil {
+						continue
+					}
+
+					url := stepSpec.S3.Endpoint + "/" + stepSpec.S3.Bucket + "/"
+					if len(stepSpec.S3.Subfolder) > 0 {
+						url += strings.TrimLeft(stepSpec.S3.Subfolder, "/")
+					}
+					url += "/" + stepSpec.Artifact
+					serviceAndVMDeploy = append(serviceAndVMDeploy, &commonmodels.ServiceAndVMDeploy{
+						ServiceName:   serviceName,
+						ServiceModule: serviceModule,
+						ArtifactURL:   url,
+					})
+				}
+			}
+			spec.ServiceAndVMDeploys = serviceAndVMDeploy
+
+			jobPreview.Spec = spec
 		case string(config.JobPlugin):
 			taskJobSpec := &commonmodels.JobTaskPluginSpec{}
 			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
