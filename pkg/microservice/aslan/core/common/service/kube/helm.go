@@ -25,8 +25,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
-
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -48,6 +46,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/repository"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	kubeutil "github.com/koderover/zadig/v2/pkg/tool/kube/util"
 	"github.com/koderover/zadig/v2/pkg/tool/log"

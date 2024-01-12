@@ -21,15 +21,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/redis/go-redis/v9"
-
-	"github.com/koderover/zadig/v2/pkg/config"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
-
 	"github.com/pkg/errors"
+	"github.com/redis/go-redis/v9"
 	"github.com/tidwall/gjson"
 
+	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -38,22 +36,6 @@ const (
 	EventInstanceChange = "bpms_instance_change"
 )
 
-var (
-// once                       sync.Once
-// dingTalkApprovalManagerMap *ApprovalManagerMap
-)
-
-//type ApprovalManagerMap struct {
-//	sync.RWMutex
-//	// key: instance id
-//	m map[string]*ApprovalManager
-//}
-
-//	type ApprovalManager struct {
-//		sync.RWMutex
-//		// key: user id
-//		instanceUserResultInfo map[string]*UserApprovalResult
-//	}
 type UserApprovalResult struct {
 	Result        string
 	OperationTime int64
@@ -89,13 +71,6 @@ func GetAllUserApprovalResults(instanceID string) map[string]*UserApprovalResult
 }
 
 func SetUserApprovalResult(instanceID, userID, result, remark string, time int64) {
-	//l.Lock()
-	//defer l.Unlock()
-
-	// ignore if user approval result already set
-	//if info := l.instanceUserResultInfo[userID]; info != nil && info.Result != "" {
-	//	return
-	//}
 
 	bytes, _ := json.Marshal(&UserApprovalResult{
 		Result:        result,
@@ -103,12 +78,6 @@ func SetUserApprovalResult(instanceID, userID, result, remark string, time int64
 		Remark:        remark,
 	})
 	cache.NewRedisCache(config.RedisCommonCacheTokenDB()).HWrite(dingtalkApprovalCacheKey(instanceID), userID, string(bytes), 0)
-
-	//l.instanceUserResultInfo[userID] = &UserApprovalResult{
-	//	Result:        result,
-	//	OperationTime: time / 1000,
-	//	Remark:        remark,
-	//}
 }
 
 type EventInstanceChangeData struct {

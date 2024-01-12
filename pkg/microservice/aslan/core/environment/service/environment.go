@@ -28,8 +28,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
-
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -68,6 +66,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/analysis"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/tool/helmclient"
 	helmtool "github.com/koderover/zadig/v2/pkg/tool/helmclient"

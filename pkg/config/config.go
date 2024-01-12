@@ -273,5 +273,4 @@ func RedisPassword() string {
 
 func RedisCommonCacheTokenDB() int {
 	return 1
-	//return viper.GetInt(setting.ENVRedisCommonCacheTokenDB)
 }

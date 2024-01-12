@@ -34,8 +34,6 @@ type Client struct {
 	*req.Client
 	AppKey    string
 	AppSecret string
-
-	//cacheLock sync.RWMutex
 }
 
 func NewClient(key, secret string) (client *Client) {

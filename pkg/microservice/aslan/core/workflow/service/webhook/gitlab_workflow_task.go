@@ -24,8 +24,6 @@ import (
 	"strings"
 	"time"
 
-	cache2 "github.com/koderover/zadig/v2/pkg/tool/cache"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
@@ -40,6 +38,7 @@ import (
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	cache2 "github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	gitlabtool "github.com/koderover/zadig/v2/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/v2/pkg/tool/log"

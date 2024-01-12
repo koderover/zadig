@@ -23,8 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
-
 	"go.uber.org/zap"
 
 	utilconfig "github.com/koderover/zadig/v2/pkg/config"
@@ -32,6 +30,7 @@ import (
 	vmmodel "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/vm"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
 	"github.com/koderover/zadig/v2/pkg/util"

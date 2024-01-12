@@ -21,19 +21,15 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
-	config2 "github.com/koderover/zadig/v2/pkg/config"
-	"github.com/redis/go-redis/v9"
-
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
-
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -43,11 +39,10 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowstat"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
-
-var cancelChannelMap sync.Map
 
 type workflowCtl struct {
 	workflowTask       *commonmodels.WorkflowTask
@@ -104,23 +99,11 @@ func CancelWorkflowTask(userName, workflowName string, taskID int64, logger *zap
 		log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", t.WorkflowName, t.TaskID, err)
 	}
 
-	log.Infof("---------- seding cancel channel data: %s/%d", t.WorkflowName, t.TaskID)
 	err = cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Publish(fmt.Sprintf("workflowctl-cancel-%s-%d", workflowName, taskID), "cancel")
 	if err != nil {
 		return fmt.Errorf("failed to cancel task: %s:%d, err: %s", workflowName, taskID, err)
 	}
 	return nil
-
-	//value, ok := cancelChannelMap.Load(fmt.Sprintf("%s-%d", workflowName, taskID))
-	//if !ok {
-	//	logger.Errorf("no mactched task found, id: %d, workflow name: %s", taskID, workflowName)
-	//	return nil
-	//}
-	//if f, ok := value.(context.CancelFunc); ok {
-	//	f()
-	//	return nil
-	//}
-	//return fmt.Errorf("cancel func type mismatched, id: %d, workflow name: %s", taskID, workflowName)
 }
 
 func (c *workflowCtl) setWorkflowStatus(status config.Status) {
@@ -130,6 +113,7 @@ func (c *workflowCtl) setWorkflowStatus(status config.Status) {
 
 func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 
+	// TODO optimize me, this doesn't work when aslan running in multiple replicas
 	addWorkflowTaskInMap(c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask, c.ack)
 	defer removeWorkflowTaskInMap(c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 
@@ -146,24 +130,20 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	}()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	//cancelKey := fmt.Sprintf("%s-%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
-
-	log.Infof("---------- add cancel channel data: %s/%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 
 	// sub cancel signal from redis
 	cancelChan, closeFunc := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Subscribe(fmt.Sprintf("workflowctl-cancel-%s-%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID))
 	defer func() { _ = closeFunc() }()
 
+	// receiving cancel signal from redis
 	go func() {
 		select {
 		case <-cancelChan:
-			log.Errorf("---------- receive cancel channel data: %s/%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 			cancel()
+		case <-ctx.Done():
+			return
 		}
 	}()
-
-	//cancelChannelMap.Store(cancelKey, cancel)
-	//defer cancelChannelMap.Delete(cancelKey)
 
 	workflowCtx := &commonmodels.WorkflowTaskCtx{
 		WorkflowName:                c.workflowTask.WorkflowName,
@@ -378,8 +358,6 @@ func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
 		}
 	}
 	return v, existed
-	//v, existed := c.workflowTask.GlobalContext[GetContextKey(key)]
-	//return v, existed
 }
 
 func (c *workflowCtl) setGlobalContext(key, value string) {
@@ -387,7 +365,6 @@ func (c *workflowCtl) setGlobalContext(key, value string) {
 	defer c.globalContextMutex.Unlock()
 
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HWrite(c.prefix, GetContextKey(key), value, 0)
-	//c.workflowTask.GlobalContext[GetContextKey(key)] = value
 }
 
 func (c *workflowCtl) globalContextEach(f func(k, v string) bool) {

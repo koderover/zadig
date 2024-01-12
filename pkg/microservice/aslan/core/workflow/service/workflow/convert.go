@@ -118,13 +118,12 @@ func ConvertTaskToQueue(task *task.Task) *commonmodels.Queue {
 		Render:                  task.Render,
 		StorageURI:              task.StorageURI,
 		TestReports:             task.TestReports,
-		//RwLock:                  task.RwLock,
-		ResetImage:       task.ResetImage,
-		ResetImagePolicy: task.ResetImagePolicy,
-		TriggerBy:        task.TriggerBy,
-		Features:         task.Features,
-		IsRestart:        task.IsRestart,
-		StorageEndpoint:  task.StorageEndpoint,
+		ResetImage:              task.ResetImage,
+		ResetImagePolicy:        task.ResetImagePolicy,
+		TriggerBy:               task.TriggerBy,
+		Features:                task.Features,
+		IsRestart:               task.IsRestart,
+		StorageEndpoint:         task.StorageEndpoint,
 	}
 }
 

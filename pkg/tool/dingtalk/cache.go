@@ -21,34 +21,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/json"
 
-	"github.com/koderover/zadig/v2/pkg/tool/log"
-
 	"github.com/koderover/zadig/v2/pkg/config"
-
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
-)
-
-var (
-// globalUserInfoCacheMap = map[string]map[string]*UserInfo{}
-// mu                     sync.RWMutex
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 func (c *Client) cacheKey(userID string) string {
 	return fmt.Sprintf("dingtalk_%s_user_%s", c.AppKey, userID)
 }
-
-//func (c *Client) getUserInfoMap() map[string]*UserInfo {
-//	oncer.Do("DingDingTalkUserCache", func() {
-//		cache.NewRedisCache(config.RedisCommonCacheTokenDB())
-//	})
-//	mu.Lock()
-//	defer mu.Unlock()
-//
-//	if globalUserInfoCacheMap[c.AppKey] == nil {
-//		globalUserInfoCacheMap[c.AppKey] = map[string]*UserInfo{}
-//	}
-//	return globalUserInfoCacheMap[c.AppKey]
-//}
 
 func (c *Client) storeUserInfoInCache(userID string, userInfo *UserInfo) {
 	bytes, err := json.Marshal(userInfo)

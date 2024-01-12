@@ -22,18 +22,15 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/koderover/zadig/v2/pkg/tool/log"
-
-	config2 "github.com/koderover/zadig/v2/pkg/config"
-
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
-
 	"github.com/pkg/errors"
 
+	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/lark"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 const (

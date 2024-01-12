@@ -20,9 +20,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
-
 	"github.com/koderover/zadig/v2/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/httpclient"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )

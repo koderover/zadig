@@ -20,11 +20,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/v2/pkg/tool/log"
-
 	"github.com/go-redsync/redsync/v4"
 	goredis_v9 "github.com/go-redsync/redsync/v4/redis/goredis/v9"
+
 	"github.com/koderover/zadig/v2/pkg/config"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 var resync *redsync.Redsync
