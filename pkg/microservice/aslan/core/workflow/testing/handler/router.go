@@ -91,10 +91,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		testTask.POST("", CreateTestTask)
 		testTask.GET("", ListTestTask)
+		testTask.DELETE("", CancelTestTaskV3)
 		testTask.GET("/detail", GetTestTaskInfo)
 		testTask.GET("/report", GetTestTaskReportInfo)
-		testTask.POST("/productName/:productName/id/:id/pipelines/:name/restart", RestartTestTask)
-		testTask.DELETE("/productName/:productName/id/:id/pipelines/:name", CancelTestTaskV2)
+		testTask.POST("/restart", RestartTestTaskV2)
+		testTask.GET("/artifact", GetTestingTaskArtifact)
+		// TODO:  below is the deprecated apis, remove after 2.2.0
+		//testTask.POST("/productName/:productName/id/:id/pipelines/:name/restart", RestartTestTask)
+		//testTask.DELETE("/productName/:productName/id/:id/pipelines/:name", CancelTestTaskV2)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -103,6 +107,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	workspace := router.Group("workspace")
 	{
 		workspace.GET("/workflow/:pipelineName/taskId/:taskId", GetTestArtifactInfo)
+		workspace.GET("/testing/:testName/taskId/:taskId", GetTestArtifactInfoV2)
 		workspace.GET("/workflowv4/:workflowName/taskId/:taskId/job/:jobName", GetWorkflowV4TestArtifactInfo)
 	}
 }

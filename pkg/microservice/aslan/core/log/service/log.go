@@ -172,3 +172,14 @@ func GetScanningContainerLogs(scanID string, taskID int64, log *zap.SugaredLogge
 
 	return buildLog, nil
 }
+
+func GetTestingContainerLogs(testName string, taskID int64, log *zap.SugaredLogger) (string, error) {
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+
+	buildJobNamePrefix := testName
+	buildLog, err := getContainerLogFromS3(workflowName, buildJobNamePrefix, taskID, log)
+	if err != nil {
+		return "", err
+	}
+	return buildLog, nil
+}

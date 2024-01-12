@@ -519,6 +519,8 @@ const (
 	FunctionTest = "function"
 	// PerformanceTest 性能测试
 	PerformanceTest = "performance"
+
+	TestWorkflowNamingConvention = "zadig-testing-%s"
 )
 
 const (

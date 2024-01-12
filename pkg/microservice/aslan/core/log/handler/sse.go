@@ -345,6 +345,46 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 	}, ctx.Logger)
 }
 
+func GetTestingContainerLogsSSE(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	testName := c.Param("test_name")
+	if testName == "" {
+		ctx.Err = fmt.Errorf("testName must be provided")
+		return
+	}
+
+	taskIDStr := c.Param("task_id")
+	if taskIDStr == "" {
+		ctx.Err = fmt.Errorf("task_id must be provided")
+		return
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	tails, err := strconv.ParseInt(c.Query("lines"), 10, 64)
+	if err != nil {
+		tails = int64(10)
+	}
+
+	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
+		logservice.WorkflowTaskV4ContainerLogStream(
+			ctx1, streamChan,
+			&logservice.GetContainerOptions{
+				Namespace:    config.Namespace(),
+				PipelineName: fmt.Sprintf(setting.TestWorkflowNamingConvention, testName),
+				SubTask:      jobcontroller.GetJobContainerName(testName),
+				TaskID:       taskID,
+				TailLines:    tails,
+			},
+			ctx.Logger)
+	}, ctx.Logger)
+}
+
 func GetJenkinsJobContainerLogsSSE(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 

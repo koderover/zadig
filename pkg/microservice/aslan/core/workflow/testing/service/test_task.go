@@ -174,7 +174,7 @@ type TestTaskList struct {
 }
 
 func ListTestTask(testName, projectKey string, pageNum, pageSize int, log *zap.SugaredLogger) (*TestTaskList, error) {
-	workflowName := fmt.Sprintf(testWorkflowNamingConvention, testName)
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
 	workflowTasks, total, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{
 		WorkflowName: workflowName,
 		ProjectName:  projectKey,
@@ -235,7 +235,7 @@ func ListTestTask(testName, projectKey string, pageNum, pageSize int, log *zap.S
 }
 
 func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.SugaredLogger) (*task.Task, error) {
-	workflowName := fmt.Sprintf(testWorkflowNamingConvention, testName)
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		log.Errorf("failed to find workflow task %d for test: %s, error: %s", taskID, testName, err)
@@ -324,7 +324,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 }
 
 func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap.SugaredLogger) ([]*commonmodels.TestSuite, error) {
-	workflowName := fmt.Sprintf(testWorkflowNamingConvention, testName)
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
 	testResults := make([]*commonmodels.TestSuite, 0)
 
 	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
@@ -349,13 +349,9 @@ func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap
 	return testResults, nil
 }
 
-const (
-	testWorkflowNamingConvention = "zadig-testing-%s"
-)
-
 func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs) (*commonmodels.WorkflowV4, error) {
 	resp := &commonmodels.WorkflowV4{
-		Name:             fmt.Sprintf(testWorkflowNamingConvention, testInfo.Name),
+		Name:             fmt.Sprintf(setting.TestWorkflowNamingConvention, testInfo.Name),
 		DisplayName:      testInfo.Name,
 		Stages:           nil,
 		Project:          testInfo.ProductName,

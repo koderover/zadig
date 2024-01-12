@@ -28,7 +28,6 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/notify"
 	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
@@ -143,6 +142,47 @@ func ListTestTask(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListTestTask(testName, projectKey, pageNum, pageSize, ctx.Logger)
 }
 
+func CancelTestTaskV3(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	testName := c.Query("testName")
+	taskIDStr := c.Query("taskID")
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "测试任务", c.Param("name"), "", ctx.Logger)
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Test.Execute {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
+		return
+	}
+
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+
+	ctx.Err = workflowservice.CancelWorkflowTaskV4(ctx.UserName, workflowName, taskID, ctx.Logger)
+}
+
 func GetTestTaskInfo(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -217,7 +257,7 @@ func GetTestTaskReportInfo(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetTestTaskReportDetail(projectKey, testName, taskID, ctx.Logger)
 }
 
-func RestartTestTask(c *gin.Context) {
+func RestartTestTaskV2(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -227,7 +267,9 @@ func RestartTestTask(c *gin.Context) {
 		return
 	}
 
-	projectKey := c.Param("productName")
+	projectKey := c.Query("projectName")
+	testName := c.Query("testName")
+	taskIDStr := c.Query("taskID")
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重启", "测试任务", c.Param("name"), "", ctx.Logger)
 
@@ -245,28 +287,30 @@ func RestartTestTask(c *gin.Context) {
 		}
 	}
 
-	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
 		return
 	}
 
-	ctx.Err = workflowservice.RestartPipelineTaskV2(ctx.UserName, taskID, c.Param("name"), config.TestType, ctx.Logger)
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+
+	ctx.Err = workflowservice.RetryWorkflowTaskV4(workflowName, taskID, ctx.Logger)
 }
 
-func CancelTestTaskV2(c *gin.Context) {
+func GetTestingTaskArtifact(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return
 	}
 
-	projectKey := c.Param("productName")
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "测试任务", c.Param("name"), "", ctx.Logger)
+	projectKey := c.Query("projectName")
+	testName := c.Query("testName")
+	taskIDStr := c.Query("taskID")
 
 	// authorization check
 	if !ctx.Resources.IsSystemAdmin {
@@ -276,16 +320,100 @@ func CancelTestTaskV2(c *gin.Context) {
 		}
 
 		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
-			!ctx.Resources.ProjectAuthInfo[projectKey].Test.Execute {
+			!ctx.Resources.ProjectAuthInfo[projectKey].Test.View {
 			ctx.UnAuthorized = true
 			return
 		}
 	}
 
-	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
-	ctx.Err = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.TestType, ctx.RequestID, ctx.Logger)
+
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+
+	resp, err := workflowservice.GetWorkflowV4ArtifactFileContent(workflowName, testName, taskID, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
+
+	c.Data(200, "application/octet-stream", resp)
 }
+
+// TODO: Deprecated code, remove after v2.2.0
+//func RestartTestTask(c *gin.Context) {
+//	ctx, err := internalhandler.NewContextWithAuthorization(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//
+//	if err != nil {
+//		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+//		ctx.UnAuthorized = true
+//		return
+//	}
+//
+//	projectKey := c.Param("productName")
+//
+//	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "重启", "测试任务", c.Param("name"), "", ctx.Logger)
+//
+//	// authorization check
+//	if !ctx.Resources.IsSystemAdmin {
+//		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+//			ctx.UnAuthorized = true
+//			return
+//		}
+//
+//		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+//			!ctx.Resources.ProjectAuthInfo[projectKey].Test.Execute {
+//			ctx.UnAuthorized = true
+//			return
+//		}
+//	}
+//
+//	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+//	if err != nil {
+//		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+//		return
+//	}
+//
+//	ctx.Err = workflowservice.RestartPipelineTaskV2(ctx.UserName, taskID, c.Param("name"), config.TestType, ctx.Logger)
+//}
+//
+//func CancelTestTaskV2(c *gin.Context) {
+//	ctx, err := internalhandler.NewContextWithAuthorization(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//
+//	if err != nil {
+//
+//		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+//		ctx.UnAuthorized = true
+//		return
+//	}
+//
+//	projectKey := c.Param("productName")
+//	internalhandler.InsertOperationLog(c, ctx.UserName, projectKey, "取消", "测试任务", c.Param("name"), "", ctx.Logger)
+//
+//	// authorization check
+//	if !ctx.Resources.IsSystemAdmin {
+//		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+//			ctx.UnAuthorized = true
+//			return
+//		}
+//
+//		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+//			!ctx.Resources.ProjectAuthInfo[projectKey].Test.Execute {
+//			ctx.UnAuthorized = true
+//			return
+//		}
+//	}
+//
+//	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+//	if err != nil {
+//		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+//		return
+//	}
+//	ctx.Err = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.TestType, ctx.RequestID, ctx.Logger)
+//}
