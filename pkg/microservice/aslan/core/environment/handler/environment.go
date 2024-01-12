@@ -1808,7 +1808,7 @@ func updateMultiCvmEnv(c *gin.Context, request *service.UpdateEnvRequest, ctx *i
 // @Param 	projectName	query		string										true	"project name"
 // @Param 	name 		path		string										true	"env name"
 // @Success 200 		{object} 	service.ProductResp
-// @Router /api/aslan/environment/production/environments/{name} [get]
+// @Router /api/aslan/environment/environments/{name} [get]
 func GetEnvironment(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -21,10 +21,10 @@ import (
 )
 
 type DeliveryVersionProgress struct {
-	SuccessChartCount   int    `json:"successChartCount"`
-	TotalChartCount     int    `json:"totalChartCount"`
-	PackageUploadStatus string `json:"packageStatus"`
-	Error               string `json:"error"`
+	SuccessCount int    `json:"successCount"`
+	TotalCount   int    `json:"totalCount"`
+	UploadStatus string `json:"uploadStatus"`
+	Error        string `json:"error"`
 }
 
 type DeliveryVersion struct {

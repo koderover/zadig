@@ -225,6 +225,20 @@ func (c *DeliveryVersionColl) UpdateTaskID(versionName, projectName string, task
 	return err
 }
 
+func (c *DeliveryVersionColl) UpdateWorkflowTask(versionName, projectName, workflowName string, taskID int32) error {
+	query := bson.M{
+		"version":      versionName,
+		"product_name": projectName,
+		"deleted_at":   0,
+	}
+	change := bson.M{"$set": bson.M{
+		"task_id":       taskID,
+		"workflow_name": workflowName,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *DeliveryVersionColl) Update(args *models.DeliveryVersion) error {
 	if args == nil {
 		return errors.New("nil delivery_version args")

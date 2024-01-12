@@ -60,6 +60,37 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/aslan/delivery/releases/k8s": {
+            "post": {
+                "description": "Create K8S Delivery Version",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "delivery"
+                ],
+                "summary": "Create K8S Delivery Version",
+                "parameters": [
+                    {
+                        "description": "body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/service.CreateK8SDeliveryVersionArgs"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/aslan/environment/environments": {
             "put": {
                 "description": "Update Multi products",
@@ -190,6 +221,49 @@ const docTemplate = `{
                                 "$ref": "#/definitions/service.CreateSingleProductArg"
                             }
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/:name/helm/releases": {
+            "delete": {
+                "description": "Delete helm release from envrionment",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Delete helm release from envrionment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "release names",
+                        "name": "releaseNames",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -1649,7 +1723,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_environment_service.ProductResp"
+                            "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_core_environment_service.ProductResp"
                         }
                     }
                 }
@@ -5101,7 +5175,7 @@ const docTemplate = `{
                 "JiraPersonalAccessToken"
             ]
         },
-        "github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService": {
+        "github_com_koderover_zadig_v2_pkg_microservice_aslan_core_common_service.EnvService": {
             "type": "object",
             "properties": {
                 "deployed": {
@@ -5139,7 +5213,27 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_koderover_zadig_pkg_microservice_aslan_core_environment_service.ProductResp": {
+        "github_com_koderover_zadig_v2_pkg_microservice_aslan_core_delivery_service.ImageData": {
+            "type": "object",
+            "properties": {
+                "containerName": {
+                    "type": "string"
+                },
+                "image": {
+                    "type": "string"
+                },
+                "imageName": {
+                    "type": "string"
+                },
+                "imageTag": {
+                    "type": "string"
+                },
+                "selected": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_koderover_zadig_v2_pkg_microservice_aslan_core_environment_service.ProductResp": {
             "type": "object",
             "properties": {
                 "cluster_id": {
@@ -5173,7 +5267,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "istio_grayscale_enable": {
-                    "description": "New Since v2.1.0",
                     "type": "boolean"
                 },
                 "istio_grayscale_is_base": {
@@ -5240,7 +5333,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.ServiceModule": {
+        "github_com_koderover_zadig_v2_pkg_microservice_aslan_core_service_service.ServiceModule": {
             "type": "object",
             "properties": {
                 "build_names": {
@@ -5263,7 +5356,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable": {
+        "github_com_koderover_zadig_v2_pkg_microservice_aslan_core_service_service.Variable": {
             "type": "object",
             "properties": {
                 "description": {
@@ -7018,6 +7111,58 @@ const docTemplate = `{
                 }
             }
         },
+        "service.CreateK8SDeliveryVersionArgs": {
+            "type": "object",
+            "properties": {
+                "desc": {
+                    "type": "string"
+                },
+                "envName": {
+                    "type": "string"
+                },
+                "imageRegistryID": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "productName": {
+                    "type": "string"
+                },
+                "retry": {
+                    "type": "boolean"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "yamlDatas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.CreateK8SDeliveryVersionYamlData"
+                    }
+                }
+            }
+        },
+        "service.CreateK8SDeliveryVersionYamlData": {
+            "type": "object",
+            "properties": {
+                "imageDatas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_core_delivery_service.ImageData"
+                    }
+                },
+                "serviceName": {
+                    "type": "string"
+                },
+                "yamlContent": {
+                    "type": "string"
+                }
+            }
+        },
         "service.CreateSingleProductArg": {
             "type": "object",
             "properties": {
@@ -7244,7 +7389,7 @@ const docTemplate = `{
                 "services": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_common_service.EnvService"
+                        "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_core_common_service.EnvService"
                     }
                 }
             }
@@ -8163,7 +8308,7 @@ const docTemplate = `{
                 "service_module": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.ServiceModule"
+                        "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_core_service_service.ServiceModule"
                     }
                 },
                 "service_variable_kvs": {
@@ -8175,7 +8320,7 @@ const docTemplate = `{
                 "system_variable": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_koderover_zadig_pkg_microservice_aslan_core_service_service.Variable"
+                        "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_core_service_service.Variable"
                     }
                 },
                 "variable_yaml": {
