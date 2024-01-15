@@ -193,6 +193,7 @@ func GetTestingContainerLogs(testName string, taskID int64, log *zap.SugaredLogg
 	}
 
 	buildJobNamePrefix := workflowTask.Stages[0].Jobs[0].K8sJobName
+	log.Debugf(">>>>>>>>>>>>>>>>>>>> job name is: %s <<<<<<<<<<<<<<<<", buildJobNamePrefix)
 	buildLog, err := getContainerLogFromS3(workflowName, buildJobNamePrefix, taskID, log)
 	if err != nil {
 		return "", err
