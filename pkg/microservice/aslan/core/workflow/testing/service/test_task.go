@@ -243,6 +243,12 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		return nil, err
 	}
 
+	testInfo, err := commonrepo.NewTestingColl().Find(testName, projectKey)
+	if err != nil {
+		log.Errorf("find test[%s] error: %v", testName, err)
+		return nil, fmt.Errorf("find test[%s] error: %v", testName, err)
+	}
+
 	testResultMap := make(map[string]interface{})
 
 	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
@@ -294,7 +300,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 			Builds        []*types.Repository `json:"builds"`
 		}{
 			spec.Archive,
-			spec.Repos,
+			testInfo.Repos,
 		},
 		"report_ready": true,
 		"type":         "testingv2",
