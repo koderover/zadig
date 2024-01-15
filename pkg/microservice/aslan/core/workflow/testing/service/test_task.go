@@ -293,7 +293,8 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		}{
 			spec.Archive,
 		},
-		"type": "testingv2",
+		"report_ready": true,
+		"type":         "testingv2",
 	}
 
 	stages = append(stages, &commonmodels.Stage{
