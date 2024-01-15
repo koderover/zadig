@@ -293,6 +293,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		}{
 			spec.Archive,
 		},
+		"builds":       spec.Repos,
 		"report_ready": true,
 		"type":         "testingv2",
 	}
