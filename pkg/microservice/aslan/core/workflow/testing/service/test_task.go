@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -289,11 +290,12 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		"end_time":   workflowTask.Stages[0].Jobs[0].EndTime,
 		"status":     workflowTask.Stages[0].Jobs[0].Status,
 		"job_ctx": struct {
-			IsHasArtifact bool `json:"is_has_artifact"`
+			IsHasArtifact bool                `json:"is_has_artifact"`
+			Builds        []*types.Repository `json:"builds"`
 		}{
 			spec.Archive,
+			spec.Repos,
 		},
-		"builds":       spec.Repos,
 		"report_ready": true,
 		"type":         "testingv2",
 	}
