@@ -30,6 +30,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		testReport.GET("workflowv4/:workflowName/id/:id/job/:jobName", GetWorkflowV4HTMLTestReport)
 	}
 
+	// sse apis
+	sse := router.Group("sse")
+	{
+		sse.GET("/:testName/tasks/:taskID", GetTestingTaskSSE)
+	}
+
 	// ---------------------------------------------------------------------------------------
 	// 系统测试接口
 	// ---------------------------------------------------------------------------------------

@@ -18,13 +18,16 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
@@ -342,6 +345,64 @@ func GetTestingTaskArtifact(c *gin.Context) {
 	c.Writer.Header().Set("Content-Disposition", `attachment; filename="artifact.tar.gz"`)
 
 	c.Data(200, "application/octet-stream", resp)
+}
+
+func GetTestingTaskSSE(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+	testName := c.Param("testName")
+	taskIDStr := c.Param("taskID")
+
+	// authorization check
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Test.View {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("taskID args err :%s", err))
+		return
+	}
+
+	internalhandler.Stream(c, func(ctx1 context.Context, msgChan chan interface{}) {
+		startTime := time.Now()
+		err := wait.PollImmediateUntil(time.Second, func() (bool, error) {
+			res, err := service.GetTestTaskDetail(projectKey, testName, taskID, ctx.Logger)
+			if err != nil {
+				ctx.Logger.Errorf("[%s] GetWorkflowTaskV3SSE error: %s", ctx.UserName, err)
+				return false, err
+			}
+
+			msgChan <- res
+
+			if time.Since(startTime).Minutes() == float64(60) {
+				ctx.Logger.Warnf("[%s] Query GetWorkflowTaskV3SSE API over 60 minutes", ctx.UserName)
+			}
+
+			return false, nil
+		}, ctx1.Done())
+
+		if err != nil && err != wait.ErrWaitTimeout {
+			ctx.Logger.Error(err)
+		}
+	}, ctx.Logger)
 }
 
 // TODO: Deprecated code, remove after v2.2.0
