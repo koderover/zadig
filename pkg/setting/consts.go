@@ -521,6 +521,7 @@ const (
 	PerformanceTest = "performance"
 
 	TestWorkflowNamingConvention = "zadig-testing-%s"
+	ScanWorkflowNamingConvention = "zadig-scanning-%s"
 )
 
 const (

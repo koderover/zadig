@@ -176,7 +176,23 @@ func GetScanningContainerLogs(scanID string, taskID int64, log *zap.SugaredLogge
 func GetTestingContainerLogs(testName string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
 
-	buildJobNamePrefix := testName
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		log.Errorf("failed to find workflow task for testing: %s, err: %s", testName, err)
+		return "", err
+	}
+
+	if len(workflowTask.Stages) != 1 {
+		log.Errorf("Invalid stage length: stage length for testing should be 1")
+		return "", fmt.Errorf("invalid stage length")
+	}
+
+	if len(workflowTask.Stages[0].Jobs) != 1 {
+		log.Errorf("Invalid Job length: job length for testing should be 1")
+		return "", fmt.Errorf("invalid job length")
+	}
+
+	buildJobNamePrefix := workflowTask.Stages[0].Jobs[0].K8sJobName
 	buildLog, err := getContainerLogFromS3(workflowName, buildJobNamePrefix, taskID, log)
 	if err != nil {
 		return "", err

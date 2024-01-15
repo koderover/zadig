@@ -412,6 +412,215 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 	return nextTaskID, nil
 }
 
+// CreateScanningTaskV2 uses notificationID if the task is triggered by webhook, otherwise it should be empty
+func CreateScanningTaskV2(id string, req []*ScanningRepoInfo, notificationID, username string, log *zap.SugaredLogger) (int64, error) {
+	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
+	if err != nil {
+		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
+		return 0, err
+	}
+
+	//scanningWorkflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID)
+	//scanningWorkflow, err := generateCustomWorkflowFromScanningModule(scanningInfo, req)
+	scanningName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, id, "scanning-job")
+
+	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.ScanningTaskFmt, scanningName))
+	if err != nil {
+		log.Errorf("failed to generated task id for scanning task, error: %s", err)
+		return 0, e.ErrGetCounter.AddDesc(err.Error())
+	}
+
+	imageInfo, err := commonrepo.NewBasicImageColl().Find(scanningInfo.ImageID)
+	if err != nil {
+		log.Errorf("failed to get image information to create scanning task, error: %s", err)
+		return 0, err
+	}
+
+	scanningImage := imageInfo.Value
+
+	if imageInfo.ImageFrom == commonmodels.ImageFromKoderover {
+		scanningImage = strings.ReplaceAll(config.ReaperImage(), "${BuildOS}", imageInfo.Value)
+	}
+
+	registries, err := commonservice.ListRegistryNamespaces("", true, log)
+	if err != nil {
+		log.Errorf("ListRegistryNamespaces err:%v", err)
+		return 0, err
+	}
+
+	clusterInfo, err := commonrepo.NewK8SClusterColl().Get(scanningInfo.AdvancedSetting.ClusterID)
+	if err != nil {
+		return 0, e.ErrConvertSubTasks.AddErr(fmt.Errorf("failed to get cluster: %s, err: %s", scanningInfo.AdvancedSetting.ClusterID, err))
+	}
+
+	repos := make([]*types.Repository, 0)
+	for _, arg := range req {
+		rep, err := systemconfig.New().GetCodeHost(arg.CodehostID)
+		if err != nil {
+			log.Errorf("failed to get codehost info from mongodb, the error is: %s", err)
+			return 0, err
+		}
+
+		repoInfo := &types.Repository{
+			Source:             rep.Type,
+			RepoOwner:          arg.RepoOwner,
+			RepoName:           arg.RepoName,
+			Branch:             arg.Branch,
+			PR:                 arg.PR,
+			PRs:                arg.PRs,
+			CodehostID:         arg.CodehostID,
+			OauthToken:         rep.AccessToken,
+			Address:            rep.Address,
+			Username:           rep.Username,
+			Password:           rep.Password,
+			EnableProxy:        rep.EnableProxy,
+			RepoNamespace:      arg.RepoNamespace,
+			Tag:                arg.Tag,
+			AuthType:           rep.AuthType,
+			SSHKey:             rep.SSHKey,
+			PrivateAccessToken: rep.PrivateAccessToken,
+		}
+
+		for _, repo := range scanningInfo.Repos {
+			// make sure we are using the same repo's configuration
+			if repo.CodehostID == arg.CodehostID && repo.RepoName == arg.RepoName {
+				repoInfo.SubModules = repo.SubModules
+				repoInfo.RemoteName = repo.RemoteName
+				repoInfo.CheckoutPath = repo.CheckoutPath
+				break
+			}
+		}
+		if repoInfo.PR > 0 && len(repoInfo.PRs) == 0 {
+			repoInfo.PRs = []int{repoInfo.PR}
+		}
+		repoInfo.RepoNamespace = repoInfo.GetRepoNamespace()
+		repos = append(repos, repoInfo)
+	}
+
+	// compatibility code
+	cacheEnabled := false
+	cacheDirType := types.WorkspaceCacheDir
+	userCacheDir := ""
+	if scanningInfo.AdvancedSetting.Cache != nil {
+		cacheEnabled = scanningInfo.AdvancedSetting.Cache.CacheEnable
+		cacheDirType = scanningInfo.AdvancedSetting.Cache.CacheDirType
+		userCacheDir = scanningInfo.AdvancedSetting.Cache.CacheUserDir
+	}
+
+	scanningTask := &task.Scanning{
+		TaskType:      config.TaskScanning,
+		Status:        config.StatusCreated,
+		ScanningID:    scanningInfo.ID.Hex(),
+		Name:          scanningInfo.Name,
+		EnableScanner: scanningInfo.EnableScanner,
+		ImageInfo:     scanningImage,
+		ResReq:        scanningInfo.AdvancedSetting.ResReq,
+		ResReqSpec:    scanningInfo.AdvancedSetting.ResReqSpec,
+		Registries:    registries,
+		Parameter:     scanningInfo.Parameter,
+		Envs:          scanningInfo.Envs,
+		Script:        scanningInfo.Script,
+		// the timeout we save is measured in minute
+		Timeout:          scanningInfo.AdvancedSetting.Timeout * 60,
+		ClusterID:        scanningInfo.AdvancedSetting.ClusterID,
+		StrategyID:       scanningInfo.AdvancedSetting.StrategyID,
+		Cache:            clusterInfo.Cache,
+		CacheEnable:      cacheEnabled,
+		CacheDirType:     cacheDirType,
+		CacheUserDir:     userCacheDir,
+		Repos:            repos,
+		InstallItems:     scanningInfo.Installs,
+		CheckQualityGate: scanningInfo.CheckQualityGate,
+	}
+
+	scanningTask.InstallCtx, err = workflowservice.BuildInstallCtx(scanningTask.InstallItems)
+	if err != nil {
+		log.Errorf("buildInstallCtx for scanning task error: %v", err)
+		return 0, err
+	}
+
+	if scanningInfo.ScannerType == "sonarQube" {
+		sonarInfo, err := commonrepo.NewSonarIntegrationColl().GetByID(context.TODO(), scanningInfo.SonarID)
+		if err != nil {
+			log.Errorf("failed to get sonar integration information to create scanning task, error: %s", err)
+			return 0, err
+		}
+
+		scanningTask.SonarInfo = &commonmodels.SonarInfo{
+			Token:         sonarInfo.Token,
+			ServerAddress: sonarInfo.ServerAddress,
+		}
+	}
+
+	proxies, err := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
+	if err != nil {
+		log.Errorf("failed to get proxy info to create scanning task, error: %s", err)
+		return 0, err
+	}
+	if len(proxies) != 0 {
+		scanningTask.Proxy = proxies[0]
+	}
+
+	scanningSubtask, err := scanningTask.ToSubTask()
+	if err != nil {
+		log.Errorf("failed to convert scanning subtask, error: %s", err)
+		return 0, e.ErrCreateTask.AddDesc(err.Error())
+	}
+
+	stages := make([]*commonmodels.Stage, 0)
+	workflowservice.AddSubtaskToStage(&stages, scanningSubtask, scanningInfo.Name)
+	sort.Sort(workflowservice.ByStageKind(stages))
+
+	configPayload := commonservice.GetConfigPayload(0)
+
+	defaultS3, err := s3.FindDefaultS3()
+	if err != nil {
+		log.Errorf("cannot find the default s3 to store the logs, error: %s", err)
+		return 0, e.ErrFindDefaultS3Storage.AddDesc("default storage is required by distribute task")
+	}
+
+	defaultURL, err := defaultS3.GetEncrypted()
+	if err != nil {
+		log.Errorf("cannot convert the s3 config to an encrypted URI, error: %s", err)
+		return 0, e.ErrS3Storage.AddErr(err)
+	}
+
+	finalTask := &task.Task{
+		TaskID:        nextTaskID,
+		ProductName:   scanningInfo.ProjectName,
+		PipelineName:  scanningName,
+		Type:          config.ScanningType,
+		Status:        config.StatusCreated,
+		TaskCreator:   username,
+		CreateTime:    time.Now().Unix(),
+		Stages:        stages,
+		ConfigPayload: configPayload,
+		StorageURI:    defaultURL,
+		ScanningArgs: &commonmodels.ScanningArgs{
+			ScanningName:   scanningInfo.Name,
+			ScanningID:     scanningInfo.ID.Hex(),
+			NotificationID: notificationID,
+		},
+	}
+
+	if len(finalTask.Stages) <= 0 {
+		return 0, e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
+	}
+
+	if err := workflowservice.CreateTask(finalTask); err != nil {
+		log.Error(err)
+		return 0, e.ErrCreateTask
+	}
+
+	// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
+	err = scmnotify.NewService().UpdateWebhookCommentForScanning(finalTask, log)
+	if err != nil {
+		log.Warnf("Failed to update comment for scanning: %s, the error is: %s", scanningInfo.ID.Hex(), err)
+	}
+
+	return nextTaskID, nil
+}
+
 func ListScanningTask(id string, pageNum, pageSize int64, log *zap.SugaredLogger) (*ListScanningTaskResp, error) {
 	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
 	if err != nil {
@@ -531,4 +740,74 @@ func CancelScanningTask(userName, scanningID string, taskID int64, typeString co
 	scanningTaskName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, scanningID, "scanning-job")
 
 	return commonservice.CancelTaskV2(userName, scanningTaskName, taskID, typeString, requestID, log)
+}
+
+func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args []*ScanningRepoInfo, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	resp := &commonmodels.WorkflowV4{
+		Name:             fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanInfo.ID),
+		DisplayName:      scanInfo.Name,
+		Stages:           nil,
+		Project:          scanInfo.ProjectName,
+		CreatedBy:        "system",
+		ConcurrencyLimit: 1,
+	}
+
+	stage := make([]*commonmodels.WorkflowStage, 0)
+
+	repos := make([]*types.Repository, 0)
+
+	for _, arg := range args {
+		rep, err := systemconfig.New().GetCodeHost(arg.CodehostID)
+		if err != nil {
+			log.Errorf("failed to get codehost info from mongodb, the error is: %s", err)
+			return nil, err
+		}
+
+		repos = append(repos, &types.Repository{
+			Source:             rep.Type,
+			RepoOwner:          arg.RepoOwner,
+			RepoName:           arg.RepoName,
+			Branch:             arg.Branch,
+			PR:                 arg.PR,
+			PRs:                arg.PRs,
+			CodehostID:         arg.CodehostID,
+			OauthToken:         rep.AccessToken,
+			Address:            rep.Address,
+			Username:           rep.Username,
+			Password:           rep.Password,
+			EnableProxy:        rep.EnableProxy,
+			RepoNamespace:      arg.RepoNamespace,
+			Tag:                arg.Tag,
+			AuthType:           rep.AuthType,
+			SSHKey:             rep.SSHKey,
+			PrivateAccessToken: rep.PrivateAccessToken,
+		})
+	}
+
+	scan := &commonmodels.ScanningModule{
+		Name:        scanInfo.Name,
+		ProjectName: scanInfo.ProjectName,
+		Repos:       repos,
+	}
+
+	job := make([]*commonmodels.Job, 0)
+	job = append(job, &commonmodels.Job{
+		Name:    scanInfo.Name,
+		JobType: config.JobZadigScanning,
+		Skipped: false,
+		Spec: &commonmodels.ZadigScanningJobSpec{
+			Scannings: []*commonmodels.ScanningModule{scan},
+		},
+	})
+
+	stage = append(stage, &commonmodels.WorkflowStage{
+		Name:     "scan",
+		Parallel: false,
+		Approval: nil,
+		Jobs:     job,
+	})
+
+	resp.Stages = stage
+
+	return resp, nil
 }
