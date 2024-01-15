@@ -49,7 +49,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sse.GET("/workflow/test/:pipelineName/:taskId/:testName/:lines/:serviceName", GetWorkflowTestJobContainerLogsSSE)
 		sse.GET("/service/build/:serviceName/:envName/:productName", GetServiceJobContainerLogsSSE)
 		sse.GET("/v3/workflow/build/:workflowName/:taskId/:lines", GetWorkflowBuildV3JobContainerLogsSSE)
-		log.GET("/testing/:test_name/task/:task_id", GetTestingContainerLogsSSE)
+		sse.GET("/testing/:test_name/task/:task_id", GetTestingContainerLogsSSE)
 		sse.GET("/scanning/:id/task/:scan_id", GetScanningContainerLogsSSE)
 		sse.GET("/v4/workflow/:workflowName/:taskID/:jobName/:lines", GetWorkflowJobContainerLogsSSE)
 		sse.GET("/jenkins/:id/:jobName/:jobID", GetJenkinsJobContainerLogsSSE)
