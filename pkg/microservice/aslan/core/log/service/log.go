@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
@@ -192,7 +193,12 @@ func GetTestingContainerLogs(testName string, taskID int64, log *zap.SugaredLogg
 		return "", fmt.Errorf("invalid job length")
 	}
 
-	buildJobNamePrefix := workflowTask.Stages[0].Jobs[0].K8sJobName
+	jobInfo := new(commonmodels.TaskJobInfo)
+	if err := commonmodels.IToi(workflowTask.Stages[0].Jobs[0].JobInfo, jobInfo); err != nil {
+		return "", fmt.Errorf("convert job info to task job info error: %v", err)
+	}
+
+	buildJobNamePrefix := fmt.Sprintf("%s-%s-%s", jobInfo.JobName, jobInfo.TestingName, jobInfo.RandStr)
 	log.Debugf(">>>>>>>>>>>>>>>>>>>> job name is: %s <<<<<<<<<<<<<<<<", buildJobNamePrefix)
 	buildLog, err := getContainerLogFromS3(workflowName, buildJobNamePrefix, taskID, log)
 	if err != nil {

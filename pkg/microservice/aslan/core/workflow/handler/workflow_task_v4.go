@@ -186,30 +186,30 @@ func GetWorkflowTaskV4(c *gin.Context) {
 
 	workflowName := c.Param("workflowName")
 
-	//w, err := workflow.FindWorkflowV4Raw(workflowName, ctx.Logger)
-	//if err != nil {
-	//	ctx.Logger.Errorf("CreateCronForWorkflowV4 error: %v", err)
-	//	ctx.Err = e.ErrInvalidParam.AddErr(err)
-	//	return
-	//}
+	w, err := workflow.FindWorkflowV4Raw(workflowName, ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("CreateCronForWorkflowV4 error: %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
 
 	// authorization check
-	//if !ctx.Resources.IsSystemAdmin {
-	//	if _, ok := ctx.Resources.ProjectAuthInfo[w.Project]; !ok {
-	//		ctx.UnAuthorized = true
-	//		return
-	//	}
-	//
-	//	if !ctx.Resources.ProjectAuthInfo[w.Project].IsProjectAdmin &&
-	//		!ctx.Resources.ProjectAuthInfo[w.Project].Workflow.View {
-	//		// check if the permission is given by collaboration mode
-	//		permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, w.Project, types.ResourceTypeWorkflow, w.Name, types.WorkflowActionView)
-	//		if err != nil || !permitted {
-	//			ctx.UnAuthorized = true
-	//			return
-	//		}
-	//	}
-	//}
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[w.Project]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[w.Project].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[w.Project].Workflow.View {
+			// check if the permission is given by collaboration mode
+			permitted, err := internalhandler.GetCollaborationModePermission(ctx.UserID, w.Project, types.ResourceTypeWorkflow, w.Name, types.WorkflowActionView)
+			if err != nil || !permitted {
+				ctx.UnAuthorized = true
+				return
+			}
+		}
+	}
 
 	ctx.Resp, ctx.Err = workflow.GetWorkflowTaskV4(workflowName, taskID, ctx.Logger)
 }
