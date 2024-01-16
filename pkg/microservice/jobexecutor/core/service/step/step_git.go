@@ -143,10 +143,8 @@ func (s *GitStep) runGitCmds() error {
 		cmds = append(cmds, s.buildGitCommands(repo, hostNames)...)
 	}
 	// write ssh key
-	if len(hostNames.List()) > 0 {
-		if err := writeSSHConfigFile(hostNames, s.spec.Proxy); err != nil {
-			return err
-		}
+	if err := writeSSHConfigFile(hostNames, s.spec.Proxy); err != nil {
+		return err
 	}
 
 	for _, c := range cmds {

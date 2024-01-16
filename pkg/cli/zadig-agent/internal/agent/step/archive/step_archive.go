@@ -46,7 +46,7 @@ type ArchiveStep struct {
 }
 
 func NewArchiveStep(spec interface{}, dirs *types.AgentWorkDirs, envs, secretEnvs []string, logger *log.JobLogger) (*ArchiveStep, error) {
-	archiveStep := &ArchiveStep{dirs: dirs, envs: envs, secretEnvs: secretEnvs, logger: logger}
+	archiveStep := &ArchiveStep{dirs: dirs, workspace: dirs.Workspace, envs: envs, secretEnvs: secretEnvs, logger: logger}
 	yamlBytes, err := yaml.Marshal(spec)
 	if err != nil {
 		return archiveStep, fmt.Errorf("marshal spec %+v failed", spec)

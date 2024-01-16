@@ -19,6 +19,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"net/http"
 	"strings"
 
@@ -167,6 +168,102 @@ type DeliveryFileDetail struct {
 type DeliveryFileInfo struct {
 	FileName           string               `json:"fileName"`
 	DeliveryFileDetail []DeliveryFileDetail `json:"versionInfo"`
+}
+
+func ListPackagesVersion(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	version := &commonrepo.DeliveryVersionArgs{
+		ProductName: c.Query("projectName"),
+	}
+	deliveryVersions, err := deliveryservice.FindDeliveryVersion(version, ctx.Logger)
+	if err != nil {
+		ctx.Err = e.NewHTTPError(500, err.Error())
+	}
+
+	fileMap := map[string][]DeliveryFileDetail{}
+
+	for _, deliveryVersion := range deliveryVersions {
+		//delivery := deliveryVersion
+		args := &commonrepo.DeliveryDistributeArgs{
+			ReleaseID:      deliveryVersion.ID.Hex(),
+			DistributeType: config.File,
+		}
+		distributeVersion, err := deliveryservice.FindDeliveryDistribute(args, ctx.Logger)
+		if err != nil {
+			ctx.Err = e.NewHTTPError(500, err.Error())
+		}
+
+		for _, distribute := range distributeVersion {
+			packageFile := distribute.PackageFile
+
+			fileMap[getFileName(packageFile)] = append(
+				fileMap[getFileName(packageFile)], DeliveryFileDetail{
+					FileVersion:     getFileVersion(packageFile),
+					DeliveryVersion: deliveryVersion.Version,
+					DeliveryID:      deliveryVersion.ID.Hex(),
+				})
+		}
+	}
+
+	fileInfoList := make([]*DeliveryFileInfo, 0)
+	for fileName, versionList := range fileMap {
+		info := DeliveryFileInfo{
+			FileName:           fileName,
+			DeliveryFileDetail: versionList,
+		}
+		fileInfoList = append(fileInfoList, &info)
+	}
+
+	ctx.Err = err
+	ctx.Resp = fileInfoList
+}
+
+// @Summary Create K8S Delivery Version
+// @Description Create K8S Delivery Version
+// @Tags 	delivery
+// @Accept 	json
+// @Produce json
+// @Param 	body 		body 		deliveryservice.CreateK8SDeliveryVersionArgs 	true 	"body"
+// @Success 200
+// @Router /api/aslan/delivery/releases/k8s [post]
+func CreateK8SDeliveryVersion(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	args := new(deliveryservice.CreateK8SDeliveryVersionArgs)
+	err = c.ShouldBindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	args.CreateBy = ctx.UserName
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[args.ProductName]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+
+		if !ctx.Resources.ProjectAuthInfo[args.ProductName].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[args.ProductName].Version.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	bs, _ := json.Marshal(args)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新建", "版本交付", fmt.Sprintf("%s-%s", args.EnvName, args.Version), string(bs), ctx.Logger)
+
+	ctx.Err = deliveryservice.CreateK8SDeliveryVersion(args, ctx.Logger)
 }
 
 func CreateHelmDeliveryVersion(c *gin.Context) {

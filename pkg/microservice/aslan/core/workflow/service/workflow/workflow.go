@@ -246,29 +246,50 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 				workflow.Stages = append(workflow.Stages, stage)
 			}
 
-			spec := &commonmodels.ZadigDeployJobSpec{
-				Env: workflowArg.envName,
-				DeployContents: []config.DeployContent{
-					config.DeployImage,
-				},
-				Source:     config.SourceRuntime,
-				Production: true,
+			if productTmpl.IsCVMProduct() {
+				spec := &commonmodels.ZadigVMDeployJobSpec{
+					Env:    workflowArg.envName,
+					Source: config.SourceRuntime,
+				}
+				if workflowArg.buildStageEnabled {
+					spec.Source = config.SourceFromJob
+					spec.JobName = buildJobName
+				}
+				deployJob := &commonmodels.Job{
+					Name:    "主机部署",
+					JobType: config.JobZadigVMDeploy,
+					Spec:    spec,
+				}
+				stage := &commonmodels.WorkflowStage{
+					Name: "主机部署",
+					Jobs: []*commonmodels.Job{deployJob},
+				}
+				workflow.Stages = append(workflow.Stages, stage)
+			} else {
+				spec := &commonmodels.ZadigDeployJobSpec{
+					Env: workflowArg.envName,
+					DeployContents: []config.DeployContent{
+						config.DeployImage,
+					},
+					Source:     config.SourceRuntime,
+					Production: true,
+				}
+				if workflowArg.buildStageEnabled {
+					spec.Source = config.SourceFromJob
+					spec.JobName = buildJobName
+					spec.Production = false
+				}
+				deployJob := &commonmodels.Job{
+					Name:    "部署",
+					JobType: config.JobZadigDeploy,
+					Spec:    spec,
+				}
+				stage := &commonmodels.WorkflowStage{
+					Name: "部署",
+					Jobs: []*commonmodels.Job{deployJob},
+				}
+				workflow.Stages = append(workflow.Stages, stage)
 			}
-			if workflowArg.buildStageEnabled {
-				spec.Source = config.SourceFromJob
-				spec.JobName = buildJobName
-				spec.Production = false
-			}
-			deployJob := &commonmodels.Job{
-				Name:    "部署",
-				JobType: config.JobZadigDeploy,
-				Spec:    spec,
-			}
-			stage := &commonmodels.WorkflowStage{
-				Name: "部署",
-				Jobs: []*commonmodels.Job{deployJob},
-			}
-			workflow.Stages = append(workflow.Stages, stage)
 
 			if _, err := commonrepo.NewWorkflowV4Coll().Create(workflow); err != nil {
 				errList = multierror.Append(errList, err)

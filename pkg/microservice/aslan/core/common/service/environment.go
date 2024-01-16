@@ -1018,6 +1018,7 @@ func QueryPodsStatus(productInfo *commonmodels.Product, serviceTmpl *commonmodel
 
 	svcResp, err := GetServiceImpl(serviceTmpl.ServiceName, serviceTmpl, "", productInfo, clientset, informer, log)
 	if err != nil {
+		log.Errorf("failed to get %s service impl, error: %v", serviceTmpl.ServiceName, err)
 		return resp
 	}
 

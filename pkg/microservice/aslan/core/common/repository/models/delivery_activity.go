@@ -25,6 +25,7 @@ type DeliveryActivity struct {
 	Type              string             `bson:"type"                         json:"type"`
 	Content           string             `bson:"content,omitempty"            json:"content,omitempty"`
 	URL               string             `bson:"url,omitempty"                json:"url,omitempty"`
+	JobTaskName       string             `bson:"job_task_name,omitempty"      json:"job_task_name,omitempty"`
 	Commits           []*ActivityCommit  `bson:"commits,omitempty"            json:"commits,omitempty"`
 	Issues            []string           `bson:"issues,omitempty"             json:"issues,omitempty"`
 	Namespace         string             `bson:"namespace,omitempty"          json:"namespace,omitempty"`

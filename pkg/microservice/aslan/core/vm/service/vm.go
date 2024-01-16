@@ -151,7 +151,7 @@ func generateAgentRecoveryCmd(vm *commonmodels.PrivateKey) (*RecoveryAgentCmd, e
 				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
-					"sudo nohup zadig-agent start --server-url %s --token %s &",
+					"sudo PATH=$PATH nohup zadig-agent start --server-url %s --token %s &",
 				downloadLinuxAMD64URL, linuxAMD64Name, serverURL, token)}
 		case setting.LinuxArm64:
 			downloadLinuxARM64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, linuxARM64Name)
@@ -159,7 +159,7 @@ func generateAgentRecoveryCmd(vm *commonmodels.PrivateKey) (*RecoveryAgentCmd, e
 				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
-					"sudo nohup zadig-agent start --server-url %s --token %s &",
+					"sudo PATH=$PATH nohup zadig-agent start --server-url %s --token %s &",
 				downloadLinuxARM64URL, linuxARM64Name, serverURL, token)}
 		case setting.MacOSAmd64:
 			downloadMacOSAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, macOSAMD64Name)
@@ -253,7 +253,7 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
-					"sudo nohup zadig-agent start &",
+					"sudo PATH=$PATH nohup zadig-agent start &",
 				downloadLinuxAMD64URL, linuxAMD64Name)}
 		case setting.LinuxArm64:
 			downloadLinuxARM64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, linuxARM64Name)
@@ -263,7 +263,7 @@ func generateAgentUpgradeCmd(vm *commonmodels.PrivateKey, logger *zap.SugaredLog
 					"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
-					"sudo nohup zadig-agent start &",
+					"sudo PATH=$PATH nohup zadig-agent start &",
 				downloadLinuxARM64URL, linuxARM64Name)}
 		case setting.MacOSAmd64:
 			downloadMacOSAMD64URL := fmt.Sprintf("%s/%s.tar.gz", baseURL, macOSAMD64Name)
@@ -704,13 +704,13 @@ func GenerateAgentAccessCmds(vm *commonmodels.PrivateKey) (*AgentAccessCmds, err
 				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
-					"sudo nohup zadig-agent start --server-url %s --token %s &",
+					"sudo PATH=$PATH nohup zadig-agent start --server-url %s --token %s &",
 				downloadLinuxAMD64URL, linuxAMD64Name, serverURL, token)},
 			ARM64: map[string]string{"shell": fmt.Sprintf(
 				"sudo curl -L %s | sudo tar xz -C /usr/local/bin/ \n "+
 					"sudo mv /usr/local/bin/%s /usr/local/bin/zadig-agent \n "+
 					"sudo chmod +x /usr/local/bin/zadig-agent \n "+
-					"sudo nohup zadig-agent start --server-url %s --token %s &",
+					"sudo PATH=$PATH nohup zadig-agent start --server-url %s --token %s &",
 				downloadLinuxARM64URL, linuxARM64Name, serverURL, token)},
 		},
 		MacOSPlatform: &AgentAccessCmd{

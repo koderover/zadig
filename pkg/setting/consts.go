@@ -317,6 +317,7 @@ const (
 )
 
 const (
+	DeliveryVersionTypeYaml        = "K8SYaml"
 	DeliveryVersionTypeChart       = "HelmChart"
 	DeliveryVersionTypeK8SWorkflow = "K8SWorkflow"
 )

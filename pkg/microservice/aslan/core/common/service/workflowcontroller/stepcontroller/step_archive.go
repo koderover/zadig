@@ -19,22 +19,27 @@ package stepcontroller
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"time"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 type archiveCtl struct {
 	step        *commonmodels.StepTask
 	archiveSpec *step.StepArchiveSpec
+	workflowCtx *commonmodels.WorkflowTaskCtx
 	log         *zap.SugaredLogger
 }
 
-func NewArchiveCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*archiveCtl, error) {
+func NewArchiveCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, log *zap.SugaredLogger) (*archiveCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal archive spec error: %v", err)
@@ -44,7 +49,7 @@ func NewArchiveCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*ar
 		return nil, fmt.Errorf("unmarshal archive spec error: %v", err)
 	}
 	stepTask.Spec = archiveSpec
-	return &archiveCtl{archiveSpec: archiveSpec, log: log, step: stepTask}, nil
+	return &archiveCtl{archiveSpec: archiveSpec, workflowCtx: workflowCtx, log: log, step: stepTask}, nil
 }
 
 func (s *archiveCtl) PreRun(ctx context.Context) error {
@@ -72,6 +77,60 @@ func (s *archiveCtl) PreRun(ctx context.Context) error {
 }
 
 func (s *archiveCtl) AfterRun(ctx context.Context) error {
+	for _, upload := range s.archiveSpec.UploadDetail {
+		if !upload.IsFileArchive {
+			continue
+		}
+		deliveryArtifact := new(commonmodels.DeliveryArtifact)
+		deliveryArtifact.CreatedBy = s.workflowCtx.WorkflowTaskCreatorUsername
+		deliveryArtifact.CreatedTime = time.Now().Unix()
+		deliveryArtifact.Source = string(config.WorkflowTypeV4)
+		deliveryArtifact.Name = upload.ServiceModule + "_" + upload.ServiceName
+		// TODO(Ray) file类型的交付物名称存放在Image和ImageTag字段是不规范的，优化时需要考虑历史数据的兼容问题。
+		deliveryArtifact.Image = upload.Name
+		deliveryArtifact.ImageTag = upload.Name
+		deliveryArtifact.Type = string(config.File)
+		deliveryArtifact.PackageFileLocation = upload.PackageFileLocation
+		deliveryArtifact.PackageStorageURI = s.archiveSpec.S3.Endpoint + "/" + s.archiveSpec.S3.Bucket
+		err := commonrepo.NewDeliveryArtifactColl().Insert(deliveryArtifact)
+		if err != nil {
+			return fmt.Errorf("archiveCtl AfterRun: insert delivery artifact error: %v", err)
+		}
+
+		deliveryActivity := new(commonmodels.DeliveryActivity)
+		deliveryActivity.Type = setting.BuildType
+		deliveryActivity.ArtifactID = deliveryArtifact.ID
+		deliveryActivity.JobTaskName = upload.JobTaskName
+		deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", s.workflowCtx.ProjectName, s.workflowCtx.WorkflowName, s.workflowCtx.TaskID, url.QueryEscape(s.workflowCtx.WorkflowDisplayName))
+		commits := make([]*commonmodels.ActivityCommit, 0)
+		for _, repo := range s.archiveSpec.Repos {
+			deliveryCommit := new(commonmodels.ActivityCommit)
+			deliveryCommit.Address = repo.Address
+			deliveryCommit.Source = repo.Source
+			deliveryCommit.RepoOwner = repo.RepoOwner
+			deliveryCommit.RepoName = repo.RepoName
+			deliveryCommit.Branch = repo.Branch
+			deliveryCommit.Tag = repo.Tag
+			deliveryCommit.PR = repo.PR
+			deliveryCommit.PRs = repo.PRs
+			deliveryCommit.CommitID = repo.CommitID
+			deliveryCommit.CommitMessage = repo.CommitMessage
+			deliveryCommit.AuthorName = repo.AuthorName
+
+			commits = append(commits, deliveryCommit)
+		}
+		deliveryActivity.Commits = commits
+
+		deliveryActivity.CreatedBy = s.workflowCtx.WorkflowTaskCreatorUsername
+		deliveryActivity.CreatedTime = time.Now().Unix()
+		deliveryActivity.StartTime = s.workflowCtx.StartTime.Unix()
+		deliveryActivity.EndTime = time.Now().Unix()
+
+		err = commonrepo.NewDeliveryActivityColl().Insert(deliveryActivity)
+		if err != nil {
+			return fmt.Errorf("archiveCtl AfterRun: build deliveryActivityColl insert err:%v", err)
+		}
+	}
 	return nil
 }
 

@@ -37,6 +37,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		deliveryRelease.GET("/:id", GetDeliveryVersion)
 		deliveryRelease.GET("", ListDeliveryVersion)
 		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, DeleteDeliveryVersion)
+		deliveryRelease.POST("/k8s", CreateK8SDeliveryVersion)
 		deliveryRelease.POST("/helm", CreateHelmDeliveryVersion)
 		deliveryRelease.POST("/helm/global-variables", ApplyDeliveryGlobalVariables)
 		deliveryRelease.GET("/helm/charts", DownloadDeliveryChart)
