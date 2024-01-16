@@ -287,6 +287,7 @@ type ZadigDeployJobSpec struct {
 }
 
 type ServiceAndVMDeploy struct {
+	Repos         []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
 	ServiceName   string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
 	ServiceModule string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
 	ArtifactURL   string              `bson:"artifact_url"        yaml:"artifact_url"     json:"artifact_url"`

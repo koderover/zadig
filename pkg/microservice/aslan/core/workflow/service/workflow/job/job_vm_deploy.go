@@ -74,7 +74,69 @@ func (j *VMDeployJob) SetPreset() error {
 		}
 	}
 
+	for _, serviceAndVMDeploy := range j.spec.ServiceAndVMDeploys {
+		templateSvc, err := commonrepo.NewServiceColl().Find(
+			&commonrepo.ServiceFindOption{
+				ServiceName: serviceAndVMDeploy.ServiceName,
+				ProductName: j.workflow.Project,
+			},
+		)
+		if err != nil {
+			err = fmt.Errorf("can't find service %s in project %s, error: %v", serviceAndVMDeploy.ServiceName, j.workflow.Project, err)
+			log.Error(err)
+			return fmt.Errorf(err.Error())
+		}
+		if templateSvc.BuildName == "" {
+			err = fmt.Errorf("service %s in project %s has no deploy", serviceAndVMDeploy.ServiceName, j.workflow.Project)
+			log.Error(err)
+			return fmt.Errorf(err.Error())
+		}
+		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: templateSvc.BuildName, ProductName: j.workflow.Project})
+		if err != nil {
+			err = fmt.Errorf("can't find build %s in project %s, error: %v", templateSvc.BuildName, j.workflow.Project, err)
+			log.Error(err)
+			return fmt.Errorf(err.Error())
+		}
+		serviceAndVMDeploy.Repos = mergeRepos(serviceAndVMDeploy.Repos, build.DeployRepos)
+	}
+
 	return nil
+}
+
+func (j *VMDeployJob) GetRepos() ([]*types.Repository, error) {
+	resp := []*types.Repository{}
+	j.spec = &commonmodels.ZadigVMDeployJobSpec{}
+	if err := commonmodels.IToi(j.job.Spec, j.spec); err != nil {
+		return resp, err
+	}
+
+	for _, serviceAndVMDeploy := range j.spec.ServiceAndVMDeploys {
+		templateSvc, err := commonrepo.NewServiceColl().Find(
+			&commonrepo.ServiceFindOption{
+				ServiceName: serviceAndVMDeploy.ServiceName,
+				ProductName: j.workflow.Project,
+			},
+		)
+		if err != nil {
+			err = fmt.Errorf("can't find service %s in project %s, error: %v", serviceAndVMDeploy.ServiceName, j.workflow.Project, err)
+			log.Error(err)
+			return nil, fmt.Errorf(err.Error())
+		}
+		if templateSvc.BuildName == "" {
+			err = fmt.Errorf("service %s in project %s has no deploy", serviceAndVMDeploy.ServiceName, j.workflow.Project)
+			log.Error(err)
+			return nil, fmt.Errorf(err.Error())
+		}
+		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: templateSvc.BuildName, ProductName: j.workflow.Project})
+		if err != nil {
+			err = fmt.Errorf("can't find build %s in project %s, error: %v", templateSvc.BuildName, j.workflow.Project, err)
+			log.Error(err)
+			return nil, fmt.Errorf(err.Error())
+		}
+		repos := mergeRepos(serviceAndVMDeploy.Repos, build.DeployRepos)
+		resp = append(resp, repos...)
+	}
+	return resp, nil
 }
 
 func (j *VMDeployJob) MergeArgs(args *commonmodels.Job) error {
@@ -89,7 +151,18 @@ func (j *VMDeployJob) MergeArgs(args *commonmodels.Job) error {
 			return err
 		}
 
-		j.spec.ServiceAndVMDeploys = argsSpec.ServiceAndVMDeploys
+		newDeploys := []*commonmodels.ServiceAndVMDeploy{}
+		for _, deploy := range j.spec.ServiceAndVMDeploys {
+			for _, argsDeploy := range argsSpec.ServiceAndVMDeploys {
+				if deploy.ServiceName == argsDeploy.ServiceName && deploy.ServiceModule == argsDeploy.ServiceModule {
+					deploy.Repos = mergeRepos(deploy.Repos, argsDeploy.Repos)
+					newDeploys = append(newDeploys, deploy)
+					break
+				}
+			}
+		}
+		j.spec.ServiceAndVMDeploys = newDeploys
+
 		j.job.Spec = j.spec
 	}
 	return nil
@@ -169,7 +242,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 		if err := fillBuildDetail(buildInfo, vmDeployInfo.ServiceName, vmDeployInfo.ServiceName); err != nil {
 			return resp, err
 		}
-		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreBuild.ImageID)
+		basicImage, err := commonrepo.NewBasicImageColl().Find(buildInfo.PreDeploy.ImageID)
 		if err != nil {
 			return resp, fmt.Errorf("find base image: %s error: %v", buildInfo.PreBuild.ImageID, err)
 		}
@@ -186,8 +259,8 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			JobType:        string(config.JobZadigVMDeploy),
 			Spec:           jobTaskSpec,
 			Timeout:        int64(buildInfo.Timeout),
-			Infrastructure: buildInfo.Infrastructure,
-			VMLabels:       buildInfo.VMLabels,
+			Infrastructure: buildInfo.DeployInfrastructure,
+			VMLabels:       buildInfo.DeployVMLabels,
 		}
 		jobTaskSpec.Properties = commonmodels.JobProperties{
 			Timeout:         int64(timeout),
@@ -197,7 +270,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			ClusterID:       buildInfo.PreBuild.ClusterID,
 			StrategyID:      buildInfo.PreBuild.StrategyID,
 			BuildOS:         basicImage.Value,
-			ImageFrom:       buildInfo.PreBuild.ImageFrom,
+			ImageFrom:       buildInfo.PreDeploy.ImageFrom,
 		}
 
 		initShellScripts := []string{}
@@ -245,7 +318,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 
 		// init tools install step
 		tools := []*step.Tool{}
-		for _, tool := range buildInfo.PreBuild.Installs {
+		for _, tool := range buildInfo.PreDeploy.Installs {
 			tools = append(tools, &step.Tool{
 				Name:    tool.Name,
 				Version: tool.Version,
@@ -263,7 +336,7 @@ func (j *VMDeployJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 			Name:     vmDeployInfo.ServiceName + "-git",
 			JobName:  jobTask.Name,
 			StepType: config.StepGit,
-			Spec:     step.StepGitSpec{Repos: renderRepos(buildInfo.Repos, buildInfo.Repos, jobTaskSpec.Properties.Envs)},
+			Spec:     step.StepGitSpec{Repos: renderRepos(vmDeployInfo.Repos, buildInfo.DeployRepos, jobTaskSpec.Properties.Envs)},
 		}
 		jobTaskSpec.Steps = append(jobTaskSpec.Steps, gitStep)
 

@@ -33,23 +33,29 @@ type Build struct {
 	// 在任一编译配置模板中只能出现一次
 	// 对于k8s部署是传入容器名称
 	// 对于物理机部署是服务名称
-	Targets      []*ServiceModuleTarget `bson:"targets"                       json:"targets"`
-	TargetRepos  []*TargetRepo          `bson:"-"                             json:"target_repos"`
-	Description  string                 `bson:"desc,omitempty"                json:"desc"`
-	UpdateTime   int64                  `bson:"update_time"                   json:"update_time"`
-	UpdateBy     string                 `bson:"update_by"                     json:"update_by"`
-	Repos        []*types.Repository    `bson:"repos"                         json:"repos"`
-	PreBuild     *PreBuild              `bson:"pre_build"                     json:"pre_build"`
-	JenkinsBuild *JenkinsBuild          `bson:"jenkins_build,omitempty"       json:"jenkins_build,omitempty"`
-	ScriptType   types.ScriptType       `bson:"script_type"                   json:"script_type"`
-	Scripts      string                 `bson:"scripts"                       json:"scripts"`
-	PostBuild    *PostBuild             `bson:"post_build,omitempty"          json:"post_build"`
+	Targets        []*ServiceModuleTarget `bson:"targets"                       json:"targets"`
+	TargetRepos    []*TargetRepo          `bson:"-"                             json:"target_repos"`
+	Description    string                 `bson:"desc,omitempty"                json:"desc"`
+	UpdateTime     int64                  `bson:"update_time"                   json:"update_time"`
+	UpdateBy       string                 `bson:"update_by"                     json:"update_by"`
+	Repos          []*types.Repository    `bson:"repos"                         json:"repos"`
+	PreBuild       *PreBuild              `bson:"pre_build"                     json:"pre_build"`
+	Infrastructure string                 `bson:"infrastructure"                json:"infrastructure"`
+	VMLabels       []string               `bson:"vm_labels"                     json:"vm_labels"`
+	JenkinsBuild   *JenkinsBuild          `bson:"jenkins_build,omitempty"       json:"jenkins_build,omitempty"`
+	ScriptType     types.ScriptType       `bson:"script_type"                   json:"script_type"`
+	Scripts        string                 `bson:"scripts"                       json:"scripts"`
+	PostBuild      *PostBuild             `bson:"post_build,omitempty"          json:"post_build"`
 
 	// TODO: Deprecated.
-	Caches          []string `bson:"caches"                        json:"caches"`
-	ProductName     string   `bson:"product_name"                  json:"product_name"`
-	SSHs            []string `bson:"sshs"                          json:"sshs"`
-	PMDeployScripts string   `bson:"pm_deploy_scripts"             json:"pm_deploy_scripts"`
+	Caches               []string            `bson:"caches"                        json:"caches"`
+	ProductName          string              `bson:"product_name"                  json:"product_name"`
+	SSHs                 []string            `bson:"sshs"                          json:"sshs"`
+	PreDeploy            *PreDeploy          `bson:"pre_deploy"                    json:"pre_deploy"`
+	DeployInfrastructure string              `bson:"deploy_infrastructure"         json:"deploy_infrastructure"`
+	DeployVMLabels       []string            `bson:"deploy_vm_labels"              json:"deploy_vm_labels"`
+	DeployRepos          []*types.Repository `bson:"deploy_repos"                  json:"deploy_repos"`
+	PMDeployScripts      string              `bson:"pm_deploy_scripts"             json:"pm_deploy_scripts"`
 
 	// New since V1.10.0.
 	CacheEnable  bool               `bson:"cache_enable"   json:"cache_enable"`
@@ -58,8 +64,6 @@ type Build struct {
 	// New since V1.10.0. Only to tell the webpage should the advanced settings be displayed
 	AdvancedSettingsModified bool      `bson:"advanced_setting_modified" json:"advanced_setting_modified"`
 	Outputs                  []*Output `bson:"outputs"                   json:"outputs"`
-	Infrastructure           string    `bson:"infrastructure"            json:"infrastructure"`
-	VMLabels                 []string  `bson:"vm_labels"                 json:"vm_labels"`
 }
 
 // PreBuild prepares an environment for a job
@@ -74,7 +78,7 @@ type PreBuild struct {
 	ImageFrom string `bson:"image_from"                    json:"image_from"`
 	ImageID   string `bson:"image_id"                      json:"image_id"`
 	// Installs defines apps to be installed for build
-	Installs []*Item `bson:"installs,omitempty"    json:"installs"`
+	Installs []*Item `bson:"installs,omitempty"           json:"installs"`
 	// Envs stores user defined env key val for build
 	Envs []*KeyVal `bson:"envs,omitempty"              json:"envs"`
 	// EnableProxy
@@ -90,6 +94,13 @@ type PreBuild struct {
 
 	// TODO: Deprecated.
 	Namespace string `bson:"namespace"                       json:"namespace"`
+}
+
+type PreDeploy struct {
+	BuildOS   string  `bson:"build_os"              json:"build_os"`
+	ImageFrom string  `bson:"image_from"            json:"image_from"`
+	ImageID   string  `bson:"image_id"              json:"image_id"`
+	Installs  []*Item `bson:"installs,omitempty"    json:"installs"`
 }
 
 type BuildObj struct {
