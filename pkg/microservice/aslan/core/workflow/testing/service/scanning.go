@@ -31,7 +31,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/webhook"
@@ -142,7 +141,7 @@ func ListScanningModule(projectName string, log *zap.SugaredLogger) ([]*ListScan
 			ID:   scanning.ID.Hex(),
 			Name: scanning.Name,
 			Statistics: &ScanningStatistic{
-				TimesRun:       int64(res.TotalTasks),
+				TimesRun:       res.TotalTasks,
 				AverageRuntime: avgRuntime,
 			},
 			Repos:     scanning.Repos,
@@ -412,49 +411,67 @@ func CreateScanningTask(id string, req []*ScanningRepoInfo, notificationID, user
 	return nextTaskID, nil
 }
 
-func ListScanningTask(id string, pageNum, pageSize int64, log *zap.SugaredLogger) (*ListScanningTaskResp, error) {
+// CreateScanningTaskV2 uses notificationID if the task is triggered by webhook, otherwise it should be empty
+func CreateScanningTaskV2(id, username, account, userID string, req []*ScanningRepoInfo, notificationID string, log *zap.SugaredLogger) (int64, error) {
+	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
+	if err != nil {
+		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
+		return 0, err
+	}
+
+	scanningWorkflow, err := generateCustomWorkflowFromScanningModule(scanningInfo, req, log)
+	if err != nil {
+		log.Errorf("failed to getenerate custom workflow from mongodb, the error is: %s", err)
+		return 0, err
+	}
+
+	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
+		Name:    username,
+		Account: account,
+		UserID:  userID,
+		Type:    config.WorkflowTaskTypeScanning,
+	}, scanningWorkflow, log)
+
+	if createResp != nil {
+		return createResp.TaskID, err
+	}
+
+	return 0, err
+}
+
+func ListScanningTask(id string, pageNum, pageSize int, log *zap.SugaredLogger) (*ListScanningTaskResp, error) {
 	scanningInfo, err := commonrepo.NewScanningColl().GetByID(id)
 	if err != nil {
 		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
 		return nil, err
 	}
 
-	scanningName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, id, "scanning-job")
-	listTaskOpt := &commonrepo.ListTaskOption{
-		PipelineName: scanningName,
-		Limit:        int(pageSize),
-		Skip:         int((pageNum - 1) * pageSize),
-		Detail:       true,
-		Type:         config.ScanningType,
-	}
-	countTaskOpt := &commonrepo.CountTaskOption{
-		PipelineNames: []string{scanningName},
-		Type:          config.ScanningType,
-	}
-	resp, err := commonrepo.NewTaskColl().List(listTaskOpt)
+	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID.Hex())
+	workflowTasks, total, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{
+		WorkflowName: workflowName,
+		ProjectName:  scanningInfo.ProjectName,
+		Skip:         (pageNum - 1) * pageSize,
+		Limit:        pageSize,
+	})
+
 	if err != nil {
-		log.Errorf("failed to list scanning task for scanning: %s, the error is: %s", id, err)
-		return nil, err
-	}
-	cnt, err := commonrepo.NewTaskColl().Count(countTaskOpt)
-	if err != nil {
-		log.Errorf("failed to count scanning task for scanning: %s, the error is: %s", id, err)
+		log.Errorf("failed to find scanning module task of scanning: %s (common workflow name: %s), error: %s", scanningInfo.Name, workflowName, err)
 		return nil, err
 	}
 
-	scanTasks := make([]*ScanningTaskResp, 0)
+	respList := make([]*ScanningTaskResp, 0)
 
-	for _, scanningTask := range resp {
+	for _, workflowTask := range workflowTasks {
 		taskInfo := &ScanningTaskResp{
-			ScanID:    scanningTask.TaskID,
-			Status:    string(scanningTask.Status),
-			Creator:   scanningTask.TaskCreator,
-			CreatedAt: scanningTask.CreateTime,
+			ScanID:    workflowTask.TaskID,
+			Status:    string(workflowTask.Status),
+			Creator:   workflowTask.TaskCreator,
+			CreatedAt: workflowTask.CreateTime,
 		}
-		if scanningTask.Status == config.StatusPassed || scanningTask.Status == config.StatusCancelled || scanningTask.Status == config.StatusFailed {
-			taskInfo.RunTime = scanningTask.EndTime - scanningTask.StartTime
+		if workflowTask.Status == config.StatusPassed || workflowTask.Status == config.StatusCancelled || workflowTask.Status == config.StatusFailed {
+			taskInfo.RunTime = workflowTask.EndTime - workflowTask.StartTime
 		}
-		scanTasks = append(scanTasks, taskInfo)
+		respList = append(respList, taskInfo)
 	}
 
 	return &ListScanningTaskResp{
@@ -462,8 +479,8 @@ func ListScanningTask(id string, pageNum, pageSize int64, log *zap.SugaredLogger
 			Editor:    scanningInfo.UpdatedBy,
 			UpdatedAt: scanningInfo.UpdatedAt,
 		},
-		ScanTasks:  scanTasks,
-		TotalTasks: cnt,
+		ScanTasks:  respList,
+		TotalTasks: total,
 	}, nil
 }
 
@@ -474,10 +491,10 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
-	scanningName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, scanningID, "scanning-job")
-	resp, err := commonrepo.NewTaskColl().Find(taskID, scanningName, config.ScanningType)
+	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID.Hex())
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
-		log.Errorf("failed to get task information, error: %s", err)
+		log.Errorf("failed to find workflow task %d for scanning: %s, error: %s", taskID, scanningID, err)
 		return nil, err
 	}
 
@@ -497,38 +514,103 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		}
 	}
 
-	repoInfo := resp.Stages[0].SubTasks[scanningInfo.Name]
-	scanningTaskInfo, err := base.ToScanning(repoInfo)
-	if err != nil {
-		log.Errorf("failed to convert the content into scanning subtask, the error is: %s", err)
-		return nil, fmt.Errorf("failed to convert the content into scanning subtask, the error is: %s", err)
+	if len(workflowTask.Stages) != 1 || len(workflowTask.Stages[0].Jobs) != 1 {
+		errMsg := fmt.Sprintf("invalid test task!")
+		log.Errorf(errMsg)
+		return nil, fmt.Errorf(errMsg)
 	}
 
+	var spec workflowservice.ZadigScanningJobSpec
+	err = commonmodels.IToi(workflowTask.Stages[0].Jobs[0].Spec, spec)
+	if err != nil {
+		log.Errorf("failed to decode testing job spec, err: %s", err)
+		return nil, err
+	}
+
+	repoInfo := spec.Repos
 	// for security reasons, we set all sensitive information to empty
-	for _, repo := range scanningTaskInfo.Repos {
+	for _, repo := range repoInfo {
 		repo.OauthToken = ""
 		repo.Password = ""
 		repo.Username = ""
 	}
 
 	return &ScanningTaskDetail{
-		Creator:    resp.TaskCreator,
-		Status:     string(resp.Status),
-		CreateTime: resp.CreateTime,
-		EndTime:    resp.EndTime,
-		RepoInfo:   scanningTaskInfo.Repos,
+		Creator:    workflowTask.TaskCreator,
+		Status:     string(workflowTask.Status),
+		CreateTime: workflowTask.CreateTime,
+		EndTime:    workflowTask.EndTime,
+		RepoInfo:   repoInfo,
 		ResultLink: resultAddr,
 	}, nil
 }
 
-func CancelScanningTask(userName, scanningID string, taskID int64, typeString config.PipelineType, requestID string, log *zap.SugaredLogger) error {
-	scanningInfo, err := commonrepo.NewScanningColl().GetByID(scanningID)
-	if err != nil {
-		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
-		return err
+func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args []*ScanningRepoInfo, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	resp := &commonmodels.WorkflowV4{
+		Name:             fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanInfo.ID.Hex()),
+		DisplayName:      scanInfo.Name,
+		Stages:           nil,
+		Project:          scanInfo.ProjectName,
+		CreatedBy:        "system",
+		ConcurrencyLimit: 1,
 	}
 
-	scanningTaskName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, scanningID, "scanning-job")
+	stage := make([]*commonmodels.WorkflowStage, 0)
 
-	return commonservice.CancelTaskV2(userName, scanningTaskName, taskID, typeString, requestID, log)
+	repos := make([]*types.Repository, 0)
+
+	for _, arg := range args {
+		rep, err := systemconfig.New().GetCodeHost(arg.CodehostID)
+		if err != nil {
+			log.Errorf("failed to get codehost info from mongodb, the error is: %s", err)
+			return nil, err
+		}
+
+		repos = append(repos, &types.Repository{
+			Source:             rep.Type,
+			RepoOwner:          arg.RepoOwner,
+			RepoName:           arg.RepoName,
+			Branch:             arg.Branch,
+			PR:                 arg.PR,
+			PRs:                arg.PRs,
+			CodehostID:         arg.CodehostID,
+			OauthToken:         rep.AccessToken,
+			Address:            rep.Address,
+			Username:           rep.Username,
+			Password:           rep.Password,
+			EnableProxy:        rep.EnableProxy,
+			RepoNamespace:      arg.RepoNamespace,
+			Tag:                arg.Tag,
+			AuthType:           rep.AuthType,
+			SSHKey:             rep.SSHKey,
+			PrivateAccessToken: rep.PrivateAccessToken,
+		})
+	}
+
+	scan := &commonmodels.ScanningModule{
+		Name:        scanInfo.Name,
+		ProjectName: scanInfo.ProjectName,
+		Repos:       repos,
+	}
+
+	job := make([]*commonmodels.Job, 0)
+	job = append(job, &commonmodels.Job{
+		Name:    scanInfo.Name,
+		JobType: config.JobZadigScanning,
+		Skipped: false,
+		Spec: &commonmodels.ZadigScanningJobSpec{
+			Scannings: []*commonmodels.ScanningModule{scan},
+		},
+	})
+
+	stage = append(stage, &commonmodels.WorkflowStage{
+		Name:     "scan",
+		Parallel: false,
+		Approval: nil,
+		Jobs:     job,
+	})
+
+	resp.Stages = stage
+
+	return resp, nil
 }

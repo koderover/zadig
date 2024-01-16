@@ -302,6 +302,7 @@ type CreateWorkflowTaskV4Args struct {
 	Name    string
 	Account string
 	UserID  string
+	Type    config.CustomWorkflowTaskType
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -335,12 +336,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	// if account is not set, use name as account
 	if args.Account == "" {
 		args.Account = args.Name
-	}
-
-	dbWorkflow, err := commonrepo.NewWorkflowV4Coll().Find(workflow.Name)
-	if err != nil {
-		log.Errorf("cannot find workflow %s, the error is: %v", workflow.Name, err)
-		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
 
 	if err := jobctl.InstantiateWorkflow(workflow); err != nil {
@@ -399,7 +394,6 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.KeyVals = workflow.KeyVals
 	workflowTask.ShareStorages = workflow.ShareStorages
 	workflowTask.IsDebug = workflow.Debug
-	workflowTask.WorkflowHash = fmt.Sprintf("%x", dbWorkflow.CalculateHash())
 	// set workflow params repo info, like commitid, branch etc.
 	setZadigParamRepos(workflow, log)
 	for _, stage := range workflow.Stages {
@@ -482,6 +476,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.WorkflowArgs = workflow
 	workflowTask.Status = config.StatusCreated
 	workflowTask.StartTime = time.Now().Unix()
+	workflowTask.Type = args.Type
+	if args.Type == "" {
+		workflowTask.Type = config.WorkflowTaskTypeWorkflow
+	}
 
 	workflowTask.WorkflowArgs, _, err = service.FillServiceModules2Jobs(workflowTask.WorkflowArgs)
 	if err != nil {

@@ -17,108 +17,48 @@ limitations under the License.
 package service
 
 import (
-	"encoding/xml"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"strings"
+	"github.com/koderover/zadig/v2/pkg/setting"
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/base"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/s3"
-	"github.com/koderover/zadig/v2/pkg/setting"
-	s3tool "github.com/koderover/zadig/v2/pkg/tool/s3"
-	"github.com/koderover/zadig/v2/pkg/util"
 )
 
-const (
-	PERPAGE = 100
-	PAGE    = 1
-)
+func GetTestLocalTestSuite(testName string, log *zap.SugaredLogger) (*commonmodels.TestSuite, error) {
+	resp := new(commonmodels.TestSuite)
 
-func GetTestLocalTestSuite(serviceName string, log *zap.SugaredLogger) (*commonmodels.TestSuite, error) {
-	var (
-		i            = 1
-		pipelineName = fmt.Sprintf("%s-%s", serviceName, "job")
-		testReport   = new(commonmodels.TestSuite)
-	)
-	for {
-		pipelineTasks, err := commonrepo.NewTaskColl().ListTasks(&commonrepo.ListAllTaskOption{Type: config.TestType, Limit: PERPAGE, Skip: (i - 1) * PERPAGE})
-		if err != nil {
-			return nil, fmt.Errorf("GetTestLocalTestSuite serviceName:%s ListTasks err:%v", serviceName, err)
-		}
-		//处理任务
-		for _, pipelineTask := range pipelineTasks {
-			stageArray := pipelineTask.Stages
-			for _, subStage := range stageArray {
-				taskType := subStage.TaskType
-				switch taskType {
-				case config.TaskTestingV2:
-					subTestTaskMap := subStage.SubTasks
-					for _, subTask := range subTestTaskMap {
-						testInfo, err := base.ToTestingTask(subTask)
-						if err != nil {
-							continue
-						}
-						if testInfo.TestModuleName == serviceName {
-							testJobName := strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
-								config.TestType, pipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)), "_", "-", -1)
-
-							var storage *s3.S3
-							var filename string
-							if storage, err = s3.FindDefaultS3(); err == nil {
-								filename, err = util.GenerateTmpFile()
-								defer func() {
-									_ = os.Remove(filename)
-								}()
-								if err != nil {
-									log.Errorf("GetTestLocalTestSuite GenerateTmpFile err:%v", err)
-								}
-								forcedPathStyle := true
-								if storage.Provider == setting.ProviderSourceAli {
-									forcedPathStyle = false
-								}
-								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Region, storage.Insecure, forcedPathStyle)
-								if err != nil {
-									log.Errorf("GetTestLocalTestSuite Create S3 client err:%+v", err)
-									continue
-								}
-								objectKey := storage.GetObjectPath(fmt.Sprintf("%s/%d/%s/%s", pipelineName, pipelineTask.TaskID, "test", testJobName))
-								if err = client.Download(storage.Bucket, objectKey, filename); err != nil {
-									continue
-								}
-							} else {
-								log.Errorf("GetTestLocalTestSuite FindDefaultS3 err:%v", err)
-								continue
-							}
-							b, err := ioutil.ReadFile(filename)
-							if err != nil {
-								msg := fmt.Sprintf("GetTestLocalTestSuite get local test result file error: %v", err)
-								log.Error(msg)
-								continue
-							}
-
-							if err := xml.Unmarshal(b, &testReport); err != nil {
-								msg := fmt.Sprintf("GetTestLocalTestSuite unmarshal it report xml error: %v", err)
-								log.Error(msg)
-								continue
-							}
-							return testReport, nil
-						}
-					}
-				}
-			}
-		}
-
-		if len(pipelineTasks) < PERPAGE {
-			break
-		}
-		i++
+	testCustomWorkflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	testTasks, err := commonrepo.NewJobInfoColl().GetTestJobsByWorkflow(testCustomWorkflowName)
+	if err != nil {
+		log.Errorf("failed to get test task from mongodb, error: %s", err)
+		return nil, err
 	}
 
-	return testReport, nil
+	if len(testTasks) == 0 {
+		return resp, nil
+	}
+
+	// get latest test result to determine how many cases are there
+	testResults, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(testCustomWorkflowName, testName, testTasks[0].TaskID)
+	if err != nil {
+		log.Errorf("failed to get test report info for test: %s, error: %s", err)
+		return nil, err
+	}
+
+	for _, testResult := range testResults {
+		if testResult.ZadigTestName == testName {
+			resp.Name = testName
+			resp.Tests = testResult.TestCaseNum
+			resp.Skips = testResult.SkipCaseNum
+			resp.Failures = testResult.FailedCaseNum
+			resp.Errors = testResult.ErrorCaseNum
+			resp.Time = testResult.TestTime
+			resp.TestCases = testResult.TestCases
+			break
+		}
+	}
+
+	return resp, nil
 }

@@ -21,17 +21,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	e "github.com/koderover/zadig/v2/pkg/tool/errors"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/v2/pkg/tool/kube/podexec"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -46,6 +43,9 @@ import (
 	"github.com/koderover/zadig/v2/pkg/setting"
 	kubeclient "github.com/koderover/zadig/v2/pkg/shared/kube/client"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	e "github.com/koderover/zadig/v2/pkg/tool/errors"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/v2/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
@@ -82,7 +82,8 @@ func NewWorkflowController(workflowTask *commonmodels.WorkflowTask, logger *zap.
 	ctl := &workflowCtl{
 		workflowTask: workflowTask,
 		logger:       logger,
-		prefix:       fmt.Sprintf("workflowctl-%s-%d", workflowTask.WorkflowName, workflowTask.TaskID)}
+		prefix:       fmt.Sprintf("workflowctl-%s-%d", workflowTask.WorkflowName, workflowTask.TaskID),
+	}
 	ctl.globalContextMutex = cache.NewRedisLock(fmt.Sprintf("%s-global-context", ctl.prefix))
 	ctl.ack = ctl.updateWorkflowTask
 	return ctl
@@ -684,7 +685,7 @@ func (c *workflowCtl) CleanShareStorage() {
 	}
 
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(c.prefix + "-cluster")
-	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(c.prefix + "-debug")
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(WorkflowDebugLockKey(c.workflowTask.WorkflowName, c.workflowTask.TaskID))
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(c.prefix)
 }
 
