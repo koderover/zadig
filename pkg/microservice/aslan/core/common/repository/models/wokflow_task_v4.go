@@ -60,6 +60,11 @@ func (WorkflowTask) TableName() string {
 	return "workflow_task"
 }
 
+func (task *WorkflowTask) Finished() bool {
+	status := task.Status
+	return status == config.StatusPassed || status == config.StatusFailed || status == config.StatusTimeout || status == config.StatusCancelled
+}
+
 type StageTask struct {
 	Name      string        `bson:"name"          json:"name"`
 	Status    config.Status `bson:"status"        json:"status"`

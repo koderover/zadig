@@ -35,33 +35,33 @@ func init() {
 
 type workflowTaskMapWithLock struct {
 	m map[string]*WorkflowTaskWithLock
-	sync.RWMutex
+	//sync.RWMutex
 }
 
 type WorkflowTaskWithLock struct {
 	WorkflowTask *models.WorkflowTask
-	Ack          func()
+	//Ack          func()
 	sync.RWMutex
 }
 
-func GetWorkflowTaskInMap(workflowName string, taskID int64) *WorkflowTaskWithLock {
-	globalWorkflowTaskWithLock.RLock()
-	defer globalWorkflowTaskWithLock.RUnlock()
+//func GetWorkflowTaskInMap(workflowName string, taskID int64) *WorkflowTaskWithLock {
+//	globalWorkflowTaskWithLock.RLock()
+//	defer globalWorkflowTaskWithLock.RUnlock()
+//
+//	return globalWorkflowTaskWithLock.m[fmt.Sprintf("%s-%d", workflowName, taskID)]
+//}
 
-	return globalWorkflowTaskWithLock.m[fmt.Sprintf("%s-%d", workflowName, taskID)]
-}
-
-func addWorkflowTaskInMap(workflowName string, taskID int64, task *models.WorkflowTask, ack func()) {
-	globalWorkflowTaskWithLock.Lock()
-	defer globalWorkflowTaskWithLock.Unlock()
+func addWorkflowTaskInMap(workflowName string, taskID int64, task *models.WorkflowTask) {
+	//globalWorkflowTaskWithLock.Lock()
+	//defer globalWorkflowTaskWithLock.Unlock()
 	globalWorkflowTaskWithLock.m[fmt.Sprintf("%s-%d", workflowName, taskID)] = &WorkflowTaskWithLock{
 		WorkflowTask: task,
-		Ack:          ack,
+		//Ack:          ack,
 	}
 }
 
 func removeWorkflowTaskInMap(workflowName string, taskID int64) {
-	globalWorkflowTaskWithLock.Lock()
-	defer globalWorkflowTaskWithLock.Unlock()
+	//globalWorkflowTaskWithLock.Lock()
+	//defer globalWorkflowTaskWithLock.Unlock()
 	delete(globalWorkflowTaskWithLock.m, fmt.Sprintf("%s-%d", workflowName, taskID))
 }
