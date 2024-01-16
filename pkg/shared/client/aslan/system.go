@@ -84,3 +84,9 @@ func (c *Client) GetSystemSecurityAndPrivacySettings() (*SystemSetting, error) {
 	}
 	return res, nil
 }
+
+func (c *Client) ClearSharedStorage() error {
+	url := "/system/cleanCache/sharedStorage"
+	_, err := c.Post(url)
+	return fmt.Errorf("failed to clean shared storage, err: %s", err)
+}

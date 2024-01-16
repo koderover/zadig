@@ -153,47 +153,6 @@ func GetDeliveryArtifact(c *gin.Context) {
 	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryArtifact(args, ctx.Logger)
 }
 
-// CreateDeliveryArtifacts is not used by any API for now, disabling it in router and see if anything happens
-func CreateDeliveryArtifacts(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	var deliveryArtifactInfo deliveryservice.DeliveryArtifactInfo
-	if err := c.ShouldBindWith(&deliveryArtifactInfo, binding.JSON); err != nil {
-		ctx.Logger.Infof("ShouldBindWith err :%v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	ctx.Resp, ctx.Err = deliveryservice.InsertDeliveryArtifact(&deliveryArtifactInfo, ctx.Logger)
-}
-
-type deliveryArtifactUpdate struct {
-	ImageHash   string `json:"image_hash"`
-	ImageDigest string `json:"image_digest"`
-	ImageTag    string `json:"image_tag"`
-}
-
-// UpdateDeliveryArtifact is not used by any API for now, disabling it in router and see if anything happens
-func UpdateDeliveryArtifact(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ID := c.Param("id")
-	if ID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("id can't be empty!")
-		return
-	}
-
-	var deliveryArtifactUpdate deliveryArtifactUpdate
-	if err := c.ShouldBindWith(&deliveryArtifactUpdate, binding.JSON); err != nil {
-		ctx.Logger.Infof("ShouldBindWith err :%v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	ctx.Err = deliveryservice.UpdateDeliveryArtifact(&commonrepo.DeliveryArtifactArgs{ID: ID, ImageHash: deliveryArtifactUpdate.ImageHash, ImageDigest: deliveryArtifactUpdate.ImageDigest, ImageTag: deliveryArtifactUpdate.ImageTag}, ctx.Logger)
-}
-
 func CreateDeliveryActivities(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

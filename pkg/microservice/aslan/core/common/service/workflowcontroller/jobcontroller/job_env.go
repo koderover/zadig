@@ -18,7 +18,7 @@ package jobcontroller
 
 import (
 	"context"
-	"sync"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -33,6 +33,7 @@ import (
 	commontypes "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/types"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 	"github.com/koderover/zadig/v2/pkg/tool/mongo"
 	"github.com/koderover/zadig/v2/pkg/util/converter"
@@ -84,14 +85,14 @@ func variableYamlNil(variableYaml string) bool {
 	return len(kvMap) == 0
 }
 
-// TODO FIXME, we should not use lock here
-var serviceDeployUpdateLock sync.Mutex
-
 // UpdateProductServiceDeployInfo updates deploy info of service for some product
 // Including: Deploy service / Update service / Uninstall services
 func UpdateProductServiceDeployInfo(deployInfo *ProductServiceDeployInfo) error {
+
+	serviceDeployUpdateLock := cache.NewRedisLock(fmt.Sprintf("product_svc_deploystatus:%s:%s", deployInfo.ProductName, deployInfo.EnvName))
 	serviceDeployUpdateLock.Lock()
 	defer serviceDeployUpdateLock.Unlock()
+
 	_, err := templaterepo.NewProductColl().Find(deployInfo.ProductName)
 	if err != nil {
 		return errors.Wrapf(err, "failed to find template product %s", deployInfo.ProductName)

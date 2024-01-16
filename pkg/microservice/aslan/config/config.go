@@ -111,9 +111,9 @@ func CleanSkippedList() []string {
 	return strings.Split(viper.GetString(setting.CleanSkippedList), ",")
 }
 
-// FIXME FIXME FIXME FIXME delete constant
+// S3StoragePath returns a local path used to store downloaded code and other files
 func S3StoragePath() string {
-	return "/var/lib/workspace"
+	return "/app/data/workspace"
 }
 
 func Home() string {

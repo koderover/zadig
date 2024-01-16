@@ -17,22 +17,26 @@
 package approval
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
-	"sync"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
+	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
+	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
 type ApproveMap struct {
 	m map[string]*ApproveWithLock
-	sync.RWMutex
 }
 
 type ApproveWithLock struct {
 	Approval *commonmodels.NativeApproval
-	sync.RWMutex
 }
 
 var GlobalApproveMap ApproveMap
@@ -41,27 +45,69 @@ func init() {
 	GlobalApproveMap.m = make(map[string]*ApproveWithLock, 0)
 }
 
+func approveKey(instanceID string) string {
+	return fmt.Sprintf("native-approve-%s", instanceID)
+}
+
+func approveLockKey(instanceID string) string {
+	return fmt.Sprintf("native-approve-lock-%s", instanceID)
+}
+
 func (c *ApproveMap) SetApproval(key string, value *ApproveWithLock) {
-	c.Lock()
-	defer c.Unlock()
-	c.m[key] = value
+	bytes, _ := json.Marshal(value.Approval)
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(approveKey(key), string(bytes), 0)
 }
 
 func (c *ApproveMap) GetApproval(key string) (*ApproveWithLock, bool) {
-	c.RLock()
-	defer c.RUnlock()
-	v, existed := c.m[key]
-	return v, existed
-}
-func (c *ApproveMap) DeleteApproval(key string) {
-	c.Lock()
-	defer c.Unlock()
-	delete(c.m, key)
+	value, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).GetString(approveKey(key))
+	if err != nil && !errors.Is(err, redis.Nil) {
+		log.Errorf("get approval from redis error: %v", err)
+		return nil, false
+	}
+
+	if errors.Is(err, redis.Nil) {
+		return nil, false
+	}
+
+	approval := &ApproveWithLock{}
+	err = json.Unmarshal([]byte(value), approval)
+	if err != nil {
+		log.Errorf("unmarshal approval error: %v", err)
+		return nil, false
+	}
+	return approval, true
 }
 
-func (c *ApproveWithLock) IsApproval() (bool, int, error) {
-	c.Lock()
-	defer c.Unlock()
+func (c *ApproveMap) DeleteApproval(key string) {
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(approveKey(key))
+}
+
+func (c *ApproveMap) DoApproval(key, userName, userID, comment string, approval bool) error {
+	redisMutex := cache.NewRedisLock(approveLockKey(key))
+	redisMutex.Lock()
+	defer redisMutex.Unlock()
+
+	approvalData, ok := c.GetApproval(key)
+	if !ok {
+		return fmt.Errorf("not found approval")
+	}
+	err := approvalData.doApproval(userName, userID, comment, approval)
+	if err != nil {
+		return err
+	}
+	c.SetApproval(key, approvalData)
+	return nil
+}
+
+func (c *ApproveMap) IsApproval(key string) (bool, int, error) {
+	approval, ok := c.GetApproval(key)
+	if !ok {
+		return false, 0, fmt.Errorf("not found approval")
+	}
+	return approval.isApproval()
+}
+
+func (c *ApproveWithLock) isApproval() (bool, int, error) {
 	ApproveCount := 0
 	for _, user := range c.Approval.ApproveUsers {
 		if user.RejectOrApprove == config.Reject {
@@ -79,9 +125,7 @@ func (c *ApproveWithLock) IsApproval() (bool, int, error) {
 	return false, ApproveCount, nil
 }
 
-func (c *ApproveWithLock) DoApproval(userName, userID, comment string, appvove bool) error {
-	c.Lock()
-	defer c.Unlock()
+func (c *ApproveWithLock) doApproval(userName, userID, comment string, appvove bool) error {
 	for _, user := range c.Approval.ApproveUsers {
 		if user.UserID != userID {
 			continue

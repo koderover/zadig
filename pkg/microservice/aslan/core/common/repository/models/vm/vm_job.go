@@ -17,8 +17,10 @@ limitations under the License.
 package vm
 
 import (
-	"github.com/koderover/zadig/v2/pkg/types/job"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/v2/pkg/types/job"
 )
 
 type VMJob struct {
@@ -54,4 +56,8 @@ type ReportJobParameters struct {
 
 func (VMJob) TableName() string {
 	return "vm_job"
+}
+
+func (job *VMJob) JobFinished() bool {
+	return job.Status == string(config.StatusCancelled) || job.Status == string(config.StatusTimeout) || job.Status == string(config.StatusFailed) || job.Status == string(config.StatusPassed)
 }

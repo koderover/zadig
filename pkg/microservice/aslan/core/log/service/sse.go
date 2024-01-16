@@ -437,6 +437,11 @@ func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *
 		return
 	}
 
+	if job.Status != string(config.StatusRunning) {
+		log.Errorf("vm job not running")
+		return
+	}
+
 	out, err := os.OpenFile(job.LogFile, os.O_APPEND|os.O_CREATE|os.O_RDONLY, 0644)
 	if err != nil {
 		log.Errorf("open vm job log file error: %v", err)
@@ -457,13 +462,13 @@ func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *
 			log.Infof("Connection is closed, vm log stream stopped")
 			return
 		default:
-			if !vmservice.VMJobStatus.Exist(job.ID.Hex()) {
+			if !vmservice.VMJobStatus.Exists(job.ID.Hex()) {
 				err := ReadFromFileAndWriteToStreamChan(buf, streamChan)
 				if err != nil && err != io.EOF {
 					log.Errorf("scan vm log stream error: %v", err)
 					return
 				}
-				log.Infof("vm job log stream stopped")
+				log.Infof("job cache existed vm job log stream stopped")
 				return
 			}
 
@@ -473,7 +478,7 @@ func waitVmAndGetLog(ctx context.Context, streamChan chan interface{}, options *
 				return
 			}
 
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(1000 * time.Millisecond)
 		}
 	}
 }

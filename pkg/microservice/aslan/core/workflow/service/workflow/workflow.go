@@ -19,10 +19,10 @@ package workflow
 import (
 	"fmt"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -40,8 +40,6 @@ import (
 	"github.com/koderover/zadig/v2/pkg/types"
 	"github.com/koderover/zadig/v2/pkg/util"
 )
-
-var mut sync.Mutex
 
 type EnvStatus struct {
 	EnvName    string `json:"env_name,omitempty"`
@@ -139,6 +137,9 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 		return &EnvStatus{Status: setting.ProductStatusFailed, ErrMessage: errMsg}
 	}
 	errList := new(multierror.Error)
+
+	mut := cache.NewRedisLock(fmt.Sprintf("auto_create_product:%s", productName))
+
 	mut.Lock()
 	defer func() {
 		mut.Unlock()

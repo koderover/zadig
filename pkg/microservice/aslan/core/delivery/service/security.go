@@ -19,28 +19,9 @@ package service
 import (
 	"go.uber.org/zap"
 
-	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 )
-
-func FindDeliverySecurity(args *commonrepo.DeliverySecurityArgs, log *zap.SugaredLogger) ([]*commonmodels.DeliverySecurity, error) {
-	resp, err := commonrepo.NewDeliverySecurityColl().Find(args)
-	if err != nil {
-		log.Errorf("find deliverySecurity error: %v", err)
-		return resp, e.ErrFindDeliverySecurity
-	}
-	return resp, err
-}
-
-func InsertDeliverySecurity(args *commonmodels.DeliverySecurity, log *zap.SugaredLogger) error {
-	err := commonrepo.NewDeliverySecurityColl().Insert(args)
-	if err != nil {
-		log.Errorf("find deliverySecurity error: %v", err)
-		return e.ErrCreateDeliverySecurity
-	}
-	return nil
-}
 
 func FindDeliverySecurityStatistics(imageID string, log *zap.SugaredLogger) (map[string]int, error) {
 	resp, err := commonrepo.NewDeliverySecurityColl().FindStatistics(imageID)

@@ -81,11 +81,7 @@ func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCt
 
 func ApproveStage(workflowName, stageName, userName, userID, comment string, taskID int64, approve bool) error {
 	approveKey := fmt.Sprintf("%s-%d-%s", workflowName, taskID, stageName)
-	approveWithL, ok := approvalservice.GlobalApproveMap.GetApproval(approveKey)
-	if !ok {
-		return fmt.Errorf("workflow %s ID %d stage %s do not need approve", workflowName, taskID, stageName)
-	}
-	return approveWithL.DoApproval(userName, userID, comment, approve)
+	return approvalservice.GlobalApproveMap.DoApproval(approveKey, userName, userID, comment, approve)
 }
 
 func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) (err error) {
@@ -162,7 +158,7 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 			stage.Status = config.StatusTimeout
 			return fmt.Errorf("workflow timeout")
 		default:
-			approved, approveCount, err := approveWithL.IsApproval()
+			approved, approveCount, err := approvalservice.GlobalApproveMap.IsApproval(approveKey)
 			if err != nil {
 				stage.Status = config.StatusReject
 				return err
@@ -290,7 +286,7 @@ func waitForLarkApprove(ctx context.Context, stage *commonmodels.StageTask, work
 			if node.RejectOrApprove != "" {
 				continue
 			}
-			resultMap := larkservice.GetLarkApprovalInstanceManager(instance).GetNodeUserApprovalResults(lark.ApprovalNodeIDKey(i))
+			resultMap := larkservice.GetNodeUserApprovalResults(instance, lark.ApprovalNodeIDKey(i))
 			for _, user := range node.ApproveUsers {
 				if result, ok := resultMap[user.ID]; ok && user.RejectOrApprove == "" {
 					instanceData, err := client.GetApprovalInstance(&lark.GetApprovalInstanceArgs{InstanceID: instance})
@@ -497,7 +493,7 @@ func waitForDingTalkApprove(ctx context.Context, stage *commonmodels.StageTask, 
 			stage.Status = config.StatusCancelled
 			return fmt.Errorf("workflow timeout")
 		default:
-			userApprovalResult := dingservice.GetDingTalkApprovalManager(instanceID).GetAllUserApprovalResults()
+			userApprovalResult := dingservice.GetAllUserApprovalResults(instanceID)
 			userUpdated := false
 			for _, node := range approval.ApprovalNodes {
 				if node.RejectOrApprove != "" {

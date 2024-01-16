@@ -75,6 +75,9 @@ func initSystemConfig() error {
 		return err
 	}
 
+	if err := clearSharedStorage(); err != nil {
+		log.Errorf("failed to clear aslan shared storage, error: %s", err)
+	}
 	return nil
 }
 
@@ -101,4 +104,8 @@ func createLocalCluster() error {
 		return nil
 	}
 	return aslan.New(config.AslanServiceAddress()).AddLocalCluster()
+}
+
+func clearSharedStorage() error {
+	return aslan.New(config.AslanServiceAddress()).ClearSharedStorage()
 }

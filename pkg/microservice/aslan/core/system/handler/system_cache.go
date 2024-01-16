@@ -94,3 +94,10 @@ func CleanCacheState(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.GetOrCreateCleanCacheState()
 }
+
+func CleanSharedStorage(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Err = service.CleanSharedStorage()
+}

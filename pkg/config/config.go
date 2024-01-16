@@ -172,8 +172,9 @@ func MinioServiceName() string {
 func DataPath() string {
 	return "/app/data"
 }
-func WorkflowDataPath() string {
-	return "/workflow/data"
+
+func VMTaskLogPath() string {
+	return filepath.Join(DataPath(), "%vm-task%", "log")
 }
 
 func ObjectStorageServicePath(project, service string) string {
@@ -188,20 +189,12 @@ func ObjectStorageTemplatePath(name, kind string) string {
 	return filepath.Join("templates", kind, name)
 }
 
-func ObjectStorageDeliveryVersionPath(project string) string {
-	return filepath.Join("delivery-distributes", "files", project)
-}
-
 func ObjectStorageChartTemplatePath(name string) string {
 	return ObjectStorageTemplatePath(name, setting.ChartTemplatesPath)
 }
 
 func LocalTestServicePath(project, service string) string {
 	return filepath.Join(DataPath(), project, "test", service)
-}
-
-func LocalWorkflowServicePath(project, service string) string {
-	return filepath.Join(WorkflowDataPath(), project, service)
 }
 
 // LocalTestServicePathWithRevision returns a test service path with a given revision.
@@ -260,4 +253,24 @@ func RoleBindingNameFromUIDAndRole(uid string, role setting.RoleType, roleNamesp
 
 func BuildResourceKey(resourceType, projectName, labelBinding string) string {
 	return fmt.Sprintf("%s-%s-%s", resourceType, projectName, labelBinding)
+}
+
+func RedisHost() string {
+	return viper.GetString(setting.ENVRedisHost)
+}
+
+func RedisPort() int {
+	return viper.GetInt(setting.ENVRedisPort)
+}
+
+func RedisUserName() string {
+	return viper.GetString(setting.ENVRedisUserName)
+}
+
+func RedisPassword() string {
+	return viper.GetString(setting.ENVRedisPassword)
+}
+
+func RedisCommonCacheTokenDB() int {
+	return 1
 }
