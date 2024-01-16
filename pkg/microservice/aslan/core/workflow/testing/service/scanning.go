@@ -425,6 +425,9 @@ func CreateScanningTaskV2(id, username, account, userID string, req []*ScanningR
 		return 0, err
 	}
 
+	log.Infof("workflow name is: %s", scanningWorkflow.Name)
+	log.Infof("workflow display name is: %s", scanningWorkflow.DisplayName)
+
 	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
 		Name:    username,
 		Account: account,
@@ -542,18 +545,6 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		RepoInfo:   repoInfo,
 		ResultLink: resultAddr,
 	}, nil
-}
-
-func CancelScanningTask(userName, scanningID string, taskID int64, typeString config.PipelineType, requestID string, log *zap.SugaredLogger) error {
-	scanningInfo, err := commonrepo.NewScanningColl().GetByID(scanningID)
-	if err != nil {
-		log.Errorf("failed to get scanning from mongodb, the error is: %s", err)
-		return err
-	}
-
-	scanningTaskName := fmt.Sprintf("%s-%s-%s", scanningInfo.Name, scanningID, "scanning-job")
-
-	return commonservice.CancelTaskV2(userName, scanningTaskName, taskID, typeString, requestID, log)
 }
 
 func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args []*ScanningRepoInfo, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
