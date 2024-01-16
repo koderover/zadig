@@ -23,6 +23,8 @@ import (
 
 	"github.com/gin-contrib/sse"
 	"github.com/gin-gonic/gin"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/workflowcontroller/jobcontroller"
@@ -370,6 +372,33 @@ func GetTestingContainerLogsSSE(c *gin.Context) {
 	if err != nil {
 		tails = int64(10)
 	}
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
+	if err != nil {
+		ctx.Logger.Errorf("failed to find workflow task for testing: %s, err: %s", testName, err)
+		ctx.Err = err
+		return
+	}
+
+	if len(workflowTask.Stages) != 1 {
+		ctx.Logger.Errorf("Invalid stage length: stage length for testing should be 1")
+		ctx.Err = fmt.Errorf("invalid stage length")
+		return
+	}
+
+	if len(workflowTask.Stages[0].Jobs) != 1 {
+		ctx.Logger.Errorf("Invalid Job length: job length for testing should be 1")
+		ctx.Err = fmt.Errorf("invalid job length")
+		return
+	}
+
+	jobInfo := new(commonmodels.TaskJobInfo)
+	if err := commonmodels.IToi(workflowTask.Stages[0].Jobs[0].JobInfo, jobInfo); err != nil {
+		ctx.Err = fmt.Errorf("convert job info to task job info error: %v", err)
+		return
+	}
+
+	buildJobName := fmt.Sprintf("%s-%s-%s", jobInfo.JobName, jobInfo.TestingName, jobInfo.RandStr)
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
 		logservice.WorkflowTaskV4ContainerLogStream(
@@ -377,7 +406,7 @@ func GetTestingContainerLogsSSE(c *gin.Context) {
 			&logservice.GetContainerOptions{
 				Namespace:    config.Namespace(),
 				PipelineName: fmt.Sprintf(setting.TestWorkflowNamingConvention, testName),
-				SubTask:      jobcontroller.GetJobContainerName(testName),
+				SubTask:      jobcontroller.GetJobContainerName(buildJobName),
 				TaskID:       taskID,
 				TailLines:    tails,
 			},
