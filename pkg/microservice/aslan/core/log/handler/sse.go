@@ -323,26 +323,20 @@ func GetScanningContainerLogsSSE(c *gin.Context) {
 	if resp.AdvancedSetting != nil {
 		clusterId = resp.AdvancedSetting.ClusterID
 	}
-	if clusterId != "" && clusterId != setting.LocalClusterID {
-		namespace = setting.AttachedClusterNamespace
-	}
 
-	scanningName := fmt.Sprintf("%s-%s-%s", resp.Name, id, "scanning-job")
-	options := &logservice.GetContainerOptions{
-		Namespace:    namespace,
-		PipelineName: scanningName,
-		SubTask:      string(config.TaskScanning),
-		TailLines:    tails,
-		TaskID:       taskID,
-		PipelineType: string(config.ScanningType),
-		ServiceName:  resp.Name,
-		ClusterID:    clusterId,
-	}
+	scanJobName := fmt.Sprintf("%s-%s", resp.Name, resp.Name)
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
-		logservice.TaskContainerLogStream(
+		logservice.WorkflowTaskV4ContainerLogStream(
 			ctx1, streamChan,
-			options,
+			&logservice.GetContainerOptions{
+				Namespace:    namespace,
+				PipelineName: fmt.Sprintf(setting.ScanWorkflowNamingConvention, id),
+				SubTask:      jobcontroller.GetJobContainerName(scanJobName),
+				TaskID:       taskID,
+				TailLines:    tails,
+				ClusterID:    clusterId,
+			},
 			ctx.Logger)
 	}, ctx.Logger)
 }
