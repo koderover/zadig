@@ -25,13 +25,14 @@ import (
 	"strconv"
 	"time"
 
+	workflowservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	"github.com/koderover/zadig/v2/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/testing/service"
@@ -354,7 +355,7 @@ func CreateScanningTask(c *gin.Context) {
 		}
 	}
 
-	resp, err := service.CreateScanningTask(scanningID, req, "", ctx.UserName, ctx.Logger)
+	resp, err := service.CreateScanningTaskV2(scanningID, ctx.UserName, ctx.Account, ctx.UserID, req, "", ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -363,8 +364,8 @@ func CreateScanningTask(c *gin.Context) {
 }
 
 type listQuery struct {
-	PageSize int64 `json:"page_size" form:"page_size,default=100"`
-	PageNum  int64 `json:"page_num"  form:"page_num,default=1"`
+	PageSize int `json:"page_size" form:"page_size,default=100"`
+	PageNum  int `json:"page_num"  form:"page_num,default=1"`
 }
 
 func ListScanningTask(c *gin.Context) {
@@ -486,7 +487,9 @@ func CancelScanningTask(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = service.CancelScanningTask(ctx.UserName, scanningID, taskID, config.ScanningType, ctx.RequestID, ctx.Logger)
+	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningID)
+
+	ctx.Err = workflowservice.CancelWorkflowTaskV4(ctx.UserName, workflowName, taskID, ctx.Logger)
 }
 
 func GetScanningTaskSSE(c *gin.Context) {
@@ -494,7 +497,6 @@ func GetScanningTaskSSE(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	if err != nil {
-
 		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
 		ctx.UnAuthorized = true
 		return

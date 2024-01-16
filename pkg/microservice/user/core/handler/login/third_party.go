@@ -152,6 +152,8 @@ func Callback(c *gin.Context) {
 		return
 	}
 
+	claims.IssuedAt = time.Now().Unix()
+
 	user, err := user.SyncUser(&user.SyncUserInfo{
 		Account:      claims.PreferredUsername,
 		Name:         claims.Name,

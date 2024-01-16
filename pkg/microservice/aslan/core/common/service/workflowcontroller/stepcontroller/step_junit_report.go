@@ -149,7 +149,11 @@ func (s *junitReportCtl) AfterRun(ctx context.Context) error {
 		TestName:         testReport.Name,
 		TestCaseNum:      testReport.Tests,
 		SuccessCaseNum:   testReport.Successes,
+		SkipCaseNum:      testReport.Skips,
+		FailedCaseNum:    testReport.Failures,
+		ErrorCaseNum:     testReport.Errors,
 		TestTime:         math.Round(duration*1000) / 1000,
+		TestCases:        testReport.TestCases,
 	})
 
 	if err != nil {

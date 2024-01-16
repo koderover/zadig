@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -39,6 +41,21 @@ func GetTestArtifactInfo(c *gin.Context) {
 	dir := c.Query("dir")
 
 	ctx.Resp, ctx.Err = service.GetTestArtifactInfo(c.Param("pipelineName"), dir, taskID, ctx.Logger)
+}
+
+func GetTestArtifactInfoV2(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, c.Param("testName"))
+
+	ctx.Resp, ctx.Err = service.GetWorkflowV4TestArtifactInfo(workflowName, c.Param("testName"), taskID, ctx.Logger)
 }
 
 func GetWorkflowV4TestArtifactInfo(c *gin.Context) {

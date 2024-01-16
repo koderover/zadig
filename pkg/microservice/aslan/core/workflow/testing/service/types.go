@@ -138,7 +138,7 @@ type ScanningStatistic struct {
 type ListScanningTaskResp struct {
 	ScanInfo   *ScanningInfo       `json:"scan_info"`
 	ScanTasks  []*ScanningTaskResp `json:"scan_tasks"`
-	TotalTasks int                 `json:"total_tasks"`
+	TotalTasks int64               `json:"total_tasks"`
 }
 
 type ScanningInfo struct {
