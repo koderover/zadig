@@ -425,9 +425,6 @@ func CreateScanningTaskV2(id, username, account, userID string, req []*ScanningR
 		return 0, err
 	}
 
-	log.Infof("workflow name is: %s", scanningWorkflow.Name)
-	log.Infof("workflow display name is: %s", scanningWorkflow.DisplayName)
-
 	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
 		Name:    username,
 		Account: account,
@@ -448,7 +445,7 @@ func ListScanningTask(id string, pageNum, pageSize int, log *zap.SugaredLogger) 
 		return nil, err
 	}
 
-	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID)
+	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID.Hex())
 	workflowTasks, total, err := commonrepo.NewworkflowTaskv4Coll().List(&commonrepo.ListWorkflowTaskV4Option{
 		WorkflowName: workflowName,
 		ProjectName:  scanningInfo.ProjectName,
@@ -493,7 +490,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
-	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID)
+	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanningInfo.ID.Hex())
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		log.Errorf("failed to find workflow task %d for scanning: %s, error: %s", taskID, scanningID, err)
@@ -549,7 +546,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 
 func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args []*ScanningRepoInfo, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	resp := &commonmodels.WorkflowV4{
-		Name:             fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanInfo.ID),
+		Name:             fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanInfo.ID.Hex()),
 		DisplayName:      scanInfo.Name,
 		Stages:           nil,
 		Project:          scanInfo.ProjectName,
