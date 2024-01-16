@@ -435,7 +435,7 @@ func CreateScanningTaskV2(id, username, account, userID string, req []*ScanningR
 	}, scanningWorkflow, log)
 
 	if createResp != nil {
-		return createResp.TaskID, nil
+		return createResp.TaskID, err
 	}
 
 	return 0, err
