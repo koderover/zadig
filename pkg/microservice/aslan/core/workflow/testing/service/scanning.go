@@ -429,6 +429,7 @@ func CreateScanningTaskV2(id, username, account, userID string, req []*ScanningR
 		Name:    username,
 		Account: account,
 		UserID:  userID,
+		Type:    config.WorkflowTaskTypeScanning,
 	}, scanningWorkflow, log)
 
 	if createResp != nil {

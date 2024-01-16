@@ -157,6 +157,7 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 		Name:    username,
 		Account: account,
 		UserID:  userID,
+		Type:    config.WorkflowTaskTypeTesting,
 	}, testWorkflow, log)
 
 	if createResp != nil {

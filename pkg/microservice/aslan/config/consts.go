@@ -136,6 +136,14 @@ func InCompletedStatus() []Status {
 	return []Status{StatusCreated, StatusRunning, StatusWaiting, StatusQueued, StatusBlocked, QueueItemPending, StatusPrepare, StatusWaitingApprove}
 }
 
+type CustomWorkflowTaskType string
+
+const (
+	WorkflowTaskTypeWorkflow CustomWorkflowTaskType = "workflow"
+	WorkflowTaskTypeTesting  CustomWorkflowTaskType = "test"
+	WorkflowTaskTypeScanning CustomWorkflowTaskType = "scan"
+)
+
 type TaskStatus string
 
 const (

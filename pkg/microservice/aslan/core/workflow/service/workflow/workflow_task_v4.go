@@ -305,6 +305,7 @@ type CreateWorkflowTaskV4Args struct {
 	Name    string
 	Account string
 	UserID  string
+	Type    config.CustomWorkflowTaskType
 }
 
 func CreateWorkflowTaskV4ByBuildInTrigger(triggerName string, args *commonmodels.WorkflowV4, log *zap.SugaredLogger) (*CreateTaskV4Resp, error) {
@@ -478,6 +479,10 @@ func CreateWorkflowTaskV4(args *CreateWorkflowTaskV4Args, workflow *commonmodels
 	workflowTask.WorkflowArgs = workflow
 	workflowTask.Status = config.StatusCreated
 	workflowTask.StartTime = time.Now().Unix()
+	workflowTask.Type = args.Type
+	if args.Type == "" {
+		workflowTask.Type = config.WorkflowTaskTypeWorkflow
+	}
 
 	workflowTask.WorkflowArgs, _, err = service.FillServiceModules2Jobs(workflowTask.WorkflowArgs)
 	if err != nil {
