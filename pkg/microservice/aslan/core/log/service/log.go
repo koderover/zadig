@@ -159,14 +159,16 @@ func GetWorkflowBuildV3JobContainerLogs(workflowName, buildType string, taskID i
 }
 
 func GetScanningContainerLogs(scanID string, taskID int64, log *zap.SugaredLogger) (string, error) {
+	workflowName := fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanID)
+
 	scanning, err := commonrepo.NewScanningColl().GetByID(scanID)
 	if err != nil {
 		log.Errorf("failed to get scanning from db to get scanning detail, the error is: %s", err)
 		return "", err
 	}
-	scanningName := fmt.Sprintf("%s-%s-%s", scanning.Name, scanID, "scanning-job")
-	scanningLogFilePrefix := fmt.Sprintf("%s-%s-%d-%s", config.ScanningType, scanningName, taskID, config.ScanningType)
-	buildLog, err := getContainerLogFromS3(scanningName, scanningLogFilePrefix, taskID, log)
+	scanningLogFilePrefix := fmt.Sprintf("%s-%s", scanning.Name, scanning.Name)
+
+	buildLog, err := getContainerLogFromS3(workflowName, scanningLogFilePrefix, taskID, log)
 	if err != nil {
 		return "", err
 	}
