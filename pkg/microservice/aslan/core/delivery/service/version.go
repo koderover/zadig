@@ -67,7 +67,7 @@ import (
 const (
 	VerbosityBrief                            string = "brief"    // brief delivery data
 	VerbosityDetailed                         string = "detailed" // detailed delivery version with total data
-	deliveryVersionWorkflowV4NamingConvention string = "zadig-%s"
+	deliveryVersionWorkflowV4NamingConvention string = "zadig-delivery-%s"
 )
 
 type DeliveryVersionFilter struct {
@@ -2039,7 +2039,7 @@ func ApplyDeliveryGlobalVariables(args *DeliveryVariablesApplyArgs, logger *zap.
 }
 
 func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product, deliveryVersion *commonmodels.DeliveryVersion, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace, args *DeliveryVersionYamlData) (*commonmodels.WorkflowV4, error) {
-	name := fmt.Sprintf(deliveryVersionWorkflowV4NamingConvention, deliveryVersion.ProductName)
+	name := generateDeliveryWorkflowName(deliveryVersion.ProductName)
 	resp := &commonmodels.WorkflowV4{
 		Name:             name,
 		DisplayName:      name,
@@ -2083,6 +2083,7 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 		}
 	}
 
+	i := 0
 	for sourceRegistry, serviceNameImageDatasMap := range registryDatasMap {
 		for serviceName, imageDatas := range serviceNameImageDatasMap {
 			for _, imageData := range imageDatas {
@@ -2108,7 +2109,7 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 				targets = append(targets, target)
 
 				jobs = append(jobs, &commonmodels.Job{
-					Name:    name,
+					Name:    fmt.Sprintf("distribute-image-%d", i),
 					JobType: config.JobZadigDistributeImage,
 					Skipped: false,
 					Spec: &commonmodels.ZadigDistributeImageJobSpec{
@@ -2121,6 +2122,7 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 					RunPolicy:      "",
 					ServiceModules: nil,
 				})
+				i++
 			}
 		}
 	}
@@ -2135,4 +2137,8 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 	resp.Stages = stage
 
 	return resp, nil
+}
+
+func generateDeliveryWorkflowName(productName string) string {
+	return fmt.Sprintf(deliveryVersionWorkflowV4NamingConvention, productName)
 }
