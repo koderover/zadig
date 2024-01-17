@@ -70,10 +70,10 @@ func initSystemConfig() error {
 		return err
 	}
 
-	if err := scaleWarpdrive(); err != nil {
-		log.Errorf("scale warpdrive err: %s", err)
-		return err
-	}
+	//if err := scaleWarpdrive(); err != nil {
+	//	log.Errorf("scale warpdrive err: %s", err)
+	//	return err
+	//}
 
 	if err := clearSharedStorage(); err != nil {
 		log.Errorf("failed to clear aslan shared storage, error: %s", err)
