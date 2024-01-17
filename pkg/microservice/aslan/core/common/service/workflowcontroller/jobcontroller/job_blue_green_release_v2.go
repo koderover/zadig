@@ -212,6 +212,9 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 					c.logger.Infof("green deploy: %s not ready", c.jobTaskSpec.Service.GreenDeploymentName)
 					break
 				}
+				if ready {
+					return
+				}
 			}
 		}
 	}()
