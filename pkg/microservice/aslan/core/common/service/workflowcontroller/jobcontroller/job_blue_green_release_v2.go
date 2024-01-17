@@ -187,6 +187,35 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 			return errors.New(msg)
 		}
 	}
+
+	timeout := time.After(time.Duration(3) * time.Minute)
+	func() {
+		c.logger.Infof("------- waiting green deploy roll")
+		defer c.logger.Infof("------- green deploy wait finished")
+		for {
+			select {
+			case <-timeout:
+				return
+			default:
+				time.Sleep(time.Second * 3)
+				d, found, e := getter.GetDeployment(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, c.kubeClient)
+				if e != nil {
+					c.logger.Errorf("failed to find green deoloy: %s, err: %s", c.jobTaskSpec.Service.GreenDeploymentName, e)
+					break
+				}
+				if !found {
+					c.logger.Infof("green deploy: %s not found", c.jobTaskSpec.Service.GreenDeploymentName)
+					return
+				}
+				ready := wrapper.Deployment(d).Ready()
+				if !ready {
+					c.logger.Infof("green deploy: %s not ready", c.jobTaskSpec.Service.GreenDeploymentName)
+					break
+				}
+			}
+		}
+	}()
+
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("update deployment %s image success", c.jobTaskSpec.Service.GreenDeploymentName))
 	c.ack()
 
