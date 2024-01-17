@@ -470,7 +470,9 @@ FOR:
 			Command:       []string{"sh", "-c", cmd},
 		}
 		_, stderr, success, _ := podexec.KubeExec(clientSet, restConfig, opt)
-		logger.Errorf("stop workflowTaskV4 debug shell exec %s error: %s", cmd, stderr)
+		if stderr != "" {
+			logger.Errorf("stop workflowTaskV4 debug shell exec %s error: %s", cmd, stderr)
+		}
 		return success
 	}
 
@@ -725,7 +727,7 @@ func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
 	if err != nil {
 		existed = false
 		if errors.Is(err, redis.Nil) {
-			log.Errorf("get global context %s error: %v", c.prefix, err)
+			log.Errorf("get global context %s/%s error: %v", c.prefix, key, err)
 		}
 	}
 	return v, existed
