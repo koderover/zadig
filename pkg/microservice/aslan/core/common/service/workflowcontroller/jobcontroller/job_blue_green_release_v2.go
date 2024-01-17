@@ -19,6 +19,7 @@ package jobcontroller
 import (
 	"context"
 	"fmt"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"time"
 
 	"github.com/pkg/errors"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
+<<<<<<< Updated upstream
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -35,6 +37,16 @@ import (
 	"github.com/koderover/zadig/v2/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/v2/pkg/tool/kube/updater"
+=======
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
+>>>>>>> Stashed changes
 )
 
 type BlueGreenReleaseV2JobCtl struct {
@@ -170,7 +182,46 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	// offline blue service and deployment first
+	// update green deployment image to new version
+	for _, v := range c.jobTaskSpec.Service.ServiceAndImage {
+		err := updater.UpdateDeploymentImage(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, c.kubeClient)
+		if err != nil {
+			msg := fmt.Sprintf("can't update deployment %s container %s image %s, err: %v",
+				c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, err)
+			logError(c.job, msg, c.logger)
+			c.jobTaskSpec.Events.Error(msg)
+			return errors.New(msg)
+		}
+		if err := commonutil.UpdateProductImage(c.jobTaskSpec.Env, c.workflowCtx.ProjectName, c.jobTaskSpec.Service.ServiceName, map[string]string{v.ServiceModule: v.Image}, c.workflowCtx.WorkflowTaskCreatorUsername, c.logger); err != nil {
+			msg := fmt.Sprintf("update product image service %s service module %s image %s error: %v", c.jobTaskSpec.Service.ServiceName, v.ServiceModule, v.Image, err)
+			logError(c.job, msg, c.logger)
+			c.jobTaskSpec.Events.Error(msg)
+			return errors.New(msg)
+		}
+	}
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("update deployment %s image success", c.jobTaskSpec.Service.GreenDeploymentName))
+	c.ack()
+
+	// rollback green service selector, change endpoint to green services just updated
+	greenService, found, err := getter.GetService(c.namespace, c.jobTaskSpec.Service.GreenServiceName, c.kubeClient)
+	if err != nil || !found {
+		msg := fmt.Sprintf("can't get green service %s, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
+	delete(greenService.Spec.Selector, config.BlueGreenVerionLabelName)
+	err = updater.CreateOrPatchService(greenService, c.kubeClient)
+	if err != nil {
+		msg := fmt.Sprintf("can't update green service %s selector, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("update green service %s selector success", c.jobTaskSpec.Service.GreenServiceName))
+	c.ack()
+
+	// offline blue service and deployment
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("wait for blue deployment %s be deleted", c.jobTaskSpec.Service.BlueDeploymentName))
 	c.ack()
 	err = updater.DeleteDeploymentAndWait(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
@@ -190,45 +241,6 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue service %s success", c.jobTaskSpec.Service.BlueServiceName))
-	c.ack()
-
-	// rollback green service selector
-	greenService, found, err := getter.GetService(c.namespace, c.jobTaskSpec.Service.GreenServiceName, c.kubeClient)
-	if err != nil || !found {
-		msg := fmt.Sprintf("can't get green service %s, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
-		logError(c.job, msg, c.logger)
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
-	}
-	delete(greenService.Spec.Selector, config.BlueGreenVerionLabelName)
-	err = updater.CreateOrPatchService(greenService, c.kubeClient)
-	if err != nil {
-		msg := fmt.Sprintf("can't update green service %s selector, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
-		logError(c.job, msg, c.logger)
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
-	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("update green service %s selector success", c.jobTaskSpec.Service.GreenServiceName))
-	c.ack()
-
-	// update green deployment image
-	for _, v := range c.jobTaskSpec.Service.ServiceAndImage {
-		err := updater.UpdateDeploymentImage(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, c.kubeClient)
-		if err != nil {
-			msg := fmt.Sprintf("can't update deployment %s container %s image %s, err: %v",
-				c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, err)
-			logError(c.job, msg, c.logger)
-			c.jobTaskSpec.Events.Error(msg)
-			return errors.New(msg)
-		}
-		if err := commonutil.UpdateProductImage(c.jobTaskSpec.Env, c.workflowCtx.ProjectName, c.jobTaskSpec.Service.ServiceName, map[string]string{v.ServiceModule: v.Image}, c.workflowCtx.WorkflowTaskCreatorUsername, c.logger); err != nil {
-			msg := fmt.Sprintf("update product image service %s service module %s image %s error: %v", c.jobTaskSpec.Service.ServiceName, v.ServiceModule, v.Image, err)
-			logError(c.job, msg, c.logger)
-			c.jobTaskSpec.Events.Error(msg)
-			return errors.New(msg)
-		}
-	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("update deployment %s image success", c.jobTaskSpec.Service.GreenDeploymentName))
 
 	return nil
 }
