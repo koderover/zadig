@@ -144,7 +144,8 @@ func Start(ctx context.Context) {
 
 	systemservice.SetProxyConfig()
 
-	workflowservice.InitPipelineController()
+	//workflowservice.InitPipelineController()
+
 	// update offical plugins
 	workflowservice.UpdateOfficalPluginRepository(log.SugaredLogger())
 	workflowcontroller.InitWorkflowController()
