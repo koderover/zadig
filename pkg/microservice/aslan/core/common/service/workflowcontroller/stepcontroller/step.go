@@ -80,7 +80,7 @@ func instantiateStepCtl(step *commonmodels.StepTask, workflowCtx *commonmodels.W
 	case config.StepBatchFile:
 		stepCtl, err = NewBatchFileCtl(step, logger)
 	case config.StepDockerBuild:
-		stepCtl, err = NewDockerBuildCtl(step, logger)
+		stepCtl, err = NewDockerBuildCtl(step, workflowCtx, logger)
 	case config.StepTools:
 		stepCtl, err = NewToolInstallCtl(step, jobPath, logger)
 	case config.StepArchive:

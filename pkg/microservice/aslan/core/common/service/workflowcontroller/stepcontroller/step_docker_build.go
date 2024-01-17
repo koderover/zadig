@@ -19,22 +19,29 @@ package stepcontroller
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
 
 type dockerBuildCtl struct {
 	step            *commonmodels.StepTask
 	dockerBuildSpec *step.StepDockerBuildSpec
+	workflowCtx     *commonmodels.WorkflowTaskCtx
 	log             *zap.SugaredLogger
 }
 
-func NewDockerBuildCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) (*dockerBuildCtl, error) {
+func NewDockerBuildCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodels.WorkflowTaskCtx, log *zap.SugaredLogger) (*dockerBuildCtl, error) {
 	yamlString, err := yaml.Marshal(stepTask.Spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal docker build spec error: %v", err)
@@ -47,7 +54,7 @@ func NewDockerBuildCtl(stepTask *commonmodels.StepTask, log *zap.SugaredLogger) 
 		dockerBuildSpec.Proxy = &step.Proxy{}
 	}
 	stepTask.Spec = dockerBuildSpec
-	return &dockerBuildCtl{dockerBuildSpec: dockerBuildSpec, log: log, step: stepTask}, nil
+	return &dockerBuildCtl{dockerBuildSpec: dockerBuildSpec, workflowCtx: workflowCtx, log: log, step: stepTask}, nil
 }
 
 func (s *dockerBuildCtl) PreRun(ctx context.Context) error {
@@ -67,5 +74,58 @@ func (s *dockerBuildCtl) PreRun(ctx context.Context) error {
 }
 
 func (s *dockerBuildCtl) AfterRun(ctx context.Context) error {
+	deliveryArtifact := new(commonmodels.DeliveryArtifact)
+	deliveryArtifact.CreatedBy = s.workflowCtx.WorkflowTaskCreatorUsername
+	deliveryArtifact.CreatedTime = time.Now().Unix()
+	deliveryArtifact.Source = string(config.WorkflowTypeV4)
+
+	image := s.dockerBuildSpec.ImageName
+	s.log.Debugf("dockerBuildCtl AfterRun: image:%s", image)
+	imageArray := strings.Split(image, "/")
+	tagArray := strings.Split(imageArray[len(imageArray)-1], ":")
+	imageName := tagArray[0]
+	imageTag := tagArray[1]
+
+	deliveryArtifact.Image = image
+	deliveryArtifact.Type = string(config.Image)
+	deliveryArtifact.Name = imageName
+	deliveryArtifact.ImageTag = imageTag
+	err := commonrepo.NewDeliveryArtifactColl().Insert(deliveryArtifact)
+	if err != nil {
+		return fmt.Errorf("archiveCtl AfterRun: insert delivery artifact error: %v", err)
+	}
+
+	deliveryActivity := new(commonmodels.DeliveryActivity)
+	deliveryActivity.ArtifactID = deliveryArtifact.ID
+	deliveryActivity.Type = setting.BuildType
+	deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/custom/%s/%d?display_name=%s", s.workflowCtx.ProjectName, s.workflowCtx.WorkflowName, s.workflowCtx.TaskID, url.QueryEscape(s.workflowCtx.WorkflowDisplayName))
+	commits := make([]*commonmodels.ActivityCommit, 0)
+	for _, repo := range s.dockerBuildSpec.Repos {
+		deliveryCommit := new(commonmodels.ActivityCommit)
+		deliveryCommit.Address = repo.Address
+		deliveryCommit.Source = repo.Source
+		deliveryCommit.RepoOwner = repo.RepoOwner
+		deliveryCommit.RepoName = repo.RepoName
+		deliveryCommit.Branch = repo.Branch
+		deliveryCommit.Tag = repo.Tag
+		deliveryCommit.PR = repo.PR
+		deliveryCommit.PRs = repo.PRs
+		deliveryCommit.CommitID = repo.CommitID
+		deliveryCommit.CommitMessage = repo.CommitMessage
+		deliveryCommit.AuthorName = repo.AuthorName
+
+		commits = append(commits, deliveryCommit)
+	}
+	deliveryActivity.Commits = commits
+
+	deliveryActivity.CreatedBy = s.workflowCtx.WorkflowTaskCreatorUsername
+	deliveryActivity.CreatedTime = time.Now().Unix()
+	deliveryActivity.StartTime = s.workflowCtx.StartTime.Unix()
+	deliveryActivity.EndTime = time.Now().Unix()
+
+	err = commonrepo.NewDeliveryActivityColl().Insert(deliveryActivity)
+	if err != nil {
+		return fmt.Errorf("archiveCtl AfterRun: build deliveryActivityColl insert err:%v", err)
+	}
 	return nil
 }

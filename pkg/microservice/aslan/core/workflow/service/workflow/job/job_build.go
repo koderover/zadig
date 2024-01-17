@@ -383,7 +383,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 					Source:                buildInfo.PostBuild.DockerBuild.Source,
 					WorkDir:               buildInfo.PostBuild.DockerBuild.WorkDir,
 					DockerFile:            buildInfo.PostBuild.DockerBuild.DockerFile,
-					ImageName:             "$IMAGE",
+					ImageName:             image,
 					ImageReleaseTag:       imageTag,
 					BuildArgs:             buildInfo.PostBuild.DockerBuild.BuildArgs,
 					DockerTemplateContent: dockefileContent,
@@ -394,6 +394,7 @@ func (j *BuildJob) ToJobs(taskID int64) ([]*commonmodels.JobTask, error) {
 						Password:         registry.SecretKey,
 						Namespace:        registry.Namespace,
 					},
+					Repos: repos,
 				},
 			}
 			jobTaskSpec.Steps = append(jobTaskSpec.Steps, dockerBuildStep)
