@@ -25,9 +25,7 @@ import (
 
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
-	taskmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models/task"
 	templaterepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/stat/repository/mongodb"
 )
@@ -106,42 +104,6 @@ func GetDeployStatByProdutName(productName string, startTimestamp int64, log *za
 		//循环task任务获取需要的数据
 		for _, taskPreview := range taskDateMap[taskDate] {
 			switch taskP := taskPreview.(type) {
-			case *taskmodels.Task:
-				stages := taskP.Stages
-				taskStatus := taskP.Status
-				switch taskStatus {
-				case config.StatusPassed:
-					totalTaskSuccess++
-				case config.StatusFailed:
-					totalTaskFailure++
-				}
-				for _, subStage := range stages {
-					taskType := subStage.TaskType
-					switch taskType {
-					case config.TaskDeploy:
-						for _, subTask := range subStage.SubTasks {
-							deployInfo, err := base.ToDeployTask(subTask)
-							serviceInfo := new(serviceInfo)
-							serviceInfo.ServiceName = deployInfo.ServiceName
-
-							if err != nil {
-								log.Errorf("deployStat ToDeployTask err:%v", err)
-								continue
-							}
-
-							if deployInfo.TaskStatus == config.StatusPassed {
-								totalDeploySuccess++
-								serviceInfo.DeploySuccess = 1
-							} else if deployInfo.TaskStatus == config.StatusFailed {
-								totalDeployFailure++
-								serviceInfo.DeployFailure = 1
-							} else {
-								continue
-							}
-							deployServiceInfos = append(deployServiceInfos, serviceInfo)
-						}
-					}
-				}
 			case *commonmodels.WorkflowTask:
 				stages := taskP.Stages
 				for _, stage := range stages {
