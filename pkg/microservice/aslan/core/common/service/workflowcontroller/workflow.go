@@ -161,15 +161,12 @@ func (c *workflowCtl) handleDebugEvent(bytes string) error {
 	case WorkflowDebugEventDeleteDebug:
 		err = c.stopWorkflowDebug(event.JobName, event.Position)
 	default:
-		err = fmt.Errorf("unknow debug event: %s", err)
+		err = fmt.Errorf("unknown debug event: %s", err)
 	}
 	return err
 }
 
 func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
-
-	addWorkflowTaskInMap(c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask)
-	defer removeWorkflowTaskInMap(c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 
 	c.workflowTask.Status = config.StatusRunning
 	c.workflowTask.StartTime = time.Now().Unix()
@@ -189,7 +186,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	cancelChan, closeFunc := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Subscribe(fmt.Sprintf("workflowctl-cancel-%s-%d", c.workflowTask.WorkflowName, c.workflowTask.TaskID))
 	debugChan, closeDebugChanFunc := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Subscribe(WorkflowDebugChanKey(c.workflowTask.WorkflowName, c.workflowTask.TaskID))
 	defer func() {
-		log.Infof("-------- closing pubsub channels")
+		log.Infof("pubsub channel: %s/%d closed", c.workflowTask.WorkflowName, c.workflowTask.TaskID)
 		_ = closeFunc()
 		_ = closeDebugChanFunc()
 	}()
@@ -524,68 +521,6 @@ func updateworkflowStatus(workflow *commonmodels.WorkflowTask) {
 	}
 	workflow.Status = workflowStatus
 }
-
-//func UpdateWorkflowTask(workflowName string, taskID int64, logger *zap.SugaredLogger) {
-//	taskInColl, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
-//	if err != nil {
-//		logger.Errorf("find workflow task v4 %s failed,error: %v", workflowName, err)
-//		return
-//	}
-//	// 如果当前状态已经通过或者失败, 不处理新接受到的ACK
-//	if taskInColl.Status == config.StatusPassed || taskInColl.Status == config.StatusFailed || taskInColl.Status == config.StatusTimeout || taskInColl.Status == config.StatusReject {
-//		logger.Infof("%s:%d:%s task already done", workflowName, taskID, taskInColl.Status)
-//		return
-//	}
-//	// 如果当前状态已经是取消状态, 一般为用户取消了任务, 此时任务在短暂时间内会继续运行一段时间,
-//	if taskInColl.Status == config.StatusCancelled {
-//		// Task终止状态可能为Pass, Fail, Cancel, Timeout
-//		// backend 会继续接受到ACK, 在这种情况下, 终止状态之外的ACK都无需处理，避免出现取消之后又被重置成运行态
-//		if taskInColl.Finished() {
-//			logger.Infof("%s:%d task has been cancelled, ACK dropped", workflowName, taskID)
-//			return
-//		}
-//		//if c.workflowTask.Status != config.StatusFailed && c.workflowTask.Status != config.StatusPassed && c.workflowTask.Status != config.StatusCancelled && c.workflowTask.Status != config.StatusTimeout {
-//		//	logger.Infof("%s:%d task has been cancelled, ACK dropped", workflowName, taskID)
-//		//	return
-//		//}
-//	}
-//	if success := UpdateQueue(c.workflowTask); !success {
-//		logger.Errorf("%s:%d update t status error", workflowName, taskID)
-//	}
-//	// TODO update workflow task
-//	if err := commonrepo.NewworkflowTaskv4Coll().Update(c.workflowTask.ID.Hex(), c.workflowTask); err != nil {
-//		logger.Errorf("update workflow task v4 failed,error: %v", err)
-//	}
-//
-//	if c.workflowTask.Status == config.StatusPassed || c.workflowTask.Status == config.StatusFailed || c.workflowTask.Status == config.StatusTimeout || c.workflowTask.Status == config.StatusCancelled || c.workflowTask.Status == config.StatusReject {
-//		logger.Infof("%s:%d:%v task done", c.workflowTask.WorkflowName, c.workflowTask.TaskID, c.workflowTask.Status)
-//		if err := instantmessage.NewWeChatClient().SendWorkflowTaskNotifications(c.workflowTask); err != nil {
-//			logger.Errorf("send workflow task notification failed, error: %v", err)
-//		}
-//		q := ConvertTaskToQueue(c.workflowTask)
-//		if err := Remove(q); err != nil {
-//			logger.Errorf("remove queue task: %s:%d error: %v", workflowName, taskID, err)
-//		}
-//		result, err := commonrepo.NewStrategyColl().GetByTarget(commonmodels.WorkflowTaskRetention)
-//		if err != nil {
-//			logger.Errorf("get workflow task retention strategy error: %s", err)
-//			result = commonmodels.DefaultWorkflowTaskRetention
-//		}
-//		if err = commonrepo.NewworkflowTaskv4Coll().ArchiveHistoryWorkflowTask(workflowName, result.Retention.MaxItems, result.Retention.MaxDays); err != nil {
-//			logger.Errorf("ArchiveHistoryWorkflowTask error: %v", err)
-//		}
-//		// Updating the comment in the git repository, this will not cause the function to return error if this function call fails
-//		if err := scmnotify.NewService().UpdateWebhookCommentForWorkflowV4(c.workflowTask, logger); err != nil {
-//			log.Warnf("Failed to update comment for custom workflow %s, taskID: %d the error is: %s", workflowName, taskID, err)
-//		}
-//		if err := scmnotify.NewService().CompleteGitCheckForWorkflowV4(c.workflowTask.WorkflowArgs, taskID, c.workflowTask.Status, logger); err != nil {
-//			log.Warnf("Failed to update github check status for custom workflow %s, taskID: %d the error is: %s", workflowName, taskID, err)
-//		}
-//		if err := workflowstat.UpdateWorkflowStat(c.workflowTask.WorkflowName, string(config.WorkflowTypeV4), string(c.workflowTask.Status), c.workflowTask.ProjectName, c.workflowTask.EndTime-c.workflowTask.StartTime, c.workflowTask.IsRestart); err != nil {
-//			log.Warnf("Failed to update workflow stat for custom workflow %s, taskID: %d the error is: %s", workflowName, taskID, err)
-//		}
-//	}
-//}
 
 func (c *workflowCtl) updateWorkflowTask() {
 	taskInColl, err := commonrepo.NewworkflowTaskv4Coll().Find(c.workflowTask.WorkflowName, c.workflowTask.TaskID)

@@ -40,10 +40,8 @@ func WatchExecutingWorkflow() {
 		releasePlanListLock := cache.NewRedisLockWithExpiry(fmt.Sprint("release-plan-watch-lock"), time.Minute*5)
 		err := releasePlanListLock.TryLock()
 		if err != nil {
-			log.Infof("------- failed to acquire release plan list lock")
 			continue
 		}
-		log.Infof("------- release plan list lock required")
 
 		t := time.Now()
 		list, _, err := mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{

@@ -118,8 +118,6 @@ func DebugWorkflow(c *gin.Context) {
 }
 
 func debugWorkflow(c *gin.Context, workflowName, jobName string, taskID int64, logger *zap.SugaredLogger) error {
-
-	//w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
 		return e.ErrStopDebugShell.AddDesc(fmt.Sprintf("failed to find task: %s", err))
@@ -128,11 +126,6 @@ func debugWorkflow(c *gin.Context, workflowName, jobName string, taskID int64, l
 		return e.ErrStopDebugShell.AddDesc("task has been finished")
 	}
 
-	//w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
-	//if w == nil {
-	//	logger.Error("debug workflow failed: not found task")
-	//	return e.ErrInvalidParam.AddDesc("工作流任务已完成或不存在")
-	//}
 	var task *commonmodels.JobTask
 FOR:
 	for _, stage := range workflowTask.Stages {

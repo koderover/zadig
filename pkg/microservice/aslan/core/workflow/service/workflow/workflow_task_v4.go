@@ -19,8 +19,6 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
-	config2 "github.com/koderover/zadig/v2/pkg/config"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -31,6 +29,7 @@ import (
 	"gorm.io/gorm/utils"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -47,6 +46,7 @@ import (
 	jobctl "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/workflow/service/workflow/job"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/shared/client/user"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	e "github.com/koderover/zadig/v2/pkg/tool/errors"
 	larktool "github.com/koderover/zadig/v2/pkg/tool/lark"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
@@ -55,12 +55,6 @@ import (
 	jobspec "github.com/koderover/zadig/v2/pkg/types/job"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 	stepspec "github.com/koderover/zadig/v2/pkg/types/step"
-)
-
-const (
-	checkShellStepStart  = "ls /zadig/debug/shell_step"
-	checkShellStepDone   = "ls /zadig/debug/shell_step_done"
-	setOrUnsetBreakpoint = "%s /zadig/debug/breakpoint_%s"
 )
 
 type CreateTaskV4Resp struct {
@@ -609,141 +603,6 @@ func SetWorkflowTaskV4Breakpoint(workflowName, jobName string, taskID int64, set
 		return e.ErrStopDebugShell.AddDesc(fmt.Sprintf("failed to set workflow breakpoint, err: %s", err))
 	}
 	return nil
-
-	//	//if w == nil {
-	//	//	logger.Error("set workflowTaskV4 breakpoint failed: not found task")
-	//	//	return e.ErrSetBreakpoint.AddDesc("工作流任务已完成或不存在")
-	//	//}
-	//	//w.Lock()
-	//	var ack func(string, int64, *zap.SugaredLogger)
-	//	defer func() {
-	//		if ack != nil {
-	//			ack(workflowName, taskID, logger)
-	//		}
-	//		//w.Unlock()
-	//	}()
-	//	var task *commonmodels.JobTask
-	//
-	// FOR:
-	//
-	//	//for _, stage := range w.WorkflowTask.Stages {
-	//	for _, stage := range workflowTask.Stages {
-	//		for _, jobTask := range stage.Jobs {
-	//			if jobTask.Name == jobName {
-	//				task = jobTask
-	//				break FOR
-	//			}
-	//		}
-	//	}
-	//	if task == nil {
-	//		logger.Error("set workflowTaskV4 breakpoint failed: not found job")
-	//		return e.ErrSetBreakpoint.AddDesc("当前任务不存在")
-	//	}
-	//	// job task has not run, update data in memory and ack
-	//	if task.Status == "" {
-	//		switch position {
-	//		case "before":
-	//			task.BreakpointBefore = set
-	//			//ack = w.Ack
-	//			ack = workflowcontroller.UpdateWorkflowTask
-	//		case "after":
-	//			task.BreakpointAfter = set
-	//			//ack = w.Ack
-	//			ack = workflowcontroller.UpdateWorkflowTask
-	//		}
-	//		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
-	//		return nil
-	//	}
-	//
-	//	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
-	//	if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
-	//		logger.Errorf("set workflowTaskV4 breakpoint failed: IToi %v", err)
-	//		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: convert job task spec")
-	//	}
-	//
-	//	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	//	if err != nil {
-	//		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client error: %s", err)
-	//		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client")
-	//	}
-	//	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	//	if err != nil {
-	//		log.Errorf("set workflowTaskV4 breakpoint failed: get kube client set error: %s", err)
-	//		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube client set")
-	//	}
-	//	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	//	if err != nil {
-	//		log.Errorf("set workflowTaskV4 breakpoint failed: get kube rest config error: %s", err)
-	//		return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: get kube rest config")
-	//	}
-	//
-	//	// job task is running, check whether shell step has run, and touch breakpoint file
-	//	// if job task status is debug_after, only breakpoint operation can do is unset breakpoint_after, which should be done by StopDebugWorkflowTaskJobV4
-	//	// if job task status is prepare, setting breakpoints has a low probability of not taking effect, and the current design allows for this flaw
-	//	if task.Status == config.StatusRunning || task.Status == config.StatusDebugBefore || task.Status == config.StatusPrepare {
-	//		pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
-	//		if err != nil {
-	//			logger.Errorf("set workflowTaskV4 breakpoint failed: list pods %v", err)
-	//			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: ListPods")
-	//		}
-	//		if len(pods) == 0 {
-	//			logger.Error("set workflowTaskV4 breakpoint failed: list pods num 0")
-	//			return e.ErrSetBreakpoint.AddDesc("修改断点意外失败: ListPods num 0")
-	//		}
-	//		pod := pods[0]
-	//		switch pod.Status.Phase {
-	//		case corev1.PodRunning:
-	//		default:
-	//			logger.Errorf("set workflowTaskV4 breakpoint failed: pod status is %s", pod.Status.Phase)
-	//			return e.ErrSetBreakpoint.AddDesc(fmt.Sprintf("当前任务状态 %s 无法修改断点", pod.Status.Phase))
-	//		}
-	//		exec := func(cmd string) bool {
-	//			opt := podexec.ExecOptions{
-	//				Namespace:     jobTaskSpec.Properties.Namespace,
-	//				PodName:       pod.Name,
-	//				ContainerName: pod.Spec.Containers[0].Name,
-	//				Command:       []string{"sh", "-c", cmd},
-	//			}
-	//			_, stderr, success, _ := podexec.KubeExec(clientSet, restConfig, opt)
-	//			logger.Errorf("set workflowTaskV4 breakpoint exec %s error: %s", cmd, stderr)
-	//			return success
-	//		}
-	//		touchOrRemove := func(set bool) string {
-	//			if set {
-	//				return "touch"
-	//			}
-	//			return "rm"
-	//		}
-	//		switch position {
-	//		case "before":
-	//			if exec(checkShellStepStart) {
-	//				logger.Error("set workflowTaskV4 before breakpoint failed: shell step has started")
-	//				return e.ErrSetBreakpoint.AddDesc("当前任务已开始运行脚本，无法修改前断点")
-	//			}
-	//			exec(fmt.Sprintf(setOrUnsetBreakpoint, touchOrRemove(set), position))
-	//		case "after":
-	//			if exec(checkShellStepDone) {
-	//				logger.Error("set workflowTaskV4 after breakpoint failed: shell step has been done")
-	//				return e.ErrSetBreakpoint.AddDesc("当前任务已运行完脚本，无法修改后断点")
-	//			}
-	//			exec(fmt.Sprintf(setOrUnsetBreakpoint, touchOrRemove(set), position))
-	//		}
-	//		// update data in memory and ack
-	//		switch position {
-	//		case "before":
-	//			task.BreakpointBefore = set
-	//			//ack = w.Ack
-	//			ack = workflowcontroller.UpdateWorkflowTask
-	//		case "after":
-	//			task.BreakpointAfter = set
-	//			//ack = w.Ack
-	//			ack = workflowcontroller.UpdateWorkflowTask
-	//		}
-	//		logger.Infof("set workflowTaskV4 breakpoint success: %s-%s %v", jobName, position, set)
-	//		return nil
-	//	}
-	//	logger.Errorf("set workflowTaskV4 breakpoint failed: job status is %s", task.Status)
-	//	return e.ErrSetBreakpoint.AddDesc("当前任务状态无法修改断点 ")
 }
 
 func EnableDebugWorkflowTaskV4(workflowName string, taskID int64, logger *zap.SugaredLogger) error {
@@ -757,32 +616,9 @@ func EnableDebugWorkflowTaskV4(workflowName string, taskID int64, logger *zap.Su
 		return e.ErrEnableDebug.AddDesc(fmt.Sprintf("failed to set workflow breakpoint, err: %s", err))
 	}
 	return nil
-
-	//w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
-	//if w == nil {
-	//	logger.Error("set workflowTaskV4 bre akpoint failed: not found task")
-	//	return e.ErrStopDebugShell.AddDesc("工作流任务已完成或不存在")
-	//}
-	//w.Lock()
-	//var ack func()
-	//defer func() {
-	//	if ack != nil {
-	//		ack()
-	//	}
-	//	w.Unlock()
-	//}()
-	//t := w.WorkflowTask
-	//if t.IsDebug {
-	//	return e.ErrStopDebugShell.AddDesc("任务已开启调试模式")
-	//}
-	//t.IsDebug = true
-	//ack = w.Ack
-	//logger.Infof("enable workflowTaskV4 debug mode success: %s-%d", workflowName, taskID)
-	//return nil
 }
 
 func StopDebugWorkflowTaskJobV4(workflowName, jobName string, taskID int64, position string, logger *zap.SugaredLogger) error {
-
 	event := &workflowcontroller.WorkflowDebugEvent{
 		EventType: workflowcontroller.WorkflowDebugEventDeleteDebug,
 		JobName:   jobName,
@@ -795,95 +631,6 @@ func StopDebugWorkflowTaskJobV4(workflowName, jobName string, taskID int64, posi
 		return e.ErrEnableDebug.AddDesc(fmt.Sprintf("failed to set workflow breakpoint, err: %s", err))
 	}
 	return nil
-
-	//	w := workflowcontroller.GetWorkflowTaskInMap(workflowName, taskID)
-	//	if w == nil {
-	//		logger.Error("stop debug workflowTaskV4 job failed: not found task")
-	//		return e.ErrStopDebugShell.AddDesc("工作流任务已完成或不存在")
-	//	}
-	//	w.Lock()
-	//	var ack func(string, int64, *zap.SugaredLogger)
-	//	var ack func()
-	//	defer func() {
-	//		if ack != nil {
-	//			ack(workflowName, taskID, logger)
-	//		}
-	//		w.Unlock()
-	//	}()
-	//
-	//	var task *commonmodels.JobTask
-	//FOR:
-	//	for _, stage := range workflowTask.Stages {
-	//		for _, jobTask := range stage.Jobs {
-	//			if jobTask.Name == jobName {
-	//				task = jobTask
-	//				break FOR
-	//			}
-	//		}
-	//	}
-	//	if task == nil {
-	//		logger.Error("stop workflowTaskV4 debug shell failed: not found job")
-	//		return e.ErrStopDebugShell.AddDesc("Job不存在")
-	//	}
-	//	jobTaskSpec := &commonmodels.JobTaskFreestyleSpec{}
-	//	if err := commonmodels.IToi(task.Spec, jobTaskSpec); err != nil {
-	//		logger.Errorf("stop workflowTaskV4 debug shell failed: IToi %v", err)
-	//		return e.ErrStopDebugShell.AddDesc("结束调试意外失败")
-	//	}
-	//
-	//	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	//	if err != nil {
-	//		log.Errorf("stop workflowTaskV4 debug shell failed: get kube client error: %s", err)
-	//		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client")
-	//	}
-	//	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	//	if err != nil {
-	//		log.Errorf("stop workflowTaskV4 debug shell failed: get kube client set error: %s", err)
-	//		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube client set")
-	//	}
-	//	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), jobTaskSpec.Properties.ClusterID)
-	//	if err != nil {
-	//		log.Errorf("stop workflowTaskV4 debug shell failed: get kube rest config error: %s", err)
-	//		return e.ErrSetBreakpoint.AddDesc("结束调试意外失败: get kube rest config")
-	//	}
-	//
-	//	pods, err := getter.ListPods(jobTaskSpec.Properties.Namespace, labels.Set{"job-name": task.K8sJobName}.AsSelector(), kubeClient)
-	//	if err != nil {
-	//		logger.Errorf("stop workflowTaskV4 debug shell failed: list pods %v", err)
-	//		return e.ErrStopDebugShell.AddDesc("结束调试意外失败: ListPods")
-	//	}
-	//	if len(pods) == 0 {
-	//		logger.Error("stop workflowTaskV4 debug shell failed: list pods num 0")
-	//		return e.ErrStopDebugShell.AddDesc("结束调试意外失败: ListPods num 0")
-	//	}
-	//	pod := pods[0]
-	//	switch pod.Status.Phase {
-	//	case corev1.PodRunning:
-	//	default:
-	//		logger.Errorf("stop workflowTaskV4 debug shell failed: pod status is %s", pod.Status.Phase)
-	//		return e.ErrStopDebugShell.AddDesc(fmt.Sprintf("Job 状态 %s 无法结束调试", pod.Status.Phase))
-	//	}
-	//	exec := func(cmd string) bool {
-	//		opt := podexec.ExecOptions{
-	//			Namespace:     jobTaskSpec.Properties.Namespace,
-	//			PodName:       pod.Name,
-	//			ContainerName: pod.Spec.Containers[0].Name,
-	//			Command:       []string{"sh", "-c", cmd},
-	//		}
-	//		_, stderr, success, _ := podexec.KubeExec(clientSet, restConfig, opt)
-	//		logger.Errorf("stop workflowTaskV4 debug shell exec %s error: %s", cmd, stderr)
-	//		return success
-	//	}
-	//
-	//	if !exec(fmt.Sprintf("ls /zadig/debug/breakpoint_%s", position)) {
-	//		logger.Errorf("set workflowTaskV4 %s breakpoint failed: not found file", position)
-	//		return e.ErrStopDebugShell.AddDesc("未找到断点文件")
-	//	}
-	//	exec(fmt.Sprintf("rm /zadig/debug/breakpoint_%s", position))
-	//
-	//	ack = c.Ack
-	//	logger.Infof("stop workflowTaskV4 debug shell success: %s-%d", workflowName, taskID)
-	//	return nil
 }
 
 type TaskHistoryFilter struct {
