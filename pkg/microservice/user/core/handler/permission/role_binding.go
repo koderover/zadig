@@ -88,21 +88,34 @@ func CreateRoleBinding(c *gin.Context) {
 		return
 	}
 
-	// TODO: restore it, add user group logic to it
-	//detail := ""
-	//for _, arg := range args {
-	//	userInfo, err := userservice.GetUser(arg.UID, ctx.Logger)
-	//	if err != nil {
-	//		ctx.Err = e.ErrInvalidParam.AddErr(err)
-	//		return
-	//	}
-	//	username := ""
-	//	if userInfo != nil {
-	//		username = userInfo.Name
-	//	}
-	//	detail += "用户：" + username + "，角色名称：" + arg.Role + "\n"
-	//}
-	//internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色绑定", detail, string(data), ctx.Logger, "")
+	detail := ""
+	for _, arg := range req.Identities {
+		if arg.IdentityType == "user" {
+			userInfo, err := user.GetUser(arg.UID, ctx.Logger)
+			if err != nil {
+				ctx.Err = e.ErrInvalidParam.AddErr(err)
+				return
+			}
+			username := ""
+			if userInfo != nil {
+				username = userInfo.Name
+			}
+			detail += "用户：" + username + "，"
+		} else if arg.IdentityType == "group" {
+			groupInfo, err := user.GetUserGroup(arg.GID, ctx.Logger)
+			if err != nil {
+				ctx.Err = e.ErrInvalidParam.AddErr(err)
+				return
+			}
+			username := ""
+			if groupInfo != nil {
+				username = groupInfo.Name
+			}
+			detail += "用户组：" + username + "，"
+		}
+	}
+	detail += "角色名称：" + req.Role + "\n"
+	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色绑定", detail, string(data), ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
 		if projectName == "*" {
