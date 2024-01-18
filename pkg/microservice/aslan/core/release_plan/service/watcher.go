@@ -37,7 +37,7 @@ func WatchExecutingWorkflow() {
 	for {
 		time.Sleep(time.Second * 3)
 
-		releasePlanListLock := cache.NewRedisLockWithExpiry(fmt.Sprint("release-plan-watch-lock"), time.Second*3)
+		releasePlanListLock := cache.NewRedisLockWithExpiry(fmt.Sprint("release-plan-watch-lock"), time.Minute*5)
 		err := releasePlanListLock.TryLock()
 		if err != nil {
 			log.Infof("------- failed to acquire release plan list lock")
