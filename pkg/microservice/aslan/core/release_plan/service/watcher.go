@@ -18,6 +18,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"time"
 
 	"github.com/pkg/errors"
@@ -34,12 +36,22 @@ func WatchExecutingWorkflow() {
 	log := log.SugaredLogger().With("service", "WatchExecutingWorkflow")
 	for {
 		time.Sleep(time.Second * 3)
+
+		releasePlanListLock := cache.NewRedisLockWithExpiry(fmt.Sprint("release-plan-watch-lock"), time.Second*3)
+		err := releasePlanListLock.TryLock()
+		if err != nil {
+			log.Infof("------- failed to acquire release plan list lock")
+			continue
+		}
+		log.Infof("------- release plan list lock required")
+
 		t := time.Now()
 		list, _, err := mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
 			Status: config.StatusExecuting,
 		})
 		if err != nil {
 			log.Errorf("list executing workflow error: %v", err)
+			releasePlanListLock.Unlock()
 			continue
 		}
 		for _, plan := range list {
@@ -48,6 +60,7 @@ func WatchExecutingWorkflow() {
 		if time.Since(t) > time.Millisecond*200 {
 			log.Warnf("watch executing workflow cost %s", time.Since(t))
 		}
+		releasePlanListLock.Unlock()
 	}
 }
 
