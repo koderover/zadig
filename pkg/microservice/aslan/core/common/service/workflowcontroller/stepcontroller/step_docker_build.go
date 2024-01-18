@@ -30,6 +30,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	"github.com/koderover/zadig/v2/pkg/types/step"
 )
@@ -58,7 +59,7 @@ func NewDockerBuildCtl(stepTask *commonmodels.StepTask, workflowCtx *commonmodel
 }
 
 func (s *dockerBuildCtl) PreRun(ctx context.Context) error {
-	proxies, _ := mongodb.NewProxyColl().List(&mongodb.ProxyArgs{})
+	proxies, _ := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
 	if len(proxies) != 0 {
 		s.dockerBuildSpec.Proxy.Address = proxies[0].Address
 		s.dockerBuildSpec.Proxy.EnableApplicationProxy = proxies[0].EnableApplicationProxy
@@ -80,7 +81,6 @@ func (s *dockerBuildCtl) AfterRun(ctx context.Context) error {
 	deliveryArtifact.Source = string(config.WorkflowTypeV4)
 
 	image := s.dockerBuildSpec.ImageName
-	s.log.Debugf("dockerBuildCtl AfterRun: image:%s", image)
 	imageArray := strings.Split(image, "/")
 	tagArray := strings.Split(imageArray[len(imageArray)-1], ":")
 	imageName := tagArray[0]
@@ -90,6 +90,15 @@ func (s *dockerBuildCtl) AfterRun(ctx context.Context) error {
 	deliveryArtifact.Type = string(config.Image)
 	deliveryArtifact.Name = imageName
 	deliveryArtifact.ImageTag = imageTag
+
+	imageInfo, _ := getImageInfo(s.dockerBuildSpec.DockerRegistry.DockerRegistryID, imageName, imageTag, s.log)
+	if imageInfo != nil {
+		deliveryArtifact.ImageSize = imageInfo.ImageSize
+		deliveryArtifact.ImageDigest = imageInfo.ImageDigest
+		deliveryArtifact.Architecture = imageInfo.Architecture
+		deliveryArtifact.Os = imageInfo.Os
+	}
+
 	err := commonrepo.NewDeliveryArtifactColl().Insert(deliveryArtifact)
 	if err != nil {
 		return fmt.Errorf("archiveCtl AfterRun: insert delivery artifact error: %v", err)
@@ -128,4 +137,31 @@ func (s *dockerBuildCtl) AfterRun(ctx context.Context) error {
 		return fmt.Errorf("archiveCtl AfterRun: build deliveryActivityColl insert err:%v", err)
 	}
 	return nil
+}
+
+func getImageInfo(registryID, imageName, tag string, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error) {
+	registryInfo, err := mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{ID: registryID})
+	if err != nil {
+		log.Errorf("RegistryNamespace.get error: %v", err)
+		return nil, fmt.Errorf("RegistryNamespace.get error: %v", err)
+	}
+
+	var regService registry.Service
+	if registryInfo.AdvancedSetting != nil {
+		regService = registry.NewV2Service(registryInfo.RegProvider, registryInfo.AdvancedSetting.TLSEnabled, registryInfo.AdvancedSetting.TLSCert)
+	} else {
+		regService = registry.NewV2Service(registryInfo.RegProvider, true, "")
+	}
+
+	return regService.GetImageInfo(registry.GetRepoImageDetailOption{
+		Endpoint: registry.Endpoint{
+			Addr:      registryInfo.RegAddr,
+			Ak:        registryInfo.AccessKey,
+			Sk:        registryInfo.SecretKey,
+			Namespace: registryInfo.Namespace,
+			Region:    registryInfo.Region,
+		},
+		Image: imageName,
+		Tag:   tag,
+	}, log)
 }
