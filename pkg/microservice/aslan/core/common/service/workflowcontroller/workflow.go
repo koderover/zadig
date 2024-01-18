@@ -242,7 +242,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	}
 	RunStages(ctx, c.workflowTask.Stages, workflowCtx, concurrency, c.logger, c.ack)
 	updateworkflowStatus(c.workflowTask)
-	c.workflowTask.GlobalContext = c.getGlobalContextAll()
+	c.workflowTask.GlobalContext = c.getGlobalContextAllRaw()
 }
 
 func (c *workflowCtl) handleWorkflowBreakpoint(jobName, position string, set bool) error {
@@ -718,6 +718,23 @@ func (c *workflowCtl) getGlobalContextAll() map[string]string {
 	return res
 }
 
+func (c *workflowCtl) getGlobalContextAllRaw() map[string]string {
+	c.globalContextMutex.Lock()
+	defer c.globalContextMutex.Unlock()
+
+	res := make(map[string]string)
+	contextMap, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HGetAllString(c.prefix)
+	if err != nil {
+		log.Errorf("get global context %s error: %v", c.prefix, err)
+		return res
+	}
+
+	for k, v := range contextMap {
+		res[k] = v
+	}
+	return res
+}
+
 func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
 	c.globalContextMutex.Lock()
 	defer c.globalContextMutex.Unlock()
@@ -726,8 +743,8 @@ func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
 	existed := true
 	if err != nil {
 		existed = false
-		if errors.Is(err, redis.Nil) {
-			log.Errorf("get global context %s/%s error: %v", c.prefix, key, err)
+		if !errors.Is(err, redis.Nil) {
+			log.Errorf("get global context %s error: %v", c.prefix, err)
 		}
 	}
 	return v, existed
