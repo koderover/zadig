@@ -258,6 +258,11 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
 	}
 
+	reportReady := false
+	if len(testResultList) > 0 {
+		reportReady = true
+	}
+
 	for _, testResult := range testResultList {
 		mapKey := testName
 		if testResult.TestName != "" {
@@ -303,7 +308,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 			spec.Archive,
 			testInfo.Repos,
 		},
-		"report_ready": true,
+		"report_ready": reportReady,
 		"type":         "testingv2",
 	}
 
