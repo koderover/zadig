@@ -54,7 +54,7 @@ func NewRedisLockWithExpiry(key string, expiry time.Duration) *RedisLock {
 func (lock *RedisLock) Lock() error {
 	err := lock.mutex.Lock()
 	if err != nil {
-		if strings.Contains(err.Error(), "lock already taken") {
+		if !strings.Contains(err.Error(), "lock already taken") {
 			log.Errorf("failed to acquire redis lock: %s, err: %s", lock.key, err)
 		}
 	}
