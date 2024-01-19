@@ -19,13 +19,12 @@ package workflowcontroller
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -72,7 +71,8 @@ type WorkflowDebugEvent struct {
 
 type workflowCtl struct {
 	workflowTask       *commonmodels.WorkflowTask
-	globalContextMutex *cache.RedisLock
+	globalContextMutex sync.RWMutex
+	clusterIDMutex     sync.RWMutex
 	logger             *zap.SugaredLogger
 	prefix             string
 	ack                func()
@@ -84,7 +84,6 @@ func NewWorkflowController(workflowTask *commonmodels.WorkflowTask, logger *zap.
 		logger:       logger,
 		prefix:       fmt.Sprintf("workflowctl-%s-%d", workflowTask.WorkflowName, workflowTask.TaskID),
 	}
-	ctl.globalContextMutex = cache.NewRedisLock(fmt.Sprintf("%s-global-context", ctl.prefix))
 	ctl.ack = ctl.updateWorkflowTask
 	return ctl
 }
@@ -167,6 +166,12 @@ func (c *workflowCtl) handleDebugEvent(bytes string) error {
 }
 
 func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
+	if c.workflowTask.GlobalContext == nil {
+		c.workflowTask.GlobalContext = make(map[string]string)
+	}
+	if c.workflowTask.ClusterIDMap == nil {
+		c.workflowTask.ClusterIDMap = make(map[string]bool)
+	}
 
 	c.workflowTask.Status = config.StatusRunning
 	c.workflowTask.StartTime = time.Now().Unix()
@@ -226,7 +231,7 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 		GlobalContextGet:            c.getGlobalContext,
 		GlobalContextSet:            c.setGlobalContext,
 		GlobalContextEach:           c.globalContextEach,
-		ClusterIDAdd:                c.addCluterID,
+		ClusterIDAdd:                c.addClusterID,
 		SetStatus:                   c.setWorkflowStatus,
 		StartTime:                   time.Now(),
 	}
@@ -239,7 +244,6 @@ func (c *workflowCtl) Run(ctx context.Context, concurrency int) {
 	}
 	RunStages(ctx, c.workflowTask.Stages, workflowCtx, concurrency, c.logger, c.ack)
 	updateworkflowStatus(c.workflowTask)
-	c.workflowTask.GlobalContext = c.getGlobalContextAllRaw()
 }
 
 func (c *workflowCtl) handleWorkflowBreakpoint(jobName, position string, set bool) error {
@@ -581,12 +585,7 @@ func (c *workflowCtl) updateWorkflowTask() {
 }
 
 func (c *workflowCtl) CleanShareStorage() {
-	clusterMap, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HGetAllString(c.prefix + "-cluster")
-	if err != nil {
-		c.logger.Errorf("get cluster map error: %v", err)
-	}
-
-	for clusterID := range clusterMap {
+	for clusterID := range c.workflowTask.ClusterIDMap {
 		cleanJobName := fmt.Sprintf("clean-%s", rand.String(8))
 		namespace := setting.AttachedClusterNamespace
 		if clusterID == setting.LocalClusterID || clusterID == "" {
@@ -621,13 +620,14 @@ func (c *workflowCtl) CleanShareStorage() {
 		c.logger.Infof("clean job %s finished, status: %s", cleanJobName, status)
 	}
 
-	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(c.prefix + "-cluster")
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(WorkflowDebugLockKey(c.workflowTask.WorkflowName, c.workflowTask.TaskID))
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(c.prefix)
 }
 
-func (c *workflowCtl) addCluterID(clusterID string) {
-	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HWrite(c.prefix+"-cluster", clusterID, "1", 0)
+func (c *workflowCtl) addClusterID(clusterID string) {
+	c.clusterIDMutex.Lock()
+	defer c.clusterIDMutex.Unlock()
+	c.workflowTask.ClusterIDMap[clusterID] = true
 }
 
 // mongo do not support dot in keys.
@@ -636,73 +636,33 @@ const (
 )
 
 func (c *workflowCtl) getGlobalContextAll() map[string]string {
-	c.globalContextMutex.Lock()
-	defer c.globalContextMutex.Unlock()
-
-	res := make(map[string]string)
-	contextMap, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HGetAllString(c.prefix)
-	if err != nil {
-		log.Errorf("get global context %s error: %v", c.prefix, err)
-		return res
-	}
-
-	for k, v := range contextMap {
+	c.globalContextMutex.RLock()
+	defer c.globalContextMutex.RUnlock()
+	res := make(map[string]string, len(c.workflowTask.GlobalContext))
+	for k, v := range c.workflowTask.GlobalContext {
 		k = strings.Join(strings.Split(k, split), ".")
 		res[k] = v
 	}
 	return res
 }
 
-func (c *workflowCtl) getGlobalContextAllRaw() map[string]string {
-	c.globalContextMutex.Lock()
-	defer c.globalContextMutex.Unlock()
-
-	res := make(map[string]string)
-	contextMap, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HGetAllString(c.prefix)
-	if err != nil {
-		log.Errorf("get global context %s error: %v", c.prefix, err)
-		return res
-	}
-
-	for k, v := range contextMap {
-		res[k] = v
-	}
-	return res
-}
-
 func (c *workflowCtl) getGlobalContext(key string) (string, bool) {
-	c.globalContextMutex.Lock()
-	defer c.globalContextMutex.Unlock()
-
-	v, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HGetString(c.prefix, GetContextKey(key))
-	existed := true
-	if err != nil {
-		existed = false
-		if !errors.Is(err, redis.Nil) {
-			log.Errorf("get global context %s error: %v", c.prefix, err)
-		}
-	}
+	c.globalContextMutex.RLock()
+	defer c.globalContextMutex.RUnlock()
+	v, existed := c.workflowTask.GlobalContext[GetContextKey(key)]
 	return v, existed
 }
 
 func (c *workflowCtl) setGlobalContext(key, value string) {
 	c.globalContextMutex.Lock()
 	defer c.globalContextMutex.Unlock()
-
-	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HWrite(c.prefix, GetContextKey(key), value, 0)
+	c.workflowTask.GlobalContext[GetContextKey(key)] = value
 }
 
 func (c *workflowCtl) globalContextEach(f func(k, v string) bool) {
-	c.globalContextMutex.Lock()
-	defer c.globalContextMutex.Unlock()
-
-	contextMap, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).HGetAllString(c.prefix)
-	if err != nil {
-		log.Errorf("get global context %s error: %v", c.prefix, err)
-		return
-	}
-
-	for k, v := range contextMap {
+	c.globalContextMutex.RLock()
+	defer c.globalContextMutex.RUnlock()
+	for k, v := range c.workflowTask.GlobalContext {
 		k = strings.Join(strings.Split(k, split), ".")
 		if !f(k, v) {
 			return
