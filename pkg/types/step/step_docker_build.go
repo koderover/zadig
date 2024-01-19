@@ -20,20 +20,22 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/types"
 )
 
 type StepDockerBuildSpec struct {
-	Source                string          `bson:"source"                              json:"source"                                 yaml:"source"`
-	WorkDir               string          `bson:"work_dir"                            json:"work_dir"                               yaml:"work_dir"`
-	RegistryHost          string          `bson:"registry_host"                       json:"registry_host"                          yaml:"registry_host"`
-	DockerFile            string          `bson:"docker_file"                         json:"docker_file"                            yaml:"docker_file"`
-	ImageName             string          `bson:"image_name"                          json:"image_name"                             yaml:"image_name"`
-	BuildArgs             string          `bson:"build_args"                          json:"build_args"                             yaml:"build_args"`
-	ImageReleaseTag       string          `bson:"image_release_tag"                   json:"image_release_tag"                      yaml:"image_release_tag"`
-	DockerTemplateContent string          `bson:"docker_template_content"             json:"docker_template_content"                yaml:"docker_template_content"`
-	Proxy                 *Proxy          `bson:"proxy"                               json:"proxy"                                  yaml:"proxy"`
-	IgnoreCache           bool            `bson:"ignore_cache"                        json:"ignore_cache"                           yaml:"ignore_cache"`
-	DockerRegistry        *DockerRegistry `bson:"docker_registry"                     json:"docker_registry"                        yaml:"docker_registry"`
+	Source                string              `bson:"source"                              json:"source"                                 yaml:"source"`
+	WorkDir               string              `bson:"work_dir"                            json:"work_dir"                               yaml:"work_dir"`
+	RegistryHost          string              `bson:"registry_host"                       json:"registry_host"                          yaml:"registry_host"`
+	DockerFile            string              `bson:"docker_file"                         json:"docker_file"                            yaml:"docker_file"`
+	ImageName             string              `bson:"image_name"                          json:"image_name"                             yaml:"image_name"`
+	BuildArgs             string              `bson:"build_args"                          json:"build_args"                             yaml:"build_args"`
+	ImageReleaseTag       string              `bson:"image_release_tag"                   json:"image_release_tag"                      yaml:"image_release_tag"`
+	DockerTemplateContent string              `bson:"docker_template_content"             json:"docker_template_content"                yaml:"docker_template_content"`
+	Proxy                 *Proxy              `bson:"proxy"                               json:"proxy"                                  yaml:"proxy"`
+	IgnoreCache           bool                `bson:"ignore_cache"                        json:"ignore_cache"                           yaml:"ignore_cache"`
+	DockerRegistry        *DockerRegistry     `bson:"docker_registry"                     json:"docker_registry"                        yaml:"docker_registry"`
+	Repos                 []*types.Repository `bson:"repos"                               json:"repos"`
 }
 
 type DockerRegistry struct {
