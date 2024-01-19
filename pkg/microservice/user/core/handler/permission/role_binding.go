@@ -115,7 +115,6 @@ func CreateRoleBinding(c *gin.Context) {
 		}
 	}
 	detail += "角色名称：" + req.Role + "\n"
-	log.Debugf("detail: %s", detail)
 	internalhandler.InsertDetailedOperationLog(c, ctx.UserName, projectName, setting.OperationSceneProject, "创建", "角色绑定", detail, string(data), ctx.Logger, "")
 
 	if !ctx.Resources.IsSystemAdmin {
