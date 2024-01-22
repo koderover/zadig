@@ -204,9 +204,9 @@ type NodeUserApprovalResult map[string]map[string]*UserApprovalResult
 
 type ApprovalManager struct {
 	// key nodeID
-	nodeMap     NodeUserApprovalResult
-	nodeKeyMap  map[string]string
-	requestUUID map[string]struct{}
+	NodeMap     NodeUserApprovalResult
+	NodeKeyMap  map[string]string
+	RequestUUID map[string]struct{}
 }
 
 type UserApprovalResult struct {
@@ -238,9 +238,9 @@ func GetLarkApprovalInstanceManager(instanceID string) *ApprovalManager {
 		return approvalManager
 	} else {
 		approvalData := &ApprovalManager{
-			nodeMap:     make(NodeUserApprovalResult),
-			requestUUID: make(map[string]struct{}),
-			nodeKeyMap:  make(map[string]string),
+			NodeMap:     make(NodeUserApprovalResult),
+			RequestUUID: make(map[string]struct{}),
+			NodeKeyMap:  make(map[string]string),
 		}
 		bs, _ := json.Marshal(approvalData)
 		err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(larkApprovalCacheKey(instanceID), string(bs), 0)
@@ -278,7 +278,7 @@ func UpdateNodeUserApprovalResult(instanceID, nodeKey, nodeID, userID string, re
 
 func (l *ApprovalManager) getNodeUserApprovalResults(nodeID string) map[string]*UserApprovalResult {
 	m := make(map[string]*UserApprovalResult)
-	if re, ok := l.nodeMap[nodeID]; !ok {
+	if re, ok := l.NodeMap[nodeID]; !ok {
 		return m
 	} else {
 		for userID, result := range re {
@@ -290,16 +290,16 @@ func (l *ApprovalManager) getNodeUserApprovalResults(nodeID string) map[string]*
 
 func (l *ApprovalManager) updateNodeUserApprovalResult(nodeID, userID string, result *UserApprovalResult) {
 
-	if _, ok := l.nodeMap[nodeID]; !ok {
-		l.nodeMap[nodeID] = make(map[string]*UserApprovalResult)
+	if _, ok := l.NodeMap[nodeID]; !ok {
+		l.NodeMap[nodeID] = make(map[string]*UserApprovalResult)
 	}
-	if _, ok := l.nodeMap[nodeID][userID]; !ok && result != nil {
+	if _, ok := l.NodeMap[nodeID][userID]; !ok && result != nil {
 		switch result.Result {
 		case ApprovalStatusApproved:
-			l.nodeMap[nodeID][userID] = result
+			l.NodeMap[nodeID][userID] = result
 			result.ApproveOrReject = config.Approve
 		case ApprovalStatusRejected:
-			l.nodeMap[nodeID][userID] = result
+			l.NodeMap[nodeID][userID] = result
 			result.ApproveOrReject = config.Reject
 		}
 	}
@@ -308,21 +308,21 @@ func (l *ApprovalManager) updateNodeUserApprovalResult(nodeID, userID string, re
 
 func (l *ApprovalManager) GetNodeKeyMap() map[string]string {
 	m := make(map[string]string)
-	for k, v := range l.nodeKeyMap {
+	for k, v := range l.NodeKeyMap {
 		m[k] = v
 	}
 	return m
 }
 
 func (l *ApprovalManager) updateNodeKeyMap(nodeKey, nodeCustomKey string) {
-	l.nodeKeyMap[nodeCustomKey] = nodeKey
+	l.NodeKeyMap[nodeCustomKey] = nodeKey
 }
 
 func (l *ApprovalManager) CheckAndUpdateUUID(uuid string) bool {
-	if _, ok := l.requestUUID[uuid]; ok {
+	if _, ok := l.RequestUUID[uuid]; ok {
 		return false
 	}
-	l.requestUUID[uuid] = struct{}{}
+	l.RequestUUID[uuid] = struct{}{}
 	return true
 }
 
