@@ -140,6 +140,7 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 	approveWithL := &approvalservice.ApproveWithLock{Approval: approval}
 	approvalservice.GlobalApproveMap.SetApproval(approveKey, approveWithL)
 	defer func() {
+		log.Infof("----- start to delete approval")
 		approvalservice.GlobalApproveMap.DeleteApproval(approveKey)
 		ack()
 	}()
@@ -154,21 +155,21 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 		select {
 		case <-ctx.Done():
 			stage.Status = config.StatusCancelled
-			log.Infof("context done cause native approve fail")
+			log.Infof("---------context done cause native approve fail")
 			return fmt.Errorf("workflow was canceled")
 		case <-timeout:
 			stage.Status = config.StatusTimeout
-			log.Infof("timeout cause native approve fail")
+			log.Infof("---------timeout cause native approve fail")
 			return fmt.Errorf("workflow timeout")
 		default:
 			approved, approveCount, err := approvalservice.GlobalApproveMap.IsApproval(approveKey)
 			if err != nil {
-				log.Infof("approval error cause native approve fail")
+				log.Infof("---------approval error cause native approve fail")
 				stage.Status = config.StatusReject
 				return err
 			}
 			if approved {
-				log.Infof("approval finish cause native approve fail")
+				log.Infof("----------approval finish cause native approve fail")
 				return nil
 			}
 			if approveCount > latestApproveCount {
