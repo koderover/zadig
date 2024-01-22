@@ -29,6 +29,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	commonutil "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/v2/pkg/setting"
@@ -311,6 +312,17 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 		}
 	}
 
+	templateProdct, err := template.NewProductColl().Find(build.ProductName)
+	if err != nil {
+		return e.ErrCreateBuildModule.AddErr(fmt.Errorf("failed to find product %s, err: %s", build.ProductName, err))
+	}
+	if templateProdct.IsCVMProduct() {
+		err = verifyBuildTargets(build.Name, build.ProductName, build.Targets, log)
+		if err != nil {
+			return e.ErrCreateBuildModule.AddErr(err)
+		}
+	}
+
 	if err := commonrepo.NewBuildColl().Create(build); err != nil {
 		log.Errorf("[Build.Upsert] %s error: %v", build.Name, err)
 		return e.ErrCreateBuildModule.AddErr(err)
@@ -335,6 +347,17 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	err = correctFields(build)
 	if err != nil {
 		return err
+	}
+
+	templateProdct, err := template.NewProductColl().Find(build.ProductName)
+	if err != nil {
+		return e.ErrCreateBuildModule.AddErr(fmt.Errorf("failed to find product %s, err: %s", build.ProductName, err))
+	}
+	if templateProdct.IsCVMProduct() {
+		err = verifyBuildTargets(build.Name, build.ProductName, build.Targets, log)
+		if err != nil {
+			return e.ErrCreateBuildModule.AddErr(err)
+		}
 	}
 
 	if err = updateCvmService(build, existed); err != nil {

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -306,7 +307,28 @@ func (c *BuildColl) DistinctTargets(excludeModule []string, productName string) 
 
 	resp := make(map[string]bool)
 	for _, serviceModuleTarget := range serviceModuleTargets {
-		if moduleTarget, ok := serviceModuleTarget.(models.ServiceModuleTarget); ok {
+		moduleTarget := models.ServiceModuleTarget{}
+		if d, ok := serviceModuleTarget.(primitive.D); ok {
+			for _, item := range d {
+				key := item.Key
+				value := item.Value
+
+				switch key {
+				case "product_name":
+					if val, ok := value.(string); ok {
+						moduleTarget.ProductName = val
+					}
+				case "service_name":
+					if val, ok := value.(string); ok {
+						moduleTarget.ServiceName = val
+					}
+				case "service_module":
+					if val, ok := value.(string); ok {
+						moduleTarget.ServiceModule = val
+					}
+				}
+			}
+
 			target := fmt.Sprintf("%s-%s-%s", moduleTarget.ProductName, moduleTarget.ServiceName, moduleTarget.ServiceModule)
 			resp[target] = true
 		}
