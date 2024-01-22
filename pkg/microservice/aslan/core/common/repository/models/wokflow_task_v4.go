@@ -36,6 +36,7 @@ type WorkflowTask struct {
 	OriginWorkflowArgs  *WorkflowV4                   `bson:"origin_workflow_args"      json:"origin_workflow_args"`
 	KeyVals             []*KeyVal                     `bson:"key_vals"                  json:"key_vals"`
 	GlobalContext       map[string]string             `bson:"global_context"            json:"global_context"`
+	ClusterIDMap        map[string]bool               `bson:"cluster_id_map"            json:"cluster_id_map"`
 	Status              config.Status                 `bson:"status"                    json:"status,omitempty"`
 	TaskCreator         string                        `bson:"task_creator"              json:"task_creator,omitempty"`
 	TaskCreatorPhone    string                        `bson:"task_creator_phone"        json:"task_creator_phone"`
