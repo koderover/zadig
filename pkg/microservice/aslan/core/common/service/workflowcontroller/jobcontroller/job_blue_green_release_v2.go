@@ -170,7 +170,77 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 
-	// offline blue service and deployment first
+	// update green deployment image to new version
+	for _, v := range c.jobTaskSpec.Service.ServiceAndImage {
+		err := updater.UpdateDeploymentImage(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, c.kubeClient)
+		if err != nil {
+			msg := fmt.Sprintf("can't update deployment %s container %s image %s, err: %v",
+				c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, err)
+			logError(c.job, msg, c.logger)
+			c.jobTaskSpec.Events.Error(msg)
+			return errors.New(msg)
+		}
+		if err := commonutil.UpdateProductImage(c.jobTaskSpec.Env, c.workflowCtx.ProjectName, c.jobTaskSpec.Service.ServiceName, map[string]string{v.ServiceModule: v.Image}, c.workflowCtx.WorkflowTaskCreatorUsername, c.logger); err != nil {
+			msg := fmt.Sprintf("update product image service %s service module %s image %s error: %v", c.jobTaskSpec.Service.ServiceName, v.ServiceModule, v.Image, err)
+			logError(c.job, msg, c.logger)
+			c.jobTaskSpec.Events.Error(msg)
+			return errors.New(msg)
+		}
+	}
+
+	timeout := time.After(time.Duration(3) * time.Minute)
+	func() {
+		c.logger.Infof("waiting green deploy update")
+		defer c.logger.Infof("green deploy wait update finished")
+		for {
+			select {
+			case <-timeout:
+				return
+			default:
+				time.Sleep(time.Second * 3)
+				d, found, e := getter.GetDeployment(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, c.kubeClient)
+				if e != nil {
+					c.logger.Errorf("failed to find green deoloy: %s, err: %s", c.jobTaskSpec.Service.GreenDeploymentName, e)
+					break
+				}
+				if !found {
+					c.logger.Infof("green deploy: %s not found", c.jobTaskSpec.Service.GreenDeploymentName)
+					return
+				}
+				ready := wrapper.Deployment(d).Ready()
+				if !ready {
+					break
+				}
+				if ready {
+					return
+				}
+			}
+		}
+	}()
+
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("update deployment %s image success", c.jobTaskSpec.Service.GreenDeploymentName))
+	c.ack()
+
+	// rollback green service selector, change endpoint to green services just updated
+	greenService, found, err := getter.GetService(c.namespace, c.jobTaskSpec.Service.GreenServiceName, c.kubeClient)
+	if err != nil || !found {
+		msg := fmt.Sprintf("can't get green service %s, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
+	delete(greenService.Spec.Selector, config.BlueGreenVerionLabelName)
+	err = updater.CreateOrPatchService(greenService, c.kubeClient)
+	if err != nil {
+		msg := fmt.Sprintf("can't update green service %s selector, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
+		logError(c.job, msg, c.logger)
+		c.jobTaskSpec.Events.Error(msg)
+		return errors.New(msg)
+	}
+	c.jobTaskSpec.Events.Info(fmt.Sprintf("update green service %s selector success", c.jobTaskSpec.Service.GreenServiceName))
+	c.ack()
+
+	// offline blue service and deployment
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("wait for blue deployment %s be deleted", c.jobTaskSpec.Service.BlueDeploymentName))
 	c.ack()
 	err = updater.DeleteDeploymentAndWait(c.namespace, c.jobTaskSpec.Service.BlueDeploymentName, c.kubeClient)
@@ -190,45 +260,6 @@ func (c *BlueGreenReleaseV2JobCtl) run(ctx context.Context) error {
 		return errors.New(msg)
 	}
 	c.jobTaskSpec.Events.Info(fmt.Sprintf("delete blue service %s success", c.jobTaskSpec.Service.BlueServiceName))
-	c.ack()
-
-	// rollback green service selector
-	greenService, found, err := getter.GetService(c.namespace, c.jobTaskSpec.Service.GreenServiceName, c.kubeClient)
-	if err != nil || !found {
-		msg := fmt.Sprintf("can't get green service %s, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
-		logError(c.job, msg, c.logger)
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
-	}
-	delete(greenService.Spec.Selector, config.BlueGreenVerionLabelName)
-	err = updater.CreateOrPatchService(greenService, c.kubeClient)
-	if err != nil {
-		msg := fmt.Sprintf("can't update green service %s selector, err: %v", c.jobTaskSpec.Service.GreenServiceName, err)
-		logError(c.job, msg, c.logger)
-		c.jobTaskSpec.Events.Error(msg)
-		return errors.New(msg)
-	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("update green service %s selector success", c.jobTaskSpec.Service.GreenServiceName))
-	c.ack()
-
-	// update green deployment image
-	for _, v := range c.jobTaskSpec.Service.ServiceAndImage {
-		err := updater.UpdateDeploymentImage(c.namespace, c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, c.kubeClient)
-		if err != nil {
-			msg := fmt.Sprintf("can't update deployment %s container %s image %s, err: %v",
-				c.jobTaskSpec.Service.GreenDeploymentName, v.ServiceModule, v.Image, err)
-			logError(c.job, msg, c.logger)
-			c.jobTaskSpec.Events.Error(msg)
-			return errors.New(msg)
-		}
-		if err := commonutil.UpdateProductImage(c.jobTaskSpec.Env, c.workflowCtx.ProjectName, c.jobTaskSpec.Service.ServiceName, map[string]string{v.ServiceModule: v.Image}, c.workflowCtx.WorkflowTaskCreatorUsername, c.logger); err != nil {
-			msg := fmt.Sprintf("update product image service %s service module %s image %s error: %v", c.jobTaskSpec.Service.ServiceName, v.ServiceModule, v.Image, err)
-			logError(c.job, msg, c.logger)
-			c.jobTaskSpec.Events.Error(msg)
-			return errors.New(msg)
-		}
-	}
-	c.jobTaskSpec.Events.Info(fmt.Sprintf("update deployment %s image success", c.jobTaskSpec.Service.GreenDeploymentName))
 
 	return nil
 }
