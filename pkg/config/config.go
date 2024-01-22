@@ -243,6 +243,10 @@ func MysqlHost() string {
 	return viper.GetString(setting.ENVMysqlHost)
 }
 
+func MysqlDexDB() string {
+	return viper.GetString(setting.ENVMysqlDexDB)
+}
+
 func Namespace() string {
 	return viper.GetString(setting.ENVNamespace)
 }

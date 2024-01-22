@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"time"
 
 	"github.com/pkg/errors"
@@ -29,6 +28,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -115,6 +115,12 @@ func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogg
 func WatchApproval() {
 	log := log.SugaredLogger().With("service", "WatchApproval")
 	for {
+		releasePlanApprovalLock := cache.NewRedisLockWithExpiry(fmt.Sprint("release-plan-approval-lock"), time.Minute*5)
+		err := releasePlanApprovalLock.TryLock()
+		if err != nil {
+			continue
+		}
+
 		time.Sleep(time.Second * 3)
 		t := time.Now()
 		list, _, err := mongodb.NewReleasePlanColl().ListByOptions(&mongodb.ListReleasePlanOption{
@@ -132,6 +138,8 @@ func WatchApproval() {
 		if time.Since(t) > time.Millisecond*200 {
 			log.Warnf("watch approval workflow cost %s", time.Since(t))
 		}
+
+		releasePlanApprovalLock.Unlock()
 	}
 }
 
