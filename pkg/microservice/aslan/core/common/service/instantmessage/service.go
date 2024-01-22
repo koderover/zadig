@@ -18,7 +18,6 @@ package instantmessage
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"sort"
@@ -101,8 +100,6 @@ func (w *Service) SendMessageRequest(uri string, message interface{}) ([]byte, e
 		fmt.Printf("send message is using proxy:%s\n", proxies[0].GetProxyURL())
 	}
 
-	data, _ := json.MarshalIndent(message, "", "  ")
-	log.Debugf("send message to %s, message: %s", uri, string(data))
 	res, err := c.Post(uri, httpclient.SetBody(message))
 	if err != nil {
 		return nil, err
