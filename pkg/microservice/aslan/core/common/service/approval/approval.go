@@ -49,7 +49,7 @@ func approveLockKey(instanceID string) string {
 }
 
 func (c *ApproveMap) SetApproval(key string, value *ApproveWithLock) {
-	bytes, _ := json.Marshal(value.Approval)
+	bytes, _ := json.Marshal(value)
 	log.Infof("----- setting approval data， key: %s, value: %s", key, string(bytes))
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(approveKey(key), string(bytes), time.Duration(value.Approval.Timeout)*time.Second)
 }
@@ -108,6 +108,9 @@ func (c *ApproveMap) IsApproval(key string) (bool, int, error) {
 }
 
 func (c *ApproveWithLock) isApproval() (bool, int, error) {
+	if c.Approval == nil {
+		return false, 0, fmt.Errorf("approval data is nil")
+	}
 	ApproveCount := 0
 	for _, user := range c.Approval.ApproveUsers {
 		if user.RejectOrApprove == config.Reject {
