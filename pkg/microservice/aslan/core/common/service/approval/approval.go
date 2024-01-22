@@ -32,7 +32,6 @@ import (
 )
 
 type ApproveMap struct {
-	m map[string]*ApproveWithLock
 }
 
 type ApproveWithLock struct {
@@ -40,10 +39,6 @@ type ApproveWithLock struct {
 }
 
 var GlobalApproveMap ApproveMap
-
-func init() {
-	GlobalApproveMap.m = make(map[string]*ApproveWithLock, 0)
-}
 
 func approveKey(instanceID string) string {
 	return fmt.Sprintf("native-approve-%s", instanceID)
@@ -55,7 +50,7 @@ func approveLockKey(instanceID string) string {
 
 func (c *ApproveMap) SetApproval(key string, value *ApproveWithLock) {
 	bytes, _ := json.Marshal(value.Approval)
-	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(approveKey(key), string(bytes), 0)
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(approveKey(key), string(bytes), time.Duration(value.Approval.Timeout)*time.Second)
 }
 
 func (c *ApproveMap) GetApproval(key string) (*ApproveWithLock, bool) {
@@ -79,6 +74,7 @@ func (c *ApproveMap) GetApproval(key string) (*ApproveWithLock, bool) {
 }
 
 func (c *ApproveMap) DeleteApproval(key string) {
+	log.Infof("------- deleting approval key: %s", key)
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(approveKey(key))
 }
 
