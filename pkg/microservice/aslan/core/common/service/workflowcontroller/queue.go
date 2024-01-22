@@ -29,6 +29,7 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/v2/pkg/setting"
+	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
@@ -138,16 +139,23 @@ func WorfklowTaskSender() {
 	for {
 		time.Sleep(time.Second * 3)
 
+		mutex := cache.NewRedisLock("workflow-task-sender")
+		if err := mutex.TryLock(); err != nil {
+			continue
+		}
+
 		sysSetting, err := commonrepo.NewSystemSettingColl().Get()
 		if err != nil {
 			log.Errorf("get system stettings error: %v", err)
 		}
 		//c.checkAgents()
 		if !hasAgentAvaiable(int(sysSetting.WorkflowConcurrency)) {
+			mutex.Unlock()
 			continue
 		}
 		waitingTasks, err := WaitingTasks()
 		if err != nil || len(waitingTasks) == 0 {
+			mutex.Unlock()
 			continue
 		}
 		var t *commonmodels.WorkflowQueue
@@ -188,13 +196,15 @@ func WorfklowTaskSender() {
 		}
 		// no task to run
 		if t == nil {
+			mutex.Unlock()
 			continue
 		}
 		// update agent and queue
 		if err := updateQueueAndRunTask(t, int(sysSetting.BuildConcurrency)); err != nil {
+			mutex.Unlock()
 			continue
 		}
-
+		mutex.Unlock()
 	}
 }
 
