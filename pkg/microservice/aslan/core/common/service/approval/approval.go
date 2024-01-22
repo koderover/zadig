@@ -64,6 +64,8 @@ func (c *ApproveMap) GetApproval(key string) (*ApproveWithLock, bool) {
 		return nil, false
 	}
 
+	log.Infof("--- get approval data is %s", value)
+
 	approval := &ApproveWithLock{}
 	err = json.Unmarshal([]byte(value), approval)
 	if err != nil {
@@ -100,6 +102,7 @@ func (c *ApproveMap) IsApproval(key string) (bool, int, error) {
 	if !ok {
 		return false, 0, fmt.Errorf("not found approval")
 	}
+	log.Infof("------- approval data :%+v", *approval.Approval)
 	return approval.isApproval()
 }
 
