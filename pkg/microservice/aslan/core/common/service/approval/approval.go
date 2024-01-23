@@ -34,10 +34,6 @@ import (
 type GlobalApproveManager struct {
 }
 
-//type ApproveWithLock struct {
-//	Approval *commonmodels.NativeApproval
-//}
-
 var GlobalApproveMap GlobalApproveManager
 
 func approveKey(instanceID string) string {
@@ -50,7 +46,6 @@ func approveLockKey(instanceID string) string {
 
 func (c *GlobalApproveManager) SetApproval(key string, value *commonmodels.NativeApproval) {
 	bytes, _ := json.Marshal(value)
-	log.Infof("----- setting approval data， key: %s, value: %s", key, string(bytes))
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(approveKey(key), string(bytes), time.Duration(value.Timeout)*time.Minute)
 }
 
