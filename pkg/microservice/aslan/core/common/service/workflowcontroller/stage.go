@@ -164,12 +164,12 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 		default:
 			approved, approveCount, err := approvalservice.GlobalApproveMap.IsApproval(approveKey)
 			if err != nil {
-				log.Infof("---------approval error cause native approve fail")
+				log.Infof("---------approval error cause native approve fail, err: %s", err)
 				stage.Status = config.StatusReject
 				return err
 			}
 			if approved {
-				log.Infof("----------approval finish cause native approve fail")
+				log.Infof("---------- approval finish cause native approve fail")
 				return nil
 			}
 			if approveCount > latestApproveCount {
