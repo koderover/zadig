@@ -43,7 +43,7 @@ func OpenAPICreateScanningModule(username string, args *OpenAPICreateScanningReq
 	return CreateScanningModule(username, scanning, log)
 }
 
-func OpenAPICreateScanningTask(username string, args *OpenAPICreateScanningTaskReq, log *zap.SugaredLogger) (int64, error) {
+func OpenAPICreateScanningTask(username, account, userID string, args *OpenAPICreateScanningTaskReq, log *zap.SugaredLogger) (int64, error) {
 	scan, err := mongodb.NewScanningColl().Find(args.ProjectName, args.ScanName)
 	if err != nil {
 		log.Errorf("failed to find scanning module, err: %s", err)
@@ -68,7 +68,7 @@ func OpenAPICreateScanningTask(username string, args *OpenAPICreateScanningTaskR
 		}
 	}
 
-	return CreateScanningTask(scan.ID.Hex(), scanDatas, "", username, log)
+	return CreateScanningTaskV2(scan.ID.Hex(), username, account, userID, scanDatas, "", log)
 }
 
 func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *zap.SugaredLogger) (*Scanning, error) {
@@ -132,13 +132,13 @@ func generateScanningModuleFromOpenAPIInput(req *OpenAPICreateScanningReq, log *
 	return ret, nil
 }
 
-func OpenAPICreateTestTask(userName string, args *OpenAPICreateTestTaskReq, logger *zap.SugaredLogger) (int64, error) {
+func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreateTestTaskReq, logger *zap.SugaredLogger) (int64, error) {
 	task := &commonmodels.TestTaskArgs{
 		TestName:        args.TestName,
 		ProductName:     args.ProjectName,
 		TestTaskCreator: userName,
 	}
-	result, err := CreateTestTask(task, logger)
+	result, err := CreateTestTaskV2(task, userName, account, userID, logger)
 	if err != nil {
 		logger.Errorf("OpenAPI: failed to create test task, project:%s, test name:%s, err: %s", args.ProjectName, args.TestName, err)
 		return 0, err
@@ -163,7 +163,6 @@ func OpenAPIGetTestTaskResult(taskID int64, productName, testName string, logger
 		Status:     string(pipelineTask.Status.ToLower()),
 	}
 	if pipelineTask.Status == config.StatusPassed {
-
 		report, err := commonservice.GetLocalTestSuite(pipelineName, testName, setting.FunctionTest, taskID, "", config.TestType, logger)
 		if err != nil {
 			logger.Errorf("OpenAPI: failed to get project:%s test:%s task:%d result, err: %v", productName, testName, taskID, err)

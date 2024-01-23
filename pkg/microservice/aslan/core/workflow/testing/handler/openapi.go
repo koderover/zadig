@@ -107,7 +107,7 @@ func OpenAPICreateScanningTask(c *gin.Context) {
 		}
 	}
 
-	taskID, err := testingservice.OpenAPICreateScanningTask(ctx.UserName, args, ctx.Logger)
+	taskID, err := testingservice.OpenAPICreateScanningTask(ctx.UserName, ctx.Account, ctx.UserID, args, ctx.Logger)
 	ctx.Resp = testingservice.OpenAPICreateScanningTaskResp{
 		TaskID: taskID,
 	}
@@ -173,7 +173,7 @@ func OpenAPICreateTestTask(c *gin.Context) {
 		}
 	}
 
-	taskID, err := testingservice.OpenAPICreateTestTask(ctx.UserName, args, ctx.Logger)
+	taskID, err := testingservice.OpenAPICreateTestTask(ctx.UserName, ctx.Account, ctx.UserID, args, ctx.Logger)
 	ctx.Resp = testingservice.OpenAPICreateTestTaskResp{
 		TaskID: taskID,
 	}

@@ -151,6 +151,10 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 		return nil, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
 	}
 
+	for _, repo := range testInfo.Repos {
+		workflowservice.SetRepoInfo(repo, testInfo.Repos, log)
+	}
+
 	testWorkflow, err := generateCustomWorkflowFromTestingModule(testInfo, args)
 
 	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
