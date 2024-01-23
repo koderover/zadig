@@ -2095,7 +2095,13 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 	registryDatasMap := map[*commonmodels.RegistryNamespace]map[string][]*ImageData{}
 	for _, yamlData := range args.YamlDatas {
 		for _, imageData := range yamlData.ImageDatas {
-			registryURL := strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, imageData.ImageTag))
+			sourceImageTag := ""
+			registryURL := strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s", imageData.ImageName))
+			tmpArr := strings.Split(imageData.Image, ":")
+			if len(tmpArr) > 1 {
+				sourceImageTag = tmpArr[1]
+				registryURL = strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, sourceImageTag))
+			}
 			sourceRegistry, ok := registryMap[registryURL]
 			if !ok {
 				return nil, fmt.Errorf("can't find soruce registry for image: %s", imageData.Image)
