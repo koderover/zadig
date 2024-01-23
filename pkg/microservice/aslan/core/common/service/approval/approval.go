@@ -20,25 +20,25 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 
 	config2 "github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
 	"github.com/koderover/zadig/v2/pkg/tool/log"
 )
 
-type ApproveMap struct {
+type GlobalApproveManager struct {
 }
 
-type ApproveWithLock struct {
-	Approval *commonmodels.NativeApproval
-}
+//type ApproveWithLock struct {
+//	Approval *commonmodels.NativeApproval
+//}
 
-var GlobalApproveMap ApproveMap
+var GlobalApproveMap GlobalApproveManager
 
 func approveKey(instanceID string) string {
 	return fmt.Sprintf("native-approve-%s", instanceID)
@@ -48,13 +48,13 @@ func approveLockKey(instanceID string) string {
 	return fmt.Sprintf("native-approve-lock-%s", instanceID)
 }
 
-func (c *ApproveMap) SetApproval(key string, value *ApproveWithLock) {
+func (c *GlobalApproveManager) SetApproval(key string, value *commonmodels.NativeApproval) {
 	bytes, _ := json.Marshal(value)
 	log.Infof("----- setting approval data， key: %s, value: %s", key, string(bytes))
-	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(approveKey(key), string(bytes), time.Duration(value.Approval.Timeout)*time.Minute)
+	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Write(approveKey(key), string(bytes), time.Duration(value.Timeout)*time.Minute)
 }
 
-func (c *ApproveMap) GetApproval(key string) (*ApproveWithLock, bool) {
+func (c *GlobalApproveManager) GetApproval(key string) (*commonmodels.NativeApproval, bool) {
 	value, err := cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).GetString(approveKey(key))
 	if err != nil && !errors.Is(err, redis.Nil) {
 		log.Errorf("get approval from redis error: %v", err)
@@ -65,9 +65,7 @@ func (c *ApproveMap) GetApproval(key string) (*ApproveWithLock, bool) {
 		return nil, false
 	}
 
-	log.Infof("------ get approval data is %s", value)
-
-	approval := &ApproveWithLock{}
+	approval := &commonmodels.NativeApproval{}
 	err = json.Unmarshal([]byte(value), approval)
 	if err != nil {
 		log.Errorf("unmarshal approval error: %v", err)
@@ -76,12 +74,11 @@ func (c *ApproveMap) GetApproval(key string) (*ApproveWithLock, bool) {
 	return approval, true
 }
 
-func (c *ApproveMap) DeleteApproval(key string) {
-	log.Infof("------- deleting approval key: %s", key)
+func (c *GlobalApproveManager) DeleteApproval(key string) {
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(approveKey(key))
 }
 
-func (c *ApproveMap) DoApproval(key, userName, userID, comment string, approval bool) error {
+func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string, approve bool) error {
 	redisMutex := cache.NewRedisLock(approveLockKey(key))
 	redisMutex.Lock()
 	defer redisMutex.Unlock()
@@ -90,46 +87,9 @@ func (c *ApproveMap) DoApproval(key, userName, userID, comment string, approval 
 	if !ok {
 		return fmt.Errorf("not found approval")
 	}
-	err := approvalData.doApproval(userName, userID, comment, approval)
-	if err != nil {
-		return err
-	}
-	c.SetApproval(key, approvalData)
-	return nil
-}
 
-func (c *ApproveMap) IsApproval(key string) (bool, int, error) {
-	approval, ok := c.GetApproval(key)
-	if !ok {
-		return false, 0, fmt.Errorf("not found approval")
-	}
-	log.Infof("------- approval data :%+v", *approval.Approval)
-	return approval.isApproval()
-}
-
-func (c *ApproveWithLock) isApproval() (bool, int, error) {
-	if c.Approval == nil {
-		return false, 0, fmt.Errorf("approval data is nil")
-	}
-	ApproveCount := 0
-	for _, user := range c.Approval.ApproveUsers {
-		if user.RejectOrApprove == config.Reject {
-			c.Approval.RejectOrApprove = config.Reject
-			return false, ApproveCount, fmt.Errorf("%s reject this task", user.UserName)
-		}
-		if user.RejectOrApprove == config.Approve {
-			ApproveCount++
-		}
-	}
-	if ApproveCount >= c.Approval.NeededApprovers {
-		c.Approval.RejectOrApprove = config.Approve
-		return true, ApproveCount, nil
-	}
-	return false, ApproveCount, nil
-}
-
-func (c *ApproveWithLock) doApproval(userName, userID, comment string, appvove bool) error {
-	for _, user := range c.Approval.ApproveUsers {
+	meetUser := false
+	for _, user := range approvalData.ApproveUsers {
 		if user.UserID != userID {
 			continue
 		}
@@ -138,13 +98,43 @@ func (c *ApproveWithLock) doApproval(userName, userID, comment string, appvove b
 		}
 		user.Comment = comment
 		user.OperationTime = time.Now().Unix()
-		if appvove {
+		if approve {
 			user.RejectOrApprove = config.Approve
-			return nil
+			meetUser = true
+			break
 		} else {
 			user.RejectOrApprove = config.Reject
-			return nil
+			meetUser = true
+			break
 		}
 	}
-	return fmt.Errorf("user %s has no authority to Approve", userName)
+	if !meetUser {
+		return fmt.Errorf("user %s has no authority to Approve", userName)
+	}
+
+	c.SetApproval(key, approvalData)
+	return nil
+}
+
+func (c *GlobalApproveManager) IsApproval(key string) (bool, int, error) {
+	approval, ok := c.GetApproval(key)
+	if !ok {
+		return false, 0, fmt.Errorf("not found approval")
+	}
+
+	ApproveCount := 0
+	for _, user := range approval.ApproveUsers {
+		if user.RejectOrApprove == config.Reject {
+			approval.RejectOrApprove = config.Reject
+			return false, ApproveCount, fmt.Errorf("%s reject this task", user.UserName)
+		}
+		if user.RejectOrApprove == config.Approve {
+			ApproveCount++
+		}
+	}
+	if ApproveCount >= approval.NeededApprovers {
+		approval.RejectOrApprove = config.Approve
+		return true, ApproveCount, nil
+	}
+	return false, ApproveCount, nil
 }

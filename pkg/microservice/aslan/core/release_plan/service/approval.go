@@ -275,7 +275,7 @@ func createNativeApproval(plan *models.ReleasePlan, url string) error {
 
 	approveKey := uuid.New().String()
 	approval.InstanceCode = approveKey
-	approveWithL := &approvalservice.ApproveWithLock{Approval: approval}
+	approveWithL := approval
 	approvalservice.GlobalApproveMap.SetApproval(approveKey, approveWithL)
 	return nil
 }
