@@ -532,6 +532,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
+	log.Infof(">>>>>>>>>>> before spec: %+v <<<<<<<<<<<<<<<", workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec)
 	log.Infof(">>>>>>>>>>>> spec: %+v <<<<<<<<<<<<<<<<", spec)
 
 	if len(spec.Scannings) != 1 {
