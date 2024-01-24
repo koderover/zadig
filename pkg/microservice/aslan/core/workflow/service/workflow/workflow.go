@@ -151,6 +151,17 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 	}
 	createArgs.initDefaultWorkflows()
 
+	s3storageID := ""
+	s3storage, err := commonrepo.NewS3StorageColl().FindDefault()
+	if err != nil {
+		log.Errorf("S3Storage.FindDefault error: %v", err)
+	} else {
+		projectSet := sets.NewString(s3storage.Projects...)
+		if projectSet.Has(productName) || projectSet.Has(setting.AllProjects) {
+			s3storageID = s3storage.ID.Hex()
+		}
+	}
+
 	// helm/k8syaml project may have customized products, use the real created products
 	if productTmpl.IsHelmProduct() || productTmpl.IsK8sYamlProduct() || productTmpl.IsHostProduct() {
 		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
@@ -217,10 +228,17 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 
 			buildJobName := ""
 			if workflowArg.buildStageEnabled {
+				buildTargetSet := sets.NewString()
 				serviceAndBuilds := []*commonmodels.ServiceAndBuild{}
 				for _, serviceTmpl := range services {
 					if build, ok := buildMap[serviceTmpl.ServiceName]; ok {
 						for _, target := range build.Targets {
+							key := fmt.Sprintf("%s-%s", target.ServiceName, target.ServiceModule)
+							if buildTargetSet.Has(key) {
+								continue
+							}
+							buildTargetSet.Insert(key)
+
 							serviceAndBuild := &commonmodels.ServiceAndBuild{
 								ServiceName:   target.ServiceName,
 								ServiceModule: target.ServiceModule,
@@ -248,8 +266,9 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 
 			if productTmpl.IsCVMProduct() {
 				spec := &commonmodels.ZadigVMDeployJobSpec{
-					Env:    workflowArg.envName,
-					Source: config.SourceRuntime,
+					Env:         workflowArg.envName,
+					Source:      config.SourceRuntime,
+					S3StorageID: s3storageID,
 				}
 				if workflowArg.buildStageEnabled {
 					spec.Source = config.SourceFromJob
