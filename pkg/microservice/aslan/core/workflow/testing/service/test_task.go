@@ -377,6 +377,7 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 		Project:          testInfo.ProductName,
 		CreatedBy:        "system",
 		ConcurrencyLimit: 1,
+		NotifyCtls:       testInfo.NotifyCtls,
 	}
 
 	stage := make([]*commonmodels.WorkflowStage, 0)

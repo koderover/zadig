@@ -419,7 +419,7 @@ func CreateScanningTaskV2(id, username, account, userID string, req []*ScanningR
 		return 0, err
 	}
 
-	scanningWorkflow, err := generateCustomWorkflowFromScanningModule(scanningInfo, req, log)
+	scanningWorkflow, err := generateCustomWorkflowFromScanningModule(scanningInfo, req, notificationID, log)
 	if err != nil {
 		log.Errorf("failed to getenerate custom workflow from mongodb, the error is: %s", err)
 		return 0, err
@@ -550,7 +550,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	}, nil
 }
 
-func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args []*ScanningRepoInfo, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args []*ScanningRepoInfo, notificationID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
 	resp := &commonmodels.WorkflowV4{
 		Name:             fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanInfo.ID.Hex()),
 		DisplayName:      scanInfo.Name,
@@ -558,6 +558,8 @@ func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, a
 		Project:          scanInfo.ProjectName,
 		CreatedBy:        "system",
 		ConcurrencyLimit: 1,
+		NotificationID:   notificationID,
+		NotifyCtls:       scanInfo.AdvancedSetting.NotifyCtls,
 	}
 
 	stage := make([]*commonmodels.WorkflowStage, 0)
