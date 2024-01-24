@@ -715,7 +715,6 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 			imageTagMap[it.ImageName] = it.ImageTag
 		}
 	}
-	log.Debugf("imageTagMap: %+v", imageTagMap)
 
 	retValuesYaml := string(valuesYaml)
 
@@ -744,16 +743,13 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 			return nil, nil, err
 		}
 
-		log.Debugf("imageUrl: %s", imageUrl)
 		imageName := commonutil.ExtractImageName(imageUrl)
 		imageTag := commonservice.ExtractImageTag(imageUrl)
 
 		customTag := ""
 		if ct, ok := imageTagMap[imageName]; ok {
-			log.Debugf("1")
 			customTag = ct
 		} else {
-			log.Debugf("2")
 			continue
 		}
 
@@ -773,9 +769,7 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 			sourceRegistryID = registry.ID.Hex()
 			registrySet.Insert(sourceRegistryID)
 		}
-		log.Debugf("3")
 
-		log.Debugf("imageName: %s, imageTag: %s, customTag: %s", imageName, imageTag, customTag)
 		imageDetail.Images = append(imageDetail.Images, &ImageUrlDetail{
 			ImageUrl:         imageUrl,
 			Name:             imageName,
@@ -784,7 +778,6 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 			TargetRegistryID: targetRegistry.ID.Hex(),
 			CustomTag:        customTag,
 		})
-		log.Debugf("4")
 
 		// assign image to values.yaml
 		targetImageUrl := util.ReplaceRepo(imageUrl, targetRegistry.RegAddr, targetRegistry.Namespace)
@@ -801,7 +794,6 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 		}
 	}
 
-	log.Debugf("imageDetail: %+v", imageDetail)
 	imageDetail.Registries = registrySet.List()
 	return []byte(retValuesYaml), imageDetail, nil
 }
@@ -1004,7 +996,6 @@ func buildArtifactTaskArgs(projectName, envName string, imagesMap *sync.Map) (*c
 
 	i := 0
 	imagesMap.Range(func(key, value interface{}) bool {
-		log.Debugf("key: %+v, value: %+v", key, value)
 		imageDetail := value.(*ServiceImageDetails)
 		for _, image := range imageDetail.Images {
 			imageName := commonutil.ExtractImageName(image.ImageUrl)
@@ -1471,7 +1462,6 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 	for _, distribute := range chartDistributes {
 		successCharts.Insert(distribute.ChartName)
 	}
-	log.Debugf("successCharts: %v", successCharts)
 
 	// successfully handled images
 	imageDistributes, err := commonrepo.NewDeliveryDistributeColl().Find(&commonrepo.DeliveryDistributeArgs{
@@ -1485,7 +1475,6 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 	for _, distribute := range imageDistributes {
 		successImages.Insert(distribute.ServiceName) // image name
 	}
-	log.Debugf("successImages: %v", successImages)
 
 	errorList := &multierror.Error{}
 
@@ -1524,7 +1513,6 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 							chartImageAllsuccessMap[target.ServiceName] = false
 						}
 
-						log.Debugf("imageName: %s, targetImage: %s", imageName, target.TargetImage)
 						err := commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
 							DistributeType: config.Image,
 							ReleaseID:      deliveryVersion.ID,
@@ -1572,7 +1560,6 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 		successCharts.Insert(chartData.ServiceName)
 	}
 
-	log.Debugf("allTaskDone: %v, successImage: %v, successCharts: %v, len(chartDataMap): %d", allTaskDone, successImages, successCharts, len(chartDataMap))
 	if allTaskDone {
 		if successCharts.Len() == len(createArgs.ChartDatas) {
 			deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
@@ -1583,7 +1570,6 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 	if errorList.ErrorOrNil() != nil {
 		deliveryVersion.Error = errorList.Error()
 	}
-	log.Debugf("errorList: %v", errorList.Error())
 	updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
 	return allTaskDone, nil
 }
