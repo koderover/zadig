@@ -108,7 +108,7 @@ func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string,
 	}
 
 	c.SetApproval(key, approvalData)
-	return approvalData
+	return approvalData, nil
 }
 
 func (c *GlobalApproveManager) IsApproval(key string) (bool, int, error) {
