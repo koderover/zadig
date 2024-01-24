@@ -44,20 +44,6 @@ func needCreateProdSchedule(env *service.ProductResp) bool {
 	return false
 }
 
-func needCreateSchedule(rendersetObj *service.ProductRenderset) bool {
-	if rendersetObj.YamlData != nil {
-		if rendersetObj.YamlData.Source == setting.SourceFromGitRepo || rendersetObj.YamlData.Source == setting.SourceFromVariableSet {
-			return true
-		}
-	}
-	for _, chartData := range rendersetObj.ChartInfos {
-		if chartData.OverrideYaml != nil && chartData.OverrideYaml.Source == setting.SourceFromGitRepo {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *CronClient) UpsertEnvValueSyncScheduler(log *zap.SugaredLogger) {
 	envs, err := c.AslanCli.ListEnvs(log, &client.EvnListOption{DeployType: []string{setting.HelmDeployType}})
 	if err != nil {
