@@ -63,11 +63,12 @@ func WatchExecutingWorkflow() {
 }
 
 func updatePlanWorkflowReleaseJob(plan *models.ReleasePlan, log *zap.SugaredLogger) {
-	lockErr := getLock(plan.ID.Hex()).Lock()
+	releaseLock := getLock(plan.ID.Hex())
+	lockErr := releaseLock.TryLock()
 	if lockErr != nil {
 		return
 	}
-	defer getLock(plan.ID.Hex()).Unlock()
+	defer releaseLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -144,11 +145,12 @@ func WatchApproval() {
 }
 
 func updatePlanApproval(plan *models.ReleasePlan) error {
-	lockErr := getLock(plan.ID.Hex()).Lock()
+	approveLock := getLock(plan.ID.Hex())
+	lockErr := approveLock.TryLock()
 	if lockErr != nil {
 		return nil
 	}
-	defer getLock(plan.ID.Hex()).Unlock()
+	defer approveLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()

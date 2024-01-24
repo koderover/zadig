@@ -81,7 +81,8 @@ func RunStages(ctx context.Context, stages []*commonmodels.StageTask, workflowCt
 
 func ApproveStage(workflowName, stageName, userName, userID, comment string, taskID int64, approve bool) error {
 	approveKey := fmt.Sprintf("%s-%d-%s", workflowName, taskID, stageName)
-	return approvalservice.GlobalApproveMap.DoApproval(approveKey, userName, userID, comment, approve)
+	_, err := approvalservice.GlobalApproveMap.DoApproval(approveKey, userName, userID, comment, approve)
+	return err
 }
 
 func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) (err error) {

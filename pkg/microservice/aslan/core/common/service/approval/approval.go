@@ -73,14 +73,14 @@ func (c *GlobalApproveManager) DeleteApproval(key string) {
 	cache.NewRedisCache(config2.RedisCommonCacheTokenDB()).Delete(approveKey(key))
 }
 
-func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string, approve bool) error {
+func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string, approve bool) (*commonmodels.NativeApproval, error) {
 	redisMutex := cache.NewRedisLock(approveLockKey(key))
 	redisMutex.Lock()
 	defer redisMutex.Unlock()
 
 	approvalData, ok := c.GetApproval(key)
 	if !ok {
-		return fmt.Errorf("not found approval")
+		return nil, fmt.Errorf("not found approval")
 	}
 
 	meetUser := false
@@ -89,7 +89,7 @@ func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string,
 			continue
 		}
 		if user.RejectOrApprove != "" {
-			return fmt.Errorf("%s have %s already", userName, user.RejectOrApprove)
+			return nil, fmt.Errorf("%s have %s already", userName, user.RejectOrApprove)
 		}
 		user.Comment = comment
 		user.OperationTime = time.Now().Unix()
@@ -104,11 +104,11 @@ func (c *GlobalApproveManager) DoApproval(key, userName, userID, comment string,
 		}
 	}
 	if !meetUser {
-		return fmt.Errorf("user %s has no authority to Approve", userName)
+		return nil, fmt.Errorf("user %s has no authority to Approve", userName)
 	}
 
 	c.SetApproval(key, approvalData)
-	return nil
+	return approvalData
 }
 
 func (c *GlobalApproveManager) IsApproval(key string) (bool, int, error) {
