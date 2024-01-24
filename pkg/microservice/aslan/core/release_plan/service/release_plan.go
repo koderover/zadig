@@ -411,8 +411,6 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		return errors.Wrap(err, "do approval")
 	}
 
-	log.Infof("---------- approval key finished -----------")
-
 	plan.Approval.NativeApproval = approval
 	approved, _, err := approvalservice.GlobalApproveMap.IsApproval(approvalKey)
 	if err != nil {
