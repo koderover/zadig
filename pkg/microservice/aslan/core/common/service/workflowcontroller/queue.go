@@ -202,6 +202,10 @@ func WorfklowTaskSender() {
 						concurrencyNum = -1
 					}
 					concurrency = concurrencyNum
+				default:
+					log.Errorf("unsupported task type: %s, removing from queue", task.Type)
+					Remove(task)
+					continue
 				}
 			} else {
 				concurrency = workflow.ConcurrencyLimit
