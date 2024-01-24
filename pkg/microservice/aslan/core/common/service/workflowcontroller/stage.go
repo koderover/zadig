@@ -126,6 +126,8 @@ func waitForApprove(ctx context.Context, stage *commonmodels.StageTask, workflow
 }
 
 func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, workflowCtx *commonmodels.WorkflowTaskCtx, logger *zap.SugaredLogger, ack func()) error {
+	log.Infof("waitForLarkApprove start")
+
 	approval := stage.Approval.NativeApproval
 	if approval == nil {
 		return errors.New("waitForApprove: native approval data not found")
@@ -135,9 +137,9 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 		approval.Timeout = 60
 	}
 	approveKey := fmt.Sprintf("%s-%d-%s", workflowCtx.WorkflowName, workflowCtx.TaskID, stage.Name)
-	approveWithL := &approvalservice.ApproveWithLock{Approval: approval}
-	approvalservice.GlobalApproveMap.SetApproval(approveKey, approveWithL)
+	approvalservice.GlobalApproveMap.SetApproval(approveKey, approval)
 	defer func() {
+		log.Infof("----- start to delete approval")
 		approvalservice.GlobalApproveMap.DeleteApproval(approveKey)
 		ack()
 	}()
@@ -153,7 +155,6 @@ func waitForNativeApprove(ctx context.Context, stage *commonmodels.StageTask, wo
 		case <-ctx.Done():
 			stage.Status = config.StatusCancelled
 			return fmt.Errorf("workflow was canceled")
-
 		case <-timeout:
 			stage.Status = config.StatusTimeout
 			return fmt.Errorf("workflow timeout")
