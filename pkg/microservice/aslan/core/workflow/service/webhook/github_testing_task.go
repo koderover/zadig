@@ -100,7 +100,7 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
 					args.RepoName = item.MainRepo.RepoName
-					if resp, err := testingservice.CreateTestTask(args, log); err != nil {
+					if resp, err := testingservice.CreateTestTaskV2(args, "webhook", "", "", log); err != nil {
 						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
 						mErr = multierror.Append(mErr, err)
 					} else {

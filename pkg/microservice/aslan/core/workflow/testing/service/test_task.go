@@ -151,6 +151,10 @@ func CreateTestTaskV2(args *commonmodels.TestTaskArgs, username, account, userID
 		return nil, fmt.Errorf("find test[%s] error: %v", args.TestName, err)
 	}
 
+	for _, repo := range testInfo.Repos {
+		workflowservice.SetRepoInfo(repo, testInfo.Repos, log)
+	}
+
 	testWorkflow, err := generateCustomWorkflowFromTestingModule(testInfo, args)
 
 	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
@@ -366,13 +370,23 @@ func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap
 }
 
 func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs) (*commonmodels.WorkflowV4, error) {
+	concurrencyLimit := 1
+	if testInfo.PreTest != nil {
+		concurrencyLimit = testInfo.PreTest.ConcurrencyLimit
+	}
+	// compatibility code
+	if concurrencyLimit == 0 {
+		concurrencyLimit = -1
+	}
+
 	resp := &commonmodels.WorkflowV4{
 		Name:             fmt.Sprintf(setting.TestWorkflowNamingConvention, testInfo.Name),
 		DisplayName:      testInfo.Name,
 		Stages:           nil,
 		Project:          testInfo.ProductName,
 		CreatedBy:        "system",
-		ConcurrencyLimit: 1,
+		ConcurrencyLimit: concurrencyLimit,
+		NotifyCtls:       testInfo.NotifyCtls,
 	}
 
 	stage := make([]*commonmodels.WorkflowStage, 0)

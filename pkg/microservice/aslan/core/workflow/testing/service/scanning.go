@@ -160,24 +160,29 @@ func GetScanningModuleByID(id string, log *zap.SugaredLogger) (*Scanning, error)
 		return nil, err
 	}
 
-	if scanning.AdvancedSetting != nil && scanning.AdvancedSetting.StrategyID == "" {
-		clusterID := scanning.AdvancedSetting.ClusterID
-		if clusterID == "" {
-			clusterID = setting.LocalClusterID
-		}
-		cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
-		if err != nil {
-			if err != mongo.ErrNoDocuments {
-				return nil, fmt.Errorf("failed to find cluster %s, error: %v", scanning.AdvancedSetting.ClusterID, err)
+	if scanning.AdvancedSetting != nil {
+		if scanning.AdvancedSetting.StrategyID == "" {
+			clusterID := scanning.AdvancedSetting.ClusterID
+			if clusterID == "" {
+				clusterID = setting.LocalClusterID
 			}
-		} else if cluster.AdvancedConfig != nil {
-			strategies := cluster.AdvancedConfig.ScheduleStrategy
-			for _, strategy := range strategies {
-				if strategy.Default {
-					scanning.AdvancedSetting.StrategyID = strategy.StrategyID
-					break
+			cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
+			if err != nil {
+				if err != mongo.ErrNoDocuments {
+					return nil, fmt.Errorf("failed to find cluster %s, error: %v", scanning.AdvancedSetting.ClusterID, err)
+				}
+			} else if cluster.AdvancedConfig != nil {
+				strategies := cluster.AdvancedConfig.ScheduleStrategy
+				for _, strategy := range strategies {
+					if strategy.Default {
+						scanning.AdvancedSetting.StrategyID = strategy.StrategyID
+						break
+					}
 				}
 			}
+		}
+		if scanning.AdvancedSetting.ConcurrencyLimit == 0 {
+			scanning.AdvancedSetting.ConcurrencyLimit = -1
 		}
 	}
 
@@ -419,7 +424,7 @@ func CreateScanningTaskV2(id, username, account, userID string, req []*ScanningR
 		return 0, err
 	}
 
-	scanningWorkflow, err := generateCustomWorkflowFromScanningModule(scanningInfo, req, log)
+	scanningWorkflow, err := generateCustomWorkflowFromScanningModule(scanningInfo, req, notificationID, log)
 	if err != nil {
 		log.Errorf("failed to getenerate custom workflow from mongodb, the error is: %s", err)
 		return 0, err
@@ -520,14 +525,19 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, fmt.Errorf(errMsg)
 	}
 
-	var spec workflowservice.ZadigScanningJobSpec
-	err = commonmodels.IToi(workflowTask.Stages[0].Jobs[0].Spec, spec)
+	spec := new(commonmodels.ZadigScanningJobSpec)
+	err = commonmodels.IToi(workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec, spec)
 	if err != nil {
 		log.Errorf("failed to decode testing job spec, err: %s", err)
 		return nil, err
 	}
 
-	repoInfo := spec.Repos
+	if len(spec.Scannings) != 1 {
+		log.Errorf("invalid scanning custom workflow scan list length: expect 1")
+		return nil, fmt.Errorf("invalid scanning custom workflow scan list length: expect 1")
+	}
+
+	repoInfo := spec.Scannings[0].Repos
 	// for security reasons, we set all sensitive information to empty
 	for _, repo := range repoInfo {
 		repo.OauthToken = ""
@@ -545,14 +555,25 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	}, nil
 }
 
-func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args []*ScanningRepoInfo, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args []*ScanningRepoInfo, notificationID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	concurrencyLimit := 1
+	if scanInfo.AdvancedSetting != nil {
+		concurrencyLimit = scanInfo.AdvancedSetting.ConcurrencyLimit
+	}
+	// compatibility code
+	if concurrencyLimit == 0 {
+		concurrencyLimit = -1
+	}
+
 	resp := &commonmodels.WorkflowV4{
 		Name:             fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanInfo.ID.Hex()),
 		DisplayName:      scanInfo.Name,
 		Stages:           nil,
 		Project:          scanInfo.ProjectName,
 		CreatedBy:        "system",
-		ConcurrencyLimit: 1,
+		ConcurrencyLimit: concurrencyLimit,
+		NotificationID:   notificationID,
+		NotifyCtls:       scanInfo.AdvancedSetting.NotifyCtls,
 	}
 
 	stage := make([]*commonmodels.WorkflowStage, 0)
