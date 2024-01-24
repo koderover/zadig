@@ -532,6 +532,8 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, err
 	}
 
+	log.Infof(">>>>>>>>>>>> spec: %+v <<<<<<<<<<<<<<<<", spec)
+
 	if len(spec.Scannings) != 1 {
 		log.Errorf("invalid scanning custom workflow scan list length: expect 1")
 		return nil, fmt.Errorf("invalid scanning custom workflow scan list length: expect 1")
