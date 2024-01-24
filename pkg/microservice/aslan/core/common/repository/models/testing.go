@@ -67,6 +67,7 @@ type Testing struct {
 	// New since V1.10.0. Only to tell the webpage should the advanced settings be displayed
 	AdvancedSettingsModified bool      `bson:"advanced_setting_modified" json:"advanced_setting_modified"`
 	Outputs                  []*Output `bson:"outputs"                   json:"outputs"`
+	ConcurrencyLimit         int       `bson:"concurrency_limit"         json:"concurrency_limit"`
 }
 
 type TestingHookCtrl struct {

@@ -196,6 +196,9 @@ func ListTestingOpt(productNames []string, testType string, log *zap.SugaredLogg
 				// TODO: Remove the code below. After the removal of the product workflow, there will no longer be references in the testing modules.
 				//testing.Workflows, _ = ListAllWorkflows(testing.Name, log)
 			}
+			if testing.ConcurrencyLimit == 0 {
+				testing.ConcurrencyLimit = -1
+			}
 			allTestings = append(allTestings, testing)
 		}
 	}
@@ -343,6 +346,10 @@ func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels
 				}
 			}
 		}
+	}
+
+	if resp.ConcurrencyLimit == 0 {
+		resp.ConcurrencyLimit = -1
 	}
 
 	workflowservice.EnsureTestingResp(resp)

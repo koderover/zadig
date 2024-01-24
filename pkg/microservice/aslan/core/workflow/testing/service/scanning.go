@@ -160,24 +160,29 @@ func GetScanningModuleByID(id string, log *zap.SugaredLogger) (*Scanning, error)
 		return nil, err
 	}
 
-	if scanning.AdvancedSetting != nil && scanning.AdvancedSetting.StrategyID == "" {
-		clusterID := scanning.AdvancedSetting.ClusterID
-		if clusterID == "" {
-			clusterID = setting.LocalClusterID
-		}
-		cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
-		if err != nil {
-			if err != mongo.ErrNoDocuments {
-				return nil, fmt.Errorf("failed to find cluster %s, error: %v", scanning.AdvancedSetting.ClusterID, err)
+	if scanning.AdvancedSetting != nil {
+		if scanning.AdvancedSetting.StrategyID == "" {
+			clusterID := scanning.AdvancedSetting.ClusterID
+			if clusterID == "" {
+				clusterID = setting.LocalClusterID
 			}
-		} else if cluster.AdvancedConfig != nil {
-			strategies := cluster.AdvancedConfig.ScheduleStrategy
-			for _, strategy := range strategies {
-				if strategy.Default {
-					scanning.AdvancedSetting.StrategyID = strategy.StrategyID
-					break
+			cluster, err := commonrepo.NewK8SClusterColl().FindByID(clusterID)
+			if err != nil {
+				if err != mongo.ErrNoDocuments {
+					return nil, fmt.Errorf("failed to find cluster %s, error: %v", scanning.AdvancedSetting.ClusterID, err)
+				}
+			} else if cluster.AdvancedConfig != nil {
+				strategies := cluster.AdvancedConfig.ScheduleStrategy
+				for _, strategy := range strategies {
+					if strategy.Default {
+						scanning.AdvancedSetting.StrategyID = strategy.StrategyID
+						break
+					}
 				}
 			}
+		}
+		if scanning.AdvancedSetting.ConcurrencyLimit == 0 {
+			scanning.AdvancedSetting.ConcurrencyLimit = -1
 		}
 	}
 
@@ -551,13 +556,22 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 }
 
 func generateCustomWorkflowFromScanningModule(scanInfo *commonmodels.Scanning, args []*ScanningRepoInfo, notificationID string, log *zap.SugaredLogger) (*commonmodels.WorkflowV4, error) {
+	concurrencyLimit := 1
+	if scanInfo.AdvancedSetting != nil {
+		concurrencyLimit = scanInfo.AdvancedSetting.ConcurrencyLimit
+	}
+	// compatibility code
+	if concurrencyLimit == 0 {
+		concurrencyLimit = -1
+	}
+
 	resp := &commonmodels.WorkflowV4{
 		Name:             fmt.Sprintf(setting.ScanWorkflowNamingConvention, scanInfo.ID.Hex()),
 		DisplayName:      scanInfo.Name,
 		Stages:           nil,
 		Project:          scanInfo.ProjectName,
 		CreatedBy:        "system",
-		ConcurrencyLimit: 1,
+		ConcurrencyLimit: concurrencyLimit,
 		NotificationID:   notificationID,
 		NotifyCtls:       scanInfo.AdvancedSetting.NotifyCtls,
 	}
