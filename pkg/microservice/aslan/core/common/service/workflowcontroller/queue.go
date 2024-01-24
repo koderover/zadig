@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -164,13 +165,44 @@ func WorfklowTaskSender() {
 			workflow, err := commonrepo.NewWorkflowV4Coll().Find(task.WorkflowName)
 			if err != nil {
 				log.Errorf("WorkflowV4 Queue: find workflow %s error: %v", task.WorkflowName, err)
-				systemSettings, err := commonrepo.NewSystemSettingColl().Get()
-				if err != nil {
-					log.Errorf("failed to get system setting, error: %+v", err)
-					Remove(task)
-					continue
+				switch task.Type {
+				case config.WorkflowTaskTypeScanning:
+					segs := strings.Split(task.WorkflowName, "-")
+					if len(segs) != 3 {
+						log.Errorf("invalid scanning workflow name: %s", task.WorkflowName)
+						Remove(task)
+						continue
+					}
+					scanningInfo, err := commonrepo.NewScanningColl().Find(task.ProjectName, segs[2])
+					if err != nil {
+						log.Errorf("failed to find scanning of id: %s, error: %s", segs[2], err)
+						Remove(task)
+						continue
+					}
+					concurrencyNum := -1
+					if scanningInfo.AdvancedSetting != nil {
+						concurrencyNum = scanningInfo.AdvancedSetting.ConcurrencyLimit
+					}
+					if concurrencyNum == 0 {
+						concurrencyNum = -1
+					}
+					concurrency = concurrencyNum
+				case config.WorkflowTaskTypeTesting:
+					testingInfo, err := commonrepo.NewTestingColl().Find(task.WorkflowDisplayName, task.ProjectName)
+					if err != nil {
+						log.Errorf("failed to find test of name: %s in project: %s, error: %s", task.WorkflowDisplayName, task.ProjectName, err)
+						Remove(task)
+						continue
+					}
+					concurrencyNum := -1
+					if testingInfo.PreTest != nil {
+						concurrencyNum = testingInfo.PreTest.ConcurrencyLimit
+					}
+					if concurrencyNum == 0 {
+						concurrencyNum = -1
+					}
+					concurrency = concurrencyNum
 				}
-				concurrency = int(systemSettings.WorkflowConcurrency)
 			} else {
 				concurrency = workflow.ConcurrencyLimit
 			}
