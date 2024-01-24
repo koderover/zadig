@@ -156,8 +156,9 @@ type UpdateReleasePlanArgs struct {
 }
 
 func UpdateReleasePlan(c *handler.Context, planID string, args *UpdateReleasePlanArgs) error {
-	getLock(planID).Lock()
-	defer getLock(planID).Unlock()
+	approveLock := getLock(planID)
+	approveLock.Lock()
+	defer approveLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -216,8 +217,9 @@ type ExecuteReleaseJobArgs struct {
 }
 
 func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJobArgs) error {
-	getLock(planID).Lock()
-	defer getLock(planID).Unlock()
+	approveLock := getLock(planID)
+	approveLock.Lock()
+	defer approveLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -285,8 +287,9 @@ func ExecuteReleaseJob(c *handler.Context, planID string, args *ExecuteReleaseJo
 }
 
 func UpdateReleasePlanStatus(c *handler.Context, planID, status string) error {
-	getLock(planID).Lock()
-	defer getLock(planID).Unlock()
+	approveLock := getLock(planID)
+	approveLock.Lock()
+	defer approveLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -376,8 +379,9 @@ type ApproveRequest struct {
 }
 
 func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) error {
-	getLock(planID).Lock()
-	defer getLock(planID).Unlock()
+	approveLock := getLock(planID)
+	approveLock.Lock()
+	defer approveLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -401,7 +405,9 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 		log.Infof("updateNativeApproval: approval instance code %s not found, set it", plan.Approval.NativeApproval.InstanceCode)
 		approvalservice.GlobalApproveMap.SetApproval(plan.Approval.NativeApproval.InstanceCode, plan.Approval.NativeApproval)
 	}
-	if err = approvalservice.GlobalApproveMap.DoApproval(approvalKey, c.UserName, c.UserID, req.Comment, req.Approve); err != nil {
+
+	approval, err = approvalservice.GlobalApproveMap.DoApproval(approvalKey, c.UserName, c.UserID, req.Comment, req.Approve)
+	if err != nil {
 		return errors.Wrap(err, "do approval")
 	}
 
