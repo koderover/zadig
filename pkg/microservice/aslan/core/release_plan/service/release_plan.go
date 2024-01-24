@@ -379,7 +379,6 @@ type ApproveRequest struct {
 }
 
 func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) error {
-	log.Infof("--------- start approve release plan: %s", planID)
 	approveLock := getLock(planID)
 	approveLock.Lock()
 	defer approveLock.Unlock()
@@ -400,7 +399,6 @@ func ApproveReleasePlan(c *handler.Context, planID string, req *ApproveRequest) 
 	}
 
 	approvalKey := plan.Approval.NativeApproval.InstanceCode
-	log.Infof("--------- approval key: %s", approvalKey)
 	approval, ok := approvalservice.GlobalApproveMap.GetApproval(approvalKey)
 	if !ok {
 		// restore data after restart aslan
