@@ -364,7 +364,7 @@ func GetTestingContainerLogsSSE(c *gin.Context) {
 
 	tails, err := strconv.ParseInt(c.Query("lines"), 10, 64)
 	if err != nil {
-		tails = int64(10)
+		tails = int64(9999999)
 	}
 	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
