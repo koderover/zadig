@@ -200,6 +200,11 @@ definitions:
           type: string
         type: array
     type: object
+  handler.FetchServiceYamlResponse:
+    properties:
+      yaml:
+        type: string
+    type: object
   handler.ModuleAndImage:
     properties:
       image:
@@ -2820,6 +2825,31 @@ paths:
       summary: Delete Product
       tags:
       - environment
+    get:
+      consumes:
+      - application/json
+      description: Get Product
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_core_environment_service.ProductResp'
+      summary: Get Product
+      tags:
+      - environment
   /api/aslan/environment/environments/{name}/analysis:
     post:
       consumes:
@@ -3179,6 +3209,37 @@ paths:
           schema:
             $ref: '#/definitions/service.SvcDiffResult'
       summary: Preview service
+      tags:
+      - environment
+  /api/aslan/environment/environments/{name}/services/{serviceName}/yaml:
+    get:
+      consumes:
+      - application/json
+      description: Fetch Service Yaml
+      parameters:
+      - description: project name
+        in: query
+        name: projectName
+        required: true
+        type: string
+      - description: env name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: service name
+        in: path
+        name: serviceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.FetchServiceYamlResponse'
+      summary: Fetch Service Yaml
       tags:
       - environment
   /api/aslan/environment/environments/{name}/share/portal/{serviceName}:
@@ -3744,32 +3805,6 @@ paths:
         "200":
           description: OK
       summary: Delete production helm release from envrionment
-      tags:
-      - environment
-  /api/aslan/environment/production/environments/{name}:
-    get:
-      consumes:
-      - application/json
-      description: Get Product
-      parameters:
-      - description: project name
-        in: query
-        name: projectName
-        required: true
-        type: string
-      - description: env name
-        in: path
-        name: name
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_core_environment_service.ProductResp'
-      summary: Get Product
       tags:
       - environment
   /api/aslan/environment/production/environments/{name}/analysis:

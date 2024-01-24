@@ -277,6 +277,30 @@ func RestartProductionService(c *gin.Context) {
 	ctx.Err = service.RestartService(args.EnvName, args, ctx.Logger)
 }
 
+type FetchServiceYamlResponse struct {
+	Yaml string `json:"yaml"`
+}
+
+// @Summary Fetch Service Yaml
+// @Description  Fetch Service Yaml
+// @Tags 	environment
+// @Accept 	json
+// @Produce json
+// @Param 	projectName		query		string								true	"project name"
+// @Param 	name			path		string								true	"env name"
+// @Param 	serviceName		path		string								true	"service name"
+// @Success 200 			{object}    FetchServiceYamlResponse
+// @Router /api/aslan/environment/environments/{name}/services/{serviceName}/yaml [get]
+func FetchServiceYaml(c *gin.Context) {
+	// TODO: add authorization probably
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	resp := new(FetchServiceYamlResponse)
+	resp.Yaml, ctx.Err = service.FetchServiceYaml(c.Query("projectName"), c.Param("name"), c.Param("serviceName"), ctx.Logger)
+	ctx.Resp = resp
+}
+
 // @Summary Preview service
 // @Description Preview service
 // @Tags 	environment

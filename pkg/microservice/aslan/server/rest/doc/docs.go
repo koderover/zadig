@@ -274,6 +274,43 @@ const docTemplate = `{
             }
         },
         "/api/aslan/environment/environments/{name}": {
+            "get": {
+                "description": "Get Product",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get Product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_core_environment_service.ProductResp"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "description": "Delete Product",
                 "consumes": [
@@ -848,6 +885,52 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/service.SvcDiffResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/aslan/environment/environments/{name}/services/{serviceName}/yaml": {
+            "get": {
+                "description": "Fetch Service Yaml",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Fetch Service Yaml",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "project name",
+                        "name": "projectName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "env name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "service name",
+                        "name": "serviceName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handler.FetchServiceYamlResponse"
                         }
                     }
                 }
@@ -1686,45 +1769,6 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
-                    }
-                }
-            }
-        },
-        "/api/aslan/environment/production/environments/{name}": {
-            "get": {
-                "description": "Get Product",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Get Product",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "project name",
-                        "name": "projectName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "env name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_koderover_zadig_v2_pkg_microservice_aslan_core_environment_service.ProductResp"
-                        }
                     }
                 }
             }
@@ -5395,6 +5439,14 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "handler.FetchServiceYamlResponse": {
+            "type": "object",
+            "properties": {
+                "yaml": {
+                    "type": "string"
                 }
             }
         },
