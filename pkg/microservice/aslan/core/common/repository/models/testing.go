@@ -67,7 +67,6 @@ type Testing struct {
 	// New since V1.10.0. Only to tell the webpage should the advanced settings be displayed
 	AdvancedSettingsModified bool      `bson:"advanced_setting_modified" json:"advanced_setting_modified"`
 	Outputs                  []*Output `bson:"outputs"                   json:"outputs"`
-	ConcurrencyLimit         int       `bson:"concurrency_limit"         json:"concurrency_limit"`
 }
 
 type TestingHookCtrl struct {
@@ -99,9 +98,10 @@ type PreTest struct {
 	// Envs stores user defined env key val for build
 	Envs []*KeyVal `bson:"envs,omitempty"              json:"envs"`
 	// EnableProxy
-	EnableProxy bool   `bson:"enable_proxy"           json:"enable_proxy"`
-	ClusterID   string `bson:"cluster_id"             json:"cluster_id"`
-	StrategyID  string `bson:"strategy_id"            json:"strategy_id"`
+	EnableProxy      bool   `bson:"enable_proxy"           json:"enable_proxy"`
+	ClusterID        string `bson:"cluster_id"             json:"cluster_id"`
+	StrategyID       string `bson:"strategy_id"            json:"strategy_id"`
+	ConcurrencyLimit int    `bson:"concurrency_limit"      json:"concurrency_limit"`
 	// TODO: Deprecated.
 	Namespace string `bson:"namespace"              json:"namespace"`
 }

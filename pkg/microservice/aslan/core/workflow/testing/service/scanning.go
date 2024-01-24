@@ -526,7 +526,7 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 	}
 
 	var spec commonmodels.ZadigScanningJobSpec
-	err = commonmodels.IToi(workflowTask.Stages[0].Jobs[0].Spec, spec)
+	err = commonmodels.IToi(workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec, spec)
 	if err != nil {
 		log.Errorf("failed to decode testing job spec, err: %s", err)
 		return nil, err

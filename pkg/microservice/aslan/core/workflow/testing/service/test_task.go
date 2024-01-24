@@ -370,7 +370,10 @@ func GetTestTaskReportDetail(projectKey, testName string, taskID int64, log *zap
 }
 
 func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, args *commonmodels.TestTaskArgs) (*commonmodels.WorkflowV4, error) {
-	concurrencyLimit := testInfo.ConcurrencyLimit
+	concurrencyLimit := 1
+	if testInfo.PreTest != nil {
+		concurrencyLimit = testInfo.PreTest.ConcurrencyLimit
+	}
 	// compatibility code
 	if concurrencyLimit == 0 {
 		concurrencyLimit = -1
