@@ -35,7 +35,7 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 
 	log.Info("start init pm host status scheduler..")
 	for _, hostElem := range hosts {
-		if hostElem.Type == setting.NewVMType && hostElem.Agent != nil {
+		if hostElem.Type == setting.NewVMType && hostElem.Agent != nil && hostElem.Agent.Token != "" {
 			if hostElem.Status != setting.VMNormal {
 				continue
 			}

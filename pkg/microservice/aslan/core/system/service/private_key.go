@@ -145,6 +145,7 @@ func UpdatePrivateKey(id string, args *commonmodels.PrivateKey, log *zap.Sugared
 		vm.Agent.TaskConcurrency = args.Agent.TaskConcurrency
 		vm.Agent.Workspace = args.Agent.Workspace
 		args.Agent = vm.Agent
+		args.Type = setting.NewVMType
 	}
 
 	err = commonrepo.NewPrivateKeyColl().Update(id, args)

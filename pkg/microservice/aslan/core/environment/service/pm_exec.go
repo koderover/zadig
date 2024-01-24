@@ -49,6 +49,7 @@ func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip, hostId
 		return e.ErrGetPrivateKey
 	}
 	if resp.Status != setting.PMHostStatusNormal {
+		log.Errorf("host %s status %s, is not normal", ip, resp.Status)
 		return e.ErrLoginPm.AddDesc(fmt.Sprintf("host %s status %s,is not normal", ip, resp.Status))
 	}
 	if resp.Port == 0 {
