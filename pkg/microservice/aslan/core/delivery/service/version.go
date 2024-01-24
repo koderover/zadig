@@ -1092,14 +1092,12 @@ func buildDeliveryImages(productInfo *commonmodels.Product, targetRegistry *comm
 			deliveryDeploy.ContainerName = imageData.ImageName
 			deliveryDeploy.RegistryID = args.ImageRegistryID
 
-			regAddr, err := commonservice.ExtractImageRegistry(imageData.Image)
+			regAddr, err := targetRegistry.GetRegistryAddress()
 			if err != nil {
-				return fmt.Errorf("failed to extract registry from image url: %s", imageData.Image)
+				return fmt.Errorf("failed to get registry address, err: %s", err)
 			}
-			regAddr = strings.TrimSuffix(regAddr, "/")
-			image := fmt.Sprintf("%s/%s:%s", regAddr, imageData.ImageName, imageData.ImageTag)
+			image := fmt.Sprintf("%s/%s/%s:%s", regAddr, targetRegistry.Namespace, imageData.ImageName, imageData.ImageTag)
 			deliveryDeploy.Image = image
-
 			deliveryDeploy.YamlContents = []string{yamlData.YamlContent}
 			//orderedServices
 			deliveryDeploy.OrderedServices = productInfo.GetGroupServiceNames()
@@ -2142,7 +2140,6 @@ func ApplyDeliveryGlobalVariables(args *DeliveryVariablesApplyArgs, logger *zap.
 	return ret, nil
 }
 
-// @todo generateCustomWorkflowFromDeliveryVersion
 func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product, deliveryVersion *commonmodels.DeliveryVersion, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace, args *DeliveryVersionYamlData) (*commonmodels.WorkflowV4, error) {
 	name := generateDeliveryWorkflowName(deliveryVersion.ProductName)
 	resp := &commonmodels.WorkflowV4{
