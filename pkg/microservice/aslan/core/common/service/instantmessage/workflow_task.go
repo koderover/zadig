@@ -164,6 +164,11 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		TotalTime:          time.Now().Unix() - task.StartTime,
 	}
 
+	if task.Type == config.WorkflowTaskTypeScanning {
+		segs := strings.Split(task.WorkflowName, "-")
+		workflowNotification.ScanningID = segs[len(segs)-1]
+	}
+
 	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.WorkflowDisplayName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
 	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
 		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**项目名称**：{{.Task.ProjectName}} \n",
@@ -288,7 +293,17 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 		return "", "", nil, err
 	}
 	buttonContent := "点击查看更多信息"
-	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
+	workflowDetailURL := ""
+	switch task.Type {
+	case config.WorkflowTaskTypeWorkflow:
+		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
+	case config.WorkflowTaskTypeScanning:
+		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/scanner/detail/{{.Task.WorkflowDisplayName}}/task/{{.Task.TaskID}}?status={{.Task.Status}}&id={{.ScanningID}}"
+	case config.WorkflowTaskTypeTesting:
+		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/test/detail/{{.Task.WorkflowDisplayName}}/{{.Task.TaskID}}?status={{.Task.Status}}&id=&display_name={{.Task.WorkflowDisplayName}}"
+	default:
+		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
+	}
 	moreInformation := fmt.Sprintf("\n\n{{if eq .WebHookType \"dingding\"}}---\n\n{{end}}[%s](%s)", buttonContent, workflowDetailURL)
 	if notify.WebHookType != feiShuType {
 		tplcontent := strings.Join(tplBaseInfo, "")
@@ -324,6 +339,7 @@ type workflowTaskNotification struct {
 	BaseURI            string               `json:"base_uri"`
 	WebHookType        string               `json:"web_hook_type"`
 	TotalTime          int64                `json:"total_time"`
+	ScanningID         string               `json:"scanning_id"`
 }
 
 func getWorkflowTaskTplExec(tplcontent string, args *workflowTaskNotification) (string, error) {
