@@ -72,13 +72,7 @@ func (w *Service) SendWorkflowTaskAproveNotifications(workflowName string, taskI
 }
 
 func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error {
-	resp, err := w.workflowV4Coll.Find(task.WorkflowName)
-	if err != nil {
-		errMsg := fmt.Sprintf("failed to find workflowv4, err: %s", err)
-		log.Error(errMsg)
-		return errors.New(errMsg)
-	}
-	if len(resp.NotifyCtls) == 0 {
+	if len(task.OriginWorkflowArgs.NotifyCtls) == 0 {
 		return nil
 	}
 	if task.TaskID <= 0 {
@@ -97,7 +91,7 @@ func (w *Service) SendWorkflowTaskNotifications(task *models.WorkflowTask) error
 	if task.Status == config.StatusCreated {
 		statusChanged = false
 	}
-	for _, notify := range resp.NotifyCtls {
+	for _, notify := range task.OriginWorkflowArgs.NotifyCtls {
 		if !notify.Enabled {
 			continue
 		}
