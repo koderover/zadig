@@ -298,7 +298,6 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 			case string(config.JobZadigDistributeImage):
 				fallthrough
 			case string(config.JobBuild):
-				log.Debugf("1")
 				jobSpec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, jobSpec); err != nil {
 					log.Errorf("Failed to parse job spec: %v", err)
@@ -343,7 +342,6 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 	if vmJobOptions != nil && vmJobOptions.Infrastructure == setting.JobVMInfrastructure {
 		waitVmAndGetLog(ctx, streamChan, vmJobOptions, log)
 	} else {
-		log.Debugf("2")
 		selector := getWorkflowSelector(options)
 		waitAndGetLog(ctx, streamChan, selector, options, log)
 	}
