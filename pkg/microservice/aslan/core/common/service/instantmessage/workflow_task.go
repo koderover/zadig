@@ -300,7 +300,7 @@ func (w *Service) getNotificationContent(notify *models.NotifyCtl, task *models.
 	case config.WorkflowTaskTypeScanning:
 		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/scanner/detail/{{.Task.WorkflowDisplayName}}/task/{{.Task.TaskID}}?status={{.Task.Status}}&id={{.ScanningID}}"
 	case config.WorkflowTaskTypeTesting:
-		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/test/detail/{{.Task.WorkflowDisplayName}}/{{.Task.TaskID}}?status={{.Task.Status}}&id=&display_name={{.Task.WorkflowDisplayName}}"
+		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/test/detail/function/{{.Task.WorkflowDisplayName}}/{{.Task.TaskID}}?status={{.Task.Status}}&id=&display_name={{.Task.WorkflowDisplayName}}"
 	default:
 		workflowDetailURL = "{{.BaseURI}}/v1/projects/detail/{{.Task.ProjectName}}/pipelines/custom/{{.Task.WorkflowName}}/{{.Task.TaskID}}?display_name={{.EncodedDisplayName}}"
 	}
