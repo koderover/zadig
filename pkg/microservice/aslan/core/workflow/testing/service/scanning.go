@@ -525,15 +525,12 @@ func GetScanningTaskInfo(scanningID string, taskID int64, log *zap.SugaredLogger
 		return nil, fmt.Errorf(errMsg)
 	}
 
-	var spec commonmodels.ZadigScanningJobSpec
+	spec := new(commonmodels.ZadigScanningJobSpec)
 	err = commonmodels.IToi(workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec, spec)
 	if err != nil {
 		log.Errorf("failed to decode testing job spec, err: %s", err)
 		return nil, err
 	}
-
-	log.Infof(">>>>>>>>>>> before spec: %+v <<<<<<<<<<<<<<<", workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec)
-	log.Infof(">>>>>>>>>>>> spec: %+v <<<<<<<<<<<<<<<<", spec)
 
 	if len(spec.Scannings) != 1 {
 		log.Errorf("invalid scanning custom workflow scan list length: expect 1")
