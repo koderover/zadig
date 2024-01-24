@@ -27,7 +27,6 @@ import (
 	commonmodels "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/v2/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/v2/pkg/setting"
 	openapitool "github.com/koderover/zadig/v2/pkg/tool/openapi"
 	"github.com/koderover/zadig/v2/pkg/types"
@@ -147,47 +146,53 @@ func OpenAPICreateTestTask(userName, account, userID string, args *OpenAPICreate
 }
 
 func OpenAPIGetTestTaskResult(taskID int64, productName, testName string, logger *zap.SugaredLogger) (*OpenAPITestTaskDetail, error) {
-	pipelineName := fmt.Sprintf("%s-%s", testName, "job")
-	pipelineTask, err := commonrepo.NewTaskColl().Find(taskID, pipelineName, config.TestType)
+	workflowName := fmt.Sprintf(setting.TestWorkflowNamingConvention, testName)
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(workflowName, taskID)
 	if err != nil {
-		logger.Errorf("OpenAPI: failed to get pipeline task from db, taskID:%d, pipelineName:%s, err: %v", taskID, pipelineName, err)
-		return nil, fmt.Errorf("failed to get pipeline task from db, taskID:%d, pipelineName:%s, err: %v", taskID, pipelineName, err)
+		logger.Errorf("failed to find workflow task %d for test: %s, error: %s", taskID, testName, err)
+		return nil, err
 	}
+
 	result := &OpenAPITestTaskDetail{
 		TestName:   testName,
 		TaskID:     taskID,
-		Creator:    pipelineTask.TaskCreator,
-		CreateTime: pipelineTask.CreateTime,
-		StartTime:  pipelineTask.StartTime,
-		EndTime:    pipelineTask.EndTime,
-		Status:     string(pipelineTask.Status.ToLower()),
+		Creator:    workflowTask.TaskCreator,
+		CreateTime: workflowTask.CreateTime,
+		StartTime:  workflowTask.StartTime,
+		EndTime:    workflowTask.EndTime,
+		Status:     string(workflowTask.Status.ToLower()),
 	}
-	if pipelineTask.Status == config.StatusPassed {
-		report, err := commonservice.GetLocalTestSuite(pipelineName, testName, setting.FunctionTest, taskID, "", config.TestType, logger)
-		if err != nil {
-			logger.Errorf("OpenAPI: failed to get project:%s test:%s task:%d result, err: %v", productName, testName, taskID, err)
-		} else {
-			if report.FunctionTestSuite != nil {
-				result.TestReport = &OpenAPITestReport{
-					TestTotal:    report.FunctionTestSuite.Tests,
-					SuccessTotal: report.FunctionTestSuite.Successes,
-					FailureTotal: report.FunctionTestSuite.Failures,
-					ErrorTotal:   report.FunctionTestSuite.Errors,
-					SkipedTotal:  report.FunctionTestSuite.Skips,
-					Time:         report.FunctionTestSuite.Time,
-				}
 
-				result.TestReport.TestCases = make([]*OpenAPITestCase, 0)
-				for _, testCase := range report.FunctionTestSuite.TestCases {
-					result.TestReport.TestCases = append(result.TestReport.TestCases, &OpenAPITestCase{
-						Name:    testCase.Name,
-						Time:    testCase.Time,
-						Failure: testCase.Failure,
-						Error:   testCase.Error,
-					})
-				}
+	if workflowTask.Status == config.StatusPassed {
+		testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
+		if err != nil {
+			logger.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+			return nil, fmt.Errorf("failed to list junit test report for workflow: %s, error: %s", workflowName, err)
+		}
+
+		testReport := new(OpenAPITestReport)
+		testCases := make([]*OpenAPITestCase, 0)
+
+		for _, testResult := range testResultList {
+			testReport.TestTotal += testResult.TestCaseNum
+			testReport.SuccessTotal += testResult.SuccessCaseNum
+			testReport.FailureTotal += testResult.FailedCaseNum
+			testReport.ErrorTotal += testResult.ErrorCaseNum
+			testReport.SkipedTotal += testResult.SkipCaseNum
+			testReport.Time += testResult.TestTime
+
+			for _, cs := range testResult.TestCases {
+				testCases = append(testCases, &OpenAPITestCase{
+					Name:    cs.Name,
+					Time:    cs.Time,
+					Failure: cs.Failure,
+					Error:   cs.Error,
+				})
 			}
 		}
+
+		testReport.TestCases = testCases
+		result.TestReport = testReport
 	}
 
 	return result, nil
