@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/koderover/zadig/v2/pkg/microservice/aslan/config"
 	"math"
 	"net/http"
 	"strings"
@@ -95,32 +96,10 @@ func GetDashboardConfiguration(username, userID string, log *zap.SugaredLogger) 
 
 func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 	resp := make([]*WorkflowResponse, 0)
-	runningQueue := workflow.RunningTasks()
-	pendingQueue := workflow.PendingTasks()
 	runningCustomQueue := workflowcontroller.RunningTasks()
 	pendingCustomQueue := workflowcontroller.PendingTasks()
-	for _, runningtask := range runningQueue {
-		arg := &WorkflowResponse{
-			TaskID:      runningtask.TaskID,
-			Name:        runningtask.PipelineName,
-			Project:     runningtask.ProductName,
-			Creator:     runningtask.TaskCreator,
-			StartTime:   runningtask.StartTime,
-			Status:      string(runningtask.Status),
-			DisplayName: runningtask.PipelineDisplayName,
-			Type:        string(runningtask.Type),
-		}
-		if runningtask.TestArgs != nil {
-			arg.TestName = runningtask.TestArgs.TestName
-		}
-		if runningtask.ScanningArgs != nil {
-			arg.ScanName = runningtask.ScanningArgs.ScanningName
-			arg.ScanID = runningtask.ScanningArgs.ScanningID
-		}
-		resp = append(resp, arg)
-	}
 	for _, runningtask := range runningCustomQueue {
-		resp = append(resp, &WorkflowResponse{
+		res := &WorkflowResponse{
 			TaskID:      runningtask.TaskID,
 			Name:        runningtask.WorkflowName,
 			Project:     runningtask.ProjectName,
@@ -129,30 +108,17 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 			Status:      string(runningtask.Status),
 			DisplayName: runningtask.WorkflowDisplayName,
 			Type:        "common_workflow",
-		})
-	}
-	for _, pendingTask := range pendingQueue {
-		arg := &WorkflowResponse{
-			TaskID:      pendingTask.TaskID,
-			Name:        pendingTask.PipelineName,
-			Project:     pendingTask.ProductName,
-			Creator:     pendingTask.TaskCreator,
-			StartTime:   pendingTask.StartTime,
-			Status:      string(pendingTask.Status),
-			DisplayName: pendingTask.PipelineDisplayName,
-			Type:        string(pendingTask.Type),
 		}
-		if pendingTask.TestArgs != nil {
-			arg.TestName = pendingTask.TestArgs.TestName
+		if runningtask.Type == config.WorkflowTaskTypeTesting {
+			res.Type = string(config.WorkflowTaskTypeTesting)
 		}
-		if pendingTask.ScanningArgs != nil {
-			arg.ScanName = pendingTask.ScanningArgs.ScanningName
-			arg.ScanID = pendingTask.ScanningArgs.ScanningID
+		if runningtask.Type == config.WorkflowTaskTypeScanning {
+			res.Type = "scanning"
 		}
-		resp = append(resp, arg)
+		resp = append(resp, res)
 	}
 	for _, pendingTask := range pendingCustomQueue {
-		resp = append(resp, &WorkflowResponse{
+		res := &WorkflowResponse{
 			TaskID:      pendingTask.TaskID,
 			Name:        pendingTask.WorkflowName,
 			Project:     pendingTask.ProjectName,
@@ -161,7 +127,14 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 			Status:      string(pendingTask.Status),
 			DisplayName: pendingTask.WorkflowDisplayName,
 			Type:        "common_workflow",
-		})
+		}
+		if pendingTask.Type == config.WorkflowTaskTypeTesting {
+			res.Type = string(config.WorkflowTaskTypeTesting)
+		}
+		if pendingTask.Type == config.WorkflowTaskTypeScanning {
+			res.Type = "scanning"
+		}
+		resp = append(resp, res)
 	}
 
 	return resp, nil

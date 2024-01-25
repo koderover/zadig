@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 	"sort"
+	"strconv"
 
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
@@ -248,12 +249,6 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		return nil, err
 	}
 
-	testInfo, err := commonrepo.NewTestingColl().Find(testName, projectKey)
-	if err != nil {
-		log.Errorf("find test[%s] error: %v", testName, err)
-		return nil, fmt.Errorf("find test[%s] error: %v", testName, err)
-	}
-
 	testResultMap := make(map[string]interface{})
 
 	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
@@ -284,7 +279,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		}
 	}
 
-	if len(workflowTask.Stages) != 1 || len(workflowTask.Stages[0].Jobs) != 1 {
+	if len(workflowTask.WorkflowArgs.Stages) != 1 || len(workflowTask.WorkflowArgs.Stages[0].Jobs) != 1 {
 		errMsg := fmt.Sprintf("invalid test task!")
 		log.Errorf(errMsg)
 		return nil, fmt.Errorf(errMsg)
@@ -294,10 +289,22 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 
 	subTaskInfo := make(map[string]map[string]interface{})
 
-	var spec workflowservice.ZadigTestingJobSpec
-	err = commonmodels.IToi(workflowTask.Stages[0].Jobs[0].Spec, spec)
+	args := new(commonmodels.ZadigTestingJobSpec)
+	err = commonmodels.IToi(workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec, args)
 	if err != nil {
-		log.Errorf("failed to decode testing job spec, err: %s", err)
+		log.Errorf("failed to decode testing job args, err: %s", err)
+		return nil, err
+	}
+
+	if len(args.TestModules) != 1 {
+		log.Errorf("wrong test length: %d", len(args.TestModules))
+		return nil, fmt.Errorf("wrong test length: %d", len(args.TestModules))
+	}
+
+	spec := new(workflowservice.ZadigTestingJobSpec)
+	err = commonmodels.IToi(workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec, spec)
+	if err != nil {
+		log.Errorf("failed to decode testing job spec , err: %s", err)
 		return nil, err
 	}
 
@@ -310,7 +317,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 			Builds        []*types.Repository `json:"builds"`
 		}{
 			spec.Archive,
-			testInfo.Repos,
+			args.TestModules[0].Repos,
 		},
 		"report_ready": reportReady,
 		"type":         "testingv2",
@@ -387,6 +394,20 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 		CreatedBy:        "system",
 		ConcurrencyLimit: concurrencyLimit,
 		NotifyCtls:       testInfo.NotifyCtls,
+		NotificationID:   args.NotificationID,
+	}
+
+	pr, _ := strconv.Atoi(args.MergeRequestID)
+	for i, build := range testInfo.Repos {
+		if build.Source == args.Source && build.RepoOwner == args.RepoOwner && build.RepoName == args.RepoName {
+			testInfo.Repos[i].PR = pr
+			if pr != 0 {
+				testInfo.Repos[i].PRs = []int{pr}
+			}
+			if args.Branch != "" {
+				testInfo.Repos[i].Branch = args.Branch
+			}
+		}
 	}
 
 	stage := make([]*commonmodels.WorkflowStage, 0)
