@@ -418,9 +418,10 @@ func updateProductImpl(updateRevisionSvcs []string, deployStrategy map[string]st
 	serviceRevisionMap := getServiceRevisionMap(prodRevs.ServiceRevisions)
 
 	updateProd.Status = setting.ProductStatusUpdating
+	updateProd.Error = ""
 	updateProd.ShareEnv = existedProd.ShareEnv
 
-	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
+	if err := commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, setting.ProductStatusUpdating, ""); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		mongotool.AbortTransaction(session)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
@@ -777,7 +778,7 @@ func updateHelmProduct(productName, envName, username, requestID string, overrid
 	}
 
 	// set status to updating
-	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
+	if err := commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, setting.ProductStatusUpdating, ""); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
@@ -942,7 +943,7 @@ func updateHelmChartProduct(productName, envName, username, requestID string, ov
 	}
 
 	// set status to updating
-	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
+	if err := commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, setting.ProductStatusUpdating, ""); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
@@ -1608,7 +1609,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, userName, requ
 	}
 
 	// set product status to updating
-	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
+	if err := commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, setting.ProductStatusUpdating, ""); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
