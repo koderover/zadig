@@ -109,10 +109,11 @@ type ProductResp struct {
 	ShareEnvBaseEnv string `json:"share_env_base_env"`
 
 	// New Since v2.1.0
-	RelatedEnvs           []*SharedNSEnvs `json:"related_envs"`
-	IstioGrayscaleEnable  bool            `json:"istio_grayscale_enable"`
-	IstioGrayscaleIsBase  bool            `json:"istio_grayscale_is_base"`
-	IstioGrayscaleBaseEnv string          `json:"istio_grayscale_base_env"`
+	RelatedEnvs           []*SharedNSEnvs            `json:"related_envs"`
+	IstioGrayscaleEnable  bool                       `json:"istio_grayscale_enable"`
+	IstioGrayscaleIsBase  bool                       `json:"istio_grayscale_is_base"`
+	IstioGrayscaleBaseEnv string                     `json:"istio_grayscale_base_env"`
+	YamlData              *templatemodels.CustomYaml `json:"yaml_data,omitempty"` // used for cron service
 }
 
 type ProductParams struct {

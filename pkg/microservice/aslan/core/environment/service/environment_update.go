@@ -490,7 +490,7 @@ func updateK8sProduct(exitedProd *commonmodels.Product, user, requestID string, 
 	}
 
 	// 设置产品状态为更新中
-	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
+	if err := commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, setting.ProductStatusUpdating, ""); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}
@@ -551,7 +551,7 @@ func updateCVMProduct(exitedProd *commonmodels.Product, user, requestID string, 
 		// do nothing
 	}
 
-	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
+	if err := commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, setting.ProductStatusUpdating, ""); err != nil {
 		log.Errorf("[%s][P:%s] Product.UpdateStatus error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.UpdateEnvStatusErrMsg)
 	}

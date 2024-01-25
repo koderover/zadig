@@ -242,6 +242,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		IstioGrayscaleEnable:  prod.IstioGrayscale.Enable,
 		IstioGrayscaleIsBase:  prod.IstioGrayscale.IsBase,
 		IstioGrayscaleBaseEnv: prod.IstioGrayscale.BaseEnv,
+		YamlData:              prod.YamlData,
 	}
 
 	serviceMap := prod.GetServiceMap()
