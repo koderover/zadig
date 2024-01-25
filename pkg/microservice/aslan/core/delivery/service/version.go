@@ -33,7 +33,9 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	chartloader "helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
@@ -521,78 +523,54 @@ func buildDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion, su
 		}
 	}
 
-	// 	if deliveryVersion.Status == setting.DeliveryVersionStatusSuccess {
-	// 		progress.TotalCount = successfulChartCount
-	// 		progress.UploadStatus = setting.DeliveryVersionPackageStatusSuccess
-	// 		return progress
-	// 	}
-
-	// 	argsBytes, err := json.Marshal(deliveryVersion.CreateArgument)
-	// 	if err != nil {
-	// 		log.Errorf("failed to marshal arguments, versionName: %s err %s", deliveryVersion.Version, err)
-	// 		return progress
-	// 	}
-	// 	createArgs := new(DeliveryVersionChartData)
-	// 	err = json.Unmarshal(argsBytes, createArgs)
-	// 	if err != nil {
-	// 		log.Errorf("failed to unMarshal arguments, versionName: %s err %s", deliveryVersion.Version, err)
-	// 		return progress
-	// 	}
-
-	// 	progress.TotalCount = len(createArgs.ChartDatas)
-
-	// 	if deliveryVersion.Status == setting.DeliveryVersionStatusFailed {
-	// 		progress.UploadStatus = setting.DeliveryVersionPackageStatusFailed
-	// 		progress.Error = deliveryVersion.Error
-	// 		return progress
-	// 	}
-
-	// 	if len(createArgs.ChartDatas) > successfulChartCount {
-	// 		progress.UploadStatus = setting.DeliveryVersionPackageStatusWaiting
-	// 		return progress
-	// 	}
-
-	// 	progress.UploadStatus = setting.DeliveryVersionPackageStatusUploading
-	// 	return progress
-	// } else if deliveryVersion.Type == setting.DeliveryVersionTypeYaml {
+	workflowTaskExist := true
 	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID))
 	if err != nil {
-		err = fmt.Errorf("failed to find workflow task %s, task id %d, err: %s", deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID), err)
-		log.Error(err)
-		progress.Error = err.Error()
-		return progress
+		if err == mongo.ErrNoDocuments {
+			workflowTaskExist = false
+		} else {
+			err = fmt.Errorf("failed to find workflow task %s, task id %d, err: %s", deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID), err)
+			log.Error(err)
+			progress.Error = err.Error()
+			return progress
+		}
 	}
 
-	for _, stage := range workflowTask.Stages {
-		for _, job := range stage.Jobs {
-			if job.JobType != string(config.JobZadigDistributeImage) {
-				continue
-			}
+	if workflowTaskExist {
+		for _, stage := range workflowTask.Stages {
+			for _, job := range stage.Jobs {
+				if job.JobType != string(config.JobZadigDistributeImage) {
+					continue
+				}
 
-			taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
-			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
-				err = fmt.Errorf("failed to convert job spec interface to JobTaskFreestyleSpec, err: %s", err)
-				log.Error(err)
-				progress.Error = err.Error()
-				return progress
-			}
-			for _, step := range taskJobSpec.Steps {
-				if step.StepType == config.StepDistributeImage {
-					stepSpec := &stepspec.StepImageDistributeSpec{}
-					if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
-						err = fmt.Errorf("failed to convert step spec interface to StepImageDistributeSpec, err: %s", err)
-						log.Error(err)
-						progress.Error = err.Error()
-						return progress
-					}
+				taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
+				if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+					err = fmt.Errorf("failed to convert job spec interface to JobTaskFreestyleSpec, err: %s", err)
+					log.Error(err)
+					progress.Error = err.Error()
+					return progress
+				}
+				for _, step := range taskJobSpec.Steps {
+					if step.StepType == config.StepDistributeImage {
+						stepSpec := &stepspec.StepImageDistributeSpec{}
+						if err := commonmodels.IToi(step.Spec, stepSpec); err != nil {
+							err = fmt.Errorf("failed to convert step spec interface to StepImageDistributeSpec, err: %s", err)
+							log.Error(err)
+							progress.Error = err.Error()
+							return progress
+						}
 
-					if job.Status == config.StatusPassed {
-						progress.SuccessCount += len(stepSpec.DistributeTarget)
+						if job.Status == config.StatusPassed {
+							progress.SuccessCount += len(stepSpec.DistributeTarget)
+						}
+						progress.TotalCount += len(stepSpec.DistributeTarget)
 					}
-					progress.TotalCount += len(stepSpec.DistributeTarget)
 				}
 			}
 		}
+	} else {
+		progress.SuccessCount = successfulChartCount
+		progress.TotalCount = successfulChartCount
 	}
 
 	if deliveryVersion.Status == setting.DeliveryVersionStatusSuccess {
@@ -613,8 +591,6 @@ func buildDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion, su
 
 	progress.UploadStatus = setting.DeliveryVersionPackageStatusUploading
 	return progress
-	// }
-	// return nil
 }
 
 func getChartTGZDir(productName, versionName string) string {
@@ -980,7 +956,7 @@ func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
 	return ret, nil
 }
 
-func buildArtifactTaskArgs(projectName, envName string, imagesMap *sync.Map) (*commonmodels.WorkflowV4, error) {
+func buildArtifactTaskArgs(projectName, envName string, imagesMap *sync.Map) (*commonmodels.WorkflowV4, bool, error) {
 	name := generateDeliveryWorkflowName(projectName)
 	resp := &commonmodels.WorkflowV4{
 		Name:             name,
@@ -1036,7 +1012,7 @@ func buildArtifactTaskArgs(projectName, envName string, imagesMap *sync.Map) (*c
 
 	resp.Stages = stage
 
-	return resp, nil
+	return resp, len(jobs) > 0, nil
 }
 
 // insert delivery distribution data for single chart, include image and chart
@@ -1202,21 +1178,23 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 
 	// create task to deal with images
 	// offline docker images are not supported
-	workflowV4, err := buildArtifactTaskArgs(deliveryVersion.ProductName, deliveryVersion.ProductEnvInfo.EnvName, imagesDataMap)
+	workflowV4, notEmpty, err := buildArtifactTaskArgs(deliveryVersion.ProductName, deliveryVersion.ProductEnvInfo.EnvName, imagesDataMap)
 	if err != nil {
 		return fmt.Errorf("failed to build helm custom artifact task , err: %s", err)
 
 	}
-	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
-		Name: "system",
-		Type: config.WorkflowTaskTypeDelivery,
-	}, workflowV4, logger)
-	if err != nil {
-		return fmt.Errorf("failed to create helm delivery version custom workflow task, versionName: %s, err: %s", deliveryVersion.Version, err)
+	if notEmpty {
+		createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
+			Name: "system",
+			Type: config.WorkflowTaskTypeDelivery,
+		}, workflowV4, logger)
+		if err != nil {
+			return fmt.Errorf("failed to create helm delivery version custom workflow task, versionName: %s, err: %s", deliveryVersion.Version, err)
+		}
+		deliveryVersion.TaskID = int(createResp.TaskID)
 	}
 
-	deliveryVersion.WorkflowName = createResp.WorkflowName
-	deliveryVersion.TaskID = int(createResp.TaskID)
+	deliveryVersion.WorkflowName = workflowV4.Name
 	err = commonrepo.NewDeliveryVersionColl().UpdateWorkflowTask(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.WorkflowName, int32(deliveryVersion.TaskID))
 	if err != nil {
 		logger.Errorf("failed to update delivery version task_id, version: %s, task_id: %s, err: %s", deliveryVersion, deliveryVersion.ProductName, deliveryVersion.TaskID)
@@ -1427,14 +1405,6 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 	if deliveryVersion.Status == setting.DeliveryVersionStatusSuccess || deliveryVersion.Status == setting.DeliveryVersionStatusFailed {
 		return true, nil
 	}
-	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID))
-	if err != nil {
-		return false, fmt.Errorf("failed to find workflow task, workflowName: %s, taskID: %d", deliveryVersion.WorkflowName, deliveryVersion.TaskID)
-	}
-
-	if len(workflowTask.Stages) != 1 {
-		return false, fmt.Errorf("invalid task data, stage length not leagal")
-	}
 
 	argsBytes, err := json.Marshal(deliveryVersion.CreateArgument)
 	if err != nil {
@@ -1478,57 +1448,71 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 
 	errorList := &multierror.Error{}
 
+	workflowTaskExist := true
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID))
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			workflowTaskExist = false
+		} else {
+			return false, fmt.Errorf("failed to find workflow task, workflowName: %s, taskID: %d", deliveryVersion.WorkflowName, deliveryVersion.TaskID)
+		}
+	}
+
 	// Images
 	allTaskDone := true
 	chartImageAllsuccessMap := map[string]bool{}
-	for _, stage := range workflowTask.Stages {
-		for _, job := range stage.Jobs {
-			// job not finished
-			if !(job.Status == config.StatusPassed || job.Status == config.StatusFailed || job.Status == config.StatusTimeout || job.Status == config.StatusCancelled) {
-				allTaskDone = false
-			}
+	if workflowTaskExist {
+		for _, stage := range workflowTask.Stages {
+			for _, job := range stage.Jobs {
+				// job not finished
+				if !(job.Status == config.StatusPassed || job.Status == config.StatusFailed || job.Status == config.StatusTimeout || job.Status == config.StatusCancelled) {
+					allTaskDone = false
+				}
 
-			taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
-			if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
-				continue
-			}
-			for _, step := range taskJobSpec.Steps {
-				if step.StepType == config.StepDistributeImage {
-					stepSpec := &stepspec.StepImageDistributeSpec{}
-					commonmodels.IToi(step.Spec, &stepSpec)
+				taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
+				if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
+					continue
+				}
+				for _, step := range taskJobSpec.Steps {
+					if step.StepType == config.StepDistributeImage {
+						stepSpec := &stepspec.StepImageDistributeSpec{}
+						commonmodels.IToi(step.Spec, &stepSpec)
 
-					for _, target := range stepSpec.DistributeTarget {
-						imageName := commonutil.ExtractImageName(target.TargetImage)
-						if successImages.Has(imageName) {
-							chartImageAllsuccessMap[target.ServiceName] = true
-							continue
-						}
-
-						if job.Status == config.StatusPassed {
-							if _, ok := chartImageAllsuccessMap[target.ServiceName]; !ok {
+						for _, target := range stepSpec.DistributeTarget {
+							imageName := commonutil.ExtractImageName(target.TargetImage)
+							if successImages.Has(imageName) {
 								chartImageAllsuccessMap[target.ServiceName] = true
+								continue
 							}
-						} else {
-							errorList = multierror.Append(errorList, fmt.Errorf("failed to build image distribute for service: %s, err: %s ", target.ServiceName, job.Error))
-							chartImageAllsuccessMap[target.ServiceName] = false
-						}
 
-						err := commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
-							DistributeType: config.Image,
-							ReleaseID:      deliveryVersion.ID,
-							ServiceName:    imageName, // image name
-							ChartName:      target.ServiceName,
-							RegistryName:   target.TargetImage,
-							Namespace:      commonservice.ExtractRegistryNamespace(target.TargetImage),
-							CreatedAt:      time.Now().Unix(),
-						})
-						if err != nil {
-							err = fmt.Errorf("failed to insert image distribute data, chartName: %s, err: %s", target.ServiceName, err)
-							log.Error(err)
-							errorList = multierror.Append(errorList, err)
-							continue
+							if job.Status == config.StatusPassed {
+								if _, ok := chartImageAllsuccessMap[target.ServiceName]; !ok {
+									chartImageAllsuccessMap[target.ServiceName] = true
+								}
+
+								err := commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
+									DistributeType: config.Image,
+									ReleaseID:      deliveryVersion.ID,
+									ServiceName:    imageName, // image name
+									ChartName:      target.ServiceName,
+									RegistryName:   target.TargetImage,
+									Namespace:      commonservice.ExtractRegistryNamespace(target.TargetImage),
+									CreatedAt:      time.Now().Unix(),
+								})
+								if err != nil {
+									err = fmt.Errorf("failed to insert image distribute data, chartName: %s, err: %s", target.ServiceName, err)
+									log.Error(err)
+									errorList = multierror.Append(errorList, err)
+									continue
+								}
+								successImages.Insert(imageName)
+							} else {
+								if lo.Contains(config.FailedStatus(), job.Status) {
+									errorList = multierror.Append(errorList, fmt.Errorf("failed to build image distribute for service: %s, status: %s, err: %s ", target.ServiceName, job.Status, job.Error))
+								}
+								chartImageAllsuccessMap[target.ServiceName] = false
+							}
 						}
-						successImages.Insert(imageName)
 					}
 				}
 			}
@@ -1540,7 +1524,7 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 		if successCharts.Has(chartData.ServiceName) {
 			continue
 		}
-		if !chartImageAllsuccessMap[chartData.ServiceName] {
+		if allSuccess, exist := chartImageAllsuccessMap[chartData.ServiceName]; exist && !allSuccess {
 			continue
 		}
 
