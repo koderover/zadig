@@ -209,10 +209,6 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 						}
 					}
 
-					if notification != nil {
-						item.TestArgs.NotificationID = notification.ID.Hex()
-					}
-
 					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
 					args.MergeRequestID = mergeRequestID
 					args.Ref = ref
@@ -224,7 +220,10 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 					args.RepoNamespace = item.MainRepo.GetRepoNamespace()
 					args.RepoName = item.MainRepo.RepoName
 					args.Branch = item.MainRepo.Branch
-					args.NotificationID = notification.ID.Hex()
+					if notification != nil {
+						item.TestArgs.NotificationID = notification.ID.Hex()
+						args.NotificationID = notification.ID.Hex()
+					}
 
 					// 3. create task with args
 					if resp, err := testingservice.CreateTestTaskV2(args, "webhook", "", "", log); err != nil {
