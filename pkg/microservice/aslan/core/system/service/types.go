@@ -134,7 +134,6 @@ type WorkflowResponse struct {
 	Status      string `json:"status"`
 	DisplayName string `json:"display_name"`
 	Type        string `json:"workflow_type"`
-	TaskType    string `json:"type"`
 	TestName    string `json:"test_name,omitempty"`
 	ScanName    string `json:"scan_name,omitempty"`
 	ScanID      string `json:"scan_id,omitempty"`
