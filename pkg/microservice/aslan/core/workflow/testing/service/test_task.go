@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 	"sort"
+	"strconv"
 
 	"github.com/koderover/zadig/v2/pkg/types"
 	"go.uber.org/zap"
@@ -394,6 +395,19 @@ func generateCustomWorkflowFromTestingModule(testInfo *commonmodels.Testing, arg
 		ConcurrencyLimit: concurrencyLimit,
 		NotifyCtls:       testInfo.NotifyCtls,
 		NotificationID:   args.NotificationID,
+	}
+
+	pr, _ := strconv.Atoi(args.MergeRequestID)
+	for i, build := range testInfo.Repos {
+		if build.Source == args.Source && build.RepoOwner == args.RepoOwner && build.RepoName == args.RepoName {
+			testInfo.Repos[i].PR = pr
+			if pr != 0 {
+				testInfo.Repos[i].PRs = []int{pr}
+			}
+			if args.Branch != "" {
+				testInfo.Repos[i].Branch = args.Branch
+			}
+		}
 	}
 
 	stage := make([]*commonmodels.WorkflowStage, 0)
