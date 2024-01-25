@@ -258,16 +258,15 @@ type ZadigBuildJobSpec struct {
 }
 
 type ServiceAndBuild struct {
-	ServiceName      string              `bson:"service_name"        yaml:"service_name"     json:"service_name"`
-	ServiceModule    string              `bson:"service_module"      yaml:"service_module"   json:"service_module"`
-	Artifact         string              `bson:"artifact"             yaml:"artifact"             json:"artifact"`
-	BuildName        string              `bson:"build_name"          yaml:"build_name"       json:"build_name"`
-	Image            string              `bson:"image"                   yaml:"-"                json:"image"`
-	ImageName        string              `bson:"image_name"                   yaml:"image_name"                json:"image_name"`
-	Package          string              `bson:"-"                   yaml:"-"                json:"package"`
-	KeyVals          []*KeyVal           `bson:"key_vals"            yaml:"key_vals"         json:"key_vals"`
-	Repos            []*types.Repository `bson:"repos"               yaml:"repos"            json:"repos"`
-	ShareStorageInfo *ShareStorageInfo   `bson:"share_storage_info"   yaml:"share_storage_info"   json:"share_storage_info"`
+	ServiceName      string              `bson:"service_name"        yaml:"service_name"         json:"service_name"`
+	ServiceModule    string              `bson:"service_module"      yaml:"service_module"       json:"service_module"`
+	BuildName        string              `bson:"build_name"          yaml:"build_name"           json:"build_name"`
+	Image            string              `bson:"image"               yaml:"-"                    json:"image"`
+	Package          string              `bson:"package"             yaml:"-"                    json:"package"`
+	ImageName        string              `bson:"image_name"          yaml:"image_name"           json:"image_name"`
+	KeyVals          []*KeyVal           `bson:"key_vals"            yaml:"key_vals"             json:"key_vals"`
+	Repos            []*types.Repository `bson:"repos"               yaml:"repos"                json:"repos"`
+	ShareStorageInfo *ShareStorageInfo   `bson:"share_storage_info"  yaml:"share_storage_info"   json:"share_storage_info"`
 }
 
 type ZadigDeployJobSpec struct {
