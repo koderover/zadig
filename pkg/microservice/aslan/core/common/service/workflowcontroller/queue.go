@@ -173,7 +173,7 @@ func WorfklowTaskSender() {
 						Remove(task)
 						continue
 					}
-					scanningInfo, err := commonrepo.NewScanningColl().Find(task.ProjectName, segs[2])
+					scanningInfo, err := commonrepo.NewScanningColl().GetByID(segs[2])
 					if err != nil {
 						log.Errorf("failed to find scanning of id: %s, error: %s", segs[2], err)
 						Remove(task)
