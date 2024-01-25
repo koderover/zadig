@@ -134,6 +134,7 @@ func GetRunningWorkflow(log *zap.SugaredLogger) ([]*WorkflowResponse, error) {
 		if pendingTask.Type == config.WorkflowTaskTypeScanning {
 			res.Type = "scanning"
 		}
+		resp = append(resp, res)
 	}
 
 	return resp, nil
