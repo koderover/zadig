@@ -248,12 +248,6 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		return nil, err
 	}
 
-	testInfo, err := commonrepo.NewTestingColl().Find(testName, projectKey)
-	if err != nil {
-		log.Errorf("find test[%s] error: %v", testName, err)
-		return nil, fmt.Errorf("find test[%s] error: %v", testName, err)
-	}
-
 	testResultMap := make(map[string]interface{})
 
 	testResultList, err := commonrepo.NewCustomWorkflowTestReportColl().ListByWorkflow(workflowName, testName, taskID)
@@ -294,10 +288,22 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 
 	subTaskInfo := make(map[string]map[string]interface{})
 
-	var spec workflowservice.ZadigTestingJobSpec
+	args := new(commonmodels.ZadigTestingJobSpec)
+	err = commonmodels.IToi(workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec, args)
+	if err != nil {
+		log.Errorf("failed to decode testing job args, err: %s", err)
+		return nil, err
+	}
+
+	if len(args.TestModules) != 1 {
+		log.Errorf("wrong test length: %d", len(args.TestModules))
+		return nil, fmt.Errorf("wrong test length: %d", len(args.TestModules))
+	}
+
+	spec := new(workflowservice.ZadigTestingJobSpec)
 	err = commonmodels.IToi(workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec, spec)
 	if err != nil {
-		log.Errorf("failed to decode testing job spec, err: %s", err)
+		log.Errorf("failed to decode testing job spec , err: %s", err)
 		return nil, err
 	}
 
@@ -310,7 +316,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 			Builds        []*types.Repository `json:"builds"`
 		}{
 			spec.Archive,
-			testInfo.Repos,
+			args.TestModules[0].Repos,
 		},
 		"report_ready": reportReady,
 		"type":         "testingv2",
