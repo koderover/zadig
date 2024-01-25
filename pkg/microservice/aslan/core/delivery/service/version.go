@@ -1117,6 +1117,7 @@ func buildDeliveryImages(productInfo *commonmodels.Product, targetRegistry *comm
 	}
 	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
 		Name: "system",
+		Type: config.WorkflowTaskTypeDelivery,
 	}, deliveryVersionWorkflowV4, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create delivery version custom workflow task, versionName: %s, err: %s", deliveryVersion.Version, err)
@@ -1208,6 +1209,7 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 	}
 	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
 		Name: "system",
+		Type: config.WorkflowTaskTypeDelivery,
 	}, workflowV4, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create helm delivery version custom workflow task, versionName: %s, err: %s", deliveryVersion.Version, err)

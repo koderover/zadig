@@ -142,6 +142,7 @@ const (
 	WorkflowTaskTypeWorkflow CustomWorkflowTaskType = "workflow"
 	WorkflowTaskTypeTesting  CustomWorkflowTaskType = "test"
 	WorkflowTaskTypeScanning CustomWorkflowTaskType = "scan"
+	WorkflowTaskTypeDelivery CustomWorkflowTaskType = "delivery"
 )
 
 type TaskStatus string
