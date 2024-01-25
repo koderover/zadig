@@ -284,7 +284,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 		}
 	}
 
-	if len(workflowTask.Stages) != 1 || len(workflowTask.Stages[0].Jobs) != 1 {
+	if len(workflowTask.WorkflowArgs.Stages) != 1 || len(workflowTask.WorkflowArgs.Stages[0].Jobs) != 1 {
 		errMsg := fmt.Sprintf("invalid test task!")
 		log.Errorf(errMsg)
 		return nil, fmt.Errorf(errMsg)
@@ -295,7 +295,7 @@ func GetTestTaskDetail(projectKey, testName string, taskID int64, log *zap.Sugar
 	subTaskInfo := make(map[string]map[string]interface{})
 
 	var spec workflowservice.ZadigTestingJobSpec
-	err = commonmodels.IToi(workflowTask.Stages[0].Jobs[0].Spec, spec)
+	err = commonmodels.IToi(workflowTask.WorkflowArgs.Stages[0].Jobs[0].Spec, spec)
 	if err != nil {
 		log.Errorf("failed to decode testing job spec, err: %s", err)
 		return nil, err
