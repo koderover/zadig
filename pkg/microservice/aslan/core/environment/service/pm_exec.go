@@ -52,6 +52,10 @@ func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip, hostId
 		log.Errorf("host %s status %s, is not normal", ip, resp.Status)
 		return e.ErrLoginPm.AddDesc(fmt.Sprintf("host %s status %s,is not normal", ip, resp.Status))
 	}
+	if !resp.IsLogin {
+		log.Errorf("host %s is not enable login", ip)
+		return e.ErrLoginPm.AddDesc(fmt.Sprintf("host %s is not enable login", ip))
+	}
 	if resp.Port == 0 {
 		resp.Port = setting.PMHostDefaultPort
 	}
