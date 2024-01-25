@@ -203,9 +203,12 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 						}
 						// 发送本次commit的通知
 						if autoCancelOpt.Type == EventTypePR && notification == nil {
-							notification, _ = scmnotify.NewService().SendInitWebhookComment(
+							notification, err = scmnotify.NewService().SendInitWebhookComment(
 								item.MainRepo, prID, baseURI, false, true, false, false, log,
 							)
+							if err != nil {
+								log.Errorf("failed to create gitlab test webhook comment, err: %s", err)
+							}
 						}
 					}
 
