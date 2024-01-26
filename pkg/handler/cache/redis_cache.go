@@ -20,13 +20,11 @@ import (
 	"fmt"
 	"github.com/koderover/zadig/v2/pkg/config"
 	"github.com/koderover/zadig/v2/pkg/tool/cache"
-	"sync"
 )
 
 const istioCacheKey = "istio-cache-store"
 
 type redisCacheStore struct {
-	store      *sync.Map
 	redisCache *cache.RedisCache
 }
 
