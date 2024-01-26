@@ -33,7 +33,9 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	chartloader "helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
@@ -204,11 +206,12 @@ type DeliverySecurityStats struct {
 }
 
 type ImageUrlDetail struct {
-	ImageUrl  string
-	Name      string
-	Registry  string
-	Tag       string
-	CustomTag string
+	ImageUrl         string
+	Name             string
+	SourceRegistryID string
+	TargetRegistryID string
+	Tag              string
+	CustomTag        string
 }
 
 type ServiceImageDetails struct {
@@ -513,49 +516,27 @@ func buildDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion, su
 		if err != nil {
 			updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, setting.DeliveryVersionStatusFailed, err.Error())
 		}
-
-		if deliveryVersion.Status == setting.DeliveryVersionStatusSuccess {
-			progress.TotalCount = successfulChartCount
-			progress.UploadStatus = setting.DeliveryVersionPackageStatusSuccess
-			return progress
-		}
-
-		argsBytes, err := json.Marshal(deliveryVersion.CreateArgument)
-		if err != nil {
-			log.Errorf("failed to marshal arguments, versionName: %s err %s", deliveryVersion.Version, err)
-			return progress
-		}
-		createArgs := new(DeliveryVersionChartData)
-		err = json.Unmarshal(argsBytes, createArgs)
-		if err != nil {
-			log.Errorf("failed to unMarshal arguments, versionName: %s err %s", deliveryVersion.Version, err)
-			return progress
-		}
-
-		progress.TotalCount = len(createArgs.ChartDatas)
-
-		if deliveryVersion.Status == setting.DeliveryVersionStatusFailed {
-			progress.UploadStatus = setting.DeliveryVersionPackageStatusFailed
-			progress.Error = deliveryVersion.Error
-			return progress
-		}
-
-		if len(createArgs.ChartDatas) > successfulChartCount {
-			progress.UploadStatus = setting.DeliveryVersionPackageStatusWaiting
-			return progress
-		}
-
-		progress.UploadStatus = setting.DeliveryVersionPackageStatusUploading
-		return progress
 	} else if deliveryVersion.Type == setting.DeliveryVersionTypeYaml {
-		workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID))
+		_, err := checkK8SImageVersionStatus(deliveryVersion)
 		if err != nil {
+			updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, setting.DeliveryVersionStatusFailed, err.Error())
+		}
+	}
+
+	workflowTaskExist := true
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID))
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			workflowTaskExist = false
+		} else {
 			err = fmt.Errorf("failed to find workflow task %s, task id %d, err: %s", deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID), err)
 			log.Error(err)
 			progress.Error = err.Error()
 			return progress
 		}
+	}
 
+	if workflowTaskExist {
 		for _, stage := range workflowTask.Stages {
 			for _, job := range stage.Jobs {
 				if job.JobType != string(config.JobZadigDistributeImage) {
@@ -587,27 +568,29 @@ func buildDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion, su
 				}
 			}
 		}
+	} else {
+		progress.SuccessCount = successfulChartCount
+		progress.TotalCount = successfulChartCount
+	}
 
-		if deliveryVersion.Status == setting.DeliveryVersionStatusSuccess {
-			progress.UploadStatus = setting.DeliveryVersionPackageStatusSuccess
-			return progress
-		}
-
-		if deliveryVersion.Status == setting.DeliveryVersionStatusFailed {
-			progress.UploadStatus = setting.DeliveryVersionPackageStatusFailed
-			progress.Error = deliveryVersion.Error
-			return progress
-		}
-
-		if progress.SuccessCount < progress.TotalCount {
-			progress.UploadStatus = setting.DeliveryVersionPackageStatusWaiting
-			return progress
-		}
-
-		progress.UploadStatus = setting.DeliveryVersionPackageStatusUploading
+	if deliveryVersion.Status == setting.DeliveryVersionStatusSuccess {
+		progress.UploadStatus = setting.DeliveryVersionPackageStatusSuccess
 		return progress
 	}
-	return nil
+
+	if deliveryVersion.Status == setting.DeliveryVersionStatusFailed {
+		progress.UploadStatus = setting.DeliveryVersionPackageStatusFailed
+		progress.Error = deliveryVersion.Error
+		return progress
+	}
+
+	if progress.SuccessCount < progress.TotalCount {
+		progress.UploadStatus = setting.DeliveryVersionPackageStatusWaiting
+		return progress
+	}
+
+	progress.UploadStatus = setting.DeliveryVersionPackageStatusUploading
+	return progress
 }
 
 func getChartTGZDir(productName, versionName string) string {
@@ -694,7 +677,6 @@ func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) 
 	return deliveryChartPath, nil
 }
 
-// handleImageRegistry update image registry to target registry
 func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, targetRegistry *commonmodels.RegistryNamespace,
 	registryMap map[string]*commonmodels.RegistryNamespace, imageData []*ImageData) ([]byte, *ServiceImageDetails, error) {
 
@@ -731,6 +713,11 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 	}
 
 	registrySet := sets.NewString()
+	prodSvc := chartData.ProductService
+	containerMap := make(map[string]*commonmodels.Container)
+	for _, container := range prodSvc.Containers {
+		containerMap[container.ImageName] = container
+	}
 	for _, spec := range imagePathSpecs {
 		imageUrl, err := commonutil.GeneImageURI(spec, flatMap)
 		if err != nil {
@@ -738,7 +725,13 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 		}
 
 		imageName := commonutil.ExtractImageName(imageUrl)
-		imageTag := commonservice.ExtractImageTag(imageUrl)
+		container := containerMap[imageName]
+		if container == nil {
+			return nil, nil, fmt.Errorf("container not found, imageName: %s", imageName)
+		}
+
+		prodImageUrl := container.Image
+		imageTag := commonservice.ExtractImageTag(prodImageUrl)
 
 		customTag := ""
 		if ct, ok := imageTagMap[imageName]; ok {
@@ -751,29 +744,32 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 			customTag = imageTag
 		}
 
-		registryUrl, err := commonservice.ExtractImageRegistry(imageUrl)
+		registryUrl, err := commonservice.ExtractImageRegistry(prodImageUrl)
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to parse registry from image uri: %s", imageUrl)
+			return nil, nil, errors.Wrapf(err, "failed to parse registry from image uri: %s", prodImageUrl)
 		}
 		registryUrl = strings.TrimSuffix(registryUrl, "/")
 
-		registryID := ""
+		sourceRegistryID := ""
 		// used source registry
 		if registry, ok := registryMap[registryUrl]; ok {
-			registryID = registry.ID.Hex()
-			registrySet.Insert(registryID)
+			sourceRegistryID = registry.ID.Hex()
+			registrySet.Insert(sourceRegistryID)
+		} else {
+			return nil, nil, fmt.Errorf("registry not found, registryUrl: %s", registryUrl)
 		}
 
 		imageDetail.Images = append(imageDetail.Images, &ImageUrlDetail{
-			ImageUrl:  imageUrl,
-			Name:      imageName,
-			Tag:       imageTag,
-			Registry:  registryID,
-			CustomTag: customTag,
+			ImageUrl:         prodImageUrl,
+			Name:             imageName,
+			Tag:              imageTag,
+			SourceRegistryID: sourceRegistryID,
+			TargetRegistryID: targetRegistry.ID.Hex(),
+			CustomTag:        customTag,
 		})
 
 		// assign image to values.yaml
-		targetImageUrl := util.ReplaceRepo(imageUrl, targetRegistry.RegAddr, targetRegistry.Namespace)
+		targetImageUrl := util.ReplaceRepo(prodImageUrl, targetRegistry.RegAddr, targetRegistry.Namespace)
 		targetImageUrl = util.ReplaceTag(targetImageUrl, customTag)
 		replaceValuesMap, err := commonutil.AssignImageData(targetImageUrl, spec)
 		if err != nil {
@@ -973,68 +969,95 @@ func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
 	return ret, nil
 }
 
-func buildArtifactTaskArgs(projectName, envName string, imagesMap *sync.Map) *commonmodels.ArtifactPackageTaskArgs {
-	imageArgs := make([]*commonmodels.ImagesByService, 0)
-	sourceRegistry := sets.NewString()
+func buildArtifactTaskArgs(projectName, envName string, imagesMap *sync.Map) (*commonmodels.WorkflowV4, bool, error) {
+	name := generateDeliveryWorkflowName(projectName)
+	resp := &commonmodels.WorkflowV4{
+		Name:             name,
+		DisplayName:      name,
+		Stages:           nil,
+		Project:          projectName,
+		CreatedBy:        "system",
+		ConcurrencyLimit: 1,
+	}
+
+	stage := make([]*commonmodels.WorkflowStage, 0)
+	jobs := make([]*commonmodels.Job, 0)
+
+	i := 0
 	imagesMap.Range(func(key, value interface{}) bool {
 		imageDetail := value.(*ServiceImageDetails)
-		imagesByService := &commonmodels.ImagesByService{
-			ServiceName: imageDetail.ServiceName,
-			Images:      make([]*commonmodels.ImageData, 0),
-		}
 		for _, image := range imageDetail.Images {
-			imagesByService.Images = append(imagesByService.Images, &commonmodels.ImageData{
-				ImageUrl:   image.ImageUrl,
-				ImageName:  image.Name,
-				ImageTag:   image.Tag,
-				CustomTag:  image.CustomTag,
-				RegistryID: image.Registry,
+			imageName := commonutil.ExtractImageName(image.ImageUrl)
+			targets := []*commonmodels.DistributeTarget{}
+			target := &commonmodels.DistributeTarget{
+				ServiceName: imageDetail.ServiceName,
+				ImageName:   imageName,
+				SourceTag:   image.Tag,
+				TargetTag:   image.CustomTag,
+			}
+			targets = append(targets, target)
+
+			jobs = append(jobs, &commonmodels.Job{
+				Name:    fmt.Sprintf("distribute-image-%d", i),
+				JobType: config.JobZadigDistributeImage,
+				Skipped: false,
+				Spec: &commonmodels.ZadigDistributeImageJobSpec{
+					Source:           config.SourceRuntime,
+					JobName:          "",
+					SourceRegistryID: image.SourceRegistryID,
+					TargetRegistryID: image.TargetRegistryID,
+					Targets:          targets,
+				},
+				RunPolicy:      "",
+				ServiceModules: nil,
 			})
+			i++
 		}
-		imageArgs = append(imageArgs, imagesByService)
-		sourceRegistry.Insert(imageDetail.Registries...)
 		return true
 	})
 
-	ret := &commonmodels.ArtifactPackageTaskArgs{
-		ProjectName:      projectName,
-		EnvName:          envName,
-		Images:           imageArgs,
-		SourceRegistries: sourceRegistry.List(),
-	}
-	return ret
+	stage = append(stage, &commonmodels.WorkflowStage{
+		Name:     "distribute-image",
+		Parallel: false,
+		Approval: nil,
+		Jobs:     jobs,
+	})
+
+	resp.Stages = stage
+
+	return resp, len(jobs) > 0, nil
 }
 
 // insert delivery distribution data for single chart, include image and chart
-func insertDeliveryDistributions(result *task.ServicePackageResult, chartVersion string, deliveryVersion *commonmodels.DeliveryVersion, args *DeliveryVersionChartData) error {
-	for _, image := range result.ImageData {
+func insertDeliveryDistributions(imageDatas []*task.ImageData, serviceName, chartVersion string, deliveryVersion *commonmodels.DeliveryVersion, args *DeliveryVersionChartData) error {
+	for _, image := range imageDatas {
 		err := commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
 			ReleaseID:      deliveryVersion.ID,
 			ServiceName:    image.ImageName, // image name
-			ChartName:      result.ServiceName,
+			ChartName:      serviceName,
 			DistributeType: config.Image,
 			RegistryName:   image.ImageUrl,
 			Namespace:      commonservice.ExtractRegistryNamespace(image.ImageUrl),
 			CreatedAt:      time.Now().Unix(),
 		})
 		if err != nil {
-			log.Errorf("failed to insert image distribute data, chartName: %s, err: %s", result.ServiceName, err)
-			return fmt.Errorf("failed to insert image distribute data, chartName: %s", result.ServiceName)
+			log.Errorf("failed to insert image distribute data, chartName: %s, err: %s", serviceName, err)
+			return fmt.Errorf("failed to insert image distribute data, chartName: %s", serviceName)
 		}
 	}
 
 	err := commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
 		ReleaseID:      deliveryVersion.ID,
 		DistributeType: config.Chart,
-		ChartName:      result.ServiceName,
+		ChartName:      serviceName,
 		ChartVersion:   chartVersion,
 		ChartRepoName:  args.ChartRepoName,
 		SubDistributes: nil,
 		CreatedAt:      time.Now().Unix(),
 	})
 	if err != nil {
-		log.Errorf("failed to insert chart distribute data, chartName: %s, err: %s", result.ServiceName, err)
-		return fmt.Errorf("failed to insert chart distribute data, chartName: %s", result.ServiceName)
+		log.Errorf("failed to insert chart distribute data, chartName: %s, err: %s", serviceName, err)
+		return fmt.Errorf("failed to insert chart distribute data, chartName: %s", serviceName)
 	}
 	return nil
 }
@@ -1058,15 +1081,18 @@ func buildDeliveryImages(productInfo *commonmodels.Product, targetRegistry *comm
 			deliveryDeploy.ContainerName = imageData.ImageName
 			deliveryDeploy.RegistryID = args.ImageRegistryID
 
-			image := fmt.Sprintf("%s/%s/%s:%s", targetRegistry.RegAddr, targetRegistry.Namespace, imageData.ImageName, imageData.ImageTag)
+			regAddr, err := targetRegistry.GetRegistryAddress()
+			if err != nil {
+				return fmt.Errorf("failed to get registry address, err: %s", err)
+			}
+			image := fmt.Sprintf("%s/%s/%s:%s", regAddr, targetRegistry.Namespace, imageData.ImageName, imageData.ImageTag)
 			deliveryDeploy.Image = image
-
 			deliveryDeploy.YamlContents = []string{yamlData.YamlContent}
 			//orderedServices
 			deliveryDeploy.OrderedServices = productInfo.GetGroupServiceNames()
 			deliveryDeploy.CreatedAt = time.Now().Unix()
 			deliveryDeploy.DeletedAt = 0
-			err := commonrepo.NewDeliveryDeployColl().Insert(deliveryDeploy)
+			err = commonrepo.NewDeliveryDeployColl().Insert(deliveryDeploy)
 			if err != nil {
 				return fmt.Errorf("failed to insert deliveryDeploy, serviceName: %s", yamlData.ServiceName)
 			}
@@ -1080,6 +1106,7 @@ func buildDeliveryImages(productInfo *commonmodels.Product, targetRegistry *comm
 	}
 	createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
 		Name: "system",
+		Type: config.WorkflowTaskTypeDelivery,
 	}, deliveryVersionWorkflowV4, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create delivery version custom workflow task, versionName: %s, err: %s", deliveryVersion.Version, err)
@@ -1164,17 +1191,28 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 
 	// create task to deal with images
 	// offline docker images are not supported
-	taskArgs := buildArtifactTaskArgs(deliveryVersion.ProductName, deliveryVersion.ProductEnvInfo.EnvName, imagesDataMap)
-	taskArgs.TargetRegistries = []string{args.ImageRegistryID}
-	taskID, err := workflowservice.CreateArtifactPackageTask(taskArgs, deliveryVersion.Version, logger)
+	workflowV4, notEmpty, err := buildArtifactTaskArgs(deliveryVersion.ProductName, deliveryVersion.ProductEnvInfo.EnvName, imagesDataMap)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to build helm custom artifact task , err: %s", err)
+
 	}
-	deliveryVersion.TaskID = int(taskID)
-	err = commonrepo.NewDeliveryVersionColl().UpdateTaskID(deliveryVersion.Version, deliveryVersion.ProductName, int32(deliveryVersion.TaskID))
+	if notEmpty {
+		createResp, err := workflowservice.CreateWorkflowTaskV4(&workflowservice.CreateWorkflowTaskV4Args{
+			Name: "system",
+			Type: config.WorkflowTaskTypeDelivery,
+		}, workflowV4, logger)
+		if err != nil {
+			return fmt.Errorf("failed to create helm delivery version custom workflow task, versionName: %s, err: %s", deliveryVersion.Version, err)
+		}
+		deliveryVersion.TaskID = int(createResp.TaskID)
+	}
+
+	deliveryVersion.WorkflowName = workflowV4.Name
+	err = commonrepo.NewDeliveryVersionColl().UpdateWorkflowTask(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.WorkflowName, int32(deliveryVersion.TaskID))
 	if err != nil {
 		logger.Errorf("failed to update delivery version task_id, version: %s, task_id: %s, err: %s", deliveryVersion, deliveryVersion.ProductName, deliveryVersion.TaskID)
 	}
+
 	// start a new routine to check task results
 	go waitHelmChartVersionDone(deliveryVersion)
 
@@ -1380,15 +1418,6 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 	if deliveryVersion.Status == setting.DeliveryVersionStatusSuccess || deliveryVersion.Status == setting.DeliveryVersionStatusFailed {
 		return true, nil
 	}
-	pipelineName := fmt.Sprintf("%s-%s-%s", deliveryVersion.ProductName, deliveryVersion.ProductEnvInfo.EnvName, "artifact")
-	taskData, err := commonrepo.NewTaskColl().Find(int64(deliveryVersion.TaskID), pipelineName, config.ArtifactType)
-	if err != nil {
-		return false, fmt.Errorf("failed to query taskData, id: %d, pipelineName: %s", deliveryVersion.TaskID, pipelineName)
-	}
-
-	if len(taskData.Stages) != 1 {
-		return false, fmt.Errorf("invalid task data, stage length not leagal")
-	}
 
 	argsBytes, err := json.Marshal(deliveryVersion.CreateArgument)
 	if err != nil {
@@ -1399,65 +1428,133 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to unMarshal arguments, versionName: %s err: %s", deliveryVersion.Version, err)
 	}
+	chartDataMap := map[string]*CreateHelmDeliveryVersionChartData{}
+	for _, chartData := range createArgs.ChartDatas {
+		chartDataMap[chartData.ServiceName] = chartData
+	}
 
-	distributes, err := commonrepo.NewDeliveryDistributeColl().Find(&commonrepo.DeliveryDistributeArgs{
+	// successfully handled charts
+	chartDistributes, err := commonrepo.NewDeliveryDistributeColl().Find(&commonrepo.DeliveryDistributeArgs{
 		DistributeType: config.Chart,
 		ReleaseID:      deliveryVersion.ID.Hex(),
 	})
 	if err != nil {
-		return false, errors.Wrapf(err, "failed to query distrubutes, versionName: %s", deliveryVersion.Version)
+		return false, errors.Wrapf(err, "failed to query chart distrubutes, versionName: %s", deliveryVersion.Version)
 	}
-
-	// for charts has been successfully handled, download charts directly
 	successCharts := sets.NewString()
-	for _, distribute := range distributes {
+	for _, distribute := range chartDistributes {
 		successCharts.Insert(distribute.ChartName)
 	}
 
-	stage := taskData.Stages[0]
+	// successfully handled images
+	imageDistributes, err := commonrepo.NewDeliveryDistributeColl().Find(&commonrepo.DeliveryDistributeArgs{
+		DistributeType: config.Image,
+		ReleaseID:      deliveryVersion.ID.Hex(),
+	})
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to query image distrubutes, versionName: %s", deliveryVersion.Version)
+	}
+	successImages := sets.NewString()
+	for _, distribute := range imageDistributes {
+		successImages.Insert(distribute.ServiceName) // image name
+	}
+
 	errorList := &multierror.Error{}
 
+	workflowTaskExist := true
+	workflowTask, err := commonrepo.NewworkflowTaskv4Coll().Find(deliveryVersion.WorkflowName, int64(deliveryVersion.TaskID))
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			workflowTaskExist = false
+		} else {
+			return false, fmt.Errorf("failed to find workflow task, workflowName: %s, taskID: %d", deliveryVersion.WorkflowName, deliveryVersion.TaskID)
+		}
+	}
+
+	// Images
 	allTaskDone := true
-	for _, taskData := range stage.SubTasks {
-		artifactPackageArgs, err := base.ToArtifactPackageImageTask(taskData)
-		if err != nil {
-			return false, errors.Wrapf(err, "failed to generate origin artifact task data")
-		}
+	chartImageAllsuccessMap := map[string]bool{}
+	if workflowTaskExist {
+		for _, stage := range workflowTask.Stages {
+			for _, job := range stage.Jobs {
+				// job not finished
+				if !lo.Contains(config.CompletedStatus(), job.Status) {
+					allTaskDone = false
+				}
 
-		progressData, err := artifactPackageArgs.GetProgress()
-		if err != nil {
-			return false, errors.Wrapf(err, "failed to get progress data from data")
-		}
-		progressDataMap := make(map[string]*task.ServicePackageResult)
-		for _, singleResult := range progressData {
-			progressDataMap[singleResult.ServiceName] = singleResult
-		}
-
-		for _, chartData := range createArgs.ChartDatas {
-			// service artifact has been marked as success
-			if successCharts.Has(chartData.ServiceName) {
-				continue
-			}
-			if singleResult, ok := progressDataMap[chartData.ServiceName]; ok {
-				if singleResult.Result != "success" {
-					errorList = multierror.Append(errorList, fmt.Errorf("failed to build image distribute for service:%s, err: %s ", singleResult.ServiceName, singleResult.ErrorMsg))
+				taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
+				if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
 					continue
 				}
-				err = insertDeliveryDistributions(singleResult, chartData.Version, deliveryVersion, createArgs)
-				if err != nil {
-					errorList = multierror.Append(errorList, fmt.Errorf("failed to insert distribute data for service:%s ", singleResult.ServiceName))
-					continue
+				for _, step := range taskJobSpec.Steps {
+					if step.StepType == config.StepDistributeImage {
+						stepSpec := &stepspec.StepImageDistributeSpec{}
+						commonmodels.IToi(step.Spec, &stepSpec)
+
+						for _, target := range stepSpec.DistributeTarget {
+							imageName := commonutil.ExtractImageName(target.TargetImage)
+							if successImages.Has(imageName) {
+								chartImageAllsuccessMap[target.ServiceName] = true
+								continue
+							}
+
+							if job.Status == config.StatusPassed {
+								if _, ok := chartImageAllsuccessMap[target.ServiceName]; !ok {
+									chartImageAllsuccessMap[target.ServiceName] = true
+								}
+
+								err := commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
+									DistributeType: config.Image,
+									ReleaseID:      deliveryVersion.ID,
+									ServiceName:    imageName, // image name
+									ChartName:      target.ServiceName,
+									RegistryName:   target.TargetImage,
+									Namespace:      commonservice.ExtractRegistryNamespace(target.TargetImage),
+									CreatedAt:      time.Now().Unix(),
+								})
+								if err != nil {
+									err = fmt.Errorf("failed to insert image distribute data, chartName: %s, err: %s", target.ServiceName, err)
+									log.Error(err)
+									errorList = multierror.Append(errorList, err)
+									continue
+								}
+								successImages.Insert(imageName)
+							} else {
+								if lo.Contains(config.FailedStatus(), job.Status) {
+									errorList = multierror.Append(errorList, fmt.Errorf("failed to build image distribute for service: %s, status: %s, err: %s ", target.ServiceName, job.Status, job.Error))
+								}
+								chartImageAllsuccessMap[target.ServiceName] = false
+							}
+						}
+					}
 				}
-				successCharts.Insert(chartData.ServiceName)
 			}
 		}
+	}
 
-		if !taskFinished(artifactPackageArgs.TaskStatus) {
-			allTaskDone = false
+	// Charts
+	for _, chartData := range createArgs.ChartDatas {
+		if successCharts.Has(chartData.ServiceName) {
+			continue
 		}
-		if len(artifactPackageArgs.Error) > 0 {
-			errorList = multierror.Append(errorList, fmt.Errorf(artifactPackageArgs.Error))
+		if allSuccess, exist := chartImageAllsuccessMap[chartData.ServiceName]; exist && !allSuccess {
+			continue
 		}
+
+		err := commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
+			ReleaseID:      deliveryVersion.ID,
+			DistributeType: config.Chart,
+			ChartName:      chartData.ServiceName,
+			ChartVersion:   chartData.Version,
+			ChartRepoName:  createArgs.ChartRepoName,
+			SubDistributes: nil,
+			CreatedAt:      time.Now().Unix(),
+		})
+		if err != nil {
+			errorList = multierror.Append(errorList, fmt.Errorf("failed to insert distribute data for service:%s ", chartData.ServiceName))
+			continue
+		}
+		successCharts.Insert(chartData.ServiceName)
 	}
 
 	if allTaskDone {
@@ -1507,9 +1604,11 @@ func CreateNewK8SDeliveryVersion(args *CreateK8SDeliveryVersionArgs, logger *zap
 
 	productInfo.ID, _ = primitive.ObjectIDFromHex("")
 
+	workflowName := generateDeliveryWorkflowName(args.ProductName)
 	versionObj := &commonmodels.DeliveryVersion{
 		Version:        args.Version,
 		ProductName:    args.ProductName,
+		WorkflowName:   workflowName,
 		Type:           setting.DeliveryVersionTypeYaml,
 		Desc:           args.Desc,
 		Labels:         args.Labels,
@@ -1560,9 +1659,11 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 
 	productInfo.ID, _ = primitive.ObjectIDFromHex("")
 
+	workflowName := generateDeliveryWorkflowName(args.ProductName)
 	versionObj := &commonmodels.DeliveryVersion{
 		Version:        args.Version,
 		ProductName:    args.ProductName,
+		WorkflowName:   workflowName,
 		Type:           setting.DeliveryVersionTypeChart,
 		Desc:           args.Desc,
 		Labels:         args.Labels,
@@ -2055,7 +2156,13 @@ func generateCustomWorkflowFromDeliveryVersion(productInfo *commonmodels.Product
 	registryDatasMap := map[*commonmodels.RegistryNamespace]map[string][]*ImageData{}
 	for _, yamlData := range args.YamlDatas {
 		for _, imageData := range yamlData.ImageDatas {
-			registryURL := strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, imageData.ImageTag))
+			sourceImageTag := ""
+			registryURL := strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s", imageData.ImageName))
+			tmpArr := strings.Split(imageData.Image, ":")
+			if len(tmpArr) > 1 {
+				sourceImageTag = tmpArr[1]
+				registryURL = strings.TrimSuffix(imageData.Image, fmt.Sprintf("/%s:%s", imageData.ImageName, sourceImageTag))
+			}
 			sourceRegistry, ok := registryMap[registryURL]
 			if !ok {
 				return nil, fmt.Errorf("can't find soruce registry for image: %s", imageData.Image)

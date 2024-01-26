@@ -285,21 +285,21 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 	if forDelivery {
 		originBase := base
 		base = config.LocalDeliveryChartPathWithRevision(productName, serviceName, revision)
-		os.RemoveAll(base)
-		if exists, err := fileutil.FileExists(base); !exists || err != nil {
+		if exists, err := fileutil.PathExists(base); !exists || err != nil {
 			fullPath := filepath.Join(originBase, svc.ServiceName)
 			err := copy.Copy(fullPath, filepath.Join(base, svc.ServiceName))
 			if err != nil {
 				return "", err
 			}
 		}
-
+		defer func() {
+			os.RemoveAll(base)
+		}()
 	}
 
 	file := filepath.Join(base, serviceName, filePath, fileName)
 	fileContent, err := os.ReadFile(file)
 	if err != nil {
-
 		log.Errorf("Failed to read file %s, err: %s", file, err)
 		return "", e.ErrFileContent.AddDesc(err.Error())
 	}

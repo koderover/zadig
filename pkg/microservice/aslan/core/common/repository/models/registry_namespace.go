@@ -19,6 +19,8 @@ package models
 import (
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -57,7 +59,6 @@ type RegistryAdvancedSetting struct {
 }
 
 func (ns *RegistryNamespace) Validate() error {
-
 	if ns.RegAddr == "" {
 		return errors.New("empty reg_addr")
 	}
@@ -72,6 +73,17 @@ func (ns *RegistryNamespace) Validate() error {
 	}
 
 	return nil
+}
+
+func (ns *RegistryNamespace) GetRegistryAddress() (string, error) {
+	u, err := url.Parse(ns.RegAddr)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse registry address, error: %s", err)
+	}
+	if len(u.Scheme) > 0 {
+		return strings.TrimPrefix(ns.RegAddr, fmt.Sprintf("%s://", u.Scheme)), nil
+	}
+	return ns.RegAddr, nil
 }
 
 func (args *RegistryNamespace) LicenseValidate() error {

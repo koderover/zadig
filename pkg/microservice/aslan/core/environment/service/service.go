@@ -352,6 +352,22 @@ func BatchPreviewService(args []*PreviewServiceArgs, logger *zap.SugaredLogger) 
 	return ret, nil
 }
 
+func FetchServiceYaml(productName, envName, serviceName string, _ *zap.SugaredLogger) (string, error) {
+	curYaml, _, err := kube.FetchCurrentAppliedYaml(&kube.GeneSvcYamlOption{
+		ProductName: productName,
+		EnvName:     envName,
+		ServiceName: serviceName,
+	})
+	if err != nil {
+		curYaml = ""
+		err = fmt.Errorf("failed to fetch current applied yaml, productName: %s envName: %s serviceName: %s, err: %s",
+			productName, envName, serviceName, err)
+		log.Error(err)
+	}
+
+	return curYaml, nil
+}
+
 func PreviewService(args *PreviewServiceArgs, _ *zap.SugaredLogger) (*SvcDiffResult, error) {
 	newVariableYaml, err := commontypes.RenderVariableKVToYaml(args.VariableKVs)
 	if err != nil {

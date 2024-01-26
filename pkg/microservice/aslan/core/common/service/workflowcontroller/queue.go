@@ -202,6 +202,8 @@ func WorfklowTaskSender() {
 						concurrencyNum = -1
 					}
 					concurrency = concurrencyNum
+				case config.WorkflowTaskTypeDelivery:
+					concurrency = -1
 				default:
 					log.Errorf("unsupported task type: %s, removing from queue", task.Type)
 					Remove(task)
