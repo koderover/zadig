@@ -713,6 +713,11 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 	}
 
 	registrySet := sets.NewString()
+	prodSvc := chartData.ProductService
+	containerMap := make(map[string]*commonmodels.Container)
+	for _, container := range prodSvc.Containers {
+		containerMap[container.ImageName] = container
+	}
 	for _, spec := range imagePathSpecs {
 		imageUrl, err := commonutil.GeneImageURI(spec, flatMap)
 		if err != nil {
@@ -720,7 +725,13 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 		}
 
 		imageName := commonutil.ExtractImageName(imageUrl)
-		imageTag := commonservice.ExtractImageTag(imageUrl)
+		container := containerMap[imageName]
+		if container == nil {
+			return nil, nil, fmt.Errorf("container not found, imageName: %s", imageName)
+		}
+
+		prodImageUrl := container.Image
+		imageTag := commonservice.ExtractImageTag(prodImageUrl)
 
 		customTag := ""
 		if ct, ok := imageTagMap[imageName]; ok {
@@ -733,9 +744,9 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 			customTag = imageTag
 		}
 
-		registryUrl, err := commonservice.ExtractImageRegistry(imageUrl)
+		registryUrl, err := commonservice.ExtractImageRegistry(prodImageUrl)
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to parse registry from image uri: %s", imageUrl)
+			return nil, nil, errors.Wrapf(err, "failed to parse registry from image uri: %s", prodImageUrl)
 		}
 		registryUrl = strings.TrimSuffix(registryUrl, "/")
 
@@ -744,19 +755,22 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 		if registry, ok := registryMap[registryUrl]; ok {
 			sourceRegistryID = registry.ID.Hex()
 			registrySet.Insert(sourceRegistryID)
+		} else {
+			return nil, nil, fmt.Errorf("registry not found, registryUrl: %s", registryUrl)
 		}
 
 		imageDetail.Images = append(imageDetail.Images, &ImageUrlDetail{
-			ImageUrl:         imageUrl,
+			ImageUrl:         prodImageUrl,
 			Name:             imageName,
 			Tag:              imageTag,
 			SourceRegistryID: sourceRegistryID,
 			TargetRegistryID: targetRegistry.ID.Hex(),
 			CustomTag:        customTag,
 		})
+		log.Debugf("image detail: %+v", imageDetail.Images[len(imageDetail.Images)-1])
 
 		// assign image to values.yaml
-		targetImageUrl := util.ReplaceRepo(imageUrl, targetRegistry.RegAddr, targetRegistry.Namespace)
+		targetImageUrl := util.ReplaceRepo(prodImageUrl, targetRegistry.RegAddr, targetRegistry.Namespace)
 		targetImageUrl = util.ReplaceTag(targetImageUrl, customTag)
 		replaceValuesMap, err := commonutil.AssignImageData(targetImageUrl, spec)
 		if err != nil {
@@ -1465,7 +1479,7 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 		for _, stage := range workflowTask.Stages {
 			for _, job := range stage.Jobs {
 				// job not finished
-				if !(job.Status == config.StatusPassed || job.Status == config.StatusFailed || job.Status == config.StatusTimeout || job.Status == config.StatusCancelled) {
+				if lo.Contains(config.InCompletedStatus(), job.Status) {
 					allTaskDone = false
 				}
 
@@ -1544,6 +1558,7 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 		successCharts.Insert(chartData.ServiceName)
 	}
 
+	log.Debugf("checkHelmChartVersionStatus, versionName: %s, allTaskDone: %t, successCharts: %v, successImages: %v", deliveryVersion.Version, allTaskDone, successCharts, successImages)
 	if allTaskDone {
 		if successCharts.Len() == len(createArgs.ChartDatas) {
 			deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
