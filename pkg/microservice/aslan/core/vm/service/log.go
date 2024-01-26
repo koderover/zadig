@@ -95,6 +95,7 @@ func savaVMJobLog(job *vmmodel.VMJob, log string, logger *zap.SugaredLogger) (er
 			return fmt.Errorf("failed to upload job log to s3, project:%s workflow:%s taskID%d error: %s", job.ProjectName, job.WorkflowName, job.TaskID, err)
 		}
 
+		time.Sleep(1000 * time.Millisecond)
 		VMJobStatus.Delete(job.ID.Hex())
 	}
 	return
