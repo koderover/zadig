@@ -767,7 +767,6 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 			TargetRegistryID: targetRegistry.ID.Hex(),
 			CustomTag:        customTag,
 		})
-		log.Debugf("image detail: %+v", imageDetail.Images[len(imageDetail.Images)-1])
 
 		// assign image to values.yaml
 		targetImageUrl := util.ReplaceRepo(prodImageUrl, targetRegistry.RegAddr, targetRegistry.Namespace)
@@ -1472,7 +1471,6 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 		}
 	}
 
-	log.Debugf("InCompletedStatus: %v", config.InCompletedStatus())
 	// Images
 	allTaskDone := true
 	chartImageAllsuccessMap := map[string]bool{}
@@ -1480,10 +1478,9 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 		for _, stage := range workflowTask.Stages {
 			for _, job := range stage.Jobs {
 				// job not finished
-				if lo.Contains(config.InCompletedStatus(), job.Status) {
+				if !lo.Contains(config.CompletedStatus(), job.Status) {
 					allTaskDone = false
 				}
-				log.Debugf("status of job %s is %s", job.Name, job.Status)
 
 				taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
@@ -1560,8 +1557,6 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 		successCharts.Insert(chartData.ServiceName)
 	}
 
-	log.Debugf("checkHelmChartVersionStatus, versionName: %s, allTaskDone: %t, successCharts: %v, successImages: %v", deliveryVersion.Version, allTaskDone, successCharts, successImages)
-	log.Debugf("chartImageAllsuccessMap: %v", chartImageAllsuccessMap)
 	if allTaskDone {
 		if successCharts.Len() == len(createArgs.ChartDatas) {
 			deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
