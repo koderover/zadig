@@ -86,7 +86,20 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 
 	deploy := c.jobTaskSpec.DeployHelmChart
 
-	productChartService := productInfo.GetChartServiceMap()[deploy.ReleaseName]
+	var productChartService *commonmodels.ProductService
+
+	for _, svc := range productInfo.GetSvcList() {
+		if svc.ReleaseName == deploy.ReleaseName {
+			productChartService = svc
+			if svc.FromZadig() {
+				svc.Type = setting.HelmChartDeployType
+				svc.DeployStrategy = setting.ServiceDeployStrategyDeploy
+			}
+			break
+		}
+	}
+
+	//productChartService := productInfo.GetChartServiceMap()[deploy.ReleaseName]
 	if productChartService == nil {
 		productChartService = &commonmodels.ProductService{
 			ReleaseName:    deploy.ReleaseName,
