@@ -103,6 +103,11 @@ func (c *RedisCache) Delete(key string) error {
 	return c.redisClient.Del(context.TODO(), key).Err()
 }
 
+func (c *RedisCache) HDelete(key, field string) error {
+	_, err := c.redisClient.HDel(context.Background(), key, field).Result()
+	return err
+}
+
 func (c *RedisCache) Publish(channel, message string) error {
 	return c.redisClient.Publish(context.Background(), channel, message).Err()
 }
