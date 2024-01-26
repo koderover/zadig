@@ -30,7 +30,7 @@ type handlers struct {
 
 func NewHandlers() *handlers {
 	return &handlers{
-		cache: NewCache(),
+		cache: NewRedisCache(),
 	}
 }
 
