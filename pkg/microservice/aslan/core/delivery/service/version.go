@@ -1472,6 +1472,7 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 		}
 	}
 
+	log.Debugf("InCompletedStatus: %v", config.InCompletedStatus())
 	// Images
 	allTaskDone := true
 	chartImageAllsuccessMap := map[string]bool{}
@@ -1482,6 +1483,7 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 				if lo.Contains(config.InCompletedStatus(), job.Status) {
 					allTaskDone = false
 				}
+				log.Debugf("status of job %s is %s", job.Name, job.Status)
 
 				taskJobSpec := &commonmodels.JobTaskFreestyleSpec{}
 				if err := commonmodels.IToi(job.Spec, taskJobSpec); err != nil {
@@ -1559,6 +1561,7 @@ func checkHelmChartVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) 
 	}
 
 	log.Debugf("checkHelmChartVersionStatus, versionName: %s, allTaskDone: %t, successCharts: %v, successImages: %v", deliveryVersion.Version, allTaskDone, successCharts, successImages)
+	log.Debugf("chartImageAllsuccessMap: %v", chartImageAllsuccessMap)
 	if allTaskDone {
 		if successCharts.Len() == len(createArgs.ChartDatas) {
 			deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
