@@ -121,7 +121,7 @@ func (c *CronClient) RunScheduledService(svc *service.Service, healthCheck *serv
 
 	for i := 0; i < MaxProbeRetries; i++ {
 		if message, err = runProbe(healthCheck, address, log); err == nil {
-			log.Infof("runProbe message:[%s]", message)
+			log.Infof("address %s runProbe message:[%s]", address, message)
 			break
 		}
 	}
