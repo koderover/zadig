@@ -434,6 +434,54 @@ func CreateProduct(c *gin.Context) {
 	}
 }
 
+// InitializeEnv
+func InitializeEnv(c *gin.Context) {
+	ctx, err := internalhandler.NewContextWithAuthorization(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if err != nil {
+		ctx.Err = fmt.Errorf("authorization Info Generation failed: err %s", err)
+		ctx.UnAuthorized = true
+		return
+	}
+
+	projectKey := c.Query("projectName")
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Infof("CreateProduct failed to get request data, err: %s", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	if projectKey == "" {
+		ctx.Err = fmt.Errorf("projectName cannot be empty")
+		return
+	}
+
+	// authorization checks
+	if !ctx.Resources.IsSystemAdmin {
+		if _, ok := ctx.Resources.ProjectAuthInfo[projectKey]; !ok {
+			ctx.UnAuthorized = true
+			return
+		}
+		if !ctx.Resources.ProjectAuthInfo[projectKey].IsProjectAdmin &&
+			!ctx.Resources.ProjectAuthInfo[projectKey].Env.Create {
+			ctx.UnAuthorized = true
+			return
+		}
+	}
+
+	envType := c.Param("envType")
+
+	args := make([]*commonmodels.Product, 0)
+	if err = json.Unmarshal(data, &args); err != nil {
+		log.Errorf("initialize a json.Unmarshal err : %v", err)
+	}
+
+	ctx.Err = service.InitializeEnvironment(projectKey, args, envType, ctx.Logger)
+}
+
 func CreateProductionProduct(c *gin.Context) {
 	ctx, err := internalhandler.NewContextWithAuthorization(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

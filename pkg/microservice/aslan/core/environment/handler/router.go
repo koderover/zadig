@@ -329,6 +329,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		bundles.GET("", GetBundleResources)
 	}
+
+	initialize := router.Group("init")
+	{
+		initialize.POST("/type/:envType", InitializeEnv)
+	}
 }
 
 type OpenAPIRouter struct{}
