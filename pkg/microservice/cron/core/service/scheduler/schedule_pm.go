@@ -54,7 +54,7 @@ func (c *CronClient) UpdatePmHostStatusScheduler(log *zap.SugaredLogger) {
 					}
 				}
 			}
-		} else if hostElem.IP != "" && hostElem.IsLogin && hostElem.Agent.LastHeartbeatTime == 0 {
+		} else if hostElem.IP != "" && !hostElem.ScheduleWorkflow {
 			// ssh
 			go func(hostPm *service.PrivateKeyHosts, log *zap.SugaredLogger) {
 				if hostPm.Port == 0 {

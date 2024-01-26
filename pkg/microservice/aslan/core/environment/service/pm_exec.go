@@ -52,7 +52,7 @@ func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip, hostId
 		log.Errorf("host %s status %s, is not normal", ip, resp.Status)
 		return e.ErrLoginPm.AddDesc(fmt.Sprintf("host %s status %s,is not normal", ip, resp.Status))
 	}
-	if !resp.IsLogin {
+	if !resp.ScheduleWorkflow {
 		log.Errorf("host %s is not enable login", ip)
 		return e.ErrLoginPm.AddDesc(fmt.Sprintf("host %s is not enable login", ip))
 	}

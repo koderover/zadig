@@ -118,7 +118,6 @@ type PrivateKeyHosts struct {
 	Error            string                `json:"error"`
 	Probe            *types.Probe          `json:"probe"`
 	UpdateStatus     bool                  `json:"update_status"`
-	IsLogin          bool                  `json:"is_login"`
 	ScheduleWorkflow bool                  `json:"schedule_workflow"`
 	Agent            *commonmodels.VMAgent `json:"agent,omitempty"`
 	Type             string                `json:"type"`
