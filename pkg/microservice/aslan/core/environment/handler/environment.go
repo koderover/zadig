@@ -475,7 +475,7 @@ func InitializeEnv(c *gin.Context) {
 	envType := c.Param("envType")
 
 	args := make([]*commonmodels.Product, 0)
-	if err = json.Unmarshal(data, args); err != nil {
+	if err = json.Unmarshal(data, &args); err != nil {
 		log.Errorf("initialize a json.Unmarshal err : %v", err)
 	}
 
