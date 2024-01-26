@@ -351,9 +351,16 @@ func UpgradeHelmRelease(product *commonmodels.Product, productSvc *commonmodels.
 	if productSvc.FromZadig() {
 		productSvcMap[productSvc.ServiceName] = productSvc
 		productSvcMap[productSvc.ServiceName].UpdateTime = time.Now().Unix()
+		delete(productChartSvcMap, productSvc.ReleaseName)
 	} else {
 		productChartSvcMap[productSvc.ReleaseName] = productSvc
 		productChartSvcMap[productSvc.ReleaseName].UpdateTime = time.Now().Unix()
+		for _, svc := range productSvcMap {
+			if svc.ReleaseName == productSvc.ReleaseName {
+				delete(productSvcMap, svc.ServiceName)
+				break
+			}
+		}
 	}
 
 	newProductInfo.Services = [][]*commonmodels.ProductService{{}}

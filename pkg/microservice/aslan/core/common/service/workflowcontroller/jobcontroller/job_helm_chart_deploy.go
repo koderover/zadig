@@ -99,7 +99,6 @@ func (c *HelmChartDeployJobCtl) Run(ctx context.Context) {
 		}
 	}
 
-	//productChartService := productInfo.GetChartServiceMap()[deploy.ReleaseName]
 	if productChartService == nil {
 		productChartService = &commonmodels.ProductService{
 			ReleaseName:    deploy.ReleaseName,
