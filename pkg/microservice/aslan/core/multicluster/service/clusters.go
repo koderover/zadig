@@ -58,7 +58,7 @@ import (
 	"github.com/koderover/zadig/v2/pkg/util/ginzap"
 )
 
-var namePattern = regexp.MustCompile(`^[0-9a-zA-Z_.-]{1,32}$`)
+var namePattern = regexp.MustCompile(`^[0-9a-zA-Z_.-]{1,100}$`)
 
 type K8SCluster struct {
 	ID                     string                   `json:"id,omitempty"`
