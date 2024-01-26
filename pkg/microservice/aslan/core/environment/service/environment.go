@@ -218,6 +218,10 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 	return envStatus
 }
 
+func InitializeEnvironment(projectKey string, envArgs []*commonmodels.Product, envType string, log *zap.SugaredLogger) error {
+	return nil
+}
+
 type UpdateServiceArg struct {
 	ServiceName    string                          `json:"service_name"`
 	DeployStrategy string                          `json:"deploy_strategy"`
