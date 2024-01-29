@@ -244,11 +244,25 @@ func initializeVMEnvironmentAndWorkflow(projectKey string, envArgs []*commonmode
 
 	retErr := new(multierror.Error)
 	for _, arg := range envArgs {
+		// modify the service revision for the creation process to get the correct env config from the service template.
+		for _, serviceList := range arg.Services {
+			for _, service := range serviceList {
+				svc, err := commonservice.GetServiceTemplate(service.ServiceName, setting.PMDeployType, projectKey, setting.ProductStatusDeleting, 0, log)
+				if err != nil {
+					log.Errorf("failed to find service info for service: %s, error: %s", service.ServiceName, err)
+					return fmt.Errorf("failed to find service info for service: %s, error: %s", service.ServiceName, err)
+				}
+				service.Revision = svc.Revision
+			}
+		}
+
 		err := CreateProduct("system", "", &ProductCreateArg{Product: arg}, log)
 		if err != nil {
 			log.Errorf("failed to initialize project env: create env [%s] error: %s", arg.EnvName, err)
 			retErr = multierror.Append(retErr, err)
 		}
+
+		time.Sleep(2 * time.Second)
 	}
 
 	for _, arg := range envArgs {

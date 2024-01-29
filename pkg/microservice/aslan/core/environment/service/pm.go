@@ -177,6 +177,7 @@ func (p *PMService) createGroup(username string, product *commonmodels.Product, 
 	for _, productService := range group {
 		//更新非k8s服务
 		if len(productService.EnvConfigs) > 0 {
+			log.Infof("looking for sercice %s with revision %d.......", productService.ServiceName, productService.Revision)
 			serviceTempl, err := commonservice.GetServiceTemplate(productService.ServiceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, productService.Revision, p.log)
 			if err != nil {
 				errList = multierror.Append(errList, err)
@@ -193,6 +194,8 @@ func (p *PMService) createGroup(username string, product *commonmodels.Product, 
 						if envName != v.EnvName {
 							newEnvConfigs = append(newEnvConfigs, v)
 						}
+					} else {
+						log.Errorf("failed to find product of projectName: %s, env name: %s, err: %s", productName, v.EnvName, err)
 					}
 				}
 				for _, currentEnvConfig := range productService.EnvConfigs {

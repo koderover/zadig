@@ -50,6 +50,10 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 		return e.ErrInvalidParam.AddDesc(err.Error())
 	}
 
+	// set the env configs to nil since the user should not be able to set that during service creation step.
+	// env config is now set by creating an env.
+	args.ServiceTmplObject.EnvConfigs = nil
+
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceTmplObject.ServiceName,
 		ProductName:   args.ServiceTmplObject.ProductName,
