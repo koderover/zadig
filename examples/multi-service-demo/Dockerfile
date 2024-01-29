@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM koderover.tencentcloudcr.com/koderover-demo/ubuntu:20.04
 
 ARG service
 
