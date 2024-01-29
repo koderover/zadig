@@ -25,14 +25,25 @@ import (
 const MonitorPageSize = 100
 
 type MonitorResponse struct {
-	Code      int              `json:"code"`
-	Content   []MonitorContent `json:"content"`
-	ErrorCode string           `json:"errorCode"`
-	Message   string           `json:"message"`
-	PageInfo  PageInfo         `json:"pageInfo"`
-	Success   bool             `json:"success"`
-	TraceID   string           `json:"traceId"`
+	Code      int         `json:"code"`
+	Content   ContentInfo `json:"content"`
+	ErrorCode string      `json:"errorCode"`
+	Message   string      `json:"message"`
+	PageInfo  PageInfo    `json:"pageInfo"`
+	Success   bool        `json:"success"`
+	TraceID   string      `json:"traceId"`
 }
+
+type ContentInfo struct {
+	Data        []MonitorContent `json:"data"`
+	Declaration DeclarationInfo  `json:"declaration"`
+}
+
+type DeclarationInfo struct {
+	Business     string `json:"business"`
+	Organization string `json:"organization"`
+}
+
 type CrontabInfo struct {
 	Crontab string `json:"crontab"`
 	ID      string `json:"id"`
@@ -161,5 +172,5 @@ func (c *Client) ListMonitor(search string, pageSize, pageIndex int) ([]MonitorC
 	if err != nil {
 		return nil, 0, err
 	}
-	return resp.Content, resp.PageInfo.TotalCount, nil
+	return resp.Content.Data, resp.PageInfo.TotalCount, nil
 }
