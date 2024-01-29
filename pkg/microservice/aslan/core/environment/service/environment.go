@@ -251,7 +251,7 @@ func initializeVMEnvironmentAndWorkflow(projectKey string, envArgs []*commonmode
 			retErr = multierror.Append(retErr, err)
 		}
 		log.Infof("sleeping .......")
-		time.Sleep(5 * time.Minute)
+		time.Sleep(2 * time.Minute)
 	}
 
 	for _, arg := range envArgs {
