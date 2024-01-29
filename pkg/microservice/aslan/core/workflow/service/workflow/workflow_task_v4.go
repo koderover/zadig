@@ -1404,7 +1404,7 @@ func workflowTaskLint(workflowTask *commonmodels.WorkflowTask, logger *zap.Sugar
 		}
 
 		// deal with users in user groups
-		if stage.Approval != nil && stage.Approval.Type == config.NativeApproval && len(stage.Approval.NativeApproval.ApproveUsers) != 0 {
+		if stage.Approval != nil && stage.Approval.Type == config.NativeApproval && stage.Approval.NativeApproval != nil && len(stage.Approval.NativeApproval.ApproveUsers) != 0 {
 			newApproveUserList := make([]*commonmodels.User, 0)
 			userSet := sets.NewString()
 			for _, approveUser := range stage.Approval.NativeApproval.ApproveUsers {
