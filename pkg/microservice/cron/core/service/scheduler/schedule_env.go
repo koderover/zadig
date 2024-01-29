@@ -50,21 +50,24 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 	log.Info("start init env scheduler..")
 	taskMap := make(map[string]bool)
 	for _, env := range envs {
+
+		envObj, err := c.AslanCli.GetEnvService(env.ProductName, env.EnvName, log)
+		if err != nil {
+			log.Error("GetEnvService productName:%s envName:%s err:%v", env.ProductName, env.EnvName, err)
+			continue
+		}
+		envServiceNames := sets.String{}
+		for _, serviceGroup := range envObj.Services {
+			for _, svc := range serviceGroup {
+				envServiceNames.Insert(svc.ServiceName)
+			}
+		}
+
 		for _, serviceRevision := range env.ServiceRevisions {
 			if serviceRevision.Type != setting.PMDeployType {
 				continue
 			}
-			envObj, err := c.AslanCli.GetEnvService(env.ProductName, env.EnvName, log)
-			if err != nil {
-				log.Error("GetEnvService productName:%s envName:%s err:%v", env.ProductName, env.EnvName, err)
-				continue
-			}
-			envServiceNames := sets.String{}
-			for _, serviceGroup := range envObj.Services {
-				for _, svc := range serviceGroup {
-					envServiceNames.Insert(svc.ServiceName)
-				}
-			}
+
 			svc, _ := c.AslanCli.GetService(serviceRevision.ServiceName, env.ProductName, setting.PMDeployType, serviceRevision.CurrentRevision, log)
 			if svc == nil || len(svc.HealthChecks) == 0 || len(svc.EnvConfigs) == 0 || !envServiceNames.Has(serviceRevision.ServiceName) {
 				key := "service-" + serviceRevision.ServiceName + "-" + setting.PMDeployType + "-" + env.EnvName
