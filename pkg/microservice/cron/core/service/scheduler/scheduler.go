@@ -195,16 +195,16 @@ func (c *CronClient) Init() {
 	// 定时任务触发
 	c.InitJobScheduler()
 
-	// 定时清理环境
-	c.InitCleanProductScheduler()
-	// clean collaboration instance resource every 5 minutes
-	c.InitCleanCIResourcesScheduler()
-	// 定时初始化构建数据
-	c.InitBuildStatScheduler()
-	// 定时器初始化话运营统计数据
-	c.InitOperationStatScheduler()
-	// 定时更新质效看板的统计数据
-	c.InitPullSonarStatScheduler()
+	// // 定时清理环境
+	// c.InitCleanProductScheduler()
+	// // clean collaboration instance resource every 5 minutes
+	// c.InitCleanCIResourcesScheduler()
+	// // 定时初始化构建数据
+	// c.InitBuildStatScheduler()
+	// // 定时器初始化话运营统计数据
+	// c.InitOperationStatScheduler()
+	// // 定时更新质效看板的统计数据
+	// c.InitPullSonarStatScheduler()
 	// 定时初始化健康检查
 	c.InitHealthCheckScheduler()
 	// Timing probe host status
