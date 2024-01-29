@@ -231,26 +231,26 @@ func initSystemData() error {
 		return err
 	}
 
-	if err := createLocalCluster(); err != nil {
-		log.Errorf("createLocalCluster err:%s", err)
-		return err
+	if err := commonrepo.NewS3StorageColl().InitData(); err != nil {
+		log.Warnf("Failed to init S3 data: %s", err)
 	}
 
 	commonrepo.NewBasicImageColl().InitBasicImageData(systemservice.InitbasicImageInfos())
-
-	templateservice.InitWorkflowTemplate()
-
-	// update offical plugins
-	workflowservice.UpdateOfficalPluginRepository(log.SugaredLogger())
 
 	if err := commonrepo.NewInstallColl().InitInstallData(systemservice.InitInstallMap()); err != nil {
 		log.Errorf("initialize Install Data err:%s", err)
 		return err
 	}
 
-	if err := commonrepo.NewS3StorageColl().InitData(); err != nil {
-		log.Warnf("Failed to init S3 data: %s", err)
+	if err := createLocalCluster(); err != nil {
+		log.Errorf("createLocalCluster err:%s", err)
+		return err
 	}
+
+	templateservice.InitWorkflowTemplate()
+
+	// update offical plugins
+	workflowservice.UpdateOfficalPluginRepository(log.SugaredLogger())
 
 	if err := clearSharedStorage(); err != nil {
 		log.Errorf("failed to clear aslan shared storage, error: %s", err)
