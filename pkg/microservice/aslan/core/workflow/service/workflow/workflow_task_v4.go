@@ -110,6 +110,7 @@ type JobTaskPreview struct {
 type ZadigBuildJobSpec struct {
 	Repos         []*types.Repository    `bson:"repos"           json:"repos"`
 	Image         string                 `bson:"image"           json:"image"`
+	Package       string                 `bson:"package"         json:"package"`
 	ServiceName   string                 `bson:"service_name"    json:"service_name"`
 	ServiceModule string                 `bson:"service_module"  json:"service_module"`
 	Envs          []*commonmodels.KeyVal `bson:"envs"            json:"envs"`
@@ -1019,7 +1020,8 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					continue
 				}
 			}
-			// get image from global context
+
+			// get from global context
 			imageContextKey := workflowcontroller.GetContextKey(jobspec.GetJobOutputKey(job.Key, "IMAGE"))
 			if context != nil {
 				spec.Image = context[imageContextKey]
@@ -1032,6 +1034,16 @@ func jobsToJobPreviews(jobs []*commonmodels.JobTask, context map[string]string, 
 					commonmodels.IToi(step.Spec, &stepSpec)
 					spec.Repos = stepSpec.Repos
 					continue
+				}
+				if step.StepType == config.StepArchive {
+					stepSpec := &stepspec.StepArchiveSpec{}
+					if err := commonmodels.IToi(step.Spec, &stepSpec); err != nil {
+						continue
+					}
+
+					if len(stepSpec.UploadDetail) > 0 {
+						spec.Package = stepSpec.UploadDetail[len(stepSpec.UploadDetail)-1].DestinationPath + "/" + stepSpec.UploadDetail[len(stepSpec.UploadDetail)-1].Name
+					}
 				}
 			}
 			jobPreview.Spec = spec

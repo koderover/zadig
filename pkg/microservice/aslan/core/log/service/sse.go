@@ -287,6 +287,8 @@ func WorkflowTaskV4ContainerLogStream(ctx context.Context, streamChan chan inter
 			switch job.JobType {
 			case string(config.JobZadigBuild):
 				fallthrough
+			case string(config.JobZadigVMDeploy):
+				fallthrough
 			case string(config.JobFreestyle):
 				fallthrough
 			case string(config.JobZadigTesting):

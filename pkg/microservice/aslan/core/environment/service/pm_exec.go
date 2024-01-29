@@ -41,15 +41,33 @@ var upgrader = websocket.Upgrader{
 }
 
 func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip, hostId string, cols, rows int, log *zap.SugaredLogger) error {
+	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Errorf("ws upgrade err:%s", err)
+		return e.ErrLoginPm.AddErr(err)
+	}
+
+	defer ws.Close()
 	resp, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
 		ID: hostId,
 	})
 	if err != nil {
 		log.Errorf("PrivateKey.Find ip %s id %s error: %s", ip, hostId, err)
+		ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, e.ErrGetPrivateKey.Error()))
 		return e.ErrGetPrivateKey
+
 	}
 	if resp.Status != setting.PMHostStatusNormal {
-		return e.ErrLoginPm.AddDesc(fmt.Sprintf("host %s status %s,is not normal", ip, resp.Status))
+		log.Errorf("host %s status %s, is not normal", ip, resp.Status)
+		e.ErrLoginPm.AddDesc(fmt.Sprintf("host %s status %s,is not normal", ip, resp.Status))
+		ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, e.ErrLoginPm.Error()))
+		return e.ErrLoginPm
+	}
+	if resp.ScheduleWorkflow {
+		log.Errorf("host %s is not enable login", ip)
+		e.ErrLoginPm.AddDesc(fmt.Sprintf("host %s is not enable login", ip))
+		ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, e.ErrLoginPm.Error()))
+		return e.ErrLoginPm
 	}
 	if resp.Port == 0 {
 		resp.Port = setting.PMHostDefaultPort
@@ -58,28 +76,27 @@ func ConnectSshPmExec(c *gin.Context, username, envName, productName, ip, hostId
 	sDec, err := base64.StdEncoding.DecodeString(resp.PrivateKey)
 	if err != nil {
 		log.Errorf("base64 decode failed ip:%s, error:%s", ip, err)
-		return e.ErrLoginPm.AddDesc(fmt.Sprintf("base64 decode failed ip:%s, error:%s", ip, err))
+		e.ErrLoginPm.AddDesc(fmt.Sprintf("base64 decode failed ip:%s, error:%s", ip, err))
+		ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, e.ErrLoginPm.Error()))
+		return e.ErrLoginPm
 	}
 
 	sshCli, err := toolssh.NewSshCli(sDec, resp.UserName, resp.IP, resp.Port)
 	if err != nil {
 		log.Errorf("NewSshCli err:%s", err)
-		return e.ErrLoginPm.AddErr(err)
+		e.ErrLoginPm.AddErr(err)
+		ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, e.ErrLoginPm.Error()))
+		return e.ErrLoginPm
 	}
 
 	sshConn, err := wsconn.NewSshConn(cols, rows, sshCli)
 	if err != nil {
 		log.Errorf("NewSshConn err:%s", err)
-		return e.ErrLoginPm.AddErr(err)
+		e.ErrLoginPm.AddErr(err)
+		ws.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseInternalServerErr, e.ErrLoginPm.Error()))
+		return e.ErrLoginPm
 	}
 	defer sshConn.Close()
-
-	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		log.Errorf("ws upgrade err:%s", err)
-		return e.ErrLoginPm.AddErr(err)
-	}
-	defer ws.Close()
 
 	stopChan := make(chan bool, 3)
 	go sshConn.ReadWsMessage(ws, stopChan)

@@ -835,6 +835,7 @@ const (
 const (
 	// NewVMType agent type
 	NewVMType = "agent"
+
 	// vm status
 	VMCreated    = "created"
 	VMRegistered = "registered"
