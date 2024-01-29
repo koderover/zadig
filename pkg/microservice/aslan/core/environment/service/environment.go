@@ -1773,12 +1773,12 @@ func updateK8sProductVariable(productResp *commonmodels.Product, userName, reque
 
 func updateHelmProductVariable(productResp *commonmodels.Product, userName, requestID string, log *zap.SugaredLogger) error {
 	envName, productName := productResp.EnvName, productResp.ProductName
-	restConfig, err := kube.GetRESTConfig(productResp.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
+	//restConfig, err := kube.GetRESTConfig(productResp.ClusterID)
+	//if err != nil {
+	//	return e.ErrUpdateEnv.AddErr(err)
+	//}
 
-	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productResp.Namespace)
+	helmClient, err := helmtool.NewClientFromNamespace(productResp.ClusterID, productResp.Namespace)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
