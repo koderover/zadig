@@ -226,6 +226,11 @@ func createOrUpdateMongodbIndex(ctx context.Context) {
 }
 
 func initSystemData() error {
+	if err := commonrepo.NewSystemSettingColl().InitSystemSettings(); err != nil {
+		log.Errorf("initialize system settings err:%s", err)
+		return err
+	}
+
 	if err := createLocalCluster(); err != nil {
 		log.Errorf("createLocalCluster err:%s", err)
 		return err
@@ -240,11 +245,6 @@ func initSystemData() error {
 
 	if err := commonrepo.NewInstallColl().InitInstallData(systemservice.InitInstallMap()); err != nil {
 		log.Errorf("initialize Install Data err:%s", err)
-		return err
-	}
-
-	if err := commonrepo.NewSystemSettingColl().InitSystemSettings(); err != nil {
-		log.Errorf("initialize system settings err:%s", err)
 		return err
 	}
 
