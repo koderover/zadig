@@ -261,6 +261,8 @@ func initializeVMEnvironmentAndWorkflow(projectKey string, envArgs []*commonmode
 			log.Errorf("failed to initialize project env: create env [%s] error: %s", arg.EnvName, err)
 			retErr = multierror.Append(retErr, err)
 		}
+
+		time.Sleep(2 * time.Second)
 	}
 
 	for _, arg := range envArgs {
