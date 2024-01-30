@@ -117,18 +117,6 @@ func (c *RedisCache) Subscribe(channel string) (<-chan *redis.Message, func() er
 	return sub.Channel(), sub.Close
 }
 
-func (c *RedisCache) AddToSet(setKey string, items []interface{}) error {
-	return c.redisClient.SAdd(context.Background(), setKey, items).Err()
-}
-
-func (c *RedisCache) CheckElementInSet(setKey string, element interface{}) (bool, error) {
-	return c.redisClient.SIsMember(context.Background(), setKey, element).Result()
-}
-
-func (c *RedisCache) RemoveElementFromSet(setKey string, element interface{}) error {
-	return c.redisClient.SRem(context.Background(), setKey, element).Err()
-}
-
 func (c *RedisCache) FlushDBAsync() error {
 	return c.redisClient.FlushDBAsync(context.TODO()).Err()
 }
